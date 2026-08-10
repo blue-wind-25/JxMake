@@ -126,21 +126,21 @@ one JVM invocation) prints `jxmake-code-formatter: processing <file>` to
 stderr immediately before each file, so a hang shows exactly which file
 it's stuck on (added 2026-08-04 after a switch-case-reindent fix attempt
 caused an infinite loop mid-`make test` with no way to tell which fixture
-was stuck — see STATE_C_CPP_JAVA.md's Tier-4-escalation entry). Plain
-unconditional stderr trace, not gated behind a flag — stderr isn't diffed
-by `make test`, so it can't affect pass/fail.
+was stuck — see STATE_C_CPP_JAVA.md's Tier-4-escalation entry). Unconditional
+stderr trace, not gated behind a flag — stderr isn't diffed by `make test`,
+so it can't affect pass/fail.
 
 **Diagnosing a hung server (`--server`/`make test-server`)**:
 `ServerMode.FormatHandler.handle` similarly prints
 `jxmake-code-formatter: processing <path>` (or `(no path, lang=<lang>)` for
 inline-content requests) to stderr right before calling
 `GdrPipelineGate.applyAndFormat`, added the same day for the same reason.
-Matters more than the batch case: `HttpServer` is created with no explicit
-executor (`HttpServer.create(...)`'s default), so requests dispatch on a
-single internal thread — one hung request blocks every subsequent request
-to that server instance indefinitely. Verified via `make test-server`
-(still passes, trace lines visible per request) and `make test` (still
-243/243 — unrelated code path).
+Matters more here: `HttpServer` is created with no explicit executor
+(`HttpServer.create(...)`'s default), so requests dispatch on a single
+internal thread — one hung request blocks every subsequent request to that
+server instance indefinitely. Verified via `make test-server` (still passes,
+trace lines visible per request) and `make test` (still 243/243 — unrelated
+code path).
 
 **Verifier toolchain** — needed to build/run `tools/verifiers/*` and
 `tools/gru/*`; shared across every job that touches those tools. Invoke via
@@ -210,9 +210,9 @@ also a usage error. A file not under `--root DIR` is a per-file
 **Invoke the formatter JAR once per batch, not once per file.** `Main.run()`
 accepts any number of positional file-path arguments in one JVM process
 (each file independently resolves its own `.jxmake-code-formatter`
-boundary, so mixing directories in one invocation is safe). Looping
-per-file re-pays JVM startup each time, dominating wall-clock time on a
-large tree. Collect the file list first and pass it to one invocation:
+boundary, so mixing directories in one invocation is safe). Per-file looping
+re-pays JVM startup each time, dominating wall-clock time on a large tree.
+Collect the file list first and pass it to one invocation:
 
 ```bash
 find <candidate-dir> \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \) -print0 \
@@ -269,9 +269,9 @@ do not re-litigate). Covered by `make test-server`, documented in
 
 **Client env-var forwarding on delegation — DONE.** In server mode, tiers 2
 (`~/.config/...`)/3 (env vars) of the precedence chain were resolved by the
-server process rather than the client, risking staleness for tier 3 (a
-JVM's env is fixed at process start and can drift from the client's current
-shell env). Fixed via `Config.clientEnvOverrides()` (public wrapper around
+server process rather than the client, risking staleness for tier 3 (a JVM's
+env is fixed at process start and can drift from the client's current shell
+env). Fixed via `Config.clientEnvOverrides()` (public wrapper around
 `collectEnvVars()`); `Main.delegateToServer` forwards its own live
 `JXMAKE_CODE_FORMATTER_*` snapshot as inline query-param overrides on every
 delegated request. `README.md`'s Configuration section documents this in a
@@ -282,15 +282,15 @@ delegated request. `README.md`'s Configuration section documents this in a
 (`group`/`key`/`defaultValue`/`allowedValues`, `null` for free-form values,
 `{"on","off"}` for booleans, `INDENT_STYLE_CHOICES`/`LINE_ENDINGS_CHOICES`
 for the two enum-like keys). `group` mirrors README.md's `### Config file
-format` section order (`Structural constants`, `Behavior`, `C/C++`, `Java`,
+format` order (`Structural constants`, `Behavior`, `C/C++`, `Java`,
 `Kotlin`, `JS/TS`, `HTML5`, `Python 3`, `AI-assist (GRU)`) via a `GROUPS`
-ordered-map that `describeAll()` asserts covers precisely `ALL_KEYS`
-(throws if they drift apart). `ServerMode.java` gained a `GET /properties`
-handler (self-contained JSON writer — no existing general-purpose
-object-serializer to reuse). Verified end-to-end against a real server; all
-groups/keys present in README order with correct `allowedValues`. `make
-test` and `make test-server` stayed green. README.md documents the new
-endpoint alongside `/format`/`/shutdown`.
+ordered-map that `describeAll()` asserts covers precisely `ALL_KEYS` (throws
+if they drift apart). `ServerMode.java` gained a `GET /properties` handler
+(self-contained JSON writer — no existing general-purpose object-serializer
+to reuse). Verified end-to-end against a real server; all groups/keys
+present in README order with correct `allowedValues`. `make test` and
+`make test-server` stayed green. README.md documents the new endpoint
+alongside `/format`/`/shutdown`.
 
 ---
 
@@ -433,31 +433,31 @@ other duplicated helper found worth promoting.
 fields and unused imports (grep-verified zero call sites anywhere in
 `src/`/`test/`/`tools/`, not just single-file scope). Found and removed one
 genuinely dead method: `MiscRuleCurly.lineEndIndex` (a NEWLINE-scanning
-line-end finder) — RDD_KEY_163 already documents that its one former call
-site was replaced by the depth-aware `effectiveLineEndIndex` to fix a
-Kotlin round1/round2 idempotency bug, but the superseded method itself was
-left behind unused; `JsTsSpecificRule` has its own separate same-named
-private method, unaffected. Removed its now-unused `HashSet`/`Set`/
-`CommentDecision` imports from the same file (the latter two only ever
-referenced by that dead method's neighbors, not by it — double-checked
-each still has zero remaining references file-wide before removing).
-Two other low-reference-count hits investigated and left alone as false
-positives: `MiscRuleIndent.isCommentChainLink`/`isCommentRewritable`
-looked unused by same-file grep but are legitimate `@Override`s of
-`MiscRuleCore` methods that `MiscRuleCore` itself calls polymorphically
-(Python's own doc comment on the override explains why it always returns
-`true`) — correctly not dead. No unused private methods found in any other
-swept file this round (all had either zero or >1 same-file references); no
-unused `static final` constants found either. No new safe duplication-
-consolidation candidates found beyond the 2026-07-28 `setOf` promotion.
-`make test`: confirmed the single pre-existing `test/cpp_comments_inp.cpp`
-failure (GRU comment-classifier capitalization verdict differs from a
-prior committed run — not caused by, or related to, this session's edits)
-was already present identically before this session's two edits were
-applied (verified by reverting `MiscRuleCurly.java` to its committed
-`HEAD` version and re-running `make clean && make test`, same single
-failure); left uninvestigated as out of scope for a dead-code sweep — a
-future AI-assist-job session should check `STATE_AI.md`/classifier weight
+line-end finder) — RDD_KEY_163 already documents its one former call site
+was replaced by the depth-aware `effectiveLineEndIndex` to fix a Kotlin
+round1/round2 idempotency bug, but the superseded method was left behind
+unused; `JsTsSpecificRule` has its own separate same-named private method,
+unaffected. Removed its now-unused `HashSet`/`Set`/`CommentDecision`
+imports from the same file (the latter two only ever referenced by that
+dead method's neighbors — double-checked each has zero remaining
+references file-wide before removing). Two other low-reference-count hits
+investigated and left alone as false positives:
+`MiscRuleIndent.isCommentChainLink`/`isCommentRewritable` looked unused by
+same-file grep but are legitimate `@Override`s of `MiscRuleCore` methods
+that `MiscRuleCore` calls polymorphically (Python's own doc comment on the
+override explains why it always returns `true`) — correctly not dead. No
+unused private methods found in any other swept file this round (all had
+either zero or >1 same-file references); no unused `static final`
+constants found either. No new safe duplication-consolidation candidates
+found beyond the 2026-07-28 `setOf` promotion. `make test`: confirmed the
+single pre-existing `test/cpp_comments_inp.cpp` failure (GRU
+comment-classifier capitalization verdict differs from a prior committed
+run — not caused by, or related to, this session's edits) was already
+present identically before this session's two edits (verified by
+reverting `MiscRuleCurly.java` to its committed `HEAD` version and
+re-running `make clean && make test`, same single failure); left
+uninvestigated as out of scope for a dead-code sweep — a future
+AI-assist-job session should check `STATE_AI.md`/classifier weight
 provenance for why a checked-in fixture doesn't match a fresh build
 deterministically.
 
@@ -470,28 +470,26 @@ deterministically.
 Bench numbers (2026-08-08): standalone all-at-once 2629mS vs. client-server
 all-at-once 1747mS — the gap is basically standalone's one-time JVM startup,
 which a warm server skips; batch throughput is already near-optimal and
-concurrency cannot improve it further (one call, nothing to parallelize).
-The real gap is one-by-one: standalone 48450mS vs. client-server 36722mS —
+concurrency can't improve it further (one call, nothing to parallelize). The
+real gap is one-by-one: standalone 48450mS vs. client-server 36722mS —
 dominated by per-request round-trip/dispatch overhead serialized through
-`HttpServer`'s single internal thread (see the "Diagnosing a hung server"
-note above re: one hung request blocking every subsequent request on that
-server instance).
+`HttpServer`'s single internal thread (see "Diagnosing a hung server" above
+re: one hung request blocking every subsequent request on that instance).
 
 Considered adding `server concurrency = N` (executor with N threads on the
 server) and `client read-ahead = M` (client keeps M requests in flight
 instead of strict request/response/request). **Decided not to implement
 yet**: the two changes are only useful together — server-side concurrency
-alone does nothing if the client still sends strictly one-by-one, since
-only one request is ever in flight for the added threads to work on.
-Nobody chasing throughput uses one-by-one anyway (see "Invoke the
-formatter JAR once per batch, not once per file" above) — real clients
-that would benefit are genuinely independent concurrent callers (e.g.
-multiple editor instances or CI jobs hitting one shared server), not a
-single client pipelining its own requests. Worth reconsidering if such a
-concurrent-multi-client scenario actually materializes — at that point the
-motivation is availability (a single slow/hung request currently blocks
-every other client indefinitely) more than the raw one-by-one benchmark
-number.
+alone does nothing if the client still sends strictly one-by-one, since only
+one request is ever in flight for the added threads to work on. Nobody
+chasing throughput uses one-by-one anyway (see "Invoke the formatter JAR
+once per batch, not once per file" above) — real clients that would benefit
+are genuinely independent concurrent callers (e.g. multiple editor
+instances or CI jobs hitting one shared server), not a single client
+pipelining its own requests. Worth reconsidering if a concurrent-multi-
+client scenario actually materializes — at that point the motivation is
+availability (a single slow/hung request blocks every other client
+indefinitely) more than the raw one-by-one benchmark number.
 
 **2026-08-09: implemented.** Landed `server-concurrency` (default `1`,
 `Config.java`/`ServerMode.start` -- `HttpServer.setExecutor(Executors.newFixedThreadPool(N))`
@@ -509,35 +507,35 @@ same way `server-port` already was (`InFileConfig.SERVER_SCOPED_KEYS`).
 grepped every `.java` file under `src/com/jxmake/formatter/` for a
 non-`final` `static` field -- zero hits reachable from
 `ServerMode`/`FormatHandler`/`Config`/`GdrPipelineGate`/the GRU classifier
-stack. Two specific hazards checked by hand and confirmed safe:
+stack. Two hazards checked by hand and confirmed safe:
 `IndentationDetector.detect(Path, Map)` takes its cache as a per-call
-parameter (no cross-request sharing at all); `GruAbstainResolver.CLASSIFIER_CACHE`
-is a `static final ConcurrentHashMap` (safe by construction).
-`Main.java`'s standalone-mode indent cache file (CLI-side only, server
-requests never touch it) is self-healing under concurrent access (a
-corrupted/partial read falls through to delete-and-rescan). No hazard
-required a code change -- "already safe," not "made safe."
+parameter (no cross-request sharing); `GruAbstainResolver.CLASSIFIER_CACHE`
+is a `static final ConcurrentHashMap` (safe by construction). `Main.java`'s
+standalone-mode indent cache file (CLI-side only, server requests never
+touch it) is self-healing under concurrent access (a corrupted/partial read
+falls through to delete-and-rescan). No hazard required a code change --
+"already safe," not "made safe."
 
 **Verification:** `make test`/`make test-server` stayed 263/263 green at
 the shipped defaults (both keys at `1`, byte-for-byte unchanged). New
 `make test-server-concurrent` Makefile target starts a server with
-`server-concurrency = 4`, fires 80 concurrent HTTP requests (2 distinct
-Java inputs × 40 each, interleaved) and diffs every response byte-for-byte
+`server-concurrency = 4`, fires 80 concurrent HTTP requests (2 distinct Java
+inputs × 40 each, interleaved) and diffs every response byte-for-byte
 against the single-threaded reference output (not just "no exception") --
-80/80 matched, no hang. `make bench`'s `client-server, all-at-once`
-scenario updated to `server-concurrency = $(nproc)` /
-`client-read-ahead = $(nproc)+2`; the other three scenarios untouched.
-That scenario showed no further speedup from concurrency/read-ahead (this
-run: 1708mS -> 2405mS, within machine variance of the other unrelated
-scenarios' own before/after drift) -- expected, since it's already one
-client call processing every file in one JVM invocation with the per-file
-HTTP loop already fast relative to thread-pool overhead at this file
-count. The feature's actual target (many independent concurrent
-clients/editor instances hitting one shared server) isn't represented by
-any of the four bench scenarios; `test-server-concurrent`'s 80-simultaneous-
-request run is the real evidence this feature works. A future session
-wanting a real multi-client throughput bench should add a fifth scenario
-starting several independent client processes concurrently.
+80/80 matched, no hang. `make bench`'s `client-server, all-at-once` scenario
+updated to `server-concurrency = $(nproc)` / `client-read-ahead =
+$(nproc)+2`; the other three scenarios untouched. That scenario showed no
+further speedup from concurrency/read-ahead (this run: 1708mS -> 2405mS,
+within machine variance of the other scenarios' own before/after drift) --
+expected, since it's already one client call processing every file in one
+JVM invocation with the per-file HTTP loop already fast relative to
+thread-pool overhead at this file count. The feature's actual target (many
+independent concurrent clients/editor instances hitting one shared server)
+isn't represented by any of the four bench scenarios;
+`test-server-concurrent`'s 80-simultaneous-request run is the real evidence
+this feature works. A future session wanting a real multi-client throughput
+bench should add a fifth scenario starting several independent client
+processes concurrently.
 **NOT NEEDED, 2026-08-10**: already done via another method — see the
 2026-08-09 follow-up immediately below (user's own manual multi-client run).
 
@@ -585,14 +583,14 @@ onto the original per-line array (never re-splitting transformed text).
 
 **Mechanical pre-filter added on top** (`isEligibleSentenceBoundary` in
 `MiscRuleCore`, shared with the tooling family via a `protected static`
-cross-call): runs before a candidate boundary is ever offered to the
-classifier, rejecting shapes no classifier should need to be asked about —
-punctuation not directly attached to a preceding letter/digit (ellipsis/
-multi-punct runs, standalone symbols), a preceding word that's a single
-letter or a known abbreviation (`vs.`, `etc.`, `e.g.`, `i.e.`, `al.`,
-`cf.`, ...), a following word with an internal uppercase letter (camelCase/
-dotted identifiers), and a following word immediately followed by `:` with
-no trailing space (URL schemes/directive comments — `https:`, `ftp:`,
+cross-call): runs before a candidate boundary is offered to the classifier,
+rejecting shapes no classifier should need to be asked about — punctuation
+not directly attached to a preceding letter/digit (ellipsis/multi-punct
+runs, standalone symbols), a preceding word that's a single letter or a
+known abbreviation (`vs.`, `etc.`, `e.g.`, `i.e.`, `al.`, `cf.`, ...), a
+following word with an internal uppercase letter (camelCase/dotted
+identifiers), and a following word immediately followed by `:` with no
+trailing space (URL schemes/directive comments — `https:`, `ftp:`,
 `tslint:`). Built in two passes: the first (ellipsis/symbol/abbreviation/
 camelCase checks) fixed all 4 `make test` regressions found with the flag
 forced on; the second (colon/single-letter-abbreviation checks) was added
@@ -604,17 +602,16 @@ limitation, below).
 
 **Accepted known limitation, not fixed further:** with
 `comment-normalization-classifier = on`, the keyword-exception list
-(`isCommentNoCapitalizeWord`, which excludes words like `import`) is never
-consulted — this mirrors `capitalizeFirstLetter`'s pre-existing sentence-1
-behavior exactly (same code shape: classifier-on path trusts the
-classifier alone and skips the keyword list), so it's an inherited
-limitation rather than a new one. Concretely, a mid-comment-group line of
-commented-out code such as `// import './rxjs/rxjs.spec';` can be
-capitalized to `// Import '...'` if the classifier judges it plausible.
-Confirmed by the user as an acceptable documented risk rather than
-something requiring a fix; documented in README.md rather than chased with
-another mechanical rule, to avoid deviating from "exact same
-rule/exception-sets as sentence 1" per the original design.
+(`isCommentNoCapitalizeWord`, excludes words like `import`) is never
+consulted — mirrors `capitalizeFirstLetter`'s pre-existing sentence-1
+behavior exactly (classifier-on path trusts the classifier alone and skips
+the keyword list), an inherited limitation, not a new one. Concretely, a
+mid-comment-group line of commented-out code such as
+`// import './rxjs/rxjs.spec';` can be capitalized to `// Import '...'` if
+the classifier judges it plausible. Confirmed by the user as an acceptable
+documented risk; documented in README.md rather than chased with another
+mechanical rule, to avoid deviating from "exact same rule/exception-sets as
+sentence 1" per the original design.
 
 **Naming:** the user asked mid-task whether
 `normalize-comment-start-case-multiline` would be a better key name than
@@ -679,19 +676,18 @@ than immediately starting the next >1000 kLOC candidate. Candidate scope:
   actual shipped code state.
   **2026-08-03 (tc gap job doc cleanup, post-completion): re-checked all
   five for staleness now that `html5-tc-gap-level` levels 1-4 landed.**
-  `README.md` needed a fix — its `html5-tc-gap-level` explanation (what
-  the key is, its levels, cumulative meaning) had been placed entirely
-  under "Known Limitations" instead of Configuration; moved the
-  config-key documentation to a new Configuration subsection (mirroring
-  the GRU classifier's subsection pattern) and trimmed "Known
-  Limitations" to only the genuine accepted-gap caveats for levels 1, 2,
-  and 4 (level 3 has none) — see `README.md`'s Configuration section and
-  `STATE_HTML5_TCG.md` for the source material. `CLAUDE.md`,
-  `../README.txt`, `../AI_PREAMBLE_FULL.md`, and
-  `../AI_PREAMBLE_AESTHETIC.md` needed no change — none of them make any
-  HTML5-tree-construction-specific completeness claim that the tc gap
-  job's opt-in, off-by-default levels made stale; their general
-  "HTML5 is JAR-implemented" statements remain accurate.
+  `README.md` needed a fix — its `html5-tc-gap-level` explanation (key,
+  levels, cumulative meaning) had been placed entirely under "Known
+  Limitations" instead of Configuration; moved the config-key
+  documentation to a new Configuration subsection (mirroring the GRU
+  classifier's subsection pattern) and trimmed "Known Limitations" to only
+  the genuine accepted-gap caveats for levels 1, 2, and 4 (level 3 has
+  none) — see `README.md`'s Configuration section and `STATE_HTML5_TCG.md`
+  for source material. `CLAUDE.md`, `../README.txt`,
+  `../AI_PREAMBLE_FULL.md`, and `../AI_PREAMBLE_AESTHETIC.md` needed no
+  change — none make an HTML5-tree-construction-specific completeness
+  claim that the tc gap job's opt-in, off-by-default levels made stale;
+  their general "HTML5 is JAR-implemented" statements remain accurate.
 
 This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at any separate, dedicated, much riskier architectural
@@ -849,8 +845,8 @@ same pass-ordering bug family as `JavaSpecificRule.isSingleLineBody`
 (comment-column width computed independently of `enforceCallLineBreaking`'s
 own verdict). Root-caused but not fixed this session (too risky to patch
 blind at this scope). Round1 compiled clean, passed `make test` 261/261,
-and 24/25 changed files content-diffed clean (legitimate cosmetic
-changes). Real `src/` left untouched.
+and 24/25 changed files content-diffed clean (legitimate cosmetic changes).
+Real `src/` left untouched.
 
 **2026-08-08 (later): re-ran after a manual source-layout workaround, this
 time adopted.** A formatter-source fix for the `PowerShellSpecificRule.java`
@@ -869,9 +865,9 @@ idempotency; `make test-server` passed. The underlying
 non-JS/TS curly languages was, at the time, still open at the
 formatter-source level — this adoption only removed the one known trigger
 instance from `src/` via a source-layout change. **Superseded 2026-08-09:**
-the underlying bug is now actually fixed at the formatter-source level —
-see `STATE_C_CPP_JAVA.md`'s Open Questions entry (`applyAssignmentsPass`
-narrow re-run, RDD_KEY_193 fixture). The blank-line workaround in
+the underlying bug is now fixed at the formatter-source level — see
+`STATE_C_CPP_JAVA.md`'s Open Questions entry (`applyAssignmentsPass` narrow
+re-run, RDD_KEY_193 fixture). The blank-line workaround in
 `PowerShellSpecificRule.java` is no longer structurally required but was
 left in place as optional future cleanup.
 
@@ -884,27 +880,28 @@ adopted state, no new diff), `tools/verifiers/kotlin_content_diff.java`.
 The last surfaced a real, non-cosmetic bug: the GRU comment classifier
 (retrained earlier the same session — see `STATE_AI.md`) capitalized a
 comment starting with a real method reference, `// getName() defaults...`
--> `// GetName() defaults...`, changing its meaning (implies a differently-
-cased method). Root-caused as a genuine mechanical-gate gap, not a
-training/weights problem: `nextCharIsOpenParen` already existed as a
+-> `// GetName() defaults...`, changing its meaning (implies a
+differently-cased method). Root-caused as a genuine mechanical-gate gap,
+not a training/weights problem: `nextCharIsOpenParen` already existed as a
 feature but was only ever consulted inside `KeywordAmbiguityGate`'s scoring
-(gated behind `hasLeadingKeywordMatch`, i.e. only for language-keyword
-leading words) — there was no equivalent of the existing Gate 1c
-(`leadingWordFollowedBySlash`) for the plain call-shape case. Fixed by
-adding `leadingWordFollowedByParen` (`CommentFeatureVector`/
-`CommentFeatureExtractor`) and a new Gate 1c-2 in `CommentClassifier.classify`
-mirroring Gate 1c exactly, guarded by `!hasLeadingKeywordMatch` so it can't
-preempt the already-tuned keyword-ambiguity scoring path. Updated
-`GruAbstainResolverSelfTest.java`'s two `CommentFeatureVector` call sites
-for the new constructor param. `kotlin_content_diff.java`'s remaining
-reported content-diff mismatch (a single-statement `if` body losing its
-braces) is a known, intentional, documented Java brace-collapse feature
-(`BlockStructureRule.tryCollapse`, see `STATE_C_CPP_JAVA.md`) that
-`java_content_diff.java`'s AST-based declaration comparator doesn't
-tolerate — a checker limitation, not a formatter bug; confirmed by
-comparing javac's raw parsed-tree `toString()` output directly. All three
-files adopted over real `tools/*` after the mechanical-gate fix landed;
-`make test` 276/276 forward + idempotency, both before and after.
+(gated behind `hasLeadingKeywordMatch`, only for language-keyword leading
+words) — no equivalent of the existing Gate 1c
+(`leadingWordFollowedBySlash`) existed for the plain call-shape case. Fixed
+by adding `leadingWordFollowedByParen` (`CommentFeatureVector`/
+`CommentFeatureExtractor`) and a new Gate 1c-2 in
+`CommentClassifier.classify` mirroring Gate 1c exactly, guarded by
+`!hasLeadingKeywordMatch` so it can't preempt the already-tuned
+keyword-ambiguity scoring path. Updated `GruAbstainResolverSelfTest.java`'s
+two `CommentFeatureVector` call sites for the new constructor param.
+`kotlin_content_diff.java`'s remaining reported content-diff mismatch (a
+single-statement `if` body losing its braces) is a known, intentional,
+documented Java brace-collapse feature (`BlockStructureRule.tryCollapse`,
+see `STATE_C_CPP_JAVA.md`) that `java_content_diff.java`'s AST-based
+declaration comparator doesn't tolerate — a checker limitation, not a
+formatter bug; confirmed by comparing javac's raw parsed-tree `toString()`
+output directly. All three files adopted over real `tools/*` after the
+mechanical-gate fix landed; `make test` 276/276 forward + idempotency, both
+before and after.
 
 **2026-08-10 (later, same session): re-ran against the formatter's own
 `src/` (same simplification, already-built JAR, no round2-JAR fixed-point

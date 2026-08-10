@@ -40,12 +40,12 @@ user direction.
 ## Scope
 
 `STYLE_JS_TS.md` covers latest ECMAScript (ES2024+) and latest TypeScript
-(5.x), one shared file for both (TS is a syntactic superset of JS). **Out of
-scope entirely** (not just deferred): **JSX/TSX** — they will need their own
-future embedding-aware dispatcher (JSX embeds tag syntax directly inside JS/TS
-expression position, a compound-language situation, not a same-file
-extension like HTML5's `<script>` splicing). `STYLE_JS_TS.md` puts JSX/TSX
-out of scope entirely, not merely deferred.
+(5.x), one shared file for both (TS is a syntactic superset of JS). Per
+`STYLE_JS_TS.md`, **JSX/TSX are out of scope entirely, not merely
+deferred** — they will need their own future embedding-aware dispatcher
+(JSX embeds tag syntax directly inside JS/TS expression position, a
+compound-language situation, not a same-file extension like HTML5's
+`<script>` splicing).
 
 Sections 1–15 (baseline-inherited rules, semicolon insertion, destructuring/
 spread, template literals, function/arrow brace style, optional chaining,
@@ -227,16 +227,15 @@ active in the Makefile and passing.
   outer markup handed to the existing HTML formatter; (3) each placeholder's
   content sent through the JS/TS formatter as an independent small program.
   Assessed in depth, **not adopted as a design**:
-  - Step 1's flaw: packing the discovered JSX span into a plain
-    `IDENTIFIER` token doesn't avoid the hard problem (finding tag
-    boundaries against `<`'s three-way ambiguity with less-than/generics,
-    recursively through nested `{}` holes) — it still requires that walk,
-    then discards the structure. Reusing `IDENTIFIER` as a multi-line
-    opaque-blob vehicle would also hit every downstream pass that assumes
-    realistic single-token width (declaration/class-field alignment grids,
-    `enforceCallLineBreaking`'s `candidateLen` checks — the same width/
-    pass-ordering fragility class as RDD_KEY_248/249/250). A dedicated
-    opaque/frozen token kind would be needed instead.
+  - Step 1 doesn't avoid the hard problem — finding tag boundaries against
+    `<`'s three-way ambiguity with less-than/generics, recursively through
+    nested `{}` holes, still requires that walk; packing the result into a
+    plain `IDENTIFIER` just discards the structure and breaks every
+    downstream pass that assumes realistic single-token width (declaration/
+    class-field alignment grids, `enforceCallLineBreaking`'s `candidateLen`
+    checks — same width/pass-ordering fragility class as
+    RDD_KEY_248/249/250). A dedicated opaque/frozen token kind would be
+    needed instead.
   - Step 2's HTML-formatter-reuse instinct is sound for splice mechanics
     (real precedent: `XmlSpecificRule.renderScriptOrStyle`), but JSX's
     grammar diverges from real HTML5 in load-bearing ways the existing
@@ -250,13 +249,13 @@ active in the Makefile and passing.
     JSX with its own `{...}` holes — unbounded-depth recursion, not the
     single flat step described. Written correctly it becomes the same
     embedding-aware dispatcher this scope note already says is needed.
-  - **How real JSX parsers actually solve the `<` ambiguity, and why it
-    doesn't port directly:** they switch lexer modes based on grammar
-    position (a parser always knows when it's at expression-start, where
-    `<` is unambiguously JSX-open), not lookahead heuristics. This codebase
-    has no grammar-position-aware parser (flat tokenizer + local-lookback
-    passes), so this can't be inherited for free — `<`/`>` disambiguation
-    for generics alone already needed a dedicated mechanism
+  - **How real JSX parsers solve the `<` ambiguity, and why it doesn't port
+    directly:** they switch lexer modes based on grammar position (a parser
+    always knows when it's at expression-start, where `<` is unambiguously
+    JSX-open), not lookahead heuristics. This codebase has no
+    grammar-position-aware parser (flat tokenizer + local-lookback passes),
+    so this can't be inherited for free — `<`/`>` disambiguation for
+    generics alone already needed a dedicated mechanism
     (`TokenizerCurly.reclassifyAngleBrackets`/`isGenericSafeToken`).
     **Portable idea identified:** run boundary-finding as its own dedicated
     pre-pass checking for `<` at a short enumerable list of expression-start
@@ -267,7 +266,7 @@ active in the Makefile and passing.
     `js_ts_content_diff.js`; recommended against — stick with the
     already-in-use TS compiler API (`ts.createSourceFile` with
     `ts.ScriptKind.TSX`/`.JSX`), avoiding a second parser dependency and the
-    same npm-pin gotcha already hit for `typescript` itself.
+    npm-pin gotcha already hit for `typescript` itself.
 
   **Not yet designed, left for a future session:** the concrete enumerable
   list of expression-start contexts for the boundary-finding pre-pass, and
@@ -367,8 +366,6 @@ independent checks). `make test` 258/258 → 259/259. New fixture:
 `BlockStructureRule`/`KotlinSpecificRule.alignBracelessElseIfChain`)
 re-verified only via `make test`, no dedicated Kotlin corpus re-run.
 
-Status: **FIXED.**
-
 ### 2. `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts` (FIXED, RDD_KEY_270)
 
 Symptom: `harness/collectionsImpl.ts:276` (`this._size = -1;`) is
@@ -393,8 +390,6 @@ from GitHub, no full clone) rather than corpus dogfood. `make test`
 Known unrelated pre-existing artifact: `js_ts_content_diff.js` flags this
 file's top-level `interface`/`class` headers as MISMATCH both before and
 after the fix — a content-diff tool gap, not this bug.
-
-Status: **FIXED.**
 
 ### 3. `angular/angular` cluster 4 residue group #3 — `web_animations_player_spec.ts`, `input_transform.ts` (FIXED, RDD_KEY_271)
 
@@ -430,8 +425,6 @@ clean post-fix). `make test` 260/260 → 261/261. New fixture:
 minimized file). No fresh full-corpus re-run performed (checkout
 unavailable) — validation scope is the two real files plus the fixture
 suite, same precedent as RDD_KEY_270.
-
-Status: **FIXED.**
 
 ---
 
@@ -815,16 +808,17 @@ above) — left alone. `harness/collectionsImpl.ts` is the newly-found
 ### Ranked list (most-valuable-first, from the 2026-08 TypeScript-corpus
 bug-hunt pass)
 
-1. `||=`/`&&=` tokenizer gap — FIXED. Trivial fix, highest value/difficulty.
-2. Union-type-before-`=>` spurious wrap — FIXED. Direct low-risk extension
-   of an existing precedent.
+1. `||=`/`&&=` tokenizer gap — trivial fix, highest value/difficulty.
+2. Union-type-before-`=>` spurious wrap — direct low-risk extension of an
+   existing precedent.
 3. Call-wrap/collapse vs. alignment-padding ordering — substantially fixed
    (`RDD_KEY_248`/`RDD_KEY_250`); residue tracked under "Active work" above.
-4. Backslash-newline CRLF string corruption — FIXED. Real corruption but
-   narrow (2 files, old test-harness idiom).
+4. Backslash-newline CRLF string corruption — real corruption but narrow
+   (2 files, old test-harness idiom).
 
-No fixture-only false positives found in that pass (used direct
-TS-compiler-API parse-checking + raw `diff`, not `js_ts_content_diff.js`).
+All FIXED (see Category 1/2 above for detail). No fixture-only false
+positives found in this pass (direct TS-compiler-API parse-checking + raw
+`diff`, not `js_ts_content_diff.js`).
 
 ### `compiler/watchPublic.ts` nested-array-literal syntax corruption — FIXED (2026-08-09)
 

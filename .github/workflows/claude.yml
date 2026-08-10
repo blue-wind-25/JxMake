@@ -14,7 +14,7 @@
 #   Param     Values                            Default
 #   --------  --------------------------------  -------
 #   model     haiku, sonnet, opus, fable         sonnet
-#   effort    low, medium, high, xhigh, max      xhigh
+#   effort    low, medium, high, xhigh, max      low
 #   maxturns  positive integer                   20
 #   output    off, on                            off
 #
@@ -32,10 +32,9 @@
 #              agentic runs. Pricier and slower than opus — use
 #              deliberately, not as a default.
 #
-#   effort default is xhigh — the recommended setting for coding
-#   and agentic work on current-generation models (and Claude
-#   Code's own default). Lower it (e.g. `:medium`) for small,
-#   latency-sensitive edits.
+#   effort default is low — sufficient for most issue-driven edits
+#   here in practice. Raise it (e.g. `:xhigh` or `:max`) for harder
+#   multi-step refactors or architectural work on a specific issue.
 #
 #   output:
 #     off (or `default`) = normal output (show_full_output=false)
@@ -58,16 +57,16 @@
 #   Any invalid value fails the job immediately with usage info.
 #
 #   Examples:
-#     @Claude                     → sonnet, xhigh, 20, off
-#     @Claude[]                   → sonnet, xhigh, 20, off
+#     @Claude                     → sonnet, low,    20, off
+#     @Claude[]                   → sonnet, low,    20, off
 #     @Claude[haiku:low=10+on]    → haiku,  low,    10, on
 #     @Claude[Opus:High=50]       → opus,   high,   50, off
 #     @Claude[:high]              → sonnet, high,   20, off
-#     @Claude[:=30]               → sonnet, xhigh, 30, off
-#     @Claude[haiku:=10]          → haiku,  xhigh, 10, off
+#     @Claude[:=30]               → sonnet, low,    30, off
+#     @Claude[haiku:=10]          → haiku,  low,    10, off
 #     @Claude[Sonnet:high=20+on]  → sonnet, high,   20, on
 #     @Claude[fable:max=40]       → fable,  max,    40, off
-#     @Claude[:=+off]             → sonnet, xhigh, 20, off
+#     @Claude[:=+off]             → sonnet, low,    20, off
 #
 # ============================================================
 
@@ -118,7 +117,7 @@ jobs:
             Param     Values                            Default
             --------  --------------------------------  -------
             model     haiku, sonnet, opus, fable         sonnet
-            effort    low, medium, high, xhigh, max      xhigh
+            effort    low, medium, high, xhigh, max      low
             maxturns  positive integer                   20
             output    off, on  (default = alias)         off
           "
@@ -161,11 +160,12 @@ jobs:
             *)         ERRORS="${ERRORS}\n  - Unknown model '${MODEL_RAW}' (valid: haiku, sonnet, opus, fable)" ;;
           esac
 
-          # Effort (xhigh is the recommended default for coding/agentic work
-          # on current-generation models, and Claude Code's own default)
+          # Effort (low is sufficient for most issue-driven edits here in
+          # practice; raise per-invocation via @Claude[:xhigh] etc. for
+          # harder multi-step work)
           case "$EFFORT_RAW" in
             low|medium|high|xhigh|max) EFFORT="$EFFORT_RAW" ;;
-            "")                        EFFORT="xhigh"       ;;
+            "")                        EFFORT="low"         ;;
             *) ERRORS="${ERRORS}\n  - Unknown effort '${EFFORT_RAW}' (valid: low, medium, high, xhigh, max)" ;;
           esac
 

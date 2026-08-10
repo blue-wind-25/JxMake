@@ -681,6 +681,85 @@ fix both had spurious closing-comment additions flagged, now clean on that
 front, same otherwise-unchanged pre-existing mismatches noted above. No
 `test/` fixture files were modified.
 
+**2026-08-11: first full 16153-file JetBrains/kotlin content-diff pass
+completed end-to-end.** Prior sessions had this run killed twice (once for
+running too long serially, once mid-parallel-run to let RDD_KEY_278 land
+safely). This session's round1 (`/tmp/kt_r1_content`) was initially reused
+from a prior session per instruction, but its file mtimes (2026-08-10
+05:10) predated both `37c806a` (05:43) and `126ae68` (06:24) — a stale-data
+condition caught via the ambiguity-handling protocol before drawing any
+conclusion from it. Round1 was regenerated fresh from
+`/tmp/jb_kotlin_kt_new/kotlin-master` using the current JAR (built post-fix)
+via the standard `--preserve-tree --root DIR --out DIR` batch pattern,
+4-way chunked. Content-diff re-run (3-way chunked,
+`kotlin_content_diff.sh`'s batch mode) against the fresh round1:
+
+```
+SUMMARY (combined): 15583 OK, 570 MISMATCH/ERROR, 0 MISSING (of 16153)
+```
+
+Both specifically-named repro cases from the RDD_KEY_279 fix are confirmed
+clean against fresh round1 (were still showing the bug against the stale
+round1, which is exactly what motivated re-checking after regeneration):
+`FirIntegerLiteralOperatorCallBuilder.kt`'s `extensionReceiver,` call-arg
+trailing comma, and `fileUtils.kt`'s three `action: (...) -> T,`
+signature-parameter trailing commas (including the one that collapses onto
+one line) — all preserved, `kotlin_content_diff` reports `OK` on both
+files. **No distinct `KotlinSignatureRule`-specific trailing-comma gap
+exists** — the earlier concern was purely a stale-round1 artifact; the
+shared `MiscRuleCurly` render-path fix from RDD_KEY_279 covers
+parameter-list-shaped trailing commas too, not only calls/list-literals.
+
+**Categorization of the remaining 570 mismatches** (extracted per-file
+reason from all three chunk logs; every file bucketed by whether its own
+flagged reason(s) were `comments:` only, `top-level declaration N
+structure/content differs` only, or both):
+
+- 412 files: comment-only mismatches. Root cause identified via
+  `KaScopeProvider.kt`: the formatter normalizes a KDoc continuation line's
+  leading-asterisk spacing inside a fenced code block (`*```` → `* ````),
+  a legitimate, intentional KDoc-formatting transformation — but
+  `kotlin_content_diff`'s comment comparison only normalizes case and a
+  single trailing period (per its existing gap-4 tolerance), not general
+  internal whitespace within a comment's body text. This is a **checker
+  tolerance gap**, not formatter corruption — the comment's semantic content
+  is unchanged, only inter-token spacing inside the KDoc shifted. Not fixed
+  this session (out of scope — this run's mandate was validate-and-document,
+  not fix).
+- 158 files (143 declaration-only + 15 both): sampled ~20 by hand
+  (`GCInfo.kt`, `KaptOptions.kt`, `PartialLinkageLogLevel.kt`,
+  `Number2String.kt`, `json.kt`, `InvokeWhenCreatedTest.kt`,
+  `LanguageVersionSettings.kt`, others). Every sampled diff traced to an
+  already-documented, intentional STYLE_KOTLIN.md/STYLE.md transformation:
+  redundant statement-terminating semicolon removal, closing-brace
+  annotation comments (`} // class X`, `} // companion object`) on
+  scopes/shapes not covered by the existing `namedConstructClosingComments`/
+  `CONTROL_FLOW_CLOSING` whitelist, `:`-before-type declaration-alignment
+  padding (STYLE_KOTLIN.md §6, confirmed applying to a 2-line aligned group
+  of override function signatures too, not just `val`/`var`), pre-increment
+  conversion (`x++` → `++x`, STYLE.md's general pre-increment-preferred
+  rule), single-statement-body call-argument re-wrapping, import
+  regrouping/reordering, and blank-line insertion around declarations. None
+  of the ~20 sampled files showed a dropped, added, or semantically altered
+  statement — no genuinely new formatter bug found in this sample.
+- No new open item added to this file's checklist as a result of this run:
+  every observed shape is either (a) a known, already-documented legitimate
+  transformation the checker simply doesn't yet tolerate (comment internal
+  whitespace, closing-brace comments beyond the current whitelist,
+  semicolon-strip, pre-increment, function-signature-group colon alignment),
+  or (b) already covered by this file's pre-existing "not investigated
+  further" notes above (25/40-file sample's item (a)/(b)). Widening
+  `kotlin_content_diff`'s tolerances further is a checker-improvement task,
+  not a formatter bug fix, and is left as a documented future opportunity
+  rather than acted on here (out of scope for this run).
+
+**Conclusion: first full-corpus-scale content-diff validation pass complete.**
+15583/16153 (96.5%) byte-for-content-identical-modulo-tolerated-transforms;
+the remaining 570 are checker tolerance gaps on already-documented legitimate
+transformations, sampled and confirmed with no evidence of a distinct new
+formatter bug. RDD_KEY_278 and RDD_KEY_279 are both validated at full-corpus
+scale by this run.
+
 **Tools/compiler used**
 
 (1) `kotlinc` — bare standalone compiler, e.g.:

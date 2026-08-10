@@ -833,6 +833,78 @@ none of which are the KDoc-fence-spacing shape this fix targets:
   `"a boolean flag..."`).
 - `@sample` KDoc-tag list merging/reordering differences.
 
+**2026-08-11 follow-up: `when`-closing-comment paren/comma spacing bug — FIXED
+(the ~118-file bucket named above).** Root cause was in the FORMATTER
+(`KotlinSpecificRule.formatWhenExpressions`), not the checker this time —
+unlike the KDoc-fence fix above. `subject = literalSlice(tokens, j + 1,
+closeParen).trim().replaceAll("\\s+", " ")` collapses any whitespace run
+(including a NEWLINE) to a single space so a wrapped subject's captured text
+stays on one physical comment line (RDD_KEY_175-era fix) — but when the
+subject itself contains a call that `enforceCallLineBreaking` (Phase 1, runs
+before this Phase-3 pass) wrapped across lines, that wrap places its own
+NEWLINE+indent immediately after the call's `(` or immediately before its
+matching `)`. Collapsing that adjacent whitespace to a single space bakes a
+spurious `( `/` )` gap into the comment that the un-wrapped rendering of the
+same subject never has (calls are tight inside their own parens, no other
+rule in this codebase puts a space there). Confirmed via
+`core/descriptors/src/org/jetbrains/kotlin/resolve/SealedClassInheritorsProvider.kt`:
+source `when (val actualDescriptor = scope.getContributedClassifier(descriptor.name,
+NoLookupLocation.WHEN_GET_ALL_DESCRIPTORS)) {` wraps the call across lines,
+then emitted `} // when val actualDescriptor =
+scope.getContributedClassifier( descriptor.name,
+NoLookupLocation.WHEN_GET_ALL_DESCRIPTORS )` — extra spaces directly inside
+the outer call's parens is exactly what `kotlin_content_diff`'s
+`collectWhenClosingComments` (built from the ORIGINAL, never-wrapped source,
+so always tight) doesn't match, hence the false MISMATCH.
+
+**Fix**: after the existing whitespace-collapse, strip any space left
+directly adjacent to an open/close paren:
+`.replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")")`. Narrowly scoped —
+only paren-adjacent whitespace is touched, comma/other spacing inside the
+subject is untouched (no repro or negative-control evidence of a comparable
+comma-adjacent gap). No style-doc ambiguity: STYLE.md's normal "tight inside
+call parens" convention already governs how this same subject text renders
+when it *doesn't* wrap, so this fix simply makes the wrapped case match the
+already-established un-wrapped rendering, per the same "matches how a
+subject that never wrapped would already render" comment already
+documenting the adjacent collapse-to-one-line behavior. No ambiguity-protocol
+escalation needed.
+
+**Verification:** built the exact ~118-file estimate's real member list from
+the 3 chunk logs (`/tmp/kt_content_diff_a{a,b,c}.log`, `MISMATCH` blocks
+whose `comments:` reason contains `when` and a paren-adjacent space) — 73
+files found (the original ~118 was itself a hand-sample-scaled estimate, not
+an exact count; 73 is the exact membership recovered this session). Before
+fix: `kotlin_content_diff` batch mode against the existing stale
+`/tmp/kt_r1_content` — **0/73 OK** (all 73 MISMATCH by construction, matching
+how the bucket was selected). After fix: reformatted all 73 with the fixed
+JAR into `/tmp/kt_r1_fix` and re-ran batch mode — **65/73 OK**. The remaining
+8 are distinct, unrelated, already-documented gap shapes sampled directly in
+the output (a `top-level declaration` content difference on
+`UklibFragmentPlatformAttribute.kt`; the closing-brace-annotation-whitelist
+gap on `TypeBridging.kt`'s `interface`/nested-`when` mix) — not this bug,
+left untouched per this session's narrow mandate.
+
+Also caught a second, independent instance of this exact bug baked into this
+job's own checked-in fixture: `test/real_code_regressions_148_out.kt` (added
+under RDD_KEY for C5's original newline-collapse fix) had `min( left, 2 )`/
+`min( right, 3 )` inside its own `when`-closing comment as "expected" output
+— a real bug the original fixture's own author didn't notice at the time.
+Corrected to `min(left, 2)`/`min(right, 3)`, documented in
+`test/README.txt`'s existing `real_code_regressions_148` entry rather than
+adding a new fixture (this one already exercises the exact repro shape
+end-to-end).
+
+`make test`: 278/278 forward + 278/278 idempotency (was 278/278 before this
+fix too, since the one changed fixture's expected output was the thing
+fixed, not a regression source) — zero regressions in C/C++/Java or any
+other language; the change is entirely inside `KotlinSpecificRule.java`, no
+shared class touched.
+
+Committed: `src/com/jxmake/formatter/rules/KotlinSpecificRule.java` (fix),
+`test/real_code_regressions_148_out.kt` (corrected expected output),
+`test/README.txt` (updated entry), this file.
+
 **Disposition:** the fix as scoped (task item 2) is complete, correct, and
 verified against its named repro and both negative controls — not widened
 further, since each of the four causes above is its own separate gap needing

@@ -2789,7 +2789,19 @@ Real-code regressions:
                                                         test`: 197/197 forward + 197/197 idempotency. See
                                                         `STATE_KOTLIN.md`'s Dogfood: JetBrains/kotlin section,
                                                         cluster C5 (also closed cluster C4 as a miscategorized
-                                                        instance of this same bug).
+                                                        instance of this same bug). **2026-08-11 update**: this
+                                                        fixture's own checked-in expected output had, by
+                                                        coincidence, already baked in a second, distinct bug in
+                                                        the same closing-comment mechanism -- the collapsed
+                                                        subject text kept a spurious space directly inside a
+                                                        wrapped call's own parens (`min( left, 2 )` instead of
+                                                        `min(left, 2)`) whenever `enforceCallLineBreaking`'s
+                                                        wrap placed a NEWLINE immediately after `(` or before
+                                                        `)`. Fixed by stripping whitespace adjacent to a paren
+                                                        after the general collapse; `_out.kt` corrected to
+                                                        `min(left, 2)`/`min(right, 3)`. `make test`: 278/278
+                                                        forward + 278/278 idempotency. See `STATE_KOTLIN.md`'s
+                                                        "when-closing-comment paren/comma spacing" entry.
 
   real_code_regressions_149_inp/out.kt               -- Kotlin, `JetBrains/kotlin` dogfood cluster C2: an
                                                         annotation at expression position (`val lambda =

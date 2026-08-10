@@ -20,7 +20,7 @@ class Ranges {
             0 to 3 -> THREE
             else   -> OTHER
 
-        } // when min( left, 2 ) to min( right, 3 )
+        } // when min(left, 2) to min(right, 3)
     } // companion object
 
 } // class Ranges

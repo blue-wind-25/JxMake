@@ -128,8 +128,18 @@ public class KotlinSpecificRule {
                 // code following the closing `}` instead of staying inside the comment. Collapse
                 // any run of whitespace (including newlines) to a single space so the resulting
                 // closing comment always stays on one physical line, matching how a subject that
-                // never wrapped would already render.
-                subject = literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ");
+                // never wrapped would already render. That collapse alone isn't enough when
+                // enforceCallLineBreaking's wrap places its own NEWLINE+indent immediately after a
+                // call's `(` or immediately before its matching `)` (the call-argument line-break
+                // shape, not a plain mid-expression line split) -- collapsing that adjacent
+                // whitespace to a single space bakes a spurious `( `/` )` gap into the comment that
+                // an un-wrapped rendering of the same subject would never have (calls are tight
+                // inside their own parens per STYLE.md's normal spacing rule). Strip any space left
+                // directly adjacent to an open/close paren after the general collapse above so the
+                // comment always matches the un-wrapped rendering regardless of how the subject's
+                // own nested calls happened to wrap.
+                subject = literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ")
+                    .replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")");
                 j       = nextSignificantIndex(tokens, closeParen + 1);
             } // if
             if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;

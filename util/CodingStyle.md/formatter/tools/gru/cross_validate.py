@@ -110,7 +110,13 @@ def main():
                          f"--epochs={args.epochs}", f"--patience={args.patience}", f"--seed={seed}",
                          f"--progress-every={args.progress_every}"]
             if args.vocab is not None: train_cmd.append(f"--vocab={args.vocab}")
-            subprocess.run(train_cmd, cwd=formatter_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Inherit this process's own stdout/stderr (no PIPE/DEVNULL) so GruTrainer's
+            # --progress-every lines stream straight through to wherever cross_validate.py's own
+            # output already goes -- the console for a manual run, or GRU_CV_LOG for
+            # `make gru-cv-corpus`'s `> $(GRU_CV_LOG) 2>&1` redirection. Previously these were
+            # sent to DEVNULL, silently discarding every progress line regardless of
+            # --progress-every.
+            subprocess.run(train_cmd, cwd=formatter_dir, check=True)
 
         # Whether this round was just trained or skipped as already-complete, eval always runs
         # against weights_path so the precision folded into the aggregate below is freshly read

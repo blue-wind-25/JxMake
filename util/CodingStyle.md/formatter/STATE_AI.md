@@ -1296,3 +1296,50 @@ are unconditional after the skip/train branch, so a skipped round's
 precision is appended identically to a freshly-trained round's — no
 aggregation-path change was needed, only the branch guarding the expensive
 `GruTrainer` subprocess call itself.
+
+**2026-08-11 (same day, follow-up) — user-reported "GRU_CV_ARGS not honored" +
+"no progress printed" both root-caused to one bug, fixed.** Investigated in
+order:
+
+1. `gru-cv-corpus`'s Makefile recipe (line 290) does reference
+   `$(GRU_CV_ARGS)` on `cross_validate.py`'s command line — not a stale/dead
+   variable, ruled out.
+2. `cross_validate.py`'s argparse: `--epochs`/`--patience`/`--eval-threshold`/
+   `--progress-every` are all declared and threaded into `train_cmd`/
+   `eval_cmd` correctly, no hardcoded override found. **Confirmed via a real
+   run** (below) that `--epochs`/`--patience` do reach `GruTrainer` — its own
+   startup line echoes `maxEpochs=2, patience=1` exactly matching what was
+   passed.
+3. **Root cause found here:** the round loop's `subprocess.run(train_cmd,
+   cwd=formatter_dir, check=True, stdout=subprocess.DEVNULL,
+   stderr=subprocess.DEVNULL)` (introduced when mini-batch/checkpoint support
+   landed, predates this session) discards the `GruTrainer` subprocess's
+   stdout/stderr entirely — every `GruTrainer: epoch ...` progress line
+   `--progress-every` gates is silently thrown away regardless of the flag's
+   value. This alone explains symptom 2. It also explains the *appearance* of
+   symptom 1: with training output fully suppressed, there was no way to
+   observe whether `--epochs`/`--patience` were actually taking effect (only
+   the final per-round precision line, from `GruEval`, was ever visible) —
+   the args were correctly wired all along; the visibility into them was not.
+4. `GruTrainer.java`'s `printProgress` (~line 1216) writes via
+   `System.out.println` unconditionally when called, gated only by
+   `progressEvery > 0 && examplesSeen % progressEvery == 0` (~line 567) — not
+   itself broken or behind a separate verbosity flag.
+5. **Fix:** removed the `stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL`
+   from the training subprocess call so it inherits `cross_validate.py`'s own
+   stdout/stderr (no `PIPE`/`DEVNULL`) — flows straight through to the console
+   for a manual run, or to `GRU_CV_LOG` under `make gru-cv-corpus`'s existing
+   `> $(GRU_CV_LOG) 2>&1` redirection, no Makefile change needed. The
+   `GruEval` subprocess call (`stdout=subprocess.PIPE`) is intentionally left
+   as-is — its output is parsed via `PRECISION_RE`, not just logged.
+
+**Validated with a real tiny end-to-end run** (not just static review, since
+this is runtime plumbing): 12-line synthetic examples file, `--rounds 1
+--epochs 2 --patience 1 --progress-every=1 --eval-threshold 0.7`. Before the
+fix: zero `GruTrainer:` lines printed. After the fix: full progress output
+appeared, including `GruTrainer: starting -- ... maxEpochs=2, patience=1 ...`
+(confirming the passed `--epochs`/`--patience` were honored all along) and a
+`GruTrainer: epoch N, progress M/8 (...)` line for every one of the 8 training
+examples per epoch (matching `--progress-every=1`), through to the final
+`GruEval` precision line unaffected. `python3 -m py_compile
+tools/gru/cross_validate.py` clean after the fix.

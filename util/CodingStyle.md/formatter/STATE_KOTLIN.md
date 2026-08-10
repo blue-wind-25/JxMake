@@ -11,18 +11,18 @@ Dogfood corpus status: see `STATE_DOGFOOD.md`.
 Tracks Kotlin support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_KOTLIN.md` / `STYLE_KOTLIN2.md`.
 
-**Overall status: implementation complete (Steps 0-4 all DONE, `make test`
-green). Step 5 dogfood: core goal (dogfood tree compiles clean) met. Bucket
-D3 (see "Dogfood: JetBrains/kotlin" below) — root cause confirmed, two fix
-attempts tried and reverted — was, as of 2026-08-02, folded into the new
-`STATE_CURLY_GDR.md` "General scope-depth reindentation" (GDR) job; it is
-no longer tracked as an independently open item in this file. The Kotlin
-job itself now has no independently-open item.**
+**Overall status: implementation complete (Steps 0-4 DONE, `make test`
+green). Step 5 dogfood core goal (tree compiles clean) met. Bucket D3
+(see "Dogfood: JetBrains/kotlin" below) — root cause confirmed, two fix
+attempts tried and reverted — was folded into `STATE_CURLY_GDR.md`'s GDR
+job as of 2026-08-02 and is no longer tracked here. This job has no
+independently-open item.**
 
 **OPEN ITEM (2026-08-10, not yet fixed): trailing-comma drop on multi-line
 call/list-literal collapse-preserve.** Real formatter bug, not a checker
 gap, found during content-diff-checker validation work (see the "(a)" note
-near line 639 below for the original discovery). Repro:
+in the 2026-08-10 gap-4 entry under "Dogfood Output Validation" below for
+the original discovery). Repro:
 `generators/main/PrinterUtils.kt` line ~74, `"kotlin.io",` loses its
 trailing comma after formatting; conflicts with `STYLE_KOTLIN.md` §7.2
 ("trailing comma preserved as-is, no pass adds/strips one").
@@ -398,11 +398,11 @@ idempotency check (output re-run through formatter should be unchanged).
 
 ## Step 5 — Dogfood / Real-Code Testing
 
-**Status: dogfood tree now compiles clean end-to-end — Step 5's core goal
-is met.** Future sessions: regression-watching / further polish, not a
-known-broken state. Bucket D3 (see "Dogfood: JetBrains/kotlin" below) is
-**folded into `STATE_CURLY_GDR.md` as of 2026-08-02** — see that section
-for the pointer; this job has no independently-open item of its own.
+**Status: dogfood tree compiles clean end-to-end — Step 5's core goal is
+met.** Future sessions: regression-watching/polish only, not a
+known-broken state. D3 (see "Dogfood: JetBrains/kotlin" below) is folded
+into `STATE_CURLY_GDR.md` as of 2026-08-02; this job has no
+independently-open item (see Purpose above).
 
 Applied STATE_COMMON.md's real-code-testing methodology (clone a real,
 compiling Kotlin project → format → idempotency round1 vs round2 →
@@ -553,63 +553,58 @@ tolerance gaps found and fixed in `kotlin_content_diff.java`:**
    statements collapsed down to 1 correctly still reports
    `top-level declaration #0 structure/content differs`).
 3. **Closing-comment addition for `class`/`object`/`companion object`/`init`
-   bodies (STYLE_KOTLIN.md §3.1/§3.4) — FIXED, and widened once past the
-   Promise.kt repro to a real observed formatter quirk.** New
-   `namedConstructClosingComments(KtFile)` walks the ORIGINAL file's own
-   `KtClassOrObject`/`KtClassInitializer` declarations and builds a
-   per-declaration group of acceptable closing-comment texts, consumed
-   one-per-group (not membership-only) against the formatted side's
-   comment multiset before flagging anything as an unexplained addition —
-   `class`/`interface`/`enum class` name detection distinguishes an
-   anonymous companion/object (`getNameIdentifier() == null`, since
-   `getName()` itself defaults an anonymous companion to `"Companion"`)
-   from a named one. **Real-corpus spot-checking beyond the assigned repro**
-   (25-file random sample from the same corpus) found the formatter's own
-   `object`-closing-comment naming is inconsistent: a plain
-   `object GeneratedSuites {}` got `// class GeneratedSuites` (wrong
-   keyword), while a supertyped `object Default : X {}` / `object
-   BuilderContext : Y {}` got bare `// Default` / `// BuilderContext`
-   (keyword omitted) — looks like a pre-existing quirk in the formatter's
-   own named-construct classifier for `object` specifically (NOT touched
-   here, out of this checker-fix's scope). Widened the `object` variant
-   group to accept all four observed shapes (`object <name>`,
-   `class <name>`, bare `<name>`, plus the always-correct anonymous
-   `object`), still requiring the group's own real declared name — a wrong
-   name is still rejected (verified via negative control: `class Bar`
-   closing-comment on an actual `class Foo` still flags
-   `class bar` as an unexplained addition). General non-named-construct
-   closing comments (`// for`, `// if`, `// when kind`, STYLE.md's general
-   length-gated §7 rule, discovered as a second false-flag source in the
-   same real files) get a separate, deliberately loose
+   bodies (STYLE_KOTLIN.md §3.1/§3.4) — FIXED**, widened past the Promise.kt
+   repro to a real observed formatter quirk. New
+   `namedConstructClosingComments(KtFile)` walks the ORIGINAL file's
+   `KtClassOrObject`/`KtClassInitializer` declarations, building a
+   per-declaration group of acceptable closing-comment texts consumed
+   one-per-group against the formatted side's comment multiset before
+   flagging an unexplained addition — `class`/`interface`/`enum class` name
+   detection distinguishes an anonymous companion/object
+   (`getNameIdentifier() == null`; `getName()` defaults an anonymous
+   companion to `"Companion"`) from a named one. **Real-corpus spot-check**
+   (25-file random sample) found the formatter's own `object`-closing-
+   comment naming is inconsistent: a plain `object GeneratedSuites {}` got
+   `// class GeneratedSuites` (wrong keyword), while a supertyped
+   `object Default : X {}` / `object BuilderContext : Y {}` got bare
+   `// Default` / `// BuilderContext` (keyword omitted) — a pre-existing
+   quirk in the formatter's own `object` classifier (not touched here, out
+   of scope). Widened the `object` variant group to accept all four
+   observed shapes (`object <name>`, `class <name>`, bare `<name>`, plus
+   the always-correct anonymous `object`), still requiring the group's own
+   real declared name — a wrong name is still rejected (verified: `class
+   Bar` on an actual `class Foo` still flags `class bar` as unexplained).
+   General non-named-construct closing comments (`// for`, `// if`,
+   `// when kind`, STYLE.md's length-gated §7 rule, a second false-flag
+   source in the same files) get a separate, deliberately loose
    `CONTROL_FLOW_CLOSING` regex tolerance (keyword + at most one trailing
-   word), same precedent as `java_content_diff.java`'s existing
-   `BRACE_ANNOTATION` pattern for the same keyword family — not verified
-   against an actual construct, matching the already-shipped Java
-   tolerance's own looseness for this construct family.
+   word), mirroring `java_content_diff.java`'s `BRACE_ANNOTATION` pattern
+   for the same keyword family — not verified against an actual construct,
+   matching the already-shipped Java tolerance's own looseness there.
 4. **KDoc trailing-period tolerance (STYLE.md §15) — root cause was NOT a
    pairing/matching bug as guessed, it simply never existed in this file.**
-   `kotlin_content_diff.java`'s own top-of-file doc comment claimed trailing-
-   period differences were already tolerated, but `stripCommentDelims` had
-   no such logic at all — confirmed via `grep -n "period"` returning zero
-   hits before this fix, unlike `java_content_diff.java` which has had
-   `normalizeTrailingPeriod` since RDD_KEY-era work on that tool. Fixed by
-   porting `normalizeTrailingPeriod` verbatim (same single-trailing-period
-   guard, so a real ellipsis/decimal run is left alone) into
-   `stripCommentDelims`. Verified against `JsArray.kt`
-   (4 KDoc comments, period-only difference — now passes clean) and a
-   negative control (two KDoc comments differing by more than a trailing
-   period still correctly mismatch).
+   `kotlin_content_diff.java`'s own top-of-file doc comment claimed
+   trailing-period differences were already tolerated, but
+   `stripCommentDelims` had no such logic — confirmed via
+   `grep -n "period"` returning zero hits before this fix, unlike
+   `java_content_diff.java`, which has had `normalizeTrailingPeriod` since
+   RDD_KEY-era work on that tool. Fixed by porting `normalizeTrailingPeriod`
+   verbatim (same single-trailing-period guard, so a real ellipsis/decimal
+   run is left alone) into `stripCommentDelims`. Verified against
+   `JsArray.kt` (4 KDoc comments, period-only difference — now passes
+   clean) and a negative control (two KDoc comments differing by more than
+   a trailing period still correctly mismatch).
 
 **2026-08-10 follow-up (RDD_KEY_278): regression in gap 3's `CONTROL_FLOW_CLOSING`
 tolerance, found and fixed.** A follow-up session hit a bogus MISMATCH on
 `libraries/stdlib/jdk7/test/PathRecursiveFunctionsTest.kt` (line 98's
 `when (val accessDenied = error.suppressedExceptions.single()) {`, a genuine
-`when`-with-captured-subject statement) reported as
-`comments: present in formatted, missing from original: [when val
-accessdenied = error.suppressedexceptions.single()]`. Root cause was NOT a
-structural comment-collection bug (`collectComments` correctly extracted the
-comment via `ASTNode.getChildren(null)`, exactly as designed) and NOT
-misclassified code — the formatted file genuinely has a real, always-emitted
+`when`-with-captured-subject statement), reported as `comments: present in
+formatted, missing from original: [when val accessdenied =
+error.suppressedexceptions.single()]`. Root cause was NOT a structural
+comment-collection bug (`collectComments` correctly extracted the comment
+via `ASTNode.getChildren(null)`, as designed) and NOT misclassified code —
+the formatted file genuinely emits a real
 `} // when val accessDenied = error.suppressedExceptions.single()` closing
 comment there (`KotlinSpecificRule.formatWhenExpressions`/RDD_KEY_101 names
 the `when`'s full parenthesized subject verbatim, whitespace-collapsed).
@@ -617,13 +612,13 @@ Gap 3's `CONTROL_FLOW_CLOSING` regex (`^(...|when)( \S+)?$`) only tolerates
 `when` + at most one trailing word, so a multi-word `val`/`var`-capture
 subject like this one was rejected as an unexplained addition — the
 tolerance was too NARROW in this direction, the opposite of how it was
-initially (mis)diagnosed. Confirmed the same shape in
-`PathTreeWalkTest.kt` (`when (val pathString = ...)`) and
-`coreRuntime.kt` (`when val typeOf = jsTypeOf(obj)`);
+initially (mis)diagnosed. Confirmed the same shape in `PathTreeWalkTest.kt`
+(`when (val pathString = ...)`) and `coreRuntime.kt`
+(`when val typeOf = jsTypeOf(obj)`);
 `PathRecursiveCopyBetweenIncompatibleFileSystemsTest.kt` (the 4th named
-repro) turned out to contain no `when` at all and was not actually affected
-by this bug — its existing MISMATCH output (`top-level declaration #1`/`#3`)
-is a separate, pre-existing, unrelated issue, untouched here.
+repro) turned out to contain no `when` at all, unaffected by this bug — its
+existing MISMATCH (`top-level declaration #1`/`#3`) is a separate,
+pre-existing, unrelated issue, untouched here.
 
 First fix attempt (widen `when`'s own trailing clause to accept any text,
 `^when( .+)?$`) was tried and caught by this session's own negative control
@@ -682,16 +677,13 @@ issues confirmed present before this session's changes too (via
 call/initializer argument list collapses onto one line (conflicts with
 STYLE_KOTLIN.md's own §7.2 "trailing comma preserved as-is, no pass
 adds/strips one" — worth a future formatter-source investigation, not a
-checker-tolerance gap); (b) one file
-(`LLFirSupertypeLazyResolver.kt`) has an unrelated, pre-existing
-comment-multiset anomaly not investigated further this session. Local
-`test/kt_combined_inp/out.kt` and `test/kt_comments_inp/out.kt` fixtures
-re-checked before/after: before this fix both had spurious closing-comment
-additions flagged (now clean on that front); both still report one
-unrelated pre-existing `top-level declaration #10` mismatch and (for
-`kt_comments`) an unrelated pre-existing `// end for` comment-loss flag —
-both confirmed present before this session's changes too, not touched here.
-No `test/` fixture files were modified.
+checker-tolerance gap); (b) one file (`LLFirSupertypeLazyResolver.kt`) has
+an unrelated, pre-existing comment-multiset anomaly not investigated
+further this session. Local `test/kt_combined_inp/out.kt` and
+`test/kt_comments_inp/out.kt` fixtures re-checked before/after: before this
+fix both had spurious closing-comment additions flagged, now clean on that
+front, same otherwise-unchanged pre-existing mismatches noted above. No
+`test/` fixture files were modified.
 
 **Tools/compiler used**
 
@@ -762,30 +754,27 @@ RDD_KEYs, fixtures, verification result).
 
 **Not started / in progress**
 
-1. **`github.com/JetBrains/kotlin`** — IN PROGRESS. The Kotlin compiler's
-   own source tree (~16k `.kt` files after filters), originally queued as
-   a last-resort/stress candidate (similar posture to `microsoft/STL`/
-   `llvm-project` in the C++ list) but substantial work has landed.
-   Category 1 (parse errors/corruption) fully closed. Category 2
-   (idempotency): D2a, D4, D1 all fully closed. **D3's root cause is
-   confirmed (RDD_KEY_221) but no fix has landed** — two candidate fixes
-   tried and reverted (RDD_KEY_221, RDD_KEY_226; full detail in the D3
-   table row and "D3 investigation history" section below); see
+1. **`github.com/JetBrains/kotlin`** — IN PROGRESS. Kotlin compiler's own
+   source tree (~16k `.kt` files after filters), originally a last-resort/
+   stress candidate (similar posture to `microsoft/STL`/`llvm-project` in
+   the C++ list); substantial work has landed. Category 1 (parse
+   errors/corruption) fully closed. Category 2 (idempotency): D2a, D4, D1
+   fully closed. **D3's root cause is confirmed (RDD_KEY_221) but unfixed**
+   — two candidate fixes tried and reverted (RDD_KEY_221, RDD_KEY_226; full
+   detail in the D3 table row and "D3 investigation history" below); see
    `README.md`'s Known Limitations section. D3 remains open (~34 files,
    incl. 2 reclassified out of D2a's former residual:
-   `GenerateReleaseNotes.kt`/`TypeBridging.kt`); a real fix needs actual
+   `GenerateReleaseNotes.kt`/`TypeBridging.kt`) — a real fix needs actual
    Kotlin statement-boundary tracking (depth-0 NEWLINE ending a statement
    vs. one mid-wrap in the current candidate's own already-broken
-   rendering). **As of 2026-08-02, D3 is folded into `STATE_CURLY_GDR.md`'s
-   "General scope-depth reindentation" (GDR) job** — see that file's "D3
-   fold" section for next steps. **2026-08-03 update:** tested whether
-   simply enabling `curly-general-scope-reindent`/`-multipass` resolves D3
-   as a side effect — it does NOT (negative result, root-caused, no code
-   changed; see `RDD_KEY_235` and `STATE_CURLY_GDR.md`'s checklist entry).
-   A real fix still needs a direct change to
-   `MiscRuleCurly.renderCallCandidate`'s fits-check itself. Full diagnosis,
-   tool commands, and per-cluster fix history remain below in "Dogfood:
-   JetBrains/kotlin" for reference.
+   rendering). Folded into `STATE_CURLY_GDR.md`'s GDR job as of 2026-08-02
+   (see that file's "D3 fold" section for next steps). **2026-08-03:**
+   enabling `curly-general-scope-reindent`/`-multipass` does NOT resolve D3
+   as a side effect (negative result, root-caused, no code changed; see
+   `RDD_KEY_235` and `STATE_CURLY_GDR.md`'s checklist entry). A real fix
+   still needs a direct change to `MiscRuleCurly.renderCallCandidate`'s
+   fits-check itself. Full diagnosis, tool commands, and per-cluster fix
+   history remain below in "Dogfood: JetBrains/kotlin" for reference.
 
 **When a test completes:** move/compact its entry from "Not started" into
 "Finished dogfood / real-code testing", and add a new numbered entry to
@@ -796,16 +785,12 @@ RDD_KEYs, fixtures, verification result).
 ## Dogfood: JetBrains/kotlin (categorization pass)
 
 **Current status:** Category 1 (parse errors/corruption) **fully closed**
-— every C1-C6k cluster/shape fixed, 0 genuine formatter-caused failures
-remain (2 pre-existing BOM syntax-checker artifacts, unrelated to the
-formatter, are the only remaining `kotlin_syntax_check` hits). Category 2
-(idempotency-only): D2a **fully closed** (332 of 334 known-flap files —
-the remaining 2, `GenerateReleaseNotes.kt`/`TypeBridging.kt`, re-triaged as
-ordinary D3 instances, not a distinct D2a shape); D4 **fully closed** (~8
-files, RDD_KEY_218); D1 **fully closed** (RDD_KEY_219 fixture `_169` +
-RDD_KEY_220 fixture `_170`); **D3 still fully open — folded into
-`STATE_CURLY_GDR.md` as of 2026-08-02, no longer independently open here
-(see that file's "D3 fold" section).**
+(0 genuine formatter-caused failures; the only remaining
+`kotlin_syntax_check` hits are 2 pre-existing BOM syntax-checker artifacts,
+unrelated to the formatter). Category 2 (idempotency-only): D2a, D4, D1
+**fully closed**; **D3 still open — folded into `STATE_CURLY_GDR.md` as of
+2026-08-02** (see that file's "D3 fold" section). Per-cluster detail
+(file counts, RDD_KEYs, fixtures) is in the tables below.
 
 Checkout: `/tmp/jb_kotlin_kt/kotlin-master` (fresh `.kt`-only tarball
 extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`,
@@ -906,10 +891,9 @@ give a truer denominator. Otherwise, D3 is the next-highest-value open item.
 
 ## D3 investigation history (2026-07-31 design session + 2026-08-01 implementation attempt, RDD_KEY_226)
 
-**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 — D3 is no longer
-tracked as an independently open item in this file; see that file's "D3
-fold" section for the current pointer.** Summary kept below for reference;
-full narrative is in RDD_KEY_221/RDD_KEY_226 (`RDD_LOG.md`).
+**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 — no longer tracked as
+independently open here; see that file's "D3 fold" section.** Summary
+below for reference; full narrative in RDD_KEY_221/RDD_KEY_226 (`RDD_LOG.md`).
 
 Root cause (RDD_KEY_221): `MiscRuleCurly.renderCallCandidate`'s no-newline
 fits-check measures a candidate against `lineStartIndex(tokens, nameIdx)`

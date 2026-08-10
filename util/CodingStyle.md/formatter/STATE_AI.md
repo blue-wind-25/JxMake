@@ -200,7 +200,10 @@ random-sample) extraction for Pool A/B.
 
 ## CANCELED — Comment sentence-boundary detection defeated by mid-word dots (Step 3 candidate)
 
-**2026-08-04 — canceled, not just deferred.** `MiscRuleCore.classifyComment`
+**2026-08-11 — permanently closed, decided against (not deferred).** Owner
+decision: the task-separation path (a second model/weights file, or a
+task/schema field added to the shared abstain-resolution pipeline) will NOT
+be pursued. Reason: `MiscRuleCore.classifyComment`
 (capitalize-first-letter / strip-trailing-period) routes through the same
 `GruAbstainResolver.resolve` / same trained weights as the main Step 3 "is
 this a real explanatory comment" job — there is no separate model or `task`
@@ -208,14 +211,12 @@ dimension in the RDD_EXT_20/21 schema (`lang`/`label`/`targetWordIndex`/
 `escaped-text`) distinguishing the two. Training "does this trailing dot end
 a sentence, vs. sit mid-token (`.hpp`, `e.g.`, `v1.0`)?" into the same label
 column the main job uses for a different question ("is this comment
-substantive prose vs. noise?") risks degrading the main job's 92.4% mean
-held-out precision — a correctness risk, not merely a low-value add.
-Combined with the wiring being unconfirmed (see TODO below, never resolved),
-risk/reward doesn't justify attempting this without first designing real task
-separation (a second model/weights file, or a task field added to the
-schema) — out of scope unless a future job explicitly commissions that
-separation. Original problem statement and TODO preserved below for future
-reference.
+substantive prose vs. noise?") risks degrading the main job's 92.4%+ mean
+held-out precision. The cross-cutting correctness risk to the main GRU
+classifier outweighs the value of closing this narrow a gap — this item is
+dead; do not revisit without a new explicit owner decision to reopen it. The
+mechanical rule limitation (`dotCount != 1` → leave as-is) remains permanent
+behavior. Original problem statement preserved below for future reference.
 
 `MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only
 when it's the *sole* `.` in the text — conservative, to avoid mangling an
@@ -232,29 +233,10 @@ AI_PREAMBLE_FULL.md §15):
 genuinely sentence-ending trailing period is left in place (expected:
 stripped). Distinguishing a mid-word/mid-token dot from a true
 sentence-ending dot is a natural-language judgment call with no tractable
-mechanical heuristic — exactly the class of ABSTAIN-worthy case Step 3
-targets: the rule-based classifier's `dotCount != 1` case would ABSTAIN, and
-the GRU classifier would resolve it given enough mid-word-dot training
-examples. Not blanket NOT FEASIBLE — feasible via Step 3's GRU once trained
-on this shape; until then, remains an accepted mechanical-rule limitation
-(`dotCount != 1` → leave as-is). Still open — no GRU work has targeted this
-shape specifically yet.
-
-**TODO before attempting (2026-08-03):** unlike the keyword-ambiguity growth
-passes (which add balanced rows to an already-wired path,
-`KeywordAmbiguityGate`), it is not yet confirmed that
-`MiscRule.stripSoleTrailingPeriod`'s `dotCount != 1` case actually calls
-`GruAbstainResolver`/routes through the GRU at all, vs. unconditionally
-leaving the period alone. **First step: confirm/add that wiring** (a real
-gate/feature change, same weight-class as `CommentedOutCodeGate`/
-`LicenseBlockGate`'s own design+real-corpus-false-positive-check process, not
-a drop-in corpus-growth pass) before hand-labeling any mid-word-dot training
-rows. Once wired, follow the established balanced-YES/NO-row growth-pass
-pattern (see the 125→522-row session-log entries below), and re-run
-`cross_validate.py` specifically checking this shape's held-out accuracy
-(not just the aggregate number) — the training-fit-vs-held-out gap already
-found on 2026-08-02 (98.7% vs 86.3%, traced to `GRU_HAND_LABELED_REPEAT`
-oversampling) is a real risk for a new pattern with only a few examples.
+mechanical heuristic. This is permanently an accepted mechanical-rule
+limitation (`dotCount != 1` → leave as-is) — see the 2026-08-11 disposition
+above for why the GRU task-separation path that would have addressed it is
+not being pursued.
 
 ---
 

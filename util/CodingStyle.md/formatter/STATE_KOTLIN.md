@@ -19,6 +19,48 @@ attempts tried and reverted — was, as of 2026-08-02, folded into the new
 no longer tracked as an independently open item in this file. The Kotlin
 job itself now has no independently-open item.**
 
+**OPEN ITEM (2026-08-10, not yet fixed): trailing-comma drop on multi-line
+call/list-literal collapse-preserve.** Real formatter bug, not a checker
+gap, found during content-diff-checker validation work (see the "(a)" note
+near line 639 below for the original discovery). Repro:
+`generators/main/PrinterUtils.kt` line ~74, `"kotlin.io",` loses its
+trailing comma after formatting; conflicts with `STYLE_KOTLIN.md` §7.2
+("trailing comma preserved as-is, no pass adds/strips one").
+
+Root-caused (2026-08-10) to a *generic* (not Kotlin-specific) behavior in
+`MiscRuleCurly.renderCallPreserveGroups`
+(`src/com/jxmake/formatter/rules/MiscRuleCurly.java:1590-1615`), the path
+`renderCallCandidate` falls into for any call whose argument list already
+spans multiple source lines (`containsNewline(paramsSlice)` true, ~line
+1400-1404):
+1. `groupByOriginalLine` (called at line 1595) silently drops a dangling
+   trailing empty group produced by a trailing comma before `)` (see the
+   comment at line 1314-1315 contrasting it with `splitTopLevelCommas`,
+   which does NOT drop it).
+2. `renderCallPreserveGroups` then re-inserts commas itself between rows
+   (line 1606-1608), but its condition
+   `!(r == rows.size() - 1 && c == row.size() - 1)` unconditionally
+   withholds a comma on the very last rendered item, for every language —
+   it never checks whether the source's last group already had one.
+
+Correct for C/C++/Java (trailing commas aren't idiomatic there), but wrong
+for Kotlin per §7.2 — this path only ever synthesizes its own comma
+placement from scratch, so a Kotlin source trailing comma is always lost
+here regardless of GRU/classifier state. `renderCallDropped`/
+`renderCallOnePerLine` (the sibling non-multi-line-preserving render
+options, e.g. `renderCallDropped`'s doc comment at ~line 1507-1515) likely
+have the identical "never emit a final trailing comma" posture and need the
+same check.
+
+**Fix shape (not yet applied):** `groupByOriginalLine` needs to also report
+whether the original trailing group (before being dropped) existed, and
+`renderCallPreserveGroups`'s last-comma suppression at line 1606-1608 (plus
+the equivalent spot in `renderCallDropped`/`renderCallOnePerLine` if they
+share the exposure) needs a Kotlin-gated exception (`lang.isKotlin`) that
+re-adds the trailing comma when the source had one. Needs new fixture(s),
+full `make test` (276+ cases) both forward and idempotency, and this
+section updated with the outcome once fixed.
+
 ---
 
 ## Hard Constraint — Shared Classes

@@ -845,10 +845,10 @@ here if and when it actually gains a documented gap.
    then discards its result via a mechanical dot-count bail-out — distinguishing a mid-word/
    mid-token dot from a true sentence-ending dot is a separate judgment call the shared model
    was never trained on (no `task` dimension in the training schema to keep it from degrading
-   the model's main "is this substantive prose" job). Canceled, not merely deferred, unless a
-   future job commissions real task separation (a second model/weights file, or a schema
-   change) — see `STATE_AI.md`'s "CANCELED — Comment sentence-boundary detection defeated by
-   mid-word dots" section for the full reasoning.
+   the model's main "is this substantive prose" job). Canceled, not merely deferred: reliably
+   telling a true sentence-ending dot apart from a mid-word one would need a second,
+   separately-trained model (its own corpus and weights file) dedicated to that one narrow
+   judgment call, which isn't planned given the limited benefit.
 
 3. **The GRU's residual false-positive rate on `NO` cases (~2.7% at the shipped
    `abstainThreshold = 0.7`) is accepted, not further reduced.** Lowering the threshold recovers

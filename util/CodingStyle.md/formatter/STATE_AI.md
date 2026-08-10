@@ -1,21 +1,19 @@
 # STATE_AI.md — AI-Assist Design Reference and GRU Job State
 
 This file documents the background and architecture for the JAR's built-in
-`ai-assist` feature. Step 2 (argument-layout/getter-setter-grouping) is
-permanently NOT FEASIBLE and is reference-only — no active work there. Step 3
-(the GRU comment-classifier abstain resolution) is the active tracked job per
-`CLAUDE.md`'s job table (`com.jxmake.formatter.classifier.gru`) and follows
-the same `STATE_COMMON.md` process conventions as every other job.
-(No dogfood corpus for this job — see `STATE_DOGFOOD.md`'s note.)
+`ai-assist` feature. (No dogfood corpus for this job — see `STATE_DOGFOOD.md`'s
+note.)
 
-- **Step 2** (argument-layout / getter-setter-grouping) — **NOT FEASIBLE**. No
-  tractable grouping-intent signal exists for the JAR to hand an LLM, at any
-  model size tested.
+- **Step 2** (argument-layout / getter-setter-grouping) — **NOT FEASIBLE**,
+  permanently, reference-only, no active work. No tractable grouping-intent
+  signal exists for the JAR to hand an LLM, at any model size tested.
 - **Step 3** (comment-classifier abstain-case resolution) — **FEASIBLE, GRU
-  only**. A narrow classification decision, not a layout-authorship judgment
-  call. Only feasible via a purpose-trained bidirectional GRU — the
-  small-instruction-tuned-LLM variant is **NOT FEASIBLE** (tested and failed;
-  see below).
+  only**, the active tracked job per `CLAUDE.md`'s job table
+  (`com.jxmake.formatter.classifier.gru`), following the same
+  `STATE_COMMON.md` process conventions as every other job. A narrow
+  classification decision, not a layout-authorship judgment call — feasible
+  only via a purpose-trained bidirectional GRU; the small-instruction-tuned-LLM
+  variant is **NOT FEASIBLE** (tested and failed; see below).
 
 ---
 
@@ -23,16 +21,16 @@ the same `STATE_COMMON.md` process conventions as every other job.
 
 The JAR cannot distinguish meaningful author-expressed argument grouping from
 arbitrary line breaks — the core prerequisite for reliable AI candidate
-selection — and no tractable heuristic exists for it. A small on-device model
-(3B–7B) has no reliable basis for choosing between candidates without that
-signal. The mechanical fallback (dropped form if args fit on one indented
-line, one-per-line otherwise) is therefore permanent behavior when inline
-exceeds 100 chars. The architecture (grammar-constrained single-token
-response via `/v1/chat/completions`, candidate layout generation, fail-safe
-fallback) remains valid and reusable if a grouping-intent heuristic or a
-larger model (7B+) is proven reliable in future. Tier-3 aesthetic decisions
-(argument layout, non-standard getter/setter grouping) are instead handled by
-the capable-AI workflow in `README.txt` / `AI_PREAMBLE_AESTHETIC.md`.
+selection — so a small on-device model (3B–7B) has no reliable basis for
+choosing between candidates. The mechanical fallback (dropped form if args
+fit on one indented line, one-per-line otherwise) is therefore permanent
+behavior when inline exceeds 100 chars. The architecture (grammar-constrained
+single-token response via `/v1/chat/completions`, candidate layout
+generation, fail-safe fallback) remains valid and reusable if a
+grouping-intent heuristic or a larger model (7B+) is proven reliable in
+future. Tier-3 aesthetic decisions (argument layout, non-standard
+getter/setter grouping) are instead handled by the capable-AI workflow in
+`README.txt` / `AI_PREAMBLE_AESTHETIC.md`.
 
 Checklist — Step 2 (all NOT FEASIBLE, no implementation needed): `Config.java`
 ai-assist keys, `AiDecisionClient.java`, `AI_DECISION_PROMPT.md`,
@@ -101,10 +99,10 @@ Never externally logged — no `RDD_LOG.md` entry, no collision risk with
 
 Unlike Step 2, this is a narrow classification decision (does this word
 function as a keyword or as prose here; is this trailing dot a sentence-ender
-or part of a token), not a layout-authorship judgment call — a small
-**purpose-trained** classifier (the GRU's ~500k-parameter footprint) can
-plausibly handle it, unlike a small instruction-tuned LLM (confirmed NOT
-FEASIBLE, see below). Builds on the already-implemented rule-based
+or part of a token) that a small **purpose-trained** classifier (the GRU's
+~500k-parameter footprint) can plausibly handle, unlike a small
+instruction-tuned LLM (confirmed NOT FEASIBLE, see below). Builds on the
+already-implemented rule-based
 comment-grammar classifier (Task H in `STATE.md`, `RDD_KEY_94`–98):
 `CommentFeatureExtractor`/`CommentFeatureVector`, `NonLatinScriptGate`,
 `KeywordAmbiguityGate`, `CommentClassifier`/`CommentClassifierWeights`
@@ -211,13 +209,13 @@ dimension in the RDD_EXT_20/21 schema (`lang`/`label`/`targetWordIndex`/
 a sentence, vs. sit mid-token (`.hpp`, `e.g.`, `v1.0`)?" into the same label
 column the main job uses for a different question ("is this comment
 substantive prose vs. noise?") risks degrading the main job's 92.4% mean
-held-out precision, not just failing to help — a correctness risk, not
-merely a low-value add. Combined with the wiring even being unconfirmed (see
-TODO below, never resolved), risk/reward doesn't justify attempting this
-without first designing real task separation (a second model/weights file,
-or a task field added to the schema) — out of scope unless a future job
-explicitly commissions that separation. Original problem statement and TODO
-preserved below for that future reference.
+held-out precision — a correctness risk, not merely a low-value add.
+Combined with the wiring being unconfirmed (see TODO below, never resolved),
+risk/reward doesn't justify attempting this without first designing real task
+separation (a second model/weights file, or a task field added to the
+schema) — out of scope unless a future job explicitly commissions that
+separation. Original problem statement and TODO preserved below for future
+reference.
 
 `MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only
 when it's the *sole* `.` in the text — conservative, to avoid mangling an
@@ -279,9 +277,9 @@ oversampling) is a real risk for a new pattern with only a few examples.
   per RDD_KEY_217), empty until a disagreement-sampling pass produces
   confirmed rows. New `tools/gru/apply_disagreement_corrections.py`, wired
   into `gru-acquire-corpus` right after the `classifier_weights_examples.tsv`
-  append and before final dedup: does an *override* merge keyed on
+  append and before final dedup: *override* merge keyed on
   `<lang>/<targetWordIndex>/<escaped-comment-text>` (everything but
-  `<label>`), dropping the conflicting auto-labeled row rather than leaving
+  `<label>`), dropping the conflicting auto-labeled row instead of leaving
   both present (plain-append dedup can't collapse a same-text/different-label
   pair). Smoke-tested standalone (override/new-row/empty-file no-op) against
   synthetic scratch files.
@@ -294,32 +292,29 @@ oversampling) is a real risk for a new pattern with only a few examples.
   classifier, so flagged to the user rather than trusted. User hand-verified
   every disagreement: 44 confirmed genuine corrections (43 YES, 1 NO)
   appended to `disagreement_corrections.txt`; the other 30 were too ambiguous
-  or confirmed the original label was right. Applying the 44 against the
-  real corpus verified clean (44/44 matched, 0 mismatches). Given production
-  already clears both bars (92.4% mean held-out CV precision at
-  `abstainThreshold=0.7`, 2.7% NO FP rate), this pass was optional polish —
-  measuring the resulting precision delta was left as a natural next step.
+  or confirmed the original label. Applying the 44 against the real corpus
+  verified clean (44/44 matched, 0 mismatches). Production already clears
+  both bars (92.4% mean held-out CV precision at `abstainThreshold=0.7`, 2.7%
+  NO FP rate), so this pass was optional polish — measuring the resulting
+  precision delta was left as a next step.
 
   **2026-08-04 — retrained on the corrections, checked, then reverted pending
   a real corpus-level CV.** After `make gru-acquire-corpus` (44/44 applied)
-  and a user retrain, two checks: (1) `GruEval` training-fit on the 522-row
-  bench went 99.8%→99.4% (1→3 NO FPs) — noise-dominated on a 44-row/93k-line
-  perturbation, not a real signal; (2) a fresh CV run was accidentally
-  pointed at the wrong file (`classifier_weights_examples.tsv`, the 522-row
-  bench itself, which never touches `sample_default.txt`/corrections at
-  all) — so it only re-measured the bench's own held-out generalization at
-  its now-522-row size (mean=88.78%, stdev=4.81%), a separate finding (down
-  from the previously-documented 474-row figure of 92.4%±2.1%, meaning the
-  grown bench is harder/higher-variance) unrelated to the corrections.
-  Neither check isolates the 44 corrections' effect — that needs a CV run
-  against the full `sample_default.txt` itself, a multi-hour-per-round job
-  (~2700-4050s per full `gru-train`). Added `make gru-cv-corpus`
+  and a user retrain: (1) `GruEval` training-fit on the 522-row bench went
+  99.8%→99.4% (1→3 NO FPs) — noise from a 44-row/93k-line perturbation, not a
+  real signal; (2) a CV run was accidentally pointed at
+  `classifier_weights_examples.tsv` (the 522-row bench itself, never touching
+  `sample_default.txt`/corrections) — it only re-measured the bench's own
+  held-out generalization at its now-522-row size (mean=88.78%, stdev=4.81%,
+  down from the 474-row 92.4%±2.1%, i.e. the grown bench is
+  harder/higher-variance) — unrelated to the corrections. Neither check
+  isolates the 44 corrections' effect; that needs a CV run against the full
+  `sample_default.txt` (~2700-4050s/round). Added `make gru-cv-corpus`
   (`GRU_CV_ROUNDS`/`GRU_CV_WORK_DIR`/`GRU_CV_LOG`/`GRU_CV_ARGS`) for the user
-  to run unattended on a faster machine ("CM5"). **Reverted the retrained
-  production artifacts** (`code-formatter-ai-assist-weights.json`,
-  `tools/gru/sample_default.txt` — `git checkout --`'d back) pending that
-  measurement; preserved as untracked snapshots so they could be restored if
-  CM5 showed improvement:
+  to run unattended on CM5. **Reverted the retrained production artifacts**
+  (`code-formatter-ai-assist-weights.json`, `tools/gru/sample_default.txt` —
+  `git checkout --`'d) pending that measurement, preserved as untracked
+  snapshots for restore if CM5 showed improvement:
   `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json`,
   `tools/gru/sample_default.2026-08-04-grok-corrections.txt`.
 
@@ -338,27 +333,26 @@ oversampling) is a real risk for a new pattern with only a few examples.
   mean=99.33%  stdev=0.06%  min=99.26%  max=99.40%
   ```
 
-  Far above every prior figure (all of which measured the small,
-  all-ambiguous hand-labeled bench, not the real corpus distribution) —
-  confirms the currently-shipped, without-Grok-corrections weights/corpus
-  already clears production bars by a wide margin. Also swept
-  `abstainThreshold` 0.7/0.75/0.8 against the same cached weights (no
-  retrain needed): NO FP rate only drifted 12.43%→12.22%→11.94% while
-  abstains grew ~48% — flatter trade-off than the earlier hand-labeled-bench
-  sweep, so `abstainThreshold` stays `0.7`, no config change.
+  Far above every prior figure (which measured the small, all-ambiguous
+  hand-labeled bench, not real corpus distribution) — confirms the shipped,
+  without-Grok-corrections weights/corpus already clears production bars by a
+  wide margin. Also swept `abstainThreshold` 0.7/0.75/0.8 against the same
+  cached weights (no retrain): NO FP rate only drifted
+  12.43%→12.22%→11.94% while abstains grew ~48% — flatter trade-off than the
+  hand-labeled-bench sweep, so `abstainThreshold` stays `0.7`.
 
   **Decision: do not adopt the Grok-corrections weights/corpus** — the
-  question this thread was blocked on (is the 44-row batch a real
-  improvement) is answered by the un-corrected corpus already clearing bars,
-  with no remaining reason to pull in the reverted snapshot. Moved the two
-  `*-2026-08-04-grok-corrections.*` snapshot files and the archived
-  44-row batch (`tools/gru/unused/disagreement_corrections.2026-08-04-grok.txt`)
-  to `tools/gru/unused/` (see its README section); live
-  `tools/gru/disagreement_corrections.txt` was emptied back to header-only
-  (confirmed a byte-identical, true-no-op regeneration). The correction
-  mechanism itself (script + Makefile wiring) stays live for any future
-  pass. Also retired to `tools/gru/unused/` (never wired into any Makefile
-  target): `gen_synthetic_prompt.py`, `regroup_synthetic.py` (+ sidecars),
+  un-corrected corpus already clearing bars answers the question this thread
+  was blocked on (is the 44-row batch a real improvement), with no reason to
+  pull in the reverted snapshot. Moved the two `*-2026-08-04-grok-corrections.*`
+  snapshots and the archived 44-row batch
+  (`tools/gru/unused/disagreement_corrections.2026-08-04-grok.txt`) to
+  `tools/gru/unused/` (see its README); live
+  `tools/gru/disagreement_corrections.txt` emptied back to header-only
+  (confirmed byte-identical, true-no-op regeneration). The correction
+  mechanism (script + Makefile wiring) stays live for future passes. Also
+  retired to `tools/gru/unused/` (never wired into any Makefile target):
+  `gen_synthetic_prompt.py`, `regroup_synthetic.py` (+ sidecars),
   `tools/synthetic_out_grok.txt`. CV scratch files (`cvc.zip` etc.) were
   never committed, per `RDD_EXT_19`.
 
@@ -1167,10 +1161,10 @@ Confined to `GruAbstainResolver.java`. `make test`: 238/238 forward +
 **2026-08-10 — grew hand-labeled hard-case corpus; confirmed python3 is the only new-reachable
 language among a broader candidate list.** User asked to add `examples_*.md` files for json5,
 css, yaml, toml, xml, html5, js, ts, python3, makefile, bash, powershell (js/ts already existed)
-and more NO samples, then re-run `derive_weights.py`. Investigated actual call paths before
-writing anything (per the file-exclusion/ambiguity discipline in `STATE_COMMON.md`) rather than
-trusting the 2026-08-01 "only c/cpp/java/kotlin/js/ts reach the gate" note verbatim, since
-python3 comment normalization landed 2026-08-08 (after that note was written):
+and more NO samples, then re-run `derive_weights.py`. Investigated actual call paths (per
+`STATE_COMMON.md`'s file-exclusion/ambiguity discipline) rather than trusting the 2026-08-01
+"only c/cpp/java/kotlin/js/ts reach the gate" note verbatim, since python3 comment normalization
+landed 2026-08-08, after that note was written:
 
 - `KeywordAmbiguityGate`/`classifyComment` is only called from `MiscRuleCore` (curly:
   c/cpp/java/kotlin/js/ts) and `MiscRuleIndent` (python3, `#`-comment normalization wired

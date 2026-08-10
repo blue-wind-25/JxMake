@@ -12,18 +12,18 @@ Tracks C++26 support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_CPP26.md` (builds on
 `STYLE.md`, `STYLE_C_CPP.md`, `STYLE_CPP20.md`).
 
-**Toolchain note (discovered during the `glaze` session):** this system
-also has a modern `clang++ 22.1.8` at
+**Toolchain note (discovered during the `glaze` session):** this system also
+has a modern `clang++ 22.1.8` at
 `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++`, capable of real
-`-std=c++23 -fsyntax-only` compile validation including reflection syntax
-— use `-stdlib=libc++` (required for standard headers to resolve) and pipe
+`-std=c++23 -fsyntax-only` compile validation including reflection syntax —
+use `-stdlib=libc++` (required for standard headers to resolve) and pipe
 stderr through `grep -v 'no version information available'` (harmless
-`libstdc++.so.6` symbol-versioning warning). `/opt/glibc-2.41/` is
-available for a glibc-mismatch/patchelf issue with some other prebuilt
-binary. Supersedes the older `g++ 4.8.5`/`clang++ 3.7.1` toolchain the
-"Compilation not attempted" notes in earlier checklist entries refer to —
-prefer `clang++ 22.1.8` for any future compile-check step here rather than
-falling back to idempotency-only validation.
+`libstdc++.so.6` symbol-versioning warning). `/opt/glibc-2.41/` is available
+for a glibc-mismatch/patchelf issue with some other prebuilt binary.
+Supersedes the older `g++ 4.8.5`/`clang++ 3.7.1` toolchain referenced by
+"Compilation not attempted" in earlier checklist entries — prefer
+`clang++ 22.1.8` for any future compile-check step rather than falling back
+to idempotency-only validation.
 
 ---
 
@@ -155,10 +155,10 @@ which is family-generic, no C++-specific branching to extend).
 ## Open Questions
 
 None recorded yet. **STALE, 2026-08-10**: this section (and Scope §5 above)
-previously claimed §5 Reflection real implementation "hasn't started" —
-false, see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
-`enforceReflectionOperatorSpacing` all landed). No open question remains
-for §5.
+previously claimed §5 Reflection real implementation "hasn't started" — false;
+see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
+`enforceReflectionOperatorSpacing` all landed). No open question remains for
+§5.
 
 ---
 
@@ -305,22 +305,21 @@ for §5.
       overridden per user instruction, since the pair was needed to seed
       the initial tokenizer test for `^^`/`[:`/`:]` — its expected output
       still isn't validated against that cross-check.
-- [x] Real-code testing pass against `wrocpp/cpp26-reflection-examples`
-      done (fresh clone, `/tmp`). 103 `.cpp`/`.hpp`/`.h`/`.cc` files (51
-      exercise `^^`/`[: :]`/`template for`). Zero crashes; round1→round2
-      `diff -r` empty (103/103 idempotent). No bugs found, zero fixtures
-      added. Compilation not attempted (only compilers available at the
-      time, `g++ 4.8.5`/`clang++ 3.7.1`, predate P2996/C++20 support);
-      idempotency + manual inspection used as fallback (applies to
-      `simdjson`/`rjk-duck` below too, until the toolchain upgrade noted
-      under `glaze`). Manual spot-check: `^^int`/`^^T`/`^^Point` stay tight;
-      bare-identifier splice interior tight, nested-call/`::`-qualified
-      interior loose — consistent with `isLoose`, no corruption. `template
-      for(...)` uses the same no-space-before-paren + single-statement
-      inline collapse as ordinary `for` (confirmed general via a plain
-      non-`template` repro). This is the external-corpus validation for §5
-      previously pending (Scope §5). `bloomberg/clang-p2996` confirmed
-      empty/unusable (see that section).
+- [x] Real-code testing pass against `wrocpp/cpp26-reflection-examples` done
+      (fresh clone, `/tmp`). 103 `.cpp`/`.hpp`/`.h`/`.cc` files (51 exercise
+      `^^`/`[: :]`/`template for`). Zero crashes; round1→round2 `diff -r`
+      empty (103/103 idempotent). No bugs found, zero fixtures added.
+      Compilation not attempted (only compilers available then, `g++
+      4.8.5`/`clang++ 3.7.1`, predate P2996/C++20 support); idempotency +
+      manual inspection used as fallback (applies to `simdjson`/`rjk-duck`
+      below too, until the toolchain upgrade under `glaze`). Manual
+      spot-check: `^^int`/`^^T`/`^^Point` stay tight; bare-identifier splice
+      interior tight, nested-call/`::`-qualified interior loose — consistent
+      with `isLoose`, no corruption. `template for(...)` uses the same
+      no-space-before-paren + single-statement inline collapse as ordinary
+      `for` (confirmed general via a plain non-`template` repro). This is
+      the external-corpus validation for §5 previously pending (Scope §5).
+      `bloomberg/clang-p2996` confirmed empty/unusable (see that section).
 - [x] Real-code testing pass against `simdjson/experimental_json_builder`
       done (fresh shallow clone, scratchpad). 27 `.cpp`/`.hpp`/`.h`/`.cc`
       files, 3.9k lines. Zero crashes on the initial pass.
@@ -340,10 +339,10 @@ for §5.
       `enforceAttributeAndSpliceBracketPadding` forward to run right before
       `enforceCallLineBreaking`, alongside `enforceComplexityPadding` (both
       `lang.isCpp`-gated there instead of Phase 4).
-      `enforcePackIndexingSpacing`/`enforceReflectionOperatorSpacing`
-      stayed in Phase 4 — they only ever tighten spacing, can't trigger
-      this bug class. Fixture `test/real_code_regressions_76_{inp,out}.hpp`.
-      `make test`: 125/125 forward + idempotency, zero regressions.
+      `enforcePackIndexingSpacing`/`enforceReflectionOperatorSpacing` stayed
+      in Phase 4 — they only tighten spacing, can't trigger this bug class.
+      Fixture `test/real_code_regressions_76_{inp,out}.hpp`. `make test`:
+      125/125 forward + idempotency, zero regressions.
 
       **Final full-corpus re-run:** all 27 files, zero crashes,
       round1→round2 `diff -r` empty (27/27 idempotent). Compilation not
@@ -356,12 +355,12 @@ for §5.
       `include/simdjson/json_builder/json_builder.h` and
       `universal_formatter.h` use `^^`/`[: :]` but are `.h`-extensioned —
       `Lang.infer` maps `.h` to `"c"`, not `"cpp"` (pre-existing
-      C/C++/Java-job design), so every §5 rule (`lang.isCpp`-gated)
-      silently doesn't apply — no crash/corruption, just non-application
-      (confirmed: identical content reformats §5-aware under `.hpp` but not
-      `.h`). Not a blocked Open Question — documented for whoever next
-      touches `Lang.infer`'s `.h`-handling. **2026-07-28 re-assessment:**
-      still unchanged, still not this job's territory.
+      C/C++/Java-job design), so every §5 rule (`lang.isCpp`-gated) silently
+      doesn't apply — no crash/corruption, just non-application (confirmed:
+      identical content reformats §5-aware under `.hpp` but not `.h`). Not a
+      blocked Open Question — noted for whoever next touches `Lang.infer`'s
+      `.h`-handling. **2026-07-28 re-assessment:** unchanged, still not this
+      job's territory.
 - [x] Real-code testing pass against `ryanjk5.github.io/posts/rjk-duck`
       (blog post, not a repo) done. No local copy found; fetched via
       WebFetch, extracted all 26 C++ code samples into one file
@@ -372,9 +371,9 @@ for §5.
       (idempotent), zero crashes. Compilation not attempted (same
       too-old-compiler limitation as `wrocpp`/`simdjson`; no C++
       `verifiers` entry exists); idempotency + manual inspection used as
-      fallback. Spot-checked every `^^`/`[: :]` occurrence in round1
-      output: all 12 distinct `^^operand` forms stay tight; nested-bracket
-      interior renders loose, bare identifier tight — no corruption.
+      fallback. Spot-checked every `^^`/`[: :]` occurrence in round1 output:
+      all 12 distinct `^^operand` forms stay tight; nested-bracket interior
+      renders loose, bare identifier tight — no corruption.
 
       **One finding, out of scope, not fixed:** Sample 10's multi-statement
       lambda body inside a `std::views::transform([=](...) { ... })`
@@ -441,17 +440,17 @@ for §5.
         round1-formatted alike.
       - **Full `include/glaze/glaze.hpp` umbrella header (254 headers
         transitively) compiles clean with zero diagnostics, unmodified and
-        against the full round1-formatted `include/` tree** — the
-        strongest validation any C++26 dogfood session has achieved,
-        covering every header rather than a handful of spot-checked files.
+        against the full round1-formatted `include/` tree** — the strongest
+        validation any C++26 dogfood session has achieved, covering every
+        header rather than a handful of spot-checked files.
       - `jsonrpc_test.cpp`/`yaml_conformance.cpp` could not compile
         standalone (missing vendored test-only `ut/ut.hpp`, unrelated to
-        formatting) — not pursued, given the umbrella-header result already
+        formatting) — not pursued, since the umbrella-header result already
         covers the same reflection code.
-      Idempotency + manual inspection remains documented as the prior
-      fallback, but `-fsyntax-only` compilation is now the primary
-      validation, confirming zero formatter-induced compile regressions
-      across the entire `include/` tree.
+      `-fsyntax-only` compilation is now the primary validation (idempotency
+      + inspection remains the documented fallback), confirming zero
+      formatter-induced compile regressions across the entire `include/`
+      tree.
 
       **No fixtures added — zero bugs found within this job's scope
       (`CppSpecificRule.java`/§1-5 C++26 rules).** All 37 idempotency

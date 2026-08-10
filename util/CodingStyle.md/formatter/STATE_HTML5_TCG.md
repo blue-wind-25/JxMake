@@ -13,19 +13,18 @@ All four gaps (levels 1-4) are landed behind the cumulative
 **intentional by design, user-confirmed 2026-08-10, not a leftover TODO** —
 current behavior unchanged unless a caller opts in). Full-suite dogfood
 re-validation across all three corpora (`apache/ant manual/`,
-`WordPress/wordpress-develop`, `alexandersandberg/html5-elements-tester`)
-at both level `0` and level `4` came back clean — no regression
-attributable to any of the four gaps. `make test`: 236/236 forward +
-idempotency (244/244 after the 2026-08-05 refactor, which was zero-
-behavior-change). Originally split out of `STATE_DATA_FORMATS.md`'s "HTML5
-deep tree-construction edge cases" item 1 (2026-08-02); insertion-mode
-design settled the same day as `RDD_KEY_230`.
+`WordPress/wordpress-develop`, `alexandersandberg/html5-elements-tester`) at
+both level `0` and level `4` came back clean — no regression attributable to
+any of the four gaps. `make test`: 236/236 forward + idempotency (244/244
+after the 2026-08-05 refactor, zero-behavior-change). Originally split out
+of `STATE_DATA_FORMATS.md`'s "HTML5 deep tree-construction edge cases" item
+1 (2026-08-02); insertion-mode design settled the same day as `RDD_KEY_230`.
 
 **Real-world impact: low.** All four gaps are WPT's own deliberately
-pathological conformance fixtures; every dogfood corpus checked has
-formatted cleanly with respect to them — no real-world regression has ever
-been attributed to them. This job exists for spec-conformance completeness,
-not because a real corpus hit a bug.
+pathological conformance fixtures; every dogfood corpus checked formats
+cleanly with respect to them — no real-world regression has ever been
+attributed to them. This job exists for spec-conformance completeness, not
+because a real corpus hit a bug.
 
 ---
 
@@ -43,22 +42,22 @@ not because a real corpus hit a bug.
    recovery) — fiddliest of the four; done last.
 
 **Design decision (`RDD_KEY_230`, 2026-08-02, in `RDD_LOG.md`):** rejected
-the original framing of one large shared insertion-mode state machine.
-Actual design is three independent, narrow, config-gated state pieces:
-`bodyInserted` (gap 3); `isInTableInsertionMode()` +
-`FosterBuffer`/`fosterBufferStack` (gap 1); `currentFormElementPointer`
-(gap 2). No generic insertion-mode enum/frame stack; no attempt to model
-the full ~23-state HTML5 insertion-mode list. Narrow scope per gap does
-**not** mean low cumulative risk: gap 1 needs genuine tree mutation, gap 3
-sets a fabricated-node precedent, and four gated behaviors stack behind one
-config axis, each dogfooded before the next lands.
+one large shared insertion-mode state machine. Actual design is three
+independent, narrow, config-gated state pieces: `bodyInserted` (gap 3);
+`isInTableInsertionMode()` + `FosterBuffer`/`fosterBufferStack` (gap 1);
+`currentFormElementPointer` (gap 2). No generic insertion-mode enum/frame
+stack; no attempt to model the full ~23-state HTML5 insertion-mode list.
+Narrow scope per gap does **not** mean low cumulative risk: gap 1 needs
+genuine tree mutation, gap 3 sets a fabricated-node precedent, and four
+gated behaviors stack behind one config axis, each dogfooded before the
+next lands.
 
 **Contrast — fixes that did NOT need this design:** `RDD_KEY_223`
 (`apache/ant manual/running.html`, orphan `</p>`) only needed a name-only
-`Deque<String> openTagStack`, no insertion-mode value — a different kind of
-problem (name matching vs. mode-dependent behavior switches). Tag-name
-case-folding (`real_code_regressions_112`) was a self-contained lookup
-table, unrelated to tree shape.
+`Deque<String> openTagStack`, no insertion-mode value — name matching, not a
+mode-dependent behavior switch. Tag-name case-folding
+(`real_code_regressions_112`) was a self-contained lookup table, unrelated
+to tree shape.
 
 **Comparative risk note (2026-08-02):** GDR (`STATE_CURLY_GDR.md`) remains
 the more dangerous job in practice — demonstrated architectural collision
@@ -147,36 +146,35 @@ so no cross-boundary state store beyond one field is needed. Fixtures:
 `test/html_tc_gap_level2_form_unchanged_{inp,out}.html`.
 
 **Level 4 — adoption agency algorithm (`>= 4`).** New `FORMATTING_ELEMENTS`
-lookup set (`a`, `b`, `big`, `code`, `em`, `font`, `i`, `nobr`, `s`,
-`small`, `strike`, `strong`, `tt`, `u`); `pendingAdoptionNode`/
+lookup set (`a`, `b`, `big`, `code`, `em`, `font`, `i`, `nobr`, `s`, `small`,
+`strike`, `strong`, `tt`, `u`); `pendingAdoptionNode`/
 `pendingAdoptionOuterTagLower` pair set when a formatting element is
-implicitly closed because the next token is a real closing tag belonging
-to one of its ancestors (classic `<b>1<i>2</b>3</i>`); `pendingReconstruct
+implicitly closed because the next token is a real closing tag belonging to
+one of its ancestors (classic `<b>1<i>2</b>3</i>`); `pendingReconstruct
 FormattingTemplate` side channel (same Option-B shape), consumed by
-`parseNodes` right after adding that ancestor node, reconstructing a clone
-of the orphaned element as its next sibling via `reconstructFormattingElement`
+`parseNodes` right after adding that ancestor node, reconstructing a clone of
+the orphaned element as its next sibling via `reconstructFormattingElement`
 (mirrors `parseElement`'s tail logic but for a synthesized open tag).
-**Deliberately narrowed subset of the spec algorithm** (documented
-deviation, same pattern as levels 2-3): no reified "list of active
-formatting elements," no bounded-iteration furthest-block search, no
-bookmark-based re-insertion — full generality judged too large/risky for
-one checkpoint. What's implemented: only the single most-recently-orphaned
-formatting element is tracked (plain field, not a stack), detected only for
-the narrow "next token closes an ancestor" case, reconstructed as a plain
-next-sibling clone. **Known limitation:** a second, simultaneous misnesting
-(two formatting elements orphaned by the same ancestor's close) only
-reconstructs the innermost one — an outer one is silently dropped (field
-overwritten, not queued). Not fixed, logged for a future session.
-**Disposition (2026-08-10):** judged plausible to fix (upgrade the
-single-slot field to a small stack/list) — added to `XL.txt` TIER 9
-rather than left as permanent.
+**Deliberately narrowed subset of the spec algorithm** (documented deviation,
+same pattern as levels 2-3): no reified "list of active formatting
+elements," no bounded-iteration furthest-block search, no bookmark-based
+re-insertion — full generality judged too large/risky for one checkpoint.
+Implemented: only the single most-recently-orphaned formatting element is
+tracked (plain field, not a stack), detected only for the narrow "next token
+closes an ancestor" case, reconstructed as a plain next-sibling clone.
+**Known limitation:** a second, simultaneous misnesting (two formatting
+elements orphaned by the same ancestor's close) only reconstructs the
+innermost one — an outer one is silently dropped (field overwritten, not
+queued). Not fixed, logged for a future session. **Disposition (2026-08-10):**
+judged plausible to fix (upgrade the single-slot field to a small
+stack/list) — added to `XL.txt` TIER 9 rather than left as permanent.
 **Real bug found and fixed pre-fixture:** level 2's foster-parenting branch
 used an early `continue` that bypassed the level-4 reconstruction check
-entirely, silently dropping a formatting element that should have been
-both reconstructed AND foster-parented (e.g. inside a `<table>`). Fixed by
-turning the early `continue` into a `fostered` boolean so the level-4 check
-always runs afterward and routes its result into whichever destination the
-triggering ancestor itself landed in. Fixtures:
+entirely, silently dropping a formatting element that should have been both
+reconstructed AND foster-parented (e.g. inside a `<table>`). Fixed by turning
+the early `continue` into a `fostered` boolean so the level-4 check always
+runs afterward, routing its result into whichever destination the triggering
+ancestor landed in. Fixtures:
 `test/html_tc_gap_level4_adoption_agency_{inp,out}.html`,
 `test/html_tc_gap_level3_adoption_unchanged_{inp,out}.html`.
 
@@ -189,11 +187,11 @@ triggering ancestor itself landed in. Fixtures:
   disturbing earlier levels' guards.
 - Item 9 (final full-suite re-validation, 2026-08-03): re-ran all three
   dogfood corpora at level `0` and level `4`, plus full `make test`
-  (236/236 forward + idempotency). Every mismatch found traced to an
+  (236/236 forward + idempotency). Every mismatch traced to an
   already-documented, unrelated cause (RDD_KEY_223's gap, lowercase-prose-
   comment non-bug, level-1's own pre-existing Gutenberg-fragment wrapping
-  behavior) — none attributable to level 4 specifically. Confirms real-
-  world safety at max level.
+  behavior) — none attributable to level 4. Confirms real-world safety at
+  max level.
 - `CLAUDE.md`'s routing-table row was kept in sync at every checkpoint
   (design-landed → level 1 → levels 1-2 → levels 1-3 → all four levels +
   full-suite re-validated), per the rule that a resolved design decision is
@@ -210,19 +208,18 @@ triggering ancestor itself landed in. Fixtures:
 ## 2026-08-05 follow-up (pure readability refactor, zero behavior change)
 
 Every `html5TcGapLevel >= N` raw-integer-literal comparison site in
-`XmlSpecificRule.java` now compares against named `private static final
-int` constants declared alongside the `html5TcGapLevel` field:
+`XmlSpecificRule.java` now compares against named `private static final int`
+constants declared alongside the `html5TcGapLevel` field:
 `LEVEL_BODY_SYNTHESIS = 1`, `LEVEL_TABLE_FOSTER = 2`,
-`LEVEL_TEMPLATE_FORM = 3`, `LEVEL_FORMATTING_RECONSTRUCT = 4`. An `enum`
-was explicitly considered and rejected (discussed with the user) — the
-semantics are a genuinely cumulative ordered threshold, so `>=` against a
-plain `int` is correct and idiomatic; an enum would only relocate the same
-comparisons behind `.ordinal()` with no real gain. `Config.java`'s own
-`html5TcGapLevel` field has no comparison sites, so it needed no constants.
-Verified zero behavior change: `make test` unchanged at 244/244 forward +
-244/244 idempotency, plus a real-corpus spot check (`/tmp/ant/manual`, all
-`.html` files, at `html5-tc-gap-level=4` via env var) round1/round2
-byte-identical.
+`LEVEL_TEMPLATE_FORM = 3`, `LEVEL_FORMATTING_RECONSTRUCT = 4`. An `enum` was
+considered and rejected (discussed with the user) — the semantics are a
+genuinely cumulative ordered threshold, so `>=` against a plain `int` is
+correct and idiomatic; an enum would only relocate the same comparisons
+behind `.ordinal()` with no real gain. `Config.java`'s own `html5TcGapLevel`
+field has no comparison sites, so it needed no constants. Verified zero
+behavior change: `make test` unchanged at 244/244 forward + 244/244
+idempotency, plus a real-corpus spot check (`/tmp/ant/manual`, all `.html`
+files, at `html5-tc-gap-level=4` via env var) round1/round2 byte-identical.
 
 ---
 

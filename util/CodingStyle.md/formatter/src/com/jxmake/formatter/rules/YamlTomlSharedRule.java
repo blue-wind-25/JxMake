@@ -1,0 +1,155 @@
+/*
+ * Copyright (C) 2022-2026 Aloysius Indrayanto
+ *
+ * This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
+ * See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+ */
+
+package com.jxmake.formatter.rules;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
+
+import com.jxmake.formatter.FormatterSimpleBraced;
+
+/**
+ * Shared helper logic that was structurally identical between {@link YamlSpecificRule} and
+ * {@link TomlSpecificRule} (flagged in STATE_DATA_FORMATS.md as a possible future DRY
+ * improvement, now factored here): `#`-comment same-line splitting, the `#`-prefixed
+ * trailing-comment start-case/end-period normalization, and the `=`/`:`-alignment group-padding
+ * computation shared by both rules' {@code renderItems}. Pure pull-up -- no behavior change.
+ */
+final class YamlTomlSharedRule {
+
+    private YamlTomlSharedRule()
+    {
+    }
+
+    static String repeatChar(final char c, final int count)
+    {
+        final StringBuilder sb = new StringBuilder(count);
+        for(int i = 0; i < count; ++i) sb.append(c);
+
+        return sb.toString();
+    }
+
+    static String rtrim(final String s)
+    {
+        int end = s.length();
+        while( end > 0 && Character.isWhitespace( s.charAt(end - 1) ) ) end--;
+
+        return s.substring(0, end);
+    }
+
+    /**
+     * Splits off a same-line trailing `#` comment from {@code s}, respecting quotes -- a `#` only
+     *  starts a comment when it is at the start of the string or preceded by whitespace. Returns a
+     *  two-element array: [codePart (right-trimmed), commentPartOrNull].
+     */
+    static String[] splitTrailingComment(final String s)
+    {
+        boolean inSingle = false;
+        boolean inDouble = false;
+        for( int i = 0; i < s.length(); ++i ) {
+            final char ch = s.charAt(i);
+            if(inSingle) {
+                if(ch == '\'') inSingle = false;
+                continue;
+            }
+            if(inDouble) {
+                     if(ch == '\\') i++;
+                else if(ch == '"')  inDouble = false;
+                continue;
+            }
+                 if(ch == '\'') inSingle = true;
+            else if(ch == '"') inDouble = true;
+            else if( ch == '#' && ( i == 0 || s.charAt(
+                i - 1
+            ) == ' ' || s.charAt(
+                i - 1
+            ) == '\t' ) ) {
+                return new String[] {rtrim( s.substring(0, i) ), s.substring(i)};
+            }
+        } // for
+
+        return new String[] {rtrim(s), null};
+    }
+
+    /**
+     * Normalizes a same-line trailing `#...` comment: optional sole-trailing-period stripping,
+     *  then optional first-letter capitalization (skipping a already-uppercase/non-letter leading
+     *  character) -- identical logic previously duplicated verbatim in {@code YamlSpecificRule}
+     *  and {@code TomlSpecificRule}'s own private {@code normComment}.
+     */
+    static String normComment(
+        final String  commentText,
+        final boolean normalizeCommentStartCase,
+        final boolean normalizeCommentEndPeriod
+    )
+    {
+        String text = normalizeCommentEndPeriod ? ToolingCommentNormalizer.stripSoleTrailingPeriod(
+            commentText
+        ) : commentText;
+        if(!normalizeCommentStartCase) return text;
+        int i = 1;
+        while( i < text.length() && text.charAt(i) == ' ' ) i++;
+        if( i < text.length() ) {
+            final char ch = text.charAt(i);
+            if( Character.isLetter(
+                ch
+            ) && Character.isLowerCase(
+                ch
+            ) ) return text.substring(
+                0, i
+            ) + Character.toUpperCase(
+                ch
+            ) + text.substring(
+                i + 1
+            );
+        } // if
+
+        return text;
+    }
+
+    /**
+     * Computes per-item `=`/`:`-alignment padding for a run of {@code size} items, grouping
+     *  adjacent keyed items with no leading comment/blank-line break between them into independent
+     *  alignment groups (same shape as JSON's §1.1 grouping) -- identical loop previously
+     *  duplicated verbatim in {@code YamlSpecificRule}/{@code TomlSpecificRule}'s own
+     *  {@code renderItems}. Indexed via predicates/accessor rather than a shared item type, since
+     *  the two callers' own {@code Item} classes are unrelated (YAML's carries sequence/mapping
+     *  fields TOML has no use for, and vice versa).
+     */
+    static String[] computeColonAlignmentPadding(
+        final int           size,
+        final IntPredicate  isKeyed,
+        final IntPredicate  hasLeadingComments,
+        final IntPredicate  blankBefore,
+        final IntFunction<String> keyAt
+    )
+    {
+        final String[] padding    = new String[size];
+              int      groupStart = -1;
+        for( int i = 0; i <= size; ++i ) {
+            final boolean atEnd        = i == size;
+            final boolean breaksBefore = atEnd || !isKeyed.test(i) || hasLeadingComments.test(i) || blankBefore.test(i);
+            if(breaksBefore) {
+                if(groupStart >= 0 && i > groupStart) {
+                    final List<String> keys = new ArrayList<>();
+                    for(int g = groupStart; g < i; ++g) keys.add( keyAt.apply(g) );
+                    final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
+                    for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
+                }
+                groupStart = ( !atEnd && isKeyed.test(i) ) ? i : -1;
+            } // if
+            else if(groupStart < 0) {
+                groupStart = i;
+            }
+        } // for
+
+        return padding;
+    }
+
+} // class YamlTomlSharedRule

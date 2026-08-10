@@ -112,6 +112,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_264 | XML/HTML5 multi-line `<!-- -->` comments already in the conventional ` * `-per-line banner shape now get curly's `/* */` treatment (capitalize first line, strip sole trailing period, reindent) instead of RDD_KEY_232's blanket freeze-verbatim; new `XmlSpecificRule.tryBannerShape`/`Node.commentBannerLines`; closing `-->` renders flush at the comment's own indent (no curly-style alignment space -- user explicitly rejected that). Fixture `test/html_multiline_comment_banner_{inp,out}.html`. |
 | RDD_KEY_265 | JSON/JSON5/CSS ("SimpleBraced") comment normalization gains curly's grouping shape: new `FormatterSimpleBraced.normalizeComment`/`normalizeCommentTrivia`/`normalizeLineCommentChain`/`normalizeBlockComment`/`tryBannerShape`; json5's consecutive standalone `//` chain-group (only first capitalized, sole trailing period stripped only across the whole chain); a `/* */` block comment in banner shape gets single-unit treatment, any other multi-line shape falls back to the pre-existing whole-comment-scan behavior (not left untouched). Fixture `test/json5_comment_banner_{inp,out}.json5`; `test/json5_comments_out.json5` regenerated. |
 | RDD_KEY_266 | YAML/TOML `#`-comment chain-grouping parity with curly, shared implementation with the tooling job (RDD_KEY_267): new `ToolingCommentNormalizer.normalizeChain`; `YamlSpecificRule`/`TomlSpecificRule` each gained a `finalizeComments` deferred-normalization step (TOML also gained new per-comment blank-line tracking it lacked before). Fixtures `yaml_comment_chain_{inp,out}.yaml`/`toml_comment_chain_{inp,out}.toml`; 5 pre-existing YAML fixtures regenerated. |
+| RDD_KEY_280 | YAML/TOML DRY cleanup (Tier1 item): `YamlSpecificRule`/`TomlSpecificRule`'s duplicated `=`/`:`-alignment padding, same-line `#`-comment splitting, and comment start-case/end-period normalization factored into new package-private `rules/YamlTomlSharedRule.java`. Pure pull-up, no behavior change; `make test` 278/278 forward + idempotency before and after. |
 
 ---
 
@@ -748,9 +749,11 @@ per-repo dogfood bugs):
       purely structural (tight iff every element is a `Scalar`, no
       line-length check unlike YAML). §6.4 inline tables always
       single-line (grammar constraint). `=`-alignment and `#%` frozen-span/
-      comment logic structurally identical to YAML's (duplicated, not
-      factored into a shared helper — flagged as a possible future DRY
-      improvement). `FormatterToml` mirrors `FormatterYaml`.
+      comment logic was structurally identical to YAML's; the shared parts
+      (comment splitting/normalization, alignment-group padding) were
+      factored into `rules/YamlTomlSharedRule.java` — **RESOLVED,
+      RDD_KEY_280** (see Resolved Design Decisions). `FormatterToml` mirrors
+      `FormatterYaml`.
 - [x] **YAML/TOML local fixtures** authored ahead of implementation, then
       verified against real logic and uncommented in the Makefile:
       `yaml_core_*`, `yaml_comments_*`, `toml_core_*`, `toml_comments_*`.

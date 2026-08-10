@@ -103,10 +103,7 @@ public final class YamlSpecificRule {
 
     private static String repeatChar(final char c, final int count)
     {
-        final StringBuilder sb = new StringBuilder(count);
-        for(int i = 0; i < count; ++i) sb.append(c);
-
-        return sb.toString();
+        return YamlTomlSharedRule.repeatChar(c, count);
     }
 
     private String indent(final int depth)
@@ -153,28 +150,9 @@ public final class YamlSpecificRule {
 
     private String normComment(final String commentText)
     {
-        String text = normalizeCommentEndPeriod ? ToolingCommentNormalizer.stripSoleTrailingPeriod(
-            commentText
-        ) : commentText;
-        if(!normalizeCommentStartCase) return text;
-        int i = 1;
-        while( i < text.length() && text.charAt(i) == ' ' ) i++;
-        if( i < text.length() ) {
-            final char ch = text.charAt(i);
-            if( Character.isLetter(
-                ch
-            ) && Character.isLowerCase(
-                ch
-            ) ) return text.substring(
-                0, i
-            ) + Character.toUpperCase(
-                ch
-            ) + text.substring(
-                i + 1
-            );
-        } // if
-
-        return text;
+        return YamlTomlSharedRule.normComment(
+            commentText, normalizeCommentStartCase, normalizeCommentEndPeriod
+        );
     }
 
     /**
@@ -217,39 +195,7 @@ public final class YamlSpecificRule {
      */
     private static String[] splitTrailingComment(final String s)
     {
-        boolean inSingle = false;
-        boolean inDouble = false;
-        for( int i = 0; i < s.length(); ++i ) {
-            final char ch = s.charAt(i);
-            if(inSingle) {
-                if(ch == '\'') inSingle = false;
-                continue;
-            }
-            if(inDouble) {
-                     if(ch == '\\') i++;
-                else if(ch == '"')  inDouble = false;
-                continue;
-            }
-                 if(ch == '\'') inSingle = true;
-            else if(ch == '"') inDouble = true;
-            else if( ch == '#' && ( i == 0 || s.charAt(
-                i - 1
-            ) == ' ' || s.charAt(
-                i - 1
-            ) == '\t' ) ) {
-                return new String[] {rtrim( s.substring(0, i) ), s.substring(i)};
-            }
-        } // for
-
-        return new String[] {rtrim(s), null};
-    }
-
-    private static String rtrim(final String s)
-    {
-        int end = s.length();
-        while( end > 0 && Character.isWhitespace( s.charAt(end - 1) ) ) end--;
-
-        return s.substring(0, end);
+        return YamlTomlSharedRule.splitTrailingComment(s);
     }
 
     // ---- Line model ----------------------------------------------------------------------------
@@ -1134,30 +1080,13 @@ public final class YamlSpecificRule {
     {
         // Colon-alignment groups: a run of adjacent keyed items with no leading comment/blank/
         // frozen-span break between them, same shape as JSON's §1.1 grouping.
-        final String[] padding    = new String[ items.size() ];
-              int      groupStart = -1;
-        for( int i = 0; i <= items.size(); ++i ) {
-            final boolean atEnd        = i == items.size();
-            final boolean breaksBefore = atEnd || !items.get(
-                i
-            ).isKeyed() || !items.get(
-                i
-            ).leadingComments.isEmpty() || items.get(
-                i
-            ).blankBefore;
-            if(breaksBefore) {
-                if(groupStart >= 0 && i > groupStart) {
-                    final List<String> keys = new ArrayList<>();
-                    for(int g = groupStart; g < i; ++g) keys.add( items.get(g).key );
-                    final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
-                    for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
-                }
-                groupStart = ( !atEnd && items.get(i).isKeyed() ) ? i : -1;
-            } // if
-            else if(groupStart < 0) {
-                groupStart = i;
-            }
-        } // for
+        final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
+            items.size(),
+            i -> items.get(i).isKeyed(),
+            i -> !items.get(i).leadingComments.isEmpty(),
+            i -> items.get(i).blankBefore,
+            i -> items.get(i).key
+        );
 
         for( int i = 0; i < items.size(); ++i ) {
             final Item item = items.get(i);

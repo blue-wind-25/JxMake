@@ -10,7 +10,6 @@ package com.jxmake.formatter.rules;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
 
@@ -98,10 +97,7 @@ public final class TomlSpecificRule {
 
     private static String repeatChar(final char c, final int count)
     {
-        final StringBuilder sb = new StringBuilder(count);
-        for(int i = 0; i < count; ++i) sb.append(c);
-
-        return sb.toString();
+        return YamlTomlSharedRule.repeatChar(c, count);
     }
 
     private String indent(final int depth)
@@ -141,28 +137,9 @@ public final class TomlSpecificRule {
 
     private String normComment(final String commentText)
     {
-        String text = normalizeCommentEndPeriod ? ToolingCommentNormalizer.stripSoleTrailingPeriod(
-            commentText
-        ) : commentText;
-        if(!normalizeCommentStartCase) return text;
-        int i = 1;
-        while( i < text.length() && text.charAt(i) == ' ' ) i++;
-        if( i < text.length() ) {
-            final char ch = text.charAt(i);
-            if( Character.isLetter(
-                ch
-            ) && Character.isLowerCase(
-                ch
-            ) ) return text.substring(
-                0, i
-            ) + Character.toUpperCase(
-                ch
-            ) + text.substring(
-                i + 1
-            );
-        } // if
-
-        return text;
+        return YamlTomlSharedRule.normComment(
+            commentText, normalizeCommentStartCase, normalizeCommentEndPeriod
+        );
     }
 
     /** Finds the first unquoted, unbracketed '=' -- the key/value separator. Returns -1 if none. */
@@ -199,31 +176,7 @@ public final class TomlSpecificRule {
      */
     private static String[] splitTrailingComment(final String s)
     {
-        boolean inSingle = false;
-        boolean inDouble = false;
-        for( int i = 0; i < s.length(); ++i ) {
-            final char ch = s.charAt(i);
-            if(inSingle) {
-                if(ch == '\'') inSingle = false;
-                continue;
-            }
-            if(inDouble) {
-                     if(ch == '\\') i++;
-                else if(ch == '"')  inDouble = false;
-                continue;
-            }
-                 if(ch == '\'') inSingle = true;
-            else if(ch == '"') inDouble = true;
-            else if( ch == '#' && ( i == 0 || s.charAt(
-                i - 1
-            ) == ' ' || s.charAt(
-                i - 1
-            ) == '\t' ) ) {
-                return new String[] {rtrim( s.substring(0, i) ), s.substring(i)};
-            }
-        } // for
-
-        return new String[] {rtrim(s), null};
+        return YamlTomlSharedRule.splitTrailingComment(s);
     }
 
     /**
@@ -253,14 +206,6 @@ public final class TomlSpecificRule {
         if(delim == null) return false;
 
         return !value.substring( delim.length() ).contains(delim);
-    }
-
-    private static String rtrim(final String s)
-    {
-        int end = s.length();
-        while( end > 0 && Character.isWhitespace( s.charAt(end - 1) ) ) end--;
-
-        return s.substring(0, end);
     }
 
     /**
@@ -667,30 +612,13 @@ public final class TomlSpecificRule {
 
     private void renderItems(final List<Item> items, final StringBuilder out)
     {
-        final String[] padding    = new String[ items.size() ];
-              int      groupStart = -1;
-        for( int i = 0; i <= items.size(); ++i ) {
-            final boolean atEnd        = i == items.size();
-            final boolean breaksBefore = atEnd || !items.get(
-                i
-            ).isKeyed() || !items.get(
-                i
-            ).leadingComments.isEmpty() || items.get(
-                i
-            ).blankBefore;
-            if(breaksBefore) {
-                if(groupStart >= 0 && i > groupStart) {
-                    final List<String> keys = new ArrayList<>();
-                    for(int g = groupStart; g < i; ++g) keys.add( items.get(g).key );
-                    final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
-                    for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
-                }
-                groupStart = ( !atEnd && items.get(i).isKeyed() ) ? i : -1;
-            } // if
-            else if(groupStart < 0) {
-                groupStart = i;
-            }
-        } // for
+        final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
+            items.size(),
+            i -> items.get(i).isKeyed(),
+            i -> !items.get(i).leadingComments.isEmpty(),
+            i -> items.get(i).blankBefore,
+            i -> items.get(i).key
+        );
 
         for( int i = 0; i < items.size(); ++i ) {
             final Item item = items.get(i);

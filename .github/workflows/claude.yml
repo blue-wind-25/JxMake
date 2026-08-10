@@ -11,20 +11,31 @@
 #   Syntax:  @Claude[model:effort=maxturns+output]
 #            All parts optional; defaults shown below.
 #
-#   Param     Values                         Default
-#   --------  -----------------------------  -------
-#   model     haiku, sonnet, opus            sonnet
-#   effort    low, medium, high, xhigh, max  high
-#   maxturns  positive integer               20
-#   output    off, on                        off
+#   Param     Values                            Default
+#   --------  --------------------------------  -------
+#   model     haiku, sonnet, opus, fable         sonnet
+#   effort    low, medium, high, xhigh, max      xhigh
+#   maxturns  positive integer                   20
+#   output    off, on                            off
 #
 #   Models (resolved via GitHub Actions repo variables,
-#           with hardcoded fallbacks if unset):
-#     haiku  = fast/cheap; good for spell-check, small edits,
-#              formatting. May not reliably complete long
-#              multi-step agentic workflows.
-#     sonnet = recommended default for most coding tasks.
-#     opus   = complex refactors or architectural work.
+#           with hardcoded fallbacks to current model IDs if unset):
+#     haiku  = claude-haiku-4-5;  fast/cheap; good for spell-check,
+#              small edits, formatting. May not reliably complete
+#              long multi-step agentic workflows.
+#     sonnet = claude-sonnet-5;   recommended default for most
+#              coding tasks — near-Opus quality at Sonnet cost.
+#     opus   = claude-opus-5;     complex agentic coding, large
+#              refactors, and long-horizon architectural work.
+#     fable  = claude-fable-5;    Anthropic's most capable model,
+#              for the hardest reasoning and longest-horizon
+#              agentic runs. Pricier and slower than opus — use
+#              deliberately, not as a default.
+#
+#   effort default is xhigh — the recommended setting for coding
+#   and agentic work on current-generation models (and Claude
+#   Code's own default). Lower it (e.g. `:medium`) for small,
+#   latency-sensitive edits.
 #
 #   output:
 #     off (or `default`) = normal output (show_full_output=false)
@@ -36,9 +47,10 @@
 #
 #   To update model strings without editing this file,
 #   set repo/org variables (Settings → Variables):
-#     CLAUDE_MODEL_HAIKU   (default: haiku)
-#     CLAUDE_MODEL_SONNET  (default: sonnet)
-#     CLAUDE_MODEL_OPUS    (default: opus)
+#     CLAUDE_MODEL_HAIKU   (default: claude-haiku-4-5)
+#     CLAUDE_MODEL_SONNET  (default: claude-sonnet-5)
+#     CLAUDE_MODEL_OPUS    (default: claude-opus-5)
+#     CLAUDE_MODEL_FABLE   (default: claude-fable-5)
 #
 #   The @Claude mention itself is case-sensitive.
 #   All parameters are case-insensitive.
@@ -46,15 +58,16 @@
 #   Any invalid value fails the job immediately with usage info.
 #
 #   Examples:
-#     @Claude                     → sonnet, medium, 20, off
-#     @Claude[]                   → sonnet, medium, 20, off
+#     @Claude                     → sonnet, xhigh, 20, off
+#     @Claude[]                   → sonnet, xhigh, 20, off
 #     @Claude[haiku:low=10+on]    → haiku,  low,    10, on
 #     @Claude[Opus:High=50]       → opus,   high,   50, off
 #     @Claude[:high]              → sonnet, high,   20, off
-#     @Claude[:=30]               → sonnet, medium, 30, off
-#     @Claude[haiku:=10]          → haiku,  medium, 10, off
+#     @Claude[:=30]               → sonnet, xhigh, 30, off
+#     @Claude[haiku:=10]          → haiku,  xhigh, 10, off
 #     @Claude[Sonnet:high=20+on]  → sonnet, high,   20, on
-#     @Claude[:=+off]             → sonnet, medium, 20, off
+#     @Claude[fable:max=40]       → fable,  max,    40, off
+#     @Claude[:=+off]             → sonnet, xhigh, 20, off
 #
 # ============================================================
 
@@ -82,9 +95,10 @@ jobs:
     env:
       ISSUE_TITLE:  ${{ github.event.issue.title }}
       ISSUE_BODY:   ${{ github.event.issue.body || '' }}
-      MODEL_HAIKU:  ${{ vars.CLAUDE_MODEL_HAIKU  || 'haiku'  }}
-      MODEL_SONNET: ${{ vars.CLAUDE_MODEL_SONNET || 'sonnet' }}
-      MODEL_OPUS:   ${{ vars.CLAUDE_MODEL_OPUS   || 'opus'   }}
+      MODEL_HAIKU:  ${{ vars.CLAUDE_MODEL_HAIKU  || 'claude-haiku-4-5' }}
+      MODEL_SONNET: ${{ vars.CLAUDE_MODEL_SONNET || 'claude-sonnet-5'  }}
+      MODEL_OPUS:   ${{ vars.CLAUDE_MODEL_OPUS   || 'claude-opus-5'    }}
+      MODEL_FABLE:  ${{ vars.CLAUDE_MODEL_FABLE  || 'claude-fable-5'   }}
 
     steps:
       - uses: actions/checkout@v4
@@ -101,12 +115,12 @@ jobs:
           USAGE="
           Usage: @Claude[model:effort=maxturns+output]   (all parts optional)
 
-            Param     Values                         Default
-            --------  -----------------------------  -------
-            model     haiku, sonnet, opus            sonnet
-            effort    low, medium, high, xhigh, max  medium
-            maxturns  positive integer               20
-            output    off, on  (default = alias)     off
+            Param     Values                            Default
+            --------  --------------------------------  -------
+            model     haiku, sonnet, opus, fable         sonnet
+            effort    low, medium, high, xhigh, max      xhigh
+            maxturns  positive integer                   20
+            output    off, on  (default = alias)         off
           "
 
           # --- Case-sensitive extraction (-oP instead of -oiP to respect your rules) ---
@@ -142,14 +156,16 @@ jobs:
           case "$MODEL_RAW" in
             haiku)     MODEL="$MODEL_HAIKU"  ;;
             opus)      MODEL="$MODEL_OPUS"   ;;
+            fable)     MODEL="$MODEL_FABLE"  ;;
             sonnet|"") MODEL="$MODEL_SONNET" ;;
-            *)         ERRORS="${ERRORS}\n  - Unknown model '${MODEL_RAW}' (valid: haiku, sonnet, opus)" ;;
+            *)         ERRORS="${ERRORS}\n  - Unknown model '${MODEL_RAW}' (valid: haiku, sonnet, opus, fable)" ;;
           esac
 
-          # Effort
+          # Effort (xhigh is the recommended default for coding/agentic work
+          # on current-generation models, and Claude Code's own default)
           case "$EFFORT_RAW" in
             low|medium|high|xhigh|max) EFFORT="$EFFORT_RAW" ;;
-            "")                        EFFORT="high"        ;;
+            "")                        EFFORT="xhigh"       ;;
             *) ERRORS="${ERRORS}\n  - Unknown effort '${EFFORT_RAW}' (valid: low, medium, high, xhigh, max)" ;;
           esac
 

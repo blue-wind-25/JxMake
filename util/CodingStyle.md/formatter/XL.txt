@@ -180,7 +180,7 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 
    Use sub-agent. This can be a substantial work.
 
-=== TIER 1: Analysis/docs/testing only — ~zero regression risk ===
+=== TIER 1: Analysis/refactor/docs/testing only — ~zero regression risk ===
 
 NONE FOR NOW
 
@@ -188,45 +188,134 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
-NONE FOR NOW
+- [JS_TS] §8 getter/setter grouping: a plain method with no return-type token (e.g. `isValid()
+  {...}`) can't join the same aligned group as `get`/`set` siblings — output correct, just
+  unaligned.
+
+- [PYTHON3] §8 single-statement-body conservative-skip gaps: multi-physical-line header/body never
+  a join candidate; body with its own trailing comment conservatively skipped; never expands an
+  already-compact line back to block form; no `;`-chaining ever produced — deliberate
+  "skip-rather-than-risk-corruption" narrowing, not architecturally risky to extend.
 
 Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-NONE FOR NOW
+- [DATA_FORMATS] MathML `definitionurl`→`definitionURL` tag-fixup missing — no `mathmlDepth`
+  tracking exists (only `svgDepth` was built for the analogous SVG case); narrow, mirrors an
+  existing pattern.
+
+- [C_CPP_JAVA] `using` alias declarations not column-aligned — "NOT SCHEDULED (design decision)",
+  passes through unchanged (no corruption); legitimate future feature, additive/isolated to
+  `DeclarationAlignmentRule`.
+
+- [PYTHON3] §9 control-flow-blank-line gaps: multi-physical-line `def` header never recognized as
+  function-body-opening; semicolon-chained statements never recognized by either half; a
+  §8-compact preceding block ending in return/break/continue never recognized by §9.2; `try`/
+  `except`/`finally` blank-line placement entirely out of scope.
 
 Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-NONE FOR NOW
+- [CPP26] glaze dogfood: long initializer-list line wraps differently between round1 and round2
+  (`json_patch_test.cpp`) — genuine idempotency failure; idempotency mismatches in general
+  line-breaking logic have historically been pass-ordering bugs in this codebase.
+
+- [DATA_FORMATS] HTML5 deep tree-construction residual gaps: foster-parenting-driven tree reshaping
+  (`foreign_content_009/010.html`), misnested `<form>` reconstruction inside `<template>`, and
+  implicit `<body>` start-tag insertion are all still unimplemented — needs an explicit
+  open-elements-stack + HTML5 insertion-mode state machine, comparable in size/risk to general
+  scope-depth reindentation. Status quo doesn't corrupt output but isn't spec-faithful.
 
 Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-NONE FOR NOW
+- [PYTHON3] §5 f-string internal expression re-spacing out of scope (`f"{x  +  1}"` not normalized)
+  — blocked because the only inherited token-spacing helper is C-family-specific and mishandles
+  Python operators (`**`, `//`, `:=`, `and/or/not`, comprehension `for/if`).
+
+- [PYTHON3] f-string nested replacement field inside a format spec not recursively sub-tokenized
+  (`f"{x:{width}}"` inner field untouched) — "DEFERRED 2026-08-10 (not planned)", zero real-world
+  impact found against the full cpython corpus.
+
+- [PYTHON3] §4 decorator-call overflow/line-wrapping not implemented — blocked on missing shared
+  wrap-decision infrastructure (C-family's `enforceCallLineBreaking` isn't ported to Python3).
+
+- [PYTHON3] §6 inline-vs-one-per-line signature wrapping decision not implemented — same missing
+  wrap-decision infra as §4; currently alignment-only.
+
+- [JS_TS] Unreproduced `=`-alignment-group non-self-stability quirk seen while building the
+  RDD_KEY_142 fixture near `location_shim.ts` but never reproduced against the real file — flagged
+  to revisit only if a future dogfood run hits it again.
+
+- [CURLY_GDR] JS/TS regex literal (e.g. `/[{]/`) still tokenized as plain `TEXT`, not a string-like
+  unit — a bracket-family character inside a regex literal can miscount GDR's brace/paren depth;
+  localized to one `GdrTokenizer` method.
 
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-NONE FOR NOW
+- [C_CPP_JAVA] Shared curly-family declaration/assignment double-pass ordering bug
+  (`ScopePipelineCurly.processScope` outer-first-then-recurse architecture) — a still-open sibling
+  instance in `applyAssignmentsPass` (repro: TypeScript `harness/collectionsImpl.ts`), distinct
+  from the already-fixed `applyDeclarationsPass`/Java cases; same family that already caused
+  multiple reverted regression attempts before Java's own instance was fixed.
+
+- [C_CPP_JAVA] `openrewrite/rewrite` 2 residual cosmetic idempotency diffs, new trigger sites of
+  known bug families with no prior revert/regression history: switch-arrow braceless if/else
+  closing-brace placement instability (`ModerneWebsiteExampleTest.java`, same shape as the
+  cleanly-fixed Cluster 2); `List<String>` alignment-group padding collapses 3→1 space on round2
+  (`Pep508RequirementTest.java`, same shape as the cleanly-fixed Cluster 5). (The third
+  openrewrite diff — wrapped-call continuation indent growth — moved to Tier4 below: its own
+  file text cites the `PowerShellSpecificRule.java` bug family, which had 3 reverted fix attempts.)
+
+- [C_CPP_JAVA] `openrewrite/rewrite` wrapped-call continuation line gains 4 extra indent spaces on
+  round2 (`TabsAndIndentsVisitor.java`, `YamlParser.java`) — file's own text cites this as the same
+  "indent-width-decided-before-a-later-pass-grows-it" family as the `PowerShellSpecificRule.java`
+  self-format bug, whose fix took 4 sessions/attempts with Attempts 1-3 each explicitly reverted
+  for breaking 8 then 3 fixtures.
+
+- [C_CPP_JAVA] Non-idempotent declarations-pass reindent on internally-inconsistent source, second
+  occurrence (`ScopePipeline.applyDeclarationsPass`, `tool/JSONEncoderLite.java` repro) — same
+  architectural "raw-source-indent vs. scope-depth-indent divergence" bug class as the switch-case
+  gap that took 7 sessions to fix.
+
+- [JS_TS] `hasBreakableCall` under-approximation ("known residual limitation"): the braceless-
+  if/else collapse-rescue heuristic only checks whether a rescuable call exists, not whether
+  wrapping it actually brings the line under `lineLengthLimit` — same "which pass sees final
+  stable width" architectural class as RDD_KEY_245/246/248/249/250, one of which (RDD_KEY_249) had
+  a reverted regression-causing fix attempt.
+
+- [PYTHON3] CLI/IO lossy UTF-8 decode on genuinely-invalid-UTF-8 input — silently replaces invalid
+  bytes with U+FFFD, changing the file's byte content; narrow (one instance across all dogfooded
+  corpora) but a real data-integrity issue at the IO layer.
+
+- [CURLY_GDR] Unverified risk: GDR's second multipass cycle (GDR-2) interacting with the pipeline's
+  own relative-delta reindenters (`SwitchRule.applyNonInlineCaseIndent`,
+  `ScopePipeline.applyDeclarationsPass`, the STYLE.md §8 continuation-indent renderer) — GDR-2
+  could silently overwrite already-STYLE.md-compliant indentation those passes just wrote.
+  Adversarial testing only covered a Java switch-in-if case; TS/Kotlin switch-case/ternary-wrap
+  combinations are untried. Same bug family this job has already regressed on before.
 
 Use sub-agent. This can be a substantial work.
 
 NOTE: [2026-08-10] The 3 former entries here were removed as `README.md` Known Limitations entry:
-- apache/ant `JikesOutputParser.java`
-- ohmyzsh `tools/upgrade.sh` pipe-spacing
-- Kotlin D3 wrap-decision-flap statement-boundary tracking
+- apache/ant `JikesOutputParser.java`.
+- ohmyzsh `tools/upgrade.sh` pipe-spacing.
+- Kotlin D3 wrap-decision-flap statement-boundary tracking.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
 - [CURLY_GDR] `curly-general-scope-reindent = on` correctness still a "hard, multi-session
   problem" (continuation-vs-block depth, exclusion zones, ordering). HIGH risk (architectural,
   prior attempts regressed fixtures), high value (completes an already-shipped-but-default-off
-  feature).
+  feature). Subsumes two narrower open facets already named elsewhere in `STATE_CURLY_GDR.md`:
+  the `MAX_MULTIPASS_CYCLES = 20` convergence cap's untested adequacy on deeper/wider shapes, and
+  `GdrTokenizer`'s general "acceptable at this stage" literal-shape-coverage caveat — neither
+  needs its own separate line item.
 
 - [C_CPP_JAVA] Retire `SwitchRule.applyNonInlineCaseIndent`/`ScopePipeline.applyDeclarationsPass`
   in favor of GDR pre-pass's absolute-target model — cleanup/consolidation, not a bug fix; medium
@@ -251,6 +340,12 @@ Use sub-agent. This can be a substantial work.
 
 - [AI] Dedicated GRU for non-Latin/mixed-language comments (currently always ABSTAIN via
   `NonLatinScriptGate`).
+
+- [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping
+  (`MiscRuleCore.stripSoleTrailingPeriod`'s `dotCount != 1` case). CLOSED 2026-08-11: the
+  task-separation path (second model/weights file, or a schema/task field on the shared
+  abstain-resolution pipeline) is decided against permanently — cross-cutting correctness risk to
+  the main GRU classifier's 92%+ precision outweighs closing this narrow gap. See `STATE_AI.md`.
 
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any small model size tested.

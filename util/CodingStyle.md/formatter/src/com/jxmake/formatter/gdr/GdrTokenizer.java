@@ -83,6 +83,7 @@ public final class GdrTokenizer {
                 scanBlockComment();
                 continue;
             }
+            if( c == '/' && scanRegexLiteralIfPresent() ) continue;
             if( c == '"' && i + 2 < n && source.charAt(
                 i + 1
             ) == '"' && source.charAt(
@@ -309,6 +310,139 @@ public final class GdrTokenizer {
             ++i;
         } // while
         tokens.add( new GdrToken( type, source.substring(start, i), startLine ) );
+    }
+
+    /**
+     * JS/TS regex literal ({@code /pattern/flags}), treated as a single opaque {@code STRING} token --
+     * disambiguated from division by checking whether the preceding non-whitespace token permits an
+     * expression start.
+     */
+    private boolean scanRegexLiteralIfPresent()
+    {
+        if( !isRegexLiteralAllowedHere() ) return false;
+
+        int     start       = i;
+        int     startLine   = line;
+        int     j           = i + 1; // Consume opening '/'
+        boolean inCharClass = false;
+        boolean closed      = false;
+
+        while(j < n) {
+            char cc = source.charAt(j);
+            if(cc == '\\' && j + 1 < n) {
+                j += 2;
+                continue;
+            }
+            if(cc == '\n' || cc == '\r') break;
+            if(cc == '[') {
+                inCharClass = true;
+                ++j;
+                continue;
+            }
+            if(cc == ']') {
+                inCharClass = false;
+                ++j;
+                continue;
+            }
+            if(cc == '/' && !inCharClass) {
+                ++j;
+                while( j < n && Character.isLetter( source.charAt(j) ) ) j++;
+                closed = true;
+                break;
+            }
+            ++j;
+        } // while
+
+        if(!closed) return false;
+
+        flushText();
+        tokens.add( new GdrToken( GdrTokenType.STRING, source.substring(start, j), startLine ) );
+        i = j;
+
+        return true;
+    }
+
+    private boolean isRegexLiteralAllowedHere()
+    {
+        int k = i - 1;
+        while(k >= 0) {
+            char ch = source.charAt(k);
+            if(ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n') {
+                --k;
+                continue;
+            }
+            if(ch == '/' && k > 0 && source.charAt(k - 1) == '*') {
+                k -= 2;
+                while(k >= 1 && !(source.charAt(k) == '/' && source.charAt(k - 1) == '*')) {
+                    --k;
+                }
+                if(k >= 1) k -= 2;
+                else k = -1;
+                continue;
+            }
+            break;
+        } // while
+
+        if(k < 0) return true;
+
+        char ch = source.charAt(k);
+
+        if(ch == ')' || ch == ']' || ch == '}' || ch == '"' || ch == '\'' || ch == '`') {
+            return false;
+        }
+
+        if(ch >= '0' && ch <= '9') {
+            return false;
+        }
+
+        if( isIdChar(ch) ) {
+            int wStart = k;
+            while( wStart > 0 && isIdChar( source.charAt(wStart - 1) ) ) wStart--;
+            String word = source.substring(wStart, k + 1);
+
+            return isRegexAllowedKeyword(word);
+        }
+
+        if(ch == '+' || ch == '-') {
+            if( k > 0 && source.charAt(k - 1) == ch ) {
+                return false; // ++ or --
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean isIdChar(char c)
+    {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '$';
+    }
+
+    private static boolean isRegexAllowedKeyword(String word)
+    {
+        switch(word) {
+            case "return":
+            case "yield":
+            case "case":
+            case "await":
+            case "typeof":
+            case "delete":
+            case "void":
+            case "do":
+            case "else":
+            case "in":
+            case "instanceof":
+            case "of":
+            case "new":
+            case "throw":
+            case "default":
+            case "export":
+            case "import":
+            case "from":
+            case "as":
+                return true;
+            default:
+                return false;
+        } // switch
     }
 
 } // class GdrTokenizer

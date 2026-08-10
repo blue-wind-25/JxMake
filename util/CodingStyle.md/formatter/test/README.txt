@@ -666,6 +666,14 @@ General Scope-Depth Reindentation:
                                                         generators), tool/JSONEncoderLite.java, and
                                                         serge-sans-paille/frozen.
 
+  curly_gdr_js_regex_inp/out.ts                      -- JS/TS regex literal containing bracket-family
+                                                        characters (`/[{]/`, `/[(]/`) with
+                                                        curly-general-scope-reindent=on via in-file config --
+                                                        proves GdrTokenizer (STATE_CURLY_GDR.md) correctly
+                                                        tokenizes JS/TS regex literals as string-like units
+                                                        (STRING) rather than plain TEXT, preventing regex
+                                                        interior brackets from miscounting structural depth.
+
   html_js_flush_left_inp/out.html                    -- Entire document flushed to column 0, multiple tags on
                                                         a single line (`<head>...</head>`, stacked
                                                         `<span>`/`<li>` siblings), and an embedded `<script>`

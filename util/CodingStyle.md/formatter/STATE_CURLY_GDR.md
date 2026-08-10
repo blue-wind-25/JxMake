@@ -1199,10 +1199,9 @@ fix** — nothing else. Concretely:
   `curly-general-scope-reindent` is on. `GdrTokenizer` gained
   `scanTemplateLiteral` (backtick `` ` `` template literals) to avoid
   misreading `${...}` interpolation content as real bracket depth.
-  **Known gap, not yet fixed:** a JS/TS regex literal (e.g. `/[{]/`) is
-  still tokenized as ordinary `TEXT`, not a string-like unit, so a
-  bracket-family character inside one can still miscount depth — see
-  `RDD_KEY_228` for detail.
+  **JS/TS regex literal tokenization landed:** `GdrTokenizer` recognizes JS/TS regex literals
+  (e.g. `/[{]/`), tokenizing them as `STRING` tokens so bracket-family characters inside regex
+  literals do not miscount structural brace/paren depth (see `curly_gdr_js_regex_inp/out.ts`).
 - Out of scope entirely for this job: any change to data-format
   (JSON/YAML/etc.) or Python3 indentation logic, and HTML/XML's own
   element-nesting indentation (structurally indent-based already, not a

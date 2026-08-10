@@ -276,18 +276,18 @@ gru-train: $(JAR_FILE)
 # Usage:
 #     make gru-cv-corpus
 #     make gru-cv-corpus GRU_CV_ROUNDS=3 GRU_CV_LOG=/tmp/my_cv.log
-#     ( make gru-cv-corpus cd ~; data-ro.sh ) < /dev/null > /tmp/gru_cv_corpus.out 2>&1 &
+#     ( make gru-cv-corpus; cd ~; data-ro.sh ) < /dev/null >> /tmp/gru_cv_corpus.out 2>&1 &
 #
 GRU_CV_ROUNDS   ?= 5
 GRU_CV_WORK_DIR ?= $(GRU_BUILD_DIR)/cv_corpus
 GRU_CV_LOG      ?= $(GRU_BUILD_DIR)/cv_corpus.log
-GRU_CV_ARGS     ?= --epochs 40 --patience 6 --eval-threshold 0.7
+GRU_CV_ARGS     ?= --epochs 9 --patience 3 --eval-threshold 0.7 --progress-every=5000
 
 gru-cv-corpus: $(JAR_FILE)
 	@mkdir -p $(GRU_BUILD_DIR)
 	@echo "gru-cv-corpus: starting $(GRU_CV_ROUNDS)-round CV on $(GRU_SAMPLE_DEFAULT), logging to $(GRU_CV_LOG)"
 	@echo "gru-cv-corpus: this retrains from scratch $(GRU_CV_ROUNDS) times on the full corpus -- expect several hours"
-	@python3 $(GRU_TOOLS_DIR)/cross_validate.py $(GRU_SAMPLE_DEFAULT) --rounds $(GRU_CV_ROUNDS) --work-dir $(GRU_CV_WORK_DIR) $(GRU_CV_ARGS) > $(GRU_CV_LOG) 2>&1
+	@python3 $(GRU_TOOLS_DIR)/cross_validate.py $(GRU_SAMPLE_DEFAULT) --rounds $(GRU_CV_ROUNDS) --work-dir $(GRU_CV_WORK_DIR) $(GRU_CV_ARGS) >> $(GRU_CV_LOG) 2>&1
 	@echo "gru-cv-corpus: done, see $(GRU_CV_LOG)"
 	@tail -n 8 $(GRU_CV_LOG)
 

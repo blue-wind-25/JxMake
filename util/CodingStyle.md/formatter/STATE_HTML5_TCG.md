@@ -249,6 +249,68 @@ files, at `html5-tc-gap-level=4` via env var) round1/round2 byte-identical.
 
 ---
 
+## Open Questions
+
+**Level 4 two-simultaneous-misnesting fix (`XL.txt` TIER 9 item) — blocked,
+2026-08-11, needs user decision.** Investigated upgrading
+`pendingAdoptionNode`/`pendingAdoptionOuterTagLower` (single field pair) to a
+small stack/list so a second, simultaneous misnesting under the same
+ancestor doesn't overwrite the first instead of being queued (see Level 4's
+"Known limitation" note above).
+
+Root cause confirmed by tracing `parseElement`/`parseNodes`: for
+`<b>1<i>2<u>3</b>4</i>5</u>6</p>` (or without the `<p>` wrapper), `<u>` is
+orphaned first (`pendingAdoptionNode = u`, ancestor `b`), then before `b`
+actually closes, `<i>` is *also* orphaned by the same eventual `</b>`
+(`pendingAdoptionNode = i`, overwriting `u`) — confirmed via a Java debug
+print that `u`'s entry is silently dropped exactly as documented.
+
+Built a minimal repro and checked real spec-correct ground truth using
+`parse5` (a real HTML5-tree-construction-spec implementation, already
+installed under `~/mynpm/node_modules`, invoked via
+`tools/verifiers/_exec_node_env.sh`) rather than guessing:
+
+```
+input:  <b>1<i>2<u>3</b>4</i>5</u>6
+spec output:
+  <b>1<i>2<u>3</u></i></b><i><u>4</u></i><u>5</u>6
+```
+
+This is materially more complex than "queue both orphaned elements, replay
+each once": the spec's real output needs **three separate reconstruction
+events**, not one — (1) `<i>` wrapping a nested `<u>` reconstructed right
+after `<b>`'s real close, holding `"4"`; (2) a **second, independent** `<u>`
+reconstruction after *that* reconstructed `<i>`'s own matching close,
+holding `"5"`; (3) plain trailing text `"6"` with no further reconstruction.
+This is the spec's "reconstruct the active formatting elements" step, which
+re-fires again after each subsequent close/text-insert, not a one-shot
+replay of a queued list — a genuinely bigger mechanism (closer to the full
+active-formatting-elements list the existing design deliberately rejected
+for level 4, see the "Deliberately narrowed subset" paragraph above) than
+the "small, contained upgrade... not a rewrite of the adoption-agency
+algorithm" scope this fix was proposed under.
+
+**Not implemented.** Per STATE_COMMON.md's ambiguity-handling protocol,
+stopping here rather than shipping a queue-based fix that would produce an
+order different from real spec behavior (silently wrong in a new way,
+instead of the current honestly-documented single-slot limitation). No
+source file touched this session. Options for a future session, needing a
+user decision on which to pursue:
+
+1. Leave the known limitation as-is (already accepted/documented, low
+   real-world impact per this file's own top-of-file dogfood findings —
+   needs two *simultaneous* misnestings, which real-world corpora have never
+   hit).
+2. Implement the fuller "reconstruct active formatting elements on next
+   text/element insert" mechanism needed for spec-correct multi-misnesting
+   output — a materially bigger, riskier change than originally scoped,
+   effectively expanding level 4 toward the full spec algorithm the design
+   doc (`RDD_KEY_230`) deliberately rejected.
+3. Implement a queue-based fix that is a deliberate, documented
+   approximation (not spec-exact) or an incremental risk assessment.
+
+---
+
 ## Resolved Design Decisions index
 
 Full text in `RDD_LOG.md` (grep-only lookup, see `STATE_COMMON.md`):

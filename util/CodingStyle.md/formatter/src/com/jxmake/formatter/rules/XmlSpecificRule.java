@@ -220,6 +220,19 @@ public final class XmlSpecificRule {
         )
     );
 
+    /**
+     * Level-1 tc-gap (RDD_KEY_230, {@link #insertImplicitBodyIfNeeded}): the HTML5 spec's
+     *  "in head"/"before head" insertion-mode vocabulary -- element names that, when no explicit
+     *  {@code <head>} is present, still belong to an implicit head rather than triggering the
+     *  "head insertion mode closed" transition to body content. Tracked explicitly via
+     *  {@link #headInsertionModeClosed} rather than inferred per-call from sibling structure.
+     */
+    private static final java.util.Set<String> HEAD_ELIGIBLE_ELEMENTS = new java.util.HashSet<>(
+        java.util.Arrays.asList(
+            "title", "script", "style", "meta", "link", "base", "noscript"
+        )
+    );
+
     private static final java.util.Map<String, java.util.Set<String>> IMPLIED_CLOSE_TRIGGERS = new java.util.HashMap<>();
     static {
         IMPLIED_CLOSE_TRIGGERS.put(
@@ -352,6 +365,19 @@ public final class XmlSpecificRule {
      *  head-adjacent content nodes only ever gets one synthetic {@code <body>} inserted
      */
     private boolean bodyInserted;
+
+    /**
+     * Level-1 tc-gap fix (root cause noted in STATE_HTML5_TCG.md's "Known residual gap"): tracks
+     *  the real HTML5 tree-construction "head insertion mode closed" transition explicitly, instead
+     *  of inferring it per-call from sibling structure. Starts {@code false} for every document;
+     *  set {@code true} the moment {@link #insertImplicitBodyIfNeeded} either finds an explicit
+     *  {@code <head>} element, or encounters a top-level sibling that is not head-eligible (see
+     *  {@link #HEAD_ELIGIBLE_ELEMENTS}) -- mirroring the spec's own criterion for when "in head"/
+     *  "before head" insertion mode ends and "in body" begins. While this flag is still
+     *  {@code false}, a leading run of {@code <meta>}/{@code <title>}/{@code <script>}/etc. siblings
+     *  is head content, not body content, even when no explicit {@code <head>} tag exists at all.
+     */
+    private boolean headInsertionModeClosed;
 
     /**
      * Level-2 tc-gap (RDD_KEY_230, foster-parenting): one {@link FosterBuffer} per currently-open
@@ -646,14 +672,31 @@ public final class XmlSpecificRule {
                 "body"
             ) ) return;
         } // for
+        headInsertionModeClosed = false;
         int firstContentIdx = -1;
         for( int i = 0; i < target.size(); ++i ) {
             final Node n = target.get(i);
             if(n.type == NodeType.DOCTYPE || n.type == NodeType.COMMENT) continue;
             if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
                 "head"
-            ) ) continue;
+            ) ) {
+                // An explicit <head> closes head-insertion mode once we're past it -- everything
+                //  after belongs to "in body", matching the spec's real transition criterion.
+                headInsertionModeClosed = true;
+                continue;
+            } // if
             if( n.type == NodeType.TEXT && ( n.raw == null || n.raw.trim().isEmpty() ) ) continue;
+            if( !headInsertionModeClosed && n.type == NodeType.ELEMENT && n.tagName != null
+                && HEAD_ELIGIBLE_ELEMENTS.contains( n.tagName.toLowerCase( java.util.Locale.ROOT ) ) ) {
+                // No explicit <head> has appeared yet, and this sibling is head-eligible (e.g.
+                //  <meta>/<title>/<script>) -- per the real tree-construction insertion-mode
+                //  transition, this still belongs to an implicit head, not to body. Leave it out of
+                //  the body-wrap range rather than the old sibling heuristic that wrapped it.
+                continue;
+            } // if
+            // Any other real content closes head-insertion mode (spec: a non-head-eligible token
+            //  forces the implicit transition out of "before head"/"in head").
+            headInsertionModeClosed = true;
             firstContentIdx = i;
             break;
         } // for

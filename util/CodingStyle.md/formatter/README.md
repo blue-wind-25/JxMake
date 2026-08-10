@@ -500,12 +500,12 @@ key). Default `0`: current, strictly preserve-as-written HTML5 parsing, unchange
 
 - **Level `1`** — implicit `<body>` start-tag insertion: a document with no explicit `<body>`
   start tag anywhere gets one synthesized around the first non-head content and everything after
-  it — the first fabricated-node path in this otherwise preserve-as-written formatter. Known
-  gap: the synthesis point is a simplified heuristic (first non-whitespace/non-comment/
-  non-DOCTYPE/non-`<head>` sibling), not a true "head insertion mode closed" transition — can
-  misfire on documents with no explicit `<head>` either (wraps `<meta>`/`<title>`/`<script>` into
-  the synthesized `<body>` too early), and fires even on bare markup *fragments* (no full
-  document structure at all), wrapping them in a `<body>` too.
+  it — the first fabricated-node path in this otherwise preserve-as-written formatter. Tracks a
+  real "head insertion mode closed" transition (`headInsertionModeClosed`) rather than a sibling
+  heuristic, so `<meta>`/`<title>`/`<script>` siblings are correctly left out of the synthesized
+  `<body>` even on a document with no explicit `<head>` element at all. Known gap: still fires
+  even on bare markup *fragments* (no full document structure at all), wrapping them in a `<body>`
+  too.
 - **Level `2`** (+ level 1) — foster-parenting: content the spec requires relocated out of an
   open `<table>` and inserted immediately before it, rather than nested inside where the source
   text placed it. Known gap: `isInTableInsertionMode()` is implemented as a single-level "direct

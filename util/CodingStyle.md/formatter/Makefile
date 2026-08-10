@@ -276,7 +276,10 @@ gru-train: $(JAR_FILE)
 # Usage:
 #     make gru-cv-corpus
 #     make gru-cv-corpus GRU_CV_ROUNDS=3 GRU_CV_LOG=/tmp/my_cv.log
+#
+# CM5:
 #     ( make gru-cv-corpus; cd ~; data-ro.sh ) < /dev/null >> /tmp/gru_cv_corpus.out 2>&1 &
+#     clear && cat /tmp/gru_cv_corpus.out && echo && cat /mnt/data/pi/JxMake/util/CodingStyle.md/formatter/target/gru/cv_corpus.log && echo
 #
 GRU_CV_ROUNDS   ?= 5
 GRU_CV_WORK_DIR ?= $(GRU_BUILD_DIR)/cv_corpus
@@ -384,6 +387,7 @@ INP_FILES += html_multiline_comment_verbatim_inp.html
 INP_FILES += html_multiline_comment_banner_inp.html
 INP_FILES += html_tc_gap_level0_body_unchanged_inp.html
 INP_FILES += html_tc_gap_level1_body_insertion_inp.html
+INP_FILES += html_tc_gap_level1_no_head_inp.html
 INP_FILES += html_tc_gap_level1_foster_unchanged_inp.html
 INP_FILES += html_tc_gap_level2_foster_parenting_inp.html
 INP_FILES += html_tc_gap_level2_form_unchanged_inp.html

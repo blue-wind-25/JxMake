@@ -97,21 +97,39 @@ updated once level 1 landed (config-key index, Known Limitations section).
 `html5TcGapLevel` int field/getter, `"html5-tc-gap-level"` in `ALL_KEYS`.
 `XmlSpecificRule.java`: `bodyInserted` boolean field; `format()` calls
 `insertImplicitBodyIfNeeded(nodes)` after `parseNodes(false)`, before
-`renderNodes`. **Simplification:** rather than a real "head closed"
-insertion-mode transition, finds `<html>`'s children (or top-level node
-list), confirms no explicit `<body>` present, treats the first
+`renderNodes`. confirms no explicit `<body>` present, treats the first
 non-whitespace/non-comment/non-DOCTYPE/non-`<head>` sibling as the
 synthesis point, wraps it + all following siblings in one synthesized
-`<body>` element. **Known residual gap** (found via WPT `no-doctype-name.html`
-re-run, item 4): when source has no explicit `<head>` tag either, the
-heuristic wraps `<meta>`/`<title>`/`<script>` into `<body>` immediately
-instead of implicitly opening `<head>` first — spec-accuracy gap only, no
-crash/malformed output, logged as a known limitation, not fixed.
-**Disposition (2026-08-10):** judged plausible to fix (track a real "head
-insertion mode closed" transition instead of the sibling heuristic) —
-added to `XL.txt` TIER 9 rather than left as permanent.
+`<body>` element. **Known residual gap FIXED (2026-08-11):** when source
+had no explicit `<head>` tag either, the old sibling heuristic wrapped
+`<meta>`/`<title>`/`<script>` into `<body>` immediately instead of
+implicitly opening `<head>` first. Root cause: the synthesis point was
+picked by a sibling-shape heuristic (first non-whitespace/non-comment/
+non-DOCTYPE/non-`<head>` sibling) rather than a real tracked "head
+insertion mode closed" transition, so a leading `<meta>`/`<title>`/
+`<script>` run with no `<head>` wrapper had nothing to distinguish it from
+real body content. Fixed by adding a `headInsertionModeClosed` boolean
+field (reset at the top of every `insertImplicitBodyIfNeeded` call) plus a
+`HEAD_ELIGIBLE_ELEMENTS` lookup set (`title`, `script`, `style`, `meta`,
+`link`, `base`, `noscript` — the spec's own "in head" vocabulary). While
+scanning for the synthesis point: an explicit `<head>` sets the flag `true`
+and is skipped as before; while the flag is still `false`, a head-eligible
+sibling is also skipped (it belongs to an implicit head, not body); the
+first sibling that is neither closes the flag and becomes the synthesis
+point. Verified via a minimal repro (`<html>` with `<meta>`/`<title>`/
+`<script>` then `<h1>`/`<p>`, no `<head>` tag at all, `html5-tc-gap-level=1`):
+before the fix, all five siblings landed inside the synthesized `<body>`;
+after, `<meta>`/`<title>`/`<script>` stay outside `<body>` as direct
+`<html>` children, while `<h1>`/`<p>` still get wrapped correctly. The
+explicit-`<head>` case (the common case, e.g.
+`html_tc_gap_level1_body_insertion_{inp,out}.html`) is unchanged — verified
+byte-identical via `make test`. `README.md`'s Level-1 known-gap bullet
+updated to drop this sub-gap (the bare-fragment-wrapping sub-gap is
+unaffected and still documented).
 Fixtures: `test/html_tc_gap_level1_body_insertion_{inp,out}.html`,
-`test/html_tc_gap_level0_body_unchanged_{inp,out}.html`.
+`test/html_tc_gap_level0_body_unchanged_{inp,out}.html`,
+`test/html_tc_gap_level1_no_head_{inp,out}.html` (new, 2026-08-11 — no
+explicit `<head>` at all, proves the fix).
 
 **Level 2 — foster-parenting (`>= 2`).** New `TABLE_STRUCTURE_CHILDREN`
 lookup set (spec's "in table" vocabulary + `td`/`th` defensively);
@@ -192,6 +210,14 @@ ancestor landed in. Fixtures:
   comment non-bug, level-1's own pre-existing Gutenberg-fragment wrapping
   behavior) — none attributable to level 4. Confirms real-world safety at
   max level.
+- **2026-08-11 (level-1 no-`<head>` fix):** `make -k test` after the fix:
+  552 PASS, one pre-existing unrelated failure
+  (`test/real_code_regressions_148_inp.kt`, a Kotlin comment-normalization
+  drift, confirmed present identically when built against the unmodified
+  `HEAD` version of `XmlSpecificRule.java` — not caused by this change).
+  Every HTML5 fixture, including all four tc-gap levels' existing fixtures,
+  passed unchanged. New fixture `html_tc_gap_level1_no_head_{inp,out}.html`
+  passes.
 - `CLAUDE.md`'s routing-table row was kept in sync at every checkpoint
   (design-landed → level 1 → levels 1-2 → levels 1-3 → all four levels +
   full-suite re-validated), per the rule that a resolved design decision is

@@ -456,6 +456,17 @@ HTML5:
                                                         synthesized `<body>`, proving the `bodyInserted` guard
                                                         fires at most once per document).
 
+  html_tc_gap_level1_no_head_inp/out.html            -- STATE_HTML5_TCG.md tc gap job, level 1 fix
+                                                        (`html5-tc-gap-level=1` via in-file config): a
+                                                        document with no explicit `<head>` element at all --
+                                                        `<meta>`, `<title>`, and `<script>` siblings appear
+                                                        directly under `<html>` before an `<h1>`/`<p>` --
+                                                        proves the `headInsertionModeClosed` tracked
+                                                        transition (not the old sibling heuristic) keeps the
+                                                        head-eligible siblings out of the synthesized
+                                                        `<body>`, while the real content (`<h1>`, `<p>`) still
+                                                        gets wrapped.
+
   html_tc_gap_level1_foster_unchanged_inp/out.html   -- Same table-with-stray-content shape as the level-2
                                                         fixture below, but at `html5-tc-gap-level=1` via
                                                         in-file config -- proves foster-parenting stays fully

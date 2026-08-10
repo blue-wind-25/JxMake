@@ -760,6 +760,92 @@ transformations, sampled and confirmed with no evidence of a distinct new
 formatter bug. RDD_KEY_278 and RDD_KEY_279 are both validated at full-corpus
 scale by this run.
 
+**2026-08-11 follow-up: KDoc leading-asterisk/fenced-code-block spacing
+checker gap — FIXED, but corrects this section's own over-generalization.**
+The 412-file "comment-only mismatches" bucket above was described as having
+its root cause "identified via `KaScopeProvider.kt`" (a KDoc continuation
+line's `*` gaining/losing exactly one space before a fenced-code-block
+backtick run, e.g. `*```` -> `* ````). That description was accurate for
+`KaScopeProvider.kt` itself but turned out to be an over-generalization when
+re-checked against the full 412-file list — the bucket is heterogeneous, not
+one single root cause repeated 412 times.
+
+Fix landed in `tools/verifiers/kotlin_content_diff.java`: new
+`normalizeKdocAsteriskFenceSpacing(String)`, applied in `stripCommentDelims`
+before whitespace normalization — regex `\*[ \t]*(` + "`" + `+)` -> `* $1`,
+inserting exactly one space between a literal `*` and a following backtick
+run regardless of how many (including zero) whitespace characters separated
+them in the source. Deliberately narrow, per the task's ambiguity-protocol
+guidance to prefer the narrowest fix: `normalizeWhitespace`'s existing
+`\s+` -> `" "` collapse cannot equate "zero space" with "one space" (there is
+no whitespace run to collapse on the zero-space side), so this needed its own
+targeted rule rather than being already covered. Only a literal `*`
+immediately adjacent to a backtick run is touched — no other whitespace
+shape in a comment body is affected, so a real dropped/added/reordered word
+elsewhere (including inside the same fenced block) is still caught
+unchanged.
+
+**Verification against the named repro:** `KaScopeProvider.kt` (original
+`/tmp/jb_kotlin_kt_new/kotlin-master/...`, fresh round1
+`/tmp/kt_r1_content/...`, both still on disk from the just-completed
+16153-file run) went from `MISMATCH` (flagging exactly the `*```` /
+`* ````` difference, confirmed via direct `diff`) to `OK: content preserved`.
+
+**Negative controls (hand-crafted, `/tmp/kcd_neg`, not registered as
+permanent fixtures):** (1) two KDoc comments differing only by a real
+sentence change outside the fenced block (`"a real sentence about foo"` vs
+`"a totally different sentence about bar"`) — still correctly flagged
+MISMATCH. (2) two KDoc comments whose fenced-code-block CONTENT differs
+(`bar()` dropped from inside the fence, distinct from the fence's own
+delimiter spacing) — still correctly flagged MISMATCH, confirming the fix
+doesn't widen to swallow a real change merely because it's near a backtick
+fence.
+
+**Bucket re-check — the actual finding, correcting the "412/72%" framing
+above:** recovered the exact 412-file comment-only list from this run's own
+three chunk logs (`/tmp/kt_content_diff_a{a,b,c}.log`, still on disk;
+parsed by matching each `MISMATCH` block's own reason lines) and re-ran
+`kotlin_content_diff` (batch mode) against all 412 with the fix applied:
+
+```
+SUMMARY: 12 OK, 400 MISMATCH/ERROR, 0 MISSING (of 412 files checked)
+```
+
+Before this fix: 0/412 OK (all 412 were MISMATCH by definition, since that's
+how the bucket was selected from the prior run's logs). After: 12/412 OK —
+a real but small improvement, not the "close to zero" the background section
+anticipated. Hand-sampling ~30 of the remaining 400 found the bucket actually
+contains several DIFFERENT, previously-undocumented comment-tolerance gaps,
+none of which are the KDoc-fence-spacing shape this fix targets:
+- A `when (val x = expr)`-closing-comment mismatch family (~118 of the 400)
+  where the *call-wrapping* transform (an argument list broken across lines)
+  bakes extra spaces around parens/commas into the emitted closing-comment
+  text (e.g. `getContributedClassifier( descriptor.name, ... )`), which
+  `collectWhenClosingComments`'s variant (built from the ORIGINAL source's
+  un-wrapped, un-padded subject text) doesn't match — a distinct gap in the
+  RDD_KEY_278 `when`-closing-comment mechanism, not the KDoc-fence issue.
+- Closing-brace annotations for ordinary functions/blocks not covered by
+  `CONTROL_FLOW_CLOSING`'s control-flow-keyword-only list or
+  `namedConstructClosingComments`'s class/object/init-only list (single
+  words like `c`, `org`, `y`, `kind`, `common`, `TestClass`).
+- KDoc first-continuation-line leading-`*` presence/absence differences
+  unrelated to a fenced code block (e.g. `"* a boolean flag..."` vs
+  `"a boolean flag..."`).
+- `@sample` KDoc-tag list merging/reordering differences.
+
+**Disposition:** the fix as scoped (task item 2) is complete, correct, and
+verified against its named repro and both negative controls — not widened
+further, since each of the four causes above is its own separate gap needing
+its own separate investigation/fix, not a natural extension of "asterisk
+before a backtick run." Widening this fix to cover them would mean guessing
+at unrelated shapes without their own repro/negative-control pairs, against
+this session's narrow mandate. Left as documented future checker-improvement
+work, same "out of scope for this run" posture the original 2026-08-11 run
+already took toward the whole 570-file remainder. `make test`: 277/277
+forward + idempotency, unaffected (this fix touches only
+`tools/verifiers/kotlin_content_diff.java`, not any file `make test`
+exercises).
+
 **Tools/compiler used**
 
 (1) `kotlinc` — bare standalone compiler, e.g.:

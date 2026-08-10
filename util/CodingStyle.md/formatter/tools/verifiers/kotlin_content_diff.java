@@ -244,6 +244,26 @@ public class kotlin_content_diff {
         return s;
     }
 
+    /**
+     * KDoc continuation-line leading-asterisk spacing before a fenced code
+     *  block (STYLE_KOTLIN.md's KDoc formatting) is a legitimate,
+     *  intentional transform -- the formatter normalizes `*```` (no space
+     *  between the continuation `*` and a following backtick-fence run) to
+     *  `* ```` (exactly one space), or vice versa. normalizeWhitespace's
+     *  `\s+` -> " " collapse alone can't equate these: one side has ZERO
+     *  whitespace characters between `*` and the backtick run, the other has
+     *  one, so there's no existing whitespace run for `\s+` to collapse on
+     *  the zero-space side. Deliberately narrow -- only touches a literal
+     *  `*` immediately followed by (optional whitespace then) one or more
+     *  backticks, normalizing to exactly one space between them. Does not
+     *  touch any other `*`/backtick adjacency shape, so it can't mask a
+     *  dropped/added/reordered word elsewhere in the comment body.
+     */
+    static String normalizeKdocAsteriskFenceSpacing(String s)
+    {
+        return s.replaceAll( "\\*[ \\t]*(`+)", "* $1" );
+    }
+
     static String stripCommentDelims(String text)
     {
         String t = text.trim();
@@ -251,6 +271,8 @@ public class kotlin_content_diff {
         else if( t.startsWith("//") )  t = t.substring(2);
         else if( t.startsWith("/**") ) t = t.substring( 3, Math.max( 3, t.length() - 2 ) );
         else if( t.startsWith("/*") )  t = t.substring( 2, Math.max( 2, t.length() - 2 ) );
+
+        t = normalizeKdocAsteriskFenceSpacing(t);
 
         return normalizeTrailingPeriod( normalizeWhitespace(t).toLowerCase() );
     }

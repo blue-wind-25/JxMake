@@ -1,57 +1,53 @@
 # STATE_TOOLING.md — Build/Dev-Tooling Script Formatter Tracker (Makefile, Bash, PowerShell)
 
 Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
-this file assumes. No other job's `STATE_*.md` is required reading.
-Dogfood corpus status: see `STATE_DOGFOOD.md` (candidates registered as
-`NOT STARTED`; nothing in this job has reached a real-code run yet).
+this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
+status: see `STATE_DOGFOOD.md` (candidates registered `NOT STARTED`; no
+real-code run yet).
 
 ---
 
 ## Purpose
 
-Tracks three separate, narrow, beautification-only formatters — Makefile,
-Bash, and PowerShell — per `STYLE_TOOLING.md`. Grouped into one job because
-none of the three is large enough to warrant its own file (unlike, say,
-Kotlin or JS/TS), the same way `STATE_DATA_FORMATS.md` groups seven data
-formats.
+Tracks three narrow, beautification-only formatters — Makefile, Bash, and
+PowerShell — per `STYLE_TOOLING.md`. Grouped into one job since none is
+large enough to warrant its own file (unlike Kotlin or JS/TS), same as
+`STATE_DATA_FORMATS.md` grouping seven data formats.
 
-**Makefile, Bash, and PowerShell all implemented.** Makefile landed
-real logic (`Lang.isMakefile`, `FormatterMakefile`, `MakefileSpecificRule`);
-Bash landed real logic (`Lang.isBash`, `FormatterBash`, `BashSpecificRule`,
-all five §2 rules); PowerShell landed real logic (`Lang.isPowerShell`,
+**All three implemented:** Makefile (`Lang.isMakefile`, `FormatterMakefile`,
+`MakefileSpecificRule`); Bash (`Lang.isBash`, `FormatterBash`,
+`BashSpecificRule`, all five §2 rules); PowerShell (`Lang.isPowerShell`,
 `.ps1`/`.psm1` infer, `FormatterPowerShell`, `PowerShellSpecificRule`, all
-six §3 rules) — see the checklist below. `Lang.SCAFFOLD_ONLY_LANGUAGES`
-remains unaffected (still empty) — makefile/bash/powershell were added
-directly to `Lang.SUPPORTED_LANGUAGES` as each landed.
+six §3 rules) — see checklist below. `Lang.SCAFFOLD_ONLY_LANGUAGES` stays
+empty — each was added directly to `Lang.SUPPORTED_LANGUAGES` as it landed.
 
 **Canonical language order** for any documentation/help-string/`--lang`
-enumeration this job's languages join is recorded in `CLAUDE.md` (search
-"Canonical language order") — `makefile`, `bash`, `powershell` come last,
-after `python3`. `README.md`, `../README.txt`, and `CLAUDE.md` all list
-the three as JAR-implemented (doc-sync checklist item below).
+enumeration is recorded in `CLAUDE.md` (search "Canonical language order")
+— `makefile`, `bash`, `powershell` come last, after `python3`. `README.md`,
+`../README.txt`, and `CLAUDE.md` all list the three as JAR-implemented
+(doc-sync checklist item below).
 
 ---
 
 ## Scope
 
-Each of the three languages has its own section in `STYLE_TOOLING.md`
-(§1 Makefile, §2 Bash, §3 PowerShell). Common thread distinguishing this
-job from every other language job in this repo: a short **fixed list** of
-specific transforms, with an explicit "leave everything else
-byte-identical" rule — no general-purpose reindentation/re-wrapping
-fallback like curly-brace or data-format languages have. Getting the
-"don't touch anything else" boundary right (via a real tokenizer per
-language, not naive text substitution) is the main risk for Bash and
-PowerShell; Makefile is line-oriented and only needs to distinguish
-tab-prefixed recipe lines from everything else — no tokenizer needed.
-Relative difficulty: Makefile easiest (pure line/regex); Bash and
+Each language has its own `STYLE_TOOLING.md` section (§1 Makefile, §2 Bash,
+§3 PowerShell). What distinguishes this job from every other language job:
+a short **fixed list** of specific transforms plus an explicit "leave
+everything else byte-identical" rule — no general-purpose
+reindentation/re-wrapping fallback like curly-brace or data-format
+languages have. Getting that "don't touch anything else" boundary right (a
+real tokenizer per language, not naive text substitution) is the main risk
+for Bash and PowerShell; Makefile is line-oriented and only needs to
+distinguish tab-prefixed recipe lines from everything else — no tokenizer
+needed. Relative difficulty: Makefile easiest (pure line/regex); Bash and
 PowerShell comparable, each needing a small real tokenizer (quoting,
 heredocs/here-strings, comments) so fixed-rule passes never fire inside a
 string/comment/heredoc — bounded scope, not a full grammar.
 
-Several open questions in `STYLE_TOOLING.md` (marked inline, "resolve via
-RDD before implementing") must be resolved before implementation starts
-on the affected rule — do not guess a default and implement against it.
+Several `STYLE_TOOLING.md` open questions (marked inline, "resolve via RDD
+before implementing") must be resolved before implementing the affected
+rule — do not guess a default and implement against it.
 
 ---
 
@@ -72,8 +68,8 @@ started (docs-only, no code landed yet).
 | RDD_KEY_259 | (**REVERSED by RDD_KEY_260** — no longer in effect) Comment normalization for all three reuses the shared comment-classifier pipeline — premise was factually wrong, see RDD_KEY_260 |
 | RDD_KEY_260 | **REVERSES RDD_KEY_259** — the shared classifier pipeline is curly-family-only (`MiscRuleCore`/`FormatterCurly`), not language-agnostic; Makefile/Bash/PowerShell comment normalization, if added, follows the simpler TOML-style ad hoc pattern instead |
 | RDD_KEY_261 | Comment normalization landed (refines, doesn't reverse, RDD_KEY_260): shared `ToolingCommentNormalizer` (start-case + end-period, reusing the existing global config keys) wired into all three; Bash alone gets a Unix-tool-name no-capitalize word list, Makefile/PowerShell get plain cap only |
-| RDD_KEY_267 | `#`-comment chain-grouping (2026-08-08 brief decision #3, parity with curly/RDD_KEY_265/RDD_KEY_266): consecutive standalone `#` comment lines now normalize as one unit via `ToolingCommentNormalizer.normalizeChain`, instead of each comment independently; fixed a latent bug where a mid-chain sole `.` (not on the chain's last comment) was incorrectly stripped by the old per-comment-only logic |
-| RDD_KEY_272 | Pure refactor: RDD_KEY_267's deferred-placeholder chain mechanism, previously duplicated near-identically in `BashSpecificRule`/`PowerShellSpecificRule`, extracted into a new shared `ToolingCommentNormalizer.ChainCollector` nested class (both files now hold one `ChainCollector` field instead of their own `ChainEntry`/`resolveChainEntries` copies); Makefile untouched (simple lookahead, no deferred mechanism). Byte-identical output, `make test` 261/261 unchanged before/after |
+| RDD_KEY_267 | `#`-comment chain-grouping (2026-08-08 brief #3, curly/RDD_KEY_265/RDD_KEY_266 parity): consecutive standalone `#` comment lines now normalize as one unit via `ToolingCommentNormalizer.normalizeChain` instead of independently; fixed a latent bug stripping a mid-chain sole `.` not on the chain's last comment |
+| RDD_KEY_272 | Pure refactor: RDD_KEY_267's deferred-placeholder chain mechanism (duplicated in `BashSpecificRule`/`PowerShellSpecificRule`) extracted into shared `ToolingCommentNormalizer.ChainCollector` (both files hold one field instead of separate `ChainEntry`/`resolveChainEntries` copies); Makefile untouched (simple lookahead, no deferred mechanism). Byte-identical output, `make test` 261/261 unchanged |
 
 ---
 
@@ -143,12 +139,12 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `FormatterToml`-style, not part of any existing family), and
       `MakefileSpecificRule` (line-oriented, no tokenizer needed — only
       distinguishes tab-prefixed recipe lines, which are never touched).
-      Smoke-tested manually (diff + idempotency + `--lang makefile` +
-      extensionless `Makefile` + `.mk` detection all verified). **STALE,
-      2026-08-10**: "no local test fixture pair registered yet" — not
-      needed, already done via the "Author local test fixture pairs" item
-      below (`makefile_combined_{inp,out}.mk`, `[x]`). Comments
-      remain untouched (out of scope, STYLE_TOOLING.md §0).
+      Smoke-tested manually (diff, idempotency, `--lang makefile`,
+      extensionless `Makefile`, `.mk` detection). **STALE, 2026-08-10**:
+      "no local test fixture pair registered yet" — not needed, already done
+      via the "Author local test fixture pairs" item below
+      (`makefile_combined_{inp,out}.mk`, `[x]`). Comments remain untouched
+      (out of scope, STYLE_TOOLING.md §0).
 - [x] Bash: build/extend a tokenizer sufficient to safely skip quoting,
       heredocs, comments, command substitution, and arithmetic contexts.
 - [x] Implement Bash §2.1 `if`/`then` merge.
@@ -165,14 +161,14 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (§2.2, §2.5) inline via a `RunBuffer` flushing on every kind change;
       pass B is line-oriented (§2.1/§2.3/§2.4), guarded by a per-line purity
       flag (first non-whitespace char is code). Arithmetic nested inside a
-      double-quoted string is still processed (per the §2.5 example), but
-      nested inside `$(...)`/backticks stays opaque, consistent with leaving
-      nested command-substitution content untouched. Smoke-tested manually
-      (STYLE_TOOLING.md §2 combined example, pipe-in-string/comment safety,
-      heredoc/backtick/`$(...)` safety — all byte-identical + idempotent).
-      `make test` clean after landing: 248/248 forward, 248/248 idempotency —
-      purely additive. **STALE, 2026-08-10**: "no local fixture pair yet" —
-      not needed, already done (`bash_combined_{inp,out}.sh`, `[x]` below).
+      double-quoted string is still processed (per §2.5), but nested inside
+      `$(...)`/backticks stays opaque, consistent with leaving nested
+      command-substitution content untouched. Smoke-tested manually (§2
+      combined example, pipe-in-string/comment safety,
+      heredoc/backtick/`$(...)` safety — byte-identical + idempotent). `make
+      test` clean: 248/248 forward, 248/248 idempotency — purely additive.
+      **STALE, 2026-08-10**: "no local fixture pair yet" — done
+      (`bash_combined_{inp,out}.sh`, `[x]` below).
 - [x] PowerShell: build/extend a tokenizer sufficient to safely skip
       string literals, here-strings, and comments.
       Landed as `Lang.isPowerShell`/`Lang.infer` `.ps1`/`.psm1` extension
@@ -194,7 +190,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       kind map for all construct types, purity, multi-construct identity,
       `--lang powershell` + extension infer, idempotent. `make test` clean:
       248/248 forward, 248/248 idempotency — purely additive. **STALE,
-      2026-08-10**: "no local fixture pair yet" — not needed, already done
+      2026-08-10**: "no local fixture pair yet" — done
       (`powershell_combined_{inp,out}.ps1`, `[x]` below).
       §3.1–§3.6 transforms landed in subsequent checklist items.
 - [x] Implement PowerShell §3.1 brace-depth indentation.
@@ -283,7 +279,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       missing repos cloned same day (git 1.8 has no partial-clone/
       sparse-checkout — large trees used selective raw download of
       `*.ps1`/`*.psm1` or clone+strip). User aborted the last oversized pull
-      (`azure-pipelines-tasks`); remaining not fetched. All rows stay
+      (`azure-pipelines-tasks`); rest not fetched. All rows stay
       `NOT STARTED` in `STATE_DOGFOOD.md` until a real dogfood *run*.
 
       **Available under `/tmp` now (dir name = repo basename convention):**
@@ -315,38 +311,38 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `wordpress/wordpress-develop` (`/tmp/wordpress-develop`, 3 `.sh`),
       `acmesh-official/acme.sh` (`/tmp/acme.sh`, full shallow clone, 276
       `.sh`), `ohmyzsh/ohmyzsh` (`/tmp/ohmyzsh`, stripped to 17
-      `.sh`/`.bash`) -- through round1/round2. The first four came back
-      clean (idempotent, `bash -n` matching originals). `ohmyzsh` found a
-      non-empty round1/round2 diff; bisected to a minimal repro (evidence-
-      over-reasoning). Four independent root causes found, all in
-      `src/com/jxmake/formatter/rules/BashSpecificRule.java`: (1)
-      `emitCaseBody`'s case-arm boundary regex (`CASE_ARM`) found the
+      `.sh`/`.bash`) through round1/round2. First four came back clean
+      (idempotent, `bash -n` matching originals). `ohmyzsh` had a non-empty
+      round1/round2 diff; bisected to a minimal repro (evidence-over-
+      reasoning). Four independent root causes, all in
+      `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
+      (1) `emitCaseBody`'s case-arm boundary regex (`CASE_ARM`) found the
       pattern's terminating `)` via first-match with no backslash-escape
       awareness, so an escaped paren pair like `\(\))` had its *escaped* `)`
       mistaken for the real terminator, splitting the arm mid-pattern —
-      fixed by replacing the regex with a char-by-char `matchCaseArm` scan
-      that skips `\`-escaped characters. (2) `runPassA`'s root/code-mode
-      tokenizer had no backslash-escape handling at all, so a `\'` case-arm
-      pattern (e.g. `\'*)`) fell through to the plain `'` branch and
-      incorrectly opened a real single-quote string frame that stayed open
-      until an unrelated later `'` closed it, corrupting brace-depth
-      indentation downstream (only visible as a round1/round2 shape
-      difference, not an obviously wrong single line) — fixed by adding a
-      root-context `c == '\\'` branch (mirrors existing escape handling in
-      the `D`/`Q`/`B` frame types) that consumes the backslash and next
-      character as plain code before any quote-opening check runs. (3)
-      `emitCaseBody` had no concept of a nested `case ... in` as an outer
-      arm's body — a nested case's own terminating `esac` was only
+      fixed with a char-by-char `matchCaseArm` scan that skips
+      `\`-escaped characters.
+      (2) `runPassA`'s root/code-mode tokenizer had no backslash-escape
+      handling, so a `\'` case-arm pattern (e.g. `\'*)`) fell through to the
+      plain `'` branch and opened a real single-quote string frame that
+      stayed open until an unrelated later `'` closed it, corrupting
+      brace-depth indentation downstream (only visible as a round1/round2
+      shape difference) — fixed by adding a root-context `c == '\\'` branch
+      (mirrors existing escape handling in the `D`/`Q`/`B` frame types) that
+      consumes the backslash and next character as plain code before any
+      quote-opening check runs.
+      (3) `emitCaseBody` had no concept of a nested `case ... in` as an
+      outer arm's body — a nested case's own terminating `esac` was only
       recognized as exactly `esac`, so a combined `esac ;;` line (closing
       both the nested case and the enclosing arm) fell through to the
       generic body-line fallback, corrupting indentation from there on —
       fixed by splitting `emitCaseBody` into a wrapper plus recursive
       `emitCaseBodyInner` (new `CaseBodyEnd` result tracking next index +
       whether the terminator closed an enclosing arm); terminator check now
-      accepts `esac`, `esac ;;`, or `esac;;`. (4) surfaced via
-      `tools/verifiers/bash_syntax_check.sh` after fixes 1-2 (not
-      idempotency — `plugins/wd/wd.sh` parsed clean originally but its
-      round1 output did not): `pipeSpacing`'s (§2.2) lone-`|` detector
+      accepts `esac`, `esac ;;`, or `esac;;`.
+      (4) Surfaced via `tools/verifiers/bash_syntax_check.sh` after fixes
+      1-2 (not idempotency — `plugins/wd/wd.sh` parsed clean originally but
+      its round1 output did not): `pipeSpacing`'s (§2.2) lone-`|` detector
       excluded `||`/`|&` but not the noclobber-override redirect `>|`
       (`cmd >| file`), splitting it into `> |`, a genuine `bash -n` syntax
       error — fixed by also excluding a `|` immediately preceded by `>`.
@@ -358,8 +354,8 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       scope). **Known accepted gap, not fixed:** one of those already-
       invalid-under-bash files (`tools/upgrade.sh`) also has `pipeSpacing`
       insert a space inside a zsh extended-glob alternation indistinguishable
-      from a real pipe (`(|.git)` -> `( | .git)`) — not a new class of
-      breakage since the file already failed `bash -n` before formatting;
+      from a real pipe (`(|.git)` -> `( | .git)`) — not a new breakage class
+      since the file already failed `bash -n` before formatting;
       dialect-detecting `.sh`-extension-but-actually-zsh content is out of
       scope (same "no general grammar, fixed transform list" boundary as
       every other accepted gap here). **Disposition (2026-08-10):** documented
@@ -434,7 +430,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       "No such file"/"no rule" for sibling sources and `-std=c++20` rejected
       by this sandbox's old g++, same failure class as the unmodified
       originals run from their real location. No formatter-induced
-      breakage. Content diff showed only the intended §1.1-§1.4 +
+      breakage; content diff showed only the intended §1.1-§1.4 +
       RDD_KEY_261 transforms; no bug found. See `STATE_DOGFOOD.md` for
       per-repo rows.
       **Makefile — `ericniebler/range-v3` + `python/cpython`, DONE (2026-08-09,
@@ -450,11 +446,11 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (idempotent), `bash -n` clean on every round1 file same as originals.
       `install.sh`'s diff confirmed the brace-depth body reindent (§2.3
       note "byproduct of brace-depth counting") only tracks literal `{`/`}`
-      chars, not `if`/`then`/`else`/`fi` keywords — a function body
-      containing an `if`/`else`/`fi` block renders at one flat indent
-      level, matching PowerShell §3.1's documented "naive" (not
-      context-aware) brace-depth semantics. Already-decided scope, not a
-      new bug. See `STATE_DOGFOOD.md` for the row.
+      chars, not `if`/`then`/`else`/`fi` keywords — an `if`/`else`/`fi`
+      block inside a function body renders at one flat indent level,
+      matching PowerShell §3.1's documented "naive" (not context-aware)
+      brace-depth semantics. Already-decided scope, not a new bug. See
+      `STATE_DOGFOOD.md` for the row.
       **PowerShell — DONE, 2 bugs found and fixed.** Ran all 228
       `.ps1`/`.psm1` files (24151 lines) under `PowerShell/PSScriptAnalyzer`
       through round1/round2; found a non-empty diff (real idempotency bug),
@@ -471,17 +467,18 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `parseArm` now rejects any line with a depth-0 `|` before the `{`;
       `format()`'s pass order moved `applyPipelineSplit` ahead of
       `applyAssignAlignment`/`applySwitchArmAlignment` so both always see an
-      already-split, stable shape. (2) `applyOperatorSpacing` treated bare
-      `/` (not just `/=`) as binary division with no awareness of
-      PowerShell's command-argument parsing mode — real bareword paths/URLs
-      as command arguments (`Copy-Item -Force $profileDir/* $targetProfileDir`,
-      an unquoted `https://api.nuget.org/v3/index.json`) got corrupted into
-      extra, wrongly-split arguments — real content corruption, not a style
-      nit. Fixed by dropping bare `/` from the binary-operator set entirely
-      (kept unambiguous `/=`); corpus-wide re-scan found zero remaining
-      corruption and zero genuine-division use going unspaced. After both
-      fixes: round1/round2 diff empty across all 228 files, `make test`
-      252/252 forward + idempotency (was 251/251). No PowerShell
+      already-split, stable shape.
+      (2) `applyOperatorSpacing` treated bare `/` (not just `/=`) as binary
+      division with no awareness of PowerShell's command-argument parsing
+      mode — real bareword paths/URLs as command arguments (`Copy-Item
+      -Force $profileDir/* $targetProfileDir`, an unquoted
+      `https://api.nuget.org/v3/index.json`) got corrupted into extra,
+      wrongly-split arguments — real content corruption, not a style nit.
+      Fixed by dropping bare `/` from the binary-operator set entirely (kept
+      unambiguous `/=`); corpus-wide re-scan found zero remaining corruption
+      and zero genuine-division use going unspaced. After both fixes:
+      round1/round2 diff empty across all 228 files, `make test` 252/252
+      forward + idempotency (was 251/251). No PowerShell
       interpreter/`Invoke-ScriptAnalyzer`/`PSParser` available in this
       sandbox (confirmed via `which pwsh`/`which powershell`, both absent),
       so validity relied on round1/round2 idempotency plus manual reading of
@@ -506,7 +503,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `../README.txt` once any of the three moves from scaffold to real
       logic (do not update ahead of actual landed code — see
       `STATE_COMMON.md`'s doc-sync convention).
-      `README.md`/`../README.txt`: Makefile/Bash/PowerShell as
+      `README.md`/`../README.txt`: Makefile/Bash/PowerShell now
       JAR-implemented (`--lang`/`lang=` values, extension/basename mapping,
       `STYLE_TOOLING.md` style-guide link, AI full-file fallback +
       layout-judgment exclusion, shell/`reformat_file.py` dispatch).
@@ -519,30 +516,29 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `MakefileSpecificRule.parseBlock`'s `COMMENT_LINE` branch now scans
       forward collecting every immediately-following comment line before
       normalizing the whole run via `ToolingCommentNormalizer.normalizeChain`
-      (was: normalized each comment line independently). Bash/PowerShell
-      (`runPassA`, character-level tokenizers) needed a deferred-placeholder
-      approach since they normalize+emit inline as each comment's closing
-      newline is hit, with no lookahead: a new `Frame.standalone`/`lineNo`
-      pair (computed when a `#` frame is pushed) drives a new path where a
-      standalone comment's raw body is stored in a `ChainEntry` list behind
-      a unique placeholder marker emitted in its place; a trailing
-      (non-standalone) comment still normalizes immediately, never deferred.
-      After the pass-A scan, `resolveChainEntries` groups entries into
-      chains wherever `lineNo` is strictly consecutive (any gap -- blank
-      line, code line, or an intervening trailing comment -- breaks the
-      chain), normalizes each chain, and substitutes placeholders for final
-      text. Found and fixed a real latent bug in RDD_KEY_261's original
-      per-comment-only logic in the process: existing fixtures'
-      `# Copyright (C) 2024 Example Corp.` line (part of a 4-line standalone
-      block also containing a period-free SPDX line and two blank `#`
-      lines) had its trailing `.` wrongly stripped because each line's own
-      period count was checked in isolation; chain-grouped, the strip step
-      only ever touches the chain's *last* comment (the trailing blank
-      line, which has no `.` to strip), so the mid-chain period now
-      correctly survives -- exactly curly's own semantics.
+      (was: normalized each line independently). Bash/PowerShell (`runPassA`,
+      character-level tokenizers) needed a deferred-placeholder approach
+      since they normalize+emit inline with no lookahead: a new
+      `Frame.standalone`/`lineNo` pair (computed when a `#` frame is pushed)
+      drives a new path where a standalone comment's raw body is stored in a
+      `ChainEntry` list behind a unique placeholder marker emitted in its
+      place; a trailing (non-standalone) comment still normalizes
+      immediately, never deferred. After the pass-A scan,
+      `resolveChainEntries` groups entries into chains wherever `lineNo` is
+      strictly consecutive (any gap -- blank line, code line, or an
+      intervening trailing comment -- breaks the chain), normalizes each
+      chain, and substitutes placeholders for final text. Found and fixed a
+      real latent bug in RDD_KEY_261's original per-comment-only logic:
+      existing fixtures' `# Copyright (C) 2024 Example Corp.` line (part of
+      a 4-line standalone block also containing a period-free SPDX line and
+      two blank `#` lines) had its trailing `.` wrongly stripped because
+      each line's own period count was checked in isolation; chain-grouped,
+      the strip step only ever touches the chain's *last* comment (the
+      trailing blank line, which has no `.` to strip), so the mid-chain
+      period now correctly survives -- exactly curly's own semantics.
       `makefile_combined_out.mk`, `bash_combined_out.sh`,
       `powershell_combined_out.ps1`, `real_code_regressions_182_out.ps1`
-      regenerated from the live JAR to reflect the fix (user regenerated/
-      verified). `make test`: 257/257 forward + idempotency, zero
-      regressions (no new fixtures needed this round). Closes out decision
-      #3 of the 2026-08-08 brief.
+      regenerated from the live JAR to reflect the fix (user
+      regenerated/verified). `make test`: 257/257 forward + idempotency,
+      zero regressions (no new fixtures needed). Closes out decision #3 of
+      the 2026-08-08 brief.

@@ -1,12 +1,11 @@
 # STATE_DOGFOOD.md — Dogfood Corpus Master Index
 
-Master reference of every real-world dogfood corpus run (or planned) across
-all jobs. Not a substitute for a job's own `STATE_*.md` — full bug detail,
-root causes, fixes, and `make test` counts still live only there. This file
-exists so a future session (or the user) can look up, at a glance, what's
-already been run/fixed/rejected/still pending, without re-reading every
-`STATE_*.md` in full. When starting, finishing, or rejecting a dogfood run,
-update this file's row alongside the job file's own detail.
+Master index of every dogfood corpus run (or planned) across all jobs — lets
+a session check status at a glance without re-reading every `STATE_*.md`.
+Not a substitute for a job's own `STATE_*.md`: full bug detail, root causes,
+fixes, and `make test` counts live only there. Update this file's row
+whenever a dogfood run starts, finishes, or is rejected — alongside the job
+file's own detail.
 
 ## Status legend
 
@@ -18,16 +17,14 @@ update this file's row alongside the job file's own detail.
 | `DONE - PARTIAL FIX` | Bug(s) found; at least one root cause still open, deferred, or attempted-and-reverted |
 | `DONE - OPEN Q` | Run clean of bugs, but left a non-blocking design question unresolved |
 
-`UNSUITABLE` corpora (rejected as unfit for use, not a status of a completed
-run) are listed in the separate table at the bottom, not mixed into the
-main table.
+`UNSUITABLE` corpora (rejected as unfit for use, not a completed-run status)
+are listed separately at the bottom, not mixed into the main table.
 
 **Table formatting note**: cells below are intentionally *not* pipe-aligned
-(single space around `|`, no column-width padding) — with hand-alignment,
-one long `Note` forces every row's line to pad out to match, so lines only
-get longer over time as entries accumulate. GitHub-flavored markdown does
-not require aligned pipes to render a table correctly. Keep new rows in
-this unaligned style; do not re-align the whole table when adding one.
+(single space around `|`, no column-width padding) — hand-alignment would
+force every row to pad out to match one long `Note` cell, growing over time.
+GitHub-flavored markdown doesn't require aligned pipes to render correctly.
+Keep new rows unaligned; don't re-align the whole table when adding one.
 
 ## Main table
 
@@ -136,20 +133,20 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 
 **Note on `microsoft/TypeScript`'s status**: cluster #3's shared braceless-
 collapse root cause (same as `angular/angular` cluster 4) is fixed.
-`applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering (formerly
-tracked here as the residual cause) is also now fixed, shared-curly-pipeline
-scope, not JS/TS-specific (see STATE_C_CPP_JAVA.md Open Questions,
+`applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering (formerly the
+residual cause here) is also now fixed — shared-curly-pipeline scope, not
+JS/TS-specific (see STATE_C_CPP_JAVA.md Open Questions,
 `ScopePipelineCurly.reapplyAssignmentsPassOnly`). The 2026-08-09
-reconfirmation found 5 distinct residual shapes, ALL now fixed:
-`watchPublic.ts`'s nested-array-literal corruption, and the 4 Tier-3 shapes
-(RDD_KEY_273-276) — see table row above and `STATE_JS_TS.md`'s "Dogfood:
-microsoft/TypeScript" section for the full per-shape detail.
+reconfirmation found 5 residual shapes, ALL now fixed: `watchPublic.ts`'s
+nested-array-literal corruption plus the 4 Tier-3 shapes (RDD_KEY_273-276)
+— see table row above and `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript"
+section for per-shape detail.
 
-Corpus scope: `src/` only (601 real `.ts` files, 379045 lines) —
-`tests/cases/**` (20089 hand-authored compiler test fixtures, including
+Corpus scope: `src/` only (601 real `.ts` files, 379045 lines) — excluded
+`tests/cases/**` (20089 hand-authored compiler fixtures, incl.
 deliberately-invalid-syntax cases) and `tests/baselines/**`
-(auto-generated) were excluded as non-representative, same exclusion class
-as other jobs' `built/`/`lib/` skips.
+(auto-generated) as non-representative, same exclusion class as other jobs'
+`built/`/`lib/` skips.
 
 **AI (STATE_AI.md)**: N/A — this job's corpus concept is comment-text
 training/labeling data (Pool A/Pool B ABSTAIN measurement), not a

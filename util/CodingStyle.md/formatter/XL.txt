@@ -214,9 +214,31 @@ Use sub-agent. This can be a substantial work.
   at `/tmp/kt_r1_content`. Two real checker tolerance gaps/regressions were found and fixed this
   session (commits `37c806a`, `126ae68`) via partial/sampled runs (~500-2000 files each) — the
   full pass was never actually completed end-to-end (killed twice: once for taking too long
-  serially, once mid-parallel-run to let the second checker fix land safely). Use the parallel
-  driver approach (`xargs -P 4`, matching this machine's `nproc`), not serial. Once complete,
-  update `STATE_KOTLIN.md` and `STATE_DOGFOOD.md` with final mismatch/error counts.
+  serially, once mid-parallel-run to let the second checker fix land safely).
+
+  `kotlin_content_diff.java`/`.sh` now also support a batch mode:
+      kotlin_content_diff.sh <original_base_dir> <formatted_base_dir> <kt_rel_path_file_list.txt>
+  which loops over every relative path in the list inside ONE JVM invocation (no per-file JRE
+  restart), printing a `[yyyy-MM-dd HH:mm:ss.SSS] <relative path>` line before each file's AST
+  diff (so a hang/slow file is pinpointed exactly like `Main.main`'s "processing <file>" trace),
+  warning and skipping (never crashing/hanging/exiting) any relative path missing from either or
+  both base dirs, and printing a final `SUMMARY: N OK, N MISMATCH/ERROR, N MISSING` line. The
+  original 2-arg single-pair mode (`kotlin_content_diff.sh <original.kt> <formatted.kt>`) still
+  works unchanged.
+
+  To run much faster than the old per-file-invocation approach, split
+  `kt_rel_path_file_list.txt` into 2 or 3 roughly-equal-sized chunk files and run that many
+  `kotlin_content_diff.sh` batch-mode invocations in parallel (one per chunk), each redirecting
+  its stdout to a different log file, e.g.:
+      split -n l/3 kt_rel_path_file_list.txt /tmp/kt_chunk_
+      for f in /tmp/kt_chunk_*; do
+        kotlin_content_diff.sh /tmp/jb_kotlin_kt_new/kotlin-master /tmp/kt_r1_content "$f" \
+          > "/tmp/kt_content_diff_$(basename "$f").log" 2>&1 &
+      done
+      wait
+  matching this machine's `nproc`-driven parallelism precedent already used for `xargs -P 4`
+  elsewhere in this file, while eliminating the multiple JRE restarts a per-file loop would pay.
+  Once complete, update `STATE_KOTLIN.md` and `STATE_DOGFOOD.md` with final mismatch/error counts.
 
 - [HTML5_TCG] Level 1: no explicit `<head>` present wraps `<meta>`/`<title>`/`<script>` into the
   synthesized `<body>` instead of implicitly opening `<head>` first — currently also documented

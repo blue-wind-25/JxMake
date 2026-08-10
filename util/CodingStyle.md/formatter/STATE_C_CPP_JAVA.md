@@ -787,12 +787,13 @@ RDD_KEY_88.
   **2026-08-06/2026-08-07 update:** the `commandLineParser.ts` declaration-alignment instance was
   fixed by `RDD_KEY_248` (`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`, a narrower
   JS/TS-gated re-run of just the closing-brace + declarations passes, not a `processScope`
-  architecture change). A 2026-08-07 root-cause-only session found a still-open sibling instance
-  in a pass `RDD_KEY_248` does not re-run — `ScopePipelineCurly.applyAssignmentsPass`
-  (bare-assignment alignment, distinct from `applyDeclarationsPass`), repro
-  `microsoft/TypeScript`'s `harness/collectionsImpl.ts` — see `STATE_JS_TS.md`'s Category 2
-  cluster #3 2026-08-07 note for the full write-up and candidate fix (not attempted). Still
-  shared, curly-family-wide infrastructure; still Left OPEN.
+  architecture change). A 2026-08-07 root-cause-only session found a sibling instance in a pass
+  `RDD_KEY_248` does not re-run — `ScopePipelineCurly.applyAssignmentsPass` (bare-assignment
+  alignment, distinct from `applyDeclarationsPass`), repro `microsoft/TypeScript`'s
+  `harness/collectionsImpl.ts`. **FIXED, RDD_KEY_270**: added `applyAssignmentsPass` as a third
+  pass inside `ScopePipelineCurly.processScope`'s existing `closingBraceAndDeclarationsOnly`
+  re-run mode, behind the same gate `RDD_KEY_248` already used; `make test` 259/259 -> 260/260,
+  zero regressions.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch

@@ -77,6 +77,12 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
+Compact all `STATE_*.md` files. Use at most 5 sub-agents in parallel - balance the job between the
+sub-agents based on the file sizes. Be careful not to lose important information, such as the tools/
+compiler used, special formatter config (e.g., `indent-size`, etc.), exception/benchmark/helper
+information, root cause, chain of reason, failed attempt at bug fix, etc. Basically, compact the
+prose but keep the information intact.
+
 Compact all `STATE_*.md` as needed. Use at most 4 sub-agents in parallel - balance the job.
 Be careful not to lose important information, especially the `**Tools/compiler used**`,
 `indent-size` exception, etc.

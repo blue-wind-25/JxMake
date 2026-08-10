@@ -439,6 +439,13 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      content reindents as an ordinary sibling) doesn't corrupt output, just
      isn't spec-faithful. Tag-name case-folding was fixed standalone (item
      3 below).
+     **UPDATE:** all three gaps above were subsequently implemented in
+     `STATE_HTML5_TCG.md` as levels 1-3 (implicit `<body>` insertion,
+     foster-parenting, misnested `<form>`-in-`<template>`) — landed and
+     full-suite dogfood re-validated with zero regressions, opt-in behind
+     `html5-tc-gap-level` (default `0`, off) per that job's file. No longer
+     an open gap in this job; see `STATE_HTML5_TCG.md` for implementation
+     notes/known limitations of each level.
 
   2. **`apache/ant` `manual/running.html` — FIXED (RDD_KEY_223, 2026-08-01).**
      Narrower self-contained fix, not item 1's full insertion-mode-state

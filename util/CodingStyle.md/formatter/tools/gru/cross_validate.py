@@ -52,6 +52,7 @@ def main():
     parser.add_argument("--work-dir", default="/tmp/gru_cv")
     parser.add_argument("--epochs", default="40")
     parser.add_argument("--patience", default="6")
+    parser.add_argument("--progress-every", default="1000")
     parser.add_argument("--vocab", default=None, help="passed through to GruTrainer's --vocab=, omit to use its default")
     parser.add_argument("--eval-threshold", type=float, default=None,
                          help="evaluate GruEval at this abstain-confidence threshold instead of the "
@@ -89,14 +90,31 @@ def main():
         train_path   = work_dir / f"train_round{round_index}.txt"
         test_path    = work_dir / f"test_round{round_index}.txt"
         weights_path = work_dir / f"weights_round{round_index}.json"
+        # GruTrainer's own checkpoint suffix (CHECKPOINT_CURRENT_SUFFIX) is appended directly to
+        # the --out path it was given -- i.e. weights_path with ".ckpt-current.bin" appended, not
+        # a sibling with the .json extension swapped out. Present means a prior run crashed
+        # mid-round (the trainer deletes it on normal completion) -- that round is NOT done and
+        # must be (re-)run, never skipped.
+        checkpoint_path = Path(f"{weights_path}.ckpt-current.bin")
+        round_already_done = weights_path.exists() and not checkpoint_path.exists()
+
         train_path.write_text("\n".join(train_lines) + "\n", encoding="utf-8")
         test_path.write_text("\n".join(test_lines) + "\n", encoding="utf-8")
 
-        train_cmd = ["java", "-cp", classpath, "GruTrainer", str(train_path), str(weights_path),
-                     f"--epochs={args.epochs}", f"--patience={args.patience}", f"--seed={seed}"]
-        if args.vocab is not None: train_cmd.append(f"--vocab={args.vocab}")
-        subprocess.run(train_cmd, cwd=formatter_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if round_already_done:
+            print(f"cross_validate: round {round_index}: {weights_path} already complete "
+                  f"(no checkpoint present) -- skipping training, re-evaluating existing weights",
+                  file=sys.stderr)
+        else:
+            train_cmd = ["java", "-cp", classpath, "GruTrainer", str(train_path), str(weights_path),
+                         f"--epochs={args.epochs}", f"--patience={args.patience}", f"--seed={seed}",
+                         f"--progress-every={args.progress_every}"]
+            if args.vocab is not None: train_cmd.append(f"--vocab={args.vocab}")
+            subprocess.run(train_cmd, cwd=formatter_dir, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+        # Whether this round was just trained or skipped as already-complete, eval always runs
+        # against weights_path so the precision folded into the aggregate below is freshly read
+        # back from the on-disk artifact -- a skipped round still fully contributes its result.
         eval_cmd = ["java", "-cp", classpath, "GruEval", str(weights_path), str(test_path)]
         if args.eval_threshold is not None: eval_cmd.append(str(args.eval_threshold))
         eval_result = subprocess.run(
@@ -110,7 +128,8 @@ def main():
             sys.exit(1)
         precision = float(match.group(1))
         precisions.append(precision)
-        print(f"round {round_index} (seed={seed}, train={len(train_lines)}, test={len(test_lines)}): "
+        print(f"round {round_index} (seed={seed}, train={len(train_lines)}, test={len(test_lines)}"
+              f"{', skipped-training' if round_already_done else ''}): "
               f"{eval_result.stdout.strip()}")
 
     mean  = statistics.mean(precisions)

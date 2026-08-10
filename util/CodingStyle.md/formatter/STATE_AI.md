@@ -1257,3 +1257,42 @@ true generalization measure — same shape as the 98.7%-vs-86.3% gap on
 (`make gru-cv-corpus`), which the user deferred for time. Weights not yet
 promoted to `$(CLASS_DIR)`/repo root/`code-formatter-ai-assist-weights.json`
 as of this entry — still sitting in `target/gru/`.
+
+---
+
+**2026-08-11 — `cross_validate.py` round-loop resumability.** User separately
+added a `--progress-every` CLI param (threaded through to each round's
+`GruTrainer` invocation, already supported by the trainer) by hand; the
+round-loop's own skip-if-already-done logic was reviewed as absent and then
+implemented. Each round now checks `weights_round{N}.json` existence AND the
+absence of its sibling checkpoint (`GruTrainer`'s own
+`CHECKPOINT_CURRENT_SUFFIX`, appended directly to the `--out` path it was
+given, i.e. `weights_round{N}.json.ckpt-current.bin`, not a same-stem
+sibling) before deciding a round is complete — mirrors the trainer's own
+resumability semantics (checkpoint deleted only on normal completion; present
+means a prior run crashed mid-round, so that round is NOT skipped and is
+(re-)run normally). A skipped round still runs `GruEval` against the existing
+`weights_round{N}.json` so its precision is read back fresh and folded into
+the same in-memory `precisions` list every other round contributes to — no
+result is cached/assumed. `train_path`/`test_path` are still rewritten every
+round regardless of skip (deterministic given the fixed per-round seed,
+cheap, and required for `GruEval`'s test split either way). Handles
+`args.rounds` growing across a resumed run for free — rounds are addressed by
+index/seed, so already-done low indices skip and any new higher indices past
+what previously existed just run normally, no special-casing needed. Fixed
+the pre-existing cosmetic double-space in the `--progress-every` f-string
+while in there.
+
+**Validation (no full CV run — multi-hour per `STATE_AI.md`'s own prior CV
+timing notes):** standalone Python snippet (not committed, scratch-only)
+exercised the exact `weights_path.exists() and not checkpoint_path.exists()`
+expression against a temp dir through all 3 states — nothing on disk (not
+done), weights only (done), weights + checkpoint (not done, simulating a
+mid-round crash) — plus checkpoint removed again afterward (done again,
+simulating normal completion) — all 4 assertions passed.
+`python3 -m py_compile tools/gru/cross_validate.py` clean. Static review of
+the aggregation path: `eval_cmd`/`PRECISION_RE` parsing/`precisions.append`
+are unconditional after the skip/train branch, so a skipped round's
+precision is appended identically to a freshly-trained round's — no
+aggregation-path change was needed, only the branch guarding the expensive
+`GruTrainer` subprocess call itself.

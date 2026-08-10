@@ -705,7 +705,15 @@ public final class Main {
 
     private static String readFile(final Path path) throws IOException
     {
-        return new String( Files.readAllBytes(path), StandardCharsets.UTF_8 );
+        final java.nio.charset.CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT);
+        try {
+            return decoder.decode( java.nio.ByteBuffer.wrap( Files.readAllBytes(path) ) ).toString();
+        }
+        catch(final java.nio.charset.CharacterCodingException e) {
+            throw new IOException("not valid UTF-8: " + path, e);
+        }
     }
 
     private static void writeFile(final Path path, final String content) throws IOException

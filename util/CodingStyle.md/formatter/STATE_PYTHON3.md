@@ -990,9 +990,16 @@ same as every other language's dogfood precedent for a newly-landed rule.
       where the original didn't, silently changing the file's byte content
       when truly invalid UTF-8 source is involved. Narrowest possible edge
       case (only instance across 2343 cpython files plus every other
-      corpus dogfooded in this file) — flagged as a known gap, not fixed,
-      since it's a CLI/IO-layer charset concern, not a Python3 formatting
-      rule bug. Not chased further.
+      corpus dogfooded in this file). **FIXED** (shared `Main.java` IO
+      layer, not Python3-specific — `readFile` now decodes with a
+      `CharsetDecoder` set to `REPORT` on malformed/unmappable input
+      instead of `String(byte[], Charset)`'s silent-replace default;
+      throws `IOException` ("not valid UTF-8: <path>"), caught by the
+      existing per-file error handling in `runOneFile` (prints the error,
+      marks the batch as having an error, continues to the next file) —
+      no batch-wide behavior change, just fails loudly instead of
+      silently corrupting the one invalid file. `make test` 278/278
+      unaffected.
 - [x] Indent-size/style conversion (Python analog of `MiscRuleCore
       #convertIndentation`) — see "Indent-Size/Style Conversion — DONE
       (RDD_KEY_237)" section above for the full design-decision/

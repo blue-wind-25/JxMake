@@ -360,7 +360,12 @@ see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
       identical content reformats §5-aware under `.hpp` but not `.h`). Not a
       blocked Open Question — noted for whoever next touches `Lang.infer`'s
       `.h`-handling. **2026-07-28 re-assessment:** unchanged, still not this
-      job's territory.
+      job's territory. **CLOSED 2026-08-11** — accepted as a documented
+      limitation (owner decision): default `.h`->`"c"` inference is
+      intentionally kept as-is because auto-detecting/flipping it risks
+      misapplying C++-only rules to genuine C headers; users with
+      C++-content `.h` files must explicitly pass the language override (see
+      README Known Limitations).
 - [x] Real-code testing pass against `ryanjk5.github.io/posts/rjk-duck`
       (blog post, not a repo) done. No local copy found; fetched via
       WebFetch, extracted all 26 C++ code samples into one file

@@ -321,14 +321,15 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   `/* */` already in the conventional ` * `-per-line banner shape gets the
   same single-unit treatment; any other multi-line shape falls back to the
   pre-existing whole-comment-scan behavior (not left untouched — an early
-  version of this fix got that wrong, caught by `css_comments` regressing).
-  Wired into `JsonSpecificRule.collectTrivia` (now defers normalization
-  until the whole leading-trivia span is collected, via a parallel
-  raw-text + blank-before list) and `CssSpecificRule` (block-comment-only,
-  no chaining possible — CSS never lexes `//`). `test/json5_comments_out.json5`
-  regenerated (two adjacent `//` comments with no `.` between them legitimately
-  merge into one chain); new fixture `test/json5_comment_banner_{inp,out}.json5`.
-  `make test`: 254/254 -> 255/255 forward + idempotency, zero regressions.
+  version got that wrong, caught by `css_comments` regressing). Wired into
+  `JsonSpecificRule.collectTrivia` (now defers normalization until the
+  whole leading-trivia span is collected, via a parallel raw-text +
+  blank-before list) and `CssSpecificRule` (block-comment-only, no
+  chaining possible — CSS never lexes `//`). `test/json5_comments_out.json5`
+  regenerated (two adjacent `//` comments with no `.` between them
+  legitimately merge into one chain); new fixture
+  `test/json5_comment_banner_{inp,out}.json5`. `make test`: 254/254 ->
+  255/255 forward + idempotency, zero regressions.
 
 - **YAML/TOML `#`-chain-grouping parity with curly — RESOLVED (RDD_KEY_266,
   2026-08-08 session).** New `ToolingCommentNormalizer.normalizeChain`
@@ -337,13 +338,13 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   blank line between chain-group like curly's `//`. `YamlSpecificRule`
   reused its existing per-comment `CommentLine.blankBefore` tracking via a
   new `finalizeComments` deferred-normalization step; `TomlSpecificRule`
-  gained a parallel `pendingCommentBlank` list it didn't have before, plus
-  its own `finalizeComments`. New fixtures `yaml_comment_chain_{inp,out}.yaml`,
+  gained a parallel `pendingCommentBlank` list it lacked before, plus its
+  own `finalizeComments`. New fixtures `yaml_comment_chain_{inp,out}.yaml`,
   `toml_comment_chain_{inp,out}.toml`; 5 pre-existing YAML fixtures
   regenerated for correctly-grouped output. `make test`: 255/255 ->
-  257/257 forward + idempotency, zero regressions. This closes out both
-  decisions #1 and #2 of the 2026-08-08 brief for the data-formats job —
-  no open items remain for this job from that brief.
+  257/257 forward + idempotency, zero regressions. Closes both decisions
+  #1 and #2 of the 2026-08-08 brief for the data-formats job — no open
+  items remain from that brief.
 
 - **HTML5 Test-Fixture Repos winnowing — RESOLVED (user, 2026-07-24).**
   `twbs/bootstrap` docs (Astro/MDX), `mdn/content` (Markdown),
@@ -429,14 +430,14 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      Real-world impact low — every dogfood corpus run so far formatted
      cleanly with zero structural loss; these gaps only bite WPT's
      deliberately pathological conformance fixtures. 2026-07-26
-     investigation confirmed implicit `<body>` insertion can't be peeled
-     off standalone (requires fabricating a tag absent from source — first
+     investigation confirmed implicit `<body>` insertion can't be peeled off
+     standalone (requires fabricating a tag absent from source — first
      tag-synthesis path in an otherwise preserve-as-written formatter — and
      threading state across recursive `parseNodes`/`parseElement` calls to
      avoid double-insertion); status quo (RDD_KEY_185: bare top-level
      content reindents as an ordinary sibling) doesn't corrupt output, just
-     isn't spec-faithful. Tag-name case-folding itself was fixed standalone
-     (see item 3 below).
+     isn't spec-faithful. Tag-name case-folding was fixed standalone (item
+     3 below).
 
   2. **`apache/ant` `manual/running.html` — FIXED (RDD_KEY_223, 2026-08-01).**
      Narrower self-contained fix, not item 1's full insertion-mode-state
@@ -457,16 +458,16 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      `html_content_diff.py`: it can under-report this class of
      serialization-level structural bug**, spot-check raw output text
      directly.
-     **Fix:** `XmlSpecificRule` gained an `openTagStack`
-     (`Deque<String>` of currently-open lowercased tag names, pushed/popped
-     around `parseElement`) and `peekCloseTagNameLower`; `parseNodes`'s
+     **Fix:** `XmlSpecificRule` gained an `openTagStack` (`Deque<String>` of
+     currently-open lowercased tag names, pushed/popped around
+     `parseElement`) and `peekCloseTagNameLower`; `parseNodes`'s
      `stopAtCloseTag` branch now cascade-closes only if the closing tag's
      name is found anywhere in the stack (`lang.isHtml5` only — strict
      XML/XHTML unchanged), else discards the stray/orphan closing tag in
      place and continues. Discard-only (no `<p></p>` synthesis) was used
-     here, not the full per-spec behavior — accepted, matches "preserve as
-     written, don't fabricate tags" posture (RDD_KEY_185); full reasoning
-     in RDD_KEY_223. Fixtures `test/real_code_regressions_173_{inp,out}.html`
+     here, not full per-spec behavior — accepted, matches "preserve as
+     written, don't fabricate tags" posture (RDD_KEY_185); full reasoning in
+     RDD_KEY_223. Fixtures `test/real_code_regressions_173_{inp,out}.html`
      (minimal orphan-`</p>` repro) and
      `test/real_code_regressions_174_{inp,out}.html` (regression guard for
      the mismatched-tag-cascades-to-ancestor path, `charset/after-bogus.html`
@@ -480,7 +481,7 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      other files' pre-existing comment-capitalization mismatches confirmed
      identical against a pre-fix baseline.
 
-     **Residual gap now closed too (RDD_KEY_236, 2026-08-03, user-directed).**
+     **Residual gap closed too (RDD_KEY_236, 2026-08-03, user-directed).**
      The discard-only choice above was superseded: browsers don't discard
      an orphan `</p>` — the real HTML5 "p end tag" algorithm synthesizes an
      empty `<p></p>` at that point (spec-mandated for parser-state
@@ -494,8 +495,8 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      idempotency. Full `apache/ant manual/` 226-file re-run: 226/226
      forward + idempotency + `html_syntax_check.sh` clean; direct `<p`
      tag-count check on `running.html` confirms exactly one `<p></p>`
-     synthesized (60 vs. original 59). `<body>` child count now matches
-     the browser's 82 — the "1 `<p>` lost" residual is gone.
+     synthesized (60 vs. original 59). `<body>` child count now matches the
+     browser's 82 — the "1 `<p>` lost" residual is gone.
 
   3. **Tag-name case-folding — DONE, fixed standalone**
      (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New
@@ -590,17 +591,17 @@ per-repo dogfood bugs):
       permanent, not a live TODO).
 
       **Mixed text+element content splitting onto separate lines —
-      FIXED (2026-08-04).** Was a real correctness bug, not just style: an
+      FIXED (2026-08-04).** Real correctness bug, not just style: an
       element interleaving a non-whitespace TEXT node and an ELEMENT node
       (e.g. `<p>Click <a href="x">here</a> to continue.</p>`) rendered each
       child on its own indented line, inserting newlines/indentation into
       content whose whitespace can be semantically significant (XHTML-like
       prose, Android string resources with embedded `<b>`/`<a>` markup,
-      DocBook, SVG `<text>`). **Design decision (made with the user):**
-      such mixed content now renders **inline, exactly as originally
-      written, with no reflow**, even past `line-length` — mirroring the
-      existing opaque/preserve-verbatim posture for DOCTYPE/PI (§2.3), CDATA
-      (§2.4 default case), and multi-line comments (§2.5); an overflowing
+      DocBook, SVG `<text>`). **Design decision (made with the user):** such
+      mixed content now renders **inline, exactly as originally written,
+      with no reflow**, even past `line-length` — mirroring the existing
+      opaque/preserve-verbatim posture for DOCTYPE/PI (§2.3), CDATA (§2.4
+      default case), and multi-line comments (§2.5); an overflowing
       mixed-content line is an intentional accepted limitation.
       **Fix:** `XmlSpecificRule.parseElement` captures a new
       `Node.mixedContentRaw` field: remembers the cursor position right
@@ -628,16 +629,15 @@ per-repo dogfood bugs):
       verbatim (e.g. `<b>one<i>two</b>` from `<b>1<i>2</b>3</i>`) leaves the
       same misnesting literally present in round1 output, so round2 could
       re-trigger `reconstructFormattingElement` against the sibling the
-      first round already produced, wrapping it in ANOTHER synthetic
-      clone and breaking idempotency
-      (`html_tc_gap_level4_adoption_agency_out.html` caught this). Fixed
-      in `parseNodes`' `pendingReconstructFormattingTemplate` consumption:
-      before calling `reconstructFormattingElement`, skip whitespace and
-      check (via `startsWithTriggerTag`) whether the cursor already sits
-      at a literal start tag matching the template's tag name — if so, no
-      new wrapper is synthesized. Fixtures updated to correct (inline, not
-      split) output: `xml_mixed_content_*` (new), plus
-      `html_combined_out.html`,
+      first round already produced, wrapping it in ANOTHER synthetic clone
+      and breaking idempotency (`html_tc_gap_level4_adoption_agency_out.html`
+      caught this). Fixed in `parseNodes`'
+      `pendingReconstructFormattingTemplate` consumption: before calling
+      `reconstructFormattingElement`, skip whitespace and check (via
+      `startsWithTriggerTag`) whether the cursor already sits at a literal
+      start tag matching the template's tag name — if so, no new wrapper is
+      synthesized. Fixtures updated to correct (inline, not split) output:
+      `xml_mixed_content_*` (new), plus `html_combined_out.html`,
       `html_tc_gap_level3_adoption_unchanged_out.html`, and
       `html_tc_gap_level4_adoption_agency_out.html`. `make test`: 242/242
       -> 243/243 forward + idempotency, zero regressions.

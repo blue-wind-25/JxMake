@@ -1538,8 +1538,8 @@ public static final class Signature {
         // Kotlin only (STYLE_KOTLIN.md §7.2): a trailing comma must be preserved exactly as
         // written, never added or stripped -- checked against the raw slice before the
         // dangling-empty-group drop below discards the signal.
-        final boolean            keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
-        final List<List<Token>>  args               = splitTopLevelCommas(paramsSlice);
+        final boolean           keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
+        final List<List<Token>> args              = splitTopLevelCommas(paramsSlice);
         // Drop a dangling trailing empty group (a trailing comma before `)` with nothing after
         // it -- e.g. this codebase's own multi-line call style, `foo(\n  a,\n  b,\n);` --
         // splitTopLevelCommas (unlike groupByOriginalLine) doesn't drop it itself. Without this,
@@ -1579,8 +1579,8 @@ public static final class Signature {
     {
         // Kotlin only (STYLE_KOTLIN.md §7.2): preserve a source trailing comma exactly as
         // written -- see renderCallDropped's identical check for the full narrative.
-        final boolean            keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
-        final List<List<Token>>  args               = splitTopLevelCommas(paramsSlice);
+        final boolean           keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
+        final List<List<Token>> args              = splitTopLevelCommas(paramsSlice);
         // Same dangling-trailing-empty-group drop as renderCallDropped -- without it, a source
         // call with a trailing comma renders a stray blank final line here (an empty last group
         // from splitTopLevelCommas)
@@ -1623,7 +1623,9 @@ public static final class Signature {
     {
         // Kotlin only (STYLE_KOTLIN.md §7.2): preserve a source trailing comma exactly as
         // written -- see renderCallDropped's identical check for the full narrative.
-        final boolean                 keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
+        final boolean                 keepTrailingComma = lang.isKotlin && hasTrailingComma(
+            paramsSlice
+        );
         final List<List<List<Token>>> rows              = groupByOriginalLine(paramsSlice);
         if( rows.isEmpty() ) return null; // Shouldn't happen -- caller only calls this when a newline was found -- bail safe
 

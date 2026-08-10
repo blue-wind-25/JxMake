@@ -3543,15 +3543,34 @@ Real-code regressions:
                                                         between round1 and round2. Root cause:
                                                         `JsTsSpecificRule. classBraceKind` walks backward from
                                                         a brace looking for a `class`/`interface` KEYWORD
-                                                        token to classify it, but `class` is also a legal TS
-                                                        property name and still tagged KEYWORD by the
-                                                        tokenizer, so the field named `class` was misread as a
-                                                        class-declaration keyword, feeding its own nested
-                                                        brace into `enforceClassFieldAlignmentGrid`'s rewrite.
-                                                        Fixed by `isFieldNameKeywordUsage`, which checks
-                                                        whether the token after the candidate keyword is
-                                                        `:`/`?` (field usage) rather than an identifier
-                                                        (declared name), and skips such occurrences.
+
+  real_code_regressions_199_inp/out.kt               -- Minimal repro of the Kotlin multi-line
+                                                        call/list-literal trailing-comma drop (STYLE_KOTLIN.md
+                                                        §7.2): a source trailing comma before `)` on a
+                                                        multi-line call/list-literal that goes through the
+                                                        "preserve original line groups" render path
+                                                        (`MiscRuleCurly.renderCallPreserveGroups`) was
+                                                        silently dropped, since that path's
+                                                        last-comma-suppression logic unconditionally withheld
+                                                        a comma on the very last rendered item (correct for
+                                                        C/C++/Java, wrong for Kotlin). Fixed by a new
+                                                        `hasTrailingComma` check consulted before
+                                                        `groupByOriginalLine`'s own drop of the dangling
+                                                        trailing empty group, gated on `lang.isKotlin`, wired
+                                                        into `renderCallPreserveGroups`/`renderCallDropped`/
+                                                        `renderCallOnePerLine` alike. Covers: a call with a
+                                                        trailing comma (preserved), a call without one (still
+                                                        not added), and a `listOf(...)` list-literal with a
+                                                        trailing comma (same call-shaped code path). token to
+                                                        classify it, but `class` is also a legal TS property
+                                                        name and still tagged KEYWORD by the tokenizer, so the
+                                                        field named `class` was misread as a class-declaration
+                                                        keyword, feeding its own nested brace into
+                                                        `enforceClassFieldAlignmentGrid`'s rewrite. Fixed by
+                                                        `isFieldNameKeywordUsage`, which checks whether the
+                                                        token after the candidate keyword is `:`/`?` (field
+                                                        usage) rather than an identifier (declared name), and
+                                                        skips such occurrences.
 
 How Tests Are Run
 -----------------

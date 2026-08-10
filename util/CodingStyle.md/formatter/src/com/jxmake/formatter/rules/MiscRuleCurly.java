@@ -520,6 +520,26 @@ public static final class Signature {
         return rows;
     }
     /**
+     * Reports whether {@code paramsSlice}'s last significant token (before the closing paren,
+     *  since {@code paramsSlice} is already the interior of a call/param list) is a `,` -- i.e.
+     *  whether the original source already had a trailing comma before `)`. Used only by the
+     *  Kotlin-gated trailing-comma-preservation exception in {@link #renderCallPreserveGroups}/
+     *  {@link #renderCallDropped}/{@link #renderCallOnePerLine} (STYLE_KOTLIN.md §7.2 -- a trailing
+     *  comma must be preserved exactly as written, never added or stripped -- see RDD_LOG.md's
+     *  trailing-comma-drop entry). {@code groupByOriginalLine}/{@code splitTopLevelCommas} both
+     *  discard this signal once they've split the slice into parts, so it must be checked against
+     *  the raw slice directly, before any splitting.
+     */
+    private boolean hasTrailingComma(final List<Token> paramsSlice)
+    {
+        for( int i = paramsSlice.size() - 1; i >= 0; --i ) {
+            final Token t = paramsSlice.get(i);
+            if( isGapToken(t) ) continue;
+            return isPunct(t, ",");
+        } // for
+        return false;
+    }
+    /**
      * Parses one already-significant-only param slice, peeling a trailing `[size]` run (same
      *  depth-tracked peel-off precedent as `DeclarationAlignmentRule.parseDeclaration`'s
      *  `sizeTokens` loop) before requiring the final remaining token to be the IDENTIFIER name.
@@ -1515,7 +1535,11 @@ public static final class Signature {
      */
     private List<String> renderCallDropped(final List<Token> paramsSlice, final String baseIndent)
     {
-        final List<List<Token>> args = splitTopLevelCommas(paramsSlice);
+        // Kotlin only (STYLE_KOTLIN.md §7.2): a trailing comma must be preserved exactly as
+        // written, never added or stripped -- checked against the raw slice before the
+        // dangling-empty-group drop below discards the signal.
+        final boolean            keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
+        final List<List<Token>>  args               = splitTopLevelCommas(paramsSlice);
         // Drop a dangling trailing empty group (a trailing comma before `)` with nothing after
         // it -- e.g. this codebase's own multi-line call style, `foo(\n  a,\n  b,\n);` --
         // splitTopLevelCommas (unlike groupByOriginalLine) doesn't drop it itself. Without this,
@@ -1535,6 +1559,7 @@ public static final class Signature {
             if(i > 0) argsText.append(", ");
             argsText.append( collapseTokensToOneLine( args.get(i) ) );
         }
+        if(keepTrailingComma) argsText.append(",");
         final String paramsLine = baseIndent + indentUnit + argsText;
         if( paramsLine.length() > lineLengthLimit ) return null;
 
@@ -1552,7 +1577,10 @@ public static final class Signature {
         final String      baseIndent
     )
     {
-        final List<List<Token>> args = splitTopLevelCommas(paramsSlice);
+        // Kotlin only (STYLE_KOTLIN.md §7.2): preserve a source trailing comma exactly as
+        // written -- see renderCallDropped's identical check for the full narrative.
+        final boolean            keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
+        final List<List<Token>>  args               = splitTopLevelCommas(paramsSlice);
         // Same dangling-trailing-empty-group drop as renderCallDropped -- without it, a source
         // call with a trailing comma renders a stray blank final line here (an empty last group
         // from splitTopLevelCommas)
@@ -1565,7 +1593,8 @@ public static final class Signature {
 
         final List<String> lines = new ArrayList<>();
         for( int i = 0; i < args.size(); ++i ) lines.add(
-            argIndent + collapseTokensToOneLine( args.get(i) ) + ( i < args.size() - 1 ? "," : "" )
+            argIndent + collapseTokensToOneLine( args.get(i) )
+                + ( i < args.size() - 1 || keepTrailingComma ? "," : "" )
         );
         lines.add(baseIndent + ")");
 
@@ -1592,7 +1621,10 @@ public static final class Signature {
         final String      baseIndent
     )
     {
-        final List<List<List<Token>>> rows = groupByOriginalLine(paramsSlice);
+        // Kotlin only (STYLE_KOTLIN.md §7.2): preserve a source trailing comma exactly as
+        // written -- see renderCallDropped's identical check for the full narrative.
+        final boolean                 keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice);
+        final List<List<List<Token>>> rows              = groupByOriginalLine(paramsSlice);
         if( rows.isEmpty() ) return null; // Shouldn't happen -- caller only calls this when a newline was found -- bail safe
 
         final String       argIndent = baseIndent + indentUnit;
@@ -1603,9 +1635,8 @@ public static final class Signature {
             for( int c = 0; c < row.size(); ++c ) {
                 if(c > 0) line.append(", ");
                 line.append( collapseTokensToOneLine( row.get(c) ) );
-                if( c == row.size() - 1 && !( r == rows.size() - 1 && c == row.size() - 1 ) ) line.append(
-                    ","
-                );
+                final boolean isVeryLast = r == rows.size() - 1 && c == row.size() - 1;
+                if( c == row.size() - 1 && (!isVeryLast || keepTrailingComma) ) line.append(",");
             } // for c
             lines.add( line.toString() );
         } // for r

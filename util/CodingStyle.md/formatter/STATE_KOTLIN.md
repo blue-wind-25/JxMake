@@ -18,48 +18,43 @@ attempts tried and reverted — was folded into `STATE_CURLY_GDR.md`'s GDR
 job as of 2026-08-02 and is no longer tracked here. This job has no
 independently-open item.**
 
-**OPEN ITEM (2026-08-10, not yet fixed): trailing-comma drop on multi-line
-call/list-literal collapse-preserve.** Real formatter bug, not a checker
-gap, found during content-diff-checker validation work (see the "(a)" note
-in the 2026-08-10 gap-4 entry under "Dogfood Output Validation" below for
-the original discovery). Repro:
-`generators/main/PrinterUtils.kt` line ~74, `"kotlin.io",` loses its
-trailing comma after formatting; conflicts with `STYLE_KOTLIN.md` §7.2
-("trailing comma preserved as-is, no pass adds/strips one").
+**RESOLVED (2026-08-11): trailing-comma drop on multi-line call/list-literal
+collapse-preserve — see RDD_KEY_279.** Was a real formatter bug (not a
+checker gap), found during content-diff-checker validation work. Repro:
+`generators/main/PrinterUtils.kt` line ~74, `"kotlin.io",` lost its trailing
+comma after formatting; conflicted with `STYLE_KOTLIN.md` §7.2 ("trailing
+comma preserved as-is, no pass adds/strips one").
 
-Root-caused (2026-08-10) to a *generic* (not Kotlin-specific) behavior in
-`MiscRuleCurly.renderCallPreserveGroups`
-(`src/com/jxmake/formatter/rules/MiscRuleCurly.java:1590-1615`), the path
-`renderCallCandidate` falls into for any call whose argument list already
-spans multiple source lines (`containsNewline(paramsSlice)` true, ~line
-1400-1404):
-1. `groupByOriginalLine` (called at line 1595) silently drops a dangling
-   trailing empty group produced by a trailing comma before `)` (see the
-   comment at line 1314-1315 contrasting it with `splitTopLevelCommas`,
-   which does NOT drop it).
-2. `renderCallPreserveGroups` then re-inserts commas itself between rows
-   (line 1606-1608), but its condition
-   `!(r == rows.size() - 1 && c == row.size() - 1)` unconditionally
-   withholds a comma on the very last rendered item, for every language —
-   it never checks whether the source's last group already had one.
+Root cause was *generic* (not Kotlin-specific) in `MiscRuleCurly`:
+1. `groupByOriginalLine` silently dropped a dangling trailing empty group
+   produced by a source trailing comma before `)`.
+2. `renderCallPreserveGroups`/`renderCallDropped`/`renderCallOnePerLine`
+   each independently withheld a comma on the very last rendered item
+   unconditionally, for every language — correct for C/C++/Java (not
+   idiomatic there), wrong for Kotlin.
 
-Correct for C/C++/Java (trailing commas aren't idiomatic there), but wrong
-for Kotlin per §7.2 — this path only ever synthesizes its own comma
-placement from scratch, so a Kotlin source trailing comma is always lost
-here regardless of GRU/classifier state. `renderCallDropped`/
-`renderCallOnePerLine` (the sibling non-multi-line-preserving render
-options, e.g. `renderCallDropped`'s doc comment at ~line 1507-1515) likely
-have the identical "never emit a final trailing comma" posture and need the
-same check.
+**Fix landed:** new `hasTrailingComma(paramsSlice)` helper checks the raw
+slice's last significant token before any splitting discards the signal;
+a `keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice)`
+exception gates all three render methods — `renderCallDropped` appends a
+`,` to the collapsed one-line args text when set; `renderCallOnePerLine`
+folds it into each line's existing trailing-comma condition;
+`renderCallPreserveGroups` widens its last-item comma-suppression check
+from `!(r == rows.size() - 1 && c == row.size() - 1)` to
+`!isVeryLast || keepTrailingComma`. All three are additive/gated behind
+`lang.isKotlin`, which is always `false` for C/C++/Java — their existing
+"never emit a final trailing comma" behavior is unchanged.
 
-**Fix shape (not yet applied):** `groupByOriginalLine` needs to also report
-whether the original trailing group (before being dropped) existed, and
-`renderCallPreserveGroups`'s last-comma suppression at line 1606-1608 (plus
-the equivalent spot in `renderCallDropped`/`renderCallOnePerLine` if they
-share the exposure) needs a Kotlin-gated exception (`lang.isKotlin`) that
-re-adds the trailing comma when the source had one. Needs new fixture(s),
-full `make test` (276+ cases) both forward and idempotency, and this
-section updated with the outcome once fixed.
+**Verification:** `make test` **276/276 → 277/277** forward + idempotency,
+zero regressions (276/276 confirmed identical immediately before and
+immediately after the source change, isolating the +1 to the one new
+fixture). New fixture `test/real_code_regressions_199_{inp,out}.kt` covers:
+a multi-line call with a trailing comma (preserved), the same call without
+one (still not added), and a `listOf(...)` list-literal with a trailing
+comma (confirms list-literals share the same call-shaped render path — no
+separate fix needed). Manual repro against a standalone `.kt` file via
+`--diff` also confirmed both before (comma dropped) and after (comma
+preserved) the fix.
 
 ---
 
@@ -217,6 +212,7 @@ restart). See STATE_COMMON.md's lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_221 | `JetBrains/kotlin` dogfood cluster **D3** — root cause confirmed, fix **NOT landed**: `MiscRuleCurly.renderCallCandidate`'s no-newline-branch fits-check measures a candidate against its entire enclosing physical source line (`lineStartIndex(tokens, nameIdx)`) instead of a stable position tied to the candidate itself, causing the wrap decision to flap across rounds as the enclosing line's own length changes. Candidate fix (anchor measurement at `nameIdx`) regressed 28 fixtures across C/C++/Java/TS/Kotlin at `make test` — reverted, not committed. Documented as a `README.md` Known Limitations bullet; D3 remains open. |
 | RDD_KEY_226 | `JetBrains/kotlin` dogfood cluster **D3**, 2026-07-31 design session's `statementStartIndex` (depth-0 `;`/`{`/`}` backward-scan) fix **implemented, validated, and REVERTED** — the design's own documented "Known open risk" (Kotlin statements are usually NEWLINE-, not `;`-separated) materialized: 16 Kotlin fixtures regressed (e.g. `real_code_regressions_20_inp.kt`'s `val display = ...` followed by `showMessage(context, display)` — the backward scan walks past the current statement into the entire preceding sibling statement, inflating the measured width, false-positive wrap), zero regressions in C/C++/Java/TS (gate itself worked). Reverted in full; `make test` back to 225/225. D3 remains open; needs real statement-boundary tracking (depth-0 NEWLINE as a statement end vs. mid-wrap), closer to the "General scope-depth reindentation" architectural TODO than a self-contained fix. |
 | RDD_KEY_278 | **Follow-up fix, `kotlin_content_diff.java` regression introduced by the `37c806a` closing-comment-tolerance fix** — `CONTROL_FLOW_CLOSING`'s inclusion of `when` in its one-trailing-word loose regex was too NARROW, not too loose: a `when (val x = expr)` capture-form subject is a multi-word expression, so a real, always-emitted `// when val accessDenied = error.suppressedExceptions.single()` closing comment was rejected as an unexplained addition (false MISMATCH). Fixed by removing `when` from the generic loose regex and adding a `namedConstructClosingComments`-style verified collector (`collectWhenClosingComments`/`whenClosingComments`) keyed off the file's real `KtWhenExpression` subject text — see "2026-08-10 follow-up" dogfood entry below for full detail/verification. |
+| RDD_KEY_279 | **RESOLVES the OPEN ITEM (2026-08-10) at the top of this file** — trailing-comma drop on a multi-line call/list-literal's "preserve original line groups" render path (§7.2). Generic `MiscRuleCurly` root cause (`groupByOriginalLine` dropped the dangling trailing empty group before the caller saw it; `renderCallPreserveGroups`/`renderCallDropped`/`renderCallOnePerLine` each unconditionally withheld a comma on the last rendered item) — fixed via new `hasTrailingComma` helper + a `lang.isKotlin`-gated `keepTrailingComma` exception in all three render methods, C/C++/Java untouched. Fixture `_199`. |
 
 ---
 

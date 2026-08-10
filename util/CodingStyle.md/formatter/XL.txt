@@ -201,6 +201,19 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
+Read STATE_COMMON.md and STATE_CURLY_GDR.md then fix this bug:
+
+  JS/TS regex literal (e.g. `/[{]/`) still tokenized as plain `TEXT`, not a string-like
+  unit — a bracket-family character inside a regex literal can miscount GDR's brace/paren depth;
+  localized to one `GdrTokenizer` method.
+
+The affected file should be `src/com/jxmake/formatter/gdr/GdrTokenizer.java`.
+When comitting, replace `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with your own ID and e-mail.
+
+- [CURLY_GDR] JS/TS regex literal (e.g. `/[{]/`) still tokenized as plain `TEXT`, not a string-like
+  unit — a bracket-family character inside a regex literal can miscount GDR's brace/paren depth;
+  localized to one `GdrTokenizer` method.
+
 - [DATA_FORMATS] MathML `definitionurl`→`definitionURL` tag-fixup missing — no `mathmlDepth`
   tracking exists (only `svgDepth` was built for the analogous SVG case); narrow, mirrors an
   existing pattern.
@@ -222,12 +235,6 @@ Use sub-agent. This can be a substantial work.
   (`json_patch_test.cpp`) — genuine idempotency failure; idempotency mismatches in general
   line-breaking logic have historically been pass-ordering bugs in this codebase.
 
-- [DATA_FORMATS] HTML5 deep tree-construction residual gaps: foster-parenting-driven tree reshaping
-  (`foreign_content_009/010.html`), misnested `<form>` reconstruction inside `<template>`, and
-  implicit `<body>` start-tag insertion are all still unimplemented — needs an explicit
-  open-elements-stack + HTML5 insertion-mode state machine, comparable in size/risk to general
-  scope-depth reindentation. Status quo doesn't corrupt output but isn't spec-faithful.
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
@@ -235,10 +242,6 @@ Use sub-agent. This can be a substantial work.
 - [PYTHON3] §5 f-string internal expression re-spacing out of scope (`f"{x  +  1}"` not normalized)
   — blocked because the only inherited token-spacing helper is C-family-specific and mishandles
   Python operators (`**`, `//`, `:=`, `and/or/not`, comprehension `for/if`).
-
-- [PYTHON3] f-string nested replacement field inside a format spec not recursively sub-tokenized
-  (`f"{x:{width}}"` inner field untouched) — "DEFERRED 2026-08-10 (not planned)", zero real-world
-  impact found against the full cpython corpus.
 
 - [PYTHON3] §4 decorator-call overflow/line-wrapping not implemented — blocked on missing shared
   wrap-decision infrastructure (C-family's `enforceCallLineBreaking` isn't ported to Python3).
@@ -250,19 +253,9 @@ Use sub-agent. This can be a substantial work.
   RDD_KEY_142 fixture near `location_shim.ts` but never reproduced against the real file — flagged
   to revisit only if a future dogfood run hits it again.
 
-- [CURLY_GDR] JS/TS regex literal (e.g. `/[{]/`) still tokenized as plain `TEXT`, not a string-like
-  unit — a bracket-family character inside a regex literal can miscount GDR's brace/paren depth;
-  localized to one `GdrTokenizer` method.
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
-
-- [C_CPP_JAVA] Shared curly-family declaration/assignment double-pass ordering bug
-  (`ScopePipelineCurly.processScope` outer-first-then-recurse architecture) — a still-open sibling
-  instance in `applyAssignmentsPass` (repro: TypeScript `harness/collectionsImpl.ts`), distinct
-  from the already-fixed `applyDeclarationsPass`/Java cases; same family that already caused
-  multiple reverted regression attempts before Java's own instance was fixed.
 
 - [C_CPP_JAVA] `openrewrite/rewrite` 2 residual cosmetic idempotency diffs, new trigger sites of
   known bug families with no prior revert/regression history: switch-arrow braceless if/else
@@ -289,10 +282,6 @@ Use sub-agent. This can be a substantial work.
   stable width" architectural class as RDD_KEY_245/246/248/249/250, one of which (RDD_KEY_249) had
   a reverted regression-causing fix attempt.
 
-- [PYTHON3] CLI/IO lossy UTF-8 decode on genuinely-invalid-UTF-8 input — silently replaces invalid
-  bytes with U+FFFD, changing the file's byte content; narrow (one instance across all dogfooded
-  corpora) but a real data-integrity issue at the IO layer.
-
 - [CURLY_GDR] Unverified risk: GDR's second multipass cycle (GDR-2) interacting with the pipeline's
   own relative-delta reindenters (`SwitchRule.applyNonInlineCaseIndent`,
   `ScopePipeline.applyDeclarationsPass`, the STYLE.md §8 continuation-indent renderer) — GDR-2
@@ -302,7 +291,7 @@ Use sub-agent. This can be a substantial work.
 
 Use sub-agent. This can be a substantial work.
 
-NOTE: [2026-08-10] The 3 former entries here were removed as `README.md` Known Limitations entry:
+NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known Limitations entry:
 - apache/ant `JikesOutputParser.java`.
 - ohmyzsh `tools/upgrade.sh` pipe-spacing.
 - Kotlin D3 wrap-decision-flap statement-boundary tracking.

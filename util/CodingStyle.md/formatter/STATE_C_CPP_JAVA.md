@@ -163,6 +163,20 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 
 ## Open Questions
 
+- **`.h` -> C++26 §5 reflection rules (`^^`/`[: :]`) gap: VERIFIED, not a bug, documented.**
+  `Lang.infer` maps `.h` to `"c"` by default, so `FormatterCurly`'s `lang.isCpp`-gated
+  `enforceReflectionOperatorSpacing`/`enforceAttributeAndSpliceBracketPadding` calls never run for
+  a `.h` file under default inference. Project owner's decision: keep the default unchanged
+  (blanket `.h` -> C++ risks misapplying C++-only rules to genuine C headers; content-sniffing
+  heuristics too fragile to trust) — require an explicit `--lang cpp` override instead. Verified
+  for real (2026-08-11): a `.h` fixture containing `^^ int` and `[:refl:]` left `^^` untouched
+  under default inference, correctly tightened to `^^int` under `--lang cpp` (which also flips
+  the empty-param-list rendering from C's `foo(void)` to C++'s `foo()`, confirming the whole `cpp`
+  pipeline — not just the reflection rules — engages correctly). `Main.java`'s `--lang` override
+  already takes priority over extension-based `inferLanguage` with no bug found; no source change
+  needed. Documented in `README.md`'s Known Limitations, curly-brace family, item 6. `make test`:
+  278/278 forward + idempotency, unchanged.
+
 - **range-v3 real-code-testing item 20, bug (a): RESOLVED.** Idempotency divergence in
   `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause/fix: entry (20) in
   "Finished dogfood / real-code testing" below. Full narrative: `RDD_KEY_169` in `RDD_LOG.md`.

@@ -780,6 +780,19 @@ here if and when it actually gains a documented gap.
    '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
    codebases that keep a lot of commented-out code inside otherwise-prose comment groups.
 
+6. **`.h` files default to C inference, so C++26 §5 reflection rules (`^^`, `[: :]` splice
+   brackets) never apply to a `.h` file's content unless explicitly overridden.** `Lang.infer`
+   maps the `.h` extension to `"c"` by default (C is by far the more common real-world case for a
+   bare `.h` file). This is a deliberate design decision, not an oversight: blanket-treating every
+   `.h` as C++ would risk misapplying C++-only reflection rules to genuine C headers, and
+   content-sniffing heuristics to auto-detect C vs. C++ were judged too fragile to trust for a
+   correctness-sensitive rewrite like this. If you have a `.h` file that is actually C++ content
+   (e.g. a header-only library shipping `.h` instead of `.hpp`) and want C++26 §5 reflection-rule
+   support applied, pass an explicit language override: `--lang cpp` on the CLI, or the `lang=cpp`
+   query parameter in server mode. Verified: the override takes priority over extension-based
+   inference for `.h` files specifically — `^^`/`[: :]` are left untouched under default `.h`
+   inference and correctly rewritten under `--lang cpp`.
+
 ### Tag-based family (XML/HTML5)
 
 1. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented

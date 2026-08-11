@@ -206,6 +206,36 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
+Let's add a user convenience helper to handle `Known Limitations` -
+`.h files default to C inference ...` in `README.md` by extending
+`In-file config` with:
+```
+//% JXM_CFMT_CFG --lang=...
+
+/*% JXM_CFMT_CFG --lang=... */
+```
+It will also help with templated Java files such as my `*.java.in` and `*.java.inc` files.
+The form `--lang` is chosen to match the command line option, however if you think something
+like `%lang=...`, `!lang=...`, `$lang=...`, `_lang_=...`, `[lang=...]`, etc. is better please
+suggest. After implementing it, update `README.md` and `../README.txt` as needed. BTW, it
+would be better to also say about `C++` general features too, instead of only `C++26` in the
+`Known Limitations` item.
+
+
+`Zcv_corpus.zip` contains the files from yesterday's 5-round CV run in CM5. The result looks
+too good to be true. It may be a good idea to test the GRU % by extracting some comments from
+unrelated repo such as `../../../../Shadow/Pt/*` (extract up to 200 comments ONLY). It may
+also be a good idea to test the GRU % with thresholds 0.68, 0.72, 0.76, etc. (we decide more
+as needed, after obtaining the results of those 3). Let's see if the different thresholds make
+the GRU more realistic. If we do decide to use a different threshold, update these with the
+new threshold:
+- The JSON weights file.
+- The inference, trainer, and tools source code files (`*.java`, `*.py`, `*.sh`, `Makefile`,
+  etc.), as needed.
+- The files `tools/gru/README.txt`, `STATE_AI.md`, `README.md`, `../README.txt`, as needed.
+
+
+
 - [PYTHON3] §5 f-string internal expression re-spacing out of scope (`f"{x  +  1}"` not normalized)
   — blocked because the only inherited token-spacing helper is C-family-specific and mishandles
   Python operators (`**`, `//`, `:=`, `and/or/not`, comprehension `for/if`).

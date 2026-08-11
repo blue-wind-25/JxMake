@@ -83,6 +83,13 @@ mkdir -p "$CLONE_DIR"
 # run-by-run log (RDD_EXT_16's own-repos-first batch, plus item 9's vetted
 # MIT/BSD-3-Clause/Apache-2.0 public-repo list) -- add new entries here as
 # more sources get vetted, don't invent new ones without checking a license.
+#
+# "local" entries are the repo owner's own projects (Aloysius Indrayanto) --
+# he has given explicit permission (2026-08-12) to use comments from any of
+# his own local projects/directories as GRU training samples regardless of
+# each individual project's own license terms, since he owns them outright.
+# This permission covers only "local" entries; "github" entries still go
+# through the normal MIT/BSD-3-Clause/Apache-2.0 vetting above.
 SOURCES=(
     "eCxx|local|~/Projects/eCxx"
     "SusterCaller|local|~/Projects/SusterCaller"

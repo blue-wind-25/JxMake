@@ -98,7 +98,7 @@ public final class GruTrainer {
     private static final int    EMBEDDING_DIM     = 16;
     private static final int    HIDDEN_SIZE       = 224;
     private static final int    DENSE_SIZE        = 64;
-    private static final double ABSTAIN_THRESHOLD = 0.7;
+    private static final double ABSTAIN_THRESHOLD = 0.76;
     /**
      * Global L2-norm gradient clipping threshold. Prevents exploding gradients in the
      *  recurrent layers while leaving ordinary updates unchanged. A value around 5 is a

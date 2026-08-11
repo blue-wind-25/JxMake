@@ -48,7 +48,7 @@ class /* Derived */ Derived /* From */ : /* public */ public Base {
 public:
     // Comment before constructor
     Derived(); // Default ctor
-    /* Explicit */ explicit Derived(int v); // Value ctor
+    /* explicit */ explicit Derived(int v); // Value ctor
     ~Derived(); // Dtor
 
     // Inline methods with trailing comments

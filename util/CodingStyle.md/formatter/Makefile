@@ -186,7 +186,7 @@ gru-measure-abstain-rate: $(JAR_FILE)
 GRU_FILTER_ABSTAIN_OUT ?=
 GRU_TALLY_INPUT        ?=
 GRU_TALLY_WEIGHTS      ?= code-formatter-ai-assist-weights.json
-GRU_TALLY_THRESHOLDS   ?= 0.7
+GRU_TALLY_THRESHOLDS   ?= 0.76
 
 gru-filter-abstain: $(JAR_FILE)
 	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_FILTER_ABSTAIN_OUT)" ]; then                                                  \
@@ -342,7 +342,7 @@ gru-train: $(JAR_FILE)
 GRU_CV_ROUNDS   ?= 5
 GRU_CV_WORK_DIR ?= $(GRU_BUILD_DIR)/cv_corpus
 GRU_CV_LOG      ?= $(GRU_BUILD_DIR)/cv_corpus.log
-GRU_CV_ARGS     ?= --epochs 9 --patience 3 --eval-threshold 0.7 --progress-every=5000
+GRU_CV_ARGS     ?= --epochs 9 --patience 3 --eval-threshold 0.76 --progress-every=5000
 
 gru-cv-corpus: $(JAR_FILE)
 	@mkdir -p $(GRU_BUILD_DIR)

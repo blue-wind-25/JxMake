@@ -434,10 +434,10 @@ falls back to the less-aggressive `ABSTAIN`-only behavior instead of
 failing, so a missing-weights setup won't show up as a test failure on its
 own.
 
-`abstainThreshold = 0.7` is baked into the shipped weights file (not a
+`abstainThreshold = 0.76` is baked into the shipped weights file (not a
 separate config key): the GRU itself abstains below this softmax
 confidence cutoff rather than forcing a low-confidence guess. See
-[`DESIGN_NOTES.md`](DESIGN_NOTES.md) for why `0.7` was chosen over a lower
+[`DESIGN_NOTES.md`](DESIGN_NOTES.md) for why `0.76` was chosen over a lower
 threshold.
 
 ### Multi-sentence comment capitalization (`normalize-comment-start-case-multiline`)
@@ -897,11 +897,11 @@ here if and when it actually gains a documented gap.
    separately-trained model (its own corpus and weights file) dedicated to that one narrow
    judgment call, which isn't planned given the limited benefit.
 
-3. **The GRU's residual false-positive rate on `NO` cases (~2.7% at the shipped
-   `abstainThreshold = 0.7`) is accepted, not further reduced.** Lowering the threshold recovers
-   more `YES` resolutions but raises this rate; `0.7` was chosen as the best trade-off found
-   (see [`DESIGN_NOTES.md`](DESIGN_NOTES.md)). Not planned unless a future corpus expansion
-   moves the curve.
+3. **The GRU's residual false-positive rate on `NO` cases is accepted, not further reduced.**
+   Lowering the threshold recovers more `YES` resolutions but raises this rate; `0.76` (raised
+   from `0.7` on 2026-08-12) was chosen as the best trade-off found so far (see
+   [`DESIGN_NOTES.md`](DESIGN_NOTES.md)). Not planned to change further unless a future corpus
+   expansion or held-out measurement moves the curve.
 
 ---
 

@@ -1404,3 +1404,72 @@ jar's behavior). `Zcv_corpus.zip` (real training/test splits + trained
 per-round weights, 40MB) and all `Shadow/Pt`-derived extraction/sample files
 stay under `/tmp`/scratchpad per RDD_EXT_19 — not committed, not left in the
 repo root.
+
+**Follow-up (same day) — ran the 3 threshold candidates against genuinely
+held-out data, then adopted `abstainThreshold = 0.76`.** Two further checks
+before deciding, both against real held-out/unlabeled data (not the 594-row
+bench, which is training-fit — reran it anyway as a sanity check: 100%
+precision at all four thresholds tested, confirming it can't discriminate
+between them, as expected):
+
+1. **Per-CV-round held-out sweep.** Ran `GruEval` at 0.68/0.70/0.72/0.76
+   against each of `Zcv_corpus.zip`'s 5 rounds' own `test_round{N}.txt`,
+   using that round's own `weights_round{N}.json` (no train/test leakage).
+   Aggregated across all 5 rounds:
+
+   | threshold | FN (missed YES) rate | FP (NO→YES) rate | abstain (of 119642) |
+   |---|---|---|---|
+   | 0.68 | 372/115685 = 0.32% | 449/3504 = 12.82% | 453 (0.38%) |
+   | 0.70 | 362/115662 = 0.31% | 437/3472 = 12.59% | 508 (0.42%) |
+   | 0.72 | 344/115631 = 0.30% | 432/3453 = 12.51% | 558 (0.47%) |
+   | 0.76 | 293/115524 = 0.25% | 419/3401 = 12.32% | 717 (0.60%) |
+
+   Both FN and FP rates fall monotonically as the threshold rises — 0.76
+   strictly beats 0.72 and 0.70 here. Caveat: this is the same
+   easy-example-dominated corpus flagged as "too good to be true" above
+   (~12.5% FP rate here vs. the ~2.7% FP rate the 2026-08-02 hard-case-only
+   CV found at 0.7 — not the same population), so the improvement reflects
+   mostly-easy examples getting marginally easier to abstain-correctly on,
+   not necessarily hard-case generalization.
+2. **Shadow/Pt out-of-distribution check** (previous entry): 0.68/0.72/0.76
+   all behaved almost identically to 0.70 (96.5-97.0% decide-rate) — no
+   evidence any of the three regressed decisiveness on unseen text.
+
+**Considered and rejected: using one of the 5 CV rounds' own trained
+weights (e.g. `weights_round3.json`, which had the lowest FP count at
+0.76) as the production weights file**, instead of a full-corpus retrain.
+Rejected on two grounds: (1) round-to-round differences are noise at this
+scale (the CV's own `stdev=0.0008` on precision says so directly; round3
+has the fewest FPs at 0.76 but not the fewest FNs — a different column
+picks a different "best" round), and (2) each round is trained on only
+95712 of 119641 rows (80%, since 20% is deliberately held out for that
+round's own test) — strictly less data than a full-corpus retrain for no
+benefit. CV's job (estimating generalization, validating a threshold
+choice) was already done; shipping a fold's intermediate weights would
+throw away data and chase noise.
+
+**Decision: keep the full-corpus-trained weights, raise `abstainThreshold`
+0.7 → 0.76 only** (same "pure inference-time metadata, no retrain needed"
+mechanism confirmed 2026-08-03 — `GruTrainer` writes the field verbatim and
+never reads it back for training). Changed:
+- `code-formatter-ai-assist-weights.json`: `abstainThreshold` `0.7` → `0.76`
+  (single-line edit, verified via `grep -o '"abstainThreshold": [0-9.]*'`
+  and a comma-split `cmp` that only that field's line differed — the file
+  is one giant JSON line, too large to diff normally).
+- `tools/gru/GruTrainer.java`: `ABSTAIN_THRESHOLD` constant `0.7` → `0.76`
+  (future `make gru-train` bakes in `0.76` by default).
+- `Makefile`: `GRU_CV_ARGS`'s `--eval-threshold 0.7` → `0.76`;
+  `GRU_TALLY_THRESHOLDS` default `0.7` → `0.76`.
+- `README.md`: both `abstainThreshold = 0.7` references updated; the
+  "~2.7% at 0.7" FP-rate figure reworded to avoid restating a number not
+  re-measured at 0.76 on the hard-case-only population specifically.
+- `DESIGN_NOTES.md`: heading + added a paragraph summarizing this
+  investigation's numbers.
+- `tools/gru/README.txt`: checked, no change needed — its only `0.7`
+  references are either generic sweep examples (`0.5 0.6 0.7 0.8 0.9`) or a
+  historical note about a specific past CV run, not a "current default"
+  statement.
+- `../README.txt`: checked, no GRU/`abstainThreshold` mention exists there
+  at all — no change needed.
+
+`make jar` + `make test`: **286/286 forward, 286/286 idempotency** — clean.

@@ -124,9 +124,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_199_inp/out.kt`
-    to   `real_code_regressions_200_inp/out.js`
-[DONE]
+    from `real_code_regressions_201_inp/out.py`
+    to   `...`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -208,14 +207,12 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-- [PYTHON3] §6 inline-vs-one-per-line signature wrapping decision not implemented — same missing
-  wrap-decision infra §4 used to have; currently alignment-only. (§4's own decorator-call-overflow
-  gap closed 2026-08-12 — see STATE_PYTHON3.md's §4 entry; §6 remains open since a `def` signature's
-  decision is a distinct shape, not automatically covered by §4's decorator-scoped fix.)
-
 - [JS_TS] Unreproduced `=`-alignment-group non-self-stability quirk seen while building the
   RDD_KEY_142 fixture near `location_shim.ts` but never reproduced against the real file — flagged
   to revisit only if a future dogfood run hits it again.
+
+How about running another (or two) dogfood from the cloned Python repo to be more sure?
+Does `README.md` needs updating?
 
 Use sub-agent. This can be a substantial work.
 

@@ -126,6 +126,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll( applyImportSort(tokens, rawLines) );
         replacements.addAll( applyDecoratorSpacing(tokens, rawLines) );
         replacements.addAll( applyFStringSpacing(tokens) );
+        replacements.addAll( applySignatureWrapping(tokens, rawLines) );
         replacements.addAll( applySignatureAlignment(tokens, rawLines) );
         replacements.addAll( applyCaseColonAlignment(tokens, rawLines) );
         replacements.addAll( applySingleStatementBody(tokens, rawLines) );
@@ -1443,20 +1444,161 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         if(closeGap != null) out.add(closeGap);
     }
 
+    // ── §6: Function Signature Wrapping (inline-vs-one-per-line decision) ──────────────
+
+    /**
+     * STYLE_PYTHON3.md §6's inline-vs-one-per-line decision (STYLE.md §8, directly referenced by
+     *  §6's own text): an inline, single-physical-line `def` signature that still overflows {@code
+     *  lineLength} wraps to one-parameter-per-line, the closing `)` indented to match the `def`
+     *  line's own first character, with any `-> ReturnType` staying fixed on the closing `)`'s own
+     *  line immediately before the header `:` (§6: "a fixed position, not part of the per-parameter
+     *  alignment grid"). Mirrors {@link #tryWrapDecoratorCall} (§4)'s shape as the model for "when
+     *  does an inline construct overflow and get broken", but -- unlike that method, which leaves
+     *  plain unaligned one-per-line arguments for nothing further to align -- renders the wrapped
+     *  parameter lines directly through {@link MiscRuleIndent#renderPySignatureGroup}, the exact
+     *  same renderer {@link #trySignatureGroup} (§6's pre-existing alignment-only slice) already
+     *  uses for an already-one-per-line source signature. Aligning inline here (rather than relying
+     *  on a later pass to pick the newly-wrapped lines back up) is a deliberate pass-ordering choice,
+     *  not an oversight: the wrapped parameter lines are synthesized text, never real {@code
+     *  RawLine}s split out of the original source, so {@link #applySignatureAlignment}'s own {@code
+     *  RawLine}-driven loop (which only ever iterates {@code rawLines} computed once up front from
+     *  the *original*, pre-wrap token stream) could never discover them even on a later pipeline
+     *  pass within the same {@link #process} call -- there's no "later pass" that would see this
+     *  pass's output as new input. This also guarantees the two passes never fight over the same
+     *  line: {@link #applySignatureAlignment} explicitly skips any line that isn't {@code
+     *  multiPhysicalLine}, and this pass only ever fires on a line that IS still single-physical (an
+     *  inline signature) at the time {@code rawLines} was computed -- mutually exclusive by
+     *  construction, no shared candidate line ever reaches both.
+     *
+     * <p>Unlike §4's decorator-call wrap (which always synthesizes a trailing comma per its own
+     *  worked example), §6's own worked example shows NO trailing comma after the last parameter --
+     *  so none is added here; every parameter but the last gets one, matching the worked example
+     *  exactly.
+     */
+    private List<Replacement> applySignatureWrapping(
+        final List<Token>   tokens,
+        final List<RawLine> rawLines
+    )
+    {
+        final List<Replacement> replacements = new ArrayList<>();
+        for(final RawLine line : rawLines) {
+            if(line.multiPhysicalLine) continue; // Already-broken-out signatures are §6's existing alignment slice's own territory
+            int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
+            if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
+            if( isKeyword( tokens.get(kwIdx), "async" ) ) {
+                kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+                if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
+            }
+            if( !isKeyword( tokens.get(kwIdx), "def" ) ) continue;
+            final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+            if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
+            final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
+            if( openIdx < 0 || tokens.get(
+                openIdx
+            ).type != TokenType.PUNCT || !"(".equals(
+                tokens.get(openIdx).text
+            ) ) continue;
+            final int closeIdx = matchBracket(tokens, openIdx, line.end);
+            if(closeIdx < 0) continue;
+
+            final Replacement wrap = tryWrapDefSignature(tokens, line, openIdx, closeIdx);
+            if(wrap != null) replacements.add(wrap);
+        } // for
+
+        return replacements;
+    }
+
+    /**
+     * Returns {@code null} (leave the line completely untouched) whenever: a comment sits anywhere
+     *  inside the parens or between `)` and the header `:` (comment-disqualifies-the-candidate, same
+     *  posture {@link #tryWrapDecoratorCall} takes for §4); no header-terminating `:` is found on
+     *  this same physical line (an unsupported shape -- e.g. a body already starting inline after
+     *  the colon still has the colon on this line, so this only actually excludes a signature whose
+     *  own trailing `:` was, unusually, pushed to a further line by hand); the call has zero
+     *  parameters (nothing to break out, same precedent as §4's zero-arg call); any parameter segment
+     *  fails {@link #classifySignatureParam}'s own per-parameter classification (an already-
+     *  documented gap inherited unchanged from §6's alignment slice); or the line already fits within
+     *  {@code lineLength} as written (never force-wrap an already-short signature).
+     */
+    private Replacement tryWrapDefSignature(
+        final List<Token> tokens,
+        final RawLine     line,
+        final int         openIdx,
+        final int         closeIdx
+    )
+    {
+        if( containsComment(tokens, openIdx, closeIdx + 1) ) return null;
+
+        // Locate the header's own terminating `:` after the closing `)` -- everything from
+        // `closeIdx + 1` through that colon (an optional `-> ReturnType`) stays fixed on the closing
+        // `)`'s own line per STYLE_PYTHON3.md §6's own text. Depth-tracked so a nested bracket in the
+        // return-type annotation itself (e.g. `-> Dict[str, int]:`) can never have an internal colon
+        // mistaken for the header's own -- Python type subscripts don't use `:` inside `[...]`
+        // today, but tracking costs nothing and matches this class's existing precedent elsewhere
+        // (`classifySignatureParam`'s own depth-tracked `:`/`=` search).
+        int depth          = 0;
+        int headerColonIdx = -1;
+        for(int i = closeIdx + 1; i < line.end; ++i) {
+            final Token t = tokens.get(i);
+            if(t.type != TokenType.PUNCT) continue;
+            if( isOpenBracketText(t.text) ) {
+                ++depth;
+            }
+            else if( isCloseBracketText(t.text) ) {
+                --depth;
+            }
+            else if( depth == 0 && ":".equals(t.text) ) {
+                headerColonIdx = i;
+                break;
+            }
+        } // for
+        if(headerColonIdx < 0) return null; // No header `:` on this physical line -- unsupported shape
+        if( containsComment(tokens, closeIdx + 1, headerColonIdx) ) return null;
+
+        final String currentLine = renderSpan( tokens, line.contentStart, line.end, new ArrayList<>() );
+        if( physicalLineLength(currentLine) <= lineLength ) return null; // Already fits -- leave inline
+
+        final List<int[]> segs = splitTopLevelArgs(tokens, openIdx + 1, closeIdx);
+        if(segs.isEmpty()) return null; // Zero-param signature -- nothing to break out
+
+        final List<PyParam> params = new ArrayList<>();
+        for(final int[] seg : segs) {
+            final PyParam p = classifySignatureParam(tokens, seg[0], seg[1]);
+            if(p == null) return null; // Same documented per-parameter gap §6's alignment slice already has
+            params.add(p);
+        } // for
+
+        final String        baseIndent  = leadingIndent(tokens, line);
+        final String        paramIndent = baseIndent + indentUnit();
+        final List<String>  rendered    = miscRule.renderPySignatureGroup(params);
+        final StringBuilder sb          = new StringBuilder();
+        sb.append("(\n");
+        for( int i = 0; i < rendered.size(); ++i ) {
+            sb.append(paramIndent).append( rendered.get(i) );
+            if(i < rendered.size() - 1) sb.append(","); // Every param but the last, per §6's worked example
+            sb.append("\n");
+        } // for
+        sb.append(baseIndent).append(")");
+
+        return new Replacement(openIdx, closeIdx + 1, sb.toString());
+    }
+
     // ── §6: Function Signature Wrapping (alignment-only slice) ─────────────────────────
 
     /**
-     * STYLE_PYTHON3.md §6's inline-vs-one-per-line *decision* has no home in this codebase yet --
-     *  same documented gap as §4's own call-argument-overflow wrapping (no general line-length-
-     *  triggered breaking mechanism exists anywhere in the {@code *Indent}/{@code *Curly} family;
-     *  the C-family's {@code enforceCallLineBreaking} is Curly-only). This pass therefore never
-     *  decides to break or join a signature -- it only column-aligns the {@code :}/{@code =} of a
-     *  {@code def} signature's parameter list that is <em>already</em> written one-parameter-per-
-     *  line in the source, taking that human-authored line-breaking as given (the same posture §2's
-     *  assignment alignment takes toward an already-single-line assignment candidate: normalize
-     *  spacing given the existing structure, never decide when to (re)break a line). An inline
-     *  (already-one-line) signature is untouched by construction -- it is never
-     *  {@code multiPhysicalLine}, so it never reaches {@link #trySignatureGroup} at all.
+     * This pass only ever column-aligns the {@code :}/{@code =} of a {@code def} signature's
+     *  parameter list that is <em>already</em> written one-parameter-per-line in the source, taking
+     *  that human-authored line-breaking as given (the same posture §2's assignment alignment takes
+     *  toward an already-single-line assignment candidate: normalize spacing given the existing
+     *  structure, never decide when to (re)break a line) -- it never itself decides to break or join
+     *  a signature. **The inline-vs-one-per-line decision itself now lives in {@link
+     *  #applySignatureWrapping}/{@link #tryWrapDefSignature}, run immediately before this pass** (own
+     *  §4-style overflow-wrap, added 2026-08-12) -- an inline signature that overflows {@code
+     *  lineLength} is wrapped and aligned there in one shot, never reaching this method at all; an
+     *  inline signature that still fits is left alone by both passes. An inline (already-one-line)
+     *  signature that reaches THIS method specifically (i.e. one {@link #applySignatureWrapping}
+     *  declined to touch) is untouched by construction -- it is never {@code multiPhysicalLine}, so
+     *  it never reaches {@link #trySignatureGroup} at all.
      */
     private List<Replacement> applySignatureAlignment(
         final List<Token>   tokens,
@@ -1550,8 +1692,18 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if(p == null) return null;
             params.add(p);
             final int contentFirst = nextSignificant( tokens, seg[0], seg[1] );
-            final int contentEnd   = trimEndIdx( tokens, contentFirst, seg[1] );
-            spans.add( new int[] { contentFirst, contentEnd } );
+            // Replacement span extends all the way to `seg[1]` (the segment's own NEWLINE) rather
+            // than stopping at `trimEndIdx`'s last-significant-token boundary -- any stray trailing
+            // whitespace a prior round already baked into the source between the last significant
+            // token and the NEWLINE (e.g. this exact pass's own previous-round padding on a
+            // bare/no-default last parameter like `**kwargs`, which right-pads its name to the
+            // group's `maxNameLen` with nothing after it to absorb the padding) must be fully
+            // swallowed by this replacement, not left behind as literal orphaned text the new
+            // padding then stacks on top of -- otherwise each round-trip grows the trailing
+            // whitespace by another `maxNameLen`-derived amount, a genuine non-convergent
+            // idempotency bug (found via `psf/black` dogfood re-run, `tests/data/cases/function.py`'s
+            // `**kwargs` final parameter).
+            spans.add( new int[] { contentFirst, seg[1] } );
         } // for
         final List<String>      rendered = miscRule.renderPySignatureGroup(params);
         final List<Replacement> out      = new ArrayList<>();

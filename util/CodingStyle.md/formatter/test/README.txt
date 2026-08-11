@@ -647,14 +647,34 @@ Python3:
                                                         `@register()` call; the known-risk interaction with a
                                                         nested f-string field adjacent to another field with
                                                         no literal text between them
-                                                        (`f'Struct331_{signedness}{n}_...'`, mirroring the
-                                                        §4/§5 idempotency bug already fixed for this exact
-                                                        adjacency shape); a lambda-default argument containing
-                                                        its own f-string field; and a trailing same-line
-                                                        comment after the call, which disqualifies the whole
-                                                        line from wrapping (documented gap, same "comment
-                                                        disqualifies the candidate" posture as the C-family's
-                                                        `enforceCallLineBreaking`).
+
+  py_signature_wrap_inp/out.py                       -- Python3 §6 overflow: the inline-vs-one-per-line
+                                                        decision for a `def` signature (STYLE.md §8 as
+                                                        directly referenced by §6), previously missing -- an
+                                                        over- `line-length` inline signature wraps to
+                                                        one-parameter- per-line with `:`/`=` column alignment
+                                                        baked in (rendered the same way as an
+                                                        already-broken-out signature's own alignment slice),
+                                                        closing `)` back at the `def` line's indent, no
+                                                        trailing comma after the last parameter, `->
+                                                        ReturnType:` staying fixed on the closing `)`'s own
+                                                        line. Covers: an already-fitting signature left
+                                                        untouched; a plain overflow wrap; a
+                                                        type-hint-plus-default parameter needing depth-tracked
+                                                        comma splitting past a nested `Dict[str, int] = {}`
+                                                        default; a return-type annotation case; and an
+                                                        already- one-per-line signature
+                                                        (adjacent-pass-ordering check -- picked up by the
+                                                        pre-existing §6 alignment pass, not this new wrap
+                                                        pass, since the two passes are mutually exclusive by
+                                                        construction). (`f'Struct331_{signedness}{n}_...'`,
+                                                        mirroring the §4/§5 idempotency bug already fixed for
+                                                        this exact adjacency shape); a lambda-default argument
+                                                        containing its own f-string field; and a trailing
+                                                        same-line comment after the call, which disqualifies
+                                                        the whole line from wrapping (documented gap, same
+                                                        "comment disqualifies the candidate" posture as the
+                                                        C-family's `enforceCallLineBreaking`).
 
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
@@ -3668,6 +3688,26 @@ Real-code regressions:
                                                         siblings. Its name-column padding is normalized from
                                                         the siblings' base indentation before rendering, so
                                                         the aligned group remains idempotent.
+
+  real_code_regressions_201_inp/out.py               -- Minimal repro of a Python3 §6 alignment idempotency
+                                                        bug found via `psf/black` dogfood re-run
+                                                        (`tests/data/cases/function.py`'s `**kwargs` final
+                                                        parameter, newly exposed at much higher frequency once
+                                                        §6's own inline-vs- one-per-line overflow-wrap pass
+                                                        started producing this exact shape): an
+                                                        already-broken-out signature's last parameter having
+                                                        neither a type hint nor a default (so nothing follows
+                                                        its own right-padded name column) left its padding's
+                                                        trailing whitespace as literal orphaned source text a
+                                                        second round's own re-padding then stacked on top of,
+                                                        growing the trailing whitespace by another
+                                                        `maxNameLen`-derived amount every round
+                                                        (non-convergent). Fixed in `trySignatureGroup`: each
+                                                        parameter's replacement span now always extends
+                                                        through its own segment's trailing NEWLINE rather than
+                                                        stopping at the last significant token, so any such
+                                                        leftover whitespace is fully swallowed by the
+                                                        replacement instead of surviving alongside it.
 
 How Tests Are Run
 -----------------

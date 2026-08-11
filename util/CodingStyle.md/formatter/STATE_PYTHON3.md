@@ -654,9 +654,7 @@ same as every other language's dogfood precedent for a newly-landed rule.
       multiplication, `**`/`//`/`:=`, keyword operators, comprehension
       `for`/`if`), not just a style miss. See `XL.txt` TIER X: Dead.
 
-      **§6 (Function Signature Wrapping) — alignment-only slice.** The
-      inline-vs-one-per-line *decision* has no home anywhere in
-      `*Indent`/`*Curly` (same gap as §4's decorator overflow). New
+      **§6 (Function Signature Wrapping) — alignment slice.** New
       `MiscRuleIndent.PyParam` (name/type/default triples, trailing-comma
       flag) + `renderPySignatureGroup` (name column padded to widest; `=`
       column padded only across params with BOTH a type hint and a
@@ -669,10 +667,79 @@ same as every other language's dogfood precedent for a newly-landed rule.
       spanning multiple lines) returns null, leaving the *whole* signature
       untouched. `classifySignatureParam`'s `:`/`=` search tracks local
       bracket depth so nested type hints (`List[Dict[str, int]]`) work
-      correctly. Return-type arrow untouched by construction. **Gap:
-      inline-vs-one-per-line decision not implemented** (blocked on the
-      same missing wrap-decision infra as §4). 5-case smoke + `make test`
-      114/114.
+      correctly. Return-type arrow untouched by construction. 5-case
+      smoke + `make test` 114/114.
+
+      **§6 inline-vs-one-per-line decision — CLOSED [2026-08-12], not a
+      future job.** New `ScopePipelineIndent.applySignatureWrapping`/
+      `tryWrapDefSignature`, run immediately before the alignment slice
+      above, is §4-`tryWrapDecoratorCall`-shaped: a single-physical-line
+      `def`/`async def` header whose full line still exceeds `lineLength`
+      after locating its header-terminating `:` (depth-tracked past a
+      `-> Dict[str, int]:` return-type annotation) wraps its top-level
+      (bracket-depth-tracked, so `Dict[str, int] = {}` defaults split
+      correctly) parameter list one-per-line, rendered **already
+      `:`/`=`-column-aligned** via the same `renderPySignatureGroup` the
+      alignment slice above uses, rather than left plain for a later pass
+      to pick up. Unlike §4's decorator wrap (always trailing-comma per
+      its own worked example), §6's worked example shows NO trailing
+      comma after the last parameter, so none is synthesized. Returns
+      `null` (leave inline) on: a comment anywhere inside the parens or
+      between `)` and the header `:`; no header `:` found on the same
+      physical line; zero parameters; any parameter segment failing
+      `classifySignatureParam`'s own existing per-parameter gap; or the
+      line already fitting.
+
+      **Pass-ordering (no fight, no double-processing):** the new pass
+      and the alignment slice are mutually exclusive by construction —
+      `applySignatureWrapping` only ever fires on a `RawLine` that is NOT
+      `multiPhysicalLine` (still inline as originally written), while
+      `applySignatureAlignment` only ever fires on one that IS. Both
+      passes iterate `rawLines` computed once, up front, from the
+      *original* pre-wrap token stream, so the wrap pass's own
+      synthesized multi-line text is never re-discovered by any later
+      pass within the same `process()` call — hence the wrap pass aligns
+      inline itself rather than leaving that to a later pass that could
+      never see its output. Verified via a dedicated adjacent-pass-
+      ordering fixture (`test/py_signature_wrap_inp.py`'s
+      `already_wrapped` case: an already-one-per-line signature is
+      picked up correctly by the alignment slice, not this new pass).
+
+      **One real, pre-existing bug found and fixed via `psf/black`
+      dogfood re-run (not just static reasoning):** newly wrapping many
+      more inline signatures into one-per-line form exposed a latent
+      non-convergent idempotency bug in the pre-existing
+      `trySignatureGroup`, unrelated to the new wrap pass's own logic —
+      reproducible by feeding an already-one-per-line signature straight
+      to the pre-existing code, no wrap pass involved. A parameter with
+      neither a type hint nor a default (e.g. a bare `**kwargs` last
+      parameter) still gets its name right-padded to the group's
+      `maxNameLen` with nothing following to absorb the padding;
+      `trySignatureGroup`'s per-parameter replacement span stopped at the
+      last *significant* token (`trimEndIdx`) rather than the segment's
+      own trailing `NEWLINE`, so any whitespace a previous round had
+      already baked in between that token and the newline (i.e. the
+      previous round's own padding) was left behind as literal orphaned
+      text the new round's padding then stacked on top of — trailing
+      whitespace grew by another `maxNameLen`-derived amount every round.
+      Fixed: each parameter's span now always extends through its
+      segment's own `NEWLINE`, swallowing any such leftover whitespace.
+      Confirmed via a minimal repro NOT involving the new wrap pass at
+      all. The remaining ~10 of the original 13 `psf/black` idempotency
+      mismatches were independently confirmed unrelated (pre-existing
+      comment-classifier capitalization non-determinism, §8 join-
+      threshold behavior) — not caused by this session's changes. New
+      fixture `test/real_code_regressions_201_{inp,out}.py`.
+
+      Local fixtures: `test/py_signature_wrap_{inp,out}.py`
+      (already-fitting left untouched; plain overflow wrap; a
+      `Dict[str, int] = {}` default needing depth-tracked comma
+      splitting; a return-type-annotation case; the already-wrapped
+      adjacent-pass-ordering check above) plus `test/py_combined_out.py`
+      updated in place (its own `def process(...)` line now legitimately
+      wraps, matching STYLE_PYTHON3.md §6's worked example exactly).
+      `make test`: 288/288 (pre-existing) → 289/289 (regression fixture
+      above), all green including idempotency.
 
       **§8 (Single-Statement Bodies) — a join operation** (unlike §2-§7,
       which never join/split lines). Precedent: `BlockStructureRule

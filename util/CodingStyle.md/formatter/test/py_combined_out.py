@@ -62,7 +62,13 @@ class Point:
     y: int
     label: str = "origin"
 
-def process(extra, x: int, y: "List[int]", name: str = "default", desc: str = "default") -> Optional[str]:
+def process(
+    extra,
+    x     : int,
+    y     : "List[int]",
+    name  : str = "default",
+    desc  : str = "default"
+) -> Optional[str]:
     ...
 
 def slice_params(pos, /, mid, *, kw: int = 0):

@@ -465,6 +465,7 @@ INP_FILES += py_import_multiline_inp.py
 INP_FILES += py_single_statement_body_ext_inp.py
 INP_FILES += py_control_flow_blank_line_gaps_inp.py
 INP_FILES += py_decorator_overflow_inp.py
+INP_FILES += py_signature_wrap_inp.py
 
 INP_FILES += makefile_combined_inp.mk
 INP_FILES += bash_combined_inp.sh
@@ -679,6 +680,7 @@ INP_FILES += real_code_regressions_197_inp.ts
 INP_FILES += real_code_regressions_198_inp.ts
 INP_FILES += real_code_regressions_199_inp.kt
 INP_FILES += real_code_regressions_200_inp.js
+INP_FILES += real_code_regressions_201_inp.py
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

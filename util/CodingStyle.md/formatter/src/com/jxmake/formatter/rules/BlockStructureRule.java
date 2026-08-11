@@ -1741,17 +1741,23 @@ public class BlockStructureRule {
         return out.toString();
     }
 
-    /** The leading whitespace of the line containing the token at idx, or "" if it isn't first on its line */
+    /**
+     * The leading whitespace of the line containing the token at idx -- walks back to that
+     * line's own start (the most recent NEWLINE, or the start of the token stream) and returns
+     * whatever WHITESPACE token immediately follows it, regardless of how many non-whitespace
+     * tokens sit between that leading whitespace and idx (e.g. idx pointing at a `}` that closes
+     * a same-line `try { ... }` body -- the line's real indentation still comes from before
+     * `try`, not from immediately before idx).
+     */
     private String indentBefore(final List<Token> tokens, final int idx)
     {
-        final StringBuilder indent = new StringBuilder();
-              int           i      = idx - 1;
-        while( i >= 0 && tokens.get(i).type == TokenType.WHITESPACE ) {
-            indent.insert( 0, tokens.get(i).text );
-            --i;
+        int lineStart = idx;
+        while( lineStart > 0 && tokens.get(lineStart - 1).type != TokenType.NEWLINE ) {
+            --lineStart;
         }
 
-        return ( i < 0 || tokens.get(i).type == TokenType.NEWLINE ) ? indent.toString() : "";
+        return ( lineStart < tokens.size() && tokens.get(lineStart).type == TokenType.WHITESPACE )
+                ? tokens.get(lineStart).text : "";
     }
 
     /**

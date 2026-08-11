@@ -124,8 +124,9 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_201_inp/out.py`
-    to   `real_code_regressions_202_inp/out.py`
+    from `real_code_regressions_203_inp/out.java`
+    to   `real_code_regressions_203_inp/out.java`
+[DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -164,6 +165,8 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 
 3. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
+   !!! CLOSED FOR NOW - only revisit if much better training samples can be obtained !!!
+
    Further grow the hand-labeled hard-case corpus (`tools/classifier_weights/examples_*.md`),
    especially with the the `NO` samples.
 
@@ -178,8 +181,6 @@ Compact (don't use sub-agent because I will end this session soon) the narration
    Run GRU cross validation and check the GRU % with the new weights.
 
    Use sub-agent. This can be a substantial work.
-
-   !!! CLOSED FOR NOW - only revisit if much better training samples can be obtained !!!
 
 === TIER 1: Analysis/refactor/docs/testing only — ~zero regression risk ===
 
@@ -201,7 +202,13 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-NONE FOR NOW
+- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — expression-start-context
+  list and opaque-span token representation not yet designed. HIGH risk (architectural,
+  cross-pass-ordering); no fix has been attempted yet, so unlike this tier's usual "prior attempt
+  regressed fixtures" qualifier, this is a forward risk assessment, not a track record. It's the
+  blocker for the future JSX/TSX embedding-aware dispatcher (STATE_JS_TS.md) — JSX/TSX itself is
+  real planned future work per CLAUDE.md's job table, not a rejected idea, so this belongs here
+  rather than TIER X: Dead (moved from there 2026-08-12).
 
 Use sub-agent. This can be a substantial work.
 
@@ -294,19 +301,14 @@ Use sub-agent. This can be a substantial work.
 
 === TIER X: Dead ===
 
+- [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
+
 - [PYTHON3] §5 f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
   2026-08-12: matches `black`/`ruff format` convention (both also leave f-string interiors alone),
   so this is intentional scope, not a missed feature. Fixing it would need a real
   Python-expression tokenizer/spacer — reusing the C-family `needsSpaceBetween` risks silent
   semantic corruption (`*` multiplication, `**`/`//`/`:=`, keyword operators, comprehension
   `for`/`if`), not just a style miss. See `STATE_PYTHON3.md` §5.
-
-- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — expression-start-context
-  list and opaque-span token representation not yet designed. HIGH risk (architectural,
-  cross-pass-ordering). It's the blocker for the future JSX/TSX embedding-aware dispatcher
-  (STATE_JS_TS.md), not just a correctness polish item.
-
-- [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
 
 - [AI] Dedicated GRU for non-Latin/mixed-language comments (currently always ABSTAIN via
   `NonLatinScriptGate`).

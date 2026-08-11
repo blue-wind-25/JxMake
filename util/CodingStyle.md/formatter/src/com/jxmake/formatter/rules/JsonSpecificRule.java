@@ -175,12 +175,6 @@ public final class JsonSpecificRule {
 
     } // class Cursor
 
-    private static boolean isSignificant(final Token t)
-    {
-        return t != null && t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE
-                && t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK;
-    }
-
     /**
      * Consumes whitespace/newlines/comments up to the next significant token, recording comment
      *  text (in order) and whether a blank line (2+ consecutive newlines) occurred anywhere in the

@@ -713,6 +713,40 @@ This is intentionally scoped as housekeeping, not a rewrite — do not let it
 grow into an attempt at any separate, dedicated, much riskier architectural
 job.
 
+**2026-08-12 cleanup-pass follow-up (XL.txt TIER 0 item 1):** re-swept all of
+`src/` for unused private methods/fields (per-file grep-count script over
+every `private (static)? ... name(` and `private ... name;` declaration,
+flagging any with a same-file reference count ≤1, i.e. only the declaration
+itself) and re-checked the already-promoted `setOf` consolidation from the
+2026-07-28 pass. Found and removed one genuinely dead method:
+`JsonSpecificRule.isSignificant` (a WHITESPACE/NEWLINE/COMMENT significance
+check with zero call sites anywhere in `src/`, `test/`, or `tools/` —
+verified by repo-wide grep, not just same-file). No unused fields found
+(the only ≤1-reference hit, `UnsupportedLanguageException.serialVersionUID`,
+is a normal `Serializable` field referenced implicitly by the JVM, correctly
+left alone). Re-confirmed `TokenizerCurly`/`TokenizerIndent`'s `setOf` calls
+correctly route through the `TokenizerCore.setOf` promotion from
+2026-07-28 (no re-duplication crept back in); the three other same-named
+`setOf` copies (`DeclarationAlignmentRuleCore`, `MiscRuleCore`,
+`BlockStructureRule`, `KeywordAmbiguityGate`) remain intentionally
+unconsolidated — unrelated hierarchies, no common ancestor short of a
+bigger, riskier shared-utility-class move (unchanged conclusion from prior
+passes). Checked the `Lang.SCAFFOLD_ONLY_LANGUAGES`-guarded conditionals in
+`FormatterIndent.java`/`InFileConfig.java`/`Main.java`/`ServerMode.java`
+(all `SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ...` ternaries) — these are
+already-dead-but-safe now that the constant is `""`, but CLAUDE.md
+explicitly says the constant is "kept only for documentation/compatibility",
+so the guarded call sites were left alone as intentional, not swept as
+cruft. Did not attempt any new `*Curly`/`*Indent`/`*Tags` cross-family
+consolidation this pass (e.g. token-rendering primitives, bracket-depth
+tracking) — a full survey of `rules/`, `tokenizer/`, and the data-format/
+JS-TS/Python-specific rule files for that class of duplication was not
+completed this session; a future pass should pick that up specifically
+(scope not covered here: `*SpecificRule` files across json/json5/css/yaml/
+toml/xml/html5/js-ts/python3/tooling — none flagged as unused, but not
+compared to each other for near-identical logic). `make test`: 290/290
+forward + idempotency, clean (no pre-existing failures observed this run).
+
 ### Formatter self-formatting (dogfood-and-adopt) process
 
 A dedicated procedure for actually reformatting the formatter's own Java

@@ -340,6 +340,12 @@ C++26:
                                                         still pending) to seed the initial tokenizer test for
                                                         `^^`/`[:`/`:]`; see STATE_CPP26.md.
 
+  cpp26_nested_call_wrap_inp/out.cpp                 -- `stephenberry/glaze` dogfood regression (RDD_KEY_285):
+                                                        an aggregate init whose only inner newline comes from
+                                                        a nested call's own line-wrap (`glz::generic( 2.0\n)`)
+                                                        must not be mistaken for a genuinely oversized
+                                                        aggregate init -- round1/round2 idempotency check.
+
 JS/TS:
   js_combined_inp/out.js                             -- Import grouping/sorting, inline vs. own-line decorator
                                                         placement, a private class field, static vs. instance

@@ -75,6 +75,7 @@ restart). See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_179 | (**REVERSED by RDD_KEY_180** — no longer in effect) Language-selection mechanism — C++26 was made explicit-only via `--lang cpp26` / `lang=cpp26` |
 | RDD_KEY_180 | **REVERSES RDD_KEY_179** — C++26 is not a separate selectable language; it is future incremental rule coverage on the existing `"cpp"` pipeline, same pattern as C++20 |
 | RDD_KEY_181 | §1 pack indexing — call-containing index (`T...[ computeIndex() ]`) is loose per the ordinary `[]` tight/loose rule; fixed stale tight example |
+| RDD_KEY_285 | `glaze` dogfood `json_patch_test.cpp` round1/round2 idempotency fix — `ScopePipelineCurly.applyOversizedAggregateInitClosingBracePass`'s newline-detection scoped to `lang.isCpp`-only paren/bracket depth 0, mirroring `ScopePipelineCore.hasTopLevelNewline` |
 
 ---
 
@@ -429,6 +430,54 @@ see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
       Question, documented for whoever next touches
       `SwitchRule`/init-list-wrapping/operator-spacing in the C/C++/Java
       job.
+
+      **2026-08-11: `json_patch_test.cpp` idempotency mismatch FIXED
+      (RDD_KEY_285).** Re-cloned `glaze` fresh (the `/tmp/glaze` checkout
+      referenced above had been cleaned by the system since); reproduced the
+      exact round1/round2 diff on the real `tests/json_test/json_patch_test.cpp`
+      and on a minimal local repro (`glz::patch_document ops =
+      {{glz::patch_op_type::add, "/b", glz::generic(2.0), std::nullopt}};`).
+      Root cause: `ScopePipelineCurly.applyOversizedAggregateInitClosingBracePass`'s
+      `hasNewlineInside` scan (intended to detect a genuinely oversized
+      aggregate init, e.g. a byte/word table spanning many source lines, and
+      move its dangling `}` onto its own line) counted *any* NEWLINE token
+      inside the outer `{...}` at any brace depth — including one strictly
+      inside a nested call's own already-wrapped argument list (e.g.
+      `glz::generic(\n  2.0\n)`, wrapped by `MiscRuleCurly.enforceCallLineBreaking`
+      elsewhere). A fresh single-line source has no such newline yet when
+      this pass runs (round1 correctly skipped it, leaving `}` inline), but
+      re-formatting round1's own output (round2) saw the call's own wrapped
+      newline and wrongly treated the whole init as oversized — classic
+      pass-ordering bug (decision made before a later pass introduces the
+      shape it needs to already account for), same family as
+      `real_code_regressions_76`'s `enforceAttributeAndSpliceBracketPadding`
+      fix and the `PowerShellSpecificRule.java`/`applyAssignmentsPass`
+      ordering bug in `STATE_COMMON.md`.
+
+      **Fix:** gate the newline check on paren/bracket depth (only a
+      NEWLINE at paren/bracket depth 0 counts), mirroring the existing
+      `ScopePipelineCore.hasTopLevelNewline` technique used elsewhere in
+      this codebase for the identical "is this newline from the statement's
+      own multi-line shape, or from a nested call's own wrap" distinction.
+      **First attempt applied this unconditionally and regressed
+      `test/real_code_regressions_179_inp.ts`** (a JS/TS object literal
+      whose expected output relies on the pre-existing behavior of moving
+      `}` onto its own line even though its only newline comes from a
+      nested wrapped call, `pathOptions = { ...,
+      getNormalizedAbsolutePath(\n  ...\n), ... };`) — structurally
+      indistinguishable from the glaze shape to a language-agnostic
+      paren/bracket-depth gate. Per the user's own suggestion, re-scoped the
+      whole paren/bracket-depth-tracking branch to `lang.isCpp` only (every
+      other language's `parenDepth` stays permanently `0`, so
+      `parenDepth == 0` is unconditionally true there — behavior for
+      JS/TS/Java/Kotlin is byte-for-byte unchanged). Verified: closed both
+      the minimal repro and the full `json_patch_test.cpp` round1/round2
+      diff cleanly (idempotent); re-ran round1/round2 over the entire
+      `tests/json_test/` directory (21 files) with no further diffs.
+      `make test`: 284/284 forward + 284/284 idempotency, zero regressions
+      (`real_code_regressions_179` unaffected once the fix was scoped to
+      C++ only). New fixture `test/cpp26_nested_call_wrap_{inp,out}.cpp`
+      reproduces the minimal repro's shape.
 
       **Every file with actual C++26 reflection syntax verified idempotent
       and correctly formatted**, isolated from the 37 failures (5 spot-

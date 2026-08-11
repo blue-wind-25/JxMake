@@ -1028,6 +1028,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             if( openIdx < 0 || !isPunct( tokens.get(openIdx), "{" ) ) continue;
             int     depth            = 1;
             int     k                = openIdx + 1;
+            int     parenDepth       = 0; // Tracks `(`/`[` nesting -- see below, lang.isCpp only
             boolean hasNewlineInside = false;
             while(k < n && depth > 0) {
                 final Token tk = tokens.get(k);
@@ -1038,7 +1039,30 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     --depth;
                     if(depth == 0) break;
                 }
-                else if(tk.type == TokenType.NEWLINE) {
+                else if( lang.isCpp && ( isPunct(tk, "(") || isPunct(tk, "[") ) ) {
+                    ++parenDepth;
+                }
+                else if( lang.isCpp && ( isPunct(tk, ")") || isPunct(tk, "]") ) ) {
+                    --parenDepth;
+                }
+                // C++-only: a newline strictly inside a nested call's own argument list (paren
+                // depth > 0, e.g. `glz::generic(\n  2.0\n)` wrapped by
+                // `MiscRuleCurly.enforceCallLineBreaking` elsewhere) is not evidence the aggregate
+                // init itself is genuinely oversized (e.g. a byte/word table spanning many source
+                // lines) -- counting it anyway was a pass-ordering bug: a fresh single-line source
+                // has no such newline yet when this pass runs (round1 correctly skips it), but
+                // re-formatting round1's own output (round2) sees the call's already-wrapped
+                // newline and wrongly treats the whole init as oversized, moving `}` onto its own
+                // line -- non-idempotent (found via `stephenberry/glaze` dogfood,
+                // `json_patch_test.cpp`). Same paren/bracket-depth-only technique as
+                // `ScopePipelineCore.hasTopLevelNewline`. Scoped to `lang.isCpp` only (parenDepth
+                // stays 0 for every other language, so `parenDepth == 0` below is unconditionally
+                // true and this is a no-op there) -- applying it unconditionally regressed
+                // `real_code_regressions_179_inp.ts`, a JS/TS object literal whose expected output
+                // relies on the pre-existing (unchanged) behavior of moving `}` onto its own line
+                // even though its only newline comes from a nested wrapped call; that JS/TS shape
+                // is left exactly as before.
+                else if( tk.type == TokenType.NEWLINE && parenDepth == 0 ) {
                     hasNewlineInside = true;
                 }
                 ++k;

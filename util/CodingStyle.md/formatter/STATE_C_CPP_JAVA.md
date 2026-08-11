@@ -158,6 +158,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_239 | RDD_KEY_238 follow-up: general (non-declaration) expression-statement operator spacing was never re-derived (plain-assignment RHS rendered via pure `joinVerbatim`). 3 confirmed sub-bugs fixed: missing space before `&&`, extra space after unary `!`, `- 1` vs `-1`. Full detail in `RDD_LOG.md`, incl. 3 regressions found/fixed along the way (C pointer-dereference, Java cast spacing, binary-`*`-after-`]`) and one unrelated pre-existing `]`-then-`(` tight-join gap also fixed. Also centralized duplicated `isUnaryMinusOperand` as `Token.isUnaryMinusOperand`. `make test`: 244/244, unchanged. 21 files adopted back in `src/` (`tools/*` unaffected) |
 | RDD_KEY_251 | Seventh session, RESOLVED the nested-switch-in-switch failure mode of "Non-idempotent switch-case re-indent on internally-inconsistent generated source" -- `SwitchRule.applyNonInlineCaseIndent` now derives each case-body line's absolute target indent from its own brace-nesting depth (`applyDepthDerivedBodyIndent`, replacing the old single-relative-delta `shiftLines` body-shift), with a nested switch's entire token span treated as opaque (owned solely by its own independent `SwitchBlock` pass) rather than two independent recomputations disagreeing forever. A second approach (one shared depth accumulator recursed through nested switches) was implemented and rejected -- hung on the minimal repro because the nested switch's own independent pass still ran and disagreed with the recursive writes; a correct version would need far more invasive engine changes. See "Known Gaps -- Fixed", `real_code_regressions_181` fixture, and `RDD_KEY_251` in `RDD_LOG.md` for the full two-approach writeup. `make test`: 247/247 -> 248/248 forward + idempotency, zero regressions |
 | RDD_KEY_281 | Tier2 backlog re-verification: `SwitchRule.deriveUnit`'s "hardcoded 4-space fallback" (real-code-testing item (9), `fmtlib/fmt` at `indent-size = 2`) was already fixed by `c0a2305` (2026-07-06) before this item's narrative sentence gained a disposition marker -- `deriveUnit` already returns `defaultIndentUnit`, built from `config.indentSize()` via `FormatterCurly`'s one `new SwitchRule(lang, lineLengthLimit, indentWidth)` call site; `MiscRuleCore.DEFAULT_INDENT_WIDTH` (literal `4`) is dead at runtime, reachable only via the unused 2-arg constructor overload. No source change made. Re-verified via a fresh flush-case-label `.cpp` scratch fixture at `indent-size = 2` (and `= 8`): idempotent, unit correctly scales with configured indent-size. `make test` unchanged, 278/278. |
+| RDD_KEY_283 | `using` alias declarations (C++11+) column-aligned on `=` via new isolated `parseUsingAlias`/`renderUsingAliasGroup` path in `DeclarationAlignmentRuleCurly`; bails out untouched on any `...` token to avoid colliding with C++26 pack-indexing/variadic-template spacing rules. `make test` 283/283 -> 284/284. Fixture: `test/cpp_using_alias_{inp,out}.cpp`. See narrative entry in "Known Gaps -- Fixed" for full detail. |
 
 ---
 
@@ -908,10 +909,32 @@ before/after detail available via `git log`/`git show`.
   `PREPROCESSOR`/`MACRO_DEF` tokens, so a directive mid-group never forced a group boundary
   and got silently discarded by `render(group)`. Fixed by adding those token types to the same
   guard.
-- **`using` alias declarations not aligned — NOT SCHEDULED (design decision)**. Inverted
-  grammar (`using Foo = Type;`) doesn't fit the existing `typeTokens`/`name` model; passes
-  through unchanged (no corruption), not a bug. If picked up later: align at `=`, needs its
-  own parsing branch and column layout keyed on `=` position.
+- **`using` alias declarations not aligned** — FIXED (RDD_KEY_283), C++-only. The generic
+  `parseDeclaration` path rejected `using Name = Type;` because its `typeKeywords.contains(...)`
+  guard never accepts `using` (a KEYWORD not in that set) as a type — the inverted grammar
+  genuinely doesn't fit the forward `Type name = init;` model, so it previously passed through
+  untouched. Added an isolated `Declaration.isUsingAlias` field/10-arg constructor plus a new
+  `parseUsingAlias` parsing branch (guarded by `lang.isCpp`, called right after the modifiers
+  loop in `parseDeclaration`) that stores the alias name in `Declaration.name`, the aliased
+  type's tokens in the existing `initTokens` field, and a dummy singleton `typeTokens` (the
+  `using` keyword token, never rendered) purely so `ScopePipelineCurly`'s identity-based
+  splice-back anchor lookup has a real token. `groupDeclarations` breaks a group on any
+  `isUsingAlias` change so alias groups never merge with plain-declaration groups. Rendering
+  dispatches to a new dedicated `renderUsingAliasGroup` (a 3-column `ColumnGrid`: `using` /
+  name / `= Type;`) that aligns the `=` column, independent of the generic renderer's
+  type/pointer-star column logic. Found and fixed via `make test` (not just static reasoning):
+  the feature initially collided with the pre-existing C++26 pack-indexing/variadic-template
+  fixtures (`template<typename... T> using Name = T...[...]`) because the generic re-render
+  bypassed two separate raw-token-stream passes that own that spacing
+  (`CppSpecificRule.enforcePackIndexingSpacing` and a variadic-template tight-join rule);
+  fixed with a narrow bail-out in `parseUsingAlias` (return null, leave the statement fully
+  untouched — same "leave untouched when unsafe to collapse" posture as RDD_KEY_225) whenever
+  any `...` operator token appears in `templatePrefix` or the aliased-type tokens. Verified:
+  `make test` 283/283 -> 284/284 forward + idempotency, zero regressions. New fixture:
+  `test/cpp_using_alias_{inp,out}.cpp` (plain aliases of differing name length aligning on
+  `=`, a `template<typename T> using Vec = ...;` singleton group left separate, and a
+  function-local `using Local = double;` unaffected by outer-scope grouping). See RDD_KEY_283
+  in RDD_LOG.md for full detail.
 - **Preprocessor directive glued onto a following Java method definition** — FIXED,
   genuinely Java-specific (C++'s `applySignaturePass` branch incidentally routes around it via
   a separate line-rescan). `leadStart`/`sigLeadStart` landed directly on a leading

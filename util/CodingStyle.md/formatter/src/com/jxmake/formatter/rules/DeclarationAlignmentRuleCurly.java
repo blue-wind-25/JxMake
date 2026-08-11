@@ -120,6 +120,11 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         public final Token       trailingComment; // Nullable
         public final boolean     blankLineBefore;
         public final List<Token> templatePrefix;  // Empty unless preceded by `template<...>` (C++)
+        // True for a C++11 alias declaration (`using Name = Type;`, RDD_KEY_283) -- inverted
+        // grammar vs. every other Declaration shape (name precedes the aliased type, which this
+        // rule stores in `initTokens` reusing the existing "thing after `=`" field rather than
+        // adding a brand-new one). Never true for any other Declaration shape.
+        public final boolean     isUsingAlias;
 
         Declaration(
             final List<Token> modifiers,
@@ -148,6 +153,23 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             final List<Token> templatePrefix
         )
         {
+            this( modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
+                    trailingComment, blankLineBefore, templatePrefix, false );
+        }
+
+        Declaration(
+            final List<Token> modifiers,
+            final List<Token> typeTokens,
+            final Token       name,
+            final List<Token> sizeTokens,
+            final List<Token> initTokens,
+            final List<Token> bitfieldWidth,
+            final Token       trailingComment,
+            final boolean     blankLineBefore,
+            final List<Token> templatePrefix,
+            final boolean     isUsingAlias
+        )
+        {
             this.modifiers       = modifiers;
             this.typeTokens      = typeTokens;
             this.name            = name;
@@ -157,6 +179,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             this.trailingComment = trailingComment;
             this.blankLineBefore = blankLineBefore;
             this.templatePrefix  = templatePrefix;
+            this.isUsingAlias    = isUsingAlias;
         }
 
     } // class Declaration
@@ -194,11 +217,17 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // comment surviving only in the raw leading gap of a mid-group declaration would be
             // silently discarded otherwise.
             final boolean isEnumConstantList = lang.isJava && isJavaEnumConstantListShape(stmt);
+            // A `using`-alias declaration (RDD_KEY_283) has its own dedicated render layout
+            // (`renderUsingAliasGroup`, keyed on the inverted name/`=`/type grammar) that can
+            // never share a group with an ordinary `Type name = init;` declaration's grid --
+            // force a group break whenever the shape switches either way.
+            final boolean usingAliasShapeChange = !current.isEmpty()
+                    && current.get( current.size() - 1 ).isUsingAlias != decl.isUsingAlias;
             final boolean breakBefore        = blankBefore || hasCommentBefore(
                 stmt
             ) || isMemberFunctionForwardDecl(
                 decl
-            ) || isEnumConstantList;
+            ) || isEnumConstantList || usingAliasShapeChange;
             if( breakBefore && !current.isEmpty() ) {
                 groups.add(current);
                 current = new ArrayList<>();
@@ -325,6 +354,11 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     {
         // C/C++ declarations must not be reordered -- changing order can alter semantics
         final List<Declaration> group = lang.isJava ? reorderStatics(originalGroup) : originalGroup;
+
+        // `using Name = Type;` alias declarations (RDD_KEY_283) use their own dedicated 3-column
+        // layout (`using` / name / `= Type;`) -- `groupDeclarations` never mixes this shape with
+        // an ordinary declaration in the same group, so "all" and "none" are the only cases.
+        if( !group.isEmpty() && group.get(0).isUsingAlias ) return renderUsingAliasGroup(group);
 
         // Function forward declarations use a simpler 2-column layout (no modifier columns)
         boolean allAreFuncDecls = !group.isEmpty();
@@ -465,6 +499,38 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final List<Token> params = templatePrefix.subList( 2, templatePrefix.size() - 1 );
 
         return "template<" + renderTokens(params) + ">";
+    }
+
+    /**
+     * Renders a group of consecutive `using Name = Type;` alias declarations (RDD_KEY_283),
+     *  column-aligned on the alias name and the `=` sign -- e.g.:
+     * <pre>
+     * using Foo   = int;
+     * using Barrr = std::vector&lt;int&gt;;
+     * </pre>
+     * 3 grid columns: the literal `using` keyword, the alias name (padded to align every
+     *  sibling's `=`), and `= Type;` (with an optional trailing comment appended after, same
+     *  convention as {@link #renderFunctionForwardGroup}). Modifiers are empty for this shape
+     *  (`using` cannot be preceded by a storage-class specifier), so unlike {@link #render}'s
+     *  general path, no modifier-column handling is needed here.
+     */
+    private List<String> renderUsingAliasGroup(final List<Declaration> group)
+    {
+        final ColumnGrid grid = new ColumnGrid();
+        for(final Declaration d : group) {
+            grid.addRow( new String[] { "using", d.name.text, "= " + renderInitTokens(d.initTokens) + ";" } );
+        } // for
+        final List<String>   lines = new ArrayList<>();
+        final List<String[]> rows  = grid.flush();
+        for( int idx = 0; idx < rows.size(); ++idx ) {
+            final Declaration d = group.get(idx);
+            if( !d.templatePrefix.isEmpty() ) lines.add( renderTemplatePrefix(d.templatePrefix) );
+            String line = String.join( " ", rows.get(idx) );
+            if(d.trailingComment != null) line += " " + d.trailingComment.text;
+            lines.add(line);
+        } // for
+
+        return lines;
     }
 
     private List<String> renderFunctionForwardGroup(final List<Declaration> group)
@@ -860,6 +926,13 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         if( i >= body.size() ) return null;
 
         if(lang.isCpp) {
+            final Declaration usingAlias = parseUsingAlias(
+                stmt, modifiers, body, i, trailingComment, blankBefore, templatePrefix
+            );
+            if(usingAlias != null) return usingAlias;
+        }
+
+        if(lang.isCpp) {
             final Declaration binding = parseStructuredBinding(
                 stmt, modifiers, body, i, trailingComment, blankBefore
             );
@@ -1253,6 +1326,85 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         return new Declaration(
             modifiers, typeTokens, name, sizeTokens, initTokens,
             new ArrayList<Token>(), trailingComment, blankBefore, templatePrefix
+        );
+    }
+
+    /**
+     * Parses the C++11 alias-declaration shape `using Name = Type;` (STYLE_CPP.md, RDD_KEY_283)
+     *  -- inverted grammar vs. every other Declaration shape (`Type name = init;`): the alias
+     *  NAME sits right after the `using` keyword, before the `=`, and the aliased TYPE sits on
+     *  the right of the `=`. Modeled on top of the existing `Declaration` fields rather than
+     *  adding a new type: `name` is the alias name, `initTokens` holds the aliased type's
+     *  tokens (reusing the existing "thing after `=`" field), `typeTokens`/`sizeTokens` stay
+     *  empty, and `isUsingAlias` flags the shape for `groupDeclarations`'/`render`'s dedicated
+     *  handling. Returns null (falls through to the normal parsing path -- never mutates
+     *  anything before returning a real `Declaration`) for anything not matching this exact
+     *  shape, including a template alias's own `template<...> using Name = Type;` (the
+     *  `template<...>` prefix was already peeled off into `templatePrefix` by the caller before
+     *  `i` is passed in here, so this method only ever sees the `using ...` remainder).
+     */
+    private Declaration parseUsingAlias(
+        final List<Token> stmt,
+        final List<Token> modifiers,
+        final List<Token> body,
+        final int         start,
+        final Token       trailingComment,
+        final boolean     blankBefore,
+        final List<Token> templatePrefix
+    )
+    {
+        if( start >= body.size() || body.get(start).type != TokenType.KEYWORD
+                || !"using".equals( body.get(start).text ) ) return null;
+        final int nameIdx = start + 1;
+        if( nameIdx >= body.size() || body.get(nameIdx).type != TokenType.IDENTIFIER ) return null;
+        final int eqIdx = nameIdx + 1;
+        if( eqIdx >= body.size() || !isOp( body.get(eqIdx), "=" ) ) return null;
+        if( eqIdx + 1 >= body.size() ) return null; // No aliased type -- malformed, leave untouched
+
+        // A plain namespace-alias/using-declaration (`using std::vector;`, `namespace X = Y;`)
+        // has no `=` right after the name and never reaches this branch at all (the `eqIdx` check
+        // above already requires it); a `using` directive/declaration with no `=` falls through
+        // to the generic path below, which rejects it too (KEYWORD "using" is never in
+        // `typeKeywords`), leaving it untouched -- same "no corruption" behavior as before this
+        // feature landed.
+        final List<Token> aliasType = new ArrayList<>( body.subList( eqIdx + 1, body.size() ) );
+        // Multi-line/comment-carrying aliased types (e.g. a banner-commented long template
+        // instantiation) can't be safely collapsed onto one rendered line -- same reasoning as
+        // the generic path's own COMMENT_LINE / multiline-brace-body bails. Leave untouched.
+        for(final Token t : aliasType) {
+            if(t.type == TokenType.COMMENT_LINE) return null;
+        }
+        final List<Token> rawAliasType = rawSliceBetweenUnfiltered(
+            stmt, aliasType.get(0), aliasType.get( aliasType.size() - 1 )
+        );
+        if( rawAliasType != null && containsMultilineBraceBody(rawAliasType) ) return null;
+
+        // A variadic-pack `...` operator token anywhere in the aliased type or its
+        // `template<...>` prefix (`template<typename... T> using Nth = T...[N];`,
+        // STYLE_CPP26.md §1 pack indexing) is out of scope here -- this method's
+        // `renderInitTokens`/`renderTemplatePrefix` calls below whitespace-collapse and
+        // regenerate the line generically, which doesn't know about the specialized
+        // `...`-adjacent-spacing rules `CppSpecificRule.enforcePackIndexingSpacing` (and the
+        // separate variadic-template-declaration tight-join rule) apply on the original,
+        // untouched token stream. Bail out and leave any such statement completely untouched
+        // (its pre-existing, correct behavior before this feature existed) rather than risk
+        // silently undoing those rules' spacing decisions.
+        for(final Token t : templatePrefix) {
+            if( isOp(t, "...") ) return null;
+        }
+        for(final Token t : aliasType) {
+            if( isOp(t, "...") ) return null;
+        }
+
+        // `typeTokens` holds just the `using` keyword itself (never rendered -- see
+        // `renderUsingAliasGroup`, which always emits the literal text "using" instead) purely so
+        // `ScopePipelineCurly.applyDeclarationsPass`'s splice-back anchor lookup
+        // (`first.typeTokens.get(0)`, used whenever `modifiers` is empty, which it always is for
+        // this shape) has a real, identity-matching token from the original list to find.
+        return new Declaration(
+            modifiers, Collections.singletonList( body.get(start) ), body.get(nameIdx),
+            new ArrayList<Token>(), aliasType, new ArrayList<Token>(), trailingComment, blankBefore,
+            templatePrefix, true
         );
     }
 

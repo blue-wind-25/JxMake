@@ -516,10 +516,11 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      Surfaced a latent bug in `parseElement`'s closing-tag match (rewritten
      `tagName` no longer matched the source's differently-cased closing
      tag), fixed via new case-insensitive `startsWithCloseTagIgnoreCase`,
-     HTML5-gated only. MathML's `definitionurl`->`definitionURL` fixup left
-     open — no MathML-depth tracking exists (only `svgDepth`); revisit only
-     if MathML foreign content gets its own tracking (still true as of
-     2026-07-28, no dogfood corpus has hit this). `make test`: 161/161.
+     HTML5-gated only. **MathML's `definitionurl`->`definitionURL` fixup:
+     FIXED** — new `mathmlDepth` tracking mirroring the existing `svgDepth`
+     pattern; fixture `test/html_mathml_case_fixup_{inp,out}.html`.
+     `make test`: 161/161 -> 282/282 (cumulative with other fixtures added
+     since).
 
 - **HTML5 commented-out markup-fragment comment corruption — RESOLVED
   (RDD_KEY_224, 2026-08-01).** Found: re-verifying

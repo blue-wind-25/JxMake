@@ -774,11 +774,15 @@ _test_serial: gru-sync-weights
 		fi;                                                                                     \
 		rm -f "$$passed";                                                                       \
 		echo "";                                                                                \
-		if [ $$fail -ne 0 ]; then exit 1; fi;                                                   \
-		printf "All tests passed:\n";                                                           \
+		if [ $$fail -ne 0 ]; then                                                               \
+			printf "TESTS FAILED:\n";                                                       \
+		else                                                                                    \
+			printf "All tests passed:\n";                                                   \
+		fi;                                                                                     \
 		printf "    %3d/%3d forward\n"     $$forward_pass $$forward_total;                      \
 		printf "    %3d/%3d idempotency\n" $$idem_pass $$idem_total;                            \
 		printf "\n";                                                                            \
+		if [ $$fail -ne 0 ]; then exit 1; fi;                                                   \
 	)
 
 

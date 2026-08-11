@@ -28,7 +28,7 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean testall        \
+.PHONY: all build jar clean test-all       \
 	gru-extract-pool-a                 \
 	gru-extract-pool-b                 \
 	gru-measure-abstain-rate           \
@@ -72,9 +72,9 @@ clean:
 	@rm -rvf tools/verifiers/__pycache__
 	@rm -vf  tools/verifiers/*.class
 
-LOGFILE := /tmp/jxmake_formatter_testall.log
+LOGFILE := /tmp/jxmake_formatter_test_all.log
 DELIMTS := ====================================================================================================
-testall:
+test-all:
 	@rm -f $(LOGFILE)
 	@(                                                              \
 		echo                                                 && \

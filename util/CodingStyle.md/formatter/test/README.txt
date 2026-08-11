@@ -3720,25 +3720,15 @@ Real-code regressions:
                                                         `classifyCaseLine`'s virtualJoin, and
                                                         `flushCaseGroup`'s post-alignment length guard.
 
-  real_code_regressions_203_inp/out.java             -- curly-brace-family catch/finally placement bug (found
-                                                        via the recurring `tools/*` self-format pass,
-                                                        `tools/gru/FilterAbstain.java`):
-                                                        `BlockStructureRule.placeCatchFinallyOnOwnLine` moves
-                                                        a same-line `catch`/`finally` onto its own line at the
-                                                        preceding `}`'s indentation, computed by
-                                                        `indentBefore`. That helper only returned a non-empty
-                                                        indent when the `}` token was literally first on its
-                                                        own line; for a single-line collapsed `try { ... }
-                                                        catch (...) { ... }` the `}` sits mid-line, so
-                                                        `indentBefore` silently returned `""`, placing `catch`
-                                                        flush-left with zero indentation. Fixed by rewriting
-                                                        `indentBefore` to walk back to the actual start of the
-                                                        line containing the reference token (the nearest
-                                                        NEWLINE, or stream start) and read the WHITESPACE
-                                                        token there, regardless of how many non-whitespace
-                                                        tokens sit between that leading whitespace and the
-                                                        reference token. Also fixes `placeElseOnOwnLine`,
-                                                        which shares the same helper.
+  real_code_regressions_203_inp/out.java             -- catch/finally placement bug (found via `tools/*`
+                                                        self-format, `tools/gru/FilterAbstain.java`):
+                                                        `BlockStructureRule.indentBefore` only found a `}`'s
+                                                        indent when it was first on its own line, so a
+                                                        same-line collapsed `try { ... } catch (...) { ... }`
+                                                        got its moved-out `catch` placed flush-left. Fixed to
+                                                        walk back to the line's actual start regardless of
+                                                        what's first on it; also fixes `placeElseOnOwnLine`,
+                                                        which shares the helper.
                                                         `test/real_code_regressions_168_out.kt` (a
                                                         pre-existing fixture that had baked in the buggy
                                                         flush-left `catch` as its expected output) updated to

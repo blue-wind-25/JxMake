@@ -202,13 +202,17 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — expression-start-context
-  list and opaque-span token representation not yet designed. HIGH risk (architectural,
-  cross-pass-ordering); no fix has been attempted yet, so unlike this tier's usual "prior attempt
-  regressed fixtures" qualifier, this is a forward risk assessment, not a track record. It's the
-  blocker for the future JSX/TSX embedding-aware dispatcher (STATE_JS_TS.md) — JSX/TSX itself is
-  real planned future work per CLAUDE.md's job table, not a rejected idea, so this belongs here
-  rather than TIER X: Dead (moved from there 2026-08-12).
+- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — DESIGN LANDED 2026-08-12
+  (STATE_JS_TS.md Open Questions, "2026-08-12 design session"): concrete expression-start-context
+  list and opaque `JSX_SPAN` token representation now specified, plus the generic-vs-JSX ambiguity
+  resolved by scoping the pre-pass to `.tsx`/`.jsx` files only (run before
+  `reclassifyAngleBrackets`). Still NOT implemented — no code, no fixtures, this was a design-only
+  pass. HIGH risk remains for the actual implementation (architectural, cross-pass-ordering); the
+  context list is flagged as an unvalidated draft needing a real JSX corpus check before an
+  implementation session trusts it as complete. It's the blocker for the future JSX/TSX
+  embedding-aware dispatcher (STATE_JS_TS.md) — JSX/TSX itself is real planned future work per
+  CLAUDE.md's job table, not a rejected idea, so this belongs here rather than TIER X: Dead (moved
+  from there 2026-08-12).
 
 Use sub-agent. This can be a substantial work.
 

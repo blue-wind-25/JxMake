@@ -276,10 +276,208 @@ active in the Makefile and passing.
     `ts.ScriptKind.TSX`/`.JSX`), avoiding a second parser dependency and the
     npm-pin gotcha already hit for `typescript` itself.
 
-  **Not yet designed, left for a future session:** the concrete enumerable
-  list of expression-start contexts for the boundary-finding pre-pass, and
-  the concrete opaque-span token representation. Nothing here supersedes
-  the Scope section's "out of scope entirely" statement.
+  **2026-08-12 design session (still no code, no fixtures, no RDD_LOG
+  key — design-only, prep for a future embedding-aware-dispatcher
+  implementation session). Fills in the two items the entry above left
+  blank. Nothing here supersedes the Scope section's "out of scope
+  entirely" statement — JSX/TSX remain unimplemented; this is design
+  only.**
+
+  **1. Enumerable list of expression-start contexts** (where a pre-pass
+  should test a `<` as a possible JSX-open, given this codebase's flat
+  tokenizer + local-lookback architecture — no grammar-position awareness,
+  so "expression-start" has to be approximated as a fixed list of
+  token-adjacency shapes, derived from walking `TokenizerCurly`/
+  `JsTsSpecificRule`'s own coverage of JS/TS expression grammar):
+
+  - After `return` (KEYWORD).
+  - After `=>` (arrow-function body start; the arrow's own parameter list
+    is a separate, unambiguous paren-delimited construct, not itself a
+    boundary candidate).
+  - After `?` and after `:` inside a ternary (`cond ? <A/> : <B/>`) — both
+    branches independently, not just the first.
+  - Call-argument start: immediately after `(` or after a top-level `,`
+    inside an already-open `(` (mirrors `splitTopLevelCommas`'s own
+    argument-boundary notion).
+  - Array-literal element start: immediately after `[` or after a
+    top-level `,` inside an already-open `[`.
+  - Assignment RHS: after `=` (also covers `+=`/`-=`/etc. compound
+    assignment operators — same RHS-start shape).
+  - Logical/nullish short-circuit RHS: after `&&`, `||`, `??`.
+  - Parenthesized-expression start: after a bare `(` that is not itself a
+    call/argument-list open (i.e. not immediately preceded by an
+    IDENTIFIER/`)`/`]` — distinguishing a grouping paren from a call paren
+    matters here because both route through the same `(`-adjacency check
+    but a call's `(` is already covered by the call-argument-start rule
+    above; a grouping `(` needs its own entry since its "owner" isn't a
+    call).
+  - Recursively inside a JSX expression hole's own `{...}` — once inside a
+    found JSX span, any `{` opens a hole, and every context above applies
+    again to the token stream starting just after that `{` (this is what
+    makes it a pre-pass with recursion, not a single flat scan).
+  - Template-literal `${}` holes: same recursion trigger as a JSX
+    `{...}` hole — a `${` inside a backtick string is already a distinct
+    tokenizer state (`emitTemplateLiteral`) that re-enters ordinary token
+    scanning for its interior, so the same expression-start list must
+    apply there too (`` `text ${<Foo/>} more` `` is legal JSX-in-template
+    just as `{<Foo/>}` is legal JSX-in-JSX-hole).
+  - After `...` (spread) wherever spread is legal in expression position
+    (array-literal element, call argument) — covered by the call-argument/
+    array-element entries above as long as `...` itself doesn't need to be
+    skipped over before testing the following `<`; call out explicitly
+    since it's easy to miss in a token-adjacency table (the token
+    immediately before `<` is `...`, not `(`/`[`/`,`).
+  - Decorator-call argument position (`@Component({ template: <Foo/> })`)
+    — not a new context, already covered by the object-literal-value /
+    call-argument entries once `@Foo(...)`'s own `(` is recognized as an
+    ordinary call open; called out because decorators are JS/TS-specific
+    and easy to overlook when porting a "generic expression-start" list
+    from a general-purpose JS reference.
+  - **Explicitly NOT a context:** after an IDENTIFIER, after `)`, after
+    `]`, after a NUMBER/STRING/CHAR — these are exactly the shapes
+    `reclassifyAngleBrackets`'s existing generic-open check already claims
+    (`prev.type == IDENTIFIER || isCastKeyword(prev)`) or are otherwise
+    non-expression-start (postfix positions). A `<` here is unambiguously
+    a relational/generic operator, never JSX-open, and must be left alone
+    by the pre-pass — this is the two mechanisms' actual division of
+    labor (see point 3 below).
+
+  Risk if incomplete: a `<` in an unlisted expression-start context is
+  invisible to the pre-pass and falls through to ordinary `<`/`>`
+  operator/generic handling, silently misparsing the JSX open as a
+  less-than comparison or spurious generic — exactly the failure mode
+  this design has to avoid, so this list should be treated as the
+  starting draft to validate against a real JSX/TSX corpus (react itself,
+  or a `create-react-app` output tree) before implementation, not as
+  provably complete from static reasoning alone.
+
+  **2. Concrete opaque-span token representation.** Proposed new
+  `TokenType.JSX_SPAN` (alongside the existing `ANGLE_BRACKET_OPEN`/
+  `ANGLE_BRACKET_CLOSE`/`FSTRING_*` precedent of dedicated non-generic
+  token kinds for a structurally special span). `Token` currently has no
+  position/offset field at all (`type`, `text`, `braceDepth`,
+  `parenDepth`, `name`, `frozen` — see `TokenizerCore.Token`); width
+  everywhere downstream is computed as `text.length()` directly off the
+  token's raw text (`MiscRuleCurly`'s `candidateLen`/`paramsLine.length()`/
+  etc. all do this, no separate width field exists for any token kind
+  today). A `JSX_SPAN` token should follow that same precedent rather than
+  inventing a new position-tracking mechanism the rest of the codebase
+  doesn't have:
+  - `text`: the full raw source span from the opening `<` through the
+    matching closing tag's `>` (or self-closing `/>`), byte-for-byte,
+    **including embedded newlines** for a multi-line JSX tree. This is
+    what makes it "opaque" — nothing downstream reformats its interior
+    directly.
+  - Width for single-line fits-checks (`candidateLen`-style call sites):
+    since `text` can itself contain `\n`, a naive `text.length()` would
+    overstate width for a multi-line span and understate it for
+    "still fits on this physical line" checks that only care about the
+    *last* line's contribution when the token trails onto a following
+    line, or the *first* line's contribution when a caller is measuring
+    up to where the span starts. Rather than adding a new field, reuse
+    the existing pattern this codebase already has for other tokens whose
+    raw text can span multiple lines (`COMMENT_BLOCK`, template-literal
+    `STRING` tokens via `emitTemplateLiteral`) — those are simply excluded
+    from the single-line fits-check call sites that would be misled by a
+    `\n`-containing `text.length()`, not given a separate width field.
+    `JSX_SPAN` should follow the same convention: line-length/alignment
+    passes that iterate raw `text.length()` need one additional guard
+    (skip/bail on a token containing `\n`, same as they'd need to already
+    for a multi-line block comment or template literal, if any currently
+    don't — this is worth auditing, not assuming pre-solved) rather than
+    a bespoke computed-width field only `JSX_SPAN` gets.
+  - `frozen`: set `true` unconditionally — a `JSX_SPAN` must never be
+    touched by any transformation pass (spacing, alignment, keyword
+    rewriting), consistent with how `frozen` is already used for
+    pass-through opaque spans elsewhere in the tokenizer.
+  - `name`: unused for this token kind (`Token`'s `name` field is
+    documented as "for `{`/`}` only"); leave `null`.
+  - **Nesting depth for `{}` holes**, needed for the previously-assessed
+    3-step approach's placeholder-substitution step to still work on top
+    of this representation: do NOT add a depth field to `Token` itself.
+    Depth is a property of the *pre-pass's own recursive walk*, not of
+    the emitted token — by the time a `JSX_SPAN` token exists in the
+    output stream, its interior holes have *either* already been
+    recursively resolved (each hole's `{...}` interior independently
+    re-tokenized/reformatted and re-spliced back into the span's `text`
+    before the span token is emitted) *or* the span is fully opaque with
+    holes left as raw unformatted text inside it (a scope decision for
+    the implementation session, not this design). Either way there is
+    exactly one `JSX_SPAN` token per top-level JSX tree in the surrounding
+    JS/TS token stream — nesting is internal to how that one token's
+    `text` was assembled, never externally visible as sibling tokens the
+    rest of the pipeline needs to know the depth of. This is a deliberate
+    simplification versus the 3-step approach's original `__JSn__`
+    placeholder idea (which needed depth to know which placeholder
+    resolves into which other placeholder's context) — here, the
+    recursive resolution happens entirely *before* span-token emission,
+    so no placeholder bookkeeping survives into the main token stream at
+    all.
+  - Integration point: `reclassifyAngleBrackets` already runs as a
+    post-tokenize pass over the flat token list (`TokenizerCurly`, called
+    conditionally per-language). A `findJsxSpans`-shaped pre-pass would
+    need to run as another post-tokenize pass over the same flat list,
+    producing `JSX_SPAN` tokens that replace the raw `<...>...</...>`
+    token run in place — same shape of pass as `reclassifyAngleBrackets`
+    itself (mutate the token list in place, walk a `sig` index list of
+    significant tokens), not a new tokenizer entry point.
+
+  **3. Interaction with `<`/`>` generic disambiguation.** Ordering: the
+  JSX boundary-finding pre-pass must run **before**
+  `reclassifyAngleBrackets`, not after or interleaved — `reclassifyAngleBrackets`
+  needs the token stream already free of any `<`/`>` that belong to a
+  resolved `JSX_SPAN` (a `JSX_SPAN` is one opaque token, so by definition
+  its interior `<`/`>` characters are gone from the significant-token list
+  `reclassifyAngleBrackets` walks; there is nothing left for it to
+  misinterpret there), and conversely `reclassifyAngleBrackets`'s own
+  generic-safe-token machinery has no way to special-case "this `<` is
+  actually a JSX open" — it only ever asks "does the token before this
+  `<` make it generic-safe," never "is this `<` JSX." Running JSX-finding
+  first cleanly removes JSX spans from view before generics disambiguation
+  ever sees the token stream, avoiding a joint disambiguation problem.
+
+  **Ambiguous case, confirmed real:** old-style TS generic type-assertion
+  cast (`const x = <T>foo;`) and a JSX element (`const x = <div>foo</div>;`)
+  both start identically — `=` then `<` then IDENTIFIER then `>` — and
+  both land in the *same* expression-start context from list item 1
+  above (assignment RHS). This is a genuine, not merely apparent,
+  ambiguity: nothing in the immediate token-adjacency shape distinguishes
+  them; real JSX tooling resolves this exact case by parser mode
+  (`.tsx` files disable the legacy cast syntax entirely and always treat
+  `<T>` as JSX — TypeScript's own documented reason `<T>` casts are
+  banned in `.tsx`), not by grammar disambiguation. **This is important
+  context for the future implementation session's scope**: since this
+  codebase dispatches by file extension already (`Lang.isTs`/`.tsx`
+  presumably would be a new extension, not yet added — see Scope section,
+  "JSX/TSX ... own future embedding-aware dispatcher"), the same
+  `.tsx`-disables-legacy-cast convention is directly reusable — a
+  `.tsx`/`.jsx` file's pre-pass can safely treat every expression-start
+  `<` as a JSX-open candidate first (falling back to plain relational-`<`
+  only if no matching closing tag/self-close is found), while a plain
+  `.ts`/`.js` file's pre-pass should not run at all (no JSX possible
+  there, `<T>foo` stays a legacy cast, handled by the existing
+  `reclassifyAngleBrackets`/cast-keyword machinery unchanged). This
+  resolves the ambiguity by construction (file-extension-scoped dispatch,
+  matching real tooling's own convention) rather than needing a token-level
+  heuristic to guess between the two meanings within one file.
+
+  **Does the portable idea hold up?** Yes, with the file-extension-scoped
+  caveat above made explicit (it was implicit, not stated, in the
+  2026-08-07 assessment). The core positional-disambiguation insight
+  survives concrete design: a short enumerable expression-start-context
+  list is buildable without a real AST (list above), a token representation
+  fits the existing `Token`/`TokenType` model without new fields (`JSX_SPAN`
+  + text-length-based width + the existing multi-line-token width-guard
+  convention), and the generic-vs-JSX ambiguity is resolved cleanly by
+  running JSX-finding first and scoping it to `.tsx`/`.jsx` files only —
+  not by trying to disambiguate `<T>` inline within an ordinary `.ts`
+  file, which would have been genuinely unsound (no reliable token-level
+  signal distinguishes the two there). One real gap surfaced by this
+  design pass and **not** resolved: the expression-start-context list
+  above is a draft assembled from static reasoning over this codebase's
+  own JS/TS grammar coverage, not validated against a real JSX corpus —
+  flagged above as required validation work before an implementation
+  session trusts it as complete.
 
 ---
 

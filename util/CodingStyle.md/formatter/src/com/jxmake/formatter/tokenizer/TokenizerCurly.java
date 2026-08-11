@@ -1822,18 +1822,20 @@ public class TokenizerCurly extends TokenizerCore {
      *  embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
      *  true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
      *
-     * <p><b>Increment 1+2+3 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the full
-     *  11-context list this will eventually cover): five expression-start contexts are recognized
-     *  here as a JSX-open candidate -- "after `return`" (Increment 1), "after `=>`" (arrow-function
-     *  body start), "after `?`"/"after `:`" (both branches of a ternary conditional expression)
-     *  (Increment 2), and call-argument-start / array-literal-element-start (Increment 3, see
-     *  {@link #isCallArgumentOrArrayElementStart}). Every other listed context (assignment/logical
-     *  RHS, grouping-paren start, recursive `{}`/`${}` holes, spread) is intentionally NOT yet
-     *  implemented -- a `<` in any of those positions falls through unchanged to the existing
-     *  `reclassifyAngleBrackets`/relational-operator handling, same as before this pre-pass existed.
-     *  Expand the {@code isJsxContext} check below (add more context checks alongside it) in future
-     *  increments; a future increment implementing the recursive `{}`-hole context will also
-     *  need {@link #findJsxSpanEnd} to recurse into holes rather than only balance-skipping them.
+     * <p><b>Increment 1+2+3+4 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the
+     *  full 11-context list this will eventually cover): seven expression-start contexts are
+     *  recognized here as a JSX-open candidate -- "after `return`" (Increment 1), "after `=>`"
+     *  (arrow-function body start), "after `?`"/"after `:`" (both branches of a ternary conditional
+     *  expression) (Increment 2), call-argument-start / array-literal-element-start (Increment 3, see
+     *  {@link #isCallArgumentOrArrayElementStart}), and assignment-RHS (incl. compound assignment
+     *  operators) / logical-nullish-RHS (Increment 4, see {@link #isAssignmentOrLogicalRhsStart}).
+     *  Every other listed context (grouping-paren start, recursive `{}`/`${}` holes, spread) is
+     *  intentionally NOT yet implemented -- a `<` in any of those positions falls through unchanged
+     *  to the existing `reclassifyAngleBrackets`/relational-operator handling, same as before this
+     *  pre-pass existed. Expand the {@code isJsxContext} check below (add more context checks
+     *  alongside it) in future increments; a future increment implementing the recursive `{}`-hole
+     *  context will also need {@link #findJsxSpanEnd} to recurse into holes rather than only
+     *  balance-skipping them.
      */
     private void findJsxSpans(final List<Token> tokens)
     {
@@ -1864,7 +1866,8 @@ public class TokenizerCurly extends TokenizerCore {
                     || Token.isOp(prev, "=>")
                     || Token.isOp(prev, "?")
                     || Token.isOp(prev, ":")
-                    || isCallArgumentOrArrayElementStart(tokens, sig, s);
+                    || isCallArgumentOrArrayElementStart(tokens, sig, s)
+                    || isAssignmentOrLogicalRhsStart(prev);
             if( !isJsxContext ) continue;
 
             final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
@@ -1892,6 +1895,36 @@ public class TokenizerCurly extends TokenizerCore {
                 else sig.remove(k);
             }
         } // for
+    }
+
+    /** Assignment operators (per STATE_JS_TS.md's design list item 6: "after `=`... also covers
+     *  `+=`/`-=`/etc. compound assignment operators -- same RHS-start shape"). Matches the exact set
+     *  of assignment-shaped entries this tokenizer's own {@link #MULTI_CHAR_OPS} emits, plus the
+     *  plain single-char `=`. Not reused from {@code MiscRuleCore.ASSIGNMENT_OPS} (rules package) --
+     *  that field is `protected` and cross-package, and is missing `&&=`/`||=`/`??=`/`<<=`/`>>>=`
+     *  which this tokenizer's own lexer does emit; kept local and tokenizer-scoped instead. */
+    private static final Set<String> JSX_ASSIGNMENT_OPS = setOf(
+            "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=", ">>>=", "&&=", "||=", "??="
+    );
+
+    /** Logical/nullish short-circuit operators (design list item 7: "after `&&`, `||`, `??`"). */
+    private static final Set<String> JSX_LOGICAL_OPS = setOf("&&", "||", "??");
+
+    /**
+     * True when {@code prev} is an assignment operator (design list item 6, Increment 4) or a
+     *  logical/nullish short-circuit operator (design list item 7, Increment 4) -- both are
+     *  simple single-token-lookback checks, same shape as Increment 2's `=>`/`?`/`:` checks, no
+     *  comma/bracket-depth tracking needed. Compound assignment (`+=` etc.) and logical-assignment
+     *  (`&&=` etc.) share the same "RHS starts right after" shape as plain `=`, so both live in one
+     *  set/check rather than two. Safety is unchanged from every prior increment: a wrongly-attempted
+     *  context (e.g. `x = y < z` genuinely relational) is harmless because
+     *  {@link #findJsxSpanEnd}/{@link #parseJsxTag} returns -1 for anything that doesn't parse as
+     *  balanced JSX, leaving tokens untouched.
+     */
+    private boolean isAssignmentOrLogicalRhsStart(final Token prev)
+    {
+        if(prev == null || prev.type != TokenType.OP) return false;
+        return JSX_ASSIGNMENT_OPS.contains(prev.text) || JSX_LOGICAL_OPS.contains(prev.text);
     }
 
     /**

@@ -17,7 +17,7 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. Current `make test`: 295/295 forward + idempotency (grows as
+pipeline. Current `make test`: 297/297 forward + idempotency (grows as
 fixtures are added; see dogfood sections below for count history).
 
 ---
@@ -660,16 +660,79 @@ active in the Makefile and passing.
   - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
     still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
     unchanged from Increments 1/2's own "NOT done" lists.
-  - **Where to resume**: assignment RHS (`=` and compound `+=`/`-=`/etc.)
-    and logical/nullish RHS (`&&`/`||`/`??`) are next, each a single-
-    token-lookback shape similar to Increment 2's checks (no comma/bracket
-    tracking needed) — a natural next pair per the parent task's own
-    ordering advice. The recursive `{}`/`${}`-hole contexts and the
-    `<T>`-cast-vs-JSX ambiguity's `.tsx`-only resolution (already
-    implicitly correct since `isJsxSyntax` gates the whole pre-pass, but
-    not yet stress-tested against an actual `const x = <T>foo;`
-    cast-shaped `.tsx` input in a call-argument/array-element position)
-    remain the hardest remaining work, left for last.
+  - **Where to resume (superseded by Increment 4 below — kept for
+    history).**
+
+  **2026-08-12 implementation session, Increment 4 — LANDED (7/11
+  contexts, still no real corpus validation).** Adds assignment-RHS (incl.
+  compound assignment) and logical/nullish-RHS (design list items 6 and 7)
+  to `TokenizerCurly.findJsxSpans`'s `isJsxContext` check.
+
+  - **New helper `isAssignmentOrLogicalRhsStart`** (+ two small local sets,
+    `JSX_ASSIGNMENT_OPS` and `JSX_LOGICAL_OPS`): a plain single-token-lookback
+    check, same shape as Increment 2's `=>`/`?`/`:` checks — no comma/
+    bracket-depth tracking needed, matching the parent task's own prediction.
+    `JSX_ASSIGNMENT_OPS` = `=`, `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`,
+    `^=`, `<<=`, `>>=`, `>>>=`, `&&=`, `||=`, `??=` — the exact set of
+    assignment-shaped entries this tokenizer's own `MULTI_CHAR_OPS` lexer
+    table emits, plus the plain single-char `=`. Deliberately **not** reused
+    from `MiscRuleCore.ASSIGNMENT_OPS` (rules package): that field is
+    `protected` (cross-package inaccessible from `tokenizer`) and is missing
+    `&&=`/`||=`/`??=`/`<<=`/`>>>=`, which this tokenizer's own character-level
+    lexer does emit — kept local and tokenizer-scoped instead, to avoid
+    silently under-covering compound-assignment RHS starts. `JSX_LOGICAL_OPS`
+    = `&&`, `||`, `??`.
+  - **Attribute-`=` ambiguity (flagged by the parent task) checked, confirmed
+    a non-issue**: `findJsxSpans`'s outer scan only ever re-examines a `<`
+    immediately after a recognized-context token; a JSX tag's own attribute
+    `=` (e.g. `bar={x}` inside `<Foo bar={x} />`) is only followed by `<` if
+    the attribute value were bare JSX with no braces/quotes at all (e.g.
+    `bar=<Bar/>`), which isn't valid JSX syntax in the first place (attribute
+    values must be a string literal or a `{...}` expression) — so this
+    shape essentially cannot occur in real JSX, and even if it somehow did,
+    the same `findJsxSpanEnd`/`parseJsxTag` returns -1 safety net that every
+    prior increment relies on would leave it untouched. No special-casing
+    needed in `isAssignmentOrLogicalRhsStart` beyond the plain lookback.
+  - **Ambiguity safety unchanged from prior increments**: same -1-on-
+    unbalanced-JSX self-correcting property relied on throughout — a `<`
+    after `=`/`&&`/etc. that's actually a real comparison (`x = y < z`) or
+    a legacy `<T>` cast falls through untouched.
+  - **Fixture-verified**: `test/jsx_tsx_assign_logical_context_{inp,out}.tsx`
+    (a plain `=` assignment, a `+=` compound assignment, and each of
+    `&&`/`||`/`??` immediately preceding a JSX open; an `if (x < 1)`
+    comparison confirmed untouched) and
+    `test/jsx_tsx_assign_logical_sanity_{inp,out}.tsx` (Increment 4's two
+    new contexts combined with previously-landed contexts — plain `=`,
+    `&&`-RHS, `??`-RHS, `return`-context [implicit via nested function],
+    call-argument-start, array-element-start, both ternary branches,
+    arrow-body — in one small component, to catch context-interaction
+    bugs). `make test`: 295/295 → 297/297 forward + idempotency, zero
+    regressions on any existing `.js`/`.ts`/`.tsx` fixture. Manually
+    re-verified round1/round2 byte-identical on both new fixtures outside
+    the Makefile-driven run as well.
+  - **Nothing from the design broke on contact this increment** — no new
+    character-level-lexer carve-out needed, same as Increments 2/3.
+  - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
+    still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
+    unchanged from Increments 1/2/3's own "NOT done" lists.
+  - **Where to resume**: three hardest contexts remain, deliberately left
+    for last per the design's own risk ordering: grouping-paren-start
+    (design list item 8 — needs to distinguish a bare grouping `(` from a
+    call-open `(`, the mirror image of what `isCallOpenParen` already does
+    for the call case, i.e. recognized when `(` is *not* preceded by an
+    IDENTIFIER/`)`/`]`); then the recursive `{}`/`${}`-hole contexts (design
+    list items 9/10 — requires `findJsxSpanEnd` to actually recurse into a
+    hole's interior and re-apply the whole `isJsxContext` check there,
+    rather than only balance-skipping it as every increment so far does);
+    then spread (design list item 11, likely close to free once
+    call-argument/array-element-start already handle the `,`/`(`/`[`
+    adjacency — just needs the token immediately before `<` to also accept
+    `...` in those same positions). The `<T>`-cast-vs-JSX ambiguity's
+    `.tsx`-only resolution remains implicitly correct (gated by
+    `isJsxSyntax`) but still not stress-tested against an actual
+    `const x = <T>foo;` cast-shaped `.tsx` input in any of the 7 now-landed
+    contexts — worth a real fixture before or alongside whichever future
+    increment lands next, not deferred indefinitely.
 
 ---
 

@@ -462,6 +462,24 @@ JSX/TSX:
                                                         an ordinary `if (x < 1)` comparison is confirmed
                                                         untouched.
 
+  jsx_tsx_assign_logical_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 4:
+                                                        assignment-RHS (incl. compound assignment, e.g.
+                                                        `+=`) and logical/nullish-RHS (`&&`, `||`, `??`).
+                                                        Covers a plain `=` assignment, a `+=` compound
+                                                        assignment, and each of `&&`/`||`/`??` as the
+                                                        operator immediately preceding a JSX open; an
+                                                        ordinary `if (x < 1)` comparison is confirmed
+                                                        untouched.
+
+  jsx_tsx_assign_logical_sanity_inp/out.tsx          -- Real-shape sanity check combining Increment 4's
+                                                        two new contexts (assignment-RHS, logical/nullish
+                                                        `??`-RHS) with previously-landed contexts (plain
+                                                        assignment `=`, `&&`-RHS, `return`-context,
+                                                        call-argument-start, array-element-start, ternary
+                                                        both branches, arrow-body) in one small component,
+                                                        to catch context-interaction bugs the isolated
+                                                        fixture might miss.
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

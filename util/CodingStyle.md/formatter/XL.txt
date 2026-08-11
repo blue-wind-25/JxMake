@@ -200,9 +200,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-- [CPP26] glaze dogfood: long initializer-list line wraps differently between round1 and round2
-  (`json_patch_test.cpp`) — genuine idempotency failure; idempotency mismatches in general
-  line-breaking logic have historically been pass-ordering bugs in this codebase.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 

@@ -2156,23 +2156,32 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  strategy, not independently re-verified via its own dedicated smoke case this slice (documented
      *  here rather than guessed silently).
      *
-     *  <p><b>Explicitly NOT covered by this slice</b> (documented scope boundaries, not guesses,
-     *  matching every prior §2-§8 slice's own precedent): a {@code def} header itself written as a
-     *  multi-physical-line (wrapped) parameter list is never recognized as a function-body-opening
-     *  header by {@link #isDefHeaderLine} (conservatively returns false for any {@code
-     *  multiPhysicalLine} header), silently disabling §9.1 for such a function's own {@code return}
-     *  statements -- same posture as §6's own already-documented multi-physical-line-signature gaps.
-     *  A semicolon-chained statement (e.g. {@code x = 1; return y} on one physical line) is never
-     *  recognized as a return/exit statement by either half of this rule, since only a {@link
-     *  RawLine}'s own <em>first</em> significant token is ever inspected, not a semicolon-
-     *  delimited sub-statement -- no STYLE_PYTHON3.md worked example exercises semicolon-chaining
-     *  anywhere in this job, so this is consistent with every other section's own silence on that
-     *  shape. A {@code return}/{@code elif}/{@code else} whose immediately preceding {@link RawLine}
-     *  is a comment-only line (no blank line of its own) is conservatively left untouched -- same
-     *  "no worked example to guess a relocation from" posture the C-family reference itself uses for
-     *  Java/C++ (as opposed to Kotlin's own separately-carved-out comment-relocation behavior, which
-     *  has no Python analog here). {@code try}/{@code except}/{@code finally} blank-line placement is
-     *  entirely out of scope -- STYLE_PYTHON3.md §9.2's own text names only {@code elif}/{@code else}.
+     *  <p><b>Fixed 2026-08-11</b> (were previously documented gaps here, see STATE_PYTHON3.md for the
+     *  before/after): a {@code def} header written as a multi-physical-line (wrapped) parameter list
+     *  IS now recognized by {@link #isDefHeaderLine} -- only its leading token was ever inspected, so
+     *  no multi-line-aware handling was actually needed, the earlier conservative bail was stricter
+     *  than the check required. A semicolon-chained statement (e.g. {@code x = 1; return y}) IS now
+     *  recognized by both halves: §9.1 via {@link #lineHasTopLevelReturnSegment} (any top-level
+     *  segment, not just the line's first), §9.2 via {@link #isUnconditionalExitLine}'s {@link
+     *  #lastSemicolonSegmentStart} (the line's textually-LAST segment, matching "last statement of the
+     *  preceding block"). A §8-compact preceding block (e.g. {@code if x: return y} as the block
+     *  immediately before an {@code elif}/{@code else}) IS now recognized by §9.2 via {@link
+     *  #isUnconditionalExitLine}'s {@link #classifySingleStatementHeaderColon}-family delegation to
+     *  {@link #classifyCompactSingleStatementHeaderColon}, which narrows the search to the body span
+     *  past the header colon rather than the header keyword itself.
+     *
+     *  <p><b>Still explicitly NOT covered</b> (documented scope boundary, not a guess): {@code
+     *  try}/{@code except}/{@code finally} blank-line placement is entirely out of scope --
+     *  STYLE_PYTHON3.md §9.2's own text names only {@code elif}/{@code else}, so extending this rule
+     *  to {@code except}/{@code finally} would be inventing a new rule the style doc itself doesn't
+     *  specify (what "the preceding block's last statement" even means for a {@code try} body whose
+     *  normal-exit path never reaches {@code except} at all is a genuine design question, not a
+     *  mechanical extension of the existing elif/else recognizer) -- left as a follow-up requiring an
+     *  explicit style-doc decision first, not attempted here. A {@code return}/{@code elif}/{@code
+     *  else} whose immediately preceding {@link RawLine} is a comment-only line (no blank line of its
+     *  own) is conservatively left untouched -- same "no worked example to guess a relocation from"
+     *  posture the C-family reference itself uses for Java/C++ (as opposed to Kotlin's own separately-
+     *  carved-out comment-relocation behavior, which has no Python analog here).
      */
     private List<Replacement> applyControlFlowBlankLines(
         final List<Token>   tokens,
@@ -2200,7 +2209,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final ControlFlowFrame top = stack.peek();
 
             if( top != null && top.isFunctionBody && top.sawContent
-                    && first.type == TokenType.KEYWORD && "return".equals(first.text) ) {
+                    && lineHasTopLevelReturnSegment(tokens, line.contentStart, line.end) ) {
                 final Replacement r = insertBlankLineBefore(tokens, rawLines, i, line);
                 if(r != null) replacements.add(r);
             }
@@ -2210,8 +2219,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             ) || "else".equals(
                 first.text
             ) ) ) {
-                final RawLine prevStmt = previousContentLine(tokens, rawLines, i);
-                if( prevStmt != null && isUnconditionalExitLine(tokens, prevStmt) ) {
+                final int prevIdx = previousContentLineIndex(tokens, rawLines, i);
+                if( prevIdx >= 0 && isUnconditionalExitLine(tokens, rawLines, prevIdx) ) {
                     final Replacement r = insertBlankLineBefore(tokens, rawLines, i, line);
                     if(r != null) replacements.add(r);
                 }
@@ -2226,13 +2235,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * True iff {@code line}'s first significant token is {@code def} (optionally preceded by {@code
-     *  async}) -- i.e. it opens a function-body frame. A {@code multiPhysicalLine} header (a wrapped
-     *  parameter list) conservatively returns false -- documented gap, see {@link
-     *  #applyControlFlowBlankLines}'s javadoc.
+     *  async}) -- i.e. it opens a function-body frame. Deliberately also recognizes a {@code
+     *  multiPhysicalLine} header (a wrapped parameter list): only the header's own leading token is
+     *  ever inspected, which is unaffected by how many physical lines the parameter list itself
+     *  spans, so no additional handling is needed for that case (fixed 2026-08-11, see {@link
+     *  #applyControlFlowBlankLines}'s javadoc).
      */
     private boolean isDefHeaderLine(final List<Token> tokens, final RawLine line)
     {
-        if(line.multiPhysicalLine) return false;
         int idx = nextSignificant(tokens, line.contentStart, line.end);
         if(idx < 0) return false;
         Token t = tokens.get(idx);
@@ -2247,9 +2257,13 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Walks backward from {@code idx - 1}, skipping blank and comment-only lines, and returns the
-     *  nearest genuine-content {@link RawLine}, or {@code null} if none exists before {@code idx}
+     *  index of the nearest genuine-content {@link RawLine}, or {@code -1} if none exists before
+     *  {@code idx}. Returns an index (rather than the {@link RawLine} itself, as the prior version of
+     *  this method did) so callers such as {@link #isUnconditionalExitLine} can also consult {@code
+     *  rawLines}' own §8-compact-header classification for that same line, which itself needs the
+     *  line's index, not just its content.
      */
-    private RawLine previousContentLine(
+    private int previousContentLineIndex(
         final List<Token>   tokens,
         final List<RawLine> rawLines,
         final int           idx
@@ -2263,20 +2277,38 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if(sig < 0) continue;
             final TokenType ty = tokens.get(sig).type;
             if(ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK) continue;
-            return candidate;
+            return k;
         } // for
 
-        return null;
+        return -1;
     }
 
     /**
-     * True iff {@code line}'s first significant token is exactly {@code return}/{@code break}/
-     *  {@code continue} -- deliberately NOT {@code raise}, matching the C-family reference list's own
-     *  existing omission (STYLE_PYTHON3.md §9.2).
+     * True iff {@code rawLines.get(lineIdx)}'s effective LAST statement is exactly {@code return}/
+     *  {@code break}/{@code continue} -- deliberately NOT {@code raise}, matching the C-family
+     *  reference list's own existing omission (STYLE_PYTHON3.md §9.2). Two shapes beyond a plain
+     *  single-statement line are recognized (fixed 2026-08-11, see {@link
+     *  #applyControlFlowBlankLines}'s javadoc): (1) a §8-compact header (e.g. {@code if x: return y})
+     *  -- delegates to {@link #classifyCompactSingleStatementHeaderColon} to find the body's own
+     *  start just past the header colon, since that's this line's real last (and only) statement, not
+     *  the header keyword; (2) a semicolon-chained line (e.g. {@code x = 1; return y}) -- {@link
+     *  #lastSemicolonSegmentStart} finds the leading token of the LAST top-level {@code ;}-delimited
+     *  sub-statement, which is this line's true textually-last statement regardless of how many
+     *  segments precede it. Both shapes compose (a compact header whose body itself is semicolon-
+     *  chained is handled by narrowing to the body span first, then finding that span's own last
+     *  semicolon segment).
      */
-    private boolean isUnconditionalExitLine(final List<Token> tokens, final RawLine line)
+    private boolean isUnconditionalExitLine(
+        final List<Token>   tokens,
+        final List<RawLine> rawLines,
+        final int           lineIdx
+    )
     {
-        final int sig = nextSignificant(tokens, line.contentStart, line.end);
+        final RawLine line  = rawLines.get(lineIdx);
+              int      start = line.contentStart;
+        final int      colonIdx = classifyCompactSingleStatementHeaderColon(tokens, rawLines, lineIdx);
+        if(colonIdx >= 0) start = colonIdx + 1;
+        final int sig = lastSemicolonSegmentStart(tokens, start, line.end);
         if(sig < 0) return false;
         final Token t = tokens.get(sig);
 
@@ -2288,6 +2320,68 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 ) || "continue".equals(
                     t.text
                 ) );
+    }
+
+    /**
+     * Returns the index of the leading significant token of the LAST top-level ({@code ;}-delimited,
+     *  bracket-depth-0) sub-statement within {@code [start, end)}, or {@code -1} if that span holds no
+     *  significant token at all. When {@code [start, end)} contains no top-level {@code ;}, this is
+     *  simply the span's own first significant token -- same result as a plain {@code
+     *  nextSignificant(tokens, start, end)} call, so a line with no semicolon chaining is unaffected.
+     */
+    private int lastSemicolonSegmentStart(final List<Token> tokens, final int start, final int end)
+    {
+        int depth   = 0;
+        int lastSemi = start - 1;
+        for(int k = start; k < end; ++k) {
+            final Token t = tokens.get(k);
+                 if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) )  ++depth;
+            else if( t.type == TokenType.PUNCT && isCloseBracketText(t.text) ) --depth;
+            else if( depth == 0 && t.type == TokenType.PUNCT && ";".equals(t.text) ) lastSemi = k;
+        } // for
+
+        return nextSignificant(tokens, lastSemi + 1, end);
+    }
+
+    /**
+     * True iff any top-level ({@code ;}-delimited, bracket-depth-0) sub-statement within {@code
+     *  [start, end)} leads with the {@code return} keyword -- covers both a plain {@code return}-first
+     *  line (the pre-existing §9.1 shape) and a semicolon-chained line where {@code return} is a LATER
+     *  sub-statement (e.g. {@code x = 1; return y}) (fixed 2026-08-11, see {@link
+     *  #applyControlFlowBlankLines}'s javadoc). The latter shape still inserts the blank line before
+     *  the whole physical line, not immediately before the {@code return} sub-statement itself --
+     *  this pass only ever inserts a line break between two existing {@link RawLine}s, never splits
+     *  one physical line into two, so a mid-line separation is not achievable at this granularity;
+     *  separating the whole line from what precedes it is the closest conservative approximation.
+     */
+    private boolean lineHasTopLevelReturnSegment(
+        final List<Token> tokens,
+        final int         start,
+        final int         end
+    )
+    {
+        int depth    = 0;
+        int segStart = start;
+        for(int k = start; k <= end; ++k) {
+            final boolean atEnd = k == end;
+            final Token   t     = atEnd ? null : tokens.get(k);
+            if( !atEnd && t.type == TokenType.PUNCT && isOpenBracketText(t.text) ) {
+                ++depth;
+                continue;
+            }
+            if( !atEnd && t.type == TokenType.PUNCT && isCloseBracketText(t.text) ) {
+                --depth;
+                continue;
+            }
+            if( atEnd || ( depth == 0 && t.type == TokenType.PUNCT && ";".equals(t.text) ) ) {
+                final int sig = nextSignificant(tokens, segStart, k);
+                if( sig >= 0 && tokens.get(sig).type == TokenType.KEYWORD
+                        && "return".equals(tokens.get(sig).text) ) return true;
+                segStart = k + 1;
+            } // if
+        } // for
+
+        return false;
     }
 
     /**

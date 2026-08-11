@@ -149,6 +149,13 @@ C++:
                                                         params, inside structured bindings, inside requires
                                                         clauses.
 
+  cpp_using_alias_inp/out.cpp                        -- `using` alias declarations (C++11+) column-aligned
+                                                        on `=`: adjacent plain aliases of differing name
+                                                        length, a `template<typename T> using Vec = ...`
+                                                        singleton group left as its own group, and a
+                                                        function-local `using Local = double;` unaffected
+                                                        by the file-scope group.
+
 C/C++ Headers:
   h_core_inp/out.h                                   -- C header with #ifndef guard: header zone spacing,
                                                         include ordering (angle vs quote), struct alignment,
@@ -606,6 +613,17 @@ Python3:
                                                         trailing comment; expands an over-limit compact body
                                                         to an indented block; and leaves a semicolon chain
                                                         untouched (never creates or extends one).
+
+  py_control_flow_blank_line_gaps_inp/out.py         -- Python3 §9 gap fixes: blank line before a `return`
+                                                        in a `def` whose own header spans multiple physical
+                                                        lines (a wrapped parameter list); blank line before
+                                                        a semicolon-chained statement whose LAST sub-
+                                                        statement is `return` (§9.1) or whose preceding line's
+                                                        last sub-statement is `return`/`break`/`continue`
+                                                        (§9.2); blank line before `elif`/`else` when the
+                                                        immediately preceding block is a §8-compact one-line
+                                                        header (`if n > 0: return 1`) ending in an
+                                                        unconditional exit.
 
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment

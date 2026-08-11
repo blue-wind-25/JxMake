@@ -95,6 +95,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_237 | Indent-size/style conversion (Python analog of `MiscRuleCore#convertIndentation`) — granularity resolved per real statement line via the tokenizer's own INDENT/DEDENT depth, not per-block width-guessing; see "Indent-Size/Style Conversion" section below |
 | RDD_KEY_247 | `python-import-sort`/`python-import-blank-lines` wired into `Config.java` (previously documented but not recognized keys); `python-import-blank-lines` given real new behavior (blank-line-count normalization between same-depth adjacent import groups separated only by blank lines) per coordinator decision after an initial ambiguity stop — see "Config Keys Wiring" section below |
 | RDD_KEY_268 | `normalize-comment-start-case`/`normalize-comment-end-period` implemented from scratch for python3's `#` comments, plus chain-grouping — reuses the existing classifier/GRU-backed decision path (`MiscRuleCore#capitalizeFirstLetter`/`#stripSoleTrailingPeriodAcrossLines`/`#classifyComment` were already family-agnostic) rather than a parallel ad hoc mechanism — see "Comment Normalization" section below |
+| RDD_KEY_282 | §9 gap-closing: 3 of 4 documented §9 gaps closed (multi-physical-line `def` header now recognized; semicolon-chained statements now recognized by both §9.1/§9.2 via `lineHasTopLevelReturnSegment`/`lastSemicolonSegmentStart`; a §8-compact preceding block now recognized by §9.2 via `classifyCompactSingleStatementHeaderColon` delegation); `try`/`except`/`finally` left as a scoped-out follow-up (STYLE_PYTHON3.md §9.2 names only `elif`/`else`) — see "§9 Gap Fixes" section below |
 
 ---
 
@@ -680,6 +681,34 @@ same as every other language's dogfood precedent for a newly-landed rule.
       recognized by §9.2; `try`/`except`/`finally` blank-line placement
       entirely out of scope. 14-case smoke + `make test` 114/114 forward +
       idempotency.
+
+      **§9 Gap Fixes (2026-08-11, RDD_KEY_282).** 3 of the 4 gaps listed
+      above closed: (1) `isDefHeaderLine`'s `multiPhysicalLine` early bail
+      simply removed — it only ever inspects the header's leading token,
+      unaffected by how many physical lines the wrapped parameter list
+      spans. (2) semicolon-chained statements: new
+      `lineHasTopLevelReturnSegment` (§9.1 — true iff ANY bracket-depth-0
+      `;`-delimited sub-statement leads with `return`; the blank line still
+      goes before the WHOLE physical line, since this pass only separates
+      existing `RawLine`s, never splits one) and `lastSemicolonSegmentStart`
+      (§9.2, via rewritten `isUnconditionalExitLine` — finds the LAST
+      top-level segment's leading token). (3) a §8-compact preceding block
+      (`if x: return y`): `isUnconditionalExitLine` now delegates to
+      `classifyCompactSingleStatementHeaderColon` to narrow the search to
+      the body span past the header colon. (4) `try`/`except`/`finally` —
+      deliberately left scoped out: STYLE_PYTHON3.md §9.2's own text names
+      only `elif`/`else`; extending to `except`/`finally` needs a new
+      design decision (what "preceding block's last statement" means for a
+      `try` body whose normal-exit path never reaches `except`), not a
+      mechanical extension. One real bug caught via `make test` (not just
+      static reasoning): `lastSemicolonSegmentStart`'s "last semicolon seen"
+      var initialized to `-1` unconditionally, so a no-semicolon line whose
+      own span didn't start at absolute token index 0 incorrectly scanned
+      from index 0 — caught by `real_code_regressions_79_out.py` losing its
+      already-correct blank line before `elif e: continue`; fixed by
+      initializing to `start - 1`. `make test`: 282/282 → 283/283 forward +
+      idempotency. New fixture:
+      `test/py_control_flow_blank_line_gaps_{inp,out}.py`.
 
 - [x] Local test fixtures authored and registered: `py_combined_inp/out.py`
       and `py_comments_inp/out.py` in `test/`, documented in

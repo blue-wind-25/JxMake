@@ -342,6 +342,7 @@ INP_FILES += h_combined_inp.h
 INP_FILES += c_combined_inp.c
 INP_FILES += c_comments_inp.c
 INP_FILES += c_cpp_decl_gaps_inp.c
+INP_FILES += cpp_using_alias_inp.cpp
 
 INP_FILES += hpp_core_inp.hpp
 INP_FILES += cpp_core_inp.cpp
@@ -418,6 +419,7 @@ INP_FILES += py_comments_normalization_inp.py
 INP_FILES += py_import_blank_lines_inp.py
 INP_FILES += py_import_multiline_inp.py
 INP_FILES += py_single_statement_body_ext_inp.py
+INP_FILES += py_control_flow_blank_line_gaps_inp.py
 
 INP_FILES += makefile_combined_inp.mk
 INP_FILES += bash_combined_inp.sh

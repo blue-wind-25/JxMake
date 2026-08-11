@@ -394,6 +394,7 @@ INP_FILES += html_tc_gap_level2_form_unchanged_inp.html
 INP_FILES += html_tc_gap_level3_form_template_inp.html
 INP_FILES += html_tc_gap_level3_adoption_unchanged_inp.html
 INP_FILES += html_tc_gap_level4_adoption_agency_inp.html
+INP_FILES += html_mathml_case_fixup_inp.html
 
 INP_FILES += py_combined_inp.py
 INP_FILES += py_comments_inp.py

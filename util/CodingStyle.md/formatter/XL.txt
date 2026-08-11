@@ -201,14 +201,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-Read STATE_COMMON.md and STATE_CURLY_GDR.md then fix this bug:
-
-  JS/TS regex literal (e.g. `/[{]/`) still tokenized as plain `TEXT`, not a string-like
-  unit — a bracket-family character inside a regex literal can miscount GDR's brace/paren depth;
-  localized to one `GdrTokenizer` method.
-
-The affected file should be `src/com/jxmake/formatter/gdr/GdrTokenizer.java`.
-When comitting, replace `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with your own ID and e-mail.
+These fix are done by Google Antigravity:
 
 - [CURLY_GDR] JS/TS regex literal (e.g. `/[{]/`) still tokenized as plain `TEXT`, not a string-like
   unit — a bracket-family character inside a regex literal can miscount GDR's brace/paren depth;
@@ -217,6 +210,11 @@ When comitting, replace `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 - [DATA_FORMATS] MathML `definitionurl`→`definitionURL` tag-fixup missing — no `mathmlDepth`
   tracking exists (only `svgDepth` was built for the analogous SVG case); narrow, mirrors an
   existing pattern.
+
+Please confirm them:
+    curly_gdr_js_regex_inp/out.ts
+    html_mathml_case_fixup_inp/out.html
+
 
 - [C_CPP_JAVA] `using` alias declarations not column-aligned — "NOT SCHEDULED (design decision)",
   passes through unchanged (no corruption); legitimate future feature, additive/isolated to

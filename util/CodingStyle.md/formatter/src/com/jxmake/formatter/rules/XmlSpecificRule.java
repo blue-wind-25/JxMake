@@ -87,11 +87,7 @@ public final class XmlSpecificRule {
      *  Opposite gating from {@link #TAG_NAME_REWRITES}: that map applies only OUTSIDE svg
      *  ({@code svgDepth == 0}), this one applies only INSIDE svg ({@code svgDepth > 0}) -- kept as a
      *  separate map/gate rather than merged, since the two conditions are mutually exclusive. Table is
-     *  the WHATWG HTML5 spec's stable "Adjust SVG tag names" list (unchanged for years). MathML has an
-     *  analogous small case-fixup (e.g. `definitionurl` -> `definitionURL`, attribute-only) but this
-     *  parser has no MathML-depth-equivalent tracking today (only `svgDepth`), so per the standalone
-     *  scoping of this task, MathML fixup is intentionally left open rather than building new MathML
-     *  foreign-content tracking from scratch -- see STATE_DATA_FORMATS.md.
+     *  the WHATWG HTML5 spec's stable "Adjust SVG tag names" list (unchanged for years).
      */
     private static final java.util.Map<String, String> SVG_TAG_NAME_CASE_FIXUP = new java.util.HashMap<>();
     static {
@@ -132,6 +128,83 @@ public final class XmlSpecificRule {
         SVG_TAG_NAME_CASE_FIXUP.put("lineargradient", "linearGradient");
         SVG_TAG_NAME_CASE_FIXUP.put("radialgradient", "radialGradient");
         SVG_TAG_NAME_CASE_FIXUP.put("textpath", "textPath");
+    }
+
+    private static final java.util.Map<String, String> SVG_ATTRIBUTE_CASE_FIXUP = new java.util.HashMap<>();
+    static {
+        SVG_ATTRIBUTE_CASE_FIXUP.put("attributename", "attributeName");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("attributetype", "attributeType");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("basefrequency", "baseFrequency");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("baseprofile", "baseProfile");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("calcmode", "calcMode");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("clippathunits", "clipPathUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("diffuseconstant", "diffuseConstant");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("edgemode", "edgeMode");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("filterunits", "filterUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("glyphname", "glyphName");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("glyphref", "glyphRef");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("gradienttransform", "gradientTransform");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("gradientunits", "gradientUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("kernelmatrix", "kernelMatrix");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("kernelunitlength", "kernelUnitLength");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("keypoints", "keyPoints");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("keysplines", "keySplines");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("keytimes", "keyTimes");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("lengthadjust", "lengthAdjust");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("limitingconeangle", "limitingConeAngle");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("markerheight", "markerHeight");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("markerunits", "markerUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("markerwidth", "markerWidth");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("maskcontentunits", "maskContentUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("maskunits", "maskUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("numoctaves", "numOctaves");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("pathlength", "pathLength");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("patterncontentunits", "patternContentUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("patterntransform", "patternTransform");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("patternunits", "patternUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("pointsatx", "pointsAtX");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("pointsaty", "pointsAtY");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("pointsatz", "pointsAtZ");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("preservealpha", "preserveAlpha");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("preserveaspectratio", "preserveAspectRatio");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("primitiveunits", "primitiveUnits");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("refx", "refX");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("refy", "refY");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("repeatcount", "repeatCount");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("repeatdur", "repeatDur");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("requiredextensions", "requiredExtensions");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("requiredfeatures", "requiredFeatures");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("specularconstant", "specularConstant");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("specularexponent", "specularExponent");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("spreadmethod", "spreadMethod");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("startoffset", "startOffset");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("stddeviation", "stdDeviation");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("stitchtiles", "stitchTiles");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("surfacescale", "surfaceScale");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("systemlanguage", "systemLanguage");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("tablevalues", "tableValues");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("targetx", "targetX");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("targety", "targetY");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("textlength", "textLength");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("transformorigin", "transformOrigin");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("viewbox", "viewBox");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("viewtarget", "viewTarget");
+        SVG_ATTRIBUTE_CASE_FIXUP.put("zoomandpan", "zoomAndPan");
+    }
+
+    /**
+     * HTML5 tree-construction spec's "Adjust MathML attributes" step: inside real MathML foreign content
+     *  ({@code mathmlDepth > 0}), attribute and tag names are corrected to the mapped mixed-case spec name
+     *  (e.g. `definitionurl` -> `definitionURL`).
+     */
+    private static final java.util.Map<String, String> MATHML_TAG_NAME_CASE_FIXUP = new java.util.HashMap<>();
+    static {
+        // MathML specification accept any case, hence, this map is empty
+    }
+
+    private static final java.util.Map<String, String> MATHML_ATTRIBUTE_CASE_FIXUP = new java.util.HashMap<>();
+    static {
+        MATHML_ATTRIBUTE_CASE_FIXUP.put("definitionurl", "definitionURL");
     }
 
     /**
@@ -324,6 +397,12 @@ public final class XmlSpecificRule {
      *  etc., which nest a real `<image>`/`</image>` pair inside `<svg>`).
      */
     private int svgDepth;
+
+    /**
+     * Depth counter for `<math>` ancestors, tracked so MathML case fixup (e.g. `definitionurl` ->
+     *  `definitionURL`) applies only inside MathML foreign content.
+     */
+    private int mathmlDepth;
 
     /**
      * Lightweight name-only stack of currently-open element tag names (lowercased), pushed in
@@ -542,7 +621,7 @@ public final class XmlSpecificRule {
     /**
      * Case-insensitive `</tagName>` (or `</tagName `) check at the cursor, used only for HTML5
      *  closing-tag matching against an {@code n.tagName} that may have been case-rewritten from the
-     *  source's own literal casing ({@link #TAG_NAME_REWRITES}/{@link #SVG_TAG_NAME_CASE_FIXUP}) --
+     *  source's own literal casing ({@link #TAG_NAME_REWRITES}/{@link #SVG_TAG_NAME_CASE_FIXUP}/{@link #MATHML_TAG_NAME_CASE_FIXUP}) --
      *  e.g. source `<fegaussianblur>...</fegaussianblur>` becomes `n.tagName ==
      *  "feGaussianBlur"`, so a literal-case match against the source's own lowercase closing tag would
      *  never succeed without this. HTML5 tag-name matching is spec-mandated case-insensitive; other
@@ -1114,8 +1193,16 @@ public final class XmlSpecificRule {
         ) ) n.tagName = SVG_TAG_NAME_CASE_FIXUP.get(
             lowerTag
         );
-        final boolean isSvg  = lang.isHtml5 && "svg".equals(lowerTag);
-        final boolean isVoid = lang.isHtml5 && VOID_ELEMENTS.contains(lowerTag);
+        // See MATHML_TAG_NAME_CASE_FIXUP -- opposite gate from TAG_NAME_REWRITES: only applies INSIDE
+        // real MathML foreign content (mathmlDepth > 0), never in plain HTML content.
+        if( lang.isHtml5 && mathmlDepth > 0 && MATHML_TAG_NAME_CASE_FIXUP.containsKey(
+            lowerTag
+        ) ) n.tagName = MATHML_TAG_NAME_CASE_FIXUP.get(
+            lowerTag
+        );
+        final boolean isSvg    = lang.isHtml5 && "svg".equals(lowerTag);
+        final boolean isMathml = lang.isHtml5 && "math".equals(lowerTag);
+        final boolean isVoid   = lang.isHtml5 && VOID_ELEMENTS.contains(lowerTag);
         if( lang.isHtml5 && OPAQUE_IMPLIED_END_TAG_ELEMENTS.contains(
             lowerTag
         ) ) return parseOpaqueImpliedEndTagElement(
@@ -1187,11 +1274,13 @@ public final class XmlSpecificRule {
         final int childStart = pos;
         try {
             if(isSvg) svgDepth++;
+            if(isMathml) mathmlDepth++;
             try {
                 n.children = parseNodes(true, impliedTriggers);
             }
             finally {
                 if(isSvg) svgDepth--;
+                if(isMathml) mathmlDepth--;
             }
             final String closeTok         = "</" + n.tagName + ">";
             final int    beforeTrailingWs = pos;
@@ -1448,7 +1537,19 @@ public final class XmlSpecificRule {
         ) != '/' && s.charAt(
             pos
         ) != '>' ) pos++;
-        final String name = s.substring(nameStart, pos);
+        String name = s.substring(nameStart, pos);
+        if( lang.isHtml5 && svgDepth > 0 ) {
+            final String lowerName = name.toLowerCase(java.util.Locale.ROOT);
+            if( SVG_ATTRIBUTE_CASE_FIXUP.containsKey(lowerName) ) {
+                name = SVG_ATTRIBUTE_CASE_FIXUP.get(lowerName);
+            }
+        }
+        if( lang.isHtml5 && mathmlDepth > 0 ) {
+            final String lowerName = name.toLowerCase(java.util.Locale.ROOT);
+            if( MATHML_ATTRIBUTE_CASE_FIXUP.containsKey(lowerName) ) {
+                name = MATHML_ATTRIBUTE_CASE_FIXUP.get(lowerName);
+            }
+        }
         skipWs();
         if( eof() || s.charAt(pos) != '=' ) {
             if(lang.isHtml5) {

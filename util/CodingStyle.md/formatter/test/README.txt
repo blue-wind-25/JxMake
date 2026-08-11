@@ -691,6 +691,11 @@ General Scope-Depth Reindentation:
                                                         itself must render byte-for-byte unchanged, not gain a
                                                         corrupting inner space.
 
+  html_mathml_case_fixup_inp/out.html                -- MathML content inside HTML5 `<math>` element with
+                                                        `definitionurl` attribute/tag -- proves mathmlDepth
+                                                        tracking and MathML case-fixup (STATE_DATA_FORMATS.md)
+                                                        correctly adjusts `definitionurl` to `definitionURL`.
+
 Multi-Sentence Comment Capitalization:
   multi_sentence_comment_inp/out.java                -- Proves `normalize-comment-start-case-multiline=on`
                                                         (curly family, via in-file config) capitalizes

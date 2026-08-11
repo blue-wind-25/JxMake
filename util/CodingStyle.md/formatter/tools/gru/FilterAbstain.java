@@ -65,7 +65,7 @@ public final class FilterAbstain {
                 final String text     = unescape( line.substring(tab + 1) );
                 final Lang   lang;
                 try { lang = new Lang(langName); }
-catch(IllegalArgumentException e) { continue; }
+                catch(IllegalArgumentException e) { continue; }
 
                 ++total;
                 final CommentFeatureVector features = CommentFeatureExtractor.extract(

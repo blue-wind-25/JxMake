@@ -3689,36 +3689,47 @@ Real-code regressions:
                                                         the siblings' base indentation before rendering, so
                                                         the aligned group remains idempotent.
 
-  real_code_regressions_201_inp/out.py               -- Python3 §6 alignment idempotency bug (found via
-                                                        `psf/black` dogfood, `tests/data/cases/function.py`'s
-                                                        `**kwargs` final parameter): in an already-broken-out
-                                                        signature, a last parameter with neither a type hint
-                                                        nor a default leaves nothing after its right-padded
-                                                        name column, so `trySignatureGroup`'s padding trailing
-                                                        whitespace survived as literal source text that each
-                                                        round's re-padding stacked on top of again, growing by
-                                                        another `maxNameLen`-derived amount every round. Fixed
-                                                        by extending each parameter's replacement span through
-                                                        its own trailing NEWLINE token instead of stopping at
-                                                        the last significant token, so leftover whitespace is
-                                                        fully swallowed rather than surviving alongside it.
+  real_code_regressions_201_inp/out.py               -- Minimal repro of a Python3 §6 alignment idempotency
+                                                        bug found via `psf/black` dogfood re-run
+                                                        (`tests/data/cases/function.py`'s `**kwargs` final
+                                                        parameter, newly exposed at much higher frequency once
+                                                        §6's own inline-vs- one-per-line overflow-wrap pass
+                                                        started producing this exact shape): an
+                                                        already-broken-out signature's last parameter having
+                                                        neither a type hint nor a default (so nothing follows
+                                                        its own right-padded name column) left its padding's
+                                                        trailing whitespace as literal orphaned source text a
+                                                        second round's own re-padding then stacked on top of,
+                                                        growing the trailing whitespace by another
+                                                        `maxNameLen`-derived amount every round
 
-  real_code_regressions_202_inp/out.py               -- Python3 §8/§7 join-threshold non-convergence bug
-                                                        (found via `click`/`flask`/`django` dogfood;
-                                                        RDD_KEY_287): the `if`/`for` single-statement-body
-                                                        join (`applySingleStatementBody`) and the equivalent
-                                                        §7 `case` virtual-join (`classifyCaseLine`)
-                                                        fits-checked only header+body text, ignoring a
-                                                        trailing comment that survives the join untouched --
-                                                        so round1 could emit an over-length joined line, which
-                                                        round2 then reversed via the separate compact-overflow
-                                                        check (which does measure the whole physical line).
-                                                        Fixed by measuring `joined + trailingSuffix` at all
-                                                        three affected call sites in
-                                                        `ScopePipelineIndent.java`:
-                                                        `applySingleStatementBody`'s join,
+  real_code_regressions_202_inp/out.py               -- Identity-pass fixture for the Python3 §8/§7
+                                                        join-threshold non-idempotency bug found via
+                                                        `click`/`flask`/`django` dogfood re-run: an `if`/`for`
+                                                        single-statement-body join (and the equivalent §7
+                                                        `case` virtual-join) measured the candidate joined
+                                                        line's fits-check against only the header+body text,
+                                                        excluding a body trailing comment that
+                                                        `applySingleStatementBody`/`classifyCaseLine`
+                                                        deliberately retain verbatim past the join's own
+                                                        replacement span -- so a joined line could be accepted
+                                                        here while exceeding `line-length` once the comment is
+                                                        counted. Round1 joined it anyway; round2 then saw the
+                                                        resulting over-limit compact line and correctly
+                                                        expanded it back via the separate compact-overflow
+                                                        check (which does measure the whole physical line,
+                                                        comment included) -- non-convergent flip-flop, not
+                                                        just cosmetic. Fixed by including the untouched
+                                                        trailing-comment suffix in all three affected
+                                                        fits-checks (`applySingleStatementBody`'s join,
                                                         `classifyCaseLine`'s virtualJoin, and
-                                                        `flushCaseGroup`'s post-alignment length guard.
+                                                        `flushCaseGroup`'s post-alignment length guard).
+                                                        (non-convergent). Fixed in `trySignatureGroup`: each
+                                                        parameter's replacement span now always extends
+                                                        through its own segment's trailing NEWLINE rather than
+                                                        stopping at the last significant token, so any such
+                                                        leftover whitespace is fully swallowed by the
+                                                        replacement instead of surviving alongside it.
 
 How Tests Are Run
 -----------------

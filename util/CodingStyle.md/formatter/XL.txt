@@ -126,7 +126,6 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_201_inp/out.py`
     to   `real_code_regressions_202_inp/out.py`
-[DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -165,8 +164,6 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 
 3. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-   !!! CLOSED FOR NOW - only revisit if much better training samples can be obtained !!!
-
    Further grow the hand-labeled hard-case corpus (`tools/classifier_weights/examples_*.md`),
    especially with the the `NO` samples.
 
@@ -181,6 +178,8 @@ Compact (don't use sub-agent because I will end this session soon) the narration
    Run GRU cross validation and check the GRU % with the new weights.
 
    Use sub-agent. This can be a substantial work.
+
+   !!! CLOSED FOR NOW - only revisit if much better training samples can be obtained !!!
 
 === TIER 1: Analysis/refactor/docs/testing only — ~zero regression risk ===
 

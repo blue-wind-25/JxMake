@@ -196,21 +196,22 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — DESIGN LANDED 2026-08-12
-  (STATE_JS_TS.md Open Questions, "2026-08-12 design session"): concrete expression-start-context
-  list and opaque `JSX_SPAN` token representation now specified, plus the generic-vs-JSX ambiguity
-  resolved by scoping the pre-pass to `.tsx`/`.jsx` files only (run before
-  `reclassifyAngleBrackets`). Still NOT implemented — no code, no fixtures, this was a design-only
-  pass. Downgraded from TIER 4 2026-08-12: the file-extension gate means `.js`/`.ts` files never
-  enter the pre-pass and never see a `JSX_SPAN` token, so the blast radius is confined to the
-  currently-unsupported `.tsx`/`.jsx` file types — implementing this should carry no regression
-  risk to existing JS/TS-only output, unlike TIER 4's "destabilizes an existing working pass"
-  risk class (verify the gate is actually enforced at the entry point during implementation,
-  rather than assumed). The context list is still flagged as an unvalidated draft needing a real
-  JSX corpus check before an implementation session trusts it as complete. It's the blocker for
-  the future JSX/TSX embedding-aware dispatcher (STATE_JS_TS.md) — JSX/TSX itself is real planned
-  future work per CLAUDE.md's job table, not a rejected idea, so this belongs here rather than
-  TIER X: Dead (moved from there 2026-08-12).
+- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — PARTIALLY IMPLEMENTED
+  2026-08-12, 1/11 contexts covered (see STATE_JS_TS.md's 2026-08-12 design session's
+  "implementation session, Increment 1" subsection for full detail — not duplicated here per
+  CLAUDE.md's rule that no STATE_*.md file may reference XL.txt, so keep this entry high-level and
+  let that subsection be the source of truth). `TokenType.JSX_SPAN`, `Lang.isJsxSyntax`
+  (`.jsx`/`.tsx`-file-scoped gate), and `TokenizerCurly.findJsxSpans` (+ helpers) landed; only the
+  "after `return`" expression-start context is implemented so far. A real prerequisite bug
+  (`isRegexLiteralAllowedHere` misreading a JSX closing tag's `/` as a regex-literal opener) was
+  found and fixed along the way, JSX-gated only. New fixture
+  `test/jsx_tsx_return_context_{inp,out}.tsx`; `make test` 291/291 -> 292/292, zero regressions on
+  existing `.js`/`.ts` fixtures (file-extension gate confirmed a true no-op for non-JSX files, same
+  low-risk profile this entry was downgraded to TIER 3 for). Still NOT done: the other 10 contexts,
+  and no real JSX corpus (react itself, `create-react-app` output) validation of the context list
+  yet — both still open per the design's own unvalidated-draft caveat. Next session should resume
+  with the arrow-body + both-ternary-branches contexts per STATE_JS_TS.md's own "where to resume"
+  note.
 
 Use sub-agent. This can be a substantial work.
 

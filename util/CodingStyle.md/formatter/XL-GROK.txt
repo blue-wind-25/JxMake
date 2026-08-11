@@ -1,7 +1,7 @@
 Read `STATE_COMMON.md`, ..., and implement/do:
     ...
 Please follow the current working flow and code-formatting. When committing, replace
-`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with yours `Co-authored-by: Grok <grok@x.ai>`.
+`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with your `Co-authored-by: Grok <grok@x.ai>`.
 
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------

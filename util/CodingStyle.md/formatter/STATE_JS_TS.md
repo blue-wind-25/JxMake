@@ -215,6 +215,14 @@ active in the Makefile and passing.
   renderScriptOrStyle`. Any further HTML5/embedded-format dispatcher work
   belongs to the Data Formats job (`STATE_DATA_FORMATS.md`), not this one.
 
+- **Watch-list, not a job (moved from `XL.txt` TIER 8 2026-08-12):
+  `=`-alignment-group non-self-stability quirk.** Seen once while building
+  the RDD_KEY_142 fixture near `location_shim.ts`, never reproduced against
+  the real file — no repro exists to act on. Not tracked as backlog work;
+  if a future JS/TS dogfood run ever produces an `=`-alignment-group
+  instability, check whether it matches this quirk before treating it as a
+  new bug.
+
 - **JSX/TSX out-of-scope statement** — see Scope section above (exact
   wording preserved there per policy: out of scope entirely, not deferred).
 

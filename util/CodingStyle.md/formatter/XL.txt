@@ -125,7 +125,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_201_inp/out.py`
-    to   `...`
+    to   `real_code_regressions_202_inp/out.py`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -207,12 +207,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-- [JS_TS] Unreproduced `=`-alignment-group non-self-stability quirk seen while building the
-  RDD_KEY_142 fixture near `location_shim.ts` but never reproduced against the real file — flagged
-  to revisit only if a future dogfood run hits it again.
-
-How about running another (or two) dogfood from the cloned Python repo to be more sure?
-Does `README.md` needs updating?
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -226,6 +221,12 @@ Use sub-agent. This can be a substantial work.
   openrewrite diff — wrapped-call continuation indent growth — moved to Tier4 below: its own
   file text cites the `PowerShellSpecificRule.java` bug family, which had 3 reverted fix attempts.)
 
+- [JS_TS] `hasBreakableCall` under-approximation ("known residual limitation"): the braceless-
+  if/else collapse-rescue heuristic only checks whether a rescuable call exists, not whether
+  wrapping it actually brings the line under `lineLengthLimit` — same "which pass sees final
+  stable width" architectural class as RDD_KEY_245/246/248/249/250, one of which (RDD_KEY_249) had
+  a reverted regression-causing fix attempt.
+
 - [C_CPP_JAVA] `openrewrite/rewrite` wrapped-call continuation line gains 4 extra indent spaces on
   round2 (`TabsAndIndentsVisitor.java`, `YamlParser.java`) — file's own text cites this as the same
   "indent-width-decided-before-a-later-pass-grows-it" family as the `PowerShellSpecificRule.java`
@@ -237,18 +238,13 @@ Use sub-agent. This can be a substantial work.
   architectural "raw-source-indent vs. scope-depth-indent divergence" bug class as the switch-case
   gap that took 7 sessions to fix.
 
-- [JS_TS] `hasBreakableCall` under-approximation ("known residual limitation"): the braceless-
-  if/else collapse-rescue heuristic only checks whether a rescuable call exists, not whether
-  wrapping it actually brings the line under `lineLengthLimit` — same "which pass sees final
-  stable width" architectural class as RDD_KEY_245/246/248/249/250, one of which (RDD_KEY_249) had
-  a reverted regression-causing fix attempt.
-
 - [CURLY_GDR] Unverified risk: GDR's second multipass cycle (GDR-2) interacting with the pipeline's
   own relative-delta reindenters (`SwitchRule.applyNonInlineCaseIndent`,
   `ScopePipeline.applyDeclarationsPass`, the STYLE.md §8 continuation-indent renderer) — GDR-2
   could silently overwrite already-STYLE.md-compliant indentation those passes just wrote.
   Adversarial testing only covered a Java switch-in-if case; TS/Kotlin switch-case/ternary-wrap
-  combinations are untried. Same bug family this job has already regressed on before.
+  combinations are untried. Same bug family this job has already regressed on before. Note: unlike
+  the other entries above, this is not yet a confirmed bug — it's an untested risk.
 
 Use sub-agent. This can be a substantial work.
 
@@ -271,10 +267,6 @@ NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known
   in favor of GDR pre-pass's absolute-target model — cleanup/consolidation, not a bug fix; medium
   risk (touches an already-working pass; regression risk is to correctness, not just style).
 
-- [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
-  architecture class as CURLY_GDR above), lower value (XML rarely needs deep reindent compared
-  to curly-brace nesting).
-
 - [HTML5_TCG] Level-4 adoption-agency algorithm only tracks a single most-recently-orphaned
   formatting element; a second, simultaneous misnesting under the same ancestor is silently
   dropped instead of queued. Root-caused and confirmed against real `parse5` spec ground truth
@@ -282,7 +274,12 @@ NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known
   insert" mechanism, not a simple queue, which would expand level 4 toward the full spec algorithm
   the original design (RDD_KEY_230) deliberately rejected. Blocked pending a decision among 3
   options (leave as documented limitation / implement full mechanism / implement a documented
-  non-spec-exact approximation) — see `STATE_HTML5_TCG.md`'s Open Questions.
+  non-spec-exact approximation) — see `STATE_HTML5_TCG.md`'s Open Questions. Not risk-rated like
+  the entries around it — this is decision-pending (which of 3 approaches), not a go/no-go gamble.
+
+- [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
+  architecture class as CURLY_GDR above), lower value (XML rarely needs deep reindent compared
+  to curly-brace nesting). Worst value/risk ratio in this tier — listed last accordingly.
 
 Use sub-agent. This can be a substantial work.
 

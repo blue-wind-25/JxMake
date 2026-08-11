@@ -342,7 +342,6 @@ INP_FILES += h_combined_inp.h
 INP_FILES += c_combined_inp.c
 INP_FILES += c_comments_inp.c
 INP_FILES += c_cpp_decl_gaps_inp.c
-INP_FILES += cpp_using_alias_inp.cpp
 
 INP_FILES += hpp_core_inp.hpp
 INP_FILES += cpp_core_inp.cpp
@@ -350,6 +349,7 @@ INP_FILES += cpp_modern_inp.cpp
 INP_FILES += hpp_combined_inp.hpp
 INP_FILES += cpp_combined_inp.cpp
 INP_FILES += cpp_comments_inp.cpp
+INP_FILES += cpp_using_alias_inp.cpp
 
 INP_FILES += java_core_inp.java
 INP_FILES += java_modern_inp.java

@@ -423,6 +423,18 @@ JS/TS:
                                                         plain identifier declarator, and two consecutive `type
                                                         X = ...` aliases form their own `=`-aligned group.
 
+  jsx_tsx_return_context_inp/out.tsx                 -- JSX/TSX boundary-finding pre-pass
+                                                        (XL.txt TIER 3, STATE_JS_TS.md), Increment 1:
+                                                        `.tsx`-only, "after `return`" expression-start
+                                                        context. A JSX tree (nested elements, an attribute, and
+                                                        a `{...}` expression hole) round-trips byte-for-byte as
+                                                        one opaque `JSX_SPAN` token while the surrounding
+                                                        function/if statements still get real brace/indent
+                                                        formatting applied around it; a self-closing `<br />`
+                                                        return is also covered; an ordinary `if (x < 1)`
+                                                        comparison (not after `return`) is confirmed untouched
+                                                        by the pre-pass.
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

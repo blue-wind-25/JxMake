@@ -479,6 +479,107 @@ active in the Makefile and passing.
   flagged above as required validation work before an implementation
   session trusts it as complete.
 
+  **2026-08-12 implementation session, Increment 1 — LANDED, still
+  unfinished (1/11 contexts, no real corpus validation yet).** First real
+  code toward this design, per the parent task's incremental-checkpoint
+  instructions. What's implemented and fixture-verified:
+
+  - `TokenType.JSX_SPAN` added to `TokenizerCore` exactly per the design
+    above (raw `text` including embedded newlines, `frozen = true`
+    unconditionally, no new `Token` fields).
+  - `Lang.isJsxSyntax` (new field, new `Lang(String language, String
+    filePath)` constructor overload) — true only when `filePath` ends in
+    `.jsx`/`.tsx`. `.jsx`/`.tsx` already inferred to `"js"`/`"ts"` at the
+    `Lang.infer` level (pre-existing, unrelated to this session), so this
+    is the *only* signal distinguishing a real JSX/TSX file from a plain
+    `.js`/`.ts` one — needed because `Lang` previously carried no per-file
+    path at all. `FormatterCore.forLanguage` gained a `(language,
+    filePath)` overload (old one-arg form still exists, delegates with a
+    `null` path, used by every caller with no real file — e.g.
+    `XmlSpecificRule`'s forced `"js"`/`"css"` `<script>`/`<style>`
+    dispatch); `GdrPipelineGate.applyAndFormat` (the one production call
+    site that has a real `filePath`) updated to use it.
+  - `TokenizerCurly.findJsxSpans` (+ helpers `findJsxSpanEnd`,
+    `parseJsxTag`, `skipBalancedBraceHole`) — a post-tokenize pass run
+    only when `lang.isJsxSyntax`, immediately before
+    `reclassifyAngleBrackets` per the design's ordering requirement.
+    **Only the "after `return`" context is implemented** (`Token.
+    isKeyword(prev, "return")` immediately before the candidate `<`) — the
+    other 10 contexts from the design's enumerated list are NOT yet
+    implemented; a `<` in any of those positions still falls through
+    unchanged to whatever `reclassifyAngleBrackets`/relational-operator
+    handling already did before this session (i.e. usually misparsed, if
+    it's actually JSX — this is expected/known, not a bug, until a future
+    increment adds that context). The span-finder itself already handles,
+    within its one implemented context: nested same- and different-name
+    elements at arbitrary depth, a self-closing tag (`<br />`) both as the
+    sole root element and as a nested child, one HTML attribute, and one
+    `{...}` expression hole (balance-skipped, not recursed into — the
+    design's recursive-hole context is explicitly future work, tracked
+    separately from this "after return" context).
+  - **Real bug found and fixed as a prerequisite, not anticipated by the
+    design docs**: `TokenizerCurly.isRegexLiteralAllowedHere` returned
+    `true` (regex-literal start allowed) whenever the previous significant
+    token was a plain `OP` (with only `++`/`--` excluded) — so in a
+    `.tsx`/`.jsx` file, the very first `/` of a JSX closing tag (`</Foo>`,
+    previous token is `<`) was misread by the *character-level* lexer
+    (which runs before `findJsxSpans`'s post-tokenize pass ever sees the
+    token stream) as the start of a regex literal, scanning for a second
+    unescaped `/` and usually overrunning to end-of-line/EOF with
+    `syntaxError = true`, corrupting the whole file's tokenization before
+    the JSX pre-pass could run at all. Fixed with a narrow, `lang.
+    isJsxSyntax`-gated special case: `OP "<"` immediately before `/`
+    disallows regex-start. Scoped to JSX/TSX files only, so `a < /re/`
+    (division-after-less-than, technically legal JS) is unaffected in
+    plain `.js`/`.ts` files — the narrow tradeoff is accepted only in
+    files that opted into JSX syntax via their extension, where a regex
+    immediately after `<` is vanishingly rare next to `</Foo>`. This means
+    the design's assumption that the pre-pass could be a clean,
+    fully-separate post-tokenize step (point 2/3 above) was slightly
+    optimistic — one character-level lexer decision upstream of
+    tokenization needed a JSX-aware carve-out too, not just the
+    post-tokenize pass itself. Worth flagging for whoever implements
+    further contexts: watch for other character-level lexer decisions
+    (e.g. template-literal `` ` `` detection, cast-keyword detection) that
+    might have similar latent JSX-unaware assumptions once more contexts
+    exercise more of the token stream.
+  - **Fixture-verified**: `test/jsx_tsx_return_context_{inp,out}.tsx`
+    (nested elements + one attribute + one `{}` hole + a self-closing
+    root return + a same-file `if (x < 1)` comparison confirmed
+    untouched, since it's not immediately after `return`). `make test`:
+    291/291 → 292/292 forward + idempotency, zero regressions on any
+    existing `.js`/`.ts` fixture (confirms the file-extension gate is a
+    true zero-behavior-change no-op for non-`.jsx`/`.tsx` files, per the
+    parent task's hard stop-condition). Manually re-verified round1/round2
+    byte-identical on a hand-written multi-function `.tsx` smoke file
+    beyond just the one registered fixture.
+  - **NOT done**: no real-JSX-corpus validation (react itself,
+    `create-react-app` output, or similar) — the parent task explicitly
+    flagged the 11-context list as unvalidated draft reasoning and
+    required corpus-checking before trusting it complete; that validation
+    did not happen this session (only the one narrowest context was
+    attempted, so there was no multi-context list to cross-check yet
+    regardless). `js_ts_content_diff.js` (the TS-compiler-API-based
+    dogfood content-preservation checker) was NOT updated for `.tsx`/JSX
+    syntax — per the 2026-08-07 discussion above it should eventually use
+    `ts.ScriptKind.TSX`/`.JSX`, but that's still future work, untouched
+    this session.
+  - **Where to resume**: add the next context(s) per the parent task's
+    suggested grouping (arrow-body + both ternary branches together are a
+    natural next pair — both are "immediately after a single fixed
+    token/punct" shapes like `return`, no comma/bracket-depth tracking
+    needed yet), each behind its own `Token.isKeyword`/`Token.isOp` check
+    alongside the existing `return` check in `findJsxSpans`, with its own
+    new fixture and a `make test` checkpoint before moving to the next.
+    Call-argument-start/array-element-start (need `splitTopLevelCommas`-
+    style top-level-comma awareness) and assignment/logical RHS are next
+    after that; the recursive `{}`/`${}`-hole contexts and the `<T>`-cast-
+    vs-JSX ambiguity's `.tsx`-only resolution (already implicitly correct
+    since `isJsxSyntax` gates the whole pre-pass, but not yet stress-
+    tested against an actual `const x = <T>foo;` cast-shaped `.tsx` input)
+    are the hardest remaining work, left for last per the parent task's
+    own ordering advice.
+
 ---
 
 ## Related investigation history — same architectural family as bugs #1-#3

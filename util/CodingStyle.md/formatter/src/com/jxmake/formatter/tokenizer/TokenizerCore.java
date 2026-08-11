@@ -49,7 +49,12 @@ public class TokenizerCore {
         FSTRING_END,         // Python3 only — closing quote(s) of an f-string
         FSTRING_FORMAT_SPEC, // Python3 only — opaque `:format_spec` tail of an f-string field
         INDENT,              // Python3 only — synthesized, see TokenizerIndent#synthesizeIndentation
-        DEDENT               // Python3 only — synthesized, see TokenizerIndent#synthesizeIndentation
+        DEDENT,              // Python3 only — synthesized, see TokenizerIndent#synthesizeIndentation
+        JSX_SPAN             // JS/TS `.jsx`/`.tsx` only — opaque whole-JSX-tree span, see
+                             // TokenizerCurly#findJsxSpans. `text` holds the full raw source span
+                             // (opening `<` through the matching close/self-close `>`), including any
+                             // embedded newlines; `frozen` is always true. No new fields added to
+                             // Token for this -- see STATE_JS_TS.md's 2026-08-12 design session.
 
     } // enum TokenType
 

@@ -441,6 +441,7 @@ INP_FILES += js_nested_template_literal_inp.js
 INP_FILES += ts_combined_inp.ts
 INP_FILES += ts_comments_inp.ts
 INP_FILES += ts_decl_grid_ext_inp.ts
+INP_FILES += jsx_tsx_return_context_inp.tsx
 
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html

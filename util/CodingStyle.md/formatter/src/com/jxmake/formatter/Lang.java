@@ -51,9 +51,27 @@ public final class Lang {
     public final boolean isIndentBased;
     public final boolean isTagBased;
     public final boolean isSimpleBraced;
+    /**
+     * True only when the file being formatted has a `.jsx`/`.tsx` extension (checked directly
+     *  against {@code filePath}, independent of {@link #language} -- `.jsx` infers to `"js"` and
+     *  `.tsx` to `"ts"`, see {@link #infer}, so this is the only signal that distinguishes a JSX/TSX
+     *  file from a plain `.js`/`.ts` one). Gates the {@code TokenizerCurly#findJsxSpans} boundary-
+     *  finding pre-pass (STATE_JS_TS.md's 2026-08-12 design session) -- a `.ts`/`.js` file must see
+     *  zero behavior change, so the pre-pass must never run unless this is true. Defaults to
+     *  {@code false} via the path-less constructor (used by every non-file-scoped `Lang` caller,
+     *  e.g. `XmlSpecificRule`'s forced `"js"`/`"css"` dispatch for embedded `<script>`/`<style>`
+     *  content, which has no real `.jsx`/`.tsx` file path to check).
+     */
+    public final boolean isJsxSyntax;
 
     public Lang(final String language)
     {
+        this(language, null);
+    }
+
+    public Lang(final String language, final String filePath)
+    {
+        this.isJsxSyntax    = filePath != null && isJsxSyntaxPath(filePath);
         this.language       = language;
         this.isC            = "c".equals(language);
         this.isCpp          = "cpp".equals(language);
@@ -76,6 +94,13 @@ public final class Lang {
         this.isIndentBased  = isPython3;
         this.isTagBased     = isXml || isHtml5;
         this.isSimpleBraced = isJson || isJson5 || isCss;
+    }
+
+    private static boolean isJsxSyntaxPath(final String filePath)
+    {
+        final String lower = filePath.toLowerCase(Locale.ROOT);
+
+        return lower.endsWith(".jsx") || lower.endsWith(".tsx");
     }
 
     /*

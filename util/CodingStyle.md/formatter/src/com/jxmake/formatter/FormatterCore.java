@@ -29,7 +29,19 @@ public abstract class FormatterCore {
 
     public static FormatterCore forLanguage(final String language)
     {
-        final Lang lang = new Lang(language);
+        return forLanguage(language, null);
+    }
+
+    /**
+     * {@code filePath}-aware overload -- needed so {@link Lang#isJsxSyntax} (a `.jsx`/`.tsx`
+     *  extension check independent of the already-inferred `"js"`/`"ts"` language string, see
+     *  `Lang.infer`) can be set correctly per file. The path-less overload above is kept for
+     *  every caller with no real per-file path to check (e.g. `XmlSpecificRule`'s forced
+     *  `"js"`/`"css"` dispatch for embedded `<script>`/`<style>` content).
+     */
+    public static FormatterCore forLanguage(final String language, final String filePath)
+    {
+        final Lang lang = new Lang(language, filePath);
         if(lang.isJson || lang.isJson5) return new FormatterJson(lang);
         if(lang.isCss) return new FormatterCss(lang);
         if(lang.isYaml) return new FormatterYaml(lang);

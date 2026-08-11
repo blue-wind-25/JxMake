@@ -657,6 +657,13 @@ public class TokenizerCurly extends TokenizerCore {
             if(syntaxError) break;
         } // while
 
+        // Must run BEFORE reclassifyAngleBrackets (STATE_JS_TS.md's 2026-08-12 design session,
+        // point 3): once a JSX tree is collapsed into one opaque JSX_SPAN token, its interior
+        // `<`/`>` characters are gone from the significant-token list reclassifyAngleBrackets
+        // walks, so there is nothing left for it to misinterpret. Scoped to `.jsx`/`.tsx` files
+        // only (`lang.isJsxSyntax`) -- a plain `.ts`/`.js` file must see zero behavior change.
+        if(!syntaxError && lang.isJsxSyntax) findJsxSpans(tokens);
+
         if(!syntaxError && !lang.isC) reclassifyAngleBrackets(tokens);
 
         return tokens;
@@ -1451,6 +1458,20 @@ public class TokenizerCurly extends TokenizerCore {
             case PUNCT:
                 return !( ")".equals(last.text) || "]".equals(last.text) || "}".equals(last.text) );
             case OP:
+                // `.jsx`/`.tsx` only: a `/` immediately after `<` is virtually always a JSX
+                // closing tag (`</Foo>`) or the tail of a self-closing tag (`<Foo/>` -- the OP
+                // token immediately before is `<`... actually the self-close case has an
+                // IDENTIFIER/PUNCT before the `/`, already excluded above; this branch only fires
+                // for the `</Foo>` shape), never a regex literal -- `a < /re/` (division-after-
+                // less-than) is technically legal JS but vanishingly rare compared to a JSX
+                // closing tag in a file that opted into JSX syntax via its extension. Without this,
+                // the character-level lexer (which runs before findJsxSpans's post-tokenize pass
+                // even sees the token stream) misreads `</span>`'s `/` as a regex-literal opener,
+                // scanning for a second unescaped `/` and usually overrunning to end-of-line/EOF
+                // with `syntaxError = true` -- corrupting the whole file's tokenization before the
+                // JSX pre-pass gets a chance to run at all.
+                if( lang.isJsxSyntax && "<".equals(last.text) ) return false;
+
                 return !( "++".equals(last.text) || "--".equals(last.text) );
             default:
                 return true;
@@ -1792,6 +1813,187 @@ public class TokenizerCurly extends TokenizerCore {
     private static boolean isCastKeyword(final Token t)
     {
         return t.type == TokenType.KEYWORD && CAST_KEYWORDS.contains(t.text);
+    }
+
+    // ── JSX/TSX boundary-finding pre-pass (XL.txt TIER 3, STATE_JS_TS.md) ───────────
+    /**
+     * Finds each top-level JSX/TSX tree in the flat token list and collapses it into one opaque
+     *  {@link TokenType#JSX_SPAN} token (raw source text preserved byte-for-byte, including
+     *  embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
+     *  true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
+     *
+     * <p><b>Increment 1 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the full
+     *  11-context list this will eventually cover): only the narrowest expression-start context,
+     *  "after `return`", is recognized here as a JSX-open candidate. Every other listed context
+     *  (arrow body, ternary branches, call-argument/array-element start, assignment/logical RHS,
+     *  recursive `{}`/`${}` holes, spread) is intentionally NOT yet implemented -- a `<` in any of
+     *  those positions falls through unchanged to the existing `reclassifyAngleBrackets`/relational-
+     *  operator handling, same as before this pre-pass existed. Expand the {@code
+     *  Token.isKeyword(prev, "return")} check below (and add more context checks alongside it) in
+     *  future increments; a future increment implementing the recursive `{}`-hole context will also
+     *  need {@link #findJsxSpanEnd} to recurse into holes rather than only balance-skipping them.
+     */
+    private void findJsxSpans(final List<Token> tokens)
+    {
+        final List<Integer> sig = new ArrayList<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            final TokenType ty = tokens.get(i).type;
+            if(ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK || ty == TokenType.PREPROCESSOR) continue;
+            sig.add(i);
+        }
+
+        for( int s = 0; s < sig.size(); ++s ) {
+            final int   idx = sig.get(s);
+            final Token cur = tokens.get(idx);
+            if( !Token.isOp(cur, "<") ) continue;
+
+            final Token prev = s > 0 ? tokens.get( sig.get(s - 1) ) : null;
+            if( !Token.isKeyword(prev, "return") ) continue; // Increment 1: "after return" only
+
+            final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
+            if(endTokenIdx < 0) continue; // Unbalanced/not real JSX here -- leave tokens untouched
+
+            final StringBuilder text = new StringBuilder();
+            for( int k = idx; k <= endTokenIdx; ++k ) text.append( tokens.get(k).text );
+
+            final Token span = new Token(TokenType.JSX_SPAN, text.toString(), cur.braceDepth, cur.parenDepth, null);
+            span.frozen = true;
+
+            // Replace tokens[idx..endTokenIdx] (inclusive) with the single span token. No other
+            // tokens are inserted/removed by this pass (unlike reclassifyAngleBrackets), so a
+            // straightforward remove-then-set is sufficient.
+            for( int k = endTokenIdx; k > idx; --k ) tokens.remove(k);
+            tokens.set(idx, span);
+
+            // Re-derive `sig` for every position after `s` against the now-shorter token list --
+            // entries inside the consumed span are gone, entries after it shift left by the
+            // removed count. `sig.get(s)` itself (== idx) still correctly points at the new span
+            // token, so it's left unchanged.
+            final int removed = endTokenIdx - idx;
+            for( int k = sig.size() - 1; k > s; --k ) {
+                if( sig.get(k) > endTokenIdx ) sig.set( k, sig.get(k) - removed );
+                else sig.remove(k);
+            }
+        } // for
+    }
+
+    /**
+     * Walks forward from {@code sig.get(s0)} (a `<` token, already confirmed to be at a
+     *  recognized expression-start context by the caller) tracking JSX tag-nesting depth, and
+     *  returns the raw token index of the final `>` (or self-closing tag's `>`) that closes the
+     *  whole top-level tree -- or {@code -1} if the token stream doesn't actually form a balanced
+     *  JSX tree from this point (e.g. a genuine less-than comparison that happened to match the
+     *  "after return" context; the caller must treat {@code -1} as "not JSX, leave alone", not an
+     *  error). A `{...}` expression hole's interior is balance-skipped without interpretation
+     *  (Increment 1 does not recurse into holes -- any `<`/`>` inside one is irrelevant to the
+     *  *outer* tree's own tag-nesting depth either way).
+     */
+    private int findJsxSpanEnd(final List<Token> tokens, final List<Integer> sig, final int s0)
+    {
+        int depth = 0;
+        int s      = s0;
+        while( s < sig.size() ) {
+            final Token cur = tokens.get( sig.get(s) );
+            if( !Token.isOp(cur, "<") ) {
+                if( Token.isPunct(cur, "{") ) {
+                    s = skipBalancedBraceHole(tokens, sig, s);
+                    if(s < 0) return -1;
+                    continue;
+                }
+                ++s;
+                continue;
+            }
+
+            final int[] r = parseJsxTag(tokens, sig, s);
+            if(r == null) return -1;
+            final int newS = r[0];
+            final int kind = r[1]; // 0 = open, 1 = close, 2 = self-close
+
+            if(kind == 1) {
+                --depth;
+                if(depth == 0) return sig.get(newS - 1);
+                if(depth < 0) return -1;
+            }
+            else if(kind == 2) {
+                if(depth == 0) return sig.get(newS - 1);
+            }
+            else {
+                ++depth;
+            }
+            s = newS;
+        } // while
+
+        return -1; // Ran off the end without the tree ever closing
+    }
+
+    /**
+     * Parses one JSX tag (open, close, or self-closing) starting at {@code sig.get(s)} (a `<`
+     *  token). Returns {@code {newSigPos, kind}} where {@code newSigPos} is the `sig` position
+     *  immediately after the consumed closing `>`, and {@code kind} is 0 (open tag), 1 (closing
+     *  tag, `</Name>`), or 2 (self-closing tag, `<Name .../>`) -- or {@code null} if this `<` does
+     *  not actually begin a well-formed tag (no tag-name IDENTIFIER following, or no matching `>`
+     *  found before the token stream ends). Attribute-value expression holes (`attr={...}`) are
+     *  balance-skipped via a local brace-depth counter so an embedded `>` (e.g. `attr={a > b}`)
+     *  isn't mistaken for the tag's own close.
+     */
+    private int[] parseJsxTag(final List<Token> tokens, final List<Integer> sig, final int s0)
+    {
+        final int n = sig.size();
+        int       s = s0 + 1; // Skip the opening '<'
+        if(s >= n) return null;
+
+        final boolean closing = Token.isOp( tokens.get( sig.get(s) ), "/" );
+        if(closing) {
+            ++s;
+            if(s >= n) return null;
+        }
+
+        if( tokens.get( sig.get(s) ).type != TokenType.IDENTIFIER ) return null; // Tag name required
+        ++s;
+        while( s + 1 < n && Token.isOp( tokens.get( sig.get(s) ), "." )
+                && tokens.get( sig.get(s + 1) ).type == TokenType.IDENTIFIER ) {
+            s += 2; // Dotted component name, e.g. `React.Fragment`
+        }
+
+        int     localBrace   = 0;
+        boolean selfClosing = false;
+        while(s < n) {
+            final Token t = tokens.get( sig.get(s) );
+            if( localBrace == 0 && Token.isOp(t, "/") && s + 1 < n
+                    && Token.isOp( tokens.get( sig.get(s + 1) ), ">" ) ) {
+                selfClosing = true;
+                ++s; // Leave the '>' itself for the shared consumption below
+                break;
+            }
+            if( localBrace == 0 && Token.isOp(t, ">") ) break;
+            if( Token.isPunct(t, "{") ) { ++localBrace; ++s; continue; }
+            if( Token.isPunct(t, "}") ) { if(localBrace > 0) --localBrace; ++s; continue; }
+            ++s;
+        } // while
+
+        if( s >= n || !Token.isOp( tokens.get( sig.get(s) ), ">" ) ) return null;
+        ++s; // Consume '>'
+
+        return new int[] {s, closing ? 1 : (selfClosing ? 2 : 0)};
+    }
+
+    /** Balance-skips a `{...}` hole starting at {@code sig.get(s)} (a `{` token); returns the
+     *  `sig` position immediately after the matching `}`, or -1 if unbalanced. */
+    private int skipBalancedBraceHole(final List<Token> tokens, final List<Integer> sig, final int s0)
+    {
+        int braceDepth = 0;
+        int s           = s0;
+        while( s < sig.size() ) {
+            final Token t = tokens.get( sig.get(s) );
+            if( Token.isPunct(t, "{") ) ++braceDepth;
+            else if( Token.isPunct(t, "}") ) {
+                --braceDepth;
+                if(braceDepth == 0) return s + 1;
+            }
+            ++s;
+        }
+
+        return -1;
     }
 
     // ── Generic/template angle bracket disambiguation ───────────────────────────────

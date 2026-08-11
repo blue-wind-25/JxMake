@@ -3608,6 +3608,13 @@ Real-code regressions:
                                                         usage) rather than an identifier (declared name), and
                                                         skips such occurrences.
 
+  real_code_regressions_200_inp/out.js               -- JS/TS §8 getter/setter-group regression: a plain
+                                                        block-bodied method with no return-type token
+                                                        (`isValid() { ... }`) must join adjacent `get`/`set`
+                                                        siblings. Its name-column padding is normalized from
+                                                        the siblings' base indentation before rendering, so the
+                                                        aligned group remains idempotent.
+
 How Tests Are Run
 -----------------
 

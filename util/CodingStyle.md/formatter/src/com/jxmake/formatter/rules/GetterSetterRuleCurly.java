@@ -199,7 +199,12 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         boolean mergeReturnTypeIntoCall = false;
         for(final Member m : group) {
             if(m.returnTypeTo <= m.returnTypeFrom) {
-                mergeReturnTypeIntoCall = true;
+                // A JS/TS method may legally omit a return-type token.  Unlike a C++
+                // constructor, it still belongs in an accessor/method group: keep its empty
+                // return-type cell so the method name aligns below `get`/`set` siblings.
+                // C++ constructors retain the historical merged rendering, which avoids
+                // inventing a meaningless return-type column for that language.
+                mergeReturnTypeIntoCall = !lang.isJs && !lang.isTs;
                 break;
             }
         }
@@ -628,8 +633,6 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
             } // if
         } // if
 
-        if(noReturnType && pureSpecifier == null) return null; // Bare constructor call/declaration -- not a member we can align
-
         // Determine terminator: { (definition) or ; (declaration)
         final int terminatorIdx = nextSignificant(tokens, afterParen, to);
         if(terminatorIdx < 0) return null;
@@ -680,6 +683,13 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         else {
             return null; // Throws clause or other unrecognised form
         }
+
+        // C++ constructors have no return type and must stay out of this grid unless they are
+        // pure-specifier declarations. JS/TS, by contrast, permits ordinary block-bodied
+        // methods without a return-type token, so accept that precise shape alongside `get` and
+        // `set` members. A declaration remains rejected because this rule is grouping concrete
+        // one-liner bodies, not TypeScript interface signatures.
+        if(noReturnType && pureSpecifier == null && (!(lang.isJs || lang.isTs) || !isDefinition)) return null;
 
         // A body containing a non-empty-arg call (as opposed to a trivial `return x;`/`x = y;`
         // statement) is exactly the shape `enforceCallLineBreaking` (Phase 1, later in the

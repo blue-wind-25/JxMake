@@ -1600,6 +1600,20 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         for(final List<Member> group : groups) {
             final List<Member> filtered = getterSetterRule.excludeOutliers(tokens, group);
             if( filtered.isEmpty() ) continue;
+            // A JS/TS method without a return-type token receives its leading name-column
+            // padding from GetterSetterRuleCurly's grid. Preserve the group's ordinary source
+            // indentation before adding that padding; otherwise a second format preserves the
+            // first format's grid padding as part of the leading gap and adds it again.
+            String groupIndent = null;
+            if(lang.isJs || lang.isTs) {
+                for(final Member m : filtered) {
+                    if(m.returnTypeFrom >= m.nameFrom) continue;
+                    final String gap = joinText(tokens, m.memberFrom, m.returnTypeFrom);
+                    final int newline = gap.lastIndexOf('\n');
+                    groupIndent = newline >= 0 ? gap.substring(newline + 1) : gap;
+                    break;
+                }
+            }
             final List<String> lines = lang.isKotlin ? renderKotlinFilteredRuns(
                 tokens, group, filtered, depth
             ) : getterSetterRule.render(
@@ -1615,7 +1629,12 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // leading gap can contain a previous statement's trailing marker comment (always
                 // itself stamped frozen), which must not falsely freeze this unrelated member.
                 if( anyFrozen(tokens, sigIdx, m.memberTo) ) continue;
-                final String leadingGap = joinText(tokens, m.memberFrom, sigIdx);
+                String leadingGap = joinText(tokens, m.memberFrom, sigIdx);
+                if(groupIndent != null && m.returnTypeFrom == m.nameFrom) {
+                    final int newline = leadingGap.lastIndexOf('\n');
+                    leadingGap = ( newline >= 0 ? leadingGap.substring(0, newline + 1) : "" )
+                            + groupIndent;
+                }
                 replacements.add(
                     new Replacement( m.memberFrom, m.memberTo, leadingGap + lines.get(i) )
                 );

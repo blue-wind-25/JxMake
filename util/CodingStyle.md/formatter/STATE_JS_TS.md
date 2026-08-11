@@ -17,7 +17,7 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. Current `make test`: 261/261 forward + idempotency (grows as
+pipeline. Current `make test`: 281/281 forward + idempotency (grows as
 fixtures are added; see dogfood sections below for count history).
 
 ---
@@ -449,10 +449,12 @@ Phase 4 flat spacing, Phase 5 import ordering).
   `enforceArrowFunctionParameterParens`).
 - **§7 Optional chaining / nullish coalescing** — DONE.
 - **§8 Getter/setter accessors** — DONE, reuses `GetterSetterRuleCurly`.
-  **Known gap:** a plain method with no return-type token (e.g.
-  `isValid() {...}`) cannot join the same aligned group as `get`/`set`
-  siblings (`mergeReturnTypeIntoCall` would need a redesign) — left
-  ungrouped (correct, just unaligned), not attempted.
+  **Fixed 2026-08-11:** a JS/TS plain block-bodied method with no return-type
+  token (e.g. `isValid() {...}`) now joins adjacent `get`/`set` siblings;
+  its empty return-type grid cell pads the name into the shared column without
+  changing C++ constructor grouping. `ScopePipelineCurly` normalizes that
+  generated leading padding back to the group's source indent on reformat, so
+  the result is idempotent. Fixture: `test/real_code_regressions_200_{inp,out}.js`.
 - **§9 Decorators** — DONE (`enforceDecoratorTightAtSpacing`,
   `enforceDecoratorOverflowCascade`).
 - **§10 `async`/`await` spacing** — DONE, free (required syntax spacing).

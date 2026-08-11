@@ -901,8 +901,10 @@ per-repo dogfood bugs):
         branches), dropping a same-line trailing comment right after a
         block element's closing tag; fixed by routing that path through
         `appendWithTrailing` too. `real_code_regressions_103`. Final 73/73
-        clean (2 comment-text-mismatch diffs left open — see "WordPress
-        magic-comment capitalization" Open Question).
+        clean (2 comment-text-mismatch diffs left open at the time — since
+        RESOLVED 2026-07-30, see the "WordPress magic-comment
+        capitalization — RESOLVED" entry above; not an independently open
+        item, do not re-flag).
       - `alexandersandberg/html5-elements-tester` (1 file, 42KB) — 3
         sequential blockers fixed across sessions (RDD_KEY_198/199/200,
         detailed above). File completes end-to-end on all four checks.

@@ -1117,10 +1117,13 @@ Sample total: 22+12+4+1 = 39 of 40 (`org.w3c.dom.kt` showed both a D1 and a
 D3 flap in the same diff — counted once under its dominant D1 shape). No
 5th bucket shape needed — all 40 sampled files fit one of D1-D4.
 
-**Recommended next step (not done yet):** run `kotlin_content_diff` across
-the full 16078-file corpus before further Category-1-family work — it
-would surface silent content loss undetectable by the syntax checker and
-give a truer denominator. Otherwise, D3 is the next-highest-value open item.
+**DONE, 2026-08-11 — this recommendation is stale, do not re-flag as an open
+item.** `kotlin_content_diff` ran end-to-end across the full 16153-file
+corpus (see `STATE_DOGFOOD.md`'s `JetBrains/kotlin` row): 15583 OK, 570
+MISMATCH, all sampled as already-documented checker-tolerance gaps on
+legitimate transforms — no new bug found, `RDD_KEY_278`/`RDD_KEY_279`
+validated at full-corpus scale. D3 remains the next-highest-value open item
+(tracked in `STATE_CURLY_GDR.md`, not here — see the fold note above).
 
 ## D3 investigation history (2026-07-31 design session + 2026-08-01 implementation attempt, RDD_KEY_226)
 

@@ -823,6 +823,11 @@ plan, not a placeholder.
       syntax/compile errors anywhere. **Caveat still open:** this is
       evidence the "second-order oscillation" risk hasn't manifested on any
       tested input, not proof it structurally cannot on some other input.
+      (This caveat is already covered by `XL.txt` Tier 9 [Feature]'s
+      `curly-general-scope-reindent = on` umbrella entry, which explicitly
+      subsumes this as an "untested adequacy on deeper/wider shapes" facet
+      — not a separate line item; do not re-add it to `XL.txt` on a future
+      cross-reference scan.)
       `make test` throughout: 237/237 forward + idempotency (unaffected
       until multipass fixture added; see fixture item for 238/238).
 - [~] Revisit Kotlin dogfood cluster D3 (see "D3 fold" section above) using

@@ -126,10 +126,16 @@ C/C++/Java job's) declaration-alignment rule — confirmed correct,
 pre-existing behavior with a plain non-reflection repro, expected output
 updated to match.
 
-Still NOT cross-checked against the STYLE_CPP26.md §5 external-corpus
-fixture repos (`bloomberg/clang-p2996` etc.) — only against this
-formatter's own actual JAR output. That corpus-scale validation pass
-remains open (see Scope §5 / Test Fixtures (External, corpus-scale)).
+**STALE, superseded — do not re-flag.** This paragraph is a leftover from
+before the corpus-scale pass ran; see "Test Fixtures (External,
+corpus-scale)" above — all four named candidates (`bloomberg/clang-p2996`
+found empty/unusable, `wrocpp/cpp26-reflection-examples`,
+`simdjson/experimental_json_builder`, `stephenberry/glaze`,
+`ryanjk5.github.io/posts/rjk-duck`) are DONE and that section's own text
+says so explicitly ("All four named candidates above are now complete. No
+further named candidates remain queued"). Not an open item; a future
+session sourcing more §5 real-code coverage would need to name a brand-new
+candidate first, which is a fresh future task, not this one.
 
 ## Tools/compiler used
 (1) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.2.0/bin/g++`; PEGTL,

@@ -96,6 +96,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_247 | `python-import-sort`/`python-import-blank-lines` wired into `Config.java` (previously documented but not recognized keys); `python-import-blank-lines` given real new behavior (blank-line-count normalization between same-depth adjacent import groups separated only by blank lines) per coordinator decision after an initial ambiguity stop — see "Config Keys Wiring" section below |
 | RDD_KEY_268 | `normalize-comment-start-case`/`normalize-comment-end-period` implemented from scratch for python3's `#` comments, plus chain-grouping — reuses the existing classifier/GRU-backed decision path (`MiscRuleCore#capitalizeFirstLetter`/`#stripSoleTrailingPeriodAcrossLines`/`#classifyComment` were already family-agnostic) rather than a parallel ad hoc mechanism — see "Comment Normalization" section below |
 | RDD_KEY_282 | §9 gap-closing: 3 of 4 documented §9 gaps closed (multi-physical-line `def` header now recognized; semicolon-chained statements now recognized by both §9.1/§9.2 via `lineHasTopLevelReturnSegment`/`lastSemicolonSegmentStart`; a §8-compact preceding block now recognized by §9.2 via `classifyCompactSingleStatementHeaderColon` delegation); `try`/`except`/`finally` left as a scoped-out follow-up (STYLE_PYTHON3.md §9.2 names only `elif`/`else`) — see "§9 Gap Fixes" section below |
+| RDD_KEY_287 | §8/§7 join-threshold non-idempotency root-caused and fixed: the join fits-check in `applySingleStatementBody`/`classifyCaseLine`/`flushCaseGroup` undercounted a retained body trailing comment's width (excluded via `trimEndIdx`'s gap-token treatment of `COMMENT_LINE`, even though the comment survives untouched past the join's own replacement span) — genuine non-convergent flip-flop, not cosmetic; confirmed pre-existing (not session-introduced) via A/B build from commit `9eb1bd4`; fixed by measuring `joined + trailingSuffix` at all 3 call sites — see "§8/§7 join-threshold non-idempotency" section below |
 
 ---
 
@@ -727,9 +728,10 @@ same as every other language's dogfood precedent for a newly-landed rule.
       Confirmed via a minimal repro NOT involving the new wrap pass at
       all. The remaining ~10 of the original 13 `psf/black` idempotency
       mismatches were independently confirmed unrelated (pre-existing
-      comment-classifier capitalization non-determinism, §8 join-
-      threshold behavior) — not caused by this session's changes. New
-      fixture `test/real_code_regressions_201_{inp,out}.py`.
+      comment-classifier capitalization non-determinism, and the §8
+      join-threshold bug -- see RDD_KEY_287 below for its full diagnosis
+      and fix) -- not caused by this session's changes. New fixture
+      `test/real_code_regressions_201_{inp,out}.py`.
 
       Local fixtures: `test/py_signature_wrap_{inp,out}.py`
       (already-fitting left untouched; plain overflow wrap; a
@@ -763,6 +765,56 @@ same as every other language's dogfood precedent for a newly-landed rule.
       indented block; and semicolon-containing bodies remain untouched so
       the pass never creates or extends a `;` chain. Local fixture:
       `test/py_single_statement_body_ext_{inp,out}.py`.
+
+      **§8/§7 join-threshold non-idempotency — root-caused and FIXED
+      (RDD_KEY_287).** Previously tracked only as a one-line symptom name
+      ("§8 join-threshold behavior") among the non-determinism sources
+      seen but never diagnosed during `psf/black`/`click`/`flask`/`django`
+      round1->round2 dogfood re-runs. Root cause: `applySingleStatementBody`'s
+      join-fits-check, `classifyCaseLine`'s §7 `case` virtualJoin
+      fits-check, and `flushCaseGroup`'s post-alignment length guard each
+      measured a candidate joined line's length against only the
+      header+body text (`physicalLineLength(joined) <= lineLength`) — but
+      `tryQualifyJoinBody`'s `bodyContentEnd` comes from `trimEndIdx`,
+      which treats a trailing `COMMENT_LINE` as a gap token and excludes
+      it from the trimmed span. Since the join's own `Replacement` only
+      spans up to `bodyContentEnd`, a body's trailing comment (deliberately
+      retained verbatim per the 2026-08-11 extension above) survives
+      untouched immediately after the joined text on the same physical
+      output line — so the fits-check silently undercounted the comment's
+      width. Round1 could therefore accept and emit a joined line that is
+      actually over `lineLength` once the comment is counted; round2 then
+      saw that already-compact, over-limit line and correctly reversed it
+      via the separate compact-overflow-expand branch (which DOES measure
+      the whole physical line, comment included) — a genuine
+      non-convergent flip-flop, not the cosmetic comment-classifier
+      capitalization non-determinism it had been lumped in with.
+      Confirmed via minimal repro (`if total_length == max_length and i !=
+      last_index: break  # Not at sentence end...`, from `pallets/click`'s
+      `utils.py`) and an A/B build from commit `9eb1bd4` (the commit
+      landing the §8 body-trailing-comment-retention extension, well
+      before this session's or the recent §4/§6 signature-wrap work)
+      reproducing the identical flip-flop — proving it was genuinely
+      pre-existing, not introduced by recent changes. Fixed narrowly in
+      `ScopePipelineIndent.java` only, 3 call sites, all now measuring
+      `joined + trailingSuffix` (the untouched comment/whitespace suffix)
+      instead of `joined` alone: `applySingleStatementBody`'s join branch,
+      `classifyCaseLine`'s virtualJoin computation (gained a `bodyLineEnd`
+      field on `CaseLine` to carry the body `RawLine`'s own end through to
+      `flushCaseGroup`), and `flushCaseGroup`'s per-member pre-commit
+      length-budget loop. Re-ran the full dogfood re-check against
+      `/tmp/click`+`/tmp/flask` (161 files) and `/tmp/django` (2927 files)
+      post-fix: the previously flip-flopping files
+      (`click/src/click/parser.py`, `click/src/click/utils.py`,
+      `flask/src/flask/app.py`, `flask/src/flask/helpers.py`, and 3 django
+      files with the same cause) are now idempotent; every remaining
+      round1/round2 diff across both re-runs (2 click/flask files, 14
+      django files) is the separately-tracked, out-of-scope
+      comment-classifier trailing-period-normalization drift, confirmed by
+      direct diff inspection of each. New identity-pass fixture
+      `test/real_code_regressions_202_{inp,out}.py` (covers both the plain
+      `if`/`for` join path and the `case` virtualJoin path). `make test`:
+      289/289 -> 290/290 forward + idempotency, zero regressions.
 
       **§7 (Structural Pattern Matching) — `:` column alignment-only
       slice.** New `ScopePipelineIndent.CaseLine`/`applyCaseColonAlignment`/

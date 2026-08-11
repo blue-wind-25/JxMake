@@ -1865,6 +1865,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
          *  uses {@code bodyContentEnd} for that same purpose instead)
          */
         final int lineEnd;
+        /**
+         * The joined body's own {@code RawLine.end} (only meaningful for a {@code virtualJoin}
+         *  member) -- {@code bodyContentEnd} excludes a body trailing comment ({@code trimEndIdx}
+         *  treats it as a gap token), so {@link #flushCaseGroup}'s post-alignment length check needs
+         *  this to measure the line as it will actually appear, comment included, matching the same
+         *  fix applied to {@link #tryQualifyJoinBody}'s two other call sites.
+         */
+        final int bodyLineEnd;
 
         CaseLine(
             final int     headerStart,
@@ -1875,7 +1883,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final boolean virtualJoin,
             final int     bodyContentStart,
             final int     bodyContentEnd,
-            final int     lineEnd
+            final int     lineEnd,
+            final int     bodyLineEnd
         )
         {
             this.headerStart      = headerStart;
@@ -1887,6 +1896,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             this.bodyContentStart = bodyContentStart;
             this.bodyContentEnd   = bodyContentEnd;
             this.lineEnd          = lineEnd;
+            this.bodyLineEnd      = bodyLineEnd;
         }
 
     } // class CaseLine
@@ -2005,6 +2015,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         boolean virtualJoin      = false;
         int     bodyContentStart = -1;
         int     bodyContentEnd   = -1;
+        int     bodyLineEnd      = -1;
         // A block-form header carrying its own trailing comment must never virtual-join --
         // headerPrefix below stops at patternEnd (before the colon/comment), so joining would
         // silently drop that comment (real content loss, not just reformatting; same fix as
@@ -2015,17 +2026,23 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 final String headerPrefix = verbatimLineText(tokens, line.start, patternEnd);
                 final String bodyText     = verbatimLineText( tokens, body[0], body[1] );
                 final String joined       = headerPrefix + ": " + bodyText;
-                if( physicalLineLength(joined) <= lineLength ) {
+                // Same fits-check fix as applySingleStatementBody's own join path above: measure
+                // joined + any untouched body trailing comment (body[1] excludes it -- trimEndIdx
+                // treats a trailing comment as a gap token), not just joined alone.
+                final RawLine bodyLine       = rawLines.get(lineIdx + 1);
+                final String  trailingSuffix = verbatimLineText(tokens, body[1], bodyLine.end);
+                if( physicalLineLength(joined + trailingSuffix) <= lineLength ) {
                     virtualJoin      = true;
                     bodyContentStart = body[0];
                     bodyContentEnd   = body[1];
+                    bodyLineEnd      = bodyLine.end;
                 }
             } // if
         } // if
 
         return new CaseLine(
             line.start, patternStart, patternEnd, colonIdx, compact, virtualJoin,
-            bodyContentStart, bodyContentEnd, line.end
+            bodyContentStart, bodyContentEnd, line.end, bodyLineEnd
         );
     }
 
@@ -2107,11 +2124,17 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final String padding = padRightSpaces(maxLen - len);
             final String joined;
             if(c.virtualJoin) {
-                final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
-                final String bodyText     = verbatimLineText(
+                final String headerPrefix    = verbatimLineText(tokens, c.headerStart, c.patternEnd);
+                final String bodyText        = verbatimLineText(
                     tokens, c.bodyContentStart, c.bodyContentEnd
                 );
-                joined = headerPrefix + padding + ": " + bodyText;
+                // c.bodyContentEnd excludes a body trailing comment (trimEndIdx treats it as a gap
+                // token); include it here so this fits-check measures the line as it will actually
+                // appear, matching tryQualifyJoinBody's own two call sites' fix above.
+                final String trailingSuffix = verbatimLineText(
+                    tokens, c.bodyContentEnd, c.bodyLineEnd
+                );
+                joined = headerPrefix + padding + ": " + bodyText + trailingSuffix;
             } // if
             else {
                 final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
@@ -2219,7 +2242,19 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                     tokens, bodyContentStart, bodyContentEnd
                 );
                 final String joined           = headerText + " " + bodyText;
-                if( physicalLineLength(joined) > lineLength ) continue;
+                // The replacement span stops at bodyContentEnd (trimEndIdx treats a trailing
+                // comment as a gap token and excludes it), so any body trailing comment -- retained
+                // verbatim per the 2026-08-11 extension -- survives untouched immediately after
+                // `joined` on the same physical line. The fits-check must measure the line as it will
+                // actually appear (joined + that untouched suffix), not just `joined` alone, or a
+                // comment-bearing join can be accepted here while exceeding lineLength once the
+                // comment is counted -- caught round1->round2 non-idempotent via psf/black/click/
+                // flask dogfood (round2's compact-overflow-expand check at line ~2229 DOES measure
+                // the whole physical line including the comment, so it correctly reverses a join this
+                // check should never have accepted in the first place).
+                final RawLine bodyLine        = rawLines.get(i + 1);
+                final String  trailingSuffix  = verbatimLineText(tokens, bodyContentEnd, bodyLine.end);
+                if( physicalLineLength(joined + trailingSuffix) > lineLength ) continue;
                 replacements.add( new Replacement(header.start, bodyContentEnd, joined) );
                 continue;
             }

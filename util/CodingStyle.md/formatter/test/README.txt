@@ -3702,6 +3702,28 @@ Real-code regressions:
                                                         second round's own re-padding then stacked on top of,
                                                         growing the trailing whitespace by another
                                                         `maxNameLen`-derived amount every round
+
+  real_code_regressions_202_inp/out.py               -- Identity-pass fixture for the Python3 §8/§7
+                                                        join-threshold non-idempotency bug found via
+                                                        `click`/`flask`/`django` dogfood re-run: an `if`/`for`
+                                                        single-statement-body join (and the equivalent §7
+                                                        `case` virtual-join) measured the candidate joined
+                                                        line's fits-check against only the header+body text,
+                                                        excluding a body trailing comment that
+                                                        `applySingleStatementBody`/`classifyCaseLine`
+                                                        deliberately retain verbatim past the join's own
+                                                        replacement span -- so a joined line could be accepted
+                                                        here while exceeding `line-length` once the comment is
+                                                        counted. Round1 joined it anyway; round2 then saw the
+                                                        resulting over-limit compact line and correctly
+                                                        expanded it back via the separate compact-overflow
+                                                        check (which does measure the whole physical line,
+                                                        comment included) -- non-convergent flip-flop, not
+                                                        just cosmetic. Fixed by including the untouched
+                                                        trailing-comment suffix in all three affected
+                                                        fits-checks (`applySingleStatementBody`'s join,
+                                                        `classifyCaseLine`'s virtualJoin, and
+                                                        `flushCaseGroup`'s post-alignment length guard).
                                                         (non-convergent). Fixed in `trySignatureGroup`: each
                                                         parameter's replacement span now always extends
                                                         through its own segment's trailing NEWLINE rather than

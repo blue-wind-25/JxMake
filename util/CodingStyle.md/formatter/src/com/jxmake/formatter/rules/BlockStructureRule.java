@@ -1752,9 +1752,7 @@ public class BlockStructureRule {
     private String indentBefore(final List<Token> tokens, final int idx)
     {
         int lineStart = idx;
-        while( lineStart > 0 && tokens.get(lineStart - 1).type != TokenType.NEWLINE ) {
-            --lineStart;
-        }
+        while( lineStart > 0 && tokens.get(lineStart - 1).type != TokenType.NEWLINE ) --lineStart;
 
         return ( lineStart < tokens.size() && tokens.get(lineStart).type == TokenType.WHITESPACE )
                 ? tokens.get(lineStart).text : "";

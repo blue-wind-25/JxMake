@@ -123,18 +123,24 @@ final class YamlTomlSharedRule {
      *  fields TOML has no use for, and vice versa).
      */
     static String[] computeColonAlignmentPadding(
-        final int           size,
-        final IntPredicate  isKeyed,
-        final IntPredicate  hasLeadingComments,
-        final IntPredicate  blankBefore,
+        final int                 size,
+        final IntPredicate        isKeyed,
+        final IntPredicate        hasLeadingComments,
+        final IntPredicate        blankBefore,
         final IntFunction<String> keyAt
     )
     {
         final String[] padding    = new String[size];
               int      groupStart = -1;
-        for( int i = 0; i <= size; ++i ) {
+        for(int i = 0; i <= size; ++i) {
             final boolean atEnd        = i == size;
-            final boolean breaksBefore = atEnd || !isKeyed.test(i) || hasLeadingComments.test(i) || blankBefore.test(i);
+            final boolean breaksBefore = atEnd || !isKeyed.test(
+                i
+            ) || hasLeadingComments.test(
+                i
+            ) || blankBefore.test(
+                i
+            );
             if(breaksBefore) {
                 if(groupStart >= 0 && i > groupStart) {
                     final List<String> keys = new ArrayList<>();

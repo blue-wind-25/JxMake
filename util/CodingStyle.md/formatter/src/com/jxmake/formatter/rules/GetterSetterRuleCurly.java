@@ -206,8 +206,8 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
                 // inventing a meaningless return-type column for that language.
                 mergeReturnTypeIntoCall = !lang.isJs && !lang.isTs;
                 break;
-            }
-        }
+            } // if
+        } // for
 
         // A leading C++ `template<...>` clause (out-of-line class-template member definitions)
         // is its own column, separate from the return type -- otherwise the return-type column's
@@ -689,7 +689,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         // methods without a return-type token, so accept that precise shape alongside `get` and
         // `set` members. A declaration remains rejected because this rule is grouping concrete
         // one-liner bodies, not TypeScript interface signatures.
-        if(noReturnType && pureSpecifier == null && (!(lang.isJs || lang.isTs) || !isDefinition)) return null;
+        if( noReturnType && pureSpecifier == null && ( !(lang.isJs || lang.isTs) || !isDefinition ) ) return null;
 
         // A body containing a non-empty-arg call (as opposed to a trivial `return x;`/`x = y;`
         // statement) is exactly the shape `enforceCallLineBreaking` (Phase 1, later in the

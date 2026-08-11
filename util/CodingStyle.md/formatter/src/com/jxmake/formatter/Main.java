@@ -417,9 +417,11 @@ public final class Main {
     ) throws IOException
     {
         if( !Files.isRegularFile(path) ) throw new IOException("no such file: " + path);
-        final String  original    = readFile(path);
-        final String  inFileLang  = InFileConfig.parse(original).get("--lang");
-        final String  language    = inFileLang != null ? inFileLang : ( explicitLanguage != null ? explicitLanguage : inferLanguage(path) );
+        final String original   = readFile(path);
+        final String inFileLang = InFileConfig.parse(original).get("--lang");
+        final String language   = inFileLang != null ? inFileLang : ( explicitLanguage != null ? explicitLanguage : inferLanguage(
+            path
+        ) );
         if(language == null) throw new IOException(
             "could not infer language from file extension: " + path + " (use --lang c|cpp|java to override, or a top-of-file " + TokenizerCore.JXM_CFMT_CFG + " --lang directive)"
         );
@@ -506,9 +508,7 @@ public final class Main {
     {
         final Map<String, String> inFileOverrides = InFileConfig.parse(original);
         inFileOverrides.remove("--lang");
-              Config              config          = Config.resolve(
-                  path, baseCliOverrides, inFileOverrides
-              );
+                Config config = Config.resolve(path, baseCliOverrides, inFileOverrides);
         if( "auto".equals( config.indentStyle() ) ) {
             final String              resolvedStyle = resolveAutoIndentStyle(path);
             final Map<String, String> merged        = new LinkedHashMap<String, String>(baseCliOverrides);
@@ -713,7 +713,9 @@ public final class Main {
             .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
             .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT);
         try {
-            return decoder.decode( java.nio.ByteBuffer.wrap( Files.readAllBytes(path) ) ).toString();
+            return decoder.decode(
+                java.nio.ByteBuffer.wrap( Files.readAllBytes(path) )
+            ).toString();
         }
         catch(final java.nio.charset.CharacterCodingException e) {
             throw new IOException("not valid UTF-8: " + path, e);

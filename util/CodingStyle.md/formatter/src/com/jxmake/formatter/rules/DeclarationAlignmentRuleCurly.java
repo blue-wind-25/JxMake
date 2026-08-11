@@ -124,7 +124,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // grammar vs. every other Declaration shape (name precedes the aliased type, which this
         // rule stores in `initTokens` reusing the existing "thing after `=`" field rather than
         // adding a brand-new one). Never true for any other Declaration shape.
-        public final boolean     isUsingAlias;
+        public final boolean isUsingAlias;
         // Nullable. Set only for a using-alias Declaration whose aliased type contains a `...`
         // pack-expansion/pack-indexing operator token (C++26 STYLE_CPP26.md §1, e.g.
         // `T...[N]`) -- for that shape `renderUsingAliasGroup` emits this verbatim original
@@ -133,14 +133,14 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // separate whole-file pass, `CppSpecificRule.enforcePackIndexingSpacing`, which runs
         // after declaration alignment and fixes up whatever spacing this text carries anyway --
         // see RDD_KEY_283/RDD_KEY_284). Null for every other Declaration, using-alias or not.
-        public final String      aliasRawTypeText;
+        public final String aliasRawTypeText;
         // Nullable. Same idea as {@link #aliasRawTypeText}, but for `templatePrefix` -- set only
         // when the `template<...>` prefix itself contains a `...` operator token
         // (`template<typename... T> using Nth = ...;`). `renderUsingAliasGroup` emits this
         // verbatim instead of calling `renderTemplatePrefix`, which would otherwise regenerate
         // the `typename...` tight-join spacing generically with no dedicated fix-up pass to
         // correct it afterward if it got it wrong (RDD_KEY_284).
-        public final String      templatePrefixRawText;
+        public final String templatePrefixRawText;
 
         Declaration(
             final List<Token> modifiers,
@@ -169,8 +169,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             final List<Token> templatePrefix
         )
         {
-            this( modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
-                    trailingComment, blankLineBefore, templatePrefix, false );
+            this(modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
+                    trailingComment, blankLineBefore, templatePrefix, false);
         }
 
         Declaration(
@@ -186,8 +186,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             final boolean     isUsingAlias
         )
         {
-            this( modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
-                    trailingComment, blankLineBefore, templatePrefix, isUsingAlias, null );
+            this(modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
+                    trailingComment, blankLineBefore, templatePrefix, isUsingAlias, null);
         }
 
         Declaration(
@@ -204,9 +204,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             final String      aliasRawTypeText
         )
         {
-            this( modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
+            this(modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
                     trailingComment, blankLineBefore, templatePrefix, isUsingAlias,
-                    aliasRawTypeText, null );
+                    aliasRawTypeText, null);
         }
 
         Declaration(
@@ -276,10 +276,11 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // A `using`-alias declaration (RDD_KEY_283) has its own dedicated render layout
             // (`renderUsingAliasGroup`, keyed on the inverted name/`=`/type grammar) that can
             // never share a group with an ordinary `Type name = init;` declaration's grid --
-            // force a group break whenever the shape switches either way.
-            final boolean usingAliasShapeChange = !current.isEmpty()
-                    && current.get( current.size() - 1 ).isUsingAlias != decl.isUsingAlias;
-            final boolean breakBefore        = blankBefore || hasCommentBefore(
+            // force a group break whenever the shape switches either way
+            final boolean usingAliasShapeChange = !current.isEmpty() && current.get(
+                current.size() - 1
+            ).isUsingAlias != decl.isUsingAlias;
+            final boolean breakBefore           = blankBefore || hasCommentBefore(
                 stmt
             ) || isMemberFunctionForwardDecl(
                 decl
@@ -413,7 +414,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
         // `using Name = Type;` alias declarations (RDD_KEY_283) use their own dedicated 3-column
         // layout (`using` / name / `= Type;`) -- `groupDeclarations` never mixes this shape with
-        // an ordinary declaration in the same group, so "all" and "none" are the only cases.
+        // an ordinary declaration in the same group, so "all" and "none" are the only cases
         if( !group.isEmpty() && group.get(0).isUsingAlias ) return renderUsingAliasGroup(group);
 
         // Function forward declarations use a simpler 2-column layout (no modifier columns)
@@ -579,8 +580,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // computation in `parseUsingAlias` (RDD_KEY_284): the whole-file
             // `enforcePackIndexingSpacing` pass that runs after declaration alignment fixes up
             // its `...[`-adjacent spacing regardless of which text this emits.
-            final String renderedType = d.aliasRawTypeText != null
-                    ? d.aliasRawTypeText : renderInitTokens(d.initTokens);
+            final String renderedType = d.aliasRawTypeText != null ? d.aliasRawTypeText : renderInitTokens(
+                d.initTokens
+            );
             grid.addRow( new String[] { "using", d.name.text, "= " + renderedType + ";" } );
         } // for
         final List<String>   lines = new ArrayList<>();
@@ -593,7 +595,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 // of through `renderTemplatePrefix`'s generic regeneration.
                 lines.add( d.templatePrefixRawText != null
                         ? d.templatePrefixRawText : renderTemplatePrefix(d.templatePrefix) );
-            }
+            } // if
             String line = String.join( " ", rows.get(idx) );
             // Two spaces before a trailing same-line `//` comment (STYLE.md convention, e.g.
             // `int[]   x  = { 1, 2, 3 };            // single-level -- pad`), not one.
@@ -1440,12 +1442,10 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             );
             if(rawGap != null) {
                 for(final Token t : rawGap) {
-                    if( t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK ) {
-                        return null;
-                    }
+                    if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) return null;
                 }
             }
-        }
+        } // if
 
         final int nameIdx = start + 1;
         if( nameIdx >= body.size() || body.get(nameIdx).type != TokenType.IDENTIFIER ) return null;
@@ -1458,7 +1458,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // above already requires it); a `using` directive/declaration with no `=` falls through
         // to the generic path below, which rejects it too (KEYWORD "using" is never in
         // `typeKeywords`), leaving it untouched -- same "no corruption" behavior as before this
-        // feature landed.
+        // feature landed
         final List<Token> aliasType = new ArrayList<>( body.subList( eqIdx + 1, body.size() ) );
         // Multi-line/comment-carrying aliased types (e.g. a banner-commented long template
         // instantiation) can't be safely collapsed onto one rendered line -- same reasoning as
@@ -1491,8 +1491,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 for(final Token rt : rawTemplatePrefix) tpsb.append(rt.text);
                 templatePrefixRawText = tpsb.toString();
                 break;
-            }
-        }
+            } // if
+        } // for
 
         // A `...` operator token in the ALIASED TYPE itself (`T...[N]`, STYLE_CPP26.md §1 pack
         // indexing) is different: `CppSpecificRule.enforcePackIndexingSpacing` runs as a whole-
@@ -1513,8 +1513,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 for(final Token rt : rawAliasType) sb.append(rt.text);
                 aliasRawTypeText = sb.toString();
                 break;
-            }
-        }
+            } // if
+        } // for
 
         // `typeTokens` holds just the `using` keyword itself (never rendered -- see
         // `renderUsingAliasGroup`, which always emits the literal text "using" instead) purely so

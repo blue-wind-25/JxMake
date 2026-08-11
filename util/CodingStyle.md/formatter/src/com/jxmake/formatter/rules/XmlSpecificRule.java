@@ -760,13 +760,15 @@ public final class XmlSpecificRule {
                 "head"
             ) ) {
                 // An explicit <head> closes head-insertion mode once we're past it -- everything
-                //  after belongs to "in body", matching the spec's real transition criterion.
+                //  after belongs to "in body", matching the spec's real transition criterion
                 headInsertionModeClosed = true;
                 continue;
             } // if
             if( n.type == NodeType.TEXT && ( n.raw == null || n.raw.trim().isEmpty() ) ) continue;
             if( !headInsertionModeClosed && n.type == NodeType.ELEMENT && n.tagName != null
-                && HEAD_ELIGIBLE_ELEMENTS.contains( n.tagName.toLowerCase( java.util.Locale.ROOT ) ) ) {
+                && HEAD_ELIGIBLE_ELEMENTS.contains(
+                    n.tagName.toLowerCase(java.util.Locale.ROOT)
+                ) ) {
                 // No explicit <head> has appeared yet, and this sibling is head-eligible (e.g.
                 //  <meta>/<title>/<script>) -- per the real tree-construction insertion-mode
                 //  transition, this still belongs to an implicit head, not to body. Leave it out of
@@ -774,9 +776,9 @@ public final class XmlSpecificRule {
                 continue;
             } // if
             // Any other real content closes head-insertion mode (spec: a non-head-eligible token
-            //  forces the implicit transition out of "before head"/"in head").
+            //  forces the implicit transition out of "before head"/"in head")
             headInsertionModeClosed = true;
-            firstContentIdx = i;
+            firstContentIdx         = i;
             break;
         } // for
         if(firstContentIdx < 0) return; // Nothing eligible to wrap -- e.g. head-only document
@@ -1538,18 +1540,22 @@ public final class XmlSpecificRule {
             pos
         ) != '>' ) pos++;
         String name = s.substring(nameStart, pos);
-        if( lang.isHtml5 && svgDepth > 0 ) {
+        if(lang.isHtml5 && svgDepth > 0) {
             final String lowerName = name.toLowerCase(java.util.Locale.ROOT);
-            if( SVG_ATTRIBUTE_CASE_FIXUP.containsKey(lowerName) ) {
-                name = SVG_ATTRIBUTE_CASE_FIXUP.get(lowerName);
-            }
-        }
-        if( lang.isHtml5 && mathmlDepth > 0 ) {
+            if( SVG_ATTRIBUTE_CASE_FIXUP.containsKey(
+                lowerName
+            ) ) name = SVG_ATTRIBUTE_CASE_FIXUP.get(
+                lowerName
+            );
+        } // if
+        if(lang.isHtml5 && mathmlDepth > 0) {
             final String lowerName = name.toLowerCase(java.util.Locale.ROOT);
-            if( MATHML_ATTRIBUTE_CASE_FIXUP.containsKey(lowerName) ) {
-                name = MATHML_ATTRIBUTE_CASE_FIXUP.get(lowerName);
-            }
-        }
+            if( MATHML_ATTRIBUTE_CASE_FIXUP.containsKey(
+                lowerName
+            ) ) name = MATHML_ATTRIBUTE_CASE_FIXUP.get(
+                lowerName
+            );
+        } // if
         skipWs();
         if( eof() || s.charAt(pos) != '=' ) {
             if(lang.isHtml5) {

@@ -315,7 +315,7 @@ public final class GdrTokenizer {
     /**
      * JS/TS regex literal ({@code /pattern/flags}), treated as a single opaque {@code STRING} token --
      * disambiguated from division by checking whether the preceding non-whitespace token permits an
-     * expression start.
+     * expression start
      */
     private boolean scanRegexLiteralIfPresent()
     {
@@ -371,15 +371,13 @@ public final class GdrTokenizer {
                 --k;
                 continue;
             }
-            if(ch == '/' && k > 0 && source.charAt(k - 1) == '*') {
+            if( ch == '/' && k > 0 && source.charAt(k - 1) == '*' ) {
                 k -= 2;
-                while(k >= 1 && !(source.charAt(k) == '/' && source.charAt(k - 1) == '*')) {
-                    --k;
-                }
+                while( k >= 1 && !( source.charAt(k) == '/' && source.charAt(k - 1) == '*' ) ) --k;
                 if(k >= 1) k -= 2;
-                else k = -1;
+                else       k = -1;
                 continue;
-            }
+            } // if
             break;
         } // while
 
@@ -387,13 +385,9 @@ public final class GdrTokenizer {
 
         char ch = source.charAt(k);
 
-        if(ch == ')' || ch == ']' || ch == '}' || ch == '"' || ch == '\'' || ch == '`') {
-            return false;
-        }
+        if(ch == ')' || ch == ']' || ch == '}' || ch == '"' || ch == '\'' || ch == '`') return false;
 
-        if(ch >= '0' && ch <= '9') {
-            return false;
-        }
+        if(ch >= '0' && ch <= '9') return false;
 
         if( isIdChar(ch) ) {
             int wStart = k;
@@ -401,12 +395,10 @@ public final class GdrTokenizer {
             String word = source.substring(wStart, k + 1);
 
             return isRegexAllowedKeyword(word);
-        }
+        } // if
 
         if(ch == '+' || ch == '-') {
-            if( k > 0 && source.charAt(k - 1) == ch ) {
-                return false; // ++ or --
-            }
+            if( k > 0 && source.charAt(k - 1) == ch ) return false; // ++ or --
         }
 
         return true;
@@ -420,28 +412,26 @@ public final class GdrTokenizer {
     private static boolean isRegexAllowedKeyword(String word)
     {
         switch(word) {
-            case "return":
-            case "yield":
-            case "case":
-            case "await":
-            case "typeof":
-            case "delete":
-            case "void":
-            case "do":
-            case "else":
-            case "in":
-            case "instanceof":
-            case "of":
-            case "new":
-            case "throw":
-            case "default":
-            case "export":
-            case "import":
-            case "from":
-            case "as":
-                return true;
-            default:
-                return false;
+            case "return"     : /* FALL-THROUGH */
+            case "yield"      : /* FALL-THROUGH */
+            case "case"       : /* FALL-THROUGH */
+            case "await"      : /* FALL-THROUGH */
+            case "typeof"     : /* FALL-THROUGH */
+            case "delete"     : /* FALL-THROUGH */
+            case "void"       : /* FALL-THROUGH */
+            case "do"         : /* FALL-THROUGH */
+            case "else"       : /* FALL-THROUGH */
+            case "in"         : /* FALL-THROUGH */
+            case "instanceof" : /* FALL-THROUGH */
+            case "of"         : /* FALL-THROUGH */
+            case "new"        : /* FALL-THROUGH */
+            case "throw"      : /* FALL-THROUGH */
+            case "default"    : /* FALL-THROUGH */
+            case "export"     : /* FALL-THROUGH */
+            case "import"     : /* FALL-THROUGH */
+            case "from"       : /* FALL-THROUGH */
+            case "as"         : return true ;
+            default           : return false;
         } // switch
     }
 

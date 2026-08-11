@@ -1082,10 +1082,10 @@ public final class YamlSpecificRule {
         // frozen-span break between them, same shape as JSON's §1.1 grouping.
         final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
             items.size(),
-            i -> items.get(i).isKeyed(),
-            i -> !items.get(i).leadingComments.isEmpty(),
-            i -> items.get(i).blankBefore,
-            i -> items.get(i).key
+            i->items.get(i).isKeyed(),
+            i->!items.get(i).leadingComments.isEmpty(),
+            i->items.get(i).blankBefore,
+            i->items.get(i).key
         );
 
         for( int i = 0; i < items.size(); ++i ) {

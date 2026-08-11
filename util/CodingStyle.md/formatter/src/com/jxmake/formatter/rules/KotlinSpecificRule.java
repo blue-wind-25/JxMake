@@ -139,7 +139,7 @@ public class KotlinSpecificRule {
                 // comment always matches the un-wrapped rendering regardless of how the subject's
                 // own nested calls happened to wrap.
                 subject = literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ")
-                    .replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")");
+                        .replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")");
                 j       = nextSignificantIndex(tokens, closeParen + 1);
             } // if
             if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;

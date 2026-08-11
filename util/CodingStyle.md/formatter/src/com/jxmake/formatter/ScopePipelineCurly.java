@@ -1028,7 +1028,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             if( openIdx < 0 || !isPunct( tokens.get(openIdx), "{" ) ) continue;
             int     depth            = 1;
             int     k                = openIdx + 1;
-            int     parenDepth       = 0; // Tracks `(`/`[` nesting -- see below, lang.isCpp only
+            int     parenDepth       = 0;           // Tracks `(`/`[` nesting -- see below, lang.isCpp only
             boolean hasNewlineInside = false;
             while(k < n && depth > 0) {
                 final Token tk = tokens.get(k);
@@ -1062,7 +1062,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // relies on the pre-existing (unchanged) behavior of moving `}` onto its own line
                 // even though its only newline comes from a nested wrapped call; that JS/TS shape
                 // is left exactly as before.
-                else if( tk.type == TokenType.NEWLINE && parenDepth == 0 ) {
+                else if(tk.type == TokenType.NEWLINE && parenDepth == 0) {
                     hasNewlineInside = true;
                 }
                 ++k;
@@ -1632,12 +1632,12 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             if(lang.isJs || lang.isTs) {
                 for(final Member m : filtered) {
                     if(m.returnTypeFrom >= m.nameFrom) continue;
-                    final String gap = joinText(tokens, m.memberFrom, m.returnTypeFrom);
-                    final int newline = gap.lastIndexOf('\n');
+                    final String gap     = joinText(tokens, m.memberFrom, m.returnTypeFrom);
+                    final int    newline = gap.lastIndexOf('\n');
                     groupIndent = newline >= 0 ? gap.substring(newline + 1) : gap;
                     break;
-                }
-            }
+                } // for m
+            } // if
             final List<String> lines = lang.isKotlin ? renderKotlinFilteredRuns(
                 tokens, group, filtered, depth
             ) : getterSetterRule.render(
@@ -1657,7 +1657,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 if(groupIndent != null && m.returnTypeFrom == m.nameFrom) {
                     final int newline = leadingGap.lastIndexOf('\n');
                     leadingGap = ( newline >= 0 ? leadingGap.substring(0, newline + 1) : "" )
-                            + groupIndent;
+                               + groupIndent;
                 }
                 replacements.add(
                     new Replacement( m.memberFrom, m.memberTo, leadingGap + lines.get(i) )

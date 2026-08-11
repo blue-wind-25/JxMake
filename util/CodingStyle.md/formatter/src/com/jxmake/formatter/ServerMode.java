@@ -363,9 +363,9 @@ public final class ServerMode {
                     inlineConfig.put( key, entry.getValue() );
                 } // for
 
-                final String path            = params.get("path");
-                final String queryLanguage   = params.get("lang");
-                final boolean formatOff      = "true".equals(
+                final String              path            = params.get("path");
+                final String              queryLanguage   = params.get("lang");
+                final boolean             formatOff       = "true".equals(
                     params.get("format-off")
                 );
                 final String              content         = readBody( exchange.getRequestBody() );
@@ -401,8 +401,8 @@ public final class ServerMode {
                     language
                 );
 
-                final Path                targetFile      = path == null ? null : Paths.get(path);
-                final Config              config          = Config.resolve(
+                final Path   targetFile = path == null ? null : Paths.get(path);
+                final Config config     = Config.resolve(
                     targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides
                 );
                 System.err.println(

@@ -120,7 +120,7 @@ public final class InFileConfig {
                 );
                 result.put(key, value);
                 continue;
-            }
+            } // if
             if( !isPerFileApplicable(
                 key
             ) ) throw new IOException(

@@ -908,7 +908,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             else {
                 replacements.addAll(bracketReplacements);
             }
-        } // for
+        } // for line
 
         return replacements;
     }
@@ -942,7 +942,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
         int openIdx = -1;
         int depth   = 0;
-        for( int j = lastSigOnLine; j >= nameIdx; --j ) {
+        for(int j = lastSigOnLine; j >= nameIdx; --j) {
             final Token t = tokens.get(j);
             if(t.type != TokenType.PUNCT) continue;
             if( isCloseBracketText(t.text) ) {
@@ -970,7 +970,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         if( physicalLineLength(paddedLine) <= lineLength ) return null; // Already fits
 
         final List<int[]> args = splitTopLevelArgs(tokens, openIdx + 1, lastSigOnLine);
-        if(args.isEmpty()) return null;
+        if( args.isEmpty() ) return null;
 
         // Re-derive bracket padding scoped to strictly *inside* the call's own parens (`(openIdx +
         // 1, lastSigOnLine)`) rather than reusing `paddingReplacements` as-is -- that list also
@@ -988,13 +988,16 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final String        argIndent  = baseIndent + indentUnit();
         final StringBuilder sb         = new StringBuilder();
         sb.append("(\n");
-        for(final int[] arg : args) {
-            sb.append(argIndent).append( renderSpan(tokens, arg[0], arg[1], interior) )
-                    .append(",\n");
-        }
+        for( final int[] arg : args ) sb.append(
+            argIndent
+        ).append(
+            renderSpan( tokens, arg[0], arg[1], interior )
+        ) .append(
+            ",\n"
+        );
         sb.append(baseIndent).append(")");
 
-        return new Replacement(openIdx, lastSigOnLine + 1, sb.toString());
+        return new Replacement( openIdx, lastSigOnLine + 1, sb.toString() );
     }
 
     /**
@@ -1008,9 +1011,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     private List<int[]> splitTopLevelArgs(final List<Token> tokens, final int start, final int end)
     {
         final List<int[]> args     = new ArrayList<>();
-              int          depth   = 0;
-              int          segStart = start;
-        for( int i = start; i < end; ++i ) {
+              int         depth    = 0;
+              int         segStart = start;
+        for(int i = start; i < end; ++i) {
             final Token t = tokens.get(i);
             if(t.type != TokenType.PUNCT) continue;
             if( isOpenBracketText(t.text) ) {
@@ -1048,7 +1051,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  {@link #render} uses for the whole token stream -- a scoped, read-only sibling used to
      *  measure/re-render a single sub-span (a decorator call's own text, or one of its
      *  arguments) without disturbing the file-wide {@code replacements} list a caller is still
-     *  assembling.
+     *  assembling
      */
     private String renderSpan(
         final List<Token>       tokens,
@@ -1064,8 +1067,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         sorted.sort( Comparator.comparingInt(r -> r.start) );
 
         final StringBuilder out = new StringBuilder();
-              int            i   = start;
-              int            r   = 0;
+              int           i   = start;
+              int           r   = 0;
         while(i < end) {
             while( r < sorted.size() && sorted.get(r).start < i ) ++r;
             if( r < sorted.size() && sorted.get(r).start == i ) {
@@ -1555,15 +1558,17 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         if(headerColonIdx < 0) return null; // No header `:` on this physical line -- unsupported shape
         if( containsComment(tokens, closeIdx + 1, headerColonIdx) ) return null;
 
-        final String currentLine = renderSpan( tokens, line.contentStart, line.end, new ArrayList<>() );
+        final String currentLine = renderSpan(
+            tokens, line.contentStart, line.end, new ArrayList<>()
+        );
         if( physicalLineLength(currentLine) <= lineLength ) return null; // Already fits -- leave inline
 
         final List<int[]> segs = splitTopLevelArgs(tokens, openIdx + 1, closeIdx);
-        if(segs.isEmpty()) return null; // Zero-param signature -- nothing to break out
+        if( segs.isEmpty() ) return null; // Zero-param signature -- nothing to break out
 
         final List<PyParam> params = new ArrayList<>();
-        for(final int[] seg : segs) {
-            final PyParam p = classifySignatureParam(tokens, seg[0], seg[1]);
+        for( final int[] seg : segs ) {
+            final PyParam p = classifySignatureParam( tokens, seg[0], seg[1] );
             if(p == null) return null; // Same documented per-parameter gap §6's alignment slice already has
             params.add(p);
         } // for
@@ -1575,12 +1580,12 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         sb.append("(\n");
         for( int i = 0; i < rendered.size(); ++i ) {
             sb.append(paramIndent).append( rendered.get(i) );
-            if(i < rendered.size() - 1) sb.append(","); // Every param but the last, per §6's worked example
+            if( i < rendered.size() - 1 ) sb.append(","); // Every param but the last, per §6's worked example
             sb.append("\n");
         } // for
         sb.append(baseIndent).append(")");
 
-        return new Replacement(openIdx, closeIdx + 1, sb.toString());
+        return new Replacement( openIdx, closeIdx + 1, sb.toString() );
     }
 
     // ── §6: Function Signature Wrapping (alignment-only slice) ─────────────────────────
@@ -1972,7 +1977,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final RawLine line = rawLines.get(lineIdx);
         // Multi-physical-line `case` patterns retain §7's established all-or-nothing
         // colon-alignment behavior; §8's extended join support applies to the ordinary
-        // if/elif/else/while/for headers handled below.
+        // if/elif/else/while/for headers handled below
         if(line.multiPhysicalLine) return null;
         final int caseIdx = nextSignificant(tokens, line.contentStart, line.end);
         if( caseIdx < 0 || tokens.get(
@@ -2028,9 +2033,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 final String joined       = headerPrefix + ": " + bodyText;
                 // Same fits-check fix as applySingleStatementBody's own join path above: measure
                 // joined + any untouched body trailing comment (body[1] excludes it -- trimEndIdx
-                // treats a trailing comment as a gap token), not just joined alone.
+                // treats a trailing comment as a gap token), not just joined alone
                 final RawLine bodyLine       = rawLines.get(lineIdx + 1);
-                final String  trailingSuffix = verbatimLineText(tokens, body[1], bodyLine.end);
+                final String  trailingSuffix = verbatimLineText( tokens, body[1], bodyLine.end );
                 if( physicalLineLength(joined + trailingSuffix) <= lineLength ) {
                     virtualJoin      = true;
                     bodyContentStart = body[0];
@@ -2124,11 +2129,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final String padding = padRightSpaces(maxLen - len);
             final String joined;
             if(c.virtualJoin) {
-                final String headerPrefix    = verbatimLineText(tokens, c.headerStart, c.patternEnd);
-                final String bodyText        = verbatimLineText(
+                final String headerPrefix = verbatimLineText(tokens, c.headerStart, c.patternEnd);
+                final String bodyText     = verbatimLineText(
                     tokens, c.bodyContentStart, c.bodyContentEnd
                 );
-                // c.bodyContentEnd excludes a body trailing comment (trimEndIdx treats it as a gap
+                // C.bodyContentEnd excludes a body trailing comment (trimEndIdx treats it as a gap
                 // token); include it here so this fits-check measures the line as it will actually
                 // appear, matching tryQualifyJoinBody's own two call sites' fix above.
                 final String trailingSuffix = verbatimLineText(
@@ -2237,7 +2242,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 if(body == null) continue;
                 final int    bodyContentStart = body[0];
                 final int    bodyContentEnd   = body[1];
-                final String headerText       = verbatimLineText(tokens, header.start, colonIdx + 1);
+                final String headerText       = verbatimLineText(
+                    tokens, header.start, colonIdx + 1
+                );
                 final String bodyText         = verbatimLineText(
                     tokens, bodyContentStart, bodyContentEnd
                 );
@@ -2252,12 +2259,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 // flask dogfood (round2's compact-overflow-expand check at line ~2229 DOES measure
                 // the whole physical line including the comment, so it correctly reverses a join this
                 // check should never have accepted in the first place).
-                final RawLine bodyLine        = rawLines.get(i + 1);
-                final String  trailingSuffix  = verbatimLineText(tokens, bodyContentEnd, bodyLine.end);
+                final RawLine bodyLine       = rawLines.get(i + 1);
+                final String  trailingSuffix = verbatimLineText(
+                    tokens, bodyContentEnd, bodyLine.end
+                );
                 if( physicalLineLength(joined + trailingSuffix) > lineLength ) continue;
                 replacements.add( new Replacement(header.start, bodyContentEnd, joined) );
                 continue;
-            }
+            } // if
 
             final int compactColon = classifyCompactSingleStatementHeaderColon(tokens, rawLines, i);
             if(compactColon < 0) continue;
@@ -2286,25 +2295,25 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     {
         int max = 0;
         int len = 0;
-        for(int i = 0; i < joined.length(); ++i) {
-            if(joined.charAt(i) == '\n') {
+        for( int i = 0; i < joined.length(); ++i ) {
+            if( joined.charAt(i) == '\n' ) {
                 max = Math.max(max, len);
                 len = 0;
             }
             else {
                 ++len;
             }
-        }
+        } // for
 
         return Math.max(max, len);
     }
 
-    /** True iff a candidate body contains a semicolon. */
+    /** True iff a candidate body contains a semicolon */
     private boolean containsSemicolon(final List<Token> tokens, final int from, final int to)
     {
         for(int i = from; i < to; ++i) {
             final Token t = tokens.get(i);
-            if(t.type == TokenType.PUNCT && ";".equals(t.text)) return true;
+            if( t.type == TokenType.PUNCT && ";".equals(t.text) ) return true;
         }
 
         return false;
@@ -2323,7 +2332,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         return out.toString();
     }
 
-    /** True iff any token in {@code [from, to)} is a comment. */
+    /** True iff any token in {@code [from, to)} is a comment */
     private boolean containsComment(final List<Token> tokens, final int from, final int to)
     {
         for(int i = from; i < to; ++i) {
@@ -2334,7 +2343,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         return false;
     }
 
-    /** Returns a qualifying compact header's body colon, for overflow expansion only. */
+    /** Returns a qualifying compact header's body colon, for overflow expansion only */
     private int classifyCompactSingleStatementHeaderColon(
         final List<Token>   tokens,
         final List<RawLine> rawLines,
@@ -2346,25 +2355,25 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
         if(kwIdx < 0) return -1;
         final Token kw = tokens.get(kwIdx);
-        if(kw.type == TokenType.IDENTIFIER && "case".equals(kw.text)) {
+        if( kw.type == TokenType.IDENTIFIER && "case".equals(kw.text) ) {
             final CaseLine c = classifyCaseLine(tokens, rawLines, lineIdx);
             return c != null && c.compact ? c.colonIdx : -1;
         }
-        if( kw.type != TokenType.KEYWORD || !SINGLE_STMT_HEADER_KEYWORDS.contains(kw.text) ) return -1;
+        if( kw.type != TokenType.KEYWORD || !SINGLE_STMT_HEADER_KEYWORDS.contains(
+            kw.text
+        ) ) return -1;
         int depth = 0;
         for(int k = kwIdx + 1; k < line.end; ++k) {
             final Token t = tokens.get(k);
-            if(t.type == TokenType.KEYWORD && "lambda".equals(t.text)) return -1;
-            if(t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
-                ++depth;
-            }
-            else if(t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
-                --depth;
-            }
-            else if(depth == 0 && t.type == TokenType.PUNCT && ":".equals(t.text)) {
-                return nextSignificant(tokens, k + 1, line.end) >= 0 ? k : -1;
-            }
-        }
+            if( t.type == TokenType.KEYWORD && "lambda".equals(t.text) ) return -1;
+                 if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) ) ++depth;
+            else if( t.type == TokenType.PUNCT && isCloseBracketText(t.text) ) --depth;
+            else if( depth == 0 && t.type == TokenType.PUNCT && ":".equals(
+                t.text
+            ) ) return nextSignificant(
+                tokens, k + 1, line.end
+            ) >= 0 ? k : -1;
+        } // for
 
         return -1;
     }
@@ -2382,8 +2391,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final int           lineIdx
     )
     {
-        final RawLine line = rawLines.get(lineIdx);
-        final int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
+        final RawLine line  = rawLines.get(lineIdx);
+        final int     kwIdx = nextSignificant(tokens, line.contentStart, line.end);
         if(kwIdx < 0) return -1;
         final Token kw = tokens.get(kwIdx);
         if( kw.type == TokenType.IDENTIFIER && "case".equals(kw.text) ) {
@@ -2681,9 +2690,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final int           lineIdx
     )
     {
-        final RawLine line  = rawLines.get(lineIdx);
-              int      start = line.contentStart;
-        final int      colonIdx = classifyCompactSingleStatementHeaderColon(tokens, rawLines, lineIdx);
+        final RawLine line     = rawLines.get(lineIdx);
+              int     start    = line.contentStart;
+        final int     colonIdx = classifyCompactSingleStatementHeaderColon(
+            tokens, rawLines, lineIdx
+        );
         if(colonIdx >= 0) start = colonIdx + 1;
         final int sig = lastSemicolonSegmentStart(tokens, start, line.end);
         if(sig < 0) return false;
@@ -2708,12 +2719,12 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      */
     private int lastSemicolonSegmentStart(final List<Token> tokens, final int start, final int end)
     {
-        int depth   = 0;
+        int depth    = 0;
         int lastSemi = start - 1;
         for(int k = start; k < end; ++k) {
             final Token t = tokens.get(k);
-                 if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) )  ++depth;
-            else if( t.type == TokenType.PUNCT && isCloseBracketText(t.text) ) --depth;
+                 if( t.type == TokenType.PUNCT && isOpenBracketText(t.text) )        ++depth;
+            else if( t.type == TokenType.PUNCT && isCloseBracketText(t.text) )       --depth;
             else if( depth == 0 && t.type == TokenType.PUNCT && ";".equals(t.text) ) lastSemi = k;
         } // for
 
@@ -2753,7 +2764,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if( atEnd || ( depth == 0 && t.type == TokenType.PUNCT && ";".equals(t.text) ) ) {
                 final int sig = nextSignificant(tokens, segStart, k);
                 if( sig >= 0 && tokens.get(sig).type == TokenType.KEYWORD
-                        && "return".equals(tokens.get(sig).text) ) return true;
+                        && "return".equals( tokens.get(sig).text ) ) return true;
                 segStart = k + 1;
             } // if
         } // for

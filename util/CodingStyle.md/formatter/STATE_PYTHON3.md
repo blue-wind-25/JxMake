@@ -625,18 +625,19 @@ same as every other language's dogfood precedent for a newly-landed rule.
       `bodyOpensNewBlock` and `SINGLE_STMT_HEADER_KEYWORDS`
       (`if`/`elif`/`else`/`while`/`for`; `case` delegates to §7's
       `classifyCaseLine`; `def`/`class`/`try`/`except`/`finally`/`with`
-      never members). A header qualifies only when single physical line,
-      first token a qualifying keyword, genuinely block-form. Body line
-      must be one depth deeper, single-line, non-blank/non-comment, no
-      trailing comment, not itself open a further nested block; the
+      never members). A header qualifies when genuinely block-form; a
+      multi-physical-line header/body is retained without flattening its
+      internal layout. Body line must be one depth deeper,
+      non-blank/non-comment, not itself open a further nested block; the
       following line must sit shallower. **Ambiguity resolved
       conservatively:** a body containing `lambda` is always treated as
       "opens a new block" (never joined); a nested compound statement's own
       header still independently gets its own join opportunity. 17-case
-      smoke + `make test` 114/114. **Gaps:** multi-physical-line header/body
-      never a candidate; body with own trailing comment conservatively
-      skipped; never expands an already-compact line back to block form; no
-      `;`-chaining ever produced.
+      smoke + `make test` 114/114. **Extended 2026-08-11:** body trailing
+      comments are retained; an over-limit compact body expands to a normal
+      indented block; and semicolon-containing bodies remain untouched so
+      the pass never creates or extends a `;` chain. Local fixture:
+      `test/py_single_statement_body_ext_{inp,out}.py`.
 
       **§7 (Structural Pattern Matching) — `:` column alignment-only
       slice.** New `ScopePipelineIndent.CaseLine`/`applyCaseColonAlignment`/
@@ -1007,4 +1008,3 @@ same as every other language's dogfood precedent for a newly-landed rule.
 - [x] Comment normalization (`normalize-comment-start-case`/
       `normalize-comment-end-period` for `#` comments, plus chain-grouping)
       — see "Comment Normalization — DONE (RDD_KEY_268)" section above.
-

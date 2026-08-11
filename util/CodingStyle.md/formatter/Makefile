@@ -401,6 +401,7 @@ INP_FILES += py_comments_inp.py
 INP_FILES += py_comments_normalization_inp.py
 INP_FILES += py_import_blank_lines_inp.py
 INP_FILES += py_import_multiline_inp.py
+INP_FILES += py_single_statement_body_ext_inp.py
 
 INP_FILES += makefile_combined_inp.mk
 INP_FILES += bash_combined_inp.sh

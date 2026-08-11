@@ -594,6 +594,13 @@ Python3:
                                                         resort, per the safety guard described in
                                                         STATE_PYTHON3.md §3).
 
+  py_single_statement_body_ext_inp/out.py            -- Python3 §8 extensions: joins a multi-physical-line
+                                                        header and a multi-physical-line body without
+                                                        flattening their internal layout; retains a body's
+                                                        trailing comment; expands an over-limit compact body
+                                                        to an indented block; and leaves a semicolon chain
+                                                        untouched (never creates or extends one).
+
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
                                                         group (`=`/`:=`/`+=`), backslash continuation-line

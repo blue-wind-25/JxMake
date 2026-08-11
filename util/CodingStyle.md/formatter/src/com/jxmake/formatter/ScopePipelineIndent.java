@@ -1618,6 +1618,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     )
     {
         final RawLine line = rawLines.get(lineIdx);
+        // Multi-physical-line `case` patterns retain §7's established all-or-nothing
+        // colon-alignment behavior; §8's extended join support applies to the ordinary
+        // if/elif/else/while/for headers handled below.
         if(line.multiPhysicalLine) return null;
         final int caseIdx = nextSignificant(tokens, line.contentStart, line.end);
         if( caseIdx < 0 || tokens.get(
@@ -1700,7 +1703,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     {
         if( headerIdx + 1 >= rawLines.size() ) return null;
         final RawLine body = rawLines.get(headerIdx + 1);
-        if(body.multiPhysicalLine || body.depth != header.depth + 1) return null;
+        if(body.depth != header.depth + 1) return null;
         final int bodyContentStart = nextSignificant(tokens, body.contentStart, body.end);
         if(bodyContentStart < 0) return null; // Blank line -- not a real statement
         if( tokens.get(
@@ -1712,9 +1715,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             headerIdx + 2
         ).depth == body.depth ) return null; // A sibling line (second statement, or trailing blank/comment) remains
         final int bodyContentEnd = trimEndIdx(tokens, bodyContentStart, body.end);
-        if( containsComment(
-            tokens, bodyContentEnd, body.end
-        ) ) return null; // Body carries its own trailing comment -- conservative skip
+        if( containsSemicolon(tokens, bodyContentStart, bodyContentEnd) ) return null;
         if( bodyOpensNewBlock(tokens, bodyContentStart, bodyContentEnd) ) return null;
 
         return new int[] {bodyContentStart, bodyContentEnd};
@@ -1823,27 +1824,25 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     /**
      * STYLE_PYTHON3.md §8: joins a block already written as `header:` followed by exactly one
      *  indented simple-statement line back onto the header's own line (`header: statement`) when
-     *  the joined line fits within {@code line-length}; otherwise (or when any qualification below
-     *  fails) the block form is left completely untouched -- this pass only ever joins, it never
-     *  itself decides to expand an already-compact one-line form back into a block (STYLE_PYTHON3.md
-     *  §8 names no such rule, and every already-compact worked example in the style doc is confirmed
-     *  left alone by this pass's own "compactAlready" check below).
+     *  the joined line fits within {@code line-length}. An already-compact line over that limit
+     *  expands into the ordinary indented-block form. Neither direction creates or extends a
+     *  semicolon chain.
      *
      *  <p>A header qualifies only when: it is a single physical line (not {@code
-     *  multiPhysicalLine}), its first significant token is one of {@link
+     *  multiPhysicalLine} header/body preserves its internal layout), its first significant token is one of {@link
      *  #SINGLE_STMT_HEADER_KEYWORDS} or the {@code case} soft keyword (via {@link
      *  #classifyCaseLine}), and nothing but an optional trailing comment follows its own
      *  header-terminating `:` on the same physical line (i.e. it is genuinely block-form, not
      *  already compact). The immediately following {@link RawLine} must exist, sit exactly one
-     *  depth deeper, not itself be {@code multiPhysicalLine}, not be blank/comment-only, and not
+     *  depth deeper, not be blank/comment-only, and not
      *  itself open a further nested block (see {@link #bodyOpensNewBlock} -- a nested `if`/`for`/
      *  `while`/`with`/`match`/`def`/`class`/etc. always keeps its own indented block, never
      *  qualifies as the "simple statement" this pass joins). The line after the body (if any) must
      *  sit at a shallower depth than the body -- a sibling line still at the body's own depth means
      *  the block held more than one statement (or a trailing blank/comment line), and the whole
      *  join is skipped, consistent with every prior §2/§3 slice's own conservative "leave the group
-     *  boundary alone" posture. A body line carrying its own trailing comment is also skipped
-     *  (conservative -- STYLE_PYTHON3.md §8 shows no worked example either way for this shape).
+     *  boundary alone" posture. A body trailing comment is retained verbatim; a body containing
+     *  a semicolon is left untouched so this pass never produces a `;` chain.
      *
      *  <p><b>Ambiguity resolved conservatively, not guessed:</b> a body statement containing a
      *  `lambda` anywhere (`x = lambda: 1`) has its own top-level `:` that does not open a block, but
@@ -1868,40 +1867,86 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             // overlapping join here
             if( caseJoinAlignedHeaders.contains(header.start) ) continue;
             final int colonIdx = classifySingleStatementHeaderColon(tokens, rawLines, i);
-            if(colonIdx < 0) continue;
-            final int[] body = tryQualifyJoinBody(tokens, rawLines, i, header);
-            if(body == null) continue;
-            final int    bodyContentStart = body[0];
-            final int    bodyContentEnd   = body[1];
-            final String headerText       = verbatimLineText(tokens, header.start, colonIdx + 1);
-            final String bodyText         = verbatimLineText(
-                tokens, bodyContentStart, bodyContentEnd
-            );
-            final String joined           = headerText + " " + bodyText;
-            if( physicalLineLength(
-                joined
-            ) > lineLength ) continue; // Overflow -- leave the indented block form untouched
-            replacements.add( new Replacement(header.start, bodyContentEnd, joined) );
+            if(colonIdx >= 0) {
+                final int[] body = tryQualifyJoinBody(tokens, rawLines, i, header);
+                if(body == null) continue;
+                final int    bodyContentStart = body[0];
+                final int    bodyContentEnd   = body[1];
+                final String headerText       = verbatimLineText(tokens, header.start, colonIdx + 1);
+                final String bodyText         = verbatimLineText(
+                    tokens, bodyContentStart, bodyContentEnd
+                );
+                final String joined           = headerText + " " + bodyText;
+                if( physicalLineLength(joined) > lineLength ) continue;
+                replacements.add( new Replacement(header.start, bodyContentEnd, joined) );
+                continue;
+            }
+
+            final int compactColon = classifyCompactSingleStatementHeaderColon(tokens, rawLines, i);
+            if(compactColon < 0) continue;
+            final String compactText = verbatimLineText(tokens, header.start, header.end);
+            if( physicalLineLength(compactText) <= lineLength ) continue;
+            final int bodyStart = nextSignificant(tokens, compactColon + 1, header.end);
+            if(bodyStart < 0) continue;
+            final int bodyEnd = trimEndIdx(tokens, bodyStart, header.end);
+            if( containsSemicolon(tokens, bodyStart, bodyEnd) ) continue;
+            final String headerText = verbatimLineText(tokens, header.start, compactColon + 1);
+            final String bodyText   = verbatimLineText(tokens, bodyStart, bodyEnd);
+            replacements.add( new Replacement(
+                header.start, bodyEnd, headerText + "\n" + leadingIndent(tokens, header)
+                        + singleStatementIndentUnit() + bodyText
+            ) );
         } // for
 
         return replacements;
     }
 
     /**
-     * Length of {@code joined}'s longest physical line -- {@code joined} is always a single
-     *  physical line by construction here (header + one simple statement), so this is just its own
-     *  length, but named for clarity against STYLE.md §2's line-length limit.
+     * Length of {@code joined}'s longest physical line. Multi-physical-line headers and bodies
+     * retain their internal layout when joined.
      */
     private int physicalLineLength(final String joined)
     {
-        return joined.length();
+        int max = 0;
+        int len = 0;
+        for(int i = 0; i < joined.length(); ++i) {
+            if(joined.charAt(i) == '\n') {
+                max = Math.max(max, len);
+                len = 0;
+            }
+            else {
+                ++len;
+            }
+        }
+
+        return Math.max(max, len);
     }
 
-    /**
-     * True iff any token in {@code [from, to)} is a comment. Used to conservatively skip a body
-     *  statement carrying its own trailing same-line comment (see {@link
-     *  #applySingleStatementBody}'s javadoc).
-     */
+    /** True iff a candidate body contains a semicolon. */
+    private boolean containsSemicolon(final List<Token> tokens, final int from, final int to)
+    {
+        for(int i = from; i < to; ++i) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.PUNCT && ";".equals(t.text)) return true;
+        }
+
+        return false;
+    }
+
+    private String leadingIndent(final List<Token> tokens, final RawLine line)
+    {
+        return verbatimLineText(tokens, line.start, line.contentStart);
+    }
+
+    private String singleStatementIndentUnit()
+    {
+        final StringBuilder out = new StringBuilder();
+        for(int i = 0; i < indentWidth; ++i) out.append(' ');
+
+        return out.toString();
+    }
+
+    /** True iff any token in {@code [from, to)} is a comment. */
     private boolean containsComment(final List<Token> tokens, final int from, final int to)
     {
         for(int i = from; i < to; ++i) {
@@ -1910,6 +1955,41 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         }
 
         return false;
+    }
+
+    /** Returns a qualifying compact header's body colon, for overflow expansion only. */
+    private int classifyCompactSingleStatementHeaderColon(
+        final List<Token>   tokens,
+        final List<RawLine> rawLines,
+        final int           lineIdx
+    )
+    {
+        final RawLine line = rawLines.get(lineIdx);
+        if(line.multiPhysicalLine) return -1;
+        final int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
+        if(kwIdx < 0) return -1;
+        final Token kw = tokens.get(kwIdx);
+        if(kw.type == TokenType.IDENTIFIER && "case".equals(kw.text)) {
+            final CaseLine c = classifyCaseLine(tokens, rawLines, lineIdx);
+            return c != null && c.compact ? c.colonIdx : -1;
+        }
+        if( kw.type != TokenType.KEYWORD || !SINGLE_STMT_HEADER_KEYWORDS.contains(kw.text) ) return -1;
+        int depth = 0;
+        for(int k = kwIdx + 1; k < line.end; ++k) {
+            final Token t = tokens.get(k);
+            if(t.type == TokenType.KEYWORD && "lambda".equals(t.text)) return -1;
+            if(t.type == TokenType.PUNCT && isOpenBracketText(t.text)) {
+                ++depth;
+            }
+            else if(t.type == TokenType.PUNCT && isCloseBracketText(t.text)) {
+                --depth;
+            }
+            else if(depth == 0 && t.type == TokenType.PUNCT && ":".equals(t.text)) {
+                return nextSignificant(tokens, k + 1, line.end) >= 0 ? k : -1;
+            }
+        }
+
+        return -1;
     }
 
     /**
@@ -1926,7 +2006,6 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     )
     {
         final RawLine line = rawLines.get(lineIdx);
-        if(line.multiPhysicalLine) return -1;
         final int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
         if(kwIdx < 0) return -1;
         final Token kw = tokens.get(kwIdx);

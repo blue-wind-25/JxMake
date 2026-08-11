@@ -125,6 +125,22 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // rule stores in `initTokens` reusing the existing "thing after `=`" field rather than
         // adding a brand-new one). Never true for any other Declaration shape.
         public final boolean     isUsingAlias;
+        // Nullable. Set only for a using-alias Declaration whose aliased type contains a `...`
+        // pack-expansion/pack-indexing operator token (C++26 STYLE_CPP26.md §1, e.g.
+        // `T...[N]`) -- for that shape `renderUsingAliasGroup` emits this verbatim original
+        // text instead of calling `renderInitTokens` on `initTokens`, since the generic
+        // token-by-token re-render has no `...`-adjacent-spacing awareness (that's owned by a
+        // separate whole-file pass, `CppSpecificRule.enforcePackIndexingSpacing`, which runs
+        // after declaration alignment and fixes up whatever spacing this text carries anyway --
+        // see RDD_KEY_283/RDD_KEY_284). Null for every other Declaration, using-alias or not.
+        public final String      aliasRawTypeText;
+        // Nullable. Same idea as {@link #aliasRawTypeText}, but for `templatePrefix` -- set only
+        // when the `template<...>` prefix itself contains a `...` operator token
+        // (`template<typename... T> using Nth = ...;`). `renderUsingAliasGroup` emits this
+        // verbatim instead of calling `renderTemplatePrefix`, which would otherwise regenerate
+        // the `typename...` tight-join spacing generically with no dedicated fix-up pass to
+        // correct it afterward if it got it wrong (RDD_KEY_284).
+        public final String      templatePrefixRawText;
 
         Declaration(
             final List<Token> modifiers,
@@ -170,16 +186,56 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             final boolean     isUsingAlias
         )
         {
-            this.modifiers       = modifiers;
-            this.typeTokens      = typeTokens;
-            this.name            = name;
-            this.sizeTokens      = sizeTokens;
-            this.initTokens      = initTokens;
-            this.bitfieldWidth   = bitfieldWidth;
-            this.trailingComment = trailingComment;
-            this.blankLineBefore = blankLineBefore;
-            this.templatePrefix  = templatePrefix;
-            this.isUsingAlias    = isUsingAlias;
+            this( modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
+                    trailingComment, blankLineBefore, templatePrefix, isUsingAlias, null );
+        }
+
+        Declaration(
+            final List<Token> modifiers,
+            final List<Token> typeTokens,
+            final Token       name,
+            final List<Token> sizeTokens,
+            final List<Token> initTokens,
+            final List<Token> bitfieldWidth,
+            final Token       trailingComment,
+            final boolean     blankLineBefore,
+            final List<Token> templatePrefix,
+            final boolean     isUsingAlias,
+            final String      aliasRawTypeText
+        )
+        {
+            this( modifiers, typeTokens, name, sizeTokens, initTokens, bitfieldWidth,
+                    trailingComment, blankLineBefore, templatePrefix, isUsingAlias,
+                    aliasRawTypeText, null );
+        }
+
+        Declaration(
+            final List<Token> modifiers,
+            final List<Token> typeTokens,
+            final Token       name,
+            final List<Token> sizeTokens,
+            final List<Token> initTokens,
+            final List<Token> bitfieldWidth,
+            final Token       trailingComment,
+            final boolean     blankLineBefore,
+            final List<Token> templatePrefix,
+            final boolean     isUsingAlias,
+            final String      aliasRawTypeText,
+            final String      templatePrefixRawText
+        )
+        {
+            this.modifiers             = modifiers;
+            this.typeTokens            = typeTokens;
+            this.name                  = name;
+            this.sizeTokens            = sizeTokens;
+            this.initTokens            = initTokens;
+            this.bitfieldWidth         = bitfieldWidth;
+            this.trailingComment       = trailingComment;
+            this.blankLineBefore       = blankLineBefore;
+            this.templatePrefix        = templatePrefix;
+            this.isUsingAlias          = isUsingAlias;
+            this.aliasRawTypeText      = aliasRawTypeText;
+            this.templatePrefixRawText = templatePrefixRawText;
         }
 
     } // class Declaration
@@ -518,15 +574,30 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     {
         final ColumnGrid grid = new ColumnGrid();
         for(final Declaration d : group) {
-            grid.addRow( new String[] { "using", d.name.text, "= " + renderInitTokens(d.initTokens) + ";" } );
+            // A pack-indexed aliased type (`aliasRawTypeText != null`) is rendered verbatim from
+            // its original text rather than through `renderInitTokens` -- see the comment at its
+            // computation in `parseUsingAlias` (RDD_KEY_284): the whole-file
+            // `enforcePackIndexingSpacing` pass that runs after declaration alignment fixes up
+            // its `...[`-adjacent spacing regardless of which text this emits.
+            final String renderedType = d.aliasRawTypeText != null
+                    ? d.aliasRawTypeText : renderInitTokens(d.initTokens);
+            grid.addRow( new String[] { "using", d.name.text, "= " + renderedType + ";" } );
         } // for
         final List<String>   lines = new ArrayList<>();
         final List<String[]> rows  = grid.flush();
         for( int idx = 0; idx < rows.size(); ++idx ) {
             final Declaration d = group.get(idx);
-            if( !d.templatePrefix.isEmpty() ) lines.add( renderTemplatePrefix(d.templatePrefix) );
+            if( !d.templatePrefix.isEmpty() ) {
+                // See the field comment on `templatePrefixRawText` (RDD_KEY_284): a
+                // pack-expansion `...` inside the prefix itself gets rendered verbatim instead
+                // of through `renderTemplatePrefix`'s generic regeneration.
+                lines.add( d.templatePrefixRawText != null
+                        ? d.templatePrefixRawText : renderTemplatePrefix(d.templatePrefix) );
+            }
             String line = String.join( " ", rows.get(idx) );
-            if(d.trailingComment != null) line += " " + d.trailingComment.text;
+            // Two spaces before a trailing same-line `//` comment (STYLE.md convention, e.g.
+            // `int[]   x  = { 1, 2, 3 };            // single-level -- pad`), not one.
+            if(d.trailingComment != null) line += "  " + d.trailingComment.text;
             lines.add(line);
         } // for
 
@@ -1355,6 +1426,27 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     {
         if( start >= body.size() || body.get(start).type != TokenType.KEYWORD
                 || !"using".equals( body.get(start).text ) ) return null;
+
+        // A standalone comment sitting between a `template<...>` prefix and the `using` keyword
+        // itself (e.g. `template<typename T>\n// note\nusing Name = ...;`) has nowhere to live
+        // in the `Declaration` model -- `body` is already comment-filtered by the time it gets
+        // here, so this method never even sees it, and `render`'s full-span regeneration would
+        // silently drop it if the statement were accepted. Detect it via the raw (unfiltered)
+        // slice and bail, leaving the whole statement untouched -- same posture as every other
+        // "can't safely represent this" bail in this method.
+        if( !templatePrefix.isEmpty() ) {
+            final List<Token> rawGap = rawSliceBetweenUnfiltered(
+                stmt, templatePrefix.get( templatePrefix.size() - 1 ), body.get(start)
+            );
+            if(rawGap != null) {
+                for(final Token t : rawGap) {
+                    if( t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK ) {
+                        return null;
+                    }
+                }
+            }
+        }
+
         final int nameIdx = start + 1;
         if( nameIdx >= body.size() || body.get(nameIdx).type != TokenType.IDENTIFIER ) return null;
         final int eqIdx = nameIdx + 1;
@@ -1379,21 +1471,49 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         );
         if( rawAliasType != null && containsMultilineBraceBody(rawAliasType) ) return null;
 
-        // A variadic-pack `...` operator token anywhere in the aliased type or its
-        // `template<...>` prefix (`template<typename... T> using Nth = T...[N];`,
-        // STYLE_CPP26.md §1 pack indexing) is out of scope here -- this method's
-        // `renderInitTokens`/`renderTemplatePrefix` calls below whitespace-collapse and
-        // regenerate the line generically, which doesn't know about the specialized
-        // `...`-adjacent-spacing rules `CppSpecificRule.enforcePackIndexingSpacing` (and the
-        // separate variadic-template-declaration tight-join rule) apply on the original,
-        // untouched token stream. Bail out and leave any such statement completely untouched
-        // (its pre-existing, correct behavior before this feature existed) rather than risk
-        // silently undoing those rules' spacing decisions.
+        // A variadic-pack `...` operator token in the `template<...>` prefix itself
+        // (`template<typename... T> using Nth = T...[N];`) needs the same treatment as the
+        // aliased type below: there is no separate whole-file pass that fixes up `typename...`'s
+        // tight-join spacing, so `renderTemplatePrefix`'s generic whitespace-collapsing
+        // regeneration has no safety net if it ever gets that spacing wrong -- but rendering the
+        // prefix as its own exact original raw text sidesteps the question entirely (nothing is
+        // regenerated, so there's nothing to get wrong). Only bail (leave the whole statement
+        // untouched) if the raw slice genuinely can't be located.
+        String templatePrefixRawText = null;
         for(final Token t : templatePrefix) {
-            if( isOp(t, "...") ) return null;
+            if( isOp(t, "...") ) {
+                if( templatePrefix.isEmpty() ) return null;
+                final List<Token> rawTemplatePrefix = rawSliceBetweenUnfiltered(
+                    stmt, templatePrefix.get(0), templatePrefix.get( templatePrefix.size() - 1 )
+                );
+                if(rawTemplatePrefix == null) return null;
+                final StringBuilder tpsb = new StringBuilder();
+                for(final Token rt : rawTemplatePrefix) tpsb.append(rt.text);
+                templatePrefixRawText = tpsb.toString();
+                break;
+            }
         }
+
+        // A `...` operator token in the ALIASED TYPE itself (`T...[N]`, STYLE_CPP26.md §1 pack
+        // indexing) is different: `CppSpecificRule.enforcePackIndexingSpacing` runs as a whole-
+        // file pass strictly AFTER declaration alignment (`FormatterCurly`'s Phase 4, well after
+        // `scopePipeline.process` in Phase ~1), re-tokenizing whatever text alignment already
+        // produced and fixing up `...[`-adjacent spacing generically -- it doesn't care which
+        // pass emitted the line. So instead of bailing here, render the aliased type as the
+        // exact original raw text (`rawAliasType`, already computed above for the multiline
+        // check) rather than through `renderInitTokens`'s generic token-by-token regeneration,
+        // which has no `...`-adjacency awareness and would risk collapsing/misjudging that
+        // spacing itself. Whatever spacing this raw text carries, Phase 4 corrects it afterward,
+        // so alignment and correct pack-indexing spacing both end up satisfied (RDD_KEY_284).
+        String aliasRawTypeText = null;
         for(final Token t : aliasType) {
-            if( isOp(t, "...") ) return null;
+            if( isOp(t, "...") ) {
+                if(rawAliasType == null) return null; // No raw slice available -- leave untouched
+                final StringBuilder sb = new StringBuilder();
+                for(final Token rt : rawAliasType) sb.append(rt.text);
+                aliasRawTypeText = sb.toString();
+                break;
+            }
         }
 
         // `typeTokens` holds just the `using` keyword itself (never rendered -- see
@@ -1404,7 +1524,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         return new Declaration(
             modifiers, Collections.singletonList( body.get(start) ), body.get(nameIdx),
             new ArrayList<Token>(), aliasType, new ArrayList<Token>(), trailingComment, blankBefore,
-            templatePrefix, true
+            templatePrefix, true, aliasRawTypeText, templatePrefixRawText
         );
     }
 

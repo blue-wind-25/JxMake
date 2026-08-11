@@ -159,6 +159,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_251 | Seventh session, RESOLVED the nested-switch-in-switch failure mode of "Non-idempotent switch-case re-indent on internally-inconsistent generated source" -- `SwitchRule.applyNonInlineCaseIndent` now derives each case-body line's absolute target indent from its own brace-nesting depth (`applyDepthDerivedBodyIndent`, replacing the old single-relative-delta `shiftLines` body-shift), with a nested switch's entire token span treated as opaque (owned solely by its own independent `SwitchBlock` pass) rather than two independent recomputations disagreeing forever. A second approach (one shared depth accumulator recursed through nested switches) was implemented and rejected -- hung on the minimal repro because the nested switch's own independent pass still ran and disagreed with the recursive writes; a correct version would need far more invasive engine changes. See "Known Gaps -- Fixed", `real_code_regressions_181` fixture, and `RDD_KEY_251` in `RDD_LOG.md` for the full two-approach writeup. `make test`: 247/247 -> 248/248 forward + idempotency, zero regressions |
 | RDD_KEY_281 | Tier2 backlog re-verification: `SwitchRule.deriveUnit`'s "hardcoded 4-space fallback" (real-code-testing item (9), `fmtlib/fmt` at `indent-size = 2`) was already fixed by `c0a2305` (2026-07-06) before this item's narrative sentence gained a disposition marker -- `deriveUnit` already returns `defaultIndentUnit`, built from `config.indentSize()` via `FormatterCurly`'s one `new SwitchRule(lang, lineLengthLimit, indentWidth)` call site; `MiscRuleCore.DEFAULT_INDENT_WIDTH` (literal `4`) is dead at runtime, reachable only via the unused 2-arg constructor overload. No source change made. Re-verified via a fresh flush-case-label `.cpp` scratch fixture at `indent-size = 2` (and `= 8`): idempotent, unit correctly scales with configured indent-size. `make test` unchanged, 278/278. |
 | RDD_KEY_283 | `using` alias declarations (C++11+) column-aligned on `=` via new isolated `parseUsingAlias`/`renderUsingAliasGroup` path in `DeclarationAlignmentRuleCurly`; bails out untouched on any `...` token to avoid colliding with C++26 pack-indexing/variadic-template spacing rules. `make test` 283/283 -> 284/284. Fixture: `test/cpp_using_alias_{inp,out}.cpp`. See narrative entry in "Known Gaps -- Fixed" for full detail. |
+| RDD_KEY_284 | Follow-up to RDD_KEY_283: pack-indexing/variadic-template `using` aliases (`template<typename... T> using Name = T...[N];`) are now ALSO aligned, via new `Declaration.aliasRawTypeText`/`templatePrefixRawText` verbatim-raw-text fields instead of bailing -- `enforcePackIndexingSpacing` runs after declaration alignment regardless of which pass emitted the line, so only the aliased type needed this; the `template<...>` prefix has no such downstream fix-up pass, so it's rendered verbatim too rather than regenerated, sidestepping the question. Also fixed: a standalone comment between `template<...>` and `using` has no home in the `Declaration` model and was being silently dropped -- now detected and bailed on (leave untouched); and a same-line trailing-comment spacing bug (single space instead of the codebase's two-space convention). `make test` unchanged at 284/284 (refines the existing `cpp_using_alias`/`cpp26_comments` fixtures, no new fixture). See narrative entry for full detail. |
 
 ---
 
@@ -935,6 +936,35 @@ before/after detail available via `git log`/`git show`.
   `=`, a `template<typename T> using Vec = ...;` singleton group left separate, and a
   function-local `using Local = double;` unaffected by outer-scope grouping). See RDD_KEY_283
   in RDD_LOG.md for full detail.
+- **Pack-indexing/variadic-template `using` aliases still left unaligned** — FIXED (RDD_KEY_284,
+  follow-up to RDD_KEY_283), C++-only. RDD_KEY_283's bail-out on any `...` token turned out to
+  be broader than necessary: `CppSpecificRule.enforcePackIndexingSpacing` runs as a whole-file
+  pass in `FormatterCurly`'s Phase 4 strictly AFTER declaration alignment, re-tokenizing
+  whatever text alignment already produced — it doesn't care which pass emitted the line, so
+  the aliased-type half of the bail was overly conservative. Added `Declaration.aliasRawTypeText`
+  and `Declaration.templatePrefixRawText` (both nullable `String`, set only when the
+  corresponding span contains a `...` token): `renderUsingAliasGroup` now emits these verbatim
+  (via `rawSliceBetweenUnfiltered`) instead of regenerating through `renderInitTokens`/
+  `renderTemplatePrefix` — safe for the aliased type because Phase 4 fixes up whatever spacing
+  it carries anyway, and safe for the `template<...>` prefix (which has no such downstream
+  fix-up pass for its `typename...` tight-join spacing) precisely because nothing is
+  regenerated, so nothing can be gotten wrong. Two more real bugs found via `make test` against
+  the pre-existing `cpp26_comments` fixture (not just static reasoning): (1) a standalone
+  comment sitting between a `template<...>` prefix and the `using` keyword itself has nowhere
+  to live in the `Declaration` model (`body` is already comment-filtered by the time
+  `parseUsingAlias` sees it), so accepting such a statement silently dropped the comment on
+  `render`'s full-span regeneration — fixed by scanning the raw unfiltered gap between
+  `templatePrefix`'s last token and the `using` keyword for a `COMMENT_LINE`/`COMMENT_BLOCK`
+  token and bailing (leave fully untouched) if found; (2) `renderUsingAliasGroup`'s trailing
+  same-line-comment append used a single space instead of this codebase's established two-space
+  convention (e.g. `JsTsSpecificRule`'s `sb.append("  ").append(...)`, STYLE.md's own
+  `// single-level -- pad` examples) — only visible on a singleton alias group with no sibling
+  to force grid padding into masking it. Verified: `make test` unchanged at 284/284 forward +
+  idempotency, zero regressions; the pre-existing `test/cpp26_comments_{inp,out}.cpp` fixture's
+  expected output was updated in place to reflect the new, more-complete alignment (`Selected`/
+  `Skipped` now align on `=`; `Nth`, preceded by a standalone comment, correctly stays
+  untouched/unaligned as its own singleton), verified byte-identical against the formatter's
+  actual output. See RDD_KEY_284 in RDD_LOG.md for full detail.
 - **Preprocessor directive glued onto a following Java method definition** — FIXED,
   genuinely Java-specific (C++'s `applySignaturePass` branch incidentally routes around it via
   a separate line-rescan). `leadStart`/`sigLeadStart` landed directly on a leading

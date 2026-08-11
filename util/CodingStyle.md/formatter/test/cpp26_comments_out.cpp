@@ -9,7 +9,7 @@ template<typename... T>
 using Nth = T...[N];
 template<typename... T>
 using Selected = T...[ computeIndex() ];  // Call inside index
-using Skipped = T...[0];  // Zero-based
+using Skipped  = T...[0];  // Zero-based
 
 // Deprecated API marker
 void oldApi() = delete(

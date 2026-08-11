@@ -28,7 +28,7 @@ TEST_LOCK     = $(BUILD_DIR)/.test.lock
 SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 
 
-.PHONY: all build jar clean                \
+.PHONY: all build jar clean testall        \
 	gru-extract-pool-a                 \
 	gru-extract-pool-b                 \
 	gru-measure-abstain-rate           \
@@ -71,6 +71,22 @@ clean:
 	@rm -rvf $(BUILD_DIR)
 	@rm -rvf tools/verifiers/__pycache__
 	@rm -vf  tools/verifiers/*.class
+
+LOGFILE := /tmp/jxmake_formatter_testall.log
+DELIMTS := ====================================================================================================
+testall:
+	@rm -f $(LOGFILE)
+	@(                                                              \
+		echo                                                 && \
+		echo $(DELIMTS) && $(MAKE) -s test-quiet             && \
+		echo $(DELIMTS) && $(MAKE) -s test-server            && \
+		echo $(DELIMTS) && $(MAKE) -s test-server-concurrent && \
+		echo $(DELIMTS)                                      && \
+		echo                                                    \
+	) 2>&1 | sed 's/\x1B\[[0-9;]*[A-Za-z]//g' > $(LOGFILE) &        \
+	bgpid=$$!;                                                      \
+	tail -f $(LOGFILE) --pid=$$bgpid
+
 
 # clear && git status && echo && svn stat && echo
 # git stash list
@@ -385,6 +401,7 @@ INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html
 INP_FILES += html_multiline_comment_verbatim_inp.html
 INP_FILES += html_multiline_comment_banner_inp.html
+INP_FILES += html_mathml_case_fixup_inp.html
 INP_FILES += html_tc_gap_level0_body_unchanged_inp.html
 INP_FILES += html_tc_gap_level1_body_insertion_inp.html
 INP_FILES += html_tc_gap_level1_no_head_inp.html
@@ -394,7 +411,6 @@ INP_FILES += html_tc_gap_level2_form_unchanged_inp.html
 INP_FILES += html_tc_gap_level3_form_template_inp.html
 INP_FILES += html_tc_gap_level3_adoption_unchanged_inp.html
 INP_FILES += html_tc_gap_level4_adoption_agency_inp.html
-INP_FILES += html_mathml_case_fixup_inp.html
 
 INP_FILES += py_combined_inp.py
 INP_FILES += py_comments_inp.py
@@ -408,9 +424,9 @@ INP_FILES += bash_combined_inp.sh
 INP_FILES += powershell_combined_inp.ps1
 
 INP_FILES += curly_general_scope_reindent_inp.hpp
-INP_FILES += java_flush_left_inp.java
 INP_FILES += curly_gdr_multipass_inp.java
 INP_FILES += curly_gdr_js_regex_inp.ts
+INP_FILES += java_flush_left_inp.java
 INP_FILES += html_js_flush_left_inp.html
 
 INP_FILES += multi_sentence_comment_inp.java

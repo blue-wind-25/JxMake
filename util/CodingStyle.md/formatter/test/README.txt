@@ -440,6 +440,12 @@ HTML5:
                                                         trailing period stripped, reindented to the comment's
                                                         own depth.
 
+  html_mathml_case_fixup_inp/out.html                -- MathML content inside HTML5 `<math>` element with
+                                                        `definitionurl` attribute/tag -- proves mathmlDepth
+                                                        tracking and MathML case-fixup (STATE_DATA_FORMATS.md)
+                                                        correctly adjusts `definitionurl` to `definitionURL`.
+
+
   html_tc_gap_level0_body_unchanged_inp/out.html     -- Same no-explicit-`<body>` shape as above, but at the
                                                         default `html5-tc-gap-level=0` (unset, no in-file
                                                         override) -- proves the level-1 fabricated- node path
@@ -635,27 +641,6 @@ General Scope-Depth Reindentation:
                                                         correctly formatted result, not an error -- see
                                                         STATE_CURLY_GDR.md.
 
-  java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
-                                                        leading indentation at all), with
-                                                        curly-general-scope-reindent=on via in-file config --
-                                                        proves the GDR pre-pass (STATE_CURLY_GDR.md) reindents
-                                                        correctly from a fully unindented starting point,
-                                                        which the base pipeline's own relative-delta
-                                                        reindentation cannot do on its own. Also covers the
-                                                        PCPP-preprocessed Java pattern used in
-                                                        `src/jxm/ugc/ARMCortexMThumbC.java.in` (a `.java.in`
-                                                        file run through a C-macro preprocessor before
-                                                        compilation, per README.md's "C-preprocessor
-                                                        directives in Java source" note): a `#define`-style
-                                                        function-like macro precedes a class and is invoked
-                                                        with loosely-spaced call arguments
-                                                        (`__GEN_CXI_NPR_NPR__( clrex, ... )`). Confirms the
-                                                        `#define` line itself passes through untouched
-                                                        (recognized/skipped like any other preprocessor
-                                                        directive) while the macro invocation lines still get
-                                                        normal call-padding tightening (`(clrex, ...)`) and
-                                                        are idempotent.
-
   curly_gdr_multipass_inp/out.java                   -- One-true-brace-style joined `} else if (...) {` / `}
                                                         else {` chain with multi-statement bodies, with BOTH
                                                         curly-general-scope-reindent=on AND
@@ -681,6 +666,27 @@ General Scope-Depth Reindentation:
                                                         (STRING) rather than plain TEXT, preventing regex
                                                         interior brackets from miscounting structural depth.
 
+  java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
+                                                        leading indentation at all), with
+                                                        curly-general-scope-reindent=on via in-file config --
+                                                        proves the GDR pre-pass (STATE_CURLY_GDR.md) reindents
+                                                        correctly from a fully unindented starting point,
+                                                        which the base pipeline's own relative-delta
+                                                        reindentation cannot do on its own. Also covers the
+                                                        PCPP-preprocessed Java pattern used in
+                                                        `src/jxm/ugc/ARMCortexMThumbC.java.in` (a `.java.in`
+                                                        file run through a C-macro preprocessor before
+                                                        compilation, per README.md's "C-preprocessor
+                                                        directives in Java source" note): a `#define`-style
+                                                        function-like macro precedes a class and is invoked
+                                                        with loosely-spaced call arguments
+                                                        (`__GEN_CXI_NPR_NPR__( clrex, ... )`). Confirms the
+                                                        `#define` line itself passes through untouched
+                                                        (recognized/skipped like any other preprocessor
+                                                        directive) while the macro invocation lines still get
+                                                        normal call-padding tightening (`(clrex, ...)`) and
+                                                        are idempotent.
+
   html_js_flush_left_inp/out.html                    -- Entire document flushed to column 0, multiple tags on
                                                         a single line (`<head>...</head>`, stacked
                                                         `<span>`/`<li>` siblings), and an embedded `<script>`
@@ -697,11 +703,6 @@ General Scope-Depth Reindentation:
                                                         marker-comment convention: the directive comment
                                                         itself must render byte-for-byte unchanged, not gain a
                                                         corrupting inner space.
-
-  html_mathml_case_fixup_inp/out.html                -- MathML content inside HTML5 `<math>` element with
-                                                        `definitionurl` attribute/tag -- proves mathmlDepth
-                                                        tracking and MathML case-fixup (STATE_DATA_FORMATS.md)
-                                                        correctly adjusts `definitionurl` to `definitionURL`.
 
 Multi-Sentence Comment Capitalization:
   multi_sentence_comment_inp/out.java                -- Proves `normalize-comment-start-case-multiline=on`
@@ -3587,33 +3588,30 @@ Real-code regressions:
                                                         `JsTsSpecificRule. classBraceKind` walks backward from
                                                         a brace looking for a `class`/`interface` KEYWORD
 
-  real_code_regressions_199_inp/out.kt               -- Minimal repro of the Kotlin multi-line
-                                                        call/list-literal trailing-comma drop (STYLE_KOTLIN.md
-                                                        §7.2): a source trailing comma before `)` on a
-                                                        multi-line call/list-literal that goes through the
-                                                        "preserve original line groups" render path
-                                                        (`MiscRuleCurly.renderCallPreserveGroups`) was
-                                                        silently dropped, since that path's
-                                                        last-comma-suppression logic unconditionally withheld
-                                                        a comma on the very last rendered item (correct for
-                                                        C/C++/Java, wrong for Kotlin). Fixed by a new
-                                                        `hasTrailingComma` check consulted before
-                                                        `groupByOriginalLine`'s own drop of the dangling
-                                                        trailing empty group, gated on `lang.isKotlin`, wired
-                                                        into `renderCallPreserveGroups`/`renderCallDropped`/
-                                                        `renderCallOnePerLine` alike. Covers: a call with a
-                                                        trailing comma (preserved), a call without one (still
-                                                        not added), and a `listOf(...)` list-literal with a
-                                                        trailing comma (same call-shaped code path). token to
-                                                        classify it, but `class` is also a legal TS property
-                                                        name and still tagged KEYWORD by the tokenizer, so the
-                                                        field named `class` was misread as a class-declaration
-                                                        keyword, feeding its own nested brace into
-                                                        `enforceClassFieldAlignmentGrid`'s rewrite. Fixed by
+  real_code_regressions_199_inp/out.kt               -- Minimal repro of Kotlin multi‑line call/list‑literal
+                                                        trailing‑comma drop (STYLE_KOTLIN.md §7.2). A trailing
+                                                        comma before `)` on a multi‑line call/list‑literal was
+                                                        dropped in the "preserve original line groups" path
+                                                        (`MiscRuleCurly.renderCallPreserveGroups`) because
+                                                        last‑comma suppression unconditionally withheld the
+                                                        final comma, which is correct for C/C++/Java but wrong
+                                                        for Kotlin. The issue was resolved with a
+                                                        `hasTrailingComma` check gated on `lang.isKotlin`,
+                                                        consulted before `groupByOriginalLine` drops the
+                                                        dangling empty group, and wired into
+                                                        `renderCallPreserveGroups`, `renderCallDropped`, and
+                                                        `renderCallOnePerLine`. This covers a call with a
+                                                        trailing comma that is preserved, a call without one
+                                                        that is not added, and a `listOf(...)` list‑literal
+                                                        with a trailing comma that follows the same path. A
+                                                        token misclassification occurred where a field named
+                                                        `class` was misread as a class‑declaration keyword,
+                                                        feeding its nested brace into
+                                                        `enforceClassFieldAlignmentGrid`. The correction was
                                                         `isFieldNameKeywordUsage`, which checks whether the
-                                                        token after the candidate keyword is `:`/`?` (field
-                                                        usage) rather than an identifier (declared name), and
-                                                        skips such occurrences.
+                                                        token after the keyword is `:` or `?` (field usage)
+                                                        rather than an identifier (declared name), and skips
+                                                        such cases.
 
   real_code_regressions_200_inp/out.js               -- JS/TS §8 getter/setter-group regression: a plain
                                                         block-bodied method with no return-type token

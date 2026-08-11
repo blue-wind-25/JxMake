@@ -199,7 +199,7 @@ public final class XmlSpecificRule {
      */
     private static final java.util.Map<String, String> MATHML_TAG_NAME_CASE_FIXUP = new java.util.HashMap<>();
     static {
-        // MathML specification accept any case, hence, this map is empty
+        // MathML specification accept tags of any case; therefore, this map is empty
     }
 
     private static final java.util.Map<String, String> MATHML_ATTRIBUTE_CASE_FIXUP = new java.util.HashMap<>();

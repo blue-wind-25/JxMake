@@ -126,6 +126,7 @@ Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.m
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_199_inp/out.kt`
     to   `real_code_regressions_200_inp/out.js`
+[DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -187,20 +188,11 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
-- [PYTHON3] §8 single-statement-body conservative-skip gaps: multi-physical-line header/body never
-  a join candidate; body with its own trailing comment conservatively skipped; never expands an
-  already-compact line back to block form; no `;`-chaining ever produced — deliberate
-  "skip-rather-than-risk-corruption" narrowing, not architecturally risky to extend.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
-
 === TIER 3: Real feature gaps — medium risk ===
-
-Read `STATE_PYTHON3.md` then do this fix:
-
-When comitting replace `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with your own ID and email.
-
 
 
 These fixes are done by other AIs:

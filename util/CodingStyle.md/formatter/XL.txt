@@ -199,7 +199,18 @@ Use sub-agent. This can be a substantial work.
 
 Use sub-agent. This can be a substantial work.
 
+
+
 === TIER 3: Real feature gaps — medium risk ===
+
+Read `STATE_COMMON.md` and `STATE_JS_TS.md` then do this fix:
+
+  [JS_TS] §8 getter/setter grouping: a plain method with no return-type token (e.g. `isValid()
+  {...}`) can't join the same aligned group as `get`/`set` siblings — output correct, just
+  unaligned.
+
+When comitting replace `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with your own ID and email.
+
 
 These fix are done by Google Antigravity:
 
@@ -214,6 +225,7 @@ These fix are done by Google Antigravity:
 Please confirm them:
     curly_gdr_js_regex_inp/out.ts
     html_mathml_case_fixup_inp/out.html
+
 
 
 - [C_CPP_JAVA] `using` alias declarations not column-aligned — "NOT SCHEDULED (design decision)",

@@ -87,8 +87,7 @@ def walk(a, b, path, errors):
             errors.append(f"{path}: element name mismatch: {a.tagName!r} vs {b.tagName!r}")
         a_attrs = list(a.attributes.items()) if a.attributes else []
         b_attrs = list(b.attributes.items()) if b.attributes else []
-        if a_attrs != b_attrs:
-            errors.append(
+        if a_attrs != b_attrs: errors.append(
                 f"{path} <{a.tagName}>: attribute mismatch (order/name/value):\n"
                 f"    ORIGINAL : {a_attrs}\n"
                 f"    FORMATTED: {b_attrs}"

@@ -77,8 +77,7 @@ def main():
 
     mismatches = []
 
-    if len(orig_docs) != len(fmt_docs):
-        mismatches.append(
+    if len(orig_docs) != len(fmt_docs): mismatches.append(
             f"document count differs: original={len(orig_docs)} formatted={len(fmt_docs)}"
         )
     else:

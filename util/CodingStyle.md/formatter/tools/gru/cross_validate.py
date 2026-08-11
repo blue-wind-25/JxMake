@@ -95,7 +95,7 @@ def main():
         # a sibling with the .json extension swapped out. Present means a prior run crashed
         # mid-round (the trainer deletes it on normal completion) -- that round is NOT done and
         # must be (re-)run, never skipped.
-        checkpoint_path = Path(f"{weights_path}.ckpt-current.bin")
+        checkpoint_path    = Path(f"{weights_path}.ckpt-current.bin")
         round_already_done = weights_path.exists() and not checkpoint_path.exists()
 
         train_path.write_text("\n".join(train_lines) + "\n", encoding="utf-8")
@@ -120,7 +120,7 @@ def main():
 
         # Whether this round was just trained or skipped as already-complete, eval always runs
         # against weights_path so the precision folded into the aggregate below is freshly read
-        # back from the on-disk artifact -- a skipped round still fully contributes its result.
+        # back from the on-disk artifact -- a skipped round still fully contributes its result
         eval_cmd = ["java", "-cp", classpath, "GruEval", str(weights_path), str(test_path)]
         if args.eval_threshold is not None: eval_cmd.append(str(args.eval_threshold))
         eval_result = subprocess.run(

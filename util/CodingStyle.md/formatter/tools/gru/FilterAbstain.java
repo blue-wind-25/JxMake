@@ -52,9 +52,9 @@ public final class FilterAbstain {
 
         int total = 0, kept = 0;
         try ( BufferedReader reader = new BufferedReader(
-                new InputStreamReader( Files.newInputStream( Paths.get(args[0]) ), StandardCharsets.UTF_8 ) );
+                new InputStreamReader( Files.newInputStream( Paths.get( args[0] ) ), StandardCharsets.UTF_8 ) );
               PrintWriter out = new PrintWriter(
-                Files.newBufferedWriter( Paths.get(args[1]), StandardCharsets.UTF_8 )
+                Files.newBufferedWriter( Paths.get( args[1] ), StandardCharsets.UTF_8 )
               ) ) {
             String line;
             while( ( line = reader.readLine() ) != null ) {
@@ -63,8 +63,9 @@ public final class FilterAbstain {
                 if(tab < 0) continue;
                 final String langName = line.substring(0, tab);
                 final String text     = unescape( line.substring(tab + 1) );
-                final Lang lang;
-                try { lang = new Lang(langName); } catch(IllegalArgumentException e) { continue; }
+                final Lang   lang;
+                try { lang = new Lang(langName); }
+catch(IllegalArgumentException e) { continue; }
 
                 ++total;
                 final CommentFeatureVector features = CommentFeatureExtractor.extract(
@@ -76,7 +77,9 @@ public final class FilterAbstain {
             } // while
         }
 
-        System.out.println("FilterAbstain: " + total + " comment(s) read, " + kept + " rule-ABSTAIN'd (kept)");
+        System.out.println(
+            "FilterAbstain: " + total + " comment(s) read, " + kept + " rule-ABSTAIN'd (kept)"
+        );
     }
 
     private static String unescape(final String escaped)
@@ -101,7 +104,7 @@ public final class FilterAbstain {
                     ++i;
                     continue;
                 }
-            }
+            } // if
             sb.append(c);
         } // for
         return sb.toString();

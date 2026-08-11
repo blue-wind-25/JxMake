@@ -261,7 +261,7 @@ public class kotlin_content_diff {
      */
     static String normalizeKdocAsteriskFenceSpacing(String s)
     {
-        return s.replaceAll( "\\*[ \\t]*(`+)", "* $1" );
+        return s.replaceAll("\\*[ \\t]*(`+)", "* $1");
     }
 
     static String stripCommentDelims(String text)
@@ -495,7 +495,9 @@ public class kotlin_content_diff {
         return mismatches;
     }
 
-    static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern(
+        "yyyy-MM-dd HH:mm:ss.SSS"
+    );
 
     /**
      * Printed immediately before a pair's AST diff starts -- if the tool
@@ -516,7 +518,9 @@ public class kotlin_content_diff {
      *  missing-file check so a batch run can warn-and-skip instead of
      *  throwing.
      */
-    static boolean compareOne(Path origPath, Path fmtPath, String origLabel, String fmtLabel) throws Exception
+    static boolean compareOne(
+        Path origPath, Path fmtPath, String origLabel, String fmtLabel
+    ) throws Exception
     {
         String origSrc = new String( Files.readAllBytes(origPath) );
         String fmtSrc  = new String( Files.readAllBytes(fmtPath) );
@@ -559,7 +563,7 @@ public class kotlin_content_diff {
         );
 
         if( mismatches.isEmpty() ) {
-            System.out.println( "OK: content preserved (" + origLabel + " == " + fmtLabel + ")" );
+            System.out.println("OK: content preserved (" + origLabel + " == " + fmtLabel + ")");
 
             return true;
         }
@@ -576,7 +580,9 @@ public class kotlin_content_diff {
     static void printUsage()
     {
         System.err.println("Usage: kotlin_content_diff.sh <original.kt> <formatted.kt>");
-        System.err.println("       kotlin_content_diff.sh <original_base_dir> <formatted_base_dir> <kt_rel_path_file_list.txt>");
+        System.err.println(
+            "       kotlin_content_diff.sh <original_base_dir> <formatted_base_dir> <kt_rel_path_file_list.txt>"
+        );
     }
 
     static void runSingle(String origArg, String fmtArg) throws Exception
@@ -588,17 +594,25 @@ public class kotlin_content_diff {
 
         boolean origExists = Files.exists(origPath);
         boolean fmtExists  = Files.exists(fmtPath);
-        if( !origExists || !fmtExists ) {
-                 if( !origExists && !fmtExists ) System.out.println( "WARNING: both " + origArg + " and " + fmtArg + " are missing" );
-            else if( !origExists )               System.out.println( "WARNING: " + origArg + " is missing" );
-            else                                 System.out.println( "WARNING: " + fmtArg + " is missing" );
+        if(!origExists || !fmtExists) {
+                 if(!origExists && !fmtExists) System.out.println(
+                     "WARNING: both " + origArg + " and " + fmtArg + " are missing"
+                 );
+            else if(!origExists)               System.out.println(
+                "WARNING: " + origArg + " is missing"
+            );
+            else                                 System.out.println(
+                "WARNING: " + fmtArg + " is missing"
+            );
             System.exit(1);
-        }
+        } // if
 
         if( !compareOne(origPath, fmtPath, origArg, fmtArg) ) System.exit(1);
     }
 
-    static void runBatch(String origBaseDir, String fmtBaseDir, String fileListPath) throws Exception
+    static void runBatch(
+        String origBaseDir, String fmtBaseDir, String fileListPath
+    ) throws Exception
     {
         List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );
 
@@ -615,28 +629,30 @@ public class kotlin_content_diff {
 
             boolean origExists = Files.exists(origPath);
             boolean fmtExists  = Files.exists(fmtPath);
-            if( !origExists && !fmtExists ) {
-                System.out.println( "  WARNING: missing from both " + origBaseDir + " and " + fmtBaseDir + " -- skipping" );
+            if(!origExists && !fmtExists) {
+                System.out.println(
+                    "  WARNING: missing from both " + origBaseDir + " and " + fmtBaseDir + " -- skipping"
+                );
+                ++missingCount;
+                continue;
+            } // if
+            if(!origExists) {
+                System.out.println("  WARNING: missing from " + origBaseDir + " -- skipping");
                 ++missingCount;
                 continue;
             }
-            if( !origExists ) {
-                System.out.println( "  WARNING: missing from " + origBaseDir + " -- skipping" );
-                ++missingCount;
-                continue;
-            }
-            if( !fmtExists ) {
-                System.out.println( "  WARNING: missing from " + fmtBaseDir + " -- skipping" );
+            if(!fmtExists) {
+                System.out.println("  WARNING: missing from " + fmtBaseDir + " -- skipping");
                 ++missingCount;
                 continue;
             }
 
             try {
                 if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
-                else ++mismatchCount;
+                else                                          ++mismatchCount;
             }
             catch(Exception e) {
-                System.out.println( "  ERROR: " + e );
+                System.out.println("  ERROR: " + e);
                 ++mismatchCount;
             }
         } // for
@@ -647,14 +663,14 @@ public class kotlin_content_diff {
             " MISSING (of " + (okCount + mismatchCount + missingCount) + " files checked)"
         );
 
-        if( mismatchCount > 0 || missingCount > 0 ) System.exit(1);
+        if(mismatchCount > 0 || missingCount > 0) System.exit(1);
     }
 
     public static void main(String[] args) throws Exception
     {
-             if(args.length == 2) runSingle(args[0], args[1]);
-        else if(args.length == 3) runBatch(args[0], args[1], args[2]);
-        else {
+             if(args.length == 2) runSingle( args[0], args[1] );
+        else if(args.length == 3) runBatch( args[0], args[1], args[2] );
+        else                      {
             printUsage();
             System.exit(2);
         }

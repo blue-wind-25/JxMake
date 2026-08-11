@@ -23,6 +23,7 @@ Pipeline order
 7. Train                                            -> GruTrainer.java (make gru-train)
 8. Evaluate precision against a held-out set        -> GruEval.java
 9. Bound precision variance via repeated splits     -> cross_validate.py
+10. Sanity-check decisiveness on unlabeled real code -> FilterAbstain.java + GruRealCorpusTally.java
 
 Steps 1+3 for many sources at once, minus the labeling, are automated by
 acquire_corpus.sh.
@@ -364,6 +365,31 @@ GruEval.java
     trades away correct decisions faster than it fixes wrong ones. Example:
 
         java -cp target/classes:<gru-tools-classes> GruEval <weights-file> <examples-file> 0.5 0.6 0.7 0.8 0.9
+
+FilterAbstain.java
+    Filters a comments file (from extract_comments.py) down to only the
+    lines the real rule-based CommentClassifier ABSTAINs on at
+    targetWordIndex=0 -- the only shape of line the GRU stage ever actually
+    reaches in production. Run before sampling a real, unrelated codebase
+    for a GRU spot-check, so the sample isn't mostly non-ambiguous lines
+    the GRU never sees. Wired as a Makefile target:
+
+        make gru-filter-abstain GRU_ABSTAIN_INPUT=<comments-file> GRU_FILTER_ABSTAIN_OUT=<out-file>
+
+GruRealCorpusTally.java
+    Runs the real rules-then-GRU-on-abstain pipeline over a comments file
+    (usually FilterAbstain's output) at one or more abstainThreshold
+    values, tallying the GRU stage's YES/NO/ABSTAIN decision distribution.
+    Needs no ground-truth labels (unlike GruEval) -- useful for an
+    out-of-distribution sanity check against a real, unrelated codebase,
+    where hand-labeling isn't practical. A low abstain rate and/or heavy
+    single-class skew on genuinely out-of-distribution text is itself a
+    signal worth checking against a reported precision figure (see
+    STATE_AI.md's 2026-08-12 entry, prompted by an unexpectedly high
+    5-round full-corpus CV precision figure). Wired as a Makefile target:
+
+        make gru-real-corpus-tally GRU_TALLY_INPUT=<filtered-comments-file> \
+            [GRU_TALLY_WEIGHTS=<weights-file>] [GRU_TALLY_THRESHOLDS="0.68 0.72 0.76"]
 
 acquire_corpus.sh
     Automates acquisition + extraction only (steps 1+3 above) across a

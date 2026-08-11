@@ -32,6 +32,8 @@ SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
 	gru-extract-pool-a                 \
 	gru-extract-pool-b                 \
 	gru-measure-abstain-rate           \
+	gru-filter-abstain                 \
+	gru-real-corpus-tally              \
 	gru-acquire-corpus                 \
 	gru-hand-labeled-examples          \
 	gru-train                          \
@@ -163,6 +165,46 @@ gru-measure-abstain-rate: $(JAR_FILE)
 	@mkdir -p $(GRU_TOOLS_CLASSES)
 	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/CommentAbstainTally.java
 	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) CommentAbstainTally $(GRU_ABSTAIN_INPUT)
+
+# ── GRU out-of-distribution held-out check (STATE_AI.md 2026-08-12 entry) ───
+#
+# `gru-filter-abstain` filters a comment corpus (from `extract_comments.py`) down to only the lines the
+# real rule-based `CommentClassifier` ABSTAINs on -- the only shape of line the GRU stage ever actually
+# reaches in production. Run this before sampling a real, unrelated codebase for a GRU spot-check, so
+# the sample isn't mostly non-ambiguous lines the GRU never sees.
+#
+# `gru-real-corpus-tally` then runs the real rules-then-GRU-on-abstain pipeline over such a filtered corpus
+# at one or more `abstainThreshold` values, tallying the GRU stage's YES/NO/ABSTAIN decision distribution.
+# Needs no ground-truth labels (unlike `GruEval`) -- a low abstain rate and/or heavy single-class skew on
+# genuinely out-of-distribution text is itself a signal worth checking against a reported precision figure.
+#
+# Usage:
+#     python3 tools/gru/extract_comments.py <root-dir> [<root-dir> ...] --out /tmp/comments.txt
+#     make gru-filter-abstain GRU_ABSTAIN_INPUT=/tmp/comments.txt GRU_FILTER_ABSTAIN_OUT=/tmp/abstain.txt
+#     make gru-real-corpus-tally GRU_TALLY_INPUT=/tmp/abstain.txt GRU_TALLY_THRESHOLDS="0.68 0.72 0.76"
+#
+GRU_FILTER_ABSTAIN_OUT ?=
+GRU_TALLY_INPUT        ?=
+GRU_TALLY_WEIGHTS      ?= code-formatter-ai-assist-weights.json
+GRU_TALLY_THRESHOLDS   ?= 0.7
+
+gru-filter-abstain: $(JAR_FILE)
+	@if [ -z "$(GRU_ABSTAIN_INPUT)" ] || [ -z "$(GRU_FILTER_ABSTAIN_OUT)" ]; then                                                  \
+		echo "gru-filter-abstain: set GRU_ABSTAIN_INPUT=<path from extract_comments.py> GRU_FILTER_ABSTAIN_OUT=<output path>"; \
+		exit 2;                                                                                                                \
+	fi
+	@mkdir -p $(GRU_TOOLS_CLASSES)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/FilterAbstain.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) FilterAbstain $(GRU_ABSTAIN_INPUT) $(GRU_FILTER_ABSTAIN_OUT)
+
+gru-real-corpus-tally: $(JAR_FILE)
+	@if [ -z "$(GRU_TALLY_INPUT)" ]; then                                                                                                                          \
+		echo "gru-real-corpus-tally: set GRU_TALLY_INPUT=<path from gru-filter-abstain> [GRU_TALLY_WEIGHTS=<path>] [GRU_TALLY_THRESHOLDS=\"0.68 0.72 0.76\"]"; \
+		exit 2;                                                                                                                                                \
+	fi
+	@mkdir -p $(GRU_TOOLS_CLASSES)
+	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -cp $(CLASS_DIR) -d $(GRU_TOOLS_CLASSES) $(GRU_TOOLS_DIR)/GruRealCorpusTally.java
+	@$(JAVA) -cp $(CLASS_DIR):$(GRU_TOOLS_CLASSES) GruRealCorpusTally $(GRU_TALLY_WEIGHTS) $(GRU_TALLY_INPUT) $(GRU_TALLY_THRESHOLDS)
 
 # ── GRU corpus acquisition + auto-labeling target ────────────────────────────
 #

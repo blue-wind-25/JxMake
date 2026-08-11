@@ -1325,3 +1325,82 @@ appeared, including `GruTrainer: starting -- ... maxEpochs=2, patience=1 ...`
 examples per epoch (matching `--progress-every=1`), through to the final
 `GruEval` precision line unaffected. `python3 -m py_compile
 tools/gru/cross_validate.py` clean after the fix.
+
+---
+
+**2026-08-12 — user-flagged "too good to be true" 5-round full-corpus CV
+result investigated; out-of-distribution GRU check added and run.** User's
+2026-08-11 `make gru-cv-corpus` run (`Zcv_corpus.zip`, seed 1000-1004, full
+`tools/gru/sample_default.txt` — 119641 lines, train=95712/test=23929 per
+round) reported `mean=0.9933 stdev=0.0008 min=0.9920 max=0.9939` — inspected
+`gru_cv_corpus.out` directly. **Diagnosis: same training-fit-vs-held-out
+shape as the 2026-08-02 98.7%-vs-86.3% gap, not a new bug.** This CV run
+splits `sample_default.txt` itself, which is overwhelmingly the
+`GenerateSampleDefault.java` auto-labeled majority (easy, mechanically-
+labeled-by-the-rules-already YES/NO), not the 594-row hand-labeled hard-case
+set — per-round confusion matrices confirm the skew directly
+(`tn+fn` ~600-700 vs `tp+fp` ~23000 per round). The genuinely-hard,
+hand-labeled-only CV (474/522-row sets, 2026-08-02/2026-08-02-later) is the
+number that actually bounds real generalization (86.3% mean at the time);
+this run measures something different (near-in-distribution accuracy on a
+corpus dominated by already-easy examples) and was never intended as a
+substitute for it — 99.33% is real but not informative about hard cases.
+
+**New out-of-distribution check, no ground truth needed.** Built two new
+permanent tools (`tools/gru/FilterAbstain.java`,
+`tools/gru/GruRealCorpusTally.java` — Makefile targets
+`gru-filter-abstain`/`gru-real-corpus-tally`) to sanity-check the shipped
+weights against a real, unrelated codebase without hand-labeling: extract
+comments from `../../../../Shadow/Pt/*.{h,hpp,tpp,c,cpp}` (external repo,
+687 candidate files, `extract_comments.py` → 188709 raw comments),
+`FilterAbstain` down to the 4461 the rule-based `CommentClassifier` itself
+ABSTAINs on (the only lines the GRU stage ever reaches in production — a
+raw random sample is mostly non-ambiguous lines the GRU never sees, so
+sampling *before* this filter under-exercises the GRU the same way the
+full-corpus CV above does), then a fixed-seed 200-line sample (user's
+explicit hard cap) fed through `GruRealCorpusTally` at
+`abstainThreshold` = 0.5 / 0.68 / 0.70 / 0.72 / 0.76 / 0.90 (shared forward-
+pass probabilities per line, one pass per threshold, same technique as
+`GruEval`'s sweep):
+
+```
+threshold=0.50  GRU-YES=183 GRU-NO=17 GRU-ABSTAIN=0   gru-decide-rate=100.0%
+threshold=0.68  GRU-YES=180 GRU-NO=14 GRU-ABSTAIN=6   gru-decide-rate=97.0%
+threshold=0.70  GRU-YES=180 GRU-NO=14 GRU-ABSTAIN=6   gru-decide-rate=97.0%
+threshold=0.72  GRU-YES=180 GRU-NO=13 GRU-ABSTAIN=7   gru-decide-rate=96.5%
+threshold=0.76  GRU-YES=180 GRU-NO=13 GRU-ABSTAIN=7   gru-decide-rate=96.5%
+threshold=0.90  GRU-YES=166 GRU-NO=7  GRU-ABSTAIN=27  gru-decide-rate=86.5%
+```
+
+**Reading:** on genuinely out-of-distribution text, all of 0.68/0.72/0.76
+behave almost identically to the shipped 0.7 (96.5-97.0% decide-rate,
+~13x YES:NO skew) — none of the three requested points meaningfully changes
+behavior versus the current default; the classifier is still resolving
+nearly everything confidently even on unseen code, and only 0.90 (well
+outside the requested range) meaningfully raises the abstain rate (13.5%).
+15-line manual spot-check of the sampled rule-ABSTAIN lines: most are
+genuine fluent English keyword-led sentences (`"do current buffer contents
+need written?"`, `"else RGB order"`, `"if no instance is selected yet"`) —
+plausible-looking YES calls, not obvious garbage/majority-class collapse —
+but one sampled line was a multi-line commented-out code block
+(`BIO_set_cipher_ctx`) that should mechanically be NO; not checked whether
+GRU got that specific one right (no ground truth in this pass). **No
+precision number is claimable from this pass** (Shadow/Pt has no hand
+labels) — this only answers "does the abstain rate/skew look realistic on
+truly unseen text," not "is it correct." **Disposition: 0.68/0.72/0.76 do
+not look more realistic than 0.70 by this measure — no threshold change
+made.** `abstainThreshold` stays `0.7` in
+`code-formatter-ai-assist-weights.json`; no weights/trainer/tools code
+changed. If a genuine precision check against Shadow/Pt-class text is wanted
+later, hand-labeling a Pool-A-shaped subset (see `add_target_index.py`) of
+`FilterAbstain`'s output and running it through `GruEval` (not
+`GruRealCorpusTally`, which is decisiveness-only) is the next step — not
+done this session (out of scope; user said "we decide more as needed" after
+just these 3 threshold points).
+
+`make jar` + `make test`: **286/286 forward, 286/286 idempotency** — clean
+(new tools live under `tools/gru/`, outside `src/`, don't affect the shipped
+jar's behavior). `Zcv_corpus.zip` (real training/test splits + trained
+per-round weights, 40MB) and all `Shadow/Pt`-derived extraction/sample files
+stay under `/tmp`/scratchpad per RDD_EXT_19 — not committed, not left in the
+repo root.

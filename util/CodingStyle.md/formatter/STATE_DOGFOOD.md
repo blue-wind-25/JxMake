@@ -50,7 +50,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | C/C++ | STATE_C_CPP_JAVA.md | user-reported `} // while` case | DONE | Fixture: real_code_regressions_5 |
 | C++26 | STATE_CPP26.md | ryanjk5.github.io (rjk-duck post) | DONE | 1 out-of-scope finding, not this job's |
 | C++26 | STATE_CPP26.md | simdjson/experimental_json_builder | DONE | 1 bug found+fixed |
-| C++26 | STATE_CPP26.md | stephenberry/glaze | DONE | zero in-scope bugs |
+| C++26 | STATE_CPP26.md | stephenberry/glaze | DONE | 1 in-scope bug found+fixed (RDD_KEY_285, `json_patch_test.cpp` round1/round2 idempotency, `ScopePipelineCurly.applyOversizedAggregateInitClosingBracePass`); several other findings out-of-scope C/C++/Java-job |
 | C++26 | STATE_CPP26.md | wrocpp/cpp26-reflection-examples | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src minus jxm (vendored 3rd-party) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src/jxm (JxMake's own Java tree) | DONE | |

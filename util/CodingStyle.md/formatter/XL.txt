@@ -137,6 +137,12 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 ####################################################################################################
 ####################################################################################################
 
+Compact all `STATE_*.md` files (EXCEPT `STATE_JS_TS.md`). Use at most 5 sub-agents in parallel -
+balance the job between the sub-agents based on the file sizes. Be careful not to lose important
+information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
+exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix, etc.
+Basically, compact the prose but keep the information intact.
+
 === TIER 0: Recurring job ===
 
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**

@@ -423,6 +423,7 @@ JS/TS:
                                                         plain identifier declarator, and two consecutive `type
                                                         X = ...` aliases form their own `=`-aligned group.
 
+JSX/TSX:
   jsx_tsx_return_context_inp/out.tsx                 -- JSX/TSX boundary-finding pre-pass
                                                         (XL.txt TIER 3, STATE_JS_TS.md), Increment 1:
                                                         `.tsx`-only, "after `return`" expression-start

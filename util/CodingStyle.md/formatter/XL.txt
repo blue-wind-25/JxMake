@@ -196,23 +196,27 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-NONE FOR NOW
-
-Use sub-agent. This can be a substantial work.
-
-=== TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
-
 - [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — DESIGN LANDED 2026-08-12
   (STATE_JS_TS.md Open Questions, "2026-08-12 design session"): concrete expression-start-context
   list and opaque `JSX_SPAN` token representation now specified, plus the generic-vs-JSX ambiguity
   resolved by scoping the pre-pass to `.tsx`/`.jsx` files only (run before
   `reclassifyAngleBrackets`). Still NOT implemented — no code, no fixtures, this was a design-only
-  pass. HIGH risk remains for the actual implementation (architectural, cross-pass-ordering); the
-  context list is flagged as an unvalidated draft needing a real JSX corpus check before an
-  implementation session trusts it as complete. It's the blocker for the future JSX/TSX
-  embedding-aware dispatcher (STATE_JS_TS.md) — JSX/TSX itself is real planned future work per
-  CLAUDE.md's job table, not a rejected idea, so this belongs here rather than TIER X: Dead (moved
-  from there 2026-08-12).
+  pass. Downgraded from TIER 4 2026-08-12: the file-extension gate means `.js`/`.ts` files never
+  enter the pre-pass and never see a `JSX_SPAN` token, so the blast radius is confined to the
+  currently-unsupported `.tsx`/`.jsx` file types — implementing this should carry no regression
+  risk to existing JS/TS-only output, unlike TIER 4's "destabilizes an existing working pass"
+  risk class (verify the gate is actually enforced at the entry point during implementation,
+  rather than assumed). The context list is still flagged as an unvalidated draft needing a real
+  JSX corpus check before an implementation session trusts it as complete. It's the blocker for
+  the future JSX/TSX embedding-aware dispatcher (STATE_JS_TS.md) — JSX/TSX itself is real planned
+  future work per CLAUDE.md's job table, not a rejected idea, so this belongs here rather than
+  TIER X: Dead (moved from there 2026-08-12).
+
+Use sub-agent. This can be a substantial work.
+
+=== TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
+
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 

@@ -47,6 +47,13 @@ In-file config directive:
                                                         other, org, com, android, java, kotlin); one import
                                                         per bucket proves the full reversed order.
 
+  in_file_config_lang_inp/out.h                      -- Proves the `--lang` pseudo-key directive form (`/*%
+                                                        JXM_CFMT_CFG --lang=cpp */`): a `.h` file, which
+                                                        `Lang.infer` defaults to `"c"`, is forced onto the
+                                                        `cpp` pipeline instead -- shown by the
+                                                        empty-parameter-list rendering flipping from C's
+                                                        `bar(void)` to C++'s `bar()`.
+
   in_file_config_error_inp/out.hpp                   -- Proves the hard-error path (two JXM_CFMT_CFG
                                                         directives in one file must be rejected, never
                                                         silently resolved). Deliberately not run by `make

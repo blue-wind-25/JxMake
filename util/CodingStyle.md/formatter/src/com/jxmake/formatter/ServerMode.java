@@ -23,6 +23,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
+import com.jxmake.formatter.tokenizer.TokenizerCore;
+
 public final class ServerMode {
 
     private static final String LOCKFILE_NAME = "server.lock";
@@ -361,8 +363,15 @@ public final class ServerMode {
                     inlineConfig.put( key, entry.getValue() );
                 } // for
 
-                final String path     = params.get("path");
-                      String language = params.get("lang");
+                final String path            = params.get("path");
+                final String queryLanguage   = params.get("lang");
+                final boolean formatOff      = "true".equals(
+                    params.get("format-off")
+                );
+                final String              content         = readBody( exchange.getRequestBody() );
+                final Map<String, String> inFileOverrides = InFileConfig.parse(content);
+                final String              inFileLanguage  = inFileOverrides.remove("--lang");
+                      String              language        = inFileLanguage != null ? inFileLanguage : queryLanguage;
 
                 if(path == null) {
                     if( language == null || inlineConfig.isEmpty() ) {
@@ -374,7 +383,7 @@ public final class ServerMode {
                     language = Lang.infer(path);
                     if(language == null) {
                         respond(
-                            exchange, 400, "could not infer language from path extension: " + path + " (client should pass an explicit 'lang' query parameter)"
+                            exchange, 400, "could not infer language from path extension: " + path + " (client should pass an explicit 'lang' query parameter, or a top-of-file " + TokenizerCore.JXM_CFMT_CFG + " --lang directive)"
                         );
                         return;
                     }
@@ -392,12 +401,7 @@ public final class ServerMode {
                     language
                 );
 
-                final boolean             formatOff       = "true".equals(
-                    params.get("format-off")
-                );
-                final String              content         = readBody( exchange.getRequestBody() );
                 final Path                targetFile      = path == null ? null : Paths.get(path);
-                final Map<String, String> inFileOverrides = InFileConfig.parse(content);
                 final Config              config          = Config.resolve(
                     targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides
                 );

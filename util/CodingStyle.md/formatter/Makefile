@@ -330,6 +330,7 @@ INP_FILES :=
 INP_FILES += in_file_config_inp.hpp
 INP_FILES += in_file_config_inp.java
 INP_FILES += in_file_config_inp.kt
+INP_FILES += in_file_config_lang_inp.h
 # - Deliberately error-only (duplicate `JXM_CFMT_CFG` directive).
 # - It will always FAIL the normal `diff` loop, since the formatter exits 1 with no output for it.
 # - It is kept commented out so `make test` stays green; uncomment to exercise its hard-error path manually.

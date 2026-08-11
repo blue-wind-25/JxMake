@@ -62,7 +62,10 @@ every file given on that command line (mixing file types with a single forced `-
 invocation isn't supported — run the formatter once per language instead).
 Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
 with server mode (below) — the client sends the chosen language to the server, which uses it
-in place of its own extension-based guess for that request.
+in place of its own extension-based guess for that request. For a per-file override instead
+of a per-invocation one (so mixed-language file lists and templated sources like `.java.in`/
+`.java.inc` don't need a separate invocation each), see the `--lang` form of the in-file
+[`JXM_CFMT_CFG` directive](#in-file-config-overrides) below.
 
 ### Output modes
 
@@ -219,6 +222,31 @@ copyright header. For example, this is *not* detected:
 Only one `JXM_CFMT_CFG` directive is allowed per file; a second occurrence is a hard
 error (nonzero exit, no output), not a "last one wins" merge.
 
+**Language override (`--lang`):** alongside ordinary `key=value` config entries, the
+directive also accepts a `--lang` pseudo-key, matching the CLI flag of the same name
+and accepting the same values (`c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`,
+`yaml`, `toml`, `xml`, `html5`, `js`, `ts`, `python3`, `makefile`, `bash`, `powershell`):
+
+```java
+//% JXM_CFMT_CFG --lang=cpp
+
+/*% JXM_CFMT_CFG --lang=cpp */
+```
+
+This is a per-file alternative to passing `--lang` on the command line (or the
+server's `lang` query parameter) every invocation — useful for a file whose extension
+either can't be recognized at all (a templated source file such as `Template.java.in`
+or `Module.java.inc`) or is recognized but resolves to the wrong language for that
+particular file (e.g. a `.h` file that is actually C++, not C — see "Known
+Limitations" below). Like every other `JXM_CFMT_CFG` entry, `--lang` is the
+highest-priority layer: it wins over an explicit CLI `--lang`/server `lang` param as
+well as extension-based inference. It can be combined with ordinary config entries in
+the same directive, separated by `;` (order doesn't matter):
+
+```java
+//% JXM_CFMT_CFG --lang=cpp;indent-size=2
+```
+
 ### GDR in-file directive
 
 When `curly-general-scope-reindent = on` (see Configuration below), a source file can
@@ -277,7 +305,8 @@ precedence (later sources override earlier ones):
 4. `.jxmake-code-formatter` in the project root — per-project config (commit this to the repo)
 5. `.jxmake-code-formatter` in the source subdirectory — inherits from parent, overrides specific keys
 6. CLI flags / server request's inline query-param config
-7. A file's own `JXM_CFMT_CFG` directive (see [In-file config overrides](#in-file-config-overrides)) — always wins
+7. A file's own `JXM_CFMT_CFG` directive (see [In-file config overrides](#in-file-config-overrides)) — always wins,
+   including its `--lang` pseudo-key, which overrides the CLI `--lang` flag / server `lang` param too
 
 **Server mode note on tiers 2/3:** server mode is `localhost`-only (see "Server Wire Protocol"
 below) — the server process reads its own `~/.config/jxmake-code-formatter/config` (tier 2) and
@@ -780,18 +809,23 @@ here if and when it actually gains a documented gap.
    '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
    codebases that keep a lot of commented-out code inside otherwise-prose comment groups.
 
-6. **`.h` files default to C inference, so C++26 §5 reflection rules (`^^`, `[: :]` splice
-   brackets) never apply to a `.h` file's content unless explicitly overridden.** `Lang.infer`
-   maps the `.h` extension to `"c"` by default (C is by far the more common real-world case for a
-   bare `.h` file). This is a deliberate design decision, not an oversight: blanket-treating every
-   `.h` as C++ would risk misapplying C++-only reflection rules to genuine C headers, and
-   content-sniffing heuristics to auto-detect C vs. C++ were judged too fragile to trust for a
-   correctness-sensitive rewrite like this. If you have a `.h` file that is actually C++ content
-   (e.g. a header-only library shipping `.h` instead of `.hpp`) and want C++26 §5 reflection-rule
-   support applied, pass an explicit language override: `--lang cpp` on the CLI, or the `lang=cpp`
-   query parameter in server mode. Verified: the override takes priority over extension-based
-   inference for `.h` files specifically — `^^`/`[: :]` are left untouched under default `.h`
-   inference and correctly rewritten under `--lang cpp`.
+6. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
+   rules (`^^`, `[: :]` splice brackets), but every C++-specific behavior across the whole `cpp`
+   pipeline (e.g. empty-parameter-list rendering, `template`/`requires` handling, and every other
+   C++20/C++23/C++26 rule this formatter implements) — never applies to a `.h` file's content
+   unless explicitly overridden.** `Lang.infer` maps the `.h` extension to `"c"` by default (C is
+   by far the more common real-world case for a bare `.h` file). This is a deliberate design
+   decision, not an oversight: blanket-treating every `.h` as C++ would risk misapplying
+   C++-only rules to genuine C headers, and content-sniffing heuristics to auto-detect C vs. C++
+   were judged too fragile to trust for a correctness-sensitive rewrite like this. If you have a
+   `.h` file that is actually C++ content (e.g. a header-only library shipping `.h` instead of
+   `.hpp`) and want the full C++ pipeline applied, pass an explicit language override: `--lang
+   cpp` on the CLI, the `lang=cpp` query parameter in server mode, or (to avoid having to
+   remember the flag on every invocation) a per-file `//% JXM_CFMT_CFG --lang=cpp` /
+   `/*% JXM_CFMT_CFG --lang=cpp */` directive at the top of the file itself — see [In-file config
+   overrides](#in-file-config-overrides) above. Verified: the override takes priority over
+   extension-based inference for `.h` files specifically — `^^`/`[: :]` are left untouched under
+   default `.h` inference and correctly rewritten under `--lang cpp`.
 
 ### Tag-based family (XML/HTML5)
 

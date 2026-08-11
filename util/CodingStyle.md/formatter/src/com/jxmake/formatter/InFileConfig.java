@@ -57,6 +57,13 @@ public final class InFileConfig {
      * comment/blank-line preamble, or a directive naming a key that either isn't a recognized
      * config key or is one of the process/server-invocation-scoped keys ({@code server-port},
      * {@code server-concurrency}, {@code client-read-ahead} -- not per-file properties).
+     *
+     * <p>One additional pseudo-key is recognized alongside ordinary config keys: {@code --lang}
+     * (matching the CLI flag's name), e.g. {@code --lang=cpp}. It is a language override, not a
+     * {@link Config} key, so it is exempt from the {@link Config#isKnownKey} check and validated
+     * against {@link Lang#isRecognized} instead; the caller is responsible for pulling it back out
+     * of the returned map (key literally {@code "--lang"}) before passing the map to {@link
+     * Config#resolve}. Same highest-priority-layer precedence as every other directive entry.
      */
     public static Map<String, String> parse(final String source) throws IOException
     {
@@ -87,7 +94,7 @@ public final class InFileConfig {
                 body       = directiveBody;
             }
         } // while
-        if(count == 0) return java.util.Collections.emptyMap();
+        if(count == 0) return new LinkedHashMap<String, String>();
         if(count > 1) throw new IOException(
             "multiple " + TokenizerCore.JXM_CFMT_CFG + " directives found -- only one is allowed per file"
         );
@@ -107,6 +114,13 @@ public final class InFileConfig {
             );
             final String key   = trimmed.substring(0, eq).trim();
             final String value = trimmed.substring(eq + 1).trim();
+            if( "--lang".equals(key) ) {
+                if( !Lang.isRecognized(value) ) throw new IOException(
+                    TokenizerCore.JXM_CFMT_CFG + ": \"--lang\" must be one of: " + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + " (got: " + value + ")"
+                );
+                result.put(key, value);
+                continue;
+            }
             if( !isPerFileApplicable(
                 key
             ) ) throw new IOException(

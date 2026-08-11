@@ -160,6 +160,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_281 | Tier2 backlog re-verification: `SwitchRule.deriveUnit`'s "hardcoded 4-space fallback" (real-code-testing item (9), `fmtlib/fmt` at `indent-size = 2`) was already fixed by `c0a2305` (2026-07-06) before this item's narrative sentence gained a disposition marker -- `deriveUnit` already returns `defaultIndentUnit`, built from `config.indentSize()` via `FormatterCurly`'s one `new SwitchRule(lang, lineLengthLimit, indentWidth)` call site; `MiscRuleCore.DEFAULT_INDENT_WIDTH` (literal `4`) is dead at runtime, reachable only via the unused 2-arg constructor overload. No source change made. Re-verified via a fresh flush-case-label `.cpp` scratch fixture at `indent-size = 2` (and `= 8`): idempotent, unit correctly scales with configured indent-size. `make test` unchanged, 278/278. |
 | RDD_KEY_283 | `using` alias declarations (C++11+) column-aligned on `=` via new isolated `parseUsingAlias`/`renderUsingAliasGroup` path in `DeclarationAlignmentRuleCurly`; bails out untouched on any `...` token to avoid colliding with C++26 pack-indexing/variadic-template spacing rules. `make test` 283/283 -> 284/284. Fixture: `test/cpp_using_alias_{inp,out}.cpp`. See narrative entry in "Known Gaps -- Fixed" for full detail. |
 | RDD_KEY_284 | Follow-up to RDD_KEY_283: pack-indexing/variadic-template `using` aliases (`template<typename... T> using Name = T...[N];`) are now ALSO aligned, via new `Declaration.aliasRawTypeText`/`templatePrefixRawText` verbatim-raw-text fields instead of bailing -- `enforcePackIndexingSpacing` runs after declaration alignment regardless of which pass emitted the line, so only the aliased type needed this; the `template<...>` prefix has no such downstream fix-up pass, so it's rendered verbatim too rather than regenerated, sidestepping the question. Also fixed: a standalone comment between `template<...>` and `using` has no home in the `Declaration` model and was being silently dropped -- now detected and bailed on (leave untouched); and a same-line trailing-comment spacing bug (single space instead of the codebase's two-space convention). `make test` unchanged at 284/284 (refines the existing `cpp_using_alias`/`cpp26_comments` fixtures, no new fixture). See narrative entry for full detail. |
+| RDD_KEY_286 | `JXM_CFMT_CFG` directive gained a `--lang` pseudo-key (`//% JXM_CFMT_CFG --lang=cpp`) for a per-file language override, highest-priority (wins over CLI `--lang`/server `lang` param too) -- addresses the `.h`-defaults-to-C Open Question below (an explicit per-file fix, not a change to the default) and templated sources (`.java.in`/`.java.inc`) whose extension can't be inferred at all. `InFileConfig.parse` special-cases the key, validates via `Lang.isRecognized`; `Main.processFile`/`ServerMode.FormatHandler` reordered to read the file/body before deciding language. New fixture `in_file_config_lang_{inp,out}.h`. `make test`/`make test-server`: 285/285 -> 286/286, zero regressions. `README.md` updated (new subsection, precedence list, Known Limitations item 6 broadened from C++26-only to the whole C++ pipeline). |
 
 ---
 
@@ -178,6 +179,14 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   already takes priority over extension-based `inferLanguage` with no bug found; no source change
   needed. Documented in `README.md`'s Known Limitations, curly-brace family, item 6. `make test`:
   278/278 forward + idempotency, unchanged.
+
+  **2026-08-12 follow-up:** a per-file alternative to remembering `--lang cpp` on every
+  invocation now exists -- the `JXM_CFMT_CFG` directive's new `--lang` pseudo-key (RDD_KEY_286).
+  Known Limitations item 6 broadened at the same time from "C++26 §5 reflection rules only" to
+  the whole C++-only rule surface (the underlying gap was never reflection-specific -- every
+  C++-only rule in the `cpp` pipeline was equally affected, item 6's wording just hadn't said so
+  yet). The default `.h` -> `"c"` inference itself is unchanged; still the project owner's
+  decision per this entry's original text above.
 
 - **range-v3 real-code-testing item 20, bug (a): RESOLVED.** Idempotency divergence in
   `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause/fix: entry (20) in

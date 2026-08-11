@@ -366,6 +366,26 @@ precedence list has a 7th tier for this directive. Full narrative:
 `RDD_KEY_167` (core mechanism/precedence/hard-error rules) and `RDD_KEY_168`
 (fixture design pivot) in `RDD_LOG.md`.
 
+**`--lang` pseudo-key — DONE (2026-08-12, RDD_KEY_286).** The directive also
+accepts `--lang=<language>` (e.g. `//% JXM_CFMT_CFG --lang=cpp`) as a
+per-file language override, same name/values as the CLI `--lang` flag /
+server `lang` query param, same highest-priority precedence as every other
+directive entry (wins over CLI `--lang`/server `lang` too). Not a `Config`
+key — `InFileConfig.parse` special-cases the literal key `"--lang"`,
+validates it against `Lang.isRecognized` instead of `Config.isKnownKey`,
+and leaves it in the returned map for the caller to `.remove("--lang")`
+before passing the rest to `Config.resolve`. `Main.processFile`/
+`ServerMode.FormatHandler` both reordered to read the file/request body
+(needed to parse the directive) before deciding the file's language.
+Two real use cases: a `.h` file that's actually C++ (see
+`STATE_C_CPP_JAVA.md`'s `.h`-defaults-to-C Open Question), and a templated
+source file whose extension can't be inferred at all (`.java.in`/
+`.java.inc`). Fixture: `test/in_file_config_lang_{inp,out}.h`. `README.md`
+updated (new subsection under "In-file config overrides", cross-reference
+from the CLI `--lang` section, Configuration precedence list, and Known
+Limitations curly-brace-family item 6 broadened from C++26-reflection-only
+to the whole C++ pipeline).
+
 ---
 
 ## Class Refactor (curly/indent/tags split) — DONE

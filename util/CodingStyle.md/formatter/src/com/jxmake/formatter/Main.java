@@ -26,6 +26,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.jxmake.formatter.tokenizer.TokenizerCore;
+
 public final class Main {
 
     private enum OutputMode {
@@ -415,13 +417,14 @@ public final class Main {
     ) throws IOException
     {
         if( !Files.isRegularFile(path) ) throw new IOException("no such file: " + path);
-        final String language = explicitLanguage != null ? explicitLanguage : inferLanguage(path);
+        final String  original    = readFile(path);
+        final String  inFileLang  = InFileConfig.parse(original).get("--lang");
+        final String  language    = inFileLang != null ? inFileLang : ( explicitLanguage != null ? explicitLanguage : inferLanguage(path) );
         if(language == null) throw new IOException(
-            "could not infer language from file extension: " + path + " (use --lang c|cpp|java to override)"
+            "could not infer language from file extension: " + path + " (use --lang c|cpp|java to override, or a top-of-file " + TokenizerCore.JXM_CFMT_CFG + " --lang directive)"
         );
         if( Lang.isScaffoldOnly(language) ) throw new UnsupportedLanguageException(language);
 
-        final String  original  = readFile(path);
         final String  formatted = format(
             path, language, original, standalone, formatOff, cliOverrides
         );
@@ -502,6 +505,7 @@ public final class Main {
     ) throws IOException
     {
         final Map<String, String> inFileOverrides = InFileConfig.parse(original);
+        inFileOverrides.remove("--lang");
               Config              config          = Config.resolve(
                   path, baseCliOverrides, inFileOverrides
               );

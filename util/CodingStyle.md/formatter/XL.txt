@@ -125,8 +125,7 @@ Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.m
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_199_inp/out.kt`
-    to   `...`
-[DONE]
+    to   `real_code_regressions_200_inp/out.js`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -188,10 +187,6 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
-- [JS_TS] §8 getter/setter grouping: a plain method with no return-type token (e.g. `isValid()
-  {...}`) can't join the same aligned group as `get`/`set` siblings — output correct, just
-  unaligned.
-
 - [PYTHON3] §8 single-statement-body conservative-skip gaps: multi-physical-line header/body never
   a join candidate; body with its own trailing comment conservatively skipped; never expands an
   already-compact line back to block form; no `;`-chaining ever produced — deliberate
@@ -200,19 +195,19 @@ Use sub-agent. This can be a substantial work.
 Use sub-agent. This can be a substantial work.
 
 
-
 === TIER 3: Real feature gaps — medium risk ===
 
 Read `STATE_COMMON.md` and `STATE_JS_TS.md` then do this fix:
 
-  [JS_TS] §8 getter/setter grouping: a plain method with no return-type token (e.g. `isValid()
-  {...}`) can't join the same aligned group as `get`/`set` siblings — output correct, just
-  unaligned.
-
 When comitting replace `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` with your own ID and email.
 
 
-These fix are done by Google Antigravity:
+
+These fix are done by other AIs:
+
+  [JS_TS] §8 getter/setter grouping: a plain method with no return-type token (e.g. `isValid()
+  {...}`) can't join the same aligned group as `get`/`set` siblings — output correct, just
+  unaligned.
 
 - [CURLY_GDR] JS/TS regex literal (e.g. `/[{]/`) still tokenized as plain `TEXT`, not a string-like
   unit — a bracket-family character inside a regex literal can miscount GDR's brace/paren depth;
@@ -222,7 +217,8 @@ These fix are done by Google Antigravity:
   tracking exists (only `svgDepth` was built for the analogous SVG case); narrow, mirrors an
   existing pattern.
 
-Please confirm them:
+Please confirm them. These are the new test fixtures:
+    real_code_regressions_200_inp/out.js
     curly_gdr_js_regex_inp/out.ts
     html_mathml_case_fixup_inp/out.html
 

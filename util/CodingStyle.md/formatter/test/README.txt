@@ -3612,8 +3612,8 @@ Real-code regressions:
                                                         block-bodied method with no return-type token
                                                         (`isValid() { ... }`) must join adjacent `get`/`set`
                                                         siblings. Its name-column padding is normalized from
-                                                        the siblings' base indentation before rendering, so the
-                                                        aligned group remains idempotent.
+                                                        the siblings' base indentation before rendering, so
+                                                        the aligned group remains idempotent.
 
 How Tests Are Run
 -----------------

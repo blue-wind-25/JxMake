@@ -203,21 +203,26 @@ Use sub-agent. This can be a substantial work.
 === TIER 3: Real feature gaps — medium risk ===
 
 - [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — PARTIALLY IMPLEMENTED
-  2026-08-12, 1/11 contexts covered (see STATE_JS_TS.md's 2026-08-12 design session's
-  "implementation session, Increment 1" subsection for full detail — not duplicated here per
-  CLAUDE.md's rule that no STATE_*.md file may reference XL.txt, so keep this entry high-level and
-  let that subsection be the source of truth). `TokenType.JSX_SPAN`, `Lang.isJsxSyntax`
-  (`.jsx`/`.tsx`-file-scoped gate), and `TokenizerCurly.findJsxSpans` (+ helpers) landed; only the
-  "after `return`" expression-start context is implemented so far. A real prerequisite bug
+  2026-08-12, 3/11 contexts covered (see STATE_JS_TS.md's 2026-08-12 design session's
+  "implementation session, Increment 1"/"Increment 2" subsections for full detail — not duplicated
+  here per CLAUDE.md's rule that no STATE_*.md file may reference XL.txt, so keep this entry
+  high-level and let those subsections be the source of truth). `TokenType.JSX_SPAN`,
+  `Lang.isJsxSyntax` (`.jsx`/`.tsx`-file-scoped gate), and `TokenizerCurly.findJsxSpans` (+ helpers)
+  landed; "after `return`" (Increment 1), "after `=>`", and "after `?`"/"after `:`" (both ternary
+  branches, one context) (Increment 2) are implemented so far. A real prerequisite bug
   (`isRegexLiteralAllowedHere` misreading a JSX closing tag's `/` as a regex-literal opener) was
-  found and fixed along the way, JSX-gated only. New fixture
-  `test/jsx_tsx_return_context_{inp,out}.tsx`; `make test` 291/291 -> 292/292, zero regressions on
-  existing `.js`/`.ts` fixtures (file-extension gate confirmed a true no-op for non-JSX files, same
-  low-risk profile this entry was downgraded to TIER 3 for). Still NOT done: the other 10 contexts,
-  and no real JSX corpus (react itself, `create-react-app` output) validation of the context list
-  yet — both still open per the design's own unvalidated-draft caveat. Next session should resume
-  with the arrow-body + both-ternary-branches contexts per STATE_JS_TS.md's own "where to resume"
-  note.
+  found and fixed during Increment 1, JSX-gated only; Increment 2 needed no equivalent
+  character-level-lexer carve-out. New fixtures `test/jsx_tsx_return_context_{inp,out}.tsx`
+  (Increment 1), `test/jsx_tsx_arrow_ternary_context_{inp,out}.tsx` and
+  `test/jsx_tsx_combined_sanity_{inp,out}.tsx` (Increment 2, the latter combining all 3 contexts
+  landed so far in one file); `make test` 291/291 -> 292/292 -> 294/294, zero regressions on
+  existing `.js`/`.ts`/`.tsx` fixtures at each step (file-extension gate confirmed a true no-op for
+  non-JSX files, same low-risk profile this entry was downgraded to TIER 3 for). Still NOT done: the
+  other 8 contexts (call-argument/array-element start, assignment/logical RHS, parenthesized-
+  expression start, recursive `{}`/`${}` holes, spread), and no real JSX corpus (react itself,
+  `create-react-app` output) validation of the context list yet — both still open per the design's
+  own unvalidated-draft caveat. Next session should resume with call-argument-start +
+  array-element-start per STATE_JS_TS.md's own "where to resume" note.
 
 Use sub-agent. This can be a substantial work.
 

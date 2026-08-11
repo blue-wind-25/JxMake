@@ -564,21 +564,72 @@ active in the Makefile and passing.
     syntax — per the 2026-08-07 discussion above it should eventually use
     `ts.ScriptKind.TSX`/`.JSX`, but that's still future work, untouched
     this session.
-  - **Where to resume**: add the next context(s) per the parent task's
-    suggested grouping (arrow-body + both ternary branches together are a
-    natural next pair — both are "immediately after a single fixed
-    token/punct" shapes like `return`, no comma/bracket-depth tracking
-    needed yet), each behind its own `Token.isKeyword`/`Token.isOp` check
-    alongside the existing `return` check in `findJsxSpans`, with its own
-    new fixture and a `make test` checkpoint before moving to the next.
-    Call-argument-start/array-element-start (need `splitTopLevelCommas`-
-    style top-level-comma awareness) and assignment/logical RHS are next
-    after that; the recursive `{}`/`${}`-hole contexts and the `<T>`-cast-
-    vs-JSX ambiguity's `.tsx`-only resolution (already implicitly correct
-    since `isJsxSyntax` gates the whole pre-pass, but not yet stress-
-    tested against an actual `const x = <T>foo;` cast-shaped `.tsx` input)
-    are the hardest remaining work, left for last per the parent task's
-    own ordering advice.
+  - **Where to resume (superseded by Increment 2 below — kept for
+    history).**
+
+  **2026-08-12 implementation session, Increment 2 — LANDED (3/11
+  contexts, still no real corpus validation).** Same session pattern as
+  Increment 1, extending `TokenizerCurly.findJsxSpans` with two more
+  expression-start contexts from the design's enumerated list:
+
+  - **"After `=>`"** (arrow-function body start) and **"after `?`"/"after
+    `:`"** (both branches of a ternary conditional expression, counted as
+    one context per the design's own list item 3 — see the design list
+    above) are now recognized alongside the existing "after `return`"
+    check. All three checks are simple single-token-lookback tests
+    (`Token.isKeyword(prev, "return")`, `Token.isOp(prev, "=>")`,
+    `Token.isOp(prev, "?")`, `Token.isOp(prev, ":")`), combined into one
+    `isJsxContext` boolean — no comma/bracket-depth tracking needed for
+    any of these three, matching the parent task's "natural next pair"
+    grouping advice.
+  - **Ambiguity safety confirmed, not just assumed**: a bare `?`/`:` OP
+    token unambiguously means ternary here because the character-level
+    lexer's `MULTI_CHAR_OPS` already matches `?.` (optional chaining),
+    `??` (nullish coalescing), and `?:` before ever falling through to a
+    single-char `?` token — so this check cannot misfire on those other
+    `?`-shaped operators. A context check firing on a *non*-JSX `<` (e.g.
+    a real less-than comparison, or a legacy `<T>` cast in a ternary
+    else-branch) is still safe even so: `findJsxSpanEnd`/`parseJsxTag`
+    returns -1 for anything that doesn't parse as a balanced JSX tree,
+    leaving tokens untouched — the same self-correcting property Increment
+    1 already relied on for the `return`-context `<T>`-cast ambiguity.
+  - **Fixture-verified**: `test/jsx_tsx_arrow_ternary_context_{inp,out}.tsx`
+    (bare-arrow-body JSX return; a ternary with two simple-element
+    branches; a ternary whose truthy branch is a nested JSX tree with an
+    attribute and a `{...}` hole and whose falsy branch is a self-closing
+    `<br />`; an `if (x < 1)` comparison confirmed untouched) and
+    `test/jsx_tsx_combined_sanity_{inp,out}.tsx` (all 3 contexts landed so
+    far combined in one small component — an arrow-body ternary, a
+    `return`-context JSX tree containing a `{...}` hole whose interior
+    itself contains a ternary of two JSX elements — verifying context
+    interaction, not just isolated context recognition). `make test`:
+    292/292 → 294/294 forward + idempotency, zero regressions on any
+    existing `.js`/`.ts`/`.tsx` fixture (including Increment 1's own
+    `jsx_tsx_return_context` fixture, hand-diffed unchanged as an extra
+    check beyond the Makefile-driven `make test` run).
+  - **Nothing from the design broke on contact this increment** — unlike
+    Increment 1's `isRegexLiteralAllowedHere` surprise, no new
+    character-level-lexer carve-out was needed for `=>`/`?`/`:`
+    (they were already ordinary multi-char/single-char OP tokens with no
+    JSX-unaware lexer assumption to fix).
+  - **NOT done**: still no real-JSX-corpus validation (react itself,
+    `create-react-app` output, or similar); `js_ts_content_diff.js` still
+    not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
+    unchanged from Increment 1's own "NOT done" list.
+  - **Where to resume**: call-argument-start and array-element-start are
+    next (need `splitTopLevelCommas`-style top-level-comma awareness,
+    unlike the three single-token-lookback contexts done so far) — a
+    natural next pair since both share that same comma-boundary shape.
+    Assignment RHS (`=` and compound `+=`/etc.) and logical/nullish RHS
+    (`&&`/`||`/`??`) are next after that, each another single-token-
+    lookback shape similar to Increment 2's. The recursive `{}`/`${}`-hole
+    contexts and the `<T>`-cast-vs-JSX ambiguity's `.tsx`-only resolution
+    (already implicitly correct since `isJsxSyntax` gates the whole
+    pre-pass, but not yet stress-tested against an actual
+    `const x = <T>foo;` cast-shaped `.tsx` input, including now inside a
+    ternary else-branch per this increment's new `:` context) remain the
+    hardest remaining work, left for last per the parent task's own
+    ordering advice.
 
 ---
 

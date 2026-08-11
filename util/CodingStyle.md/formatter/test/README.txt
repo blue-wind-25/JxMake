@@ -436,6 +436,23 @@ JSX/TSX:
                                                         comparison (not after `return`) is confirmed untouched
                                                         by the pre-pass.
 
+  jsx_tsx_arrow_ternary_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, Increment 2:
+                                                        "after `=>`" (arrow-function body start) and "after
+                                                        `?`"/"after `:`" (both branches of a ternary
+                                                        conditional expression). Covers a bare-arrow-body JSX
+                                                        return, a ternary whose both branches are simple JSX
+                                                        elements, and a ternary whose truthy branch is a nested
+                                                        JSX tree (with an attribute and a `{...}` hole) and
+                                                        whose falsy branch is a self-closing `<br />`; an
+                                                        ordinary `if (x < 1)` comparison is confirmed untouched.
+
+  jsx_tsx_combined_sanity_inp/out.tsx                -- Real-shape sanity check combining all 3 contexts
+                                                        landed so far (return, arrow-body, both ternary
+                                                        branches) in one small component, including a ternary
+                                                        nested inside a `{...}` expression hole inside a
+                                                        `return`-context JSX tree, to catch context-interaction
+                                                        bugs the isolated fixtures might miss.
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

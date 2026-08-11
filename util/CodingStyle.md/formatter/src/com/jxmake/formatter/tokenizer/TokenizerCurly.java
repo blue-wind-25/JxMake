@@ -1822,15 +1822,16 @@ public class TokenizerCurly extends TokenizerCore {
      *  embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
      *  true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
      *
-     * <p><b>Increment 1 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the full
-     *  11-context list this will eventually cover): only the narrowest expression-start context,
-     *  "after `return`", is recognized here as a JSX-open candidate. Every other listed context
-     *  (arrow body, ternary branches, call-argument/array-element start, assignment/logical RHS,
-     *  recursive `{}`/`${}` holes, spread) is intentionally NOT yet implemented -- a `<` in any of
-     *  those positions falls through unchanged to the existing `reclassifyAngleBrackets`/relational-
-     *  operator handling, same as before this pre-pass existed. Expand the {@code
-     *  Token.isKeyword(prev, "return")} check below (and add more context checks alongside it) in
-     *  future increments; a future increment implementing the recursive `{}`-hole context will also
+     * <p><b>Increment 1+2 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the full
+     *  11-context list this will eventually cover): three expression-start contexts are recognized
+     *  here as a JSX-open candidate -- "after `return`" (Increment 1), "after `=>`" (arrow-function
+     *  body start), and "after `?`"/"after `:`" (both branches of a ternary conditional expression)
+     *  (Increment 2). Every other listed context (call-argument/array-element start, assignment/
+     *  logical RHS, recursive `{}`/`${}` holes, spread) is intentionally NOT yet implemented -- a
+     *  `<` in any of those positions falls through unchanged to the existing
+     *  `reclassifyAngleBrackets`/relational-operator handling, same as before this pre-pass existed.
+     *  Expand the {@code isJsxContext} check below (add more context checks alongside it) in future
+     *  increments; a future increment implementing the recursive `{}`-hole context will also
      *  need {@link #findJsxSpanEnd} to recurse into holes rather than only balance-skipping them.
      */
     private void findJsxSpans(final List<Token> tokens)
@@ -1848,7 +1849,21 @@ public class TokenizerCurly extends TokenizerCore {
             if( !Token.isOp(cur, "<") ) continue;
 
             final Token prev = s > 0 ? tokens.get( sig.get(s - 1) ) : null;
-            if( !Token.isKeyword(prev, "return") ) continue; // Increment 1: "after return" only
+            // Increment 1: "after return". Increment 2 adds "after =>" (arrow-function body start)
+            // and "after ?"/"after :" (both branches of a ternary conditional expression) -- see
+            // STATE_JS_TS.md's "2026-08-12 design session" context list, items 1-3. A bare "?" or
+            // ":" OP token here is unambiguous: "?." (optional chaining), "??" (nullish coalescing),
+            // and "?:" are all matched as their own multi-char ops by the character-level lexer
+            // (MULTI_CHAR_OPS) before ever falling through to a single-char "?" token, so this can't
+            // misfire on those. A wrongly-attempted context (e.g. a real less-than comparison, or a
+            // legacy `<T>` cast) is still safe even if this check fires on it -- findJsxSpanEnd/
+            // parseJsxTag returns -1 for anything that doesn't actually parse as a balanced JSX
+            // tree, leaving the tokens untouched.
+            final boolean isJsxContext = Token.isKeyword(prev, "return")
+                    || Token.isOp(prev, "=>")
+                    || Token.isOp(prev, "?")
+                    || Token.isOp(prev, ":");
+            if( !isJsxContext ) continue;
 
             final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
             if(endTokenIdx < 0) continue; // Unbalanced/not real JSX here -- leave tokens untouched

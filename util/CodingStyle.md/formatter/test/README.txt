@@ -637,6 +637,25 @@ Python3:
                                                         preceding block is a §8-compact one-line header (`if n
                                                         > 0: return 1`) ending in an unconditional exit.
 
+  py_decorator_overflow_inp/out.py                   -- Python3 §4 overflow: an over-`line-length` decorator
+                                                        call's top-level argument list wraps one-per-line with
+                                                        a trailing comma, closing `)` back at the `@` line's
+                                                        indent (the general call-argument-overflow wrapping
+                                                        mechanism §4 previously lacked). Covers: a plain
+                                                        multi-arg overflow; an already-fitting call left
+                                                        untouched; a bare `@dataclass`; a zero-arg
+                                                        `@register()` call; the known-risk interaction with a
+                                                        nested f-string field adjacent to another field with
+                                                        no literal text between them
+                                                        (`f'Struct331_{signedness}{n}_...'`, mirroring the
+                                                        §4/§5 idempotency bug already fixed for this exact
+                                                        adjacency shape); a lambda-default argument containing
+                                                        its own f-string field; and a trailing same-line
+                                                        comment after the call, which disqualifies the whole
+                                                        line from wrapping (documented gap, same "comment
+                                                        disqualifies the candidate" posture as the C-family's
+                                                        `enforceCallLineBreaking`).
+
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
                                                         group (`=`/`:=`/`+=`), backslash continuation-line

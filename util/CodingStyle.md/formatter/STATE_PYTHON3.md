@@ -573,12 +573,59 @@ same as every other language's dogfood precedent for a newly-landed rule.
       gap normalized per `PythonBracketComplexityEvaluator`'s loose/tight
       verdict. A bare decorator (`@dataclass`, `@x.setter`) never enters
       bracket-padding; multi-physical-line decorators skipped entirely.
-      **Gap: decorator-call overflow/line-wrapping not implemented** — no
-      general line-length-based call-argument-wrapping mechanism exists yet
-      (C-family's `enforceCallLineBreaking` is Curly-only, not ported). Bug
-      fixed: `normalizeGap` wrongly no-op'd on already-tight `from == to`,
-      skipping the loose case's needed zero-width insertion; fixed to only
-      guard on `from > to`. 7-case smoke + `make test` 114/114.
+      Bug fixed: `normalizeGap` wrongly no-op'd on already-tight `from ==
+      to`, skipping the loose case's needed zero-width insertion; fixed to
+      only guard on `from > to`. 7-case smoke + `make test` 114/114.
+
+      **Gap closed (2026-08-12): decorator-call overflow/line-wrapping.**
+      New `tryWrapDecoratorCall` + `splitTopLevelArgs`/`addTrimmedArg`/
+      `renderSpan` in `ScopePipelineIndent`, wired into `applyDecoratorSpacing`.
+      A narrow, decorator-scoped equivalent of the C-family's
+      `enforceCallLineBreaking` (still not a general/ported mechanism — §6's
+      own signature-wrap inline-vs-one-per-line decision remains a separate,
+      still-open gap; only the decorator-call case is closed here). For a
+      single-physical-line `@`-decorator whose outermost trailing call
+      exceeds `lineLength` after §4's own bracket-padding: splits the call's
+      top-level (bracket-depth-0) arguments, renders each one indented one
+      level past the `@` line with a trailing comma, closing `)` back at the
+      `@` line's own indent — matches STYLE_PYTHON3.md §4's "Overflow"
+      worked example exactly. Bails (leaves the line completely untouched)
+      on: no trailing call at all (`@dataclass`/`@x.setter`); a zero-arg
+      call; a comment anywhere inside the call's parens OR trailing after
+      the closing `)` on the same line (comment-disqualifies-the-candidate,
+      same posture as `enforceCallLineBreaking`); or the call not being the
+      very last thing on the line. A wrapped decorator becomes
+      `multiPhysicalLine` on the next pass, so `applyDecoratorSpacing`'s own
+      existing multi-physical-line skip (unchanged) makes round2 a no-op —
+      verified idempotent.
+
+      **Known-risk interaction (nested f-string fields / lambda defaults)
+      verified safe, not just assumed:** per-argument rendering reuses
+      `applyBracketPadding`'s own existing recursive bracket-padding
+      (recomputed scoped to strictly inside the call's own parens — see
+      `renderSpan`'s doc comment on why the outer pair's own open/close gap
+      entries must be excluded, found via a real bug during implementation:
+      the outer call's own loose-open-gap replacement's `start` coincided
+      with the first argument's own first token, double-applying as a
+      spurious extra leading space, `@app.route( "..."` — fixed by
+      re-deriving bracket padding over `[openIdx + 1, lastSigOnLine)` rather
+      than reusing the whole-decorator padding list). Since the same
+      already-battle-tested `applyBracketPadding` (with its f-string-field-
+      adjacency awareness from the §4/§5 idempotency bug fixed earlier, see
+      that entry below) drives each argument's rendering, the exact
+      `f'Struct331_{signedness}{n}'`-shaped adjacent-field case and a
+      lambda-default argument containing its own f-string field both wrap
+      correctly with no brace corruption — covered by new fixture
+      `test/py_decorator_overflow_{inp,out}.py` (registered in the
+      Makefile's `INP_FILES` and `test/README.txt`, after
+      `py_control_flow_blank_line_gaps_inp.py`). Verified via debug run +
+      manual round1/round2 diff (empty) + `python_syntax_check.sh` (clean)
+      before folding into `make test`; full suite `make test` green
+      afterward (existing `py_combined_out.py` fixture's own
+      already-overflowing `@app.route(...)` line updated to its new wrapped
+      expected output — the one pre-existing fixture whose expected output
+      changed, an intended effect of landing this feature, not a
+      regression).
 
       **§5 (F-Strings).** New `ScopePipelineIndent.applyFStringSpacing` +
       helpers (`processFString`/`processField`/`addBraceTrim`) — operates
@@ -596,6 +643,16 @@ same as every other language's dogfood precedent for a newly-landed rule.
       already fully replaces, that pass's wider, earlier-`start`
       replacement wins and this pass's narrower one is silently dropped,
       not corrupted. 8-case smoke + `make test` 114/114.
+
+      **DECIDED CLOSED [2026-08-12], not a future job — do not re-add to a
+      checklist/XL.txt tier that implies revisiting.** Internal
+      expression re-spacing matches `black`/`ruff format` convention
+      (both also leave f-string interiors alone), so the gap is
+      intentional scope, not a missed feature. Fixing it would also need
+      a real Python-expression tokenizer/spacer — reusing the C-family
+      `needsSpaceBetween` here risks silent semantic corruption (`*`
+      multiplication, `**`/`//`/`:=`, keyword operators, comprehension
+      `for`/`if`), not just a style miss. See `XL.txt` TIER X: Dead.
 
       **§6 (Function Signature Wrapping) — alignment-only slice.** The
       inline-vs-one-per-line *decision* has no home anywhere in

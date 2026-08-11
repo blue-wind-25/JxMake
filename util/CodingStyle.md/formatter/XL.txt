@@ -120,8 +120,8 @@ Be careful not to lose important information, especially the `**Tools/compiler u
 `indent-size` exception, the active work diagnosis, clustering, etc.
 Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
 
-Update and fix `CLAUDE.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
-`../AI_PREAMBLE_AESTHETIC.md`, etc.
+Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
+`../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_199_inp/out.kt`
@@ -180,6 +180,8 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 
    Use sub-agent. This can be a substantial work.
 
+   !!! CLOSED FOR NOW - only revisit if much better training samples can be obtained !!!
+
 === TIER 1: Analysis/refactor/docs/testing only — ~zero regression risk ===
 
 NONE FOR NOW
@@ -206,45 +208,10 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-Let's add a user convenience helper to handle `Known Limitations` -
-`.h files default to C inference ...` in `README.md` by extending
-`In-file config` with:
-```
-//% JXM_CFMT_CFG --lang=...
-
-/*% JXM_CFMT_CFG --lang=... */
-```
-It will also help with templated Java files such as my `*.java.in` and `*.java.inc` files.
-The form `--lang` is chosen to match the command line option, however if you think something
-like `%lang=...`, `!lang=...`, `$lang=...`, `_lang_=...`, `[lang=...]`, etc. is better please
-suggest. After implementing it, update `README.md` and `../README.txt` as needed. BTW, it
-would be better to also say about `C++` general features too, instead of only `C++26` in the
-`Known Limitations` item.
-
-
-`Zcv_corpus.zip` contains the files from yesterday's 5-round CV run in CM5. The result looks
-too good to be true. It may be a good idea to test the GRU % by extracting some comments from
-unrelated repo such as `../../../../Shadow/Pt/*` (extract up to 200 comments ONLY). It may
-also be a good idea to test the GRU % with thresholds 0.68, 0.72, 0.76, etc. (we decide more
-as needed, after obtaining the results of those 3). Let's see if the different thresholds make
-the GRU more realistic. If we do decide to use a different threshold, update these with the
-new threshold:
-- The JSON weights file.
-- The inference, trainer, and tools source code files (`*.java`, `*.py`, `*.sh`, `Makefile`,
-  etc.), as needed.
-- The files `tools/gru/README.txt`, `STATE_AI.md`, `README.md`, `../README.txt`, as needed.
-
-
-
-- [PYTHON3] §5 f-string internal expression re-spacing out of scope (`f"{x  +  1}"` not normalized)
-  — blocked because the only inherited token-spacing helper is C-family-specific and mishandles
-  Python operators (`**`, `//`, `:=`, `and/or/not`, comprehension `for/if`).
-
-- [PYTHON3] §4 decorator-call overflow/line-wrapping not implemented — blocked on missing shared
-  wrap-decision infrastructure (C-family's `enforceCallLineBreaking` isn't ported to Python3).
-
 - [PYTHON3] §6 inline-vs-one-per-line signature wrapping decision not implemented — same missing
-  wrap-decision infra as §4; currently alignment-only.
+  wrap-decision infra §4 used to have; currently alignment-only. (§4's own decorator-call-overflow
+  gap closed 2026-08-12 — see STATE_PYTHON3.md's §4 entry; §6 remains open since a `def` signature's
+  decision is a distinct shape, not automatically covered by §4's decorator-scoped fix.)
 
 - [JS_TS] Unreproduced `=`-alignment-group non-self-stability quirk seen while building the
   RDD_KEY_142 fixture near `location_shim.ts` but never reproduced against the real file — flagged
@@ -333,6 +300,20 @@ Use sub-agent. This can be a substantial work.
 
 === TIER X: Dead ===
 
+- [PYTHON3] §5 f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
+  2026-08-12: matches `black`/`ruff format` convention (both also leave f-string interiors alone),
+  so this is intentional scope, not a missed feature. Fixing it would need a real
+  Python-expression tokenizer/spacer — reusing the C-family `needsSpaceBetween` risks silent
+  semantic corruption (`*` multiplication, `**`/`//`/`:=`, keyword operators, comprehension
+  `for`/`if`), not just a style miss. See `STATE_PYTHON3.md` §5.
+
+- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — expression-start-context
+  list and opaque-span token representation not yet designed. HIGH risk (architectural,
+  cross-pass-ordering). It's the blocker for the future JSX/TSX embedding-aware dispatcher
+  (STATE_JS_TS.md), not just a correctness polish item.
+
+- [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
+
 - [AI] Dedicated GRU for non-Latin/mixed-language comments (currently always ABSTAIN via
   `NonLatinScriptGate`).
 
@@ -344,13 +325,6 @@ Use sub-agent. This can be a substantial work.
 
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any small model size tested.
-
-- [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — expression-start-context
-  list and opaque-span token representation not yet designed. HIGH risk (architectural,
-  cross-pass-ordering). It's the blocker for the future JSX/TSX embedding-aware dispatcher
-  (STATE_JS_TS.md), not just a correctness polish item.
-
-- [JS_TS] JSX/TSX support — currently out of scope entirely (not merely deferred).
 
 ####################################################################################################
 ####################################################################################################

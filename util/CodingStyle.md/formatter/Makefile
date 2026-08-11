@@ -464,6 +464,7 @@ INP_FILES += py_import_blank_lines_inp.py
 INP_FILES += py_import_multiline_inp.py
 INP_FILES += py_single_statement_body_ext_inp.py
 INP_FILES += py_control_flow_blank_line_gaps_inp.py
+INP_FILES += py_decorator_overflow_inp.py
 
 INP_FILES += makefile_combined_inp.mk
 INP_FILES += bash_combined_inp.sh

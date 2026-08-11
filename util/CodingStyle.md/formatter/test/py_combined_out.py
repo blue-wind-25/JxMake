@@ -41,7 +41,10 @@ config  = {**defaults,**overrides}
 a_set   = {1,2,3}
 a_dict  = {"a":1,"b":2}
 
-@app.route( "/users/<int:user_id>/orders/<int:order_id>/items/<int:item_id>/details", methods=["GET","POST"] )
+@app.route(
+    "/users/<int:user_id>/orders/<int:order_id>/items/<int:item_id>/details",
+    methods=["GET","POST"],
+)
 def get_user_order_items(user_id: int, order_id: int, item_id: int):
     ...
 

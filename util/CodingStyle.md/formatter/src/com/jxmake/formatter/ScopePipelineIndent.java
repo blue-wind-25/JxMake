@@ -863,9 +863,15 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      *  uses for the C-family (comma/operator spacing inside the content is deliberately left
      *  untouched, not this pass's concern, same division of responsibility as that method).
      *  Multi-physical-line decorators (a wrapped call spanning a bracket continuation) are left
-     *  completely untouched -- same "documented gap, not a guess" precedent as §2/§3, and
-     *  consistent with STATE_PYTHON3.md's note that call-overflow line-wrapping has no existing
-     *  mechanism anywhere in this codebase to build on yet.
+     *  completely untouched by the bracket-padding step above -- same "documented gap, not a
+     *  guess" precedent as §2/§3. A single-physical-line decorator whose call still overflows
+     *  `line-length` after padding is handed to {@link #tryWrapDecoratorCall}, which (per
+     *  STYLE_PYTHON3.md §4's "Overflow" worked example) breaks the outermost call's own
+     *  top-level argument list one-per-line with a trailing comma -- the general line-length-
+     *  based call-argument-wrapping mechanism the C-family's `enforceCallLineBreaking` has but
+     *  this codebase never ported (STATE_PYTHON3.md §4's documented gap, now closed for the
+     *  decorator-call case specifically; §6's own signature-wrap decision remains its own,
+     *  separate open gap).
      */
     private List<Replacement> applyDecoratorSpacing(
         final List<Token>   tokens,
@@ -885,10 +891,194 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if(nameIdx < 0) continue;
             final Replacement tight = normalizeGap(tokens, atIdx + 1, nameIdx, "");
             if(tight != null) replacements.add(tight);
-            applyBracketPadding(tokens, nameIdx, line.end, replacements);
+
+            final List<Replacement> bracketReplacements = new ArrayList<>();
+            applyBracketPadding(tokens, nameIdx, line.end, bracketReplacements);
+
+            final List<Replacement> combined = new ArrayList<>(bracketReplacements);
+            if(tight != null) combined.add(tight);
+            final Replacement wrap = tryWrapDecoratorCall(tokens, line, nameIdx, combined);
+            if(wrap != null) {
+                replacements.add(wrap);
+                for(final Replacement r : bracketReplacements) {
+                    if(r.start < wrap.start || r.start >= wrap.end) replacements.add(r);
+                }
+            }
+            else {
+                replacements.addAll(bracketReplacements);
+            }
         } // for
 
         return replacements;
+    }
+
+    /**
+     * STYLE_PYTHON3.md §4's "Overflow" case: the decorator's own outermost call `(...)`
+     *  exceeding `line-length` wraps its top-level argument list one-per-line (each argument
+     *  indented one level past the `@` line, a trailing comma after the last argument, the
+     *  closing `)` back at the `@` line's own indent) -- the same shape the worked example in
+     *  §4 shows. Returns {@code null} (leave the line untouched) whenever: the decorator has no
+     *  trailing call at all (`@dataclass`, `@x.setter`); the call isn't the very last thing on
+     *  the line (a trailing comment, or something chained after the closing `)`, both left as a
+     *  documented gap rather than guessed at); the call is empty (zero-arg, never wrapped, same
+     *  precedent as {@code MiscRuleCurly#enforceCallLineBreaking}); a comment sits anywhere
+     *  inside the call's parens (comment-disqualifies-the-candidate, same posture as the
+     *  C-family); or the padded line already fits within {@code lineLength} as-is.
+     */
+    private Replacement tryWrapDecoratorCall(
+        final List<Token>       tokens,
+        final RawLine           line,
+        final int               nameIdx,
+        final List<Replacement> paddingReplacements
+    )
+    {
+        final int lastSigOnLine = prevSignificant(tokens, line.end - 1, nameIdx);
+        if( lastSigOnLine < nameIdx || tokens.get(
+            lastSigOnLine
+        ).type != TokenType.PUNCT || !")".equals(
+            tokens.get(lastSigOnLine).text
+        ) ) return null; // No trailing call, e.g. `@dataclass`/`@x.setter`
+
+        int openIdx = -1;
+        int depth   = 0;
+        for( int j = lastSigOnLine; j >= nameIdx; --j ) {
+            final Token t = tokens.get(j);
+            if(t.type != TokenType.PUNCT) continue;
+            if( isCloseBracketText(t.text) ) {
+                ++depth;
+            }
+            else if( isOpenBracketText(t.text) ) {
+                --depth;
+                if(depth == 0) {
+                    openIdx = j;
+                    break;
+                }
+            }
+        } // for
+        if( openIdx < 0 || !"(".equals( tokens.get(openIdx).text ) ) return null;
+
+        if( containsComment(tokens, openIdx, lastSigOnLine + 1) ) return null; // Comment inside the call
+        if( containsComment(tokens, lastSigOnLine + 1, line.end) ) return null; // Trailing comment after `)`
+
+        final int contentFirst = nextSignificant(tokens, openIdx + 1, lastSigOnLine);
+        if(contentFirst < 0) return null; // Zero-arg call, never wrapped
+
+        final String paddedLine = renderSpan(
+            tokens, line.contentStart, lastSigOnLine + 1, paddingReplacements
+        );
+        if( physicalLineLength(paddedLine) <= lineLength ) return null; // Already fits
+
+        final List<int[]> args = splitTopLevelArgs(tokens, openIdx + 1, lastSigOnLine);
+        if(args.isEmpty()) return null;
+
+        // Re-derive bracket padding scoped to strictly *inside* the call's own parens (`(openIdx +
+        // 1, lastSigOnLine)`) rather than reusing `paddingReplacements` as-is -- that list also
+        // carries the outer call pair's own open/close delimiter-gap entries (computed over the
+        // whole decorator including its outermost `(`/`)`), whose `start` can coincide with the
+        // first argument's own first significant token (e.g. a loose call's open-gap `start ==
+        // openIdx + 1 == args.get(0)[0]`) and would otherwise get double-applied as a spurious
+        // leading space on the first rendered argument. Recomputing over the narrower interior
+        // range naturally excludes both outer-pair entries (their own `(`/`)` tokens sit outside
+        // this range) while still finding every genuinely-nested bracket pair inside the arguments.
+        final List<Replacement> interior = new ArrayList<>();
+        applyBracketPadding(tokens, openIdx + 1, lastSigOnLine, interior);
+
+        final String        baseIndent = leadingIndent(tokens, line);
+        final String        argIndent  = baseIndent + indentUnit();
+        final StringBuilder sb         = new StringBuilder();
+        sb.append("(\n");
+        for(final int[] arg : args) {
+            sb.append(argIndent).append( renderSpan(tokens, arg[0], arg[1], interior) )
+                    .append(",\n");
+        }
+        sb.append(baseIndent).append(")");
+
+        return new Replacement(openIdx, lastSigOnLine + 1, sb.toString());
+    }
+
+    /**
+     * Splits {@code [start, end)} on top-level (bracket-depth-0) commas, returning each segment
+     *  trimmed to its own significant range ({@code [firstSig, lastSig + 1)}). An empty trailing
+     *  segment (a source trailing comma immediately before {@code end}) is dropped rather than
+     *  producing a phantom empty argument -- {@link #tryWrapDecoratorCall} always synthesizes its
+     *  own trailing comma on every argument it emits, so an already-present one is redundant, not
+     *  additive.
+     */
+    private List<int[]> splitTopLevelArgs(final List<Token> tokens, final int start, final int end)
+    {
+        final List<int[]> args     = new ArrayList<>();
+              int          depth   = 0;
+              int          segStart = start;
+        for( int i = start; i < end; ++i ) {
+            final Token t = tokens.get(i);
+            if(t.type != TokenType.PUNCT) continue;
+            if( isOpenBracketText(t.text) ) {
+                ++depth;
+            }
+            else if( isCloseBracketText(t.text) ) {
+                --depth;
+            }
+            else if( depth == 0 && ",".equals(t.text) ) {
+                addTrimmedArg(tokens, segStart, i, args);
+                segStart = i + 1;
+            } // if
+        } // for
+        addTrimmedArg(tokens, segStart, end, args);
+
+        return args;
+    }
+
+    private void addTrimmedArg(
+        final List<Token> tokens,
+        final int         from,
+        final int         to,
+        final List<int[]> out
+    )
+    {
+        final int first = nextSignificant(tokens, from, to);
+        if(first < 0) return; // Empty segment (trailing comma) -- not a real argument
+        final int last = prevSignificant(tokens, to - 1, first - 1);
+        out.add( new int[] { first, last + 1 } );
+    }
+
+    /**
+     * Reassembles {@code [start, end)}'s source text verbatim, applying any {@code
+     *  replacements} entry whose {@code start} falls in range, same left-to-right cursor walk
+     *  {@link #render} uses for the whole token stream -- a scoped, read-only sibling used to
+     *  measure/re-render a single sub-span (a decorator call's own text, or one of its
+     *  arguments) without disturbing the file-wide {@code replacements} list a caller is still
+     *  assembling.
+     */
+    private String renderSpan(
+        final List<Token>       tokens,
+        final int               start,
+        final int               end,
+        final List<Replacement> replacements
+    )
+    {
+        final List<Replacement> sorted = new ArrayList<>();
+        for(final Replacement r : replacements) {
+            if(r.start >= start && r.start < end) sorted.add(r);
+        }
+        sorted.sort( Comparator.comparingInt(r -> r.start) );
+
+        final StringBuilder out = new StringBuilder();
+              int            i   = start;
+              int            r   = 0;
+        while(i < end) {
+            while( r < sorted.size() && sorted.get(r).start < i ) ++r;
+            if( r < sorted.size() && sorted.get(r).start == i ) {
+                out.append( sorted.get(r).text );
+                i = sorted.get(r).end;
+                ++r;
+                continue;
+            }
+            final Token t = tokens.get(i);
+            if(t.type != TokenType.INDENT && t.type != TokenType.DEDENT) out.append(t.text);
+            ++i;
+        } // while
+
+        return out.toString();
     }
 
     /**

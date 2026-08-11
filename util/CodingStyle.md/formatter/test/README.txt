@@ -453,6 +453,15 @@ JSX/TSX:
                                                         `return`-context JSX tree, to catch context-interaction
                                                         bugs the isolated fixtures might miss.
 
+  jsx_tsx_call_array_context_inp/out.tsx             -- JSX/TSX boundary-finding pre-pass, Increment 3:
+                                                        call-argument-start and array-literal-element-start.
+                                                        Covers a call with two JSX arguments (first
+                                                        immediately after `(`, second after a top-level `,`)
+                                                        and an array literal of two JSX elements (first
+                                                        immediately after `[`, second after a top-level `,`);
+                                                        an ordinary `if (x < 1)` comparison is confirmed
+                                                        untouched.
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

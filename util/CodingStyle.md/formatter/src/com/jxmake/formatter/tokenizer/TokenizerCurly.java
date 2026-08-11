@@ -1822,13 +1822,14 @@ public class TokenizerCurly extends TokenizerCore {
      *  embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
      *  true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
      *
-     * <p><b>Increment 1+2 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the full
-     *  11-context list this will eventually cover): three expression-start contexts are recognized
+     * <p><b>Increment 1+2+3 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the full
+     *  11-context list this will eventually cover): five expression-start contexts are recognized
      *  here as a JSX-open candidate -- "after `return`" (Increment 1), "after `=>`" (arrow-function
-     *  body start), and "after `?`"/"after `:`" (both branches of a ternary conditional expression)
-     *  (Increment 2). Every other listed context (call-argument/array-element start, assignment/
-     *  logical RHS, recursive `{}`/`${}` holes, spread) is intentionally NOT yet implemented -- a
-     *  `<` in any of those positions falls through unchanged to the existing
+     *  body start), "after `?`"/"after `:`" (both branches of a ternary conditional expression)
+     *  (Increment 2), and call-argument-start / array-literal-element-start (Increment 3, see
+     *  {@link #isCallArgumentOrArrayElementStart}). Every other listed context (assignment/logical
+     *  RHS, grouping-paren start, recursive `{}`/`${}` holes, spread) is intentionally NOT yet
+     *  implemented -- a `<` in any of those positions falls through unchanged to the existing
      *  `reclassifyAngleBrackets`/relational-operator handling, same as before this pre-pass existed.
      *  Expand the {@code isJsxContext} check below (add more context checks alongside it) in future
      *  increments; a future increment implementing the recursive `{}`-hole context will also
@@ -1862,7 +1863,8 @@ public class TokenizerCurly extends TokenizerCore {
             final boolean isJsxContext = Token.isKeyword(prev, "return")
                     || Token.isOp(prev, "=>")
                     || Token.isOp(prev, "?")
-                    || Token.isOp(prev, ":");
+                    || Token.isOp(prev, ":")
+                    || isCallArgumentOrArrayElementStart(tokens, sig, s);
             if( !isJsxContext ) continue;
 
             final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
@@ -2008,6 +2010,79 @@ public class TokenizerCurly extends TokenizerCore {
             ++s;
         }
 
+        return -1;
+    }
+
+    /**
+     * Increment 3: recognizes a `<` at sig position {@code s} as a call-argument-start or
+     *  array-literal-element-start JSX context, per STATE_JS_TS.md's design list items
+     *  "Call-argument start" / "Array-literal element start". Two shapes each, both handled
+     *  uniformly here:
+     *  <ul>
+     *  <li>Immediately after `(` -- only when that `(` is itself a call-open (the token before it
+     *  is an IDENTIFIER, `)`, or `]`), matching {@code reclassifyAngleBrackets}'s own
+     *  generic-safe-token notion of "call-shaped". A bare grouping `(` (not preceded by a
+     *  call-owner) is deliberately NOT recognized here -- the design calls out grouping-paren-start
+     *  as its own separate, not-yet-implemented context; over-claiming it here would blur that
+     *  boundary.</li>
+     *  <li>Immediately after `[` -- always array-literal-element-start (no call/grouping ambiguity
+     *  exists for `[`; a computed member-access `[` starting with JSX is vanishingly rare and, even
+     *  if wrongly attempted, {@link #findJsxSpanEnd}/{@link #parseJsxTag} returns -1 for anything
+     *  that doesn't parse as balanced JSX, leaving tokens untouched).</li>
+     *  <li>Immediately after a top-level `,` -- walks backward to find the nearest unmatched
+     *  enclosing bracket ({@link #findEnclosingOpenBracket}); if it's a call-open `(` or any `[`,
+     *  the comma is a call-argument/array-element boundary by the same test as above. A `,` whose
+     *  enclosing bracket is a grouping `(`, a `{` (object literal), or nothing (top level) is not
+     *  recognized this increment.</li>
+     *  </ul>
+     */
+    private boolean isCallArgumentOrArrayElementStart(final List<Token> tokens, final List<Integer> sig, final int s)
+    {
+        if(s == 0) return false;
+        final Token prev = tokens.get( sig.get(s - 1) );
+
+        if( Token.isPunct(prev, "[") ) return true;
+        if( Token.isPunct(prev, "(") ) return isCallOpenParen(tokens, sig, s - 1);
+
+        if( Token.isPunct(prev, ",") ) {
+            final int openIdx = findEnclosingOpenBracket(tokens, sig, s - 1);
+            if(openIdx < 0) return false;
+            final Token open = tokens.get( sig.get(openIdx) );
+            if( Token.isPunct(open, "[") ) return true;
+            if( Token.isPunct(open, "(") ) return isCallOpenParen(tokens, sig, openIdx);
+            return false;
+        }
+
+        return false;
+    }
+
+    /** True when the `(` token at {@code sig.get(parenS)} is a call-open -- immediately preceded
+     *  by an IDENTIFIER, `)`, or `]` (same notion `reclassifyAngleBrackets`'s generic-safe-token
+     *  check already uses to distinguish a call from a bare grouping paren). */
+    private boolean isCallOpenParen(final List<Token> tokens, final List<Integer> sig, final int parenS)
+    {
+        if(parenS == 0) return false;
+        final Token before = tokens.get( sig.get(parenS - 1) );
+        return before.type == TokenType.IDENTIFIER || Token.isPunct(before, ")") || Token.isPunct(before, "]");
+    }
+
+    /** Scans backward from (but not including) {@code sig.get(beforeS)} tracking bracket depth
+     *  across `(`/`)`, `[`/`]`, `{`/`}`, and returns the `sig` index of the nearest unmatched
+     *  opening bracket -- the bracket that directly encloses position {@code beforeS} -- or -1 if
+     *  none is found (top level). Used to classify a top-level `,` by what it's inside of. */
+    private int findEnclosingOpenBracket(final List<Token> tokens, final List<Integer> sig, final int beforeS)
+    {
+        final java.util.Deque<String> stack = new java.util.ArrayDeque<>();
+        for( int s = beforeS - 1; s >= 0; --s ) {
+            final Token t = tokens.get( sig.get(s) );
+            if( Token.isPunct(t, ")") || Token.isPunct(t, "]") || Token.isPunct(t, "}") ) {
+                stack.push(t.text);
+            }
+            else if( Token.isPunct(t, "(") || Token.isPunct(t, "[") || Token.isPunct(t, "{") ) {
+                if( stack.isEmpty() ) return s;
+                stack.pop();
+            }
+        }
         return -1;
     }
 

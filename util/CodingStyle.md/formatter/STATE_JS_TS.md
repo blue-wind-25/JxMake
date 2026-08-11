@@ -17,7 +17,7 @@ C-family brace/paren/statement shape). Scaffold gate is flipped
 (`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
-pipeline. Current `make test`: 281/281 forward + idempotency (grows as
+pipeline. Current `make test`: 295/295 forward + idempotency (grows as
 fixtures are added; see dogfood sections below for count history).
 
 ---
@@ -616,20 +616,60 @@ active in the Makefile and passing.
     `create-react-app` output, or similar); `js_ts_content_diff.js` still
     not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
     unchanged from Increment 1's own "NOT done" list.
-  - **Where to resume**: call-argument-start and array-element-start are
-    next (need `splitTopLevelCommas`-style top-level-comma awareness,
-    unlike the three single-token-lookback contexts done so far) — a
-    natural next pair since both share that same comma-boundary shape.
-    Assignment RHS (`=` and compound `+=`/etc.) and logical/nullish RHS
-    (`&&`/`||`/`??`) are next after that, each another single-token-
-    lookback shape similar to Increment 2's. The recursive `{}`/`${}`-hole
-    contexts and the `<T>`-cast-vs-JSX ambiguity's `.tsx`-only resolution
-    (already implicitly correct since `isJsxSyntax` gates the whole
-    pre-pass, but not yet stress-tested against an actual
-    `const x = <T>foo;` cast-shaped `.tsx` input, including now inside a
-    ternary else-branch per this increment's new `:` context) remain the
-    hardest remaining work, left for last per the parent task's own
-    ordering advice.
+  - **Where to resume (superseded by Increment 3 below — kept for
+    history).**
+
+  **2026-08-12 implementation session, Increment 3 — LANDED (5/11
+  contexts, still no real corpus validation).** Adds call-argument-start
+  and array-literal-element-start (design list items 4 and 5) to
+  `TokenizerCurly.findJsxSpans`'s `isJsxContext` check.
+
+  - **New helper `isCallArgumentOrArrayElementStart`** (+ two small
+    supporting helpers, `isCallOpenParen` and `findEnclosingOpenBracket`):
+    unlike Increments 1/2's plain single-token-lookback checks, these two
+    contexts need to distinguish a call-open `(` from a bare grouping `(`
+    (the design explicitly calls out grouping-paren-start as its own,
+    separate, not-yet-implemented context — over-claiming it here would
+    blur that boundary) and, for a `,`-adjacent candidate, need to know
+    what bracket the comma is actually inside of. Handled with three
+    shapes, all in one method: immediately after `[` (always
+    array-element-start, no ambiguity); immediately after `(` (only
+    counted when `isCallOpenParen` confirms the `(` is itself preceded by
+    an IDENTIFIER/`)`/`],` matching `reclassifyAngleBrackets`'s own
+    call-shaped notion); immediately after a top-level `,` (walks backward
+    via `findEnclosingOpenBracket`, a small stack-based bracket matcher
+    scanning `(`/`)`, `[`/`]`, `{`/`}` back to the nearest unmatched
+    opener, then applies the same `[`-always/`(`-only-if-call-open test to
+    that enclosing bracket; an enclosing `{` (object literal) or no
+    enclosing bracket at all is correctly NOT recognized this increment).
+  - **Ambiguity safety unchanged from Increments 1/2**: `findJsxSpanEnd`/
+    `parseJsxTag` still returns -1 for anything that doesn't parse as
+    balanced JSX, so a context check firing on a real less-than comparison
+    or index expression is harmless — same self-correcting property relied
+    on throughout.
+  - **Fixture-verified**: `test/jsx_tsx_call_array_context_{inp,out}.tsx`
+    — a call with two JSX arguments (first immediately after `(`, second
+    after a top-level `,`) and an array literal of two JSX elements (first
+    immediately after `[`, second after a top-level `,`); an `if (x < 1)`
+    comparison confirmed untouched. `make test`: 294/294 → 295/295 forward
+    + idempotency, zero regressions on any existing `.js`/`.ts`/`.tsx`
+    fixture. Manually re-verified round1/round2 byte-identical on the new
+    fixture outside the Makefile-driven run as well.
+  - **Nothing from the design broke on contact this increment** — no new
+    character-level-lexer carve-out needed, same as Increment 2.
+  - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
+    still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
+    unchanged from Increments 1/2's own "NOT done" lists.
+  - **Where to resume**: assignment RHS (`=` and compound `+=`/`-=`/etc.)
+    and logical/nullish RHS (`&&`/`||`/`??`) are next, each a single-
+    token-lookback shape similar to Increment 2's checks (no comma/bracket
+    tracking needed) — a natural next pair per the parent task's own
+    ordering advice. The recursive `{}`/`${}`-hole contexts and the
+    `<T>`-cast-vs-JSX ambiguity's `.tsx`-only resolution (already
+    implicitly correct since `isJsxSyntax` gates the whole pre-pass, but
+    not yet stress-tested against an actual `const x = <T>foo;`
+    cast-shaped `.tsx` input in a call-argument/array-element position)
+    remain the hardest remaining work, left for last.
 
 ---
 

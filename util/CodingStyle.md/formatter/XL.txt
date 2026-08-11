@@ -261,9 +261,9 @@ Use sub-agent. This can be a substantial work.
 Use sub-agent. This can be a substantial work.
 
 NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known Limitations entry:
-- apache/ant `JikesOutputParser.java`.
-- ohmyzsh `tools/upgrade.sh` pipe-spacing.
-- Kotlin D3 wrap-decision-flap statement-boundary tracking.
+- [C_CPP_JAVA] apache/ant `JikesOutputParser.java`.
+- [TOOLING] ohmyzsh `tools/upgrade.sh` pipe-spacing.
+- [KOTLIN] Kotlin D3 wrap-decision-flap statement-boundary tracking.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
@@ -282,6 +282,15 @@ NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known
 - [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
   architecture class as CURLY_GDR above), lower value (XML rarely needs deep reindent compared
   to curly-brace nesting).
+
+- [HTML5_TCG] Level-4 adoption-agency algorithm only tracks a single most-recently-orphaned
+  formatting element; a second, simultaneous misnesting under the same ancestor is silently
+  dropped instead of queued. Root-caused and confirmed against real `parse5` spec ground truth
+  (2026-08-11) — spec-correct fix needs a fuller "reconstruct active formatting elements on next
+  insert" mechanism, not a simple queue, which would expand level 4 toward the full spec algorithm
+  the original design (RDD_KEY_230) deliberately rejected. Blocked pending a decision among 3
+  options (leave as documented limitation / implement full mechanism / implement a documented
+  non-spec-exact approximation) — see `STATE_HTML5_TCG.md`'s Open Questions.
 
 Use sub-agent. This can be a substantial work.
 

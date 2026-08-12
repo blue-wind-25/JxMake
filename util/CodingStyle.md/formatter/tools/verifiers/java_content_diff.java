@@ -8,7 +8,10 @@
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -58,11 +61,29 @@ import com.sun.source.util.JavacTask;
  *     JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
  *     $JDK/bin/javac java_content_diff.java
  *
- * Run:
- *     $JDK/bin/java java_content_diff <original.java> <formatted.java>
+ * Run (two modes -- see also Usage: in main below):
+ *     Single pair:
+ *         $JDK/bin/java java_content_diff <original.java> <formatted.java>
+ *     Batch (one JVM invocation over a whole corpus, avoiding a JRE restart
+ *     per file -- rel-path list, one path per line, relative to both base
+ *     dirs alike):
+ *         $JDK/bin/java java_content_diff <original_base_dir> <formatted_base_dir> <java_rel_path_file_list.txt>
  *
- * Exit 0 if content is preserved, 1 with a description of each mismatch
- * otherwise, 2 if either file fails to parse.
+ * Before each pair's AST diff, a "[yyyy-MM-dd HH:mm:ss.SSS] <relative path>"
+ * line is printed -- lets a hang/slow file in a large batch run be pinpointed
+ * (same "print immediately before the risky step" precedent as
+ * Main.main's/ServerMode.FormatHandler's own "processing <file>" stderr
+ * trace, see STATE_COMMON.md). In batch mode, a rel-path missing from either
+ * base dir (or both) is a warning, not a crash -- the file is skipped and
+ * the run continues; the final SUMMARY line and process exit code still
+ * reflect it. A parse failure for one pair in batch mode is also caught and
+ * counted as a MISMATCH/ERROR rather than aborting the whole batch.
+ *
+ * Exit 0 if content is preserved (all pairs, in batch mode), 1 if any
+ * mismatch/missing file/error is found (description printed for each), 2 on
+ * a usage error (and, in single-pair mode only, if either file fails to
+ * parse -- see compareOne's javadoc for why batch mode handles a parse
+ * failure differently).
  */
 public class java_content_diff {
 
@@ -260,34 +281,51 @@ public class java_content_diff {
         return mismatches;
     }
 
-    public static void main(String[] args) throws Exception
+    static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern(
+        "yyyy-MM-dd HH:mm:ss.SSS"
+    );
+
+    /**
+     * Printed immediately before a pair's AST diff starts -- if the tool
+     *  hangs/is slow on one particular file in a large batch, this line
+     *  (already flushed to stdout for every prior file) shows exactly which
+     *  file and when, mirroring Main.main's/ServerMode.FormatHandler's own
+     *  "processing <file>" trace precedent (STATE_COMMON.md).
+     */
+    static void printTimestampedHeader(String relPath)
     {
-        if(args.length != 2) {
-            System.err.println("Usage: java_content_diff.sh <original.java> <formatted.java>");
-            System.exit(2);
-        }
+        System.out.println( "[" + LocalDateTime.now().format(TIMESTAMP_FORMAT) + "] " + relPath );
+    }
 
-        String origSrc = Files.readString( Paths.get( args[0] ) );
-        String fmtSrc  = Files.readString( Paths.get( args[1] ) );
+    /**
+     * The full single-pair AST-diff check (package/imports/declarations/
+     *  comments), shared by both the single-pair and batch modes. Assumes
+     *  both paths are already confirmed to exist -- callers are responsible
+     *  for the missing-file check so a batch run can warn-and-skip instead
+     *  of throwing.
+     *
+     * A javac parse failure is let propagate rather than caught here (unlike
+     *  kotlin_content_diff.compareOne, which never throws on a parse
+     *  failure -- Kotlin's PSI parser tolerates malformed input and returns
+     *  a best-effort tree instead of throwing): {@code JavacTask.parse()}
+     *  can throw for a genuinely malformed file, and single-pair mode's
+     *  caller (main, via runSingle) treats that as a hard usage-adjacent
+     *  error (exit 2, matching this tool's pre-existing behavior). In batch
+     *  mode, runBatch wraps its call to this method in a try/catch so one
+     *  file's parse failure is counted as a MISMATCH/ERROR and does not
+     *  abort the rest of the batch -- the same generic-catch shape
+     *  kotlin_content_diff.runBatch already uses, even though the two
+     *  tools' parsers fail in different ways.
+     */
+    static boolean compareOne(
+        Path origPath, Path fmtPath, String origLabel, String fmtLabel
+    ) throws Exception
+    {
+        String origSrc = Files.readString(origPath);
+        String fmtSrc  = Files.readString(fmtPath);
 
-        CompilationUnitTree origCu;
-        CompilationUnitTree fmtCu;
-        try {
-            origCu = parse(origSrc);
-        }
-        catch(Exception e) {
-            System.err.println( "ERROR: original file failed to parse: " + args[0] + ": " + e );
-            System.exit(2);
-            return;
-        }
-        try {
-            fmtCu = parse(fmtSrc);
-        }
-        catch(Exception e) {
-            System.err.println( "ERROR: formatted file failed to parse: " + args[1] + ": " + e );
-            System.exit(2);
-            return;
-        }
+        CompilationUnitTree origCu = parse(origSrc);
+        CompilationUnitTree fmtCu  = parse(fmtSrc);
 
         List<String> mismatches = new ArrayList<>();
 
@@ -331,14 +369,125 @@ public class java_content_diff {
             s -> BRACE_ANNOTATION.matcher(s).matches() ) );
 
         if( mismatches.isEmpty() ) {
-            System.out.println( "OK: content preserved (" + args[0] + " == " + args[1] + ")" );
+            System.out.println( "OK: content preserved (" + origLabel + " == " + fmtLabel + ")" );
+
+            return true;
         }
         else {
             System.out.println(
-                "MISMATCH: content differs between " + args[0] + " and " + args[1]
+                "MISMATCH: content differs between " + origLabel + " and " + fmtLabel
             );
             for(String m : mismatches) System.out.println("  " + m);
+
+            return false;
+        }
+    }
+
+    static void printUsage()
+    {
+        System.err.println("Usage: java_content_diff.sh <original.java> <formatted.java>");
+        System.err.println(
+            "       java_content_diff.sh <original_base_dir> <formatted_base_dir> <java_rel_path_file_list.txt>"
+        );
+    }
+
+    static void runSingle(String origArg, String fmtArg) throws Exception
+    {
+        Path origPath = Paths.get(origArg);
+        Path fmtPath  = Paths.get(fmtArg);
+
+        printTimestampedHeader(origArg);
+
+        boolean origExists = Files.exists(origPath);
+        boolean fmtExists  = Files.exists(fmtPath);
+        if(!origExists || !fmtExists) {
+                 if(!origExists && !fmtExists) System.out.println(
+                     "WARNING: both " + origArg + " and " + fmtArg + " are missing"
+                 );
+            else if(!origExists)               System.out.println(
+                "WARNING: " + origArg + " is missing"
+            );
+            else                                 System.out.println(
+                "WARNING: " + fmtArg + " is missing"
+            );
             System.exit(1);
+        } // if
+
+        boolean ok;
+        try {
+            ok = compareOne(origPath, fmtPath, origArg, fmtArg);
+        }
+        catch(Exception e) {
+            System.err.println( "ERROR: failed to parse " + origArg + " or " + fmtArg + ": " + e );
+            System.exit(2);
+            return;
+        }
+        if(!ok) System.exit(1);
+    }
+
+    static void runBatch(
+        String origBaseDir, String fmtBaseDir, String fileListPath
+    ) throws Exception
+    {
+        List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );
+
+        int okCount = 0, mismatchCount = 0, missingCount = 0;
+
+        for(String rel : relPaths) {
+            rel = rel.trim();
+            if( rel.isEmpty() ) continue;
+
+            Path origPath = Paths.get(origBaseDir, rel);
+            Path fmtPath  = Paths.get(fmtBaseDir, rel);
+
+            printTimestampedHeader(rel);
+
+            boolean origExists = Files.exists(origPath);
+            boolean fmtExists  = Files.exists(fmtPath);
+            if(!origExists && !fmtExists) {
+                System.out.println(
+                    "  WARNING: missing from both " + origBaseDir + " and " + fmtBaseDir + " -- skipping"
+                );
+                ++missingCount;
+                continue;
+            } // if
+            if(!origExists) {
+                System.out.println("  WARNING: missing from " + origBaseDir + " -- skipping");
+                ++missingCount;
+                continue;
+            }
+            if(!fmtExists) {
+                System.out.println("  WARNING: missing from " + fmtBaseDir + " -- skipping");
+                ++missingCount;
+                continue;
+            }
+
+            try {
+                if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
+                else                                          ++mismatchCount;
+            }
+            catch(Exception e) {
+                System.out.println("  ERROR: " + e);
+                ++mismatchCount;
+            }
+        } // for
+
+        System.out.println();
+        System.out.println(
+            "SUMMARY: " + okCount + " OK, " + mismatchCount + " MISMATCH/ERROR, " + missingCount +
+            " MISSING (of " + (okCount + mismatchCount + missingCount) + " files checked)"
+        );
+
+        if(mismatchCount > 0 || missingCount > 0) System.exit(1);
+    }
+
+    public static void main(String[] args) throws Exception
+    {
+             if(args.length == 2) runSingle( args[0], args[1] );
+        else if(args.length == 3) runBatch( args[0], args[1], args[2] );
+        else                      {
+            printUsage();
+            System.exit(2);
         }
     }
 

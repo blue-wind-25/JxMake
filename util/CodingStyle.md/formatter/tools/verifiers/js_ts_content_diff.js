@@ -50,11 +50,27 @@
  *     export NODE_PATH=/opt/node-v24.14.0-linux-x64/lib/node_modules:~/mynpm/node_modules
  *     export PATH=/opt/node-v24.14.0-linux-x64/bin:~/mynpm/bin:$PATH
  *
- * Usage:
- *     node js_ts_content_diff.js <original.(js|ts)> <formatted.(js|ts)>
+ * Usage (two modes -- see also the usage message in main below):
+ *     Single pair:
+ *         node js_ts_content_diff.js <original.(js|ts)> <formatted.(js|ts)>
+ *     Batch (one Node process invocation over a whole corpus, avoiding a
+ *     process restart per file -- rel-path list, one path per line, relative
+ *     to both base dirs alike):
+ *         node js_ts_content_diff.js <original_base_dir> <formatted_base_dir> <js_ts_rel_path_file_list.txt>
  *
- * Exit 0 if content is preserved, 1 with a description of each mismatch
- * otherwise, 2 on usage error.
+ * Before each pair's AST diff, a "[yyyy-MM-dd HH:mm:ss.SSS] <relative path>"
+ * line is printed -- lets a hang/slow file in a large batch run be pinpointed
+ * (same "print immediately before the risky step" precedent as
+ * Main.main's/ServerMode.FormatHandler's own "processing <file>" stderr
+ * trace, see STATE_COMMON.md). In batch mode, a rel-path missing from either
+ * base dir (or both) is a warning, not a crash -- the file is skipped and
+ * the run continues; the final SUMMARY line and process exit code still
+ * reflect it. One pair's compareOne() is wrapped in try/catch so a bad file
+ * doesn't abort the rest of the batch.
+ *
+ * Exit 0 if content is preserved (all pairs, in batch mode), 1 if any
+ * mismatch/missing file/error is found (description printed for each), 2 on
+ * a usage error.
  */
 'use strict';
 
@@ -280,24 +296,77 @@ function diffMultisets(label, a, b)
   return mismatches;
 } // diffMultisets
 
-function main()
+function pad2(n)
 {
-    const args = process.argv.slice(2);
-  if(args.length !== 2) {
-    console.error('Usage: js_ts_content_diff.sh <original.(js|ts)> <formatted.(js|ts)>');
-    process.exit(2);
-  }
-    const [origPath, fmtPath] = args;
-    const origSrc             = fs.readFileSync(origPath, 'utf8');
-    const fmtSrc              = fs.readFileSync(fmtPath, 'utf8');
+  return n < 10 ? '0' + n : '' + n;
+}
 
-    const origFile = parse( origSrc, path.basename(origPath) );
-    const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
+function pad3(n)
+{
+       if(n < 10)  return '00' + n;
+  else if(n < 100) return '0' + n;
 
-    const mismatches = [];
+  return '' + n;
+}
 
-    const origBuckets = topLevelBuckets(origFile);
-    const fmtBuckets  = topLevelBuckets(fmtFile);
+/**
+ * "[yyyy-MM-dd HH:mm:ss.SSS] <relative path>" -- Node has no built-in
+ *  strftime, so this is formatted manually via Date getters (all local time,
+ *  zero-padded), matching java_content_diff.java's/kotlin_content_diff.java's
+ *  DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS") output shape
+ *  exactly.
+ */
+function timestampNow()
+{
+  const d = new Date();
+
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+    ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) +
+    '.' + pad3(d.getMilliseconds());
+}
+
+/**
+ * Printed immediately before a pair's AST diff starts -- if the tool
+ *  hangs/is slow on one particular file in a large batch, this line
+ *  (already flushed to stdout for every prior file) shows exactly which
+ *  file and when, mirroring Main.main's/ServerMode.FormatHandler's own
+ *  "processing <file>" trace precedent (STATE_COMMON.md).
+ */
+function printTimestampedHeader(relPath)
+{
+  console.log( '[' + timestampNow() + '] ' + relPath );
+}
+
+/**
+ * The full single-pair AST-diff check (imports/statements/comments), shared
+ *  by both the single-pair and batch modes. Assumes both paths are already
+ *  confirmed to exist -- callers are responsible for the missing-file check
+ *  so a batch run can warn-and-skip instead of throwing. Labels are passed
+ *  separately from the paths actually read so batch mode can print a short
+ *  relative path while still resolving full paths for fs.readFileSync.
+ *
+ * A `ts.createSourceFile` parse failure does not throw the way javac's
+ *  JavacTask.parse() does -- the TypeScript compiler API always returns a
+ *  SourceFile, with parse errors surfaced only as diagnostics attached to
+ *  it (never consulted by this tool, single-pair mode included, both before
+ *  and after this batch-mode extension). So there is nothing extra for
+ *  batch mode to special-case here versus single-pair mode: a malformed
+ *  file already degraded gracefully (best-effort AST, likely surfacing as
+ *  an ordinary content mismatch rather than a hard error) before this
+ *  change, and continues to do so in both modes now.
+ */
+function compareOne(origPath, fmtPath, origLabel, fmtLabel)
+{
+  const origSrc = fs.readFileSync(origPath, 'utf8');
+  const fmtSrc  = fs.readFileSync(fmtPath, 'utf8');
+
+  const origFile = parse( origSrc, path.basename(origPath) );
+  const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
+
+  const mismatches = [];
+
+  const origBuckets = topLevelBuckets(origFile);
+  const fmtBuckets  = topLevelBuckets(fmtFile);
 
   mismatches.push( ...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports) );
 
@@ -315,12 +384,100 @@ function main()
     'comments', collectComments(origFile, origSrc), collectComments(fmtFile, fmtSrc) ) );
 
   if(mismatches.length === 0) {
-    console.log('OK: content preserved (' + origPath + ' == ' + fmtPath + ')');
+    console.log('OK: content preserved (' + origLabel + ' == ' + fmtLabel + ')');
+
+    return true;
   }
   else {
-    console.log('MISMATCH: content differs between ' + origPath + ' and ' + fmtPath);
+    console.log('MISMATCH: content differs between ' + origLabel + ' and ' + fmtLabel);
     for(const m of mismatches) console.log('  ' + m);
+
+    return false;
+  }
+} // compareOne
+
+function printUsage()
+{
+  console.error('Usage: js_ts_content_diff.sh <original.(js|ts)> <formatted.(js|ts)>');
+  console.error('       js_ts_content_diff.sh <original_base_dir> <formatted_base_dir> <js_ts_rel_path_file_list.txt>');
+}
+
+function runSingle(origArg, fmtArg)
+{
+  printTimestampedHeader(origArg);
+
+  const origExists = fs.existsSync(origArg);
+  const fmtExists  = fs.existsSync(fmtArg);
+  if(!origExists || !fmtExists) {
+         if(!origExists && !fmtExists) console.log('WARNING: both ' + origArg + ' and ' + fmtArg + ' are missing');
+    else if(!origExists)               console.log('WARNING: ' + origArg + ' is missing');
+    else                                console.log('WARNING: ' + fmtArg + ' is missing');
     process.exit(1);
+  }
+
+  if( !compareOne(origArg, fmtArg, origArg, fmtArg) ) process.exit(1);
+}
+
+function runBatch(origBaseDir, fmtBaseDir, fileListPath)
+{
+  const relPaths = fs.readFileSync(fileListPath, 'utf8').split('\n');
+
+  let okCount = 0, mismatchCount = 0, missingCount = 0;
+
+  for(let rel of relPaths) {
+    rel = rel.trim();
+    if(rel === '') continue;
+
+    const origPath = path.join(origBaseDir, rel);
+    const fmtPath  = path.join(fmtBaseDir, rel);
+
+    printTimestampedHeader(rel);
+
+    const origExists = fs.existsSync(origPath);
+    const fmtExists  = fs.existsSync(fmtPath);
+    if(!origExists && !fmtExists) {
+      console.log('  WARNING: missing from both ' + origBaseDir + ' and ' + fmtBaseDir + ' -- skipping');
+      ++missingCount;
+      continue;
+    }
+    if(!origExists) {
+      console.log('  WARNING: missing from ' + origBaseDir + ' -- skipping');
+      ++missingCount;
+      continue;
+    }
+    if(!fmtExists) {
+      console.log('  WARNING: missing from ' + fmtBaseDir + ' -- skipping');
+      ++missingCount;
+      continue;
+    }
+
+    try {
+      if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
+      else                                          ++mismatchCount;
+    }
+    catch(e) {
+      console.log('  ERROR: ' + e);
+      ++mismatchCount;
+    }
+  } // for
+
+  console.log('');
+  console.log(
+    'SUMMARY: ' + okCount + ' OK, ' + mismatchCount + ' MISMATCH/ERROR, ' + missingCount +
+    ' MISSING (of ' + (okCount + mismatchCount + missingCount) + ' files checked)'
+  );
+
+  if(mismatchCount > 0 || missingCount > 0) process.exit(1);
+}
+
+function main()
+{
+  const args = process.argv.slice(2);
+       if(args.length === 2) runSingle( args[0], args[1] );
+  else if(args.length === 3) runBatch( args[0], args[1], args[2] );
+  else                       {
+    printUsage();
+    process.exit(2);
   }
 } // main
 

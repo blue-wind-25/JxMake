@@ -8,10 +8,10 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Integrate the build system ('jxm.xb.ShellOper') transparently with:
       'util/JCS/compile-server.jar'
-      'util/CodingStyle.md/formatter/target/code-formatter-1.00.jar'
+      'util/CodingStyle.md/formatter/code-formatter-1.0.0.jar'
       '3rd_party/tools/pcpp_java/pcpp-java-1.30.jar'.
   The 'dist' target in the Makefile has been updated to copy these application JARs when creating
-  the distribution directory.
+  the distribution directory. How about 'util/MDXplorer/mdx_server.py'?
 
 # Further verify, improve, and cleanups:
       src/jxm/tool/SSLTrustAll.java

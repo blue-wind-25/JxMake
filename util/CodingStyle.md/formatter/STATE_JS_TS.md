@@ -55,21 +55,27 @@ plan (2026-08-13), Step 1 of which has landed:
   line-length decisions, array-element spacing) already treats a JSX tag
   *as an expression* from the outside. This is content-preservation, not
   JSX-aware reformatting.
-- **Step 2 (NOT STARTED — generic grouped-expression-style wrap of the
-  tag's own interior).** Format a JSX_SPAN's own contents using the same
-  generic "long expression exceeding the line-length threshold gets broken
-  across lines" machinery already used for calls/object literals/array
-  literals — treating the tag as if it were a long grouped expression —
-  WITHOUT parsing real JSX grammar (no attribute-specific alignment, no
+- **Step 2 (Increment 1/5 LANDED — detect-and-measure-only; increments 2-5
+  NOT STARTED — generic grouped-expression-style wrap of the tag's own
+  interior).** Format a JSX_SPAN's own contents using the same generic
+  "long expression exceeding the line-length threshold gets broken across
+  lines" machinery already used for calls/object literals/array literals —
+  treating the tag as if it were a long grouped expression — WITHOUT
+  parsing real JSX grammar (no attribute-specific alignment, no
   children-specific indentation semantics). Scoped into sub-contexts by the
   "2026-08-13 scoping session — context 11" section below (right after the
   item-10 implementation write-up) — that section is the source of truth
-  for Step 2's design; not yet implemented. This is a deliberately bounded
-  middle ground between "frozen opaque blob" (Step 1) and a full
-  JSX-aware embedding dispatcher (still a distinct, larger future job —
-  JSX embeds tag syntax directly inside JS/TS expression position, a
-  compound-language situation, not a same-file extension like HTML5's
-  `<script>` splicing).
+  for Step 2's design. Its own suggested 5-increment breakdown's first
+  increment (sub-context 1's minimal structure, detect-and-measure-only, no
+  behavior change) landed 2026-08-13 — see the "2026-08-13 implementation
+  session — Step 2, Increment 1 of 5 (detect-and-measure-only) (LANDED)"
+  section further below. Increments 2-5 (the actual wrap-decision function,
+  self-closing-tag wrapping, children-bearing-tag wrapping, and real-corpus
+  validation) remain **NOT STARTED**. This is a deliberately bounded middle
+  ground between "frozen opaque blob" (Step 1) and a full JSX-aware
+  embedding dispatcher (still a distinct, larger future job — JSX embeds
+  tag syntax directly inside JS/TS expression position, a compound-language
+  situation, not a same-file extension like HTML5's `<script>` splicing).
 
 Sections 1–15 (baseline-inherited rules, semicolon insertion, destructuring/
 spread, template literals, function/arrow brace style, optional chaining,
@@ -1420,6 +1426,100 @@ active in the Makefile and passing.
   should not be combined with step (3) in one commit, since step (3) is the
   one that actually exercises the whitespace-significance hazard
   sub-context 2 flags as the whole risk profile's crux.
+
+  **2026-08-13 implementation session — Step 2, Increment 1 of 5
+  (detect-and-measure-only) (LANDED).** Implements exactly step (1) of the
+  suggested increment breakdown immediately above: sub-context 1's minimal
+  structure, with **no wrap logic and no behavior change** — increments 2-5
+  (the actual wrap-decision function, self-closing-tag wrapping,
+  children-bearing-tag wrapping, and real-corpus validation) remain **NOT
+  STARTED**, do not read this section as Step 2 being complete.
+
+  - **`Token` gained two new nullable/default-`-1` fields**,
+    `jsxOpeningTagEndOffset` (int) and `jsxAttrBoundaries`
+    (`List<Integer>`), populated only for `JSX_SPAN` tokens
+    (`TokenizerCore.java`) — additive to the existing frozen/opaque `text`
+    shape per sub-context 1's own recommendation; every other token kind is
+    unaffected (`-1`/`null` defaults, never read by any pre-existing pass).
+  - **`TokenizerCurly.parseJsxTag`** now also records each top-level
+    (`localBrace == 0`) attribute's raw-token-index start position for an
+    open/self-close tag — a plain `IDENTIFIER` (bare boolean attribute, or
+    the name half of `name=value`) or a `{` at `localBrace == 0` (a spread
+    attribute, `{...props}`) — returned via a new `attrRawTokenIndices`
+    field on `JsxTagResult`. Not consulted by anything inside
+    `parseJsxTag`/`findJsxSpanEnd` itself — purely additional data for the
+    caller.
+  - **`TokenizerCurly.findJsxSpans`** re-parses the already-confirmed-valid
+    root tag (a second, side-effect-free `parseJsxTag` call on the same
+    short token range findJsxSpanEnd already walked) once a span is about
+    to be emitted, and converts `attrRawTokenIndices` into offsets relative
+    to the span's own `text` (0 == the leading `<`), storing them on the
+    new `Token` fields: `jsxOpeningTagEndOffset` = offset of the character
+    immediately after the opening tag's closing `>`/`/>`;
+    `jsxAttrBoundaries` = parallel offset list, one per attribute, in
+    source order.
+  - **New class `com.jxmake.formatter.tokenizer.JsxWrapDiagnostics`**
+    (`JsxWrapDiagnostics.java`) — the "narrow, clearly-internal mechanism"
+    called for by the parent task, explicitly documented as increment-1
+    scaffolding, not user-facing. Two `AtomicInteger` counters
+    (`measuredCount`, `overWidthCount`), a `reset()` for test isolation, and
+    `recordOpeningTagMeasurement(int openingTagWidth, int lineLengthLimit)`
+    which increments `measuredCount` always and `overWidthCount` when
+    `openingTagWidth > lineLengthLimit`. Nothing in this class ever mutates
+    a token or any formatter output.
+  - **`FormatterCurly.formatOne`** calls
+    `JsxWrapDiagnostics.recordOpeningTagMeasurement` once per `JSX_SPAN`
+    token with a valid `jsxOpeningTagEndOffset`, gated on
+    `lang.isJsxSyntax`, inside the existing `tokenizer` lambda (so it fires
+    on every re-tokenize pass, same as every other pass in that lambda —
+    harmless for a purely observational counter). `lineLengthLimit` was
+    hoisted a few lines earlier in the method (was previously computed
+    after the lambda) so the lambda's closure can see it.
+  - **Documented increment-1 approximation** (stated explicitly in
+    `JsxWrapDiagnostics`'s own doc comment, not silently assumed): the
+    measurement compares only the opening tag's own raw width
+    (`jsxOpeningTagEndOffset`) against `line-length`, not the tag's actual
+    rendered column position (current indentation + any preceding same-line
+    tokens). A real column-aware fits-check is rendering-time machinery
+    that belongs to a future wrap-implementing increment, not this
+    detect-only slice.
+  - **Verification method** (no JUnit harness in this repo — matches
+    `STATE_COMMON.md`'s "prefer evidence over reasoning" debug-print
+    convention): a small standalone `Verify.java` (not committed —
+    scratch-only, per `STATE_COMMON.md`'s `/tmp` guidance) compiled against
+    `target/classes` and run directly, calling
+    `new FormatterCurly(lang).formatOne(...)` after `JsxWrapDiagnostics.reset()`
+    and printing `measuredCount()`/`overWidthCount()`. Against the new
+    fixture below (one over-width tag, one under-width tag): `measured=100
+    overWidth=50` — the exact 2:1 ratio expected (the file is re-tokenized
+    50 times across the format pipeline, and of the file's 2 `JSX_SPAN`
+    tokens exactly 1 is over-width every time). Against a pre-existing
+    fixture with no over-width tags
+    (`jsx_tsx_grouping_paren_context_inp.tsx`): `measured=100 overWidth=0`
+    — confirms no false positives.
+  - **Fixture-verified**: `test/jsx_tsx_wrap_detect_context_{inp,out}.tsx`
+    (`<VeryLongComponentName attributeOne={valueOne} attributeTwo={valueTwo}
+    attributeThree={valueThree} />` — an opening tag whose attribute list
+    exceeds the default 100-char `line-length`; `<Small a={1} />` — a short
+    tag that doesn't; an `if (x < 1)` comparison confirmed untouched).
+    `make test`: 306/306 → 307/307 forward + idempotency — the fixture's
+    own `_out.tsx` is byte-identical to what the pre-existing formatter
+    already produced for that input (verified by generating it fresh with
+    the new code and confirming no JSX content was altered), proving the
+    zero-output-visible-change guarantee this increment requires. Zero
+    regressions on any other existing fixture.
+  - **NOT done** (explicitly, so a future session doesn't overclaim): no
+    actual line-breaking/wrapping of any kind (increments 2-5 of Step 2's
+    breakdown); no column-aware (indentation + preceding-token) width
+    measurement, only the opening tag's own raw width; no real-JSX-corpus
+    validation of this new measurement against react/create-react-app-scale
+    input (carried over from every prior Step 1 increment's own "NOT done"
+    list, unchanged); `JsxWrapDiagnostics` has no wired-in CLI/server-visible
+    reporting — it is purely an internal counter read back by hand or by a
+    future test harness, not a feature.
+  - **Where to resume**: Increment 2 (the actual wrap-decision function
+    from sub-context 3, applied only to the self-closing-tag case first) —
+    see the "Suggested increment breakdown" list above.
 
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,

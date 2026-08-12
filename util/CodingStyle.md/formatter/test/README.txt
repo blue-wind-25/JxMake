@@ -533,6 +533,19 @@ JSX/TSX:
                                                         nested literal's entire segment chain into one
                                                         synthetic STRING token before rendering.
 
+  jsx_tsx_wrap_detect_context_inp/out.tsx            -- Step 2 ("context 11") Increment 1,
+                                                        detect-and-measure-only: a `<VeryLongComponentName
+                                                        .../>` opening tag whose attribute list exceeds
+                                                        `line-length`, and a short `<Small a={1} />` tag that
+                                                        doesn't. No line-breaking is emitted (increments 2-5 of
+                                                        Step 2 remain NOT STARTED) -- output is byte-identical
+                                                        to what the pre-existing formatter already produced;
+                                                        this fixture only locks in that guarantee. The actual
+                                                        over/under-width detection itself is verified via
+                                                        JsxWrapDiagnostics, not observable in this fixture's
+                                                        output -- see STATE_JS_TS.md for the manual
+                                                        verification method.
+
   jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
                                                         (recommendation 1): plain `.js` now gets the same JSX
                                                         boundary-finding pre-pass as `.jsx`/`.tsx`

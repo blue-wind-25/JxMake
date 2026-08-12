@@ -43,14 +43,29 @@ public final class FormatterCurly extends FormatterCore {
         final TokenizerCurly tokenizerCore = new TokenizerCurly(lang);
         final boolean        isCOrCpp      = lang.isCpp || lang.isC;
 
+        final int                indentWidth                = config.indentSize();
+        final int                lineLengthLimit            = config.lineLength();
+
         final java.util.function.Function<String, List<Token>> tokenizer = (final String s) -> {
             final List<Token> tokens = tokenizerCore.tokenize(s);
             TokenizerCore.markFrozenSpans(tokens, formatOff);
+            // STATE_JS_TS.md's Step 2 "context 11" scoping session, Increment 1
+            // (detect-and-measure-only) -- purely observational, see JsxWrapDiagnostics's own doc
+            // comment. Zero effect on `tokens`/output; records nothing when the file has no
+            // JSX_SPAN tokens at all (every non-.jsx/.tsx file, by construction).
+            if(lang.isJsxSyntax) {
+                for(final Token t : tokens) {
+                    if(t.type == com.jxmake.formatter.tokenizer.TokenizerCore.TokenType.JSX_SPAN
+                            && t.jsxOpeningTagEndOffset >= 0) {
+                        com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement(
+                            t.jsxOpeningTagEndOffset, lineLengthLimit
+                        );
+                    }
+                } // for
+            } // if
             return tokens;
         };
 
-        final int                indentWidth                = config.indentSize();
-        final int                lineLengthLimit            = config.lineLength();
         final int                lineLengthWithCommentLimit = config.lineLengthWithComment();
         final BlockStructureRule blockRule                  = new BlockStructureRule(
             lang, config.closingCommentMinLines(), indentWidth, lineLengthLimit

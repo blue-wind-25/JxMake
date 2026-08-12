@@ -2017,6 +2017,28 @@ public class TokenizerCurly extends TokenizerCore {
             final Token span = new Token(TokenType.JSX_SPAN, text.toString(), cur.braceDepth, cur.parenDepth, null);
             span.frozen = true;
 
+            // STATE_JS_TS.md's Step 2 "context 11" scoping session, sub-context 1 (Increment 1,
+            // detect-and-measure-only) -- re-parse this same span's own root/opening tag (already
+            // proven well-formed, since findJsxSpanEnd above only succeeds by walking through it)
+            // purely to capture its attribute-boundary structure; a second, side-effect-free parse
+            // of the same short token range, not a behavior change to anything findJsxSpanEnd
+            // already did. Populates jsxOpeningTagEndOffset/jsxAttrBoundaries as offsets into the
+            // span's own `text` (0 == the leading `<`); left at their `-1`/`null` defaults if the
+            // root tag is somehow not open/self-close (structurally shouldn't happen here, since
+            // findJsxSpanEnd's own first iteration requires kind 0 or 2 to proceed at all).
+            final JsxTagResult rootTag = parseJsxTag(tokens, sig, s);
+            if( rootTag != null && (rootTag.kind == 0 || rootTag.kind == 2) ) {
+                final int tagEndRawIdx = sig.get(rootTag.newSigPos - 1); // Raw index of the tag's own '>'
+                int       offset       = 0;
+                final List<Integer> attrBoundaries = new ArrayList<>();
+                for( int k = idx; k <= tagEndRawIdx; ++k ) {
+                    if( rootTag.attrRawTokenIndices.contains(k) ) attrBoundaries.add(offset);
+                    offset += tokens.get(k).text.length();
+                }
+                span.jsxOpeningTagEndOffset = offset;
+                span.jsxAttrBoundaries      = attrBoundaries;
+            }
+
             // Replace tokens[idx..endTokenIdx] (inclusive) with the single span token. No other
             // tokens are inserted/removed by this pass (unlike reclassifyAngleBrackets), so a
             // straightforward remove-then-set is sufficient.
@@ -2130,15 +2152,22 @@ public class TokenizerCurly extends TokenizerCore {
      */
     private static final class JsxTagResult {
 
-        final int    newSigPos;
-        final int    kind;
-        final String tagName;
+        final int          newSigPos;
+        final int          kind;
+        final String       tagName;
+        final List<Integer> attrRawTokenIndices; // Raw `tokens` indices where each attribute in an
+                                                   // open/self-close tag begins, in source order --
+                                                   // empty for a closing tag (kind == 1). See
+                                                   // STATE_JS_TS.md's Step 2 "context 11" scoping
+                                                   // session, sub-context 1 -- consumed only by
+                                                   // findJsxSpans to populate Token#jsxAttrBoundaries.
 
-        JsxTagResult(final int newSigPos, final int kind, final String tagName)
+        JsxTagResult(final int newSigPos, final int kind, final String tagName, final List<Integer> attrRawTokenIndices)
         {
-            this.newSigPos = newSigPos;
-            this.kind      = kind;
-            this.tagName   = tagName;
+            this.newSigPos           = newSigPos;
+            this.kind                = kind;
+            this.tagName             = tagName;
+            this.attrRawTokenIndices = attrRawTokenIndices;
         }
 
     } // class JsxTagResult
@@ -2150,6 +2179,14 @@ public class TokenizerCurly extends TokenizerCore {
      *  found before the token stream ends). Attribute-value expression holes (`attr={...}`) are
      *  balance-skipped via a local brace-depth counter so an embedded `>` (e.g. `attr={a > b}`)
      *  isn't mistaken for the tag's own close.
+     *
+     * <p>Also records each top-level (localBrace == 0) attribute's start position, for an
+     *  open/self-close tag: either a plain `IDENTIFIER` (a bare boolean attribute like `disabled`,
+     *  or the name half of `name=value` -- either way the identifier itself is the attribute's own
+     *  boundary) or a `{` at localBrace == 0 (a spread attribute, `{...props}`, which has no
+     *  preceding name). Purely structural bookkeeping for STATE_JS_TS.md's Step 2 "context 11"
+     *  scoping session, sub-context 1 -- unused by anything in this method itself, consumed only
+     *  by {@link #findJsxSpans}.
      */
     private JsxTagResult parseJsxTag(final List<Token> tokens, final List<Integer> sig, final int s0)
     {
@@ -2172,6 +2209,7 @@ public class TokenizerCurly extends TokenizerCore {
             s += 2; // Dotted component name, e.g. `React.Fragment`
         }
 
+        final List<Integer> attrRawTokenIndices = new ArrayList<>();
         int     localBrace   = 0;
         boolean selfClosing = false;
         while(s < n) {
@@ -2183,6 +2221,9 @@ public class TokenizerCurly extends TokenizerCore {
                 break;
             }
             if( localBrace == 0 && Token.isOp(t, ">") ) break;
+            if( localBrace == 0 && !closing && ( t.type == TokenType.IDENTIFIER || Token.isPunct(t, "{") ) ) {
+                attrRawTokenIndices.add( sig.get(s) );
+            }
             if( Token.isPunct(t, "{") ) { ++localBrace; ++s; continue; }
             if( Token.isPunct(t, "}") ) { if(localBrace > 0) --localBrace; ++s; continue; }
             ++s;
@@ -2191,7 +2232,7 @@ public class TokenizerCurly extends TokenizerCore {
         if( s >= n || !Token.isOp( tokens.get( sig.get(s) ), ">" ) ) return null;
         ++s; // Consume '>'
 
-        return new JsxTagResult( s, closing ? 1 : (selfClosing ? 2 : 0), tagName.toString() );
+        return new JsxTagResult( s, closing ? 1 : (selfClosing ? 2 : 0), tagName.toString(), attrRawTokenIndices );
     }
 
     /** Balance-skips a `{...}` hole starting at {@code sig.get(s)} (a `{` token); returns the

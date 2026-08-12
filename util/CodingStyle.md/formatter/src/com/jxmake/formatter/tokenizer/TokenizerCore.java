@@ -77,6 +77,24 @@ public class TokenizerCore {
         public final String    name;       // For `{`/`}` only: pushed/popped construct name, else null
         public       boolean   frozen;     // set by markFrozenSpans; true = opaque pass-through, never transformed
 
+        // JSX_SPAN-only, STATE_JS_TS.md's Step 2 "context 11" scoping session, sub-context 1 --
+        // NOT user-facing, additive-only structural data alongside the existing frozen/opaque
+        // `text` shape (never consulted by any pre-existing pass). `jsxOpeningTagEndOffset` is the
+        // offset into `text` (0 == the span's own leading `<`) of the character immediately after
+        // the opening tag's closing `>`/`/>` -- i.e. `text.substring(0, jsxOpeningTagEndOffset)` is
+        // exactly the opening tag, attribute list included, nothing from any child/closing tag.
+        // `jsxAttrBoundaries` is the parallel list of offsets (same 0-based scheme) where each
+        // attribute in that opening tag begins, in source order -- both `-1`/`null` for every
+        // non-`JSX_SPAN` token and for a `JSX_SPAN` whose "opening tag" is itself a closing tag
+        // (structurally can't happen as a span root, kept `-1` defensively). Populated only by
+        // TokenizerCurly#findJsxSpans (Increment 1 of Step 2's 5-increment breakdown --
+        // detect-and-measure-only, see STATE_JS_TS.md for the full plan); no other code writes
+        // these fields, and reading them has zero effect on any rendered output as of that
+        // increment -- consumption is limited to JsxWrapDiagnostics's internal-only measurement
+        // hook.
+        public       int            jsxOpeningTagEndOffset = -1;
+        public       List<Integer>  jsxAttrBoundaries       = null;
+
         public Token(
             final TokenType type,
             final String    text,

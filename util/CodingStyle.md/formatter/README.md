@@ -65,7 +65,11 @@ every file given on that command line (mixing file types with a single forced `-
 invocation isn't supported — run the formatter once per language instead).
 Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
 with server mode (below) — the client sends the chosen language to the server, which uses it
-in place of its own extension-based guess for that request. For a per-file override instead
+in place of its own extension-based guess for that request. There is no separate `jsx`/`tsx`
+`--lang` value — both are covered by `js`/`ts`. However, whether the JSX/TSX boundary-finding
+pre-pass runs is decided independently of `--lang`, purely from whether the actual filename ends
+in `.jsx`/`.tsx` (`Lang.isJsxSyntax`); forcing `--lang js`/`--lang ts` on a file whose name does
+NOT end in `.jsx`/`.tsx` selects the JS/TS pipeline but will NOT enable JSX detection. For a per-file override instead
 of a per-invocation one (so mixed-language file lists and templated sources like `.java.in`/
 `.java.inc` don't need a separate invocation each), see the `--lang` form of the in-file
 [`JXM_CFMT_CFG` directive](#in-file-config-overrides) below.

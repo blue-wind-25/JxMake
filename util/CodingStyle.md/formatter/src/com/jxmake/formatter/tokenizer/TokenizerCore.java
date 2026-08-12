@@ -50,11 +50,21 @@ public class TokenizerCore {
         FSTRING_FORMAT_SPEC, // Python3 only — opaque `:format_spec` tail of an f-string field
         INDENT,              // Python3 only — synthesized, see TokenizerIndent#synthesizeIndentation
         DEDENT,              // Python3 only — synthesized, see TokenizerIndent#synthesizeIndentation
-        JSX_SPAN             // JS/TS `.jsx`/`.tsx` only — opaque whole-JSX-tree span, see
+        JSX_SPAN,            // JS/TS `.jsx`/`.tsx` only — opaque whole-JSX-tree span, see
                              // TokenizerCurly#findJsxSpans. `text` holds the full raw source span
                              // (opening `<` through the matching close/self-close `>`), including any
                              // embedded newlines; `frozen` is always true. No new fields added to
                              // Token for this -- see STATE_JS_TS.md's 2026-08-12 design session.
+        TEMPLATE_HOLE_OPEN,  // JS/TS `.jsx`/`.tsx` only — a template literal's `${` hole boundary,
+                             // see TokenizerCurly#emitTemplateLiteralSegmented. Dedicated type
+                             // (STATE_JS_TS.md's 2026-08-13 scoping session sub-context 1, option
+                             // (b)) rather than a plain PUNCT "${" -- option (a) (reusing PUNCT) was
+                             // tried first per the scoping session's own recommendation and found,
+                             // empirically, to break existing `isPunct(t, "}")`-based ASI/statement
+                             // logic that doesn't check for a matching real `{` (see RDD_LOG for the
+                             // key); a dedicated type is invisible to every such check by construction.
+        TEMPLATE_HOLE_CLOSE  // The matching `}` closing a TEMPLATE_HOLE_OPEN. Never a plain PUNCT
+                             // "}" for the same reason as above -- see TokenizerCurly#emitTemplateHoleInterior.
 
     } // enum TokenType
 

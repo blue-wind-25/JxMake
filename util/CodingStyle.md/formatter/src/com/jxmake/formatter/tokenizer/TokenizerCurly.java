@@ -560,100 +560,7 @@ public class TokenizerCurly extends TokenizerCore {
         final List<Token> tokens = new ArrayList<>();
 
         while(pos < length) {
-            final char c = source.charAt(pos);
-
-            if(c == '\r' || c == '\n') {
-                addToken( tokens, emitNewline() );
-                atLineStart = true;
-                continue;
-            }
-            if(c == ' ' || c == '\t') {
-                addToken( tokens, emitWhitespace() );
-                continue;
-            }
-
-            final Token t;
-            if( pos == 0 && c == '#' && peek(1) == '!' ) {
-                t = emitShebangLine();
-            }
-            else if( isPreprocessorLanguage() && c == '#' && atLineStart ) {
-                t = emitPreprocessorOrDefine();
-            }
-            else if( c == '/' && peek(1) == '/' ) {
-                t = emitLineComment();
-            }
-            else if( c == '/' && peek(1) == '*' ) {
-                t = emitBlockComment();
-            }
-            else if( c == '/' && (lang.isJs || lang.isTs) && isRegexLiteralAllowedHere(tokens) ) {
-                t = emitRegexLiteral();
-            }
-            else if( c == '"' && isTextBlockOpener() ) {
-                t = emitTextBlock();
-            }
-            else if( c == '"' && isKotlinRawStringOpener() ) {
-                t = emitKotlinRawString();
-            }
-            else if( (lang.isC || lang.isCpp) && rawStringPrefixLength() >= 0 ) {
-                t = emitRawString( rawStringPrefixLength() );
-            }
-            else if(c == '"') {
-                t = emitString();
-            }
-            else if( c == '`' && (lang.isJs || lang.isTs) ) {
-                t = emitTemplateLiteral();
-            }
-            else if(c == '`' && lang.isKotlin) {
-                t = emitKotlinBacktickIdentifier();
-            }
-            else if(c == '\'') {
-                t = emitChar();
-            }
-            else if( Character.isDigit(c) || ( c == '.' && Character.isDigit( peek(1) ) ) ) {
-                t = emitNumber();
-            }
-            else if( isIdentifierStart(c) ) {
-                t = emitIdentifierOrKeyword();
-            }
-            else if( c == '[' && peek(1) == '[' && lang.isCpp && looksLikeAttributeOpen() ) {
-                t = emitOperator();
-            }
-            else if( c == ']' && peek(1) == ']' && lang.isCpp ) {
-                // C++11 attribute close (`]]` closing `[[nodiscard]]` etc, STYLE_CPP26.md §5).
-                // Must stay C++-only like the "[[" branch just above it -- outside C++, two
-                // adjacent `]` are unrelated closes (e.g. TS `{ [K in T[number]]?: unknown }`'s
-                // indexed-access-type close immediately followed by the mapped-type bracket's own
-                // close) and must each go through the ordinary emitCloseBracket() PUNCT path below,
-                // not emitOperator() -- even after gating MULTI_CHAR_OPS's own "]]" entry to C++
-                // only (see emitOperator()), reaching emitOperator() at all here still emits an OP
-                // token instead of a PUNCT one, which defeats every isPunct(t, "]") check the same
-                // way (vuejs/core dogfood, componentOptions.ts's InjectToObject mapped type).
-                t = emitOperator();
-            }
-            else if( c == '[' && peek(1) == ':' && lang.isCpp ) {
-                t = emitOperator();
-            }
-            else if(c == '{') {
-                t = emitOpenBrace();
-            }
-            else if(c == '}') {
-                t = emitCloseBrace();
-            }
-            else if(c == '(' || c == '[') {
-                t = emitOpenBracket(c);
-            }
-            else if(c == ')' || c == ']') {
-                t = emitCloseBracket(c);
-            }
-            else if(c == ';' || c == ',') {
-                t = emitPunct(c);
-            }
-            else {
-                t = emitOperator();
-            }
-
-            addToken(tokens, t);
-            atLineStart = false;
+            tokenizeOneUnit(tokens);
             if(syntaxError) break;
         } // while
 
@@ -667,6 +574,116 @@ public class TokenizerCurly extends TokenizerCore {
         if(!syntaxError && !lang.isC) reclassifyAngleBrackets(tokens);
 
         return tokens;
+    }
+
+    /**
+     * Performs exactly one lexical step of the main character-level scan (dispatches on
+     *  {@code source.charAt(pos)}, emits the resulting token(s) via {@link #addToken}, advances
+     *  {@code pos}). Originally the direct body of {@link #tokenize}'s own {@code while} loop;
+     *  extracted (STATE_JS_TS.md's 2026-08-13 scoping session, sub-context 0) so a template-literal
+     *  hole's interior can re-enter the exact same dispatch the top-level scan uses (see
+     *  {@link #tokenizeTemplateHoleInterior}) instead of duplicating this chain. Pure refactor --
+     *  {@link #tokenize}'s own loop is now just {@code while(pos < length) tokenizeOneUnit(tokens);
+     *  if(syntaxError) break;}, byte-identical control flow to before this extraction.
+     */
+    private void tokenizeOneUnit(final List<Token> tokens)
+    {
+        final char c = source.charAt(pos);
+
+        if(c == '\r' || c == '\n') {
+            addToken( tokens, emitNewline() );
+            atLineStart = true;
+            return;
+        }
+        if(c == ' ' || c == '\t') {
+            addToken( tokens, emitWhitespace() );
+            return;
+        }
+
+        final Token t;
+        if( pos == 0 && c == '#' && peek(1) == '!' ) {
+            t = emitShebangLine();
+        }
+        else if( isPreprocessorLanguage() && c == '#' && atLineStart ) {
+            t = emitPreprocessorOrDefine();
+        }
+        else if( c == '/' && peek(1) == '/' ) {
+            t = emitLineComment();
+        }
+        else if( c == '/' && peek(1) == '*' ) {
+            t = emitBlockComment();
+        }
+        else if( c == '/' && (lang.isJs || lang.isTs) && isRegexLiteralAllowedHere(tokens) ) {
+            t = emitRegexLiteral();
+        }
+        else if( c == '"' && isTextBlockOpener() ) {
+            t = emitTextBlock();
+        }
+        else if( c == '"' && isKotlinRawStringOpener() ) {
+            t = emitKotlinRawString();
+        }
+        else if( (lang.isC || lang.isCpp) && rawStringPrefixLength() >= 0 ) {
+            t = emitRawString( rawStringPrefixLength() );
+        }
+        else if(c == '"') {
+            t = emitString();
+        }
+        else if( c == '`' && (lang.isJs || lang.isTs) ) {
+            emitTemplateLiteral(tokens);
+            atLineStart = false;
+            return;
+        }
+        else if(c == '`' && lang.isKotlin) {
+            t = emitKotlinBacktickIdentifier();
+        }
+        else if(c == '\'') {
+            t = emitChar();
+        }
+        else if( Character.isDigit(c) || ( c == '.' && Character.isDigit( peek(1) ) ) ) {
+            t = emitNumber();
+        }
+        else if( isIdentifierStart(c) ) {
+            t = emitIdentifierOrKeyword();
+        }
+        else if( c == '[' && peek(1) == '[' && lang.isCpp && looksLikeAttributeOpen() ) {
+            t = emitOperator();
+        }
+        else if( c == ']' && peek(1) == ']' && lang.isCpp ) {
+            // C++11 attribute close (`]]` closing `[[nodiscard]]` etc, STYLE_CPP26.md §5).
+            // Must stay C++-only like the "[[" branch just above it -- outside C++, two
+            // adjacent `]` are unrelated closes (e.g. TS `{ [K in T[number]]?: unknown }`'s
+            // indexed-access-type close immediately followed by the mapped-type bracket's own
+            // close) and must each go through the ordinary emitCloseBracket() PUNCT path below,
+            // not emitOperator() -- even after gating MULTI_CHAR_OPS's own "]]" entry to C++
+            // only (see emitOperator()), reaching emitOperator() at all here still emits an OP
+            // token instead of a PUNCT one, which defeats every isPunct(t, "]") check the same
+            // way (vuejs/core dogfood, componentOptions.ts's InjectToObject mapped type).
+            t = emitOperator();
+        }
+        else if( c == '[' && peek(1) == ':' && lang.isCpp ) {
+            t = emitOperator();
+        }
+        else if(c == '{') {
+            t = emitOpenBrace();
+        }
+        else if(c == '}') {
+            t = emitCloseBrace();
+        }
+        else if(c == '(' || c == '[') {
+            t = emitOpenBracket(c);
+        }
+        else if(c == ')' || c == ']') {
+            t = emitCloseBracket(c);
+        }
+        else if(c == ';' || c == ',') {
+            t = emitPunct(c);
+        }
+        else {
+            t = emitOperator();
+        }
+
+        addToken(tokens, t);
+        atLineStart = false;
     }
 
     private void addToken(final List<Token> tokens, final Token t)
@@ -1344,14 +1361,27 @@ public class TokenizerCurly extends TokenizerCore {
     /**
      * JS/TS template literal (STYLE_JS_TS.md §4, backtick-delimited, gated on lang.isJs/isTs in
      * the dispatch loop -- no other family uses `` ` `` at all, so this is purely additive).
-     * Tokenizer-pass scope only: the whole literal (including any {@code ${...}} interpolations)
-     * is emitted as a single opaque STRING token, content preserved byte-for-byte. §4's own
-     * "content preserved exactly as written" half of the rule is therefore already satisfied by
-     * this token shape; the other half ("${...}` interpolation gets normal expression spacing")
-     * is deferred to §4's future rule-implementation checkpoint, which will need to re-tokenize
-     * each interpolation's interior rather than treating it as opaque -- not attempted here.
+     * Dispatches to one of two token shapes (STATE_JS_TS.md's 2026-08-13 scoping session,
+     * sub-context 0/3): a plain {@code .js}/{@code .ts} file keeps the original single-opaque-
+     * STRING-token shape ({@link #emitTemplateLiteralOpaque}, byte-for-byte unchanged from
+     * before this session), while a {@code .jsx}/{@code .tsx} file ({@code lang.isJsxSyntax})
+     * gets the new segmented shape ({@link #emitTemplateLiteralSegmented}) that exposes each
+     * {@code ${...}} hole's boundary as its own token pair -- narrow/gated, mirroring the
+     * {@code isRegexLiteralAllowedHere} `.jsx`/`.tsx`-only carve-out precedent, so this change
+     * carries zero regression risk for the 200+ non-JSX `.js`/`.ts` fixtures and every real-code
+     * dogfood corpus already validated against the opaque shape.
      */
-    private Token emitTemplateLiteral()
+    private void emitTemplateLiteral(final List<Token> tokens)
+    {
+        if(!lang.isJsxSyntax) {
+            addToken( tokens, emitTemplateLiteralOpaque() );
+            return;
+        }
+        emitTemplateLiteralSegmented(tokens);
+    }
+
+    /** Original single-opaque-STRING-token shape, unchanged. See {@link #emitTemplateLiteral}. */
+    private Token emitTemplateLiteralOpaque()
     {
         final int start = pos;
         ++pos; // Consume opening `
@@ -1381,6 +1411,106 @@ public class TokenizerCurly extends TokenizerCore {
             TokenType.STRING, source.substring(start, pos), braceDepth, parenDepth,
             null
         );
+    }
+
+    /**
+     * `.jsx`/`.tsx`-only segmented template-literal shape (STATE_JS_TS.md's 2026-08-13 scoping
+     * session, sub-context 0/1). Instead of one opaque STRING token for the whole literal, emits a
+     * sequence of tokens that reconstructs the exact same source text: a STRING segment for each
+     * run of literal text, a {@code PUNCT "${"} / {@code PUNCT "}"} pair bracketing each
+     * interpolation hole (STATE_JS_TS.md sub-context 1's chosen representation, option (a): reuse
+     * plain PUNCT rather than a new dedicated TokenType), and the hole's own interior tokens in
+     * between -- see {@link #emitTemplateHoleInterior}. No new return-shape convention needed
+     * beyond what {@link #tokenizeOneUnit} already established for this call site: this method
+     * pushes tokens directly via {@link #addToken} (the {@code void}, direct-push option
+     * STATE_JS_TS.md's sub-context 0 write-up called out as the decision to make) rather than
+     * returning a spliced {@code List<Token>} -- there is no existing multi-token-emission
+     * precedent elsewhere in this tokenizer to match, so the simpler of the two options was taken.
+     */
+    private void emitTemplateLiteralSegmented(final List<Token> tokens)
+    {
+        int segStart = pos;
+        ++pos; // Consume opening `
+        while(pos < length) {
+            final char c = source.charAt(pos);
+            if(c == '\\') {
+                pos += 2;
+                continue;
+            }
+            if(c == '`') {
+                ++pos;
+                addToken( tokens, new Token(
+                    TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null
+                ) );
+                return;
+            } // if
+            if( c == '$' && peek(1) == '{' ) {
+                addToken( tokens, new Token(
+                    TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null
+                ) );
+                pos += 2;
+                addToken( tokens, new Token(TokenType.TEMPLATE_HOLE_OPEN, "${", braceDepth, parenDepth, null) );
+                emitTemplateHoleInterior(tokens);
+                segStart = pos;
+                continue;
+            }
+            ++pos;
+        } // while
+        syntaxError = true;
+        addToken( tokens, new Token(
+            TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null
+        ) );
+    }
+
+    /**
+     * Tokenizes (or, until sub-context 1 lands, opaquely captures) a {@code ${...}} hole's
+     * interior for {@link #emitTemplateLiteralSegmented}, then emits the closing {@code PUNCT "}"}
+     * token. `pos` is positioned just after the opening `${` on entry.
+     *
+     * <p><b>Sub-context 1 (LANDED):</b> re-enters the exact same per-character dispatch the
+     * top-level scan uses ({@link #tokenizeOneUnit}, called in a loop here) rather than merely
+     * skipping raw characters -- this is what makes a JSX element inside a hole reachable by
+     * {@link #findJsxSpans}'s post-tokenize pass at all. A local {@code holeDepth} counter (mirrors
+     * {@link #skipTemplateInterpolation}'s own depth tracking) distinguishes the hole's own
+     * terminating {@code }} from a nested one belonging to a real object-literal/block-statement
+     * inside the interpolation expression -- the terminator is consumed directly here (never routed
+     * through {@link #emitCloseBrace}, which would wrongly decrement the tokenizer's *global*
+     * {@code braceDepth} for a scope that was never opened via {@link #emitOpenBrace} in the first
+     * place); every other {@code {}}/`(`/`[`/string/nested-template construct inside the hole goes
+     * through the ordinary dispatch and so participates in global brace/paren-depth tracking exactly
+     * like the same construct anywhere else in the file. A nested backtick inside the hole re-enters
+     * {@link #emitTemplateLiteral} itself via {@link #tokenizeOneUnit}'s own dispatch (not a
+     * separate, simpler path), which is what makes nested template literals (sub-context 2) fall out
+     * of this structure for free rather than needing their own special case.
+     */
+    private void emitTemplateHoleInterior(final List<Token> tokens)
+    {
+        int holeDepth = 1;
+        while(pos < length) {
+            final char c = source.charAt(pos);
+            if(c == '}') {
+                --holeDepth;
+                if(holeDepth == 0) {
+                    ++pos; // Consume the hole's own closing `}`
+                    addToken( tokens, new Token(TokenType.TEMPLATE_HOLE_CLOSE, "}", braceDepth, parenDepth, null) );
+                    return;
+                }
+                // A genuine nested `}` (e.g. closing an object literal/block inside the
+                // interpolation expression) -- fall through to ordinary dispatch below, which
+                // correctly decrements the tokenizer's global braceDepth via emitCloseBrace.
+            }
+            else if(c == '{') {
+                ++holeDepth;
+                // Falls through to ordinary dispatch, which increments global braceDepth via
+                // emitOpenBrace -- holeDepth tracks the same nesting independently, purely to
+                // recognize this hole's own terminator.
+            }
+            tokenizeOneUnit(tokens);
+            if(syntaxError) return;
+        } // while
+        // Unterminated hole (EOF before the matching `}`) -- same posture as the rest of this
+        // tokenizer's unterminated-construct handling.
+        syntaxError = true;
     }
 
     /**
@@ -1874,6 +2004,7 @@ public class TokenizerCurly extends TokenizerCore {
                     || isAssignmentOrLogicalRhsStart(prev)
                     || isGroupingParenStart(tokens, sig, s)
                     || Token.isPunct(prev, "{")
+                    || ( prev != null && prev.type == TokenType.TEMPLATE_HOLE_OPEN )
                     || isSpreadContext(tokens, sig, s);
             if( !isJsxContext ) continue;
 

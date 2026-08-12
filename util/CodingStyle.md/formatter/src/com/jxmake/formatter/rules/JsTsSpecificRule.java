@@ -810,9 +810,151 @@ public final class JsTsSpecificRule {
                 final String rewritten = rewriteTemplateLiteral(t.text, innerTokenizer, misc);
                 if( rewritten != null && !rewritten.equals(t.text) ) overrides.put(i, rewritten);
             }
+            // `.jsx`/`.tsx` only (STATE_JS_TS.md's 2026-08-13 scoping session, sub-context 0/1
+            // implementation): a template literal on this extension is no longer one opaque
+            // STRING token (TokenizerCurly.emitTemplateLiteralSegmented splits it so a `${`-opened
+            // hole's interior is real tokens, letting findJsxSpans detect JSX inside a hole) -- the
+            // text-based rewriteTemplateLiteral path above never matches a segmented literal's own
+            // partial STRING segments, so without this branch a `.tsx`/`.jsx` hole's interpolation-
+            // spacing normalization (this method's whole purpose) would silently stop firing for
+            // every such file, a real regression found empirically (not predicted by the scoping
+            // session's static trace) once JSX-in-hole detection was implemented and manually
+            // verified against a `${a+b}` case. Token-based instead of text-based since the hole's
+            // interior is already real tokens here -- simpler than re-tokenizing a substring.
+            else if( t.type == TokenType.TEMPLATE_HOLE_OPEN ) {
+                final int closeIdx = findMatchingTemplateHoleClose(tokens, i);
+                if(closeIdx > i) {
+                    final String rendered = renderTemplateHoleInterior(
+                        tokens.subList(i + 1, closeIdx), misc
+                    );
+                    if(rendered != null) {
+                        overrides.put(i + 1, rendered);
+                        for( int k = i + 2; k < closeIdx; ++k ) overrides.put(k, "");
+                    }
+                    i = closeIdx; // Skip past the whole hole -- nested holes inside it were
+                                  // already folded into `rendered` by renderTemplateHoleInterior's
+                                  // own recursion, not independently reprocessed by this loop.
+                }
+            }
         } // for
 
         return render(tokens, overrides);
+    }
+
+    /**
+     * Finds the {@code TEMPLATE_HOLE_CLOSE} matching the {@code TEMPLATE_HOLE_OPEN} at
+     *  {@code openIdx}, tracking nesting depth so a nested template literal's own hole pair inside
+     *  doesn't prematurely match. Returns -1 if unbalanced (defensive only -- the tokenizer itself
+     *  guarantees balanced pairs by construction; never expected to fire).
+     */
+    private int findMatchingTemplateHoleClose(final List<Token> tokens, final int openIdx)
+    {
+        int depth = 1;
+        for( int i = openIdx + 1; i < tokens.size(); ++i ) {
+            final TokenType ty = tokens.get(i).type;
+            if(ty == TokenType.TEMPLATE_HOLE_OPEN) ++depth;
+            else if(ty == TokenType.TEMPLATE_HOLE_CLOSE) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
+     * Re-renders a segmented template-literal hole's already-tokenized interior (the slice
+     *  strictly between its {@code TEMPLATE_HOLE_OPEN}/{@code TEMPLATE_HOLE_CLOSE} pair) via
+     *  {@code renderTokens}'s ordinary tight/loose adjacency rules -- the token-based counterpart
+     *  of {@link #reformatInterpolationInterior}'s text-based version, used for `.jsx`/`.tsx`
+     *  files where the hole's interior is real tokens rather than raw substring text. Same
+     *  conservative bailout as the text-based path: returns {@code null} (caller leaves the
+     *  original interior untouched) if empty/blank, or if any significant token is a NEWLINE,
+     *  comment, or frozen (a {@code JSX_SPAN} is frozen by design -- {@code true} to preserve its
+     *  raw text byte-for-byte, but that is a deliberate keep-as-is, not a bailout reason, so it is
+     *  explicitly exempted from the frozen check here). A bare nested {@code TEMPLATE_HOLE_OPEN}
+     *  found directly in the slice (STATE_JS_TS.md sub-context 2) is recursively reformatted via
+     *  this same method and spliced back in as one synthetic {@code ${...}} STRING token, mirroring
+     *  {@link #reformatInterpolationInterior}'s own recursive-nesting structure. A nested template
+     *  *literal* (its own STRING/HOLE_OPEN/.../STRING segment chain, opening backtick to closing
+     *  backtick) is folded whole into a single synthetic STRING token spanning the entire literal
+     *  -- its own segments are never pushed into the significant-token list individually, since
+     *  {@code renderTokens} spaces adjacent STRING tokens apart as if they were two separate value
+     *  expressions, which corrupted (and on repeated passes, snowballed) the nested literal's raw
+     *  text; folding it into one token sidesteps that entirely.
+     */
+    private String renderTemplateHoleInterior(final List<Token> interior, final MiscRuleCurly misc)
+    {
+        final List<Token> significant = new ArrayList<>();
+        int i = 0;
+        while( i < interior.size() ) {
+            final Token t = interior.get(i);
+            if( t.type == TokenType.NEWLINE || isComment(t) ) return null;
+            if( t.frozen && t.type != TokenType.JSX_SPAN ) return null;
+            if( t.type == TokenType.WHITESPACE ) { ++i; continue; }
+            if( t.type == TokenType.STRING && !t.text.isEmpty() && t.text.charAt(0) == '`' ) {
+                // Start of a nested template literal's segment chain (STRING, [HOLE_OPEN,
+                //  interior, HOLE_CLOSE, STRING]*). Earlier this folded each of its own
+                //  TEMPLATE_HOLE_OPEN spans into one synthetic STRING but still pushed the
+                //  literal's own surrounding STRING segments into `significant` as separate
+                //  tokens -- renderTokens then treated adjacent STRING tokens as two distinct
+                //  value expressions needing a separating space, corrupting (and, on repeated
+                //  passes, snowballing) the literal's own raw text. Fixed by folding the WHOLE
+                //  nested literal -- every one of its own segments and holes, recursively -- into
+                //  a single synthetic STRING token before it ever reaches `significant`, so it
+                //  participates in adjacency decisions exactly as it would have as one token if
+                //  the tokenizer had never segmented it (found via a non-idempotent round-trip
+                //  probe on `a ${ `b ${x+1}` } d`, STATE_JS_TS.md sub-context 2).
+                final StringBuilder combined = new StringBuilder(t.text);
+                boolean closed = t.text.length() >= 2 && t.text.charAt(t.text.length() - 1) == '`';
+                ++i;
+                while(!closed) {
+                    if( i >= interior.size() || interior.get(i).type != TokenType.TEMPLATE_HOLE_OPEN ) {
+                        return null; // Malformed/unexpected shape -- bail defensively
+                    }
+                    final int closeIdx = findMatchingTemplateHoleClose(interior, i);
+                    if(closeIdx < 0) return null; // Unbalanced -- should be unreachable, bail defensively
+                    final String nested = renderTemplateHoleInterior(
+                        interior.subList(i + 1, closeIdx), misc
+                    );
+                    final StringBuilder raw = new StringBuilder();
+                    for( int k = i + 1; k < closeIdx; ++k ) raw.append( interior.get(k).text );
+                    combined.append("${").append( nested != null ? nested : raw.toString() ).append('}');
+                    i = closeIdx + 1;
+                    if( i >= interior.size() || interior.get(i).type != TokenType.STRING ) {
+                        return null; // Malformed/unexpected shape -- bail defensively
+                    }
+                    final Token seg = interior.get(i);
+                    combined.append(seg.text);
+                    closed = !seg.text.isEmpty() && seg.text.charAt(seg.text.length() - 1) == '`';
+                    ++i;
+                } // while !closed
+                significant.add( new Token(TokenType.STRING, combined.toString(), t.braceDepth, t.parenDepth, null) );
+                continue;
+            }
+            if( t.type == TokenType.TEMPLATE_HOLE_OPEN ) {
+                final int closeIdx = findMatchingTemplateHoleClose(interior, i);
+                if(closeIdx < 0) return null; // Unbalanced -- should be unreachable, bail defensively
+                final String nested = renderTemplateHoleInterior(
+                    interior.subList(i + 1, closeIdx), misc
+                );
+                final StringBuilder raw = new StringBuilder();
+                for( int k = i + 1; k < closeIdx; ++k ) raw.append( interior.get(k).text );
+                final Token synthetic = new Token(
+                    TokenType.STRING, "${" + (nested != null ? nested : raw.toString()) + "}",
+                    t.braceDepth, t.parenDepth, null
+                );
+                significant.add(synthetic);
+                i = closeIdx + 1;
+                continue;
+            }
+            if(t.type == TokenType.TEMPLATE_HOLE_CLOSE) return null; // Unreachable, defensive only
+            significant.add(t);
+            ++i;
+        } // while
+        if( significant.isEmpty() ) return null;
+
+        return misc.renderTokens(significant);
     }
 
     /**

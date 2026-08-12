@@ -41,11 +41,33 @@ user direction.
 
 `STYLE_JS_TS.md` covers latest ECMAScript (ES2024+) and latest TypeScript
 (5.x), one shared file for both (TS is a syntactic superset of JS). Per
-`STYLE_JS_TS.md`, **JSX/TSX are out of scope entirely, not merely
-deferred** — they will need their own future embedding-aware dispatcher
-(JSX embeds tag syntax directly inside JS/TS expression position, a
-compound-language situation, not a same-file extension like HTML5's
-`<script>` splicing).
+`STYLE_JS_TS.md`, JSX/TSX were originally **out of scope entirely, not
+merely deferred** — that blanket statement is now superseded by a two-step
+plan (2026-08-13), Step 1 of which has landed:
+
+- **Step 1 (DONE — the boundary-finding pre-pass, 10/11 design-list
+  contexts, Increments 1-6).** `TokenizerCurly.findJsxSpans` detects a JSX
+  tree at any of the enumerated expression-start contexts and collapses it
+  into one opaque, frozen `JSX_SPAN` token — raw source preserved
+  byte-for-byte, never reformatted internally. Critically, the frozen token
+  sits in the significant-token stream like any other atomic expression
+  token, so surrounding formatting (call-argument wrapping, assignment-RHS
+  line-length decisions, array-element spacing) already treats a JSX tag
+  *as an expression* from the outside. This is content-preservation, not
+  JSX-aware reformatting.
+- **Step 2 (NOT STARTED — generic grouped-expression-style wrap of the
+  tag's own interior).** Once some further prerequisite steps land (not
+  yet scoped), format a JSX_SPAN's own contents using the same generic
+  "long expression exceeding the line-length threshold gets broken across
+  lines" machinery already used for calls/object literals/array literals —
+  treating the tag as if it were a long grouped expression — WITHOUT
+  parsing real JSX grammar (no attribute-specific alignment, no
+  children-specific indentation semantics). This is a deliberately bounded
+  middle ground between "frozen opaque blob" (Step 1) and a full
+  JSX-aware embedding dispatcher (still a distinct, larger future job —
+  JSX embeds tag syntax directly inside JS/TS expression position, a
+  compound-language situation, not a same-file extension like HTML5's
+  `<script>` splicing).
 
 Sections 1–15 (baseline-inherited rules, semicolon insertion, destructuring/
 spread, template literals, function/arrow brace style, optional chaining,
@@ -223,8 +245,13 @@ active in the Makefile and passing.
   instability, check whether it matches this quirk before treating it as a
   new bug.
 
-- **JSX/TSX out-of-scope statement** — see Scope section above (exact
-  wording preserved there per policy: out of scope entirely, not deferred).
+- **JSX/TSX scope statement** — superseded 2026-08-13; see Scope section
+  above for the current two-step plan (Step 1 DONE, Step 2 NOT STARTED).
+  The old "out of scope entirely, not deferred" wording no longer applies
+  as a blanket statement — Step 1's boundary-finding pre-pass is real,
+  landed JSX/TSX support (content-preservation + outer-expression
+  treatment), even though full JSX-aware reformatting (Step 2 and beyond)
+  remains future work.
 
   **2026-08-07 discussion session (no code, no fixtures, no RDD_LOG key —
   interactive discussion only, findings recorded for a future implementation

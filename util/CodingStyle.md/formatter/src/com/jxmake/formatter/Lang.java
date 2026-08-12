@@ -52,15 +52,32 @@ public final class Lang {
     public final boolean isTagBased;
     public final boolean isSimpleBraced;
     /**
-     * True only when the file being formatted has a `.jsx`/`.tsx` extension (checked directly
-     *  against {@code filePath}, independent of {@link #language} -- `.jsx` infers to `"js"` and
-     *  `.tsx` to `"ts"`, see {@link #infer}, so this is the only signal that distinguishes a JSX/TSX
-     *  file from a plain `.js`/`.ts` one). Gates the {@code TokenizerCurly#findJsxSpans} boundary-
-     *  finding pre-pass (STATE_JS_TS.md's 2026-08-12 design session) -- a `.ts`/`.js` file must see
-     *  zero behavior change, so the pre-pass must never run unless this is true. Defaults to
-     *  {@code false} via the path-less constructor (used by every non-file-scoped `Lang` caller,
-     *  e.g. `XmlSpecificRule`'s forced `"js"`/`"css"` dispatch for embedded `<script>`/`<style>`
-     *  content, which has no real `.jsx`/`.tsx` file path to check).
+     * True when the JSX boundary-finding pre-pass ({@code TokenizerCurly#findJsxSpans}) should run
+     *  for this file. Gates the pre-pass -- a file this is {@code false} for must see zero behavior
+     *  change, so the pre-pass must never run unless this is true.
+     *
+     *  <p>Extension-based rules (STATE_JS_TS.md's 2026-08-13 implementation section, following the
+     *  2026-08-13 research session's recommendation, itself following Babel/Prettier's own
+     *  precedent):
+     *  <ul>
+     *    <li>{@code .jsx}/{@code .tsx} -- always {@code true} (unchanged from the original
+     *        Step-1 landing).</li>
+     *    <li>{@code .js}/{@code .mjs}/{@code .cjs} -- always {@code true} (widened 2026-08-13):
+     *        plain JS has no competing ambiguous syntax (the legacy `<Type>value` angle-bracket
+     *        cast is TS-only grammar), so this mirrors Babel/Prettier's own default-on behavior for
+     *        the whole JS-family bucket.</li>
+     *    <li>{@code .ts} -- {@code false} by default (deliberately NOT widened, mirroring `tsc`'s/
+     *        Prettier's own `.ts`-vs-`.tsx` split -- `.ts` is exactly where the legacy `<Type>value`
+     *        cast collision is real and non-rare), {@code true} only when the caller explicitly
+     *        opts in via {@code jsxInJsOptIn} (the {@code jsx-in-js} config key, see
+     *        `Config.isJsxInJs`).</li>
+     *    <li>Anything else -- {@code false}.</li>
+     *  </ul>
+     *
+     *  <p>Defaults to {@code false} via the path-less constructor (used by every non-file-scoped
+     *  `Lang` caller, e.g. `XmlSpecificRule`'s forced `"js"`/`"css"` dispatch for embedded
+     *  `<script>`/`<style>` content, which has no real file path to check) and via the two-arg
+     *  constructor (opt-in defaults to off when not explicitly threaded through).
      */
     public final boolean isJsxSyntax;
 
@@ -71,7 +88,18 @@ public final class Lang {
 
     public Lang(final String language, final String filePath)
     {
-        this.isJsxSyntax    = filePath != null && isJsxSyntaxPath(filePath);
+        this(language, filePath, false);
+    }
+
+    /**
+     * {@code jsxInJsOptIn}-aware overload -- lets a caller thread {@code Config.isJsxInJs()}
+     *  through so a {@code .ts} file can opt into the JSX boundary-finding pre-pass (see
+     *  {@link #isJsxSyntax}'s javadoc). Has no effect on any extension other than {@code .ts} --
+     *  {@code .jsx}/{@code .tsx}/{@code .js}/{@code .mjs}/{@code .cjs} are unaffected either way.
+     */
+    public Lang(final String language, final String filePath, final boolean jsxInJsOptIn)
+    {
+        this.isJsxSyntax    = filePath != null && isJsxSyntaxPath(filePath, jsxInJsOptIn);
         this.language       = language;
         this.isC            = "c".equals(language);
         this.isCpp          = "cpp".equals(language);
@@ -96,11 +124,19 @@ public final class Lang {
         this.isSimpleBraced = isJson || isJson5 || isCss;
     }
 
-    private static boolean isJsxSyntaxPath(final String filePath)
+    private static boolean isJsxSyntaxPath(final String filePath, final boolean jsxInJsOptIn)
     {
         final String lower = filePath.toLowerCase(Locale.ROOT);
 
-        return lower.endsWith(".jsx") || lower.endsWith(".tsx");
+        if( lower.endsWith(".jsx") || lower.endsWith(".tsx") ) return true;
+        if( lower.endsWith(
+            ".js"
+        ) || lower.endsWith(
+            ".mjs"
+        ) || lower.endsWith(".cjs") ) return true;
+        if( lower.endsWith(".ts") ) return jsxInJsOptIn;
+
+        return false;
     }
 
     /*

@@ -2078,8 +2078,8 @@ public class TokenizerCurly extends TokenizerCore {
      */
     private int findJsxSpanEnd(final List<Token> tokens, final List<Integer> sig, final int s0)
     {
-        int depth = 0;
-        int s      = s0;
+        final java.util.Deque<String> openNames = new java.util.ArrayDeque<String>();
+        int s = s0;
         while( s < sig.size() ) {
             final Token cur = tokens.get( sig.get(s) );
             if( !Token.isOp(cur, "<") ) {
@@ -2092,21 +2092,27 @@ public class TokenizerCurly extends TokenizerCore {
                 continue;
             }
 
-            final int[] r = parseJsxTag(tokens, sig, s);
+            final JsxTagResult r = parseJsxTag(tokens, sig, s);
             if(r == null) return -1;
-            final int newS = r[0];
-            final int kind = r[1]; // 0 = open, 1 = close, 2 = self-close
+            final int newS = r.newSigPos;
+            final int kind = r.kind; // 0 = open, 1 = close, 2 = self-close
 
             if(kind == 1) {
-                --depth;
-                if(depth == 0) return sig.get(newS - 1);
-                if(depth < 0) return -1;
+                // Tag-name identity check (STATE_JS_TS.md's 2026-08-13 hardening) -- a closing tag
+                // only reduces depth when its name matches the innermost still-open tag's name;
+                // any mismatch (e.g. `<a>...</b>`, or a close with no open at all) bails out (-1)
+                // rather than silently accepting an unbalanced tree, same safe-fallback contract
+                // every other rejection in this pass already uses.
+                if( openNames.isEmpty() ) return -1;
+                final String expected = openNames.pop();
+                if( !expected.equals(r.tagName) ) return -1;
+                if( openNames.isEmpty() ) return sig.get(newS - 1);
             }
             else if(kind == 2) {
-                if(depth == 0) return sig.get(newS - 1);
+                if( openNames.isEmpty() ) return sig.get(newS - 1);
             }
             else {
-                ++depth;
+                openNames.push(r.tagName);
             }
             s = newS;
         } // while
@@ -2115,16 +2121,37 @@ public class TokenizerCurly extends TokenizerCore {
     }
 
     /**
+     * Result of {@link #parseJsxTag}: {@code newSigPos} is the `sig` position immediately after
+     *  the consumed closing `>`; {@code kind} is 0 (open tag), 1 (closing tag, `</Name>`), or 2
+     *  (self-closing tag, `<Name .../>`); {@code tagName} is the tag's raw dotted name text (e.g.
+     *  `"Foo"` or `"React.Fragment"`), captured for the tag-name-identity check in
+     *  {@link #findJsxSpanEnd} (STATE_JS_TS.md's 2026-08-13 hardening -- previously only tag-nesting
+     *  *depth* was tracked, not name identity, so `<a>...</b>` silently balanced).
+     */
+    private static final class JsxTagResult {
+
+        final int    newSigPos;
+        final int    kind;
+        final String tagName;
+
+        JsxTagResult(final int newSigPos, final int kind, final String tagName)
+        {
+            this.newSigPos = newSigPos;
+            this.kind      = kind;
+            this.tagName   = tagName;
+        }
+
+    } // class JsxTagResult
+
+    /**
      * Parses one JSX tag (open, close, or self-closing) starting at {@code sig.get(s)} (a `<`
-     *  token). Returns {@code {newSigPos, kind}} where {@code newSigPos} is the `sig` position
-     *  immediately after the consumed closing `>`, and {@code kind} is 0 (open tag), 1 (closing
-     *  tag, `</Name>`), or 2 (self-closing tag, `<Name .../>`) -- or {@code null} if this `<` does
+     *  token). Returns a {@link JsxTagResult}, or {@code null} if this `<` does
      *  not actually begin a well-formed tag (no tag-name IDENTIFIER following, or no matching `>`
      *  found before the token stream ends). Attribute-value expression holes (`attr={...}`) are
      *  balance-skipped via a local brace-depth counter so an embedded `>` (e.g. `attr={a > b}`)
      *  isn't mistaken for the tag's own close.
      */
-    private int[] parseJsxTag(final List<Token> tokens, final List<Integer> sig, final int s0)
+    private JsxTagResult parseJsxTag(final List<Token> tokens, final List<Integer> sig, final int s0)
     {
         final int n = sig.size();
         int       s = s0 + 1; // Skip the opening '<'
@@ -2137,9 +2164,11 @@ public class TokenizerCurly extends TokenizerCore {
         }
 
         if( tokens.get( sig.get(s) ).type != TokenType.IDENTIFIER ) return null; // Tag name required
+        final StringBuilder tagName = new StringBuilder( tokens.get( sig.get(s) ).text );
         ++s;
         while( s + 1 < n && Token.isOp( tokens.get( sig.get(s) ), "." )
                 && tokens.get( sig.get(s + 1) ).type == TokenType.IDENTIFIER ) {
+            tagName.append('.').append( tokens.get( sig.get(s + 1) ).text );
             s += 2; // Dotted component name, e.g. `React.Fragment`
         }
 
@@ -2162,7 +2191,7 @@ public class TokenizerCurly extends TokenizerCore {
         if( s >= n || !Token.isOp( tokens.get( sig.get(s) ), ">" ) ) return null;
         ++s; // Consume '>'
 
-        return new int[] {s, closing ? 1 : (selfClosing ? 2 : 0)};
+        return new JsxTagResult( s, closing ? 1 : (selfClosing ? 2 : 0), tagName.toString() );
     }
 
     /** Balance-skips a `{...}` hole starting at {@code sig.get(s)} (a `{` token); returns the

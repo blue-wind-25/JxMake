@@ -42,7 +42,8 @@ public final class Config {
         "gru-classifier", "gru-weights-path",
         "curly-general-scope-reindent",
         "curly-general-scope-reindent-multipass",
-        "html5-tc-gap-level"
+        "html5-tc-gap-level",
+        "jsx-in-js"
     };
 
     private static final java.util.Set<String> ALL_KEYS_SET =
@@ -205,6 +206,19 @@ public final class Config {
      *  so far.
      */
     private int html5TcGapLevel = 0;
+
+    /**
+     * {@code jsx-in-js} -- `.ts`-scoped opt-in for the JSX boundary-finding pre-pass
+     *  ({@code TokenizerCurly.findJsxSpans}, gated by {@code Lang.isJsxSyntax}). `.jsx`/`.tsx`
+     *  always run the pre-pass (unchanged); `.js`/`.mjs`/`.cjs` now also run it unconditionally
+     *  (see `STATE_JS_TS.md`'s 2026-08-13 implementation section) since plain JS has no competing
+     *  ambiguous syntax. `.ts` deliberately stays off by default -- legacy `<Type>value` angle-
+     *  bracket casts are real, non-rare TS syntax that collides with JSX's own open-tag shape (same
+     *  reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx`) -- this key lets a user
+     *  force it on for one legacy `.ts`-with-embedded-JSX file that isn't renamed to `.tsx`. No
+     *  effect on any other language/extension.
+     */
+    private boolean jsxInJs = false;
 
     private Config()
     {
@@ -396,6 +410,11 @@ public final class Config {
         return html5TcGapLevel;
     }
 
+    public boolean isJsxInJs()
+    {
+        return jsxInJs;
+    }
+
     /**
      * Returns {@code true} if {@code key} is one of the recognized config properties (the same
      * set documented in {@code STATE_C_CPP_JAVA.md}'s Config Keys and Defaults table). Used by
@@ -459,7 +478,9 @@ public final class Config {
         );
         groups.put(
             "JS/TS",
-            new String[] { "js-import-order", "js-import-sort", "js-import-blank-lines" }
+            new String[] {
+                "js-import-order", "js-import-sort", "js-import-blank-lines", "jsx-in-js"
+            }
         );
         groups.put(
             "Python 3", new String[] { "python-import-sort", "python-import-blank-lines" }
@@ -737,6 +758,11 @@ public final class Config {
                 allowedValues = null;
                 break;
 
+            case "jsx-in-js":
+                defaultValue  = defaults.jsxInJs ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
             default:
                 throw new IllegalStateException("describeAll: no case for key '" + key + "'");
 
@@ -953,6 +979,9 @@ public final class Config {
         );
         config.html5TcGapLevel                    = parseInt(
             raw, "html5-tc-gap-level", config.html5TcGapLevel
+        );
+        config.jsxInJs                            = parseBoolean(
+            raw, "jsx-in-js", config.jsxInJs
         );
 
         return config;

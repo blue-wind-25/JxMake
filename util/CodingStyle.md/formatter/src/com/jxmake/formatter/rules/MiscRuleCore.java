@@ -1529,6 +1529,22 @@ public static final class Assignment {
         final int         curIdx
     )
     {
+        // A segmented JS/TS template literal's `${`/`}` hole-boundary tokens (`TEMPLATE_HOLE_OPEN`/
+        // `TEMPLATE_HOLE_CLOSE`, emitted by `TokenizerCurly.emitTemplateLiteralSegmented` whenever
+        // `lang.isJsxSyntax`) are always tight against whatever precedes/follows them on both sides
+        // -- they reconstruct one continuous piece of source text (a template literal), never a
+        // real expression boundary any general spacing rule should touch. Without this, a plain
+        // adjacency pair like `` `text ` `` (STRING) followed by `${` (TEMPLATE_HOLE_OPEN) fell
+        // through to this method's generic default and gained a spurious space on both sides of the
+        // hole (`` `text   ${name}  ` `` instead of `` `text ${name}` ``) -- found once JSX
+        // detection widened to plain `.js`/`.mjs`/`.cjs` (STATE_JS_TS.md's 2026-08-13
+        // implementation section) exposed this shape at real-fixture scale for the first time; the
+        // segmented shape's original `.jsx`/`.tsx`-only validation never happened to include a
+        // template literal with real surrounding text (see that same session's dogfood notes).
+        if( prev.type == TokenType.TEMPLATE_HOLE_OPEN || prev.type == TokenType.TEMPLATE_HOLE_CLOSE
+                || cur.type == TokenType.TEMPLATE_HOLE_OPEN || cur.type == TokenType.TEMPLATE_HOLE_CLOSE ) {
+            return false;
+        }
         // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause is the one shape
         // where an ANGLE_BRACKET_OPEN is *not* tight against what precedes it -- every other
         // opener (`Foo<T>`, `foo<T>(...)`) directly follows the identifier it qualifies, but this

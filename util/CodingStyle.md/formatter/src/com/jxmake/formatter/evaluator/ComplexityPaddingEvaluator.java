@@ -45,9 +45,45 @@ public class ComplexityPaddingEvaluator {
                 return true;
             } // if
             if( t.type == TokenType.PUNCT && "[".equals(t.text) ) return true;
+            // A segmented JS/TS template literal's `${...}` hole (`TEMPLATE_HOLE_OPEN`/
+            // `TEMPLATE_HOLE_CLOSE`, emitted by `TokenizerCurly.emitTemplateLiteralSegmented`
+            // whenever `lang.isJsxSyntax` -- widened to plain `.js`/`.mjs`/`.cjs` files too, see
+            // `Lang.isJsxSyntax`'s javadoc/STATE_JS_TS.md's 2026-08-13 implementation section) can
+            // contain a real nested call/array expression of its own (e.g.
+            // `` `${pico.green(`x`)}` ``'s inner `pico.green(...)` call). Before segmentation, the
+            // whole template literal was one opaque STRING token this evaluator never looked
+            // inside, so such an argument always evaluated as simple/tight; skipping the hole's
+            // interior here (rather than recursing into it) preserves that exact same tight
+            // outcome for the *enclosing* call's own padding decision -- the template literal
+            // itself is still, as a whole, one argument value, not "a call containing nested
+            // parens" from the enclosing call's point of view. (The hole's own interior expression
+            // gets its own, separate complexity-padding pass when it is itself later examined as
+            // the inside of a real `(`/`[` -- this skip only affects how the literal looks from
+            // the *outside*.)
+            if(t.type == TokenType.TEMPLATE_HOLE_OPEN) {
+                final int closeIdx = matchTemplateHole(contentTokens, i);
+                if(closeIdx >= 0) i = closeIdx;
+            }
         } // for
 
         return false;
+    }
+
+    private int matchTemplateHole(final List<Token> tokens, final int openIdx)
+    {
+        int depth = 0;
+        for( int i = openIdx; i < tokens.size(); ++i ) {
+            final TokenType ty = tokens.get(i).type;
+            if(ty == TokenType.TEMPLATE_HOLE_OPEN) {
+                ++depth;
+            }
+            else if(ty == TokenType.TEMPLATE_HOLE_CLOSE) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
+        return -1;
     }
 
     private boolean isReceiverFunctionTypeParens(final List<Token> tokens, final int openIdx)

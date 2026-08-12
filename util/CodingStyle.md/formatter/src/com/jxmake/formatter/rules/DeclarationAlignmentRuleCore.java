@@ -308,6 +308,22 @@ public abstract class DeclarationAlignmentRuleCore {
         // unambiguous: it can only be this destructuring param list, never an indexing
         // expression. Mirrors MiscRuleCore.needsSpaceBetween's identical carve-out (C6j).
         if( lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{") ) return true;
+        // A segmented JS/TS template literal's `${`/`}` hole-boundary tokens (`TEMPLATE_HOLE_OPEN`/
+        // `TEMPLATE_HOLE_CLOSE`, emitted by `TokenizerCurly.emitTemplateLiteralSegmented` whenever
+        // `lang.isJsxSyntax`) are always tight against whatever precedes/follows them on both sides
+        // -- they reconstruct one continuous piece of source text (a template literal), never a
+        // real expression boundary this class's own duplicated adjacency rules should touch. This
+        // duplicate of `MiscRuleCore.needsSpaceBetween` is exercised whenever a declaration
+        // statement (e.g. `const label = \`User: ${name}\`;`) is grouped/rendered by
+        // `DeclarationAlignmentRuleCurly`/`JsTsDeclarationAlignmentRule` -- found via
+        // `DEBUG_PHASES`-gated phase tracing once JSX detection widened to plain `.js`/`.mjs`/
+        // `.cjs` (STATE_JS_TS.md's 2026-08-13 implementation section) exposed this shape at
+        // real-fixture scale for the first time; the segmented shape's original `.jsx`/`.tsx`-only
+        // validation never happened to include a template literal inside a declaration statement.
+        if( prev.type == TokenType.TEMPLATE_HOLE_OPEN || prev.type == TokenType.TEMPLATE_HOLE_CLOSE
+                || cur.type == TokenType.TEMPLATE_HOLE_OPEN || cur.type == TokenType.TEMPLATE_HOLE_CLOSE ) {
+            return false;
+        }
         if( isTightToken(cur) ) return false;
         // Kotlin's negated type-check/containment operators (`!is`, `!in`) are a single tight
         // lexical unit -- STYLE_KOTLIN.md renders them with no space between `!` and the

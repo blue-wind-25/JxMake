@@ -45,8 +45,16 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 `Makefile`/`GNUmakefile`/`.mk` → Makefile, `.sh`/`.bash` → Bash, `.ps1`/`.psm1` → PowerShell).
 `.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts`. A boundary-finding
 pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
-so a `.jsx`/`.tsx` file containing real JSX tag syntax is safe to run through the formatter — the
-JSX/TSX portions round-trip unchanged while surrounding plain JS/TS gets normal formatting.
+so a file containing real JSX tag syntax is safe to run through the formatter — the JSX/TSX
+portions round-trip unchanged while surrounding plain JS/TS gets normal formatting. The pre-pass
+runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs` (mirrors Prettier's own
+default — real-world `.js` files with embedded JSX, e.g. older Create-React-App projects, are
+common enough that gating on extension alone caused genuine content corruption; see
+`STATE_JS_TS.md`'s 2026-08-13 implementation section). `.ts` deliberately stays gated off by
+default — a `.ts` file's legacy `<Type>expr` angle-bracket cast syntax collides with a JSX open
+tag, the same reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx` — but a `.ts` file
+that genuinely embeds JSX can opt in per-file with the `jsx-in-js` [`JXM_CFMT_CFG`
+directive](#in-file-config-overrides) (or the equivalent CLI flag/env var/config-file key).
 JSX/TSX-syntax-*aware* reformatting (e.g. reflowing attributes/children) does not exist yet — see
 `STYLE_JS_TS.md`. Makefile detection is also basename-based (`Makefile`, `GNUmakefile`) for
 extensionless Make files.
@@ -67,9 +75,10 @@ Without `--lang`, a file whose extension can't be recognized is an error. `--lan
 with server mode (below) — the client sends the chosen language to the server, which uses it
 in place of its own extension-based guess for that request. There is no separate `jsx`/`tsx`
 `--lang` value — both are covered by `js`/`ts`. However, whether the JSX/TSX boundary-finding
-pre-pass runs is decided independently of `--lang`, purely from whether the actual filename ends
-in `.jsx`/`.tsx` (`Lang.isJsxSyntax`); forcing `--lang js`/`--lang ts` on a file whose name does
-NOT end in `.jsx`/`.tsx` selects the JS/TS pipeline but will NOT enable JSX detection. For a per-file override instead
+pre-pass runs is decided independently of `--lang`, purely from the actual filename's extension
+(`Lang.isJsxSyntax`) plus, for `.ts` only, the `jsx-in-js` opt-in described above; forcing
+`--lang js`/`--lang ts` on a file whose name doesn't match one of those rules selects the JS/TS
+pipeline but does not itself enable JSX detection. For a per-file override instead
 of a per-invocation one (so mixed-language file lists and templated sources like `.java.in`/
 `.java.inc` don't need a separate invocation each), see the `--lang` form of the in-file
 [`JXM_CFMT_CFG` directive](#in-file-config-overrides) below.
@@ -767,7 +776,21 @@ here if and when it actually gains a documented gap.
    regression sweep. This is a known, currently-unresolved gap — no workaround exists
    short of avoiding deeply nested short calls inside very long lines.
 
-3. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
+3. **`.ts` files with embedded JSX need the explicit `jsx-in-js` opt-in, and JSX-widening
+   validation is limited to one real corpus.** The JSX/TSX boundary-finding pre-pass runs
+   unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but deliberately stays off by default on
+   plain `.ts` (see "Language & path handling" above for why) — a legacy `.ts` file with real
+   embedded JSX and no `jsx-in-js` directive will have its JSX mis-tokenized as ordinary
+   angle-bracket/comparison syntax rather than preserved as an opaque span. Separately, the
+   `.js`/`.mjs`/`.cjs` widening itself (recommendation 1) has been validated end-to-end against
+   exactly one real-world corpus with embedded JSX-in-`.js` content
+   (`taniarascia/react-tutorial` — see `STATE_DOGFOOD.md`); it is not yet validated at the scale
+   of the dozens of non-JSX-bearing repos already dogfooded against this formatter, so a residual
+   risk of an unseen JSX-adjacent edge case remains for `.js`/`.mjs`/`.cjs` content this specific
+   corpus didn't exercise (e.g. JSX inside a template-literal interpolation in plain `.js` — no
+   real-world example of that combination has been dogfooded yet, only synthetic fixtures).
+
+4. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
    imports as third-party.** Local-import detection is syntactic only: an import specifier
    is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
    a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
@@ -776,7 +799,7 @@ here if and when it actually gains a documented gap.
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
    is a known, accepted simplification — no source-root config key is planned.
 
-4. **Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
+5. **Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
    relative-delta technique.** `ScopePipeline.applyDeclarationsPass` (declarations) shifts a
    block's lines by one delta computed from a single reference line rather than deriving each
    line's target from its own brace-nesting depth, which assumes the block's original
@@ -807,7 +830,7 @@ here if and when it actually gains a documented gap.
    its own brace-nesting depth, including through nested switches, so it no longer exhibits this
    gap.)
 
-5. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
+6. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
    commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and
    also the `#`-comment tooling family (Makefile/Bash/PowerShell) and YAML/TOML.** See "Config
    file format" → [Multi-sentence comment
@@ -816,7 +839,7 @@ here if and when it actually gains a documented gap.
    '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
    codebases that keep a lot of commented-out code inside otherwise-prose comment groups.
 
-6. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
+7. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
    rules (`^^`, `[: :]` splice brackets), but every C++-specific behavior across the whole `cpp`
    pipeline (e.g. empty-parameter-list rendering, `template`/`requires` handling, and every other
    C++20/C++23/C++26 rule this formatter implements) — never applies to a `.h` file's content

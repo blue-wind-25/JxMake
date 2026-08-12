@@ -233,8 +233,18 @@ active in the Makefile and passing.
 
 ## Open Questions
 
+- **IMPLEMENTED (2026-08-13) — see the "2026-08-13 implementation session —
+  JSX-in-`.js`/`.ts` detection (LANDED)" section above for the full
+  writeup.** `.js`/`.mjs`/`.cjs` now get the JSX pre-pass unconditionally;
+  `.ts` stays gated off by default with a new `jsx-in-js` Config-key
+  opt-in; `TokenizerCurly`'s tag-matching was hardened with tag-name
+  identity tracking; two latent template-literal-spacing bugs the
+  widening exposed were found and fixed;
+  `taniarascia/react-tutorial` re-dogfooded clean.
+
 - **Should JSX detection ever extend to plain `.js`/`.ts` files (not just
-  `.jsx`/`.tsx`)?** Raised by the `taniarascia/react-tutorial` dogfood pass
+  `.jsx`/`.tsx`)?** (Original open question, now resolved above.) Raised by
+  the `taniarascia/react-tutorial` dogfood pass
   (2026-08-13, see that section under "Checklist" above) — that repo's real
   corpus ships JSX embedded directly in `.js` files (an older-CRA
   convention), which the current strictly extension-gated
@@ -1637,6 +1647,104 @@ active in the Makefile and passing.
     nice-to-have) if detection is ever widened past the current
     `.jsx`/`.tsx` gate, since the residual risk in `.js`/`.ts` is
     specifically the shape this closes.
+
+---
+
+  **2026-08-13 implementation session — JSX-in-`.js`/`.ts` detection
+  (LANDED).** Implemented the hybrid recommendation from the research
+  session directly above, plus recommendation 4's tag-name hardening.
+
+  1. `Lang.isJsxSyntaxPath` widened unconditionally to `.js`/`.mjs`/`.cjs`
+     (mirrors Babel/Prettier's own default) in addition to the pre-existing
+     `.jsx`/`.tsx`. `.jsx`/`.tsx` behavior is unchanged.
+  2. `.ts` deliberately stays gated off by default — same reasoning `tsc`/
+     Prettier use (the legacy `<Type>expr` angle-bracket cast collides with
+     a JSX open tag).
+  3. **Design decision for the `.ts`-scoped opt-in:** a plain new `Config`
+     key, `jsx-in-js`, rather than a special-cased CLI-only flag. Checked
+     precedent first — `InFileConfig.isEligible` admits any key satisfying
+     `Config.isKnownKey(key) && !SERVER_SCOPED_KEYS.contains(key)`, so a
+     new boolean `Config` key automatically works everywhere (CLI flag,
+     `JXMAKE_CODE_FORMATTER_*` env var, config file, server query param,
+     and `JXM_CFMT_CFG` in-file directive) with no extra plumbing — unlike
+     `--lang` (RDD_KEY_286), which needed hand-written special-casing
+     specifically because it is *not* an ordinary `Config` key. Since
+     `jsx-in-js` has no such reason to be special, the generic mechanism
+     was the right fit; a bespoke `--jsx-in-js`-only flag would have
+     needlessly reinvented what `Config`/`InFileConfig` already provide for
+     free. Landed as: `Config.ALL_KEYS`/`GROUPS` (`"JS/TS"` group)/
+     `describeOne`/`fromRawMap` entries, a `jsxInJs` field +
+     `isJsxInJs()` getter, threaded through `FormatterCore`'s new 3-arg
+     `forLanguage(language, filePath, jsxInJsOptIn)` overload and
+     `GdrPipelineGate.applyAndFormat` (the single call site both `Main` and
+     `ServerMode` route through).
+  4. `TokenizerCurly.parseJsxTag` now returns a small `JsxTagResult`
+     (`newSigPos`/`kind`/`tagName`) instead of an `int[]`, and
+     `findJsxSpanEnd` tracks a `Deque<String>` of open tag names instead of
+     a bare integer depth — a closing tag only reduces depth when its name
+     matches the innermost open name; any mismatch (`<a>...</b>`, or a
+     close with no open at all) returns `-1`, the same safe-fallback every
+     other rejection in this pass already uses (never throws, never
+     silently accepts).
+
+  **Two latent bugs found and fixed along the way** (both invisible before
+  this session because widening JSX detection to plain `.js` is what first
+  activated the `.jsx`/`.tsx`-only segmented template-literal tokenizer
+  mode for ordinary `.js` files containing real template-literal
+  interpolations — the prior `.jsx`/`.tsx` dogfood/fixture corpus had zero
+  such content):
+  - `DeclarationAlignmentRuleCore.needsSpaceBetween` (a duplicate of
+    `MiscRuleCore`'s own adjacency-spacing method, exercised whenever a
+    declaration statement is grouped/rendered by
+    `DeclarationAlignmentRuleCurly`/`JsTsDeclarationAlignmentRule`) had no
+    `TEMPLATE_HOLE_OPEN`/`TEMPLATE_HOLE_CLOSE` awareness and inserted
+    spurious spaces around a template literal's `${`/`}` boundaries (e.g.
+    `` `User: ${name}` `` → `` `User:   ${name}  ` ``). Found via
+    `DEBUG_PHASES`-gated phase-by-phase tracing (temporary `System.err`
+    prints after each `FormatterCurly.formatOne` phase, removed once
+    diagnosed) that isolated the corruption to `ScopePipelineCurly.process`
+    specifically. Fixed with the same guard shape `MiscRuleCore` already
+    uses: treat either side of a template hole boundary as always-tight.
+  - `ComplexityPaddingEvaluator.isLoose` counted a real nested call inside
+    a template hole's interior (e.g. `` `${pico.green(`x`)}` ``'s inner
+    `pico.green(...)` call) toward the *enclosing* call's own looseness
+    decision, wrongly padding `console.log(...)` to
+    `console.log( ... )` — found via `real_code_regressions_94`, a
+    pre-existing fixture with exactly this nested-template-in-call shape.
+    Fixed by having `isLoose` skip over a `TEMPLATE_HOLE_OPEN`...
+    `TEMPLATE_HOLE_CLOSE` span (nesting-depth-aware) rather than recursing
+    into it — the template literal is still one argument value from the
+    enclosing call's point of view, exactly as it was before segmentation
+    when it was one opaque `STRING` token.
+
+  **Fixtures added** (`test/README.txt` has the full per-fixture
+  rationale): `jsx_in_plain_js_inp/out.js` (real JSX in plain `.js`,
+  preserved), `ts_jsx_default_off_inp/out.ts` (`.ts`'s legacy `<Type>` cast
+  left untouched by default), `ts_jsx_optin_inp/out.ts` (`.ts` + `` /*%
+  JXM_CFMT_CFG jsx-in-js=on */ `` — JSX now detected/preserved),
+  `jsx_mismatched_tag_inp/out.jsx` and `js_mismatched_tag_inp/out.js`
+  (`<a>text</b>` bails out to plain, non-corrupted formatting in both the
+  pre-existing `.jsx` gate and the newly-widened `.js` context). `make
+  test`: 306/306 forward, 306/306 idempotency.
+
+  **`taniarascia/react-tutorial` re-dogfooded against the real `.js`
+  corpus that motivated this whole effort** (re-cloned fresh to
+  `/tmp/dogfood_react_tutorial`, prior cached clone from the original
+  finding no longer present): all 5 `.js` files now round-trip clean.
+  `js_ts_syntax_check.sh` 5/5 clean (previously 4/5 failed, including the
+  `Api.js` truncation/`{entry}`→`{entry;}` corruption that motivated this
+  whole effort). Format→format-again diffs empty (idempotent) for all 5
+  files. `tools/verifiers/js_ts_content_diff.js`/`.sh` flags 4/5 as
+  MISMATCH as expected (documented JSX-non-awareness limitation, not a
+  formatter bug) — manually cross-checked via whitespace-stripped diff:
+  every reported difference is a legitimate, expected style transform
+  (arrow-parameter parens added, semicolons inserted, `// methodName`/`//
+  ClassName` closing comments added), not corruption — no lost/garbled
+  JSX content, no truncation, no stray tokens. `STATE_DOGFOOD.md`'s
+  react-tutorial row updated accordingly.
+
+  **Open Questions entry above (`Should JSX detection ever extend to plain
+  .js/.ts files?`) is now IMPLEMENTED** — see that entry's own note.
 
 ---
 

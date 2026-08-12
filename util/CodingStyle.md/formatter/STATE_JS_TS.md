@@ -233,6 +233,21 @@ active in the Makefile and passing.
 
 ## Open Questions
 
+- **Should JSX detection ever extend to plain `.js`/`.ts` files (not just
+  `.jsx`/`.tsx`)?** Raised by the `taniarascia/react-tutorial` dogfood pass
+  (2026-08-13, see that section under "Checklist" above) — that repo's real
+  corpus ships JSX embedded directly in `.js` files (an older-CRA
+  convention), which the current strictly extension-gated
+  `Lang.isJsxSyntax` never detects, causing real content corruption when
+  formatted as-shipped (not just a missed opportunity — the plain-JS
+  tokenizer actively misparses the embedded JSX). Not acted on this pass:
+  extending detection risks false-positive JSX parsing colliding with
+  legitimate `<`/`>` comparison operators in ordinary `.js`/`.ts` code that
+  never contains JSX — a real design tradeoff, not a narrow safe fix.
+  Deferred to the user; candidate outcomes include a documented Known
+  Limitation (do nothing, require `.jsx`/`.tsx` renaming as a precondition)
+  or a future opt-in heuristic-detection mode.
+
 - **HTML5 needs its own dispatcher for `<style>`/other embedded formats
   beyond `<script>`.** `<script>` splicing (JS/TS dispatch, CDATA unwrap/
   rewrap, Config-threading) is done — see `XmlSpecificRule.
@@ -2032,6 +2047,105 @@ corrected to `isOp`.) Verified: minimal repro + the full real ~9800-line
 274/274 → 275/275. New fixture: `real_code_regressions_198_inp/out.ts`
 (plain LF, confirming a distinct root cause from RDD_KEY_273/274/275's
 cluster).
+
+### `taniarascia/react-tutorial` and `microsoft/TypeScript-React-Starter` dogfood pass — smallest JSX/TSX boundary-finding pre-pass candidates, DONE (2026-08-13)
+
+First two of the six JSX/TSX candidates registered in the "Dogfood
+candidates registered 2026-08-13" note above (see `STATE_DOGFOOD.md`). Run
+by explicit instruction as a small first pass before touching the other
+four (`ruanyf/react-demos`, `reactstrap/reactstrap`,
+`Lemoncode/react-typescript-samples`, `excalidraw/excalidraw`), which remain
+`NOT STARTED`, deferred to a future session. No formatter source change
+made this pass — both findings below are checker-tool/corpus-shape
+observations, not formatter bugs requiring a fix.
+
+**`taniarascia/react-tutorial`** (`/tmp/dogfood_react_tutorial`, shallow
+clone). In-scope corpus: 5 files under `src/` (`Api.js`, `App.js`,
+`Form.js`, `index.js`, `Table.js`), all `.js`, none `.jsx` — the repo ships
+JSX embedded directly inside `.js` files (a common older-CRA convention),
+so it does not actually contain any real `.jsx`-extension file despite
+being registered as a "JSX candidate."
+
+This is itself the headline finding: the boundary-finding pre-pass is
+strictly extension-gated (`Lang.isJsxSyntax` checks `.jsx`/`.tsx` only, by
+design — see Scope section above and `RDD_KEY_187`/the class-scoping note).
+Running the real corpus exactly as shipped (`.js` extension, untouched)
+means the pre-pass never engages at all, and the plain-JS tokenizer has no
+JSX awareness. Result: **real content corruption**, not just cosmetic
+diffs. Round1 on the as-shipped `.js` files is idempotent (round1/round2
+diff empty — the corruption itself is stable, not the freshly-discovered
+kind of bug this job usually chases) but `js_ts_syntax_check.sh` fails on
+4/5 files (`Table.js`, `Form.js`, `App.js`, `Api.js` — only `index.js`,
+which contains no JSX, passes) with real parse errors (`'}' expected`,
+`JSX element '...' has no corresponding closing tag`). Manual diff of
+`Api.js` shows the file is truncated mid-statement and a spurious `;` is
+inserted inside a JSX expression container (`{entry}` → `{entry;}`) — the
+`<`/`>`/`{`/`}` of the embedded JSX tags are being misparsed as ordinary
+JS operators/braces once the tokenizer runs past the point where it can
+recover.
+
+As a supplementary check (not part of the real corpus, but needed to
+actually exercise the feature under test), the same 5 files were copied to
+`.jsx` extensions and re-run: round1/round2 idempotent (empty diff),
+`js_ts_syntax_check.sh` 5/5 clean, and manual diff of all 5 files confirmed
+every reformatting is cosmetic-only (brace-on-own-line style, `//
+componentDidMount`/`// render`/`// class App` closing-brace comments, bare
+single-param arrow parenthesization) with the JSX itself preserved
+byte-for-byte in every case, exactly as Step 1's guarantee promises.
+`js_ts_content_diff.js`'s batch mode flagged all 4 non-trivial `.jsx` files
+as MISMATCH ("non-import top-level statement structure differs") — cross-
+checked by hand against the diff and confirmed a **checker limitation, not
+a formatter bug**: the tool's own docstring states "JSX/TSX are explicitly
+out of scope... this tool only targets plain .js/.ts" and its
+`scriptKindFor` never maps `.jsx`/`.tsx` to a JSX-aware `ts.ScriptKind`, so
+its own AST parse of a `JSX_SPAN`-bearing file diverges from a plain
+canonicalization — this is the tool's documented gap, not evidence of
+content loss (confirmed via direct diff instead). No template literals
+present anywhere in this corpus (item 10 / `TEMPLATE_HOLE_OPEN` path
+untested by this repo).
+
+No source fix attempted for the `.js`-with-embedded-JSX corruption — per
+the task's explicit scope, this is exactly the class of finding to
+document and leave open rather than chase with a blind fix: extending JSX
+detection to plain `.js`/`.ts` files is a real design question (risk of
+false-positive JSX detection colliding with legitimate `<`/`>` comparison
+operators in ordinary `.js` code that never contains JSX), not a narrow
+safe patch. Recorded as `STATE_DOGFOOD.md`'s `DONE - OPEN Q` status.
+
+**`microsoft/TypeScript-React-Starter`** (`/tmp/dogfood_ts_react_starter`,
+shallow clone). In-scope corpus: 10 real `.tsx` files under `src/`
+(`index.tsx`, `App.tsx`, `App.test.tsx`, `components/Hello.tsx`,
+`components/Hello.test.tsx`, `constants/index.tsx`, `reducers/index.tsx`,
+`containers/Hello.tsx`, `types/index.tsx`, `actions/index.tsx` —
+`--preserve-tree --root` used to avoid `Hello.tsx`/`index.tsx` basename
+collisions across subdirectories). Unlike the JSX repo above, every file
+here already has the real `.tsx` extension, so the boundary-finding
+pre-pass engages exactly as intended with no supplementary rename needed.
+
+Round1/round2 idempotency: empty diff, 10/10. `js_ts_content_diff.js`
+batch mode: 10/10 `OK: content preserved` (no checker-tool limitation hit
+here, unlike the `.jsx` case above). `js_ts_syntax_check.sh`: 10/10 clean.
+Manual spot-check of `components/Hello.tsx` (an interface plus a function
+component with a JSX return) confirms all diffs are ordinary cosmetic
+reformatting (interface member `:`-column alignment grid, brace-on-own-line
+style, `// Hello`/`// interface Props` closing-brace comments,
+`if(x) throw ...;` single-statement collapse) with JSX content untouched.
+No template literals present anywhere in this corpus either (item 10
+untested by this repo too — neither of these two smallest candidates
+exercises the template-literal-with-JSX path; a future session's dogfood
+pass against the remaining 4 registered repos, especially the "small-but-
+complex" ones, should specifically watch for it, per the parent task's own
+instruction).
+
+**Verdict:** `microsoft/TypeScript-React-Starter` — clean `DONE`, zero
+issues, real corpus. `taniarascia/react-tutorial` — `DONE - OPEN Q`: the
+Step 1 pre-pass itself is confirmed correct and content-preserving when it
+engages (`.jsx` supplementary check), but the real, as-shipped corpus never
+triggers it at all and suffers real content corruption as plain `.js` —
+worth a documented Known Limitation and a design discussion (own tracked
+question, not blocking Step 1/Step 2 work) about whether `.js`/`.ts` files
+containing embedded JSX should ever be detected heuristically, deferred to
+the user.
 
 ### Known false positives (no source change needed, fixture-only)
 

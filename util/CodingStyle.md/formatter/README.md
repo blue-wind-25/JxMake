@@ -384,6 +384,7 @@ kotlin-import-blank-lines              = 1
 js-import-order                        = builtin, third-party, local
 js-import-sort                         = on
 js-import-blank-lines                  = 1
+jsx-in-js                              = off         # off | on -- `.ts`-scoped opt-in for JSX detection, see below
 
 # ── Python 3 ──────────────────────────────────────────────────────────────────
 python-import-sort                     = on
@@ -423,6 +424,17 @@ into the measured width the way the curly-brace family's shared pipeline
 does. A future session adding a genuine comment-inclusive wrap decision to
 any of these should reuse `line-length-with-comment` rather than inventing a
 new key.
+
+**`--lang` vs. `jsx-in-js`.** These two look similar (both influence JS/TS-family
+language handling) but sit at different tiers. `--lang` is *not* a config-file
+key at all — it's a CLI flag / server `lang` query param, with a matching
+`JXM_CFMT_CFG` pseudo-key as its only in-file form; it has no env var and
+cannot appear in `.jxmake-code-formatter`. `jsx-in-js` (JS/TS group above) is
+an ordinary config key like any other in this list, so it works through every
+tier: built-in default (`off`), `~/.config/jxmake-code-formatter/config`,
+`JXMAKE_CODE_FORMATTER_JSX_IN_JS`, `.jxmake-code-formatter`, CLI flag / server
+query param, and `JXM_CFMT_CFG` — see "Configuration" above for the full
+precedence order.
 
 ### Comment classifier (GRU)
 

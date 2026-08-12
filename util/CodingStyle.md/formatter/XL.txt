@@ -203,9 +203,9 @@ Use sub-agent. This can be a substantial work.
 === TIER 3: Real feature gaps — medium risk ===
 
 - [JS_TS] Boundary-finding pre-pass for regex/JSX-adjacent contexts — PARTIALLY IMPLEMENTED
-  7/11 contexts covered as of 2026-08-12 (Increments 1-4), zero regressions. Next: resume with
-  grouping-paren-start per STATE_JS_TS.md's "where to resume" note under its 2026-08-12 design
-  session — that file is the source of truth, not this entry.
+  10/11 contexts covered as of 2026-08-13 (Increments 1-6), zero regressions. Only item 10
+  (template-literal `${}` holes) remains, now broken into sub-steps in STATE_JS_TS.md's
+  2026-08-13 scoping session (right after Increment 6) — that file is the source of truth.
 
 Use sub-agent. This can be a substantial work.
 

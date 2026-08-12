@@ -841,7 +841,10 @@ active in the Makefile and passing.
     ambiguity's `.tsx`-only resolution still not stress-tested against an
     actual `const x = <T>foo;` cast-shaped `.tsx` input — all three carried
     over unchanged from prior increments' own "NOT done" lists.
-  - **Where to resume**: 10/11 design-list contexts now landed. Only item
+  - **Where to resume (superseded by the 2026-08-13 scoping session below
+    for item 10's own breakdown — kept for history; still accurate on the
+    real-JSX-corpus-validation point, which the scoping session below does
+    not touch).** 10/11 design-list contexts now landed. Only item
     10 (template-literal `${}` holes) remains, and it needs a
     tokenizer-level change (see above), not another `isJsxContext` clause
     — treat it as its own, larger-scoped future task rather than a natural
@@ -851,6 +854,206 @@ active in the Makefile and passing.
     output tree) against all 10 landed contexts together, flagged as
     required-but-not-done since the original 2026-08-12 design session and
     repeated unchanged in every increment since.
+
+  **2026-08-13 scoping session — item 10 (template-literal `${}` holes)
+  broken into sub-contexts (design/scoping only, no code, no fixtures, no
+  RDD_LOG key).** Increment 6 above left item 10 as one deferred blob
+  ("needs a tokenizer-level change, not another `isJsxContext` clause").
+  This section breaks that down into a concrete, incremental checklist a
+  future implementation session can pick up, following the same
+  small-individually-testable-individually-committed-increment pattern
+  Increments 1-6 already established. Grounded in a re-read of
+  `TokenizerCurly.emitTemplateLiteral` (character-level lexer, ~line 1354),
+  `skipTemplateInterpolation`/`skipNestedTemplateLiteral`/
+  `skipQuotedForTemplate` (~line 1540 onward), and the dispatch-loop call
+  site (`c == '`' && (lang.isJs || lang.isTs)`, ~line 603) — not
+  speculation.
+
+  **Why this is structurally different from Increments 1-6, and riskier.**
+  Every one of Increments 1-6 added a new *condition* to
+  `findJsxSpans.isJsxContext`, a post-tokenize pass that only ever runs when
+  `lang.isJsxSyntax` — zero blast radius on plain `.js`/`.ts` files by
+  construction (the pass itself never runs there), confirmed empirically
+  every increment via the unchanged `make test` count on non-`.tsx`
+  fixtures. Item 10 cannot be scoped that narrowly at the same layer:
+  `emitTemplateLiteral`/`skipTemplateInterpolation` run in the
+  character-level lexer, for **every** JS/TS file regardless of extension
+  (template literals are ordinary, common JS/TS syntax, not a JSX-only
+  construct) — see the dispatch-loop condition above, gated only on
+  `lang.isJs || lang.isTs`, never on `lang.isJsxSyntax`. Any change to how
+  `${...}` is scanned therefore touches the tokenization of every `.js`/
+  `.ts`/`.jsx`/`.tsx` file with a template literal in it, not just the
+  `.jsx`/`.tsx` subset — a categorically larger surface than any prior
+  increment, and the reason this needs its own carefully-planned session
+  rather than a "Increment 7" drop-in.
+
+  **Sub-context 0 (prerequisite, blocks everything below): decide the
+  opaque-vs-transparent boundary.** Before any tokenizer change, decide
+  exactly what stays opaque and what doesn't:
+  - Today, `emitTemplateLiteral` emits ONE `STRING` token for the entire
+    literal, backticks and all interpolations included, and
+    `skipTemplateInterpolation` never emits any token for a `${...}`
+    interior — it only advances `pos` past it (brace/quote/nested-template
+    balanced skip, no re-entry into `emitIdentifierOrKeyword`/
+    `emitOperator`/etc.).
+  - The minimal change that unblocks JSX detection inside a hole:
+    `skipTemplateInterpolation` must instead **tokenize** each `${...}`
+    interior (re-enter the normal per-character dispatch used by the main
+    scan loop, the same set of `emit*` branches at ~line 570-650) rather
+    than just skipping raw characters, while the backtick-delimited
+    non-interpolation text on either side of each hole stays exactly as
+    opaque as it is today.
+  - This means a single template literal with N interpolations would need
+    to become a **sequence** of tokens instead of one `STRING` token: text
+    segment, hole-open marker, the hole's own real tokens, hole-close
+    marker, text segment, ... — a structural change to what
+    `emitTemplateLiteral` returns (today: exactly one `Token`; after: an
+    unknown-in-advance number of tokens spliced into the main stream at the
+    call site, ~line 604). `emitTemplateLiteral`'s signature/return type
+    and its one call site both need to change together — decide up front
+    whether it becomes `void` (pushing tokens directly onto the caller's
+    list) or returns a `List<Token>` the caller splices in, matching
+    whichever existing multi-token-emission precedent (if any) this
+    tokenizer already has, rather than inventing a new return-shape
+    convention.
+
+  **Sub-context 1: new `TokenType`s for the hole boundary.** The design's
+  original list-item-1 wording ("recursively inside a JSX expression hole's
+  own `{...}` ... same recursion trigger as a JSX `{...}` hole") implies the
+  post-tokenize `findJsxSpans` pass needs to recognize a template-hole's
+  `${`/`}` the same way it already recognizes an ordinary `{`/`}` PUNCT
+  pair for a JSX-hole's own bare-brace context (item 9, landed in Increment
+  6 as `Token.isPunct(prev, "{")`). Two representational options, to be
+  decided by the implementation session rather than assumed here:
+  - (a) Emit the `${` and the hole's closing `}` as ordinary `PUNCT`
+    tokens with distinguishable `text` (`"${"` / `"}"`), letting
+    `findJsxSpans`'s existing `isJsxContext`/`isPunct` machinery treat a
+    `${`-opened hole exactly like a `{`-opened JSX hole (item 9) with no
+    new `TokenType` needed at all — cheapest option, but conflates a
+    template hole's `${` with a bare `{`'s different surrounding-text
+    semantics (a template hole is never a block statement or object
+    literal, so nothing downstream should ever need to tell them apart) —
+    verify no existing pass relies on `${` vs `{` being distinguishable
+    before picking this option.
+  - (b) A dedicated `TokenType.TEMPLATE_HOLE_OPEN`/`TEMPLATE_HOLE_CLOSE`
+    pair, mirroring the existing `JSX_SPAN`/`ANGLE_BRACKET_OPEN`/
+    `ANGLE_BRACKET_CLOSE` precedent of dedicated non-generic token kinds —
+    safer (no ambiguity with plain `{`/`}`), more invasive (every pass that
+    already switches on `TokenType`/`Token.isPunct` for brace matching
+    needs an audit for whether it now also needs to handle this new kind,
+    the same class of "audit every fits-check call site" work the design's
+    original `JSX_SPAN` write-up already flagged for multi-line-token
+    width guards).
+  - Recommendation for the implementation session to validate, not a
+    settled decision: start with (a) (reuse `PUNCT`) since it is the
+    smaller, more mechanically-checkable change, and only fall back to (b)
+    if (a) is found to break an existing brace-matching assumption during
+    implementation — mirrors this job's own established "smallest safe
+    change first" pattern from Increments 1-6.
+
+  **Sub-context 2: nested template literals inside a hole.** The design
+  session flagged `` `a ${ `b ${c}` } d` `` (a nested template literal
+  inside an outer hole, legal JS) as a real question. Traced against the
+  current code: `skipTemplateInterpolation` already calls
+  `skipNestedTemplateLiteral` on an inner `` ` ``, which itself recurses
+  back into `skipTemplateInterpolation` for the inner template's own
+  `${...}` holes — the *skip*-only version already handles arbitrary
+  nesting depth correctly today (it just never tokenizes any of it). Once
+  sub-context 0's re-entry-into-real-tokenization change lands, this
+  recursive structure is naturally preserved AS LONG AS the re-entry point
+  itself calls back into `emitTemplateLiteral` (not a separate, simpler
+  path) when it encounters a nested `` ` `` while tokenizing a hole's
+  interior — i.e. the character-level dispatch loop's own `` c == '`' ``
+  branch (~line 603) must be reachable from inside hole-tokenization, not
+  bypassed. Concretely: verify (with a dedicated fixture,
+  `` `a ${ `b ${c}` } d` `` plus a JSX-bearing variant `` `a ${ `b ${<X/>}` }` ``)
+  that a JSX span found inside a doubly-nested hole round-trips correctly
+  before considering nesting "done" — this is exactly the kind of case
+  static reasoning alone could get wrong.
+
+  **Sub-context 3: scope to `.jsx`/`.tsx` only, or all JS/TS?** This is the
+  single highest-leverage risk-reduction decision available, and should be
+  made explicit and deliberate rather than defaulted:
+  - **Narrow-but-honest option**: gate the new tokenize-instead-of-skip
+    behavior in `skipTemplateInterpolation` on `lang.isJsxSyntax`, exactly
+    like Increment 1's `isRegexLiteralAllowedHere` carve-out — a plain
+    `.js`/`.ts` file's template-literal tokenization stays byte-for-byte
+    unchanged (still one opaque `STRING` token, `skipTemplateInterpolation`
+    keeps its current skip-only behavior), and only `.jsx`/`.tsx` files pay
+    the cost/risk of the new tokenize-the-hole behavior. This directly
+    mirrors this job's own established "narrow, gated" precedent and
+    contains the regression surface to the same file-extension boundary
+    every other increment already relies on — **strongly preferred**
+    unless a concrete reason surfaces during implementation that the two
+    code paths can't be cleanly forked.
+  - **Wide option (NOT recommended without much heavier validation)**:
+    change `skipTemplateInterpolation`'s tokenization behavior
+    unconditionally for every JS/TS file. Rejected as the default plan
+    here specifically because template literals are ubiquitous in ordinary
+    `.js`/`.ts` code — unlike every Increment 1-6 context (each scoped to
+    JSX-only files by construction), a bug introduced here could regress
+    any of the 200+ non-JSX `.js`/`.ts` fixtures and any real-code dogfood
+    corpus previously validated, not just the handful of `.tsx` fixtures.
+    Only worth considering if a future session finds the gated/ungated
+    code paths are so awkward to maintain in parallel that unifying them
+    is worth the much larger validation burden described below.
+
+  **Sub-context 4: regression-test plan, sized to the risk.** Whichever
+  option sub-context 3 lands on, this change touches template-literal
+  tokenization directly, so the validation bar must be higher than any
+  prior increment's:
+  - Every existing `.ts`/`.js` fixture containing a template literal must
+    be re-verified byte-identical (forward + idempotency), not just
+    `make test`'s aggregate pass count — a per-fixture `grep -l '\`'
+    test/*_inp.{js,ts}` sweep first, to know which fixtures actually
+    exercise this code path before trusting a green `make test` as
+    sufficient evidence.
+  - If the narrow (`.jsx`/`.tsx`-gated) option from sub-context 3 is taken,
+    confirm via the same method Increment 1 used (`make test`'s count
+    unchanged on every non-`.tsx` fixture) that the gate is a true
+    zero-behavior-change no-op outside JSX/TSX files — the load-bearing
+    claim the narrow option's whole risk argument rests on.
+  - New fixtures needed, mirroring Increments 1-6's per-context fixture
+    pattern: a template literal with a JSX-bearing hole in each of the
+    (already-landed) 10 expression-start contexts is not required — item
+    10 is its own context, not a cross-product with the other 10 — but at
+    minimum: a bare `` `text ${<Foo/>} more` ``, a hole containing plain
+    non-JSX JS (confirming the re-entered tokenization doesn't corrupt
+    ordinary interpolation expressions — the single most likely regression
+    class, since sub-context 0's change touches how *every* hole is
+    tokenized, not just JSX-bearing ones), the nested-template case from
+    sub-context 2, and an `if (x < 1)` (or similar) comparison inside a
+    hole confirmed untouched (the same self-correcting-fallback sanity
+    check every prior increment's fixture includes).
+  - Real-corpus validation (react/create-react-app or similar) remains
+    required before trusting this complete, same carried-over gap every
+    increment since the 2026-08-12 design session has flagged — item 10
+    adds one more reason it's needed: template literals with JSX holes are
+    common in real React code (e.g. styled-components-style tagged
+    templates, conditional JSX-in-template patterns) in a way none of the
+    10 already-landed contexts' own fixtures can stand in for.
+
+  **Suggested increment breakdown for a future session** (each its own
+  commit per this job's checkpoint-commit convention, not a prescription to
+  follow rigidly): (1) sub-context 0's return-shape decision + the
+  mechanical `emitTemplateLiteral`/call-site restructuring with NO new
+  tokenization yet (interpolation interior still just skipped, but now via
+  explicit segment tokens instead of one opaque `STRING` — a
+  behavior-preserving refactor, verifiable by itself via unchanged `make
+  test`); (2) re-entry into real per-character tokenization for a hole's
+  interior, gated per sub-context 3's narrow option, verified against the
+  non-JSX-hole fixture from sub-context 4 first (prove ordinary
+  interpolation expressions still round-trip before ever testing JSX
+  inside one); (3) the actual JSX-detection wiring (`findJsxSpans`
+  extended to recognize a template hole's boundary per sub-context 1),
+  verified against the JSX-in-template fixtures; (4) the nested-template
+  fixture from sub-context 2; (5) the real-corpus validation pass, ideally
+  covering all 11 contexts together at that point, not item 10 in
+  isolation. Steps (1)-(2) carry essentially all of this task's risk and
+  should not be combined with step (3) in one commit, even though step (3)
+  is the one that actually delivers item 10's user-visible behavior — this
+  mirrors the parent task's own instruction to keep each increment small
+  and individually testable.
 
 ---
 

@@ -452,6 +452,11 @@ INP_FILES += jsx_tsx_grouping_paren_context_inp.tsx
 INP_FILES += jsx_tsx_hole_spread_context_inp.tsx
 INP_FILES += jsx_tsx_template_hole_context_inp.tsx
 INP_FILES += jsx_tsx_template_hole_nested_inp.tsx
+INP_FILES += jsx_in_plain_js_inp.js
+INP_FILES += ts_jsx_default_off_inp.ts
+INP_FILES += ts_jsx_optin_inp.ts
+INP_FILES += jsx_mismatched_tag_inp.jsx
+INP_FILES += js_mismatched_tag_inp.js
 
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html

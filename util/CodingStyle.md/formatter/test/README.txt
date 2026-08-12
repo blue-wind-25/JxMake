@@ -533,6 +533,33 @@ JSX/TSX:
                                                         nested literal's entire segment chain into one
                                                         synthetic STRING token before rendering.
 
+  jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
+                                                        (recommendation 1): plain `.js` now gets the same JSX
+                                                        boundary-finding pre-pass as `.jsx`/`.tsx`
+                                                        (Lang.isJsxSyntaxPath widened unconditionally to
+                                                        `.js`/`.mjs`/`.cjs`). Same real-shape content as
+                                                        jsx_tsx_combined_sanity, confirming JSX inside a plain
+                                                        `.js` file is preserved rather than corrupted.
+
+  ts_jsx_default_off_inp/out.ts                      -- Recommendation 2: `.ts` stays gated off by default --
+                                                        a legacy angle-bracket cast (`<string>x`) is left as
+                                                        ordinary TS syntax, not misdetected as a JSX open tag.
+
+  ts_jsx_optin_inp/out.ts                            -- Recommendation 3: the new `jsx-in-js` Config key (set
+                                                        via a `JXM_CFMT_CFG` in-file directive here) lets a
+                                                        `.ts` file opt into the JSX pre-pass -- same
+                                                        real-shape JSX content as jsx_in_plain_js, now
+                                                        preserved on `.ts` once opted in.
+
+  jsx_mismatched_tag_inp/out.jsx                     -- Recommendation 4: TokenizerCurly.findJsxSpanEnd/
+  js_mismatched_tag_inp/out.js                          parseJsxTag now track tag-name identity (not just
+                                                        nesting depth) via a Deque<String> stack, so
+                                                        `<a>text</b>` bails out (-1) instead of balancing as
+                                                        if valid JSX. Verified in both `.jsx` (pre-existing
+                                                        gate) and the newly-widened `.js` context -- output
+                                                        is plain, sane, non-corrupted formatting rather than
+                                                        a thrown exception or silently-accepted mismatch.
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

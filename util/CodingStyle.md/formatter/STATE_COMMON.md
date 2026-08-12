@@ -61,6 +61,7 @@ are very long, and `-A` context will flood output unnecessarily.
 - When registering a new local fixture pair that did **not** come from
   real-code testing, add its entry in both `test/README.txt` and the
   `Makefile`'s `INP_FILES`, **before** the `Real-code regressions:` entries.
+- Do not commit `code-formatter-1.0.0.jar`, unless the user explicitly ask.
 - **New fixtures are authored directly in `formatter/test/`** — no staging
   step (`../FUTURE_TEST_FIXTURES.md` is historical/empty, don't draft new
   ones there). For a language with no real formatter logic yet, register

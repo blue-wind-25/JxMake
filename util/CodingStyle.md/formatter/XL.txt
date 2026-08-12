@@ -169,6 +169,16 @@ Basically, compact the prose but keep the information intact.
 
    Use sub-agent. This can be a substantial work.
 
+   It seems there was formatter bug that made the previous formatting produce weird output
+   when applied to the formatter's `*.java` source files inside `src/**/*.java`, such as:
+   ```
+   if( ... long_expression ... ) {
+expression
+   }
+   ```
+   See that the `expression` lose its indentation. Is it possible to easily fix them (using
+   Python script if possible)?
+
 3. [GRU] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
    !!! CLOSED FOR NOW - only revisit if much better training samples can be obtained !!!
@@ -208,17 +218,16 @@ Use sub-agent. This can be a substantial work.
   2026-08-13 scoping session (right after Increment 6) — that file is the source of truth.
 
   Dogfood candidates registered (NOT STARTED) in STATE_DOGFOOD.md/STATE_JS_TS.md, 2026-08-13:
-  JSX — taniarascia/react-tutorial (small), ruanyf/react-demos (small, complex embedded JSX),
-  reactstrap/reactstrap (larger). TSX — microsoft/TypeScript-React-Starter (small),
-  Lemoncode/react-typescript-samples (small, complex embedded TSX), excalidraw/excalidraw (larger).
+  - JSX — `taniarascia/react-tutorial` (small), `ruanyf/react-demos` (small, complex embedded JSX),
+    `reactstrap/reactstrap` (larger).
+  - TSX — `microsoft/TypeScript-React-Starter` (small),  `Lemoncode/react-typescript-samples`
+    (small, complex embedded TSX), `excalidraw/excalidraw` (larger).
 
 - [JS_TS] JSX/TSX support, Step 2 — moved out of TIER X 2026-08-13 (no longer dead; Step 1,
-  the boundary-finding pre-pass above, is real landed support). NOT STARTED. Format a frozen
-  JSX_SPAN's own interior using the existing generic long-expression line-wrap machinery
-  (calls/object literals/array literals), treating the tag as if a long grouped expression —
-  no real JSX grammar parsing, no attribute/children-specific rules. Blocked on unspecified
-  prerequisite steps per STATE_JS_TS.md's Scope section; not yet scoped into sub-contexts the
-  way item 10 above was.
+  the boundary-finding pre-pass above, is real landed support). NOT STARTED, but now scoped
+  as "context 11" (a rendering concern applying to every JSX_SPAN, not a 12th detection
+  context) in STATE_JS_TS.md's 2026-08-13 scoping session (right after the item-10
+  implementation write-up) — that section is the source of truth for Step 2's design.
 
 Use sub-agent. This can be a substantial work.
 

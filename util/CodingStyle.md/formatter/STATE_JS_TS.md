@@ -56,13 +56,15 @@ plan (2026-08-13), Step 1 of which has landed:
   *as an expression* from the outside. This is content-preservation, not
   JSX-aware reformatting.
 - **Step 2 (NOT STARTED — generic grouped-expression-style wrap of the
-  tag's own interior).** Once some further prerequisite steps land (not
-  yet scoped), format a JSX_SPAN's own contents using the same generic
-  "long expression exceeding the line-length threshold gets broken across
-  lines" machinery already used for calls/object literals/array literals —
-  treating the tag as if it were a long grouped expression — WITHOUT
-  parsing real JSX grammar (no attribute-specific alignment, no
-  children-specific indentation semantics). This is a deliberately bounded
+  tag's own interior).** Format a JSX_SPAN's own contents using the same
+  generic "long expression exceeding the line-length threshold gets broken
+  across lines" machinery already used for calls/object literals/array
+  literals — treating the tag as if it were a long grouped expression —
+  WITHOUT parsing real JSX grammar (no attribute-specific alignment, no
+  children-specific indentation semantics). Scoped into sub-contexts by the
+  "2026-08-13 scoping session — context 11" section below (right after the
+  item-10 implementation write-up) — that section is the source of truth
+  for Step 2's design; not yet implemented. This is a deliberately bounded
   middle ground between "frozen opaque blob" (Step 1) and a full
   JSX-aware embedding dispatcher (still a distinct, larger future job —
   JSX embeds tag syntax directly inside JS/TS expression position, a
@@ -1190,6 +1192,184 @@ active in the Makefile and passing.
   with the pre-existing 299 unaffected. Sub-context 5 (real-corpus/dogfood
   validation) and the wide/ungated option remain explicitly out of scope,
   per the parent task.
+
+  **2026-08-13 scoping session — context 11 (Step 2: generic
+  grouped-expression-style wrap of a `JSX_SPAN`'s interior) (design/scoping
+  only, no code, no fixtures, no RDD_LOG key).** See the Scope section above
+  for the two-step framing; this section is Step 2's own breakdown, written
+  in the same style as item 10's scoping session above, grounded in a
+  re-read of the real `findJsxSpans`/`parseJsxTag`/`findJsxSpanEnd` code in
+  `TokenizerCurly.java` (around line 1974 onward) and the real
+  `enforceCallLineBreaking`/`renderCallCandidate` code in
+  `MiscRuleCurly.java` (around line 1174 onward) — not speculation.
+
+  **This is NOT a 12th detection context — state this explicitly up
+  front.** Items 1-10 in the original design list are all *detection*
+  contexts: places a `<` can start a JSX tree, each checked by
+  `findJsxSpans.isJsxContext`. "Context 11" here is a fundamentally
+  different kind of list item — a *rendering* concern that applies
+  uniformly to every already-detected `JSX_SPAN` token, regardless of which
+  of the 10 detection contexts caught it. There is no `isJsxContext` clause
+  for context 11 and there never will be one, because it is not a question
+  of "where can a JSX tree start" — that question is already fully
+  answered by items 1-10. A future reader should not go looking for one.
+
+  **Sub-context 1: what minimal internal structure does a `JSX_SPAN` need
+  to expose before any generic wrap logic can apply to it?** Today
+  `findJsxSpans` collapses the entire matched token range into one opaque
+  `Token(TokenType.JSX_SPAN, text, ...)` with `frozen = true` — the
+  constituent tokens are gone; only the raw concatenated `text` survives
+  (see `TokenizerCurly.java` lines 2014-2024). `enforceCallLineBreaking`/
+  `renderCallCandidate` operate on a `List<Token>` slice between a `(` and
+  its matching `)`, splitting on top-level commas
+  (`splitTopLevelCommas`) to get "the breakable units." A `JSX_SPAN` has no
+  such comma-separated argument list and no `List<Token>` interior at all
+  to hand to that machinery. The minimal viable structure proposed: do NOT
+  attempt to tokenize a JSX tree's children or attribute *values* into real
+  sub-tokens. Instead, teach `findJsxSpans`/`parseJsxTag` to additionally
+  record, alongside the frozen span, the *opening tag's* attribute-boundary
+  offsets it already walks past today (the `while(s < n)` attribute-scanning
+  loop in `parseJsxTag`, lines 2146-2160, already visits each attribute in
+  sequence via its own `localBrace`-aware scan — it just currently only
+  measures balance to find the tag's closing `>`/`/>`, discarding the
+  boundary positions it passes through). Emitting those boundaries as byte
+  offsets into the span's `text` (or as a parallel list of substrings) is
+  additive to the existing frozen-token shape — the `JSX_SPAN` token itself
+  can stay exactly as it is for every consumer that doesn't care about
+  wrapping (assignment-RHS width checks, call-argument placement, etc. all
+  keep treating it as one atomic unit). Everything from the tag's `>` (or
+  `/>`) onward — all children, all text, all nested JSX — stays exactly as
+  opaque as it is today; only the opening tag's attribute list gets any new
+  structure at all. This mirrors item 10 sub-context 0's opaque-vs-
+  transparent boundary decision: decide the absolute minimum that must stop
+  being opaque, and freeze everything else exactly as hard as before.
+
+  **Sub-context 2: the JSX-whitespace-is-significant hazard — the single
+  biggest risk specific to Step 2.** Item 10 never had to deal with this.
+  Inside JSX children (anything between a tag's `>` and its matching
+  `</Tag>`), whitespace — including newlines — can be semantically
+  meaningful under JSX's own whitespace-collapsing rules (leading/trailing
+  whitespace on a line is stripped, but whitespace between elements on the
+  same line is preserved as a single space, and these rules differ from
+  ordinary JS/TS cosmetic-formatting whitespace in ways this formatter's
+  existing rendering machinery has no concept of). Reformatting text that
+  crosses this boundary risks changing rendered output — a categorically
+  worse failure mode than a cosmetic diff, because it is a behavior change
+  the formatter is supposed to never produce for any language. Recommendation:
+  scope Step 2 so it can **only ever touch the opening tag's attribute
+  list** — never reflow, re-wrap, or re-emit a single byte of anything from
+  the tag's own closing `>`/`/>` onward. This is a strict subset of the
+  already-frozen span (sub-context 1's proposal already only exposes
+  attribute-boundary offsets, nothing about children), so this constraint
+  falls out of sub-context 1's own scoping rather than needing separate
+  enforcement — but it must be stated as an explicit, deliberate policy
+  here so a future implementation session doesn't feel invited to extend
+  "just a bit further" into self-closing-tag children or nested elements
+  once the attribute-wrap machinery exists and looks reusable. A
+  self-closing tag (`<Foo attr1={x} attr2={y} />`, `kind == 2` in
+  `parseJsxTag`) has no children at all and is the safest, most complete
+  case Step 2 can fully handle; a tag with real children
+  (`<Foo attr1={x}>...</Foo>`) can still have its opening tag's attribute
+  list wrapped under this scope, with the children segment (from `>` to
+  `</Foo>`) copied through verbatim, untouched.
+
+  **Sub-context 3: reuse vs. new machinery for the actual wrap decision.**
+  `enforceCallLineBreaking`/`renderCallCandidate` are built around
+  `parseSignature`/`Param`'s C/C++/Java-style typed "[type] name [size]"
+  shape (for telling a declaration from a call) and, once past that,
+  comma-separated argument rendering (Options 1-3: drop, preserve, one-per-
+  line). JSX attribute syntax is comma-*less* (attributes are separated by
+  bare whitespace) and has three shapes with no call-argument analogue:
+  bare boolean attributes (`disabled`), spread attributes (`{...props}`),
+  and expression-valued attributes (`attr={expr}`, itself an arbitrary,
+  possibly-multi-token expression rather than a single value token). Trying
+  to force these through `parseSignature`'s typed-declaration path would be
+  actively wrong (there is no "type"/"name" pair to extract, and the
+  existing Kotlin/JS-TS carve-out in `renderCallCandidate`'s own doc
+  comment already establishes the precedent that a language without a
+  prototype-only declaration shape must never be routed through that typed
+  path). Recommendation: write a dedicated but still generic (non-JSX-
+  grammar-aware) wrap function specifically for a whitespace-separated
+  attribute-candidate list, reusing only the *shape* of
+  `enforceCallLineBreaking`'s decision ladder (single-line-fits → no
+  change; else drop; else one-attribute-per-line) and its general
+  line-length/fits-check helpers, not `renderCallCandidate` itself or
+  `parseSignature`/`Param`. This keeps the "generic long-expression wrap"
+  spirit the Scope section calls for (reusing the *machinery*, i.e. the
+  wrap-decision shape and its width-measuring helpers) without forcing
+  JSX's syntactically different attribute list through comma-splitting
+  logic it doesn't have.
+
+  **Sub-context 4: interaction with item 10 / template-literal-embedded
+  JSX.** Since item 10's sub-contexts 0-3 landed earlier the same day, a
+  `JSX_SPAN` can now appear inside a template-literal hole (e.g.
+  `` `text ${<Foo attr1={x} attr2={y} attr3={z} />} more` ``, tokenized via
+  `TEMPLATE_HOLE_OPEN`/`renderTemplateHoleInterior` in `JsTsSpecificRule`).
+  Traced against the current code: `renderTemplateHoleInterior` reformats a
+  hole's *interior tokens* via the existing `renderTokens` helper, and a
+  `JSX_SPAN` sitting inside that interior is just one more token in the
+  list to that helper — exactly as it already is for every other Step-1
+  detection context (call-argument position, assignment-RHS, etc.), all of
+  which also just place the frozen span into an existing token-rendering
+  path with no special-casing. Step 2's future wrap logic, once it exists,
+  would be invoked wherever any `JSX_SPAN` is found in the token stream
+  regardless of which container (top-level statement, call argument,
+  template hole) it sits inside — it doesn't need any different treatment
+  for the template-hole case specifically. Finding: no special-casing
+  needed, already falls out — same pattern as item 10 sub-context 2's own
+  nested-template finding.
+
+  **Sub-context 5: scope gate.** Restated explicitly for symmetry with item
+  10 sub-context 3, though this one is close to a non-decision: Step 2's
+  wrap logic by construction only ever touches an already-detected
+  `JSX_SPAN` token, and a `JSX_SPAN` token only ever exists when
+  `lang.isJsxSyntax` is true (`findJsxSpans` is only called from `tokenize`
+  under that guard — see line 572). There is no separate gate to add;
+  Step 2 inherits Step 1's `.jsx`/`.tsx`-only scope automatically and
+  cannot regress a plain `.js`/`.ts` file no matter how it's implemented,
+  the same zero-blast-radius-by-construction property every Step 1
+  increment already relies on.
+
+  **Sub-context 6: regression-test plan, sized to the risk.** New fixtures
+  needed once implementation starts, at minimum: a long attribute list that
+  should wrap (exceeds `line-length`), a short attribute list that should
+  NOT wrap (stays on one line even though the tag itself is "long" in some
+  naive sense), a spread-attribute case (`{...props}` mixed with ordinary
+  attributes), a bare boolean-attribute case (`disabled`, no `=`), an
+  expression-valued attribute case (`attr={a.b.c(x, y)}`, an arbitrary
+  nested expression, to confirm the wrap logic doesn't need to understand
+  what's inside `{...}`, only where it balances), and — direct consequence
+  of sub-context 2's hazard — an explicit "children text must be provably
+  byte-identical before and after" check on every fixture that has
+  children at all (not just an incidental byte-for-byte pass, but a named,
+  deliberate assertion in the fixture's own documentation that this is
+  what's being verified). Real-corpus validation remains required before
+  trusting this complete — the same carried-over gap every scoping session
+  in this job has flagged: the JSX/TSX dogfood repos already registered in
+  `STATE_DOGFOOD.md` (`taniarascia/react-tutorial`, `ruanyf/react-demos`,
+  `reactstrap/reactstrap`, `microsoft/TypeScript-React-Starter`,
+  `Lemoncode/react-typescript-samples`, `excalidraw/excalidraw`).
+
+  **Suggested increment breakdown for a future implementation session**
+  (each step individually testable/committable, same spirit as item 10's
+  breakdown, starting with the narrowest possible slice): (1) sub-context
+  1's minimal structure — extend `parseJsxTag` to also record attribute-
+  boundary offsets alongside the frozen `JSX_SPAN`, with NO wrap logic and
+  NO behavior change yet (a detect-and-measure-only step: can the formatter
+  tell a `JSX_SPAN`'s opening tag is over-width, verified via a debug
+  assertion or test, before ever emitting a single new line break) — the
+  direct analogue of item 10's own step (1) (structural change first,
+  behavior-preserving, verified by unchanged `make test`); (2) the actual
+  wrap-decision function from sub-context 3, applied only to the
+  self-closing-tag case (no children at all) first — the strictly safer
+  half of sub-context 2's scope; (3) extend to tags with children, with the
+  byte-identical-children assertion from sub-context 6 as the gating test
+  for this step specifically; (4) the spread/boolean/expression-attribute
+  fixtures from sub-context 6, one at a time; (5) the real-corpus
+  validation pass. Steps (1)-(2) carry the readiness-proving risk and
+  should not be combined with step (3) in one commit, since step (3) is the
+  one that actually exercises the whitespace-significance hazard
+  sub-context 2 flags as the whole risk profile's crux.
 
 ---
 

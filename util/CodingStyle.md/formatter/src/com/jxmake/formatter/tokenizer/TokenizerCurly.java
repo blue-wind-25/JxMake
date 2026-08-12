@@ -1822,20 +1822,24 @@ public class TokenizerCurly extends TokenizerCore {
      *  embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
      *  true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
      *
-     * <p><b>Increment 1+2+3+4+5 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the
-     *  full 11-context list this will eventually cover): eight expression-start contexts are
-     *  recognized here as a JSX-open candidate -- "after `return`" (Increment 1), "after `=>`"
-     *  (arrow-function body start), "after `?`"/"after `:`" (both branches of a ternary conditional
-     *  expression) (Increment 2), call-argument-start / array-literal-element-start (Increment 3, see
-     *  {@link #isCallArgumentOrArrayElementStart}), assignment-RHS (incl. compound assignment
-     *  operators) / logical-nullish-RHS (Increment 4, see {@link #isAssignmentOrLogicalRhsStart}),
-     *  and grouping-paren-start (Increment 5, see {@link #isGroupingParenStart}).
-     *  Every other listed context (recursive `{}`/`${}` holes, spread) is intentionally NOT yet
-     *  implemented -- a `<` in any of those positions falls through unchanged to the existing
+     * <p><b>Increment 1+2+3+4+5+6 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for
+     *  the full 11-context list this will eventually cover, and the "2026-08-13 Increment 6" entry
+     *  for why items 9/10's literal recursive-walk design was NOT implemented as originally
+     *  specified): ten expression-start contexts are recognized here as a JSX-open candidate --
+     *  "after `return`" (Increment 1), "after `=>`" (arrow-function body start), "after `?`"/"after
+     *  `:`" (both branches of a ternary conditional expression) (Increment 2), call-argument-start /
+     *  array-literal-element-start (Increment 3, see {@link #isCallArgumentOrArrayElementStart}),
+     *  assignment-RHS (incl. compound assignment operators) / logical-nullish-RHS (Increment 4, see
+     *  {@link #isAssignmentOrLogicalRhsStart}), grouping-paren-start (Increment 5, see
+     *  {@link #isGroupingParenStart}), and bare `{`-hole-start / spread (Increment 6, see the plain
+     *  {@code Token.isPunct(prev, "{")} check and {@link #isSpreadContext}). Design list item 10
+     *  (template-literal `${}` holes) is NOT implemented -- see STATE_JS_TS.md, structurally
+     *  unreachable at this pre-pass's granularity because {@code emitTemplateLiteral} already
+     *  swallows an entire template literal (including every `${...}` interpolation) into one opaque
+     *  character-level STRING token before this post-tokenize pass ever runs; recognizing JSX inside
+     *  a template hole would require a tokenizer-level change, not an addition to this method. A `<`
+     *  in an unlisted expression-start context still falls through unchanged to the existing
      *  `reclassifyAngleBrackets`/relational-operator handling, same as before this pre-pass existed.
-     *  Expand the {@code isJsxContext} check below (add more context checks alongside it) in future
-     *  increments; a future increment implementing the recursive `{}`-hole context will also need
-     *  {@link #findJsxSpanEnd} to recurse into holes rather than only balance-skipping them.
      */
     private void findJsxSpans(final List<Token> tokens)
     {
@@ -1868,7 +1872,9 @@ public class TokenizerCurly extends TokenizerCore {
                     || Token.isOp(prev, ":")
                     || isCallArgumentOrArrayElementStart(tokens, sig, s)
                     || isAssignmentOrLogicalRhsStart(prev)
-                    || isGroupingParenStart(tokens, sig, s);
+                    || isGroupingParenStart(tokens, sig, s)
+                    || Token.isPunct(prev, "{")
+                    || isSpreadContext(tokens, sig, s);
             if( !isJsxContext ) continue;
 
             final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
@@ -2115,6 +2121,24 @@ public class TokenizerCurly extends TokenizerCore {
         final Token prev = tokens.get( sig.get(parenS) );
         if( !Token.isPunct(prev, "(") ) return false;
         return !isCallOpenParen(tokens, sig, parenS);
+    }
+
+    /**
+     * Increment 6: recognizes a `<` at sig position {@code s} as a spread-element JSX context
+     *  (design list item 11: "after `...` wherever spread is legal in expression position
+     *  (array-literal element, call argument)"). The token immediately before `<` must be `...`;
+     *  the token before *that* is then tested against the exact same call/array-argument-start
+     *  shapes {@link #isCallArgumentOrArrayElementStart} already uses (immediately after `(`/`[`,
+     *  or after a top-level `,` whose enclosing bracket is a call-open `(` or any `[`) -- spread is
+     *  only legal in those two positions, so this reuses that logic one token further back rather
+     *  than duplicating the `(`/`[`/`,` shape table.
+     */
+    private boolean isSpreadContext(final List<Token> tokens, final List<Integer> sig, final int s)
+    {
+        if(s == 0) return false;
+        final Token prev = tokens.get( sig.get(s - 1) );
+        if( !Token.isOp(prev, "...") ) return false;
+        return isCallArgumentOrArrayElementStart(tokens, sig, s - 1);
     }
 
     /** Scans backward from (but not including) {@code sig.get(beforeS)} tracking bracket depth

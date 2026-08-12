@@ -492,6 +492,17 @@ JSX/TSX:
                                                         context now fires on it too, but `findJsxSpanEnd`
                                                         correctly returns -1 since `x < 1` isn't real JSX).
 
+  jsx_tsx_hole_spread_context_inp/out.tsx            -- JSX/TSX boundary-finding pre-pass, Increment 6:
+                                                        bare `{`-hole-start (design list item 9, a JSX
+                                                        element that is the sole content of a `{...}`
+                                                        hole with nothing else preceding it) and spread
+                                                        (design list item 11, `...items` immediately
+                                                        before a JSX call-argument/array-element).
+                                                        Covers a nested-hole return (`<div>{<span>...`),
+                                                        a spread call argument, and a spread array
+                                                        element; an ordinary `if (x < 1)` comparison is
+                                                        confirmed untouched.
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

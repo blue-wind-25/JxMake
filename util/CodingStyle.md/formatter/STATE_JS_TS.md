@@ -766,15 +766,91 @@ active in the Makefile and passing.
     against an actual `const x = <T>foo;` cast-shaped `.tsx` input in any
     of the 8 now-landed contexts, carried over from Increment 4 unchanged
     (not this increment's own gap).
-  - **Where to resume**: two hardest contexts remain, deliberately left for
-    last per the design's own risk ordering: the recursive `{}`/`${}`-hole
-    contexts (design list items 9/10 — requires `findJsxSpanEnd` to
-    actually recurse into a hole's interior and re-apply the whole
-    `isJsxContext` check there, rather than only balance-skipping it as
-    every increment so far does); then spread (design list item 11, likely
-    close to free once call-argument/array-element-start already handle
-    the `,`/`(`/`[` adjacency — just needs the token immediately before `<`
-    to also accept `...` in those same positions).
+  - **Where to resume (superseded by Increment 6 below — kept for
+    history).**
+
+  **2026-08-13 implementation session, Increment 6 — LANDED (10/11
+  contexts, item 10 found structurally unreachable at this pass's level,
+  still no real corpus validation).** Adds bare `{`-hole-start (design list
+  item 9) and spread (design list item 11) to `TokenizerCurly.findJsxSpans`.
+
+  - **Item 9 re-scoped from its literal wording, with the reasoning
+    recorded here so a future session doesn't re-litigate it.** The design
+    text says "once inside a found JSX span, any `{` opens a hole, and
+    every context above applies again to the token stream starting just
+    after that `{`" — read literally, this asks for `findJsxSpanEnd`/
+    `skipBalancedBraceHole` to recurse *while walking an already-matched
+    outer span* and independently re-run `isJsxContext` inside each hole.
+    Traced through concretely before implementing: `findJsxSpans`'s outer
+    loop already scans **every** significant token in the whole file for a
+    `<` satisfying `isJsxContext`, regardless of `{}`/`()`/`[]` nesting
+    depth — nesting only matters for a `<` that has *already* been consumed
+    into an earlier-collapsed `JSX_SPAN` token (removed from `sig`), and a
+    consumed span's raw `text` already preserves everything inside it
+    (including any nested hole's JSX) byte-for-byte, since the whole
+    span is frozen/opaque and never reformatted. So a `<` inside a hole
+    that is itself inside an already-matched outer span needs no separate
+    detection — it's already correctly preserved either way, and
+    recursing there would be a costly no-op. The one genuine gap: a `<`
+    immediately after a bare `{` was not in any existing check at all —
+    `{<Bar/>}` (a JSX element as the sole content of a hole, nothing else
+    preceding it) previously fell through unmatched. Implemented as a
+    plain `Token.isPunct(prev, "{")` addition to `isJsxContext`, same shape
+    as the existing `(`/`[` checks, rather than the heavier recursive-walk
+    machinery the literal wording implies — same self-correcting -1
+    fallback safety net covers the (very common) non-JSX case of `{` opening
+    an ordinary block statement or object literal.
+  - **New helper `isSpreadContext`** (item 11): token immediately before
+    `<` must be `...`, and the token before *that* must satisfy the exact
+    same shape `isCallArgumentOrArrayElementStart` already tests (`(`/`[`/
+    a top-level `,` whose enclosing bracket is a call-open `(` or any `[`)
+    — reused one token further back rather than duplicated, confirming the
+    design's own "likely close to free" prediction.
+  - **Item 10 (template-literal `${}` holes) found structurally
+    unreachable at this pre-pass's level, not merely unimplemented.**
+    Traced `emitTemplateLiteral`/`skipTemplateInterpolation`
+    (character-level lexer, runs before tokenization ever produces a flat
+    token list): a whole template literal, including every `${...}`
+    interpolation inside it, is already swallowed into one opaque STRING
+    token before `findJsxSpans` (a post-tokenize pass) ever sees the token
+    stream — there is no separate token for `${`/`}` or the interpolation's
+    interior for this pass to recurse into. Recognizing JSX inside a
+    template hole would require the character-level lexer itself to stop
+    treating `${...}` as fully opaque (emit separate tokens for the
+    interpolation interior, re-entering ordinary character-level scanning)
+    — the same class of upstream-lexer surprise flagged in Increment 1's
+    `isRegexLiteralAllowedHere` fix, but larger in scope: that fix was one
+    narrow special case, this would change how template literals tokenize
+    generally. Left unimplemented as out of scope for this increment;
+    tracked as the one remaining item for a future session willing to take
+    on a tokenizer-level (not `findJsxSpans`-level) change.
+  - **Ambiguity safety unchanged from every prior increment**: same
+    -1-on-unbalanced-JSX self-correcting property relied on throughout.
+  - **Fixture-verified**: `test/jsx_tsx_hole_spread_context_{inp,out}.tsx`
+    (a `return`-context `<div>` whose child hole's sole content is another
+    JSX element, `<div>{<span>nested</span>}</div>`; a spread call argument
+    `foo(...items, <span>tail</span>)`; a spread array element
+    `[...items, <span>tail</span>]`; an `if (x < 1)` comparison confirmed
+    untouched). `make test`: 298/298 → 299/299 forward + idempotency, zero
+    regressions on any existing `.js`/`.ts`/`.tsx` fixture. Manually
+    re-verified round1/round2 byte-identical on the new fixture outside
+    the Makefile-driven run as well.
+  - **NOT done**: still no real-JSX-corpus validation (react itself,
+    `create-react-app` output, or similar); `js_ts_content_diff.js` still
+    not updated for `.tsx`/JSX `ts.ScriptKind`; the `<T>`-cast-vs-JSX
+    ambiguity's `.tsx`-only resolution still not stress-tested against an
+    actual `const x = <T>foo;` cast-shaped `.tsx` input — all three carried
+    over unchanged from prior increments' own "NOT done" lists.
+  - **Where to resume**: 10/11 design-list contexts now landed. Only item
+    10 (template-literal `${}` holes) remains, and it needs a
+    tokenizer-level change (see above), not another `isJsxContext` clause
+    — treat it as its own, larger-scoped future task rather than a natural
+    "next increment" in this series. Absent that, the highest-value
+    remaining work on this whole sub-job is the long-deferred
+    real-JSX-corpus validation pass (react itself or a `create-react-app`
+    output tree) against all 10 landed contexts together, flagged as
+    required-but-not-done since the original 2026-08-12 design session and
+    repeated unchanged in every increment since.
 
 ---
 

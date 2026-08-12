@@ -43,10 +43,13 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 `.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
 `.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3,
 `Makefile`/`GNUmakefile`/`.mk` → Makefile, `.sh`/`.bash` → Bash, `.ps1`/`.psm1` → PowerShell).
-`.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts` — no JSX/TSX-syntax-aware
-formatting exists (out of scope per `STYLE_JS_TS.md`), so a `.jsx`/`.tsx` file is only safe to
-run through the formatter if it contains no actual JSX tag syntax. Makefile detection is also
-basename-based (`Makefile`, `GNUmakefile`) for extensionless Make files.
+`.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts`. A boundary-finding
+pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
+so a `.jsx`/`.tsx` file containing real JSX tag syntax is safe to run through the formatter — the
+JSX/TSX portions round-trip unchanged while surrounding plain JS/TS gets normal formatting.
+JSX/TSX-syntax-*aware* reformatting (e.g. reflowing attributes/children) does not exist yet — see
+`STYLE_JS_TS.md`. Makefile detection is also basename-based (`Makefile`, `GNUmakefile`) for
+extensionless Make files.
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -670,7 +673,7 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
   TOML/XML/HTML5 (all implemented, including HTML5's `<script>` dispatch to
   JS/TS)
 - [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (implemented;
-  JSX/TSX are out of scope, see Usage above)
+  JSX/TSX tag trees are preserved byte-for-byte, not JSX-aware-reformatted, see Usage above)
 - [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3
 - [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — Makefile, Bash, and PowerShell
   (implemented; narrow beautification-only rule lists — recipe lines, quoting/

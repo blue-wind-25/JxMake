@@ -15,7 +15,7 @@ state file.
 | Kotlin JAR support | `STATE_COMMON.md` | `STATE_KOTLIN.md` |
 | C++26 rule coverage (not a separate language — lands directly in the existing "cpp" pipeline) | `STATE_COMMON.md` | `STATE_CPP26.md` |
 | Data-format support: JSON/JSON5/YAML/TOML/etc. (JSON/JSON5/CSS/YAML/TOML/XML/HTML5 implemented, including HTML5's `<script>` dispatch) | `STATE_COMMON.md` | `STATE_DATA_FORMATS.md` |
-| JS/TS support (implemented; JSX/TSX still need their own future embedding-aware dispatcher) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
+| JS/TS support (implemented) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
 | Python3 support (implemented) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 | AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 | General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
@@ -35,8 +35,7 @@ scaffold-only any more (`Lang.SCAFFOLD_ONLY_LANGUAGES` is now an empty
 string, kept only for documentation/compatibility). Data formats (JSON,
 JSON5, CSS, YAML, TOML, XML, HTML5 incl. `<script>` dispatch via
 `XmlSpecificRule.renderScriptOrStyle`), JS/TS (`JsTsSpecificRule` /
-`JsTsDeclarationAlignmentRule`; JSX/TSX still excluded pending a future
-embedding-aware dispatcher), Python3 (`FormatterIndent` /
+`JsTsDeclarationAlignmentRule`), Python3 (`FormatterIndent` /
 `ScopePipelineIndent` for STYLE_PYTHON3.md §1-9), and the three tooling
 languages — Makefile (`FormatterMakefile`/`MakefileSpecificRule`), Bash
 (`FormatterBash`/`BashSpecificRule`, STYLE_TOOLING.md §2), and PowerShell

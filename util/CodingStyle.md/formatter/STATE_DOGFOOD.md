@@ -111,6 +111,12 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | TS | STATE_JS_TS.md | microsoft/TypeScript | DONE | 4/4 named clusters fixed, incl. `harness/collectionsImpl.ts` (RDD_KEY_270, fixture real_code_regressions_185). 2026-08-09 reconfirmation against a fresh clone (14 previously-flagged files): 6/14 were already clean (fixed as side effects of other work); `compiler/watchPublic.ts`'s nested-array-literal `;`-corruption FIXED (fixture real_code_regressions_194); the remaining 7 split into 4 distinct shapes, ALL NOW FIXED: if/else body-padding CRLF-staleness (RDD_KEY_273, fixture 195), declaration `:`-column padding group-splitting (RDD_KEY_274, fixture 196), a non-idempotent closing-brace `// if` comment (RDD_KEY_275, fixed as a verified side effect of RDD_KEY_273, fixture 197), and an interface field named `class` misclassifying its own nested object-type brace (RDD_KEY_276, fixture 198). XL.txt Tier 3 now reads "NONE FOR NOW" |
 | TS | STATE_JS_TS.md | nestjs/nest | DONE | |
 | TS | STATE_JS_TS.md | vuejs/core | DONE | switch-fallthrough idempotency bug FIXED 2026-08-07 (RDD_KEY_263) |
+| JSX | STATE_JS_TS.md | taniarascia/react-tutorial | NOT STARTED | 1st dogfood candidate: small, real `.jsx`-bearing tutorial repo (boundary-finding pre-pass target) |
+| JSX | STATE_JS_TS.md | ruanyf/react-demos | NOT STARTED | 2nd dogfood candidate: small but many demo dirs with more complex embedded JSX (conditional rendering, spread props) — stresses Increments 5/6 contexts |
+| JSX | STATE_JS_TS.md | reactstrap/reactstrap | NOT STARTED | 3rd dogfood candidate: larger, plain-JS/JSX (no TS) component library, real production use |
+| TSX | STATE_JS_TS.md | microsoft/TypeScript-React-Starter | NOT STARTED | 1st dogfood candidate: small, official minimal TSX starter |
+| TSX | STATE_JS_TS.md | Lemoncode/react-typescript-samples | NOT STARTED | 2nd dogfood candidate: small but many samples with more complex embedded TSX (generics, HOCs) |
+| TSX | STATE_JS_TS.md | excalidraw/excalidraw | NOT STARTED | 3rd dogfood candidate: large, popular, pure-TSX production codebase |
 | Python3 | STATE_PYTHON3.md | django/django | DONE | |
 | Python3 | STATE_PYTHON3.md | pallets/click | DONE | |
 | Python3 | STATE_PYTHON3.md | pallets/flask | DONE | |

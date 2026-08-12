@@ -207,6 +207,11 @@ Use sub-agent. This can be a substantial work.
   (template-literal `${}` holes) remains, now broken into sub-steps in STATE_JS_TS.md's
   2026-08-13 scoping session (right after Increment 6) — that file is the source of truth.
 
+  Dogfood candidates registered (NOT STARTED) in STATE_DOGFOOD.md/STATE_JS_TS.md, 2026-08-13:
+  JSX — taniarascia/react-tutorial (small), ruanyf/react-demos (small, complex embedded JSX),
+  reactstrap/reactstrap (larger). TSX — microsoft/TypeScript-React-Starter (small),
+  Lemoncode/react-typescript-samples (small, complex embedded TSX), excalidraw/excalidraw (larger).
+
 Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===

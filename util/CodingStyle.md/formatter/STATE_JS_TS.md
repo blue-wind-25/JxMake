@@ -1055,6 +1055,25 @@ active in the Makefile and passing.
   mirrors the parent task's own instruction to keep each increment small
   and individually testable.
 
+  **Dogfood candidates registered 2026-08-13 (NOT STARTED — for the boundary-
+  finding pre-pass as a whole, not item 10 specifically; full row detail in
+  STATE_DOGFOOD.md).** Real, verified-to-exist repos, one small / one small-
+  but-more-complex-embedded-tag / one larger, per language:
+  - JSX: `taniarascia/react-tutorial` (small), `ruanyf/react-demos` (small,
+    many demo dirs with heavier conditional-rendering/spread JSX — stresses
+    Increments 5/6's grouping-paren and spread contexts specifically),
+    `reactstrap/reactstrap` (larger, plain-JS component library, no
+    TypeScript).
+  - TSX: `microsoft/TypeScript-React-Starter` (small, official minimal
+    starter), `Lemoncode/react-typescript-samples` (small, many samples with
+    generics/HOCs — heavier embedded TSX), `excalidraw/excalidraw` (larger,
+    popular production TSX codebase).
+  These exercise the already-landed 10/11 contexts (opaque JSX-span
+  preservation); they do NOT exercise item 10 (template-literal `${}`
+  holes) until that sub-context lands, since template-literal-embedded JSX
+  is currently just swallowed whole as an opaque `STRING` along with the
+  rest of the literal — no crash, but no boundary-finding inside it either.
+
 ---
 
 ## Related investigation history — same architectural family as bugs #1-#3

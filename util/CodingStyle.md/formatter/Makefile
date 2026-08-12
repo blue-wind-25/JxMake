@@ -450,6 +450,8 @@ INP_FILES += jsx_tsx_assign_logical_context_inp.tsx
 INP_FILES += jsx_tsx_assign_logical_sanity_inp.tsx
 INP_FILES += jsx_tsx_grouping_paren_context_inp.tsx
 INP_FILES += jsx_tsx_hole_spread_context_inp.tsx
+INP_FILES += jsx_tsx_template_hole_context_inp.tsx
+INP_FILES += jsx_tsx_template_hole_nested_inp.tsx
 
 INP_FILES += html_combined_inp.html
 INP_FILES += html_comments_inp.html

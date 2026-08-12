@@ -503,6 +503,36 @@ JSX/TSX:
                                                         element; an ordinary `if (x < 1)` comparison is
                                                         confirmed untouched.
 
+  jsx_tsx_template_hole_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, template-literal
+                                                        `${}` hole support (design list item 10,
+                                                        STATE_JS_TS.md's 2026-08-13 scoping-session
+                                                        sub-contexts 0-1): a bare JSX element as a hole's
+                                                        sole content (`` `text ${<Foo/>} more` ``), a plain
+                                                        non-JSX interpolation (`` `sum ${a+b} end` ``,
+                                                        confirming the pre-existing spacing-normalization
+                                                        feature still fires via the new token-based path),
+                                                        and a ternary mixing a real comparison with JSX
+                                                        branches (`` `val ${x < 1 ? <A/> : <B/>} end` ``).
+                                                        Only `.jsx`/`.tsx` files tokenize a template
+                                                        literal's holes this way; plain `.js`/`.ts` files
+                                                        keep the original single-opaque-STRING-token path
+                                                        unchanged (sub-context 3).
+
+  jsx_tsx_template_hole_nested_inp/out.tsx           -- Template-literal `${}` hole support, sub-context 2:
+                                                        a template literal nested inside another hole, both
+                                                        plain (`` `a ${ `b ${x+1}` } d` ``) and JSX-bearing
+                                                        (`` `a ${ `b ${<X/>}` }` ``), plus an `if (x < 1)`
+                                                        safety-net case. Confirms round-tripping is clean
+                                                        and idempotent -- an earlier implementation folded
+                                                        each hole into a synthetic token correctly but left
+                                                        a nested literal's own STRING segments as separate
+                                                        list entries, which `renderTokens` then spaced apart
+                                                        as if they were unrelated value expressions,
+                                                        corrupting (and, on a second pass, further growing)
+                                                        the nested literal's raw text; fixed by folding a
+                                                        nested literal's entire segment chain into one
+                                                        synthetic STRING token before rendering.
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

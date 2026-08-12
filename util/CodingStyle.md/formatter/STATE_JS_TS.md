@@ -1101,6 +1101,96 @@ active in the Makefile and passing.
   is currently just swallowed whole as an opaque `STRING` along with the
   rest of the literal — no crash, but no boundary-finding inside it either.
 
+  **Sub-contexts 0-3 LANDED (2026-08-13, later same day).** Implemented as
+  one combined change rather than sub-context 0/1 as two separate commits —
+  the narrow `.jsx`/`.tsx`-only gate from sub-context 3 was applied from the
+  very first line of code (not bolted on afterward), since the scoping
+  session already called it "strongly preferred" and this minimizes risk
+  the same way doing it later would have, with less churn.
+
+  - **Sub-context 0.** `TokenizerCurly.tokenize`'s per-character dispatch
+    chain was extracted out of its `while` loop into a new
+    `tokenizeOneUnit(List<Token>)` method, so a hole's interior can re-enter
+    real tokenization by simply calling it in a loop. The backtick dispatch
+    branch now calls a new `emitTemplateLiteral(List<Token>)` that pushes
+    tokens directly (`void`-returning, splicing at the call site was
+    rejected — pushing straight into the shared `tokens` list matches how
+    every other multi-token emission in this tokenizer already works, e.g.
+    comments/PREPROCESSOR runs) instead of returning one opaque token. The
+    old single-opaque-token body survives unchanged as
+    `emitTemplateLiteralOpaque()`, still the only path for plain `.js`/`.ts`.
+  - **Sub-context 1.** Option (a) (`PUNCT` tokens with `"${"`/`"}"` text)
+    was tried first per the scoping session's stated preference, but broke
+    real code within minutes of smoke-testing: several existing passes
+    (`JsTsSpecificRule`, `MiscRuleCore`) check `isPunct(t, "}")` for
+    statement/ASI-boundary purposes without verifying a matching real `{`
+    precedes it, and a hole's closing `"}"` is textually indistinguishable
+    from a real block/object close, corrupting output around
+    `${x+1}` (spurious inserted `;` and mangled newlines). Fell back to
+    option (b) immediately: dedicated `TokenType.TEMPLATE_HOLE_OPEN`/
+    `TEMPLATE_HOLE_CLOSE`, emitted by `emitTemplateLiteralSegmented`/
+    `emitTemplateHoleInterior` (new methods in `TokenizerCurly`), with the
+    hole's own terminating `}` consumed directly (never routed through
+    `emitCloseBrace`, so the tokenizer's global `braceDepth` is untouched by
+    it) while any real nested `{`/`}` inside the hole falls through to
+    ordinary dispatch and does participate in `braceDepth` normally.
+    `findJsxSpans`'s `isJsxContext` gained one new disjunct — JSX is allowed
+    to start right after a `TEMPLATE_HOLE_OPEN` — verified against the new
+    `jsx_tsx_template_hole_context_inp/out.tsx` fixture (bare JSX as a
+    hole's sole content, a plain non-JSX interpolation confirming the
+    pre-existing `${a+b}`-style spacing-normalization feature keeps firing,
+    and a ternary mixing a real `<` comparison with JSX branches).
+    Discovered along the way: that pre-existing spacing-normalization
+    feature (`JsTsSpecificRule.enforceTemplateLiteralInterpolationSpacing`)
+    is text-based and only matches a single opaque STRING token starting
+    with a backtick, so it silently stopped firing for `.tsx` once template
+    literals became segmented there. Fixed with a token-based parallel path
+    (`findMatchingTemplateHoleClose`/`renderTemplateHoleInterior` in
+    `JsTsSpecificRule`) that reformats the real interior tokens between a
+    `TEMPLATE_HOLE_OPEN`/`CLOSE` pair via the existing `renderTokens` helper.
+  - **Sub-context 2.** The scoping session predicted nested template
+    literals would "fall out of this structure for free" since
+    `skipTemplateInterpolation`'s pre-existing recursive structure already
+    handles arbitrary nesting depth. That held for *tokenization* (a nested
+    backtick naturally re-enters `emitTemplateLiteral` via
+    `tokenizeOneUnit`'s own dispatch, no special-casing needed) but **not**
+    for the new *rendering* path added to satisfy sub-context 1's
+    `.tsx`-regression fix above: `renderTemplateHoleInterior`'s first
+    version folded a nested hole into one synthetic token correctly, but
+    still pushed the nested literal's own surrounding STRING segments into
+    the significant-token list as separate entries; `renderTokens` then
+    spaced adjacent STRING tokens apart as if they were two unrelated value
+    expressions (not literal text meant to be glued together verbatim),
+    corrupting `` `a ${ `b ${x+1}` } d` `` into
+    `` `a ${`b  ${x + 1} `} d` `` on the first pass and growing by one more
+    space on every subsequent pass (a real, cumulative, non-idempotent
+    bug — `make test`'s aggregate count stayed green throughout since no
+    prior fixture exercised this scenario; it was caught only by the
+    manual nested-literal smoke test sub-context 2 itself required). Fixed
+    by folding a nested literal's *entire* segment chain — every one of its
+    own STRING pieces and holes, recursively — into a single synthetic
+    STRING token before it ever reaches the significant-token list, so it
+    participates in adjacency decisions exactly as it would have if the
+    tokenizer had never segmented it. Verified clean and idempotent via the
+    new `jsx_tsx_template_hole_nested_inp/out.tsx` fixture (plain nested
+    template, JSX-bearing nested template, `if (x < 1)` safety net).
+  - **Sub-context 3.** Confirmed as a true no-op outside `.jsx`/`.tsx`:
+    `emitTemplateLiteral` dispatches to the untouched
+    `emitTemplateLiteralOpaque()` single-token path whenever
+    `!lang.isJsxSyntax`. Verified explicitly (not just via the aggregate
+    `make test` count) by sweeping every existing fixture containing a
+    backtick — `js_combined_inp.js`, `js_nested_template_literal_inp.js`,
+    `real_code_regressions_94_inp.js`, `real_code_regressions_177_inp.ts`,
+    `js_comments_inp.js`, `real_code_regressions_93_inp.ts` — all `.js`/
+    `.ts`, all individually confirmed PASS (byte-identical) after this
+    change.
+
+  `make test`: 299/299 forward + 299/299 idempotency before this work;
+  301/301 forward + 301/301 idempotency after (the +2 new fixture pairs),
+  with the pre-existing 299 unaffected. Sub-context 5 (real-corpus/dogfood
+  validation) and the wide/ungated option remain explicitly out of scope,
+  per the parent task.
+
 ---
 
 ## Related investigation history — same architectural family as bugs #1-#3

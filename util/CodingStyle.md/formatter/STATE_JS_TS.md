@@ -248,6 +248,31 @@ active in the Makefile and passing.
   Limitation (do nothing, require `.jsx`/`.tsx` renaming as a precondition)
   or a future opt-in heuristic-detection mode.
 
+  **Researched 2026-08-13 — see the "2026-08-13 research session —
+  JSX-in-`.js`/`.ts` detection" section under Checklist item 11 (context
+  11) above for the full writeup.** Outcome: not fully settled, but
+  research produced a concrete lean rather than an even split. Real tooling
+  (Babel/Prettier) attempts JSX parsing unconditionally for the whole
+  JS-family bucket (`.js`/`.mjs`/`.cjs`) but deliberately does NOT do the
+  same for `.ts` (TS's own compiler gates JSX strictly by
+  `.ts`-vs-`.tsx` `ScriptKind`, because of a real, industry-recognized
+  ambiguity with the legacy `<Type>expr` angle-bracket cast syntax).
+  Re-reading this formatter's own `TokenizerCurly.isJsxContext`/
+  `findJsxSpanEnd`/`parseJsxTag` found that all eleven detection contexts
+  already structurally exclude ordinary `<`/`>` comparisons (a comparison's
+  `<` is never expression-start, so it can never reach any of the eleven
+  trigger clauses) — the real residual risk is narrowly the `<Type>expr`
+  cast collision, which is rare in true `.js` (that syntax doesn't parse as
+  JS at all) but real in `.ts`. Recommendation (not yet implemented, not
+  yet validated against a widened-default real corpus): extend detection
+  unconditionally to `.js`/`.mjs`/`.cjs`, keep `.ts` extension-gated by
+  default (matching Prettier/tsc's own split), and offer a `.ts`-scoped
+  config/CLI opt-in (e.g. `--jsx-in-js`) for the legacy-`.ts`-with-JSX case
+  instead. A tag-name-identity hardening of `parseJsxTag`/`findJsxSpanEnd`
+  (currently only tracks nesting depth, not name — `<a>...</b>` balances
+  today) is called out as worth doing before or alongside any widening.
+  Still requires user sign-off before implementation.
+
 - **HTML5 needs its own dispatcher for `<style>`/other embedded formats
   beyond `<script>`.** `<script>` splicing (JS/TS dispatch, CDATA unwrap/
   rewrap, Config-threading) is done — see `XmlSpecificRule.
@@ -1385,6 +1410,233 @@ active in the Makefile and passing.
   should not be combined with step (3) in one commit, since step (3) is the
   one that actually exercises the whitespace-significance hazard
   sub-context 2 flags as the whole risk profile's crux.
+
+  **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
+  question from the react-tutorial dogfood finding) (design/research only,
+  no code, no fixtures, no RDD_LOG key).** Follows on from the
+  `taniarascia/react-tutorial` dogfood pass above (see "Checklist" ->
+  `taniarascia/react-tutorial` and `microsoft/TypeScript-React-Starter`
+  dogfood pass" section, and the Open Questions entry "Should JSX detection
+  ever extend to plain `.js`/`.ts` files") — that pass found a real repo
+  shipping JSX embedded directly in `.js` files with no `.jsx` extension,
+  which corrupts under the current strictly-extension-gated
+  `Lang.isJsxSyntax`. This session researches how established tooling
+  handles the same ambiguity and proposes (but does not implement) a
+  strategy.
+
+  **1. How real tooling handles it.**
+  - **Babel / `@babel/parser`**: JSX parsing is opt-in at the parser-options
+    level, not extension-sniffed by the bare parser API itself —
+    `@babel/parser` only attempts JSX grammar when the caller passes
+    `plugins: ['jsx']` (or `sourceType`/preset config that implies it);
+    without that plugin a bare `<` in expression position is a syntax
+    error. The bare parser has no notion of file extension at all (it
+    receives a string, not a path) — extension-based decisions are made by
+    the *caller* (Babel's own `babel-preset-react`/`.babelrc` resolution,
+    or downstream tools), not by `@babel/parser` itself.
+  - **Prettier**: confirmed via Prettier's documented parser-selection
+    behavior — Prettier's default parser for `.js`/`.mjs`/`.cjs`/`.jsx` is
+    `babel`, and Prettier always passes the `jsx` plugin when invoking
+    `@babel/parser` for that parser, regardless of extension (there is no
+    "JS-only, non-JSX-capable" mode of the `babel` parser in Prettier's own
+    parser table). For `.ts` Prettier instead uses the `typescript`
+    parser (via `@typescript-eslint`/TS's own scanner shape) with JSX
+    disabled, and only enables JSX parsing for `.tsx`. This confirms the
+    task's framing: Prettier's JS-family handling is "attempt JSX
+    unconditionally," but its TS-family handling is extension-gated exactly
+    like `tsc` itself (see next point) — Prettier does not treat `.js` and
+    `.ts` uniformly.
+  - **TypeScript compiler (`ts.createSourceFile`)**: confirmed — TS's
+    `ScriptKind` enum has distinct `JS`/`JSX`/`TS`/`TSX` values, and JSX
+    element syntax (`<div>`) is a parse error under `ScriptKind.TS`
+    (reported by `tsc` as "JSX element ... has no corresponding closing
+    tag" or similar, in a `.ts` file that isn't `.tsx`), while the
+    angle-bracket type-assertion syntax `<Foo>expr` is itself *rejected* in
+    `ScriptKind.TSX` for the opposite reason (ambiguity with a JSX open
+    tag) — this is a well-known, deliberate TypeScript restriction, not an
+    oversight: the TS team's own public position (TS handbook / release
+    notes for the `.tsx` extension) is that `<Type>value`-style casts are
+    disallowed in `.tsx` specifically because they're syntactically
+    indistinguishable from a JSX open tag, and users must use `as Type`
+    instead in that extension. TS resolves the ambiguity purely by
+    extension/`ScriptKind`, never by content-sniffing — this project's own
+    `js_ts_content_diff.js` wrapper already reflects this (its docstring:
+    "JSX/TSX are explicitly out of scope... this tool only targets plain
+    .js/.ts", and `scriptKindFor` never maps `.jsx`/`.tsx` to a JSX-aware
+    `ScriptKind` — see the dogfood section above). Since this formatter's
+    own pipeline isn't bound by TS's own restriction (it isn't `tsc`, it's
+    a text-preserving reformatter), TS's behavior is useful precedent but
+    not a hard constraint here — it does, however, confirm that the
+    `<Type>expr` vs. `<Tag>` ambiguity is a real, industry-recognized
+    conflict, not a hypothetical.
+  - **ESLint / `@babel/eslint-parser`**: no per-file content-sniffing
+    either. `eslint-plugin-react` and `@babel/eslint-parser`-based configs
+    enable JSX via explicit `parserOptions.ecmaFeatures.jsx = true` (or an
+    `overrides` block scoped to a glob such as `**/*.js`) at the
+    project-config level — an explicit, author-controlled opt-in matching
+    this task's strategy (c), not automatic per-file detection.
+  - **Summary**: no mainstream tool researched does runtime content-sniffing
+    (scanning file text for `import React`/a pragma comment) to decide
+    JSX-ness per file. The two real patterns in use are (i) "attempt JSX
+    unconditionally for the whole JS-family bucket, since plain JS has no
+    competing ambiguous syntax" (Babel/Prettier's `.js`/`.jsx`/`.mjs`/`.cjs`
+    handling), and (ii) "gate strictly on extension/config, because this
+    specific language variant (TS) has a real competing syntax" (TS
+    compiler's `.ts` vs `.tsx`, Prettier's mirroring of that split, ESLint's
+    project-config opt-in).
+
+  **2. False-positive risk in this formatter's own architecture.** Re-read
+  `TokenizerCurly.findJsxSpans`/`isJsxContext` (~line 1974),
+  `findJsxSpanEnd` (~line 2079), and `parseJsxTag` (~line 2127) for this
+  session (not the STATE_JS_TS.md description). Key structural fact,
+  confirmed by re-reading `isJsxContext`'s eleven `||`-clauses (return,
+  `=>`, `?`, `:`, call-arg/array-element-start, assignment-RHS,
+  logical-RHS, grouping-paren-start, JSX-hole `{`, template-hole-open,
+  spread): every one of them requires the `<` token to be the **first
+  token of a brand-new expression** — immediately after `return`, `=>`,
+  `?`, `:`, `(`, `[`, `,` inside a call/array, `=`/compound-assignment,
+  `&&`/`||`/`??`, `{`, `${`, or `...`. A genuine relational/comparison `<`
+  (`a < b`) or a chained comparison (`a < b > c`, legal JS since each
+  comparison yields a boolean re-compared) **never** has its `<` in
+  expression-start position — the left operand (`a`) always precedes it,
+  so the operand token, not `<` itself, is what sits in the trigger
+  position, and the operand is virtually never itself one of the eleven
+  trigger tokens. Traced concretely for `a < b > c`: for this to misfire,
+  `<` would have to be the token immediately after e.g. `return` — but
+  `return a < b > c` has `<` preceded by `a`, not `return`, so
+  `isJsxContext` never even fires for the `<`. **This means ordinary
+  comparison operators are structurally excluded from all eleven contexts
+  by construction, not merely handled by the `-1` fallback** — the fallback
+  is a second line of defense, not the first.
+  - The **real remaining ambiguity** is TypeScript's own legacy
+    angle-bracket type assertion, `<Type>expr` — e.g. `x = <Foo>y` (RHS of
+    `=`), `return <Foo>y`, `foo(<Foo>y, z)` (call-arg start) — because a
+    cast's `<Type>` is *also* expression-start-shaped and syntactically
+    identical to a JSX open tag with no attributes. `parseJsxTag` parses
+    `<Foo>` as a well-formed **open** tag (kind 0: tag name found, no `/`
+    self-close, immediate `>`) exactly as it would for real JSX, and
+    `findJsxSpanEnd` then requires a subsequent *closing* tag (`</Foo>` or
+    another self-close bringing depth back to 0) before it will accept the
+    span — a cast expression essentially never contains a `</`-shaped token
+    sequence afterward, so in real-world non-JSX code this returns `-1`
+    (safe fallback) almost every time. This matches TS's own recognition of
+    the identical ambiguity (point 1 above) — it isn't a corner case unique
+    to this formatter.
+  - **A genuine, currently-unguarded gap found this session**:
+    `findJsxSpanEnd`/`parseJsxTag` track only tag-nesting **depth**, not
+    tag-name identity — `parseJsxTag`'s `kind == 1` (closing tag) branch
+    decrements `depth` and `kind == 2`/`depth == 0` returns, but nothing
+    anywhere compares the closing tag's name against the opening tag's
+    dotted name (confirmed by grep: no `tagName`/`nameEquals`/
+    `matchesOpen`-shaped helper exists in `TokenizerCurly.java`). This means
+    `<a>...</b>` — a *mismatched* open/close pair — is currently accepted as
+    a balanced tree by this pass, exactly as `<a>...</a>` would be. This is
+    already true today, gated behind `.jsx`/`.tsx` only, and is presumably
+    low-risk there since a `.jsx` file's `<a>...</b>` is already broken JSX
+    the author would need to fix regardless. It becomes materially more
+    relevant if detection is ever widened to plain `.js`/`.ts`, where the
+    thing being (mis)balanced is a legacy cast plus unrelated later code,
+    not intentional JSX — see point 4 below for the concrete guard this
+    implies.
+
+  **3. Proposed detection strategies.**
+  - **(a) Extend unconditionally to `.js`/`.ts` (mirror Babel/Prettier's
+    default-on approach).** Per point 1, real tooling does NOT do this
+    uniformly — it does it for the JS family only, and deliberately does
+    NOT do it for `.ts` (Prettier/tsc both gate `.ts` separately from
+    `.tsx` specifically because of the type-assertion collision). Applying
+    (a) to `.js`/`.mjs`/`.cjs` is well-supported by precedent and, per
+    point 2, the eleven contexts' structural expression-start requirement
+    already excludes ordinary comparisons; the residual risk is narrowly
+    the `<Type>expr` legacy-cast collision, which is rare in plain
+    `.js`/`.mjs`/`.cjs` (that cast syntax doesn't even exist in a
+    strictly-JS file — it's TS-only syntax that would already be a syntax
+    error there under a JS grammar, so a `.js` file containing `<Foo>y`
+    almost certainly *is* JSX, not a cast, unlike `.ts`). Applying (a) to
+    `.ts` is NOT well-supported — that's exactly the file type where the
+    cast ambiguity is real (legacy TS code does use `<Type>value` casts in
+    plain `.ts` files today, `as Type` being the modern preferred form but
+    not universally adopted), and both Prettier and `tsc` deliberately
+    decline to extend JSX parsing to `.ts` for this reason.
+  - **(b) Content-sniff for `import React`/`from 'react'`/a `@jsx` pragma
+    comment.** Rejected as unreliable, and confirmed unreliable by a
+    verifiable landscape shift: the "new JSX transform" (React 17+,
+    `automatic` runtime, the default in `create-react-app`/Next.js since
+    their React-17-era releases) explicitly removes the requirement to
+    import React at all for JSX to work — the transform injects the
+    `jsx`/`jsxs` runtime helper imports automatically. A real, modern
+    `.js`/`.tsx` file using JSX under the automatic runtime can have zero
+    `React`-related import, so an import-based heuristic would silently
+    fail to detect exactly the modern-tooling case, while also
+    over-triggering on any file that merely imports `react` for a
+    non-JSX reason (e.g. `useContext`/hooks-only files with no JSX at
+    all). No mainstream tool researched in point 1 uses this heuristic —
+    consistent with rejecting it here too.
+  - **(c) Config/CLI opt-in only** (a `--jsx-in-js` flag, or a
+    per-file `JXM_CFMT_CFG --jsx-in-js=on` directive mirroring the existing
+    `--lang` in-file-override precedent, `RDD_KEY_286`). Matches ESLint's
+    real-world pattern (project-level explicit opt-in, not per-file
+    sniffing) and gives the safest possible blast radius — zero risk to any
+    file the user doesn't explicitly mark. Downside: requires the user (or
+    a build-tooling integration) to know and act on this per legacy-`.js`
+    file or per project, which the react-tutorial-shaped repo's own author
+    never would have done (they wrote plain `.js` under an older CRA
+    convention with no formatter-specific awareness at all) — so pure (c)
+    does not actually fix the dogfood finding's real-world scenario unless
+    paired with a broader default.
+  - **Recommendation: a hybrid of (a) and (c).** Extend
+    `Lang.isJsxSyntax`-equivalent detection (i.e., wire
+    `TokenizerCurly.findJsxSpans` to also run) unconditionally for
+    `.js`/`.mjs`/`.cjs` — mirroring Babel/Prettier's own JS-family default
+    and justified by point 2's finding that the eleven contexts already
+    structurally exclude ordinary comparisons, leaving only the
+    already-rare (in real `.js`) legacy-cast shape as residual risk. Do
+    **not** extend to plain `.ts` by default — mirror TS's/Prettier's own
+    deliberate `.ts`/`.tsx` split, since `.ts` is exactly where the
+    `<Type>expr` cast collision is real and non-rare; instead expose (c)
+    (a `--jsx-in-js`/`JXM_CFMT_CFG` opt-in) for the `.ts` case, so a user
+    with a legacy `.ts`-with-embedded-JSX file (same convention as the
+    dogfood repo but TS-flavored) has an explicit, safe path without
+    changing the `.ts` default. This is not a full-confidence
+    recommendation — it is not yet validated against a real `.js`-with-JSX
+    corpus reformatted under the widened default (the react-tutorial `.jsx`
+    supplementary check in the dogfood section above validates the
+    pre-pass's correctness once engaged, but not this specific
+    default-widening decision's real-world false-positive rate at scale) —
+    a future implementation session should treat this as a strong starting
+    point, not a settled decision, and validate against
+    `ruanyf/react-demos` and any other still-`NOT STARTED` dogfood repo
+    that ships `.js`-with-JSX before shipping the default change.
+
+  **4. Code-shape decision for a future implementation session, described
+  precisely enough to act on directly (not implemented here):**
+  - Before widening `findJsxSpans` to run on `.js`/`.mjs`/`.cjs`, harden
+    `parseJsxTag`/`findJsxSpanEnd` to check **tag-name identity** between
+    an open tag and the closing tag that reduces its depth to 0, not just
+    depth balance. Concretely: `parseJsxTag` already walks the dotted tag
+    name (`s` advances past `IDENTIFIER (. IDENTIFIER)*` at ~line
+    2139-2144) for both open and close tags — capture that name (as a
+    `String`, e.g. the concatenated raw text of the identifier/dot tokens)
+    into the returned `int[]`-equivalent result (would need to widen the
+    return shape, e.g. to a small result object or an `Object[]`/parallel
+    `String[]` out-param, since `int[]` can't carry a `String`), and have
+    `findJsxSpanEnd` track a stack of open tag names (not just an integer
+    `depth`) so a `kind == 1` closing tag is only accepted when its name
+    equals the top of that stack; a name mismatch should return `-1` (same
+    safe-fallback contract every other rejection already uses), not throw
+    or otherwise change error-handling shape. This directly closes the gap
+    found in point 2 (`<a>...</b>` currently balances) and specifically
+    reduces the residual `.js` cast/JSX-collision risk described in point 3
+    — a coincidental later `</SomeUnrelatedName>`-shaped token sequence
+    would no longer be enough to wrongly close a misdetected `<Type>`-cast
+    span; the closing tag's name would additionally have to coincidentally
+    match the cast's type name, which is materially rarer. This hardening
+    is worth doing regardless of which strategy from point 3 is chosen,
+    since it strictly tightens an existing gap in the already-shipped
+    `.jsx`/`.tsx` pass too — but it becomes load-bearing (not just
+    nice-to-have) if detection is ever widened past the current
+    `.jsx`/`.tsx` gate, since the residual risk in `.js`/`.ts` is
+    specifically the shape this closes.
 
 ---
 

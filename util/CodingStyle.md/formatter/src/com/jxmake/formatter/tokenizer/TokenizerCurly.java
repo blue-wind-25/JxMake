@@ -1822,20 +1822,20 @@ public class TokenizerCurly extends TokenizerCore {
      *  embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
      *  true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
      *
-     * <p><b>Increment 1+2+3+4 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the
-     *  full 11-context list this will eventually cover): seven expression-start contexts are
+     * <p><b>Increment 1+2+3+4+5 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for the
+     *  full 11-context list this will eventually cover): eight expression-start contexts are
      *  recognized here as a JSX-open candidate -- "after `return`" (Increment 1), "after `=>`"
      *  (arrow-function body start), "after `?`"/"after `:`" (both branches of a ternary conditional
      *  expression) (Increment 2), call-argument-start / array-literal-element-start (Increment 3, see
-     *  {@link #isCallArgumentOrArrayElementStart}), and assignment-RHS (incl. compound assignment
-     *  operators) / logical-nullish-RHS (Increment 4, see {@link #isAssignmentOrLogicalRhsStart}).
-     *  Every other listed context (grouping-paren start, recursive `{}`/`${}` holes, spread) is
-     *  intentionally NOT yet implemented -- a `<` in any of those positions falls through unchanged
-     *  to the existing `reclassifyAngleBrackets`/relational-operator handling, same as before this
-     *  pre-pass existed. Expand the {@code isJsxContext} check below (add more context checks
-     *  alongside it) in future increments; a future increment implementing the recursive `{}`-hole
-     *  context will also need {@link #findJsxSpanEnd} to recurse into holes rather than only
-     *  balance-skipping them.
+     *  {@link #isCallArgumentOrArrayElementStart}), assignment-RHS (incl. compound assignment
+     *  operators) / logical-nullish-RHS (Increment 4, see {@link #isAssignmentOrLogicalRhsStart}),
+     *  and grouping-paren-start (Increment 5, see {@link #isGroupingParenStart}).
+     *  Every other listed context (recursive `{}`/`${}` holes, spread) is intentionally NOT yet
+     *  implemented -- a `<` in any of those positions falls through unchanged to the existing
+     *  `reclassifyAngleBrackets`/relational-operator handling, same as before this pre-pass existed.
+     *  Expand the {@code isJsxContext} check below (add more context checks alongside it) in future
+     *  increments; a future increment implementing the recursive `{}`-hole context will also need
+     *  {@link #findJsxSpanEnd} to recurse into holes rather than only balance-skipping them.
      */
     private void findJsxSpans(final List<Token> tokens)
     {
@@ -1867,7 +1867,8 @@ public class TokenizerCurly extends TokenizerCore {
                     || Token.isOp(prev, "?")
                     || Token.isOp(prev, ":")
                     || isCallArgumentOrArrayElementStart(tokens, sig, s)
-                    || isAssignmentOrLogicalRhsStart(prev);
+                    || isAssignmentOrLogicalRhsStart(prev)
+                    || isGroupingParenStart(tokens, sig, s);
             if( !isJsxContext ) continue;
 
             final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
@@ -2097,6 +2098,23 @@ public class TokenizerCurly extends TokenizerCore {
         if(parenS == 0) return false;
         final Token before = tokens.get( sig.get(parenS - 1) );
         return before.type == TokenType.IDENTIFIER || Token.isPunct(before, ")") || Token.isPunct(before, "]");
+    }
+
+    /**
+     * Increment 5: recognizes a `<` at sig position {@code s} as a grouping-paren-start JSX
+     *  context, per STATE_JS_TS.md's design list item "Parenthesized-expression start" (item 8) --
+     *  the mirror image of {@link #isCallOpenParen}: immediately after a `(` that is NOT itself a
+     *  call-open (i.e. not preceded by an IDENTIFIER/`)`/`]`). A call-open `(` is already covered
+     *  by {@link #isCallArgumentOrArrayElementStart} -- this check deliberately only fires on the
+     *  complementary case to avoid double-claiming the same `(` shape both ways.
+     */
+    private boolean isGroupingParenStart(final List<Token> tokens, final List<Integer> sig, final int s)
+    {
+        if(s == 0) return false;
+        final int parenS = s - 1;
+        final Token prev = tokens.get( sig.get(parenS) );
+        if( !Token.isPunct(prev, "(") ) return false;
+        return !isCallOpenParen(tokens, sig, parenS);
     }
 
     /** Scans backward from (but not including) {@code sig.get(beforeS)} tracking bracket depth

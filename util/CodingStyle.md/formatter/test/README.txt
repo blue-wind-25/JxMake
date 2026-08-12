@@ -480,6 +480,18 @@ JSX/TSX:
                                                         to catch context-interaction bugs the isolated
                                                         fixture might miss.
 
+  jsx_tsx_grouping_paren_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 5:
+                                                        grouping-paren-start (a `(` NOT preceded by an
+                                                        IDENTIFIER/`)`/`]`, distinguishing it from a
+                                                        call-open `(` already covered by Increment 3).
+                                                        Covers a bare `const a = (<span>...</span>);` and a
+                                                        `(<div ...>{a}</div>)` with a `{}` hole; an ordinary
+                                                        `if (x < 1)` comparison is confirmed untouched (also
+                                                        proving the fallback safety net: `if`'s `(` is itself
+                                                        a non-call-open grouping-shaped paren, so this
+                                                        context now fires on it too, but `findJsxSpanEnd`
+                                                        correctly returns -1 since `x < 1` isn't real JSX).
+
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare

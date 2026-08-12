@@ -715,24 +715,66 @@ active in the Makefile and passing.
   - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
     still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
     unchanged from Increments 1/2/3's own "NOT done" lists.
-  - **Where to resume**: three hardest contexts remain, deliberately left
-    for last per the design's own risk ordering: grouping-paren-start
-    (design list item 8 — needs to distinguish a bare grouping `(` from a
-    call-open `(`, the mirror image of what `isCallOpenParen` already does
-    for the call case, i.e. recognized when `(` is *not* preceded by an
-    IDENTIFIER/`)`/`]`); then the recursive `{}`/`${}`-hole contexts (design
-    list items 9/10 — requires `findJsxSpanEnd` to actually recurse into a
-    hole's interior and re-apply the whole `isJsxContext` check there,
-    rather than only balance-skipping it as every increment so far does);
-    then spread (design list item 11, likely close to free once
-    call-argument/array-element-start already handle the `,`/`(`/`[`
-    adjacency — just needs the token immediately before `<` to also accept
-    `...` in those same positions). The `<T>`-cast-vs-JSX ambiguity's
-    `.tsx`-only resolution remains implicitly correct (gated by
-    `isJsxSyntax`) but still not stress-tested against an actual
-    `const x = <T>foo;` cast-shaped `.tsx` input in any of the 7 now-landed
-    contexts — worth a real fixture before or alongside whichever future
-    increment lands next, not deferred indefinitely.
+  - **Where to resume (superseded by Increment 5 below — kept for
+    history).**
+
+  **2026-08-13 implementation session, Increment 5 — LANDED (8/11
+  contexts, still no real corpus validation).** Adds grouping-paren-start
+  (design list item 8) to `TokenizerCurly.findJsxSpans`'s `isJsxContext`
+  check.
+
+  - **New helper `isGroupingParenStart`**: the mirror image of
+    `isCallOpenParen` — recognized when `<` is immediately after a `(` that
+    is NOT itself a call-open (i.e. `isCallOpenParen` on that `(` returns
+    `false`). Deliberately does not also handle the `,`-inside-a-grouping-
+    paren shape (`isCallArgumentOrArrayElementStart`'s enclosing-bracket
+    walk already explicitly declines to recognize a `,` enclosed by a
+    grouping `(` — grouping parens don't have comma-separated "elements" in
+    JS/TS expression grammar the way call args/array elements do, so
+    there's no such shape to add).
+  - **Ambiguity safety, confirmed but with a wider blast radius than prior
+    increments**: same -1-on-unbalanced-JSX self-correcting property
+    relied on throughout, but this increment's context check fires much
+    more broadly than Increments 1-4 — *any* non-call `(` (control-flow
+    parens like `if (...)`/`while (...)`/`for (...)`, any bare grouping
+    expression) now gets tested. Verified deliberately via the fixture's
+    `if (x < 1)` case: `if`'s `(` is not preceded by an IDENTIFIER/`)`/`]`
+    (preceded by the `if` KEYWORD), so `isCallOpenParen` returns `false`
+    and `isGroupingParenStart` returns `true` — `x < 1` is then offered to
+    `findJsxSpanEnd`/`parseJsxTag`, which correctly returns -1 (not a
+    balanced JSX tree), leaving the tokens untouched. This is the same
+    safety net every prior increment relies on, just exercised on a much
+    higher volume of real-world `(` shapes (nearly every control-flow
+    statement in a `.tsx` file) than before — worth flagging for a future
+    corpus-validation pass as the context most likely to reveal a
+    performance or correctness edge case at scale, even though no such
+    issue was found in this session's own testing.
+  - **Fixture-verified**: `test/jsx_tsx_grouping_paren_context_{inp,out}.tsx`
+    (a bare `const a = (<span>...</span>);` and a
+    `const b = (<div className="b">{a}</div>);` with a `{}` hole; an `if
+    (x < 1)` comparison confirmed untouched, doubling as the fallback-safety
+    proof above). `make test`: 297/297 → 298/298 forward + idempotency, zero
+    regressions on any existing `.js`/`.ts`/`.tsx` fixture. Manually
+    re-verified round1/round2 byte-identical on the new fixture outside the
+    Makefile-driven run as well.
+  - **Nothing from the design broke on contact this increment** — no new
+    character-level-lexer carve-out needed, same as Increments 2/3/4.
+  - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
+    still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
+    unchanged from Increments 1-4's own "NOT done" lists. The `<T>`-cast-vs-
+    JSX ambiguity's `.tsx`-only resolution is still not stress-tested
+    against an actual `const x = <T>foo;` cast-shaped `.tsx` input in any
+    of the 8 now-landed contexts, carried over from Increment 4 unchanged
+    (not this increment's own gap).
+  - **Where to resume**: two hardest contexts remain, deliberately left for
+    last per the design's own risk ordering: the recursive `{}`/`${}`-hole
+    contexts (design list items 9/10 — requires `findJsxSpanEnd` to
+    actually recurse into a hole's interior and re-apply the whole
+    `isJsxContext` check there, rather than only balance-skipping it as
+    every increment so far does); then spread (design list item 11, likely
+    close to free once call-argument/array-element-start already handle
+    the `,`/`(`/`[` adjacency — just needs the token immediately before `<`
+    to also accept `...` in those same positions).
 
 ---
 

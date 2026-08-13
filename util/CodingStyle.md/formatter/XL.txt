@@ -137,19 +137,6 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 ####################################################################################################
 ####################################################################################################
 
-Compact all `STATE_*.md` files. Use at most 5 sub-agents in parallel - balance the job between the
-sub-agents based on the file sizes. Be careful not to lose important information, such as the tools/
-compiler used, special formatter config (e.g., `indent-size`, etc.), exception/benchmark/helper
-information, root cause, chain of reason, failed attempt at bug fix, etc. Basically, compact the
-prose but keep the information intact.
-
-`STATE_JS_TS.md` is getting large and still needs compacting, but its JSX/TSX Step 1 (11/11
-boundary-finding contexts, incl. the `.js`/`.mjs`/`.cjs` widening, `.ts` `jsx-in-ts` opt-in, and
-`parseJsxTag` tag-name hardening) and Step 2 (context 11, 5-increment rendering plan, increment 1/5
-landed) sections must survive compaction intact -- keep every resolved design decision, increment
-status (landed vs. not-started), and dogfood result for those two sections, prose-compact only, do
-not drop or merge them into vaguer summaries.
-
 === TIER 0: Recurring job ===
 
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**

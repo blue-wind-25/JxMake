@@ -3973,61 +3973,43 @@ Real-code regressions:
                                                         what's first on it; also fixes `placeElseOnOwnLine`,
                                                         which shares the helper.
 
-  real_code_regressions_204_inp/out.py               -- §8 compact-vs-block overflow-check bug (found via
-                                                        self-hosting dogfood on
-                                                        `tools/verifiers/{html,python,toml}_content_diff.py`'s
-                                                        hand-column-aligned `if`/`elif`/`else` one-liner
-                                                        chains): `applySingleStatementBody`'s already-compact
-                                                        branch measured the RAW verbatim single-physical-line
-                                                        text (including stale alignment padding between `:`
-                                                        and the body statement) against `lineLength`, instead
-                                                        of the normalized single-space form the line would
-                                                        actually render as. A padded `elif`/`else` line that
-                                                        comfortably fits once normalized was therefore wrongly
-                                                        judged as overflowing and expanded to block form on
-                                                        round1, while round2 (re-parsing the now-padding-free
-                                                        block) correctly re-joined it back to compact --
-                                                        genuine round1/round2 non-idempotency, not cosmetic.
-                                                        Fixed in
-                                                        `ScopePipelineIndent.applySingleStatementBody` by
-                                                        measuring `headerText + " " + bodyText` (the
-                                                        normalized form) instead of the raw verbatim span, and
-                                                        by collapsing stale padding down to a single space
-                                                        even when no expansion is needed.
-                                                        `test/real_code_regressions_168_out.kt` (a
-                                                        pre-existing fixture that had baked in the buggy
-                                                        flush-left `catch` as its expected output) updated to
-                                                        the corrected indented form.
+  real_code_regressions_204_inp/out.py               -- §8 compact-vs-block overflow bug (RDD_KEY_288, found
+                                                        via self-hosting dogfood on
+                                                        `tools/verifiers/{html,python,toml}_content_diff.py`):
+                                                        `applySingleStatementBody`'s already-compact branch
+                                                        measured the RAW verbatim line (incl. stale alignment
+                                                        padding between `:` and body) against `lineLength`
+                                                        instead of the normalized single-space form -- a
+                                                        padded `elif`/`else` line that fit once normalized was
+                                                        wrongly expanded to block form on round1, then
+                                                        re-joined to compact on round2 (genuine
+                                                        non-idempotency). Fixed in
+                                                        `ScopePipelineIndent.applySingleStatementBody` to
+                                                        measure `headerText + " " + bodyText` and to collapse
+                                                        stale padding to one space even when not expanding.
+                                                        Also corrected `real_code_regressions_168_out.kt`,
+                                                        which had baked in the buggy flush-left `catch` (see
+                                                        fixture 203) as expected output.
 
-  real_code_regressions_205_inp/out.java             -- 2 bugs found via self-hosting dogfood on
-                                                        `src/**/*.java` (`JsTsSpecificRule.java`,
-                                                        `TokenizerCurly.java`), combined into one fixture: (1)
+  real_code_regressions_205_inp/out.java             -- 2 bugs (RDD_KEY_289, found via self-hosting dogfood on
+                                                        `src/**/*.java`), one fixture: (1)
                                                         `BlockStructureRule.extractSingleIdentifier`'s
-                                                        negated-single-identifier case (`while(!closed)`)
-                                                        returned the bare identifier, dropping the leading
-                                                        `!`, when generating a same-kind-nested-loop
-                                                        disambiguating closing-comment label
-                                                        (`extractVariable`, used only when a
-                                                        `while`/`for`/`switch` is nested inside another of the
-                                                        same kind) -- silently inverted an existing
-                                                        hand-written `} // while !closed` comment's meaning to
-                                                        `} // while closed`. Fixed by preserving the `!` in
-                                                        the returned label text. (2)
+                                                        negated-identifier case (`while(!closed)`) dropped the
+                                                        leading `!` when building a same-kind-nested-loop
+                                                        closing-comment label, silently inverting a
+                                                        hand-written `} // while !closed` comment to `} //
+                                                        while closed`. Fixed to preserve the `!`. (2)
                                                         `alignBracelessElseIfChain`'s chain detection is
-                                                        purely line-text-pattern-based (`if(`/`else if(`/`else
-                                                        ` prefixes) with no check that a matched `if`/`else
-                                                        if` member's body is actually braceless -- a
-                                                        hand-written mixed chain (`if(...) ++x;` immediately
-                                                        followed by a genuinely braced `else if(...) { ... }`)
-                                                        was wrongly recognized as an all-braceless chain and
-                                                        had its `if` keyword left-padded by the `else if`/`if`
-                                                        keyword-length delta anyway, corrupting a correctly
-                                                        flush-aligned pair's indentation on every reformat.
-                                                        Fixed by bailing the whole chain untouched, before any
-                                                        mutation, the moment any non-bare-else member's body
-                                                        is braced (a bare terminal `else { ... }` remains a
-                                                        deliberately supported shape, per the pre-existing
-                                                        `real_code_regressions_172_out.ts` fixture).
+                                                        purely line-text-pattern-based, with no check that a
+                                                        matched member's body is actually braceless -- a
+                                                        hand-written mixed chain (braceless `if` followed by a
+                                                        genuinely braced `else if(...) { ... }`) was
+                                                        misrecognized as all-braceless and left-padded anyway,
+                                                        corrupting a correctly flush-aligned pair's
+                                                        indentation every reformat. Fixed by bailing the whole
+                                                        chain untouched the moment any non-bare-else member's
+                                                        body is braced (bare terminal `else { ... }` stays
+                                                        supported, per `real_code_regressions_172_out.ts`).
 
 How Tests Are Run
 -----------------

@@ -226,10 +226,9 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   `RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS` = existing JS/TS bundle unchanged, new
   `RERUN_MODE_ASSIGNMENTS_ONLY`). New entry point
   `ScopePipelineCurly.reapplyAssignmentsPassOnly(String)`; `FormatterCurly.format` gained an
-  `else if(lang.isJava)` branch at JS/TS's existing re-run call site. `applyAssignmentsPass` only
-  touches genuine assignment groups (`MiscRuleCurly.groupAssignments`), so re-running it alone
-  structurally can't touch an aggregate-init closing brace or enum `;`-separator — the two
-  collateral-damage classes attempts 1/2 hit.
+  `else if(lang.isJava)` branch. `applyAssignmentsPass` only touches genuine assignment groups
+  (`MiscRuleCurly.groupAssignments`), so re-running it alone structurally can't touch an
+  aggregate-init closing brace or enum `;`-separator — attempts 1/2's collateral damage.
 
   **Verification:** `make test` 269/269 → 270/270 (new fixture) forward + idempotency, zero
   regressions. Manual repro (7-line `s = applyX(s); // comment` chain, one sibling with a long
@@ -567,24 +566,22 @@ on the noted commits/fixtures)
      `make test` after fixes: 220/220 forward + idempotency, zero regressions.
 
      **Full-tree round1/round2 re-run + syntax-check, 2026-08-09 (deferred re-verification).**
-     Corpus re-cloned fresh (prior `/tmp/rewrite` checkout was a stale sparse-checkout skeleton),
-     grown to 3510 `.java` files (from 3373); batched per top-level module subdirectory. `javac`
-     of the whole tree still impractical (Gradle multi-module + ANTLR-generated sources); used
-     `java_syntax_check` as before.
+     Corpus re-cloned fresh, grown to 3510 `.java` files (from 3373); batched per top-level module
+     subdirectory. `javac` of the whole tree still impractical (Gradle multi-module + ANTLR
+     sources); used `java_syntax_check` as before.
 
      Round1/round2 diff: 4 residual idempotency diffs, all cosmetic (no invalid-syntax risk), left
-     open/undiagnosed as new Known Gaps (below) rather than blind-fixed — each matches an
-     already-documented architectural bug family (indent-width-decided-before-a-later-pass-grows-
-     it; alignment-padding-collapse; switch-arrow-brace pass-ordering), same judgment call as the
-     open `PowerShellSpecificRule.java` self-format bug. Files:
-     `rewrite-java-test/.../ModerneWebsiteExampleTest.java` (switch-arrow braceless if/else body's
-     closing `}` moves between rounds), `rewrite-kotlin/.../TabsAndIndentsVisitor.java` +
-     `rewrite-yaml/.../YamlParser.java` (wrapped call continuation line gains 4 indent spaces
-     between rounds), `rewrite-python/.../Pep508RequirementTest.java` (`List<String>` alignment
-     padding collapses 3→1 space on round2). One transient non-reproducible
-     `NoClassDefFoundError: MiscRuleCore$SepMatch` crash hit mid-batch (JVM classloader/resource
-     hiccup, not a formatter bug) — re-running the affected subdirectory alone (`rewrite-gradle`,
-     241 files) was clean.
+     open/undiagnosed as new Known Gaps (below) — each matches an already-documented architectural
+     bug family (indent-width-decided-before-a-later-pass-grows-it; alignment-padding-collapse;
+     switch-arrow-brace pass-ordering), same judgment call as the open `PowerShellSpecificRule.java`
+     self-format bug. Files: `rewrite-java-test/.../ModerneWebsiteExampleTest.java` (switch-arrow
+     braceless if/else body's closing `}` moves between rounds), `rewrite-kotlin/.../
+     TabsAndIndentsVisitor.java` + `rewrite-yaml/.../YamlParser.java` (wrapped call continuation
+     line gains 4 indent spaces between rounds), `rewrite-python/.../Pep508RequirementTest.java`
+     (`List<String>` alignment padding collapses 3→1 space on round2). One transient
+     non-reproducible `NoClassDefFoundError: MiscRuleCore$SepMatch` crash hit mid-batch (JVM
+     classloader hiccup, not a formatter bug) — re-running the affected subdirectory alone
+     (`rewrite-gradle`, 241 files) was clean.
 
      Baseline (unformatted 3510 files): 3510/3510 OK. Round1 (before fix): **1 new syntax error**
      — `rewrite-java-25/.../ReloadableJava25ParserVisitor.java:764: variable declaration not
@@ -661,18 +658,16 @@ on the noted commits/fixtures)
      architectural: 13 "non-idempotent reindent on internally-inconsistent source", 1
      (`IdStrategy.java`) `alignCommentSeparators` false-positive, 1 (`PluginManager.java`)
      low-priority line-wrap instability (both then "Known Gaps — Open"). `javac` not attempted
-     (Jenkins Maven heavy deps); `java_syntax_check` + idempotency load-bearing. `java_content_diff`
-     spot-check: content preserved. **Closed with the remaining 2 gaps explicitly accepted** — user
-     decision to mark DONE; permanent known limitations (`alignCommentSeparators` also in
-     `README.md`).
+     (Jenkins Maven heavy deps); `java_syntax_check` + idempotency load-bearing; `java_content_diff`
+     spot-check clean. **Closed with the remaining 2 gaps explicitly accepted** — user decision to
+     mark DONE; permanent known limitations (`alignCommentSeparators` also in `README.md`).
 
-(26) **DONE — no open gaps** (2026-08-09: re-checked; the "documented open gaps" this item's
-     header used to claim were the 3 gaps below, all already marked FIXED — stale header wording.
-     Full-tree re-run not attempted, ~350kloc not worth re-cloning just to confirm already-fixed
-     bugs stay fixed) — `github.com/microsoft/STL` (`stl/inc/`+`stl/src/`, 289 files ~9MB,
-     extensionless headers copied to `.hpp` first; excluded `.ixx` module units). Full-tree round1:
-     all 289 formatted, no crashes; round1/round2 initially differed on 110/289. `clang++` compile
-     not attempted (needs STL's own CMake+MSVC harness); full-tree idempotency is load-bearing.
+(26) **DONE — no open gaps** (2026-08-09: re-checked, all 3 gaps below already FIXED — stale
+     header wording. Full-tree re-run not attempted, ~350kloc not worth re-cloning just to confirm
+     already-fixed bugs stay fixed) — `github.com/microsoft/STL` (`stl/inc/`+`stl/src/`, 289 files
+     ~9MB, extensionless headers copied to `.hpp` first; excluded `.ixx` module units). Full-tree
+     round1: all 289 formatted, no crashes; round1/round2 initially differed on 110/289. `clang++`
+     compile not attempted (needs STL's own CMake+MSVC harness); full-tree idempotency load-bearing.
 
      2 bugs fixed: (a) `applyLineEndings` default (`lf`) fast path skipped `\r` stripping — false
      on CRLF input (tokenizer preserves `\r` in untouched WHITESPACE); fixed by always normalizing
@@ -710,21 +705,17 @@ on the noted commits/fixtures)
      `JikesOutputParser.java` (`else` misindented relative to `if`) and `PathTest.java` (closing
      `}` at column 9 vs surrounding block column 8). Both pre-date this session (original repo
      source, not formatter-introduced); same "general scope-depth reindentation not started"
-     bucket in `STATE_COMMON.md` — no fixture added (indistinguishable from that already-tracked
-     class).
+     bucket in `STATE_COMMON.md` — no fixture added.
 
-     **2026-08-09 single-file re-check (one-off, not a full-tree re-run):** `PathTest.java` no
-     longer reproduces — round1/round2 idempotency diff is now empty (fixed as a side effect of
-     unrelated work since the original run, not investigated further). `JikesOutputParser.java`
-     still reproduces the identical shape byte-for-byte, including with
-     `curly-general-scope-reindent` turned on (GDR changes the specific bytes touched but the
-     round1/round2 diff is still non-empty — GDR does not currently close this gap either).
-     **Disposition (2026-08-10):** this `apache/ant` finding is just a real-corpus instance of
-     the already-documented "Non-idempotent reindent on internally-inconsistent generated
-     source" gap — see `README.md`'s Known Limitations → "Curly-brace family" item 4. No new
-     documentation needed; removed the redundant standalone `XL.txt` TIER 9 entry. Only
-     these 2 files were re-checked (sparse-fetched individually, not a full-tree clone); no other
-     part of the 1337-file corpus was re-verified.
+     **2026-08-09 single-file re-check:** `PathTest.java` no longer reproduces — idempotency diff
+     now empty (fixed as a side effect of unrelated work, not investigated further).
+     `JikesOutputParser.java` still reproduces identically, including with
+     `curly-general-scope-reindent` on (GDR changes the bytes touched but the diff stays
+     non-empty — doesn't close this gap either). **Disposition (2026-08-10):** this `apache/ant`
+     finding is just a real-corpus instance of the already-documented "Non-idempotent reindent on
+     internally-inconsistent generated source" gap — `README.md`'s Known Limitations → "Curly-brace
+     family" item 4; redundant standalone `XL.txt` TIER 9 entry removed. Only these 2 files were
+     re-checked (not a full-tree re-clone).
 
 **Not started dogfood / real-code testing**
 (3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
@@ -935,60 +926,40 @@ before/after detail available via `git log`/`git show`.
   and got silently discarded by `render(group)`. Fixed by adding those token types to the same
   guard.
 - **`using` alias declarations not aligned** — FIXED (RDD_KEY_283), C++-only. The generic
-  `parseDeclaration` path rejected `using Name = Type;` because its `typeKeywords.contains(...)`
-  guard never accepts `using` (a KEYWORD not in that set) as a type — the inverted grammar
-  genuinely doesn't fit the forward `Type name = init;` model, so it previously passed through
-  untouched. Added an isolated `Declaration.isUsingAlias` field/10-arg constructor plus a new
-  `parseUsingAlias` parsing branch (guarded by `lang.isCpp`, called right after the modifiers
-  loop in `parseDeclaration`) that stores the alias name in `Declaration.name`, the aliased
-  type's tokens in the existing `initTokens` field, and a dummy singleton `typeTokens` (the
-  `using` keyword token, never rendered) purely so `ScopePipelineCurly`'s identity-based
-  splice-back anchor lookup has a real token. `groupDeclarations` breaks a group on any
-  `isUsingAlias` change so alias groups never merge with plain-declaration groups. Rendering
-  dispatches to a new dedicated `renderUsingAliasGroup` (a 3-column `ColumnGrid`: `using` /
-  name / `= Type;`) that aligns the `=` column, independent of the generic renderer's
-  type/pointer-star column logic. Found and fixed via `make test` (not just static reasoning):
-  the feature initially collided with the pre-existing C++26 pack-indexing/variadic-template
-  fixtures (`template<typename... T> using Name = T...[...]`) because the generic re-render
-  bypassed two separate raw-token-stream passes that own that spacing
-  (`CppSpecificRule.enforcePackIndexingSpacing` and a variadic-template tight-join rule);
-  fixed with a narrow bail-out in `parseUsingAlias` (return null, leave the statement fully
-  untouched — same "leave untouched when unsafe to collapse" posture as RDD_KEY_225) whenever
-  any `...` operator token appears in `templatePrefix` or the aliased-type tokens. Verified:
+  `parseDeclaration` path rejected `using Name = Type;` since `typeKeywords.contains(...)` never
+  accepts `using` (a KEYWORD, not a type) — the inverted grammar doesn't fit the forward
+  `Type name = init;` model. Added `Declaration.isUsingAlias`/10-arg constructor plus a new
+  `parseUsingAlias` branch (guarded by `lang.isCpp`) storing the alias name in `Declaration.name`,
+  the aliased type in `initTokens`, and a dummy singleton `typeTokens` (unused `using` token) so
+  `ScopePipelineCurly`'s splice-back anchor lookup has a real token. `groupDeclarations` breaks a
+  group on any `isUsingAlias` change; rendering dispatches to a new `renderUsingAliasGroup`
+  (3-column `ColumnGrid`: `using` / name / `= Type;`) aligning the `=` column. Collided with the
+  pre-existing C++26 pack-indexing/variadic-template fixtures (`template<typename... T> using
+  Name = T...[...]`, found via `make test`) because the generic re-render bypassed
+  `CppSpecificRule.enforcePackIndexingSpacing`/a variadic-template tight-join rule that owns that
+  spacing — fixed with a bail-out in `parseUsingAlias` (leave the statement fully untouched)
+  whenever any `...` token appears in `templatePrefix` or the aliased-type tokens. Verified:
   `make test` 283/283 -> 284/284 forward + idempotency, zero regressions. New fixture:
-  `test/cpp_using_alias_{inp,out}.cpp` (plain aliases of differing name length aligning on
-  `=`, a `template<typename T> using Vec = ...;` singleton group left separate, and a
-  function-local `using Local = double;` unaffected by outer-scope grouping). See RDD_KEY_283
-  in RDD_LOG.md for full detail.
+  `test/cpp_using_alias_{inp,out}.cpp`. See RDD_KEY_283 in RDD_LOG.md for full detail.
 - **Pack-indexing/variadic-template `using` aliases still left unaligned** — FIXED (RDD_KEY_284,
-  follow-up to RDD_KEY_283), C++-only. RDD_KEY_283's bail-out on any `...` token turned out to
-  be broader than necessary: `CppSpecificRule.enforcePackIndexingSpacing` runs as a whole-file
-  pass in `FormatterCurly`'s Phase 4 strictly AFTER declaration alignment, re-tokenizing
-  whatever text alignment already produced — it doesn't care which pass emitted the line, so
-  the aliased-type half of the bail was overly conservative. Added `Declaration.aliasRawTypeText`
-  and `Declaration.templatePrefixRawText` (both nullable `String`, set only when the
-  corresponding span contains a `...` token): `renderUsingAliasGroup` now emits these verbatim
-  (via `rawSliceBetweenUnfiltered`) instead of regenerating through `renderInitTokens`/
-  `renderTemplatePrefix` — safe for the aliased type because Phase 4 fixes up whatever spacing
-  it carries anyway, and safe for the `template<...>` prefix (which has no such downstream
-  fix-up pass for its `typename...` tight-join spacing) precisely because nothing is
-  regenerated, so nothing can be gotten wrong. Two more real bugs found via `make test` against
-  the pre-existing `cpp26_comments` fixture (not just static reasoning): (1) a standalone
-  comment sitting between a `template<...>` prefix and the `using` keyword itself has nowhere
-  to live in the `Declaration` model (`body` is already comment-filtered by the time
-  `parseUsingAlias` sees it), so accepting such a statement silently dropped the comment on
-  `render`'s full-span regeneration — fixed by scanning the raw unfiltered gap between
-  `templatePrefix`'s last token and the `using` keyword for a `COMMENT_LINE`/`COMMENT_BLOCK`
-  token and bailing (leave fully untouched) if found; (2) `renderUsingAliasGroup`'s trailing
-  same-line-comment append used a single space instead of this codebase's established two-space
-  convention (e.g. `JsTsSpecificRule`'s `sb.append("  ").append(...)`, STYLE.md's own
-  `// single-level -- pad` examples) — only visible on a singleton alias group with no sibling
-  to force grid padding into masking it. Verified: `make test` unchanged at 284/284 forward +
-  idempotency, zero regressions; the pre-existing `test/cpp26_comments_{inp,out}.cpp` fixture's
-  expected output was updated in place to reflect the new, more-complete alignment (`Selected`/
-  `Skipped` now align on `=`; `Nth`, preceded by a standalone comment, correctly stays
-  untouched/unaligned as its own singleton), verified byte-identical against the formatter's
-  actual output. See RDD_KEY_284 in RDD_LOG.md for full detail.
+  follow-up to RDD_KEY_283), C++-only. RDD_KEY_283's `...`-token bail-out was broader than
+  necessary: `CppSpecificRule.enforcePackIndexingSpacing` runs as a whole-file pass strictly AFTER
+  declaration alignment, re-tokenizing whatever text alignment produced regardless of which pass
+  emitted it — so the aliased-type half of the bail was overly conservative. Added
+  `Declaration.aliasRawTypeText`/`templatePrefixRawText` (nullable, set only when the span
+  contains `...`): `renderUsingAliasGroup` now emits these verbatim instead of regenerating
+  through `renderInitTokens`/`renderTemplatePrefix` — safe since Phase 4 fixes up the aliased
+  type's spacing anyway, and safe for the `template<...>` prefix (no downstream fix-up pass)
+  precisely because nothing is regenerated. Two more real bugs found via `make test` against
+  `cpp26_comments`: (1) a standalone comment between a `template<...>` prefix and `using` has
+  nowhere to live in the `Declaration` model, so accepting such a statement silently dropped the
+  comment — fixed by scanning the raw gap for a `COMMENT_LINE`/`COMMENT_BLOCK` token and bailing
+  if found; (2) `renderUsingAliasGroup`'s trailing same-line-comment append used a single space
+  instead of the codebase's two-space convention — only visible on a singleton alias group with
+  no sibling to mask it via grid padding. Verified: `make test` unchanged at 284/284 forward +
+  idempotency; `test/cpp26_comments_{inp,out}.cpp`'s expected output updated in place (`Selected`/
+  `Skipped` now align on `=`; `Nth`, preceded by a standalone comment, stays unaligned as its own
+  singleton), byte-identical to actual output. See RDD_KEY_284 in RDD_LOG.md for full detail.
 - **Preprocessor directive glued onto a following Java method definition** — FIXED,
   genuinely Java-specific (C++'s `applySignaturePass` branch incidentally routes around it via
   a separate line-rescan). `leadStart`/`sigLeadStart` landed directly on a leading
@@ -1005,13 +976,9 @@ before/after detail available via `git log`/`git show`.
   guard checked only first token (macro IDENTIFIER) and misparsed as `Type name = init;`. Fixed:
   depth-tracked scan of whole merged statement for top-level `if`/`while`/`for`/`switch`/`do`/
   `else`. Verified real STL tree (3 files idempotent), `make test` 169/169. Fixture:
-  `real_code_regressions_120`.
-
-  **2026-07-31 re-verification — STALE TRACKER ITEM, no code change needed.** A separate tracker
-  item wrongly described this exact bug as still open. Re-verified against a fresh `/tmp/STL`
-  checkout (`istream`/`stacktrace`/`xlocale`, current JAR): round1/round2 byte-identical, no
-  residual case. No new fixture/changes — confirmation-only, to stop a future reader re-opening a
-  closed bug.
+  `real_code_regressions_120`. **2026-07-31 re-verification:** a separate tracker item wrongly
+  described this bug as still open; re-verified against a fresh `/tmp/STL` checkout, byte-identical
+  round1/round2, no residual case — confirmation-only, no code change.
 
 - **Wrapped constructor signature's parameter-render logic misapplied to its own following
   member-initializer-list entry** — FIXED. Found in `microsoft/STL` (item 26, `mutex.hpp`/
@@ -1034,20 +1001,20 @@ before/after detail available via `git log`/`git show`.
 
 - **`GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on
   `isDefinition`** (`filesystem.hpp` `recursive_directory_iterator` shape) — FIXED (second,
-  independent "Declaration-alignment column-padding non-idempotency" shape, after
+  independent "Declaration-alignment column-padding non-idempotency" shape, after the
   `ranges.hpp`/`_Range` `trailingIndent` fix below). Root cause: width-exceeds-`lineLengthLimit`
   exclusion gated `isDefinition && hasBreakableCall(...)`, but non-definition `(params)` can also
   be wrapped by `enforceCallLineBreaking` → `=` column pads round1 / shrinks round2. Fixed:
   `hasBreakableParams = !isDefinition && paramsFrom < paramsTo` alongside `hasBreakableCall`.
-  Verified fixture 124: round1 == round2. `make test` 172/172. Constructed fixture only (no local
-  `microsoft/STL` checkout reachable). See RDD_KEY_203.
+  Verified fixture 124: round1 == round2. `make test` 172/172. Constructed fixture only. See
+  RDD_KEY_203.
 
 - **`ScopePipelineCore.trailingIndent` sweeping a same-line leading comment into a declaration/
   assignment group's per-line indent** — FIXED (partial fix for "Declaration-alignment
   column-padding non-idempotency", `ranges.hpp`/`_Range` shape only). Found in `microsoft/STL`
   (item 26, `ranges.hpp` `chunk_view`/etc.): same-line leading comment on group's first member
   duplicated onto every sibling next round. Root cause: `trailingIndent(gap)` returned text after
-  last `\n` as-is with no pure-whitespace check, sweeping comment into per-line join separator
+  last `\n` as-is with no pure-whitespace check, sweeping comment into the per-line join separator
   used by `applyDeclarationsPass`/`applyAssignmentsPass`/
   `applyOversizedAggregateInitClosingBracePass`. Fixed: truncate at first non-space/non-tab.
   Verified real STL (`ranges.hpp`, all 4 occurrences idempotent), `make test` 170/170. Fixture:

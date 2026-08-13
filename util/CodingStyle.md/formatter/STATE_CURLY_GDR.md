@@ -26,14 +26,14 @@ writeup only, no implementation) on 2026-08-02.
 ## Background: why this is its own dedicated job, not a quick fix
 
 **Current state** (confirmed by direct testing, C++26 session): the
-formatter does not reindent ordinary body statements from scratch —
-original whitespace is preserved except for specific recognized rewrites.
-Only `SwitchRule.applyNonInlineCaseIndent` and
-`ScopePipeline.applyDeclarationsPass` reindent anything, both applying one
-**relative delta** from a single reference line, not an absolute target from
-brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps — Open" documents
-two real bugs from this shape (`ASTParser.java` in `javaparser/javaparser`;
-local `tool/JSONEncoderLite.java`) — non-idempotent reindentation on
+formatter does not reindent ordinary body statements from scratch — original
+whitespace is preserved except for specific recognized rewrites. Only
+`SwitchRule.applyNonInlineCaseIndent` and `ScopePipeline.applyDeclarationsPass`
+reindent anything, both applying one **relative delta** from a single
+reference line, not an absolute target from brace-nesting depth.
+`STATE_C_CPP_JAVA.md`'s "Known Gaps — Open" documents two real bugs from
+this shape (`ASTParser.java` in `javaparser/javaparser`; local
+`tool/JSONEncoderLite.java`) — non-idempotent reindentation on
 internally-inconsistent source, both ACCEPTED-not-fixed: the real fix
 (absolute target from structural depth) is nontrivial, with real regression
 risk for a narrow shape.

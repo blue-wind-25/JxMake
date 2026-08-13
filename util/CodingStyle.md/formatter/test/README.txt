@@ -567,6 +567,23 @@ JSX/TSX:
                                                         land (verified via `--diff` showing zero hunks touching
                                                         those lines, and round-trip idempotency).
 
+  jsx_tsx_attr_kinds_wrap_inp/out.tsx                -- Step 2 ("context 11") Increment 4: proves the wrap
+                                                        logic needs no real JSX-grammar understanding, only
+                                                        balance-tracking, across the attribute kinds not yet
+                                                        exercised by Increments 2-3 (which only used plain
+                                                        `name={expr}`). Four cases, all self-closing so only the
+                                                        attribute-kind handling is under test: a spread attribute
+                                                        (`{...somePropsObjectThatIsQuiteLong}`) wraps as one
+                                                        segment, its own `{`/`}` intact; a bare boolean attribute
+                                                        (`disabledBecauseOfSomeReason`, no `=`) wraps as a plain
+                                                        identifier with nothing else on its line; an
+                                                        expression-valued attribute whose value itself contains
+                                                        nested `()`/`.` (`onClick={handlers.click.bind(this,
+                                                        item.id)}`) wraps as one segment without the inner parens
+                                                        confusing the brace-only balance tracking; and a mixed
+                                                        tag combining all three kinds plus a plain attribute in
+                                                        one tag wraps each onto its own line in source order.
+
   jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
                                                         (recommendation 1): plain `.js` now gets the same JSX
                                                         boundary-finding pre-pass as `.jsx`/`.tsx`

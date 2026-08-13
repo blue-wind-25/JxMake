@@ -1642,12 +1642,48 @@ active in the Makefile and passing.
     plain `name={expr}` attributes); no real-JSX-corpus validation
     (Increment 5) — both carried over unchanged from every prior
     increment's own "NOT done" list.
-  - **Where to resume**: Increment 4 (spread-attribute `{...props}`,
-    bare-boolean-attribute `disabled`, and expression-valued-attribute
-    `attr={a.b.c(x, y)}` specific fixtures, per sub-context 6's fixture
-    plan, to prove the wrap logic doesn't need real JSX-grammar
-    understanding, only balance-tracking) — see the "Suggested increment
-    breakdown" list above.
+  - **Where to resume (superseded by Increment 4 below — kept for
+    history).**
+
+  **2026-08-14 implementation session — Step 2, Increment 4 of 5 (spread/
+  boolean/expression-attribute fixtures) (LANDED).** Implements step (4) of
+  the suggested increment breakdown: fixture-only, no source changes —
+  confirms the wrap logic landed in Increments 2-3 needs no real
+  JSX-grammar understanding for any attribute shape, only the existing
+  brace-only balance-tracking already in `parseJsxTag` — Increment 5
+  (real-corpus validation) remains **NOT STARTED**.
+
+  - **No source changes.** `parseJsxTag`'s existing boundary-detection
+    logic (an IDENTIFIER or a non-value-hole `{` at `localBrace == 0`
+    starts a new attribute; only `{`/`}` are tracked for nesting, not
+    `()`/`.`) already generically covers spread attributes, bare boolean
+    attributes, and expression-valued attributes with nested calls/member
+    access inside their value hole — this increment's job was proving that
+    via real fixtures, not writing new handling.
+  - **Fixture-verified**: new pair `test/jsx_tsx_attr_kinds_wrap_{inp,
+    out}.tsx`, four self-closing cases (self-closing chosen deliberately to
+    isolate attribute-kind handling from the children-splice mechanism
+    Increment 3 already covers): a spread attribute
+    (`{...somePropsObjectThatIsQuiteLong}`) wraps as one segment; a bare
+    boolean attribute (`disabledBecauseOfSomeReason`, no `=`) wraps as a
+    plain identifier alone on its line; an expression-valued attribute
+    whose value contains nested `()`/`.`
+    (`onClick={handlers.click.bind(this, item.id)}`) wraps as one segment
+    without the inner parens confusing the brace-only balance tracker; a
+    mixed tag combining spread + boolean + expression + plain attributes in
+    one tag wraps each onto its own line in source order. Verified
+    round1/round2 byte-identical outside the Makefile-driven run too.
+    Registered in `Makefile`'s `INP_FILES` and described in
+    `test/README.txt`. `make test`: 308/308 → 309/309 forward + 309/309
+    idempotency, zero regressions on any other existing fixture.
+  - **NOT done**: real-JSX-corpus validation (Increment 5) — carried over
+    unchanged from every prior increment's own "NOT done" list.
+  - **Where to resume**: Increment 5 (real-corpus validation against the
+    dogfood repos already registered in `STATE_DOGFOOD.md`:
+    `taniarascia/react-tutorial`, `ruanyf/react-demos`,
+    `reactstrap/reactstrap`, `microsoft/TypeScript-React-Starter`,
+    `Lemoncode/react-typescript-samples`, `excalidraw/excalidraw`) — see
+    the "Suggested increment breakdown" list above.
 
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,

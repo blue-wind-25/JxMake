@@ -32,18 +32,18 @@ enumeration is recorded in `CLAUDE.md` (search "Canonical language order")
 ## Scope
 
 Each language has its own `STYLE_TOOLING.md` section (§1 Makefile, §2 Bash,
-§3 PowerShell). What distinguishes this job from every other language job:
-a short **fixed list** of specific transforms plus an explicit "leave
+§3 PowerShell). What distinguishes this job from every other language job: a
+short **fixed list** of specific transforms plus an explicit "leave
 everything else byte-identical" rule — no general-purpose
-reindentation/re-wrapping fallback like curly-brace or data-format
-languages have. Getting that "don't touch anything else" boundary right (a
-real tokenizer per language, not naive text substitution) is the main risk
-for Bash and PowerShell; Makefile is line-oriented and only needs to
-distinguish tab-prefixed recipe lines from everything else — no tokenizer
-needed. Relative difficulty: Makefile easiest (pure line/regex); Bash and
-PowerShell comparable, each needing a small real tokenizer (quoting,
-heredocs/here-strings, comments) so fixed-rule passes never fire inside a
-string/comment/heredoc — bounded scope, not a full grammar.
+reindentation/re-wrapping fallback like curly-brace or data-format languages
+have. The main risk is getting that "don't touch anything else" boundary
+right via a real tokenizer per language, not naive text substitution.
+Relative difficulty: Makefile is easiest (line-oriented, only needs to
+distinguish tab-prefixed recipe lines from everything else, no tokenizer
+needed); Bash and PowerShell are comparable, each needing a small real
+tokenizer (quoting, heredocs/here-strings, comments) so fixed-rule passes
+never fire inside a string/comment/heredoc — bounded scope, not a full
+grammar.
 
 Several `STYLE_TOOLING.md` open questions (marked inline, "resolve via RDD
 before implementing") must be resolved before implementing the affected
@@ -306,15 +306,15 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       Bash, then PowerShell).
       **Bash — DONE, 4 bugs found and fixed (3 idempotency, 1 syntax
       corruption).** Batched 5 corpora already materialized from prior
-      sessions: `javaparser/javaparser` (`/tmp/javaparser_gdr`, 7 `.sh`),
-      `jenkinsci/jenkins` (`/tmp/jenkins_scope`, 3 `.sh`),
-      `wordpress/wordpress-develop` (`/tmp/wordpress-develop`, 3 `.sh`),
-      `acmesh-official/acme.sh` (`/tmp/acme.sh`, full shallow clone, 276
-      `.sh`), `ohmyzsh/ohmyzsh` (`/tmp/ohmyzsh`, stripped to 17
-      `.sh`/`.bash`) through round1/round2. First four came back clean
-      (idempotent, `bash -n` matching originals). `ohmyzsh` had a non-empty
-      round1/round2 diff; bisected to a minimal repro (evidence-over-
-      reasoning). Four independent root causes, all in
+      sessions through round1/round2: `javaparser/javaparser`
+      (`/tmp/javaparser_gdr`, 7 `.sh`), `jenkinsci/jenkins`
+      (`/tmp/jenkins_scope`, 3 `.sh`), `wordpress/wordpress-develop`
+      (`/tmp/wordpress-develop`, 3 `.sh`), `acmesh-official/acme.sh`
+      (`/tmp/acme.sh`, full shallow clone, 276 `.sh`), `ohmyzsh/ohmyzsh`
+      (`/tmp/ohmyzsh`, stripped to 17 `.sh`/`.bash`). First four came back
+      clean (idempotent, `bash -n` matching originals); `ohmyzsh` had a
+      non-empty round1/round2 diff, bisected to a minimal repro
+      (evidence-over-reasoning). Four independent root causes, all in
       `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
       (1) `emitCaseBody`'s case-arm boundary regex (`CASE_ARM`) found the
       pattern's terminating `)` via first-match with no backslash-escape
@@ -360,7 +360,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       scope (same "no general grammar, fixed transform list" boundary as
       every other accepted gap here). **Disposition (2026-08-10):** documented
       in `README.md`'s Known Limitations → new "Build/dev-tooling scripts
-      (Makefile/Bash/PowerShell)" family section; removed from `XL.txt`
+      (Makefile/Bash/PowerShell)" family section, removed from `XL.txt`
       TIER 9 (permanent, not a live TODO). `make test`: 267/267 forward +
       idempotency (was 264/264 -- 3 new fixtures: `real_code_regressions_188`-
       `190`). See `STATE_DOGFOOD.md` for per-repo rows.
@@ -394,17 +394,17 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       own `out` (new `kindResult()`, appended per real output character on
       every `flush()`), so `kind` is built aligned to `RunBuffer`'s actual
       emitted output rather than re-derived from `content` positions. The
-      remaining gap was the placeholder-substitution step itself:
-      `ChainCollector.resolve()`'s textual `String.replace(placeholder,
-      finalText)` on `transformed` can't be reused for the kind string (all
-      `'C'`/`'O'` characters, never literally contains the placeholder marker
-      text) — added a companion `ChainCollector.resolveKind(preResolveTransformed,
-      preResolveKind)` that locates each placeholder's position in the
-      pre-substitution `transformed` string via `indexOf`, then splices a run
-      of `'O'` of the same length as that entry's resolved final text
+      remaining gap was the placeholder-substitution step: `ChainCollector.
+      resolve()`'s textual `String.replace(placeholder, finalText)` on
+      `transformed` can't be reused for the kind string (all `'C'`/`'O'`
+      characters, never literally contains the placeholder marker text), so a
+      companion `ChainCollector.resolveKind(preResolveTransformed,
+      preResolveKind)` was added that locates each placeholder's position in
+      the pre-substitution `transformed` string via `indexOf`, then splices a
+      run of `'O'` of the same length as that entry's resolved final text
       (`resolve()` now records `resolvedLength` per entry) into the kind
       string at the matching offset, keeping `kind` positionally aligned with
-      `resolve()`'s return value. `resolveKind()` must be called after
+      `resolve()`'s return value; `resolveKind()` must be called after
       `resolve()`. Verified via a minimal repro (standalone `#` comment
       followed by `if($x -eq $null)`), the original `Tasks/Common/
       VstsAzureHelpers_/Utility.ps1` (diff now empty), and the full corpus

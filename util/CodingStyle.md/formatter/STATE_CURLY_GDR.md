@@ -26,14 +26,14 @@ writeup only, no implementation) on 2026-08-02.
 ## Background: why this is its own dedicated job, not a quick fix
 
 **Current state** (confirmed by direct testing, C++26 session): the
-formatter does not reindent ordinary body statements from scratch —
-original whitespace is preserved except for specific recognized rewrites.
-Only `SwitchRule.applyNonInlineCaseIndent` and
-`ScopePipeline.applyDeclarationsPass` reindent anything, both applying one
-**relative delta** from a single reference line, not an absolute target from
-brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps — Open" documents
-two real bugs from this shape (`ASTParser.java` in `javaparser/javaparser`;
-local `tool/JSONEncoderLite.java`) — non-idempotent reindentation on
+formatter does not reindent ordinary body statements from scratch — original
+whitespace is preserved except for specific recognized rewrites. Only
+`SwitchRule.applyNonInlineCaseIndent` and `ScopePipeline.applyDeclarationsPass`
+reindent anything, both applying one **relative delta** from a single
+reference line, not an absolute target from brace-nesting depth.
+`STATE_C_CPP_JAVA.md`'s "Known Gaps — Open" documents two real bugs from
+this shape (`ASTParser.java` in `javaparser/javaparser`; local
+`tool/JSONEncoderLite.java`) — non-idempotent reindentation on
 internally-inconsistent source, both ACCEPTED-not-fixed: the real fix
 (absolute target from structural depth) is nontrivial, with real regression
 risk for a narrow shape.
@@ -43,9 +43,9 @@ risk for a narrow shape.
   unless a specific construct requires it — every real-code bug found so
   far (~20+ external repos) has been narrow/isolated. A general pass makes
   every line in every file a candidate for a wrong result (currently
-  ~1/2000 files in `javaparser`). (See "Proposed pre-pass architecture" —
-  now scoped to only the `curly-general-scope-reindent = on` case, not the
-  default-off path.)
+  ~1/2000 files in `javaparser`), though the "Proposed pre-pass
+  architecture" below scopes this risk to only the
+  `curly-general-scope-reindent = on` case, not the default-off path.
 - **Continuation vs. block depth is a second axis, not a free extension.**
   Brace/paren/bracket depth alone isn't enough — wrapped expressions,
   chained calls, multi-line initializers have continuation-indent
@@ -130,8 +130,8 @@ unmodified formatter pipeline exactly as today.
 **Rationale / risk-profile change:** when off (default), the existing
 formatter code path is completely untouched — zero blast radius on the
 default-off path, which stays the entire ~20+ external-repo-validated
-regression surface as-is. Changes risk from "modifies shared core pipeline
-code" to "isolated additive pre-pass, only active opt-in".
+regression surface as-is. Change risk moves from "modifies shared core
+pipeline code" to "isolated additive pre-pass, active only opt-in".
 
 **This does not make the pre-pass's own correctness free** — all hard
 sub-problems in Background (continuation-vs-block depth, raw-string/
@@ -154,19 +154,19 @@ fits-check measures a wrap candidate against its enclosing physical source
 line (`lineStartIndex(tokens, nameIdx)`), which is volatile — it shifts
 depending on what a *sibling* candidate on the same logical statement did
 to the line in an earlier phase of the same pass, or in the previous
-round. Two candidate fixes were tried:
+round. Two candidate fixes were tried and reverted:
 1. Anchor measurement at `nameIdx` (RDD_KEY_221) — regressed 28 fixtures
    across C/C++/Java/TS/Kotlin at `make test` (dropped legitimate
-   same-statement prefix, an underestimate failure mode). Reverted.
+   same-statement prefix, an underestimate failure mode).
 2. `statementStartIndex`, a depth-0 `;`/`{`/`}` backward scan (RDD_KEY_226)
    — passed its own targeted validation but regressed 16 Kotlin fixtures at
    full `make test`, because Kotlin statements are ordinarily
    NEWLINE-separated, not `;`-separated, so the scan walks past the current
-   statement into an unrelated preceding sibling statement. Reverted.
+   statement into an unrelated preceding sibling statement.
 
 Both investigation sessions independently concluded that a real fix needs
-actual Kotlin statement-boundary/structural-depth tracking — not a local
-token-scan patch — and that this is "closer to `STATE_COMMON.md`'s
+actual Kotlin statement-boundary/structural-depth tracking, not a local
+token-scan patch, and that this is "closer to `STATE_COMMON.md`'s
 'General scope-depth reindentation' architectural TODO's territory than a
 self-contained fix." This fold executes that already-self-documented
 conclusion; it is not a new judgment call made here.
@@ -225,47 +225,46 @@ stage-1's slightly-different widths (the exact circular-dependency
 mechanism `RDD_KEY_229`'s post-pass-ordering experiment found) — one more
 pipeline pass lets those decisions re-settle against now-correct widths.
 
-Because GDR only ever rewrites leading whitespace (never moves, splits, or
-joins tokens/lines — per `GdrRewriter.rewrite`: "replaces each touchable
-line's leading whitespace ... leaves the rest of the line byte-for-byte
-untouched"), and the pipeline owns all structural reflow, the two alternate
-cleanly without either undoing the other's *kind* of edit.
+Because GDR only ever rewrites leading whitespace — per `GdrRewriter.rewrite`:
+"replaces each touchable line's leading whitespace ... leaves the rest of
+the line byte-for-byte untouched" — and the pipeline owns all structural
+reflow, the two alternate cleanly without either undoing the other's *kind*
+of edit.
 
 ### Whether this achieves true idempotency (not just "closer")
 
-This is a heuristic, not a proof. Assuming stage 4 reaches a stable
-width/wrap-decision state, a *second* full 4-stage application should be a
-no-op end to end: GDR is a pure function of current brace/paren structure,
-so GDR-1 of round 2 recomputes the same targets stage 3 already wrote,
-pipeline-1 of round 2 re-decides the same wraps stage 4 already settled on,
-and GDR-2/pipeline-2 of round 2 are then no-ops. Composes with `make
-test`'s existing round1/round2 idempotency check — no special-casing
-needed.
+A heuristic, not a proof. Assuming stage 4 reaches a stable width/wrap-decision
+state, a *second* full 4-stage application should be a no-op end to end: GDR
+is a pure function of current brace/paren structure, so GDR-1 of round 2
+recomputes the same targets stage 3 already wrote, pipeline-1 of round 2
+re-decides the same wraps stage 4 already settled on, and GDR-2/pipeline-2
+of round 2 are then no-ops — composes with `make test`'s existing
+round1/round2 idempotency check with no special-casing needed.
 
 **What is NOT proven:** whether 4 stages is *always* enough. The known
 failure mode is a **first-order** effect (one missed target on a
-newly-split line); residual risk is a **second-order** oscillation — a
-wrap decision whose own flip (stage 4) changes width enough to still
-disagree with a hypothetical stage-5 GDR pass. `RDD_KEY_229`'s own
-post-pass-ordering experiment found real flapping of exactly this shape,
-so it's not purely theoretical; whether it damps out after one extra round
-(this proposal) or needs more can only be answered by re-running the same
-real-code corpora `RDD_KEY_229` already exposed the bug against
-(`javaparser-core-generators` 13/43 non-idempotent files, `angular/angular`
-TS cluster-5) with multipass wired up.
+newly-split line); residual risk is a **second-order** oscillation — a wrap
+decision whose own flip (stage 4) changes width enough to still disagree
+with a hypothetical stage-5 GDR pass. `RDD_KEY_229`'s own post-pass-ordering
+experiment found real flapping of exactly this shape, so it's not purely
+theoretical; whether it damps out after one extra round (this proposal) or
+needs more can only be answered by re-running the same real-code corpora
+`RDD_KEY_229` already exposed the bug against (`javaparser-core-generators`
+13/43 non-idempotent files, `angular/angular` TS cluster-5) with multipass
+wired up.
 
 ### Other open questions this proposal surfaces (not yet answered)
 
 - **Interaction with the pipeline's OWN relative-delta reindenters**
   (`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.
   applyDeclarationsPass`, STYLE.md §8's multi-line param-list/declaration
-  continuation-indent renderer in `MiscRuleCurly`) — these run inside
+  continuation-indent renderer in `MiscRuleCurly`): these run inside the
   "normal formatting pass" (stages 2/4) using their own indent models, not
   GDR's absolute-depth-plus-paren-axis model directly. `GdrReindenter`'s
   Background section claims its continuation-vs-block axis matches
   STYLE.md §8's convention, but that was validated via smoke tests only,
-  not against these passes' actual output shapes. Stage 3 (GDR-2) running
-  on already-rendered switch-case bodies/wrapped declarations needs to
+  not against these passes' actual output shapes. Stage 3 (GDR-2), running
+  on already-rendered switch-case bodies/wrapped declarations, needs to
   *agree* with what those passes just wrote, or it will silently overwrite
   correctly-STYLE.md-compliant indentation on the second pass — a real,
   unverified risk.
@@ -275,9 +274,9 @@ TS cluster-5) with multipass wired up.
   interaction with the master flag; needs the same explicit resolution
   before implementation, not an assumption.
 - **Naming.** The suggested `curly-gs-reindent-multipass` uses a different
-  abbreviation style than the existing `curly-general-scope-reindent` key
-  it depends on (spelled out in full). Worth deciding at implementation
-  time whether to match the existing key's full-word style (e.g.
+  abbreviation style than the existing, spelled-out `curly-general-scope-
+  reindent` key it depends on. Worth deciding at implementation time
+  whether to match the existing key's full-word style (e.g.
   `curly-general-scope-reindent-multipass`) or keep the shorter form —
   flagged, not decided.
 - **Cost.** Opt-in only, zero cost on the default-off path, but doubles
@@ -289,18 +288,18 @@ TS cluster-5) with multipass wired up.
 
 **Plausible and worth prototyping** — it directly targets the confirmed
 root cause (`RDD_KEY_229`) with a bounded, cheap-to-reason-about shape
-(GdrRewriter's whitespace-only edits mean the two pass kinds can't
+(`GdrRewriter`'s whitespace-only edits mean the two pass kinds can't
 structurally fight each other), and composes with the existing idempotency
 test with no special-casing. Not a proven fix (see "second-order
-oscillation" above) and has at least one real unverified risk (the
+oscillation" above), and has at least one real unverified risk (the
 relative-delta-reindenter interaction). **Per `RDD_KEY_229`'s own note**
 ("both remediation paths too risky to attempt this session... a future
 session should ask before attempting either remediation path"), this
-write-up is that "ask" — implementation should wait for explicit
-go-ahead, then be scoped as its own checklist item (new `RDD_KEY_n` once
-real design decisions are made, e.g. the no-op/error question above),
-validated first via the same `javaparser-core-generators`/`angular`
-cluster-5 files `RDD_KEY_229` already has failure data for.
+write-up is that "ask": implementation should wait for explicit go-ahead,
+then be scoped as its own checklist item (new `RDD_KEY_n` once real design
+decisions are made, e.g. the no-op/error question above), validated first
+via the same `javaparser-core-generators`/`angular` cluster-5 files
+`RDD_KEY_229` already has failure data for.
 
 ---
 
@@ -1067,13 +1066,13 @@ plan, not a placeholder.
       is at risk: every real-code corpus this job has tested so far
       (700+ files, Java/C++/TS) still cleared cleanly, and the specific
       shape needed (a wrapped fluent/arrow chain immediately inside a
-      one-true-brace-joined `if`/`else if`) is fairly specific. What is now
-      known: (1) the 4-stage bound is not a structural guarantee, confirmed
-      by direct counterexample, not just argued from first principles; (2)
-      at least for the cases found here, the oscillation is bounded and
-      damps out after one additional full reformat (round2 was already
-      stable) — nothing in this session oscillates indefinitely or fails
-      to converge; (3) this was not an exhaustive search — deeper/wider
+      one-true-brace-joined `if`/`else if`) is fairly specific. Known: (1)
+      the 4-stage bound is not a structural guarantee, confirmed by direct
+      counterexample, not just argued from first principles; (2) at least
+      for the cases found here, the oscillation is bounded and damps out
+      after one additional full reformat (round2 was already stable) —
+      nothing in this session oscillates indefinitely or fails to
+      converge; (3) this was not an exhaustive search — deeper/wider
       adversarial constructions in C/C++ (no minimal repro found there
       yet), other JS/TS shapes beyond fluent-chain wraps, and combinations
       with switch-case/ternary-wrap in TS/Kotlin specifically (only tried

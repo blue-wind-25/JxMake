@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-/*% JXM_CFMT_CFG jsx-in-js=on */
+/*% JXM_CFMT_CFG jsx-in-ts=on */
 
 function Widget(ok: boolean, name: string) {
     const Render = (x: number) => ok ? <div className="a">{x}</div> : <span>{x}</span>;

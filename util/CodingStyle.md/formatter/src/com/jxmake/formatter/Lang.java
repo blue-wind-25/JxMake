@@ -69,8 +69,8 @@ public final class Lang {
      *    <li>{@code .ts} -- {@code false} by default (deliberately NOT widened, mirroring `tsc`'s/
      *        Prettier's own `.ts`-vs-`.tsx` split -- `.ts` is exactly where the legacy `<Type>value`
      *        cast collision is real and non-rare), {@code true} only when the caller explicitly
-     *        opts in via {@code jsxInJsOptIn} (the {@code jsx-in-js} config key, see
-     *        `Config.isJsxInJs`).</li>
+     *        opts in via {@code jsxInTsOptIn} (the {@code jsx-in-ts} config key, see
+     *        `Config.isJsxInTs`).</li>
      *    <li>Anything else -- {@code false}.</li>
      *  </ul>
      *
@@ -92,14 +92,14 @@ public final class Lang {
     }
 
     /**
-     * {@code jsxInJsOptIn}-aware overload -- lets a caller thread {@code Config.isJsxInJs()}
+     * {@code jsxInTsOptIn}-aware overload -- lets a caller thread {@code Config.isJsxInTs()}
      *  through so a {@code .ts} file can opt into the JSX boundary-finding pre-pass (see
      *  {@link #isJsxSyntax}'s javadoc). Has no effect on any extension other than {@code .ts} --
      *  {@code .jsx}/{@code .tsx}/{@code .js}/{@code .mjs}/{@code .cjs} are unaffected either way.
      */
-    public Lang(final String language, final String filePath, final boolean jsxInJsOptIn)
+    public Lang(final String language, final String filePath, final boolean jsxInTsOptIn)
     {
-        this.isJsxSyntax    = filePath != null && isJsxSyntaxPath(filePath, jsxInJsOptIn);
+        this.isJsxSyntax    = filePath != null && isJsxSyntaxPath(filePath, jsxInTsOptIn);
         this.language       = language;
         this.isC            = "c".equals(language);
         this.isCpp          = "cpp".equals(language);
@@ -124,7 +124,7 @@ public final class Lang {
         this.isSimpleBraced = isJson || isJson5 || isCss;
     }
 
-    private static boolean isJsxSyntaxPath(final String filePath, final boolean jsxInJsOptIn)
+    private static boolean isJsxSyntaxPath(final String filePath, final boolean jsxInTsOptIn)
     {
         final String lower = filePath.toLowerCase(Locale.ROOT);
 
@@ -134,7 +134,7 @@ public final class Lang {
         ) || lower.endsWith(
             ".mjs"
         ) || lower.endsWith(".cjs") ) return true;
-        if( lower.endsWith(".ts") ) return jsxInJsOptIn;
+        if( lower.endsWith(".ts") ) return jsxInTsOptIn;
 
         return false;
     }

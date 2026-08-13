@@ -144,7 +144,7 @@ information, root cause, chain of reason, failed attempt at bug fix, etc. Basica
 prose but keep the information intact.
 
 `STATE_JS_TS.md` is getting large and still needs compacting, but its JSX/TSX Step 1 (11/11
-boundary-finding contexts, incl. the `.js`/`.mjs`/`.cjs` widening, `.ts` `jsx-in-js` opt-in, and
+boundary-finding contexts, incl. the `.js`/`.mjs`/`.cjs` widening, `.ts` `jsx-in-ts` opt-in, and
 `parseJsxTag` tag-name hardening) and Step 2 (context 11, 5-increment rendering plan, increment 1/5
 landed) sections must survive compaction intact -- keep every resolved design decision, increment
 status (landed vs. not-started), and dogfood result for those two sections, prose-compact only, do
@@ -222,7 +222,7 @@ Use sub-agent. This can be a substantial work.
 - [JS_TS] JSX/TSX support — Step 1 (boundary-finding pre-pass, 11/11 contexts) DONE
   2026-08-13, zero regressions, `make test` 307/307. JSX detection widened to plain
   `.js`/`.mjs`/`.cjs` (mirrors Prettier); `.ts` stays gated off by default with a new
-  `jsx-in-js` opt-in key; `parseJsxTag` hardened with real tag-name matching (was
+  `jsx-in-ts` opt-in key; `parseJsxTag` hardened with real tag-name matching (was
   depth-only before). Step 2 (rendering — wraps over-width JSX_SPAN opening tags,
   scoped as "context 11", 5 increments) IN PROGRESS: increment 1/5 (detect-and-measure,
   zero output-visible change) LANDED 2026-08-13; increments 2-5 (wrap-decision function,

@@ -45,16 +45,16 @@ public abstract class FormatterCore {
     }
 
     /**
-     * {@code jsxInJsOptIn}-aware overload -- threads {@code Config.isJsxInJs()} through to
+     * {@code jsxInTsOptIn}-aware overload -- threads {@code Config.isJsxInTs()} through to
      *  {@link Lang}'s constructor so a `.ts` file can opt into the JSX boundary-finding pre-pass
      *  (see `Lang.isJsxSyntax`'s javadoc, STATE_JS_TS.md's 2026-08-13 implementation section).
      *  `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` files are unaffected by this parameter either way.
      */
     public static FormatterCore forLanguage(
-        final String language, final String filePath, final boolean jsxInJsOptIn
+        final String language, final String filePath, final boolean jsxInTsOptIn
     )
     {
-        final Lang lang = new Lang(language, filePath, jsxInJsOptIn);
+        final Lang lang = new Lang(language, filePath, jsxInTsOptIn);
         if(lang.isJson || lang.isJson5) return new FormatterJson(lang);
         if(lang.isCss) return new FormatterCss(lang);
         if(lang.isYaml) return new FormatterYaml(lang);

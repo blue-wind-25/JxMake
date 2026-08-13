@@ -12,18 +12,18 @@ Tracks C++26 support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_CPP26.md` (builds on
 `STYLE.md`, `STYLE_C_CPP.md`, `STYLE_CPP20.md`).
 
-**Toolchain note (discovered during the `glaze` session):** this system also
-has a modern `clang++ 22.1.8` at
+**Toolchain note (found during the `glaze` session):** this system also has
+a modern `clang++ 22.1.8` at
 `~/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++`, capable of real
 `-std=c++23 -fsyntax-only` compile validation including reflection syntax —
-use `-stdlib=libc++` (required for standard headers to resolve) and pipe
-stderr through `grep -v 'no version information available'` (harmless
+requires `-stdlib=libc++` for standard headers to resolve; pipe stderr
+through `grep -v 'no version information available'` (harmless
 `libstdc++.so.6` symbol-versioning warning). `/opt/glibc-2.41/` is available
 for a glibc-mismatch/patchelf issue with some other prebuilt binary.
-Supersedes the older `g++ 4.8.5`/`clang++ 3.7.1` toolchain referenced by
+Supersedes the older `g++ 4.8.5`/`clang++ 3.7.1` toolchain behind
 "Compilation not attempted" in earlier checklist entries — prefer
-`clang++ 22.1.8` for any future compile-check step rather than falling back
-to idempotency-only validation.
+`clang++ 22.1.8` for any future compile-check step over falling back to
+idempotency-only validation.
 
 ---
 
@@ -42,7 +42,8 @@ frozen C++17/20/23 baseline in `STYLE_CPP20.md`) with:
    triggered wrap like `requires`.
 5. Reflection (`^^`, `[:`, `:]`) — **STALE, 2026-08-10: already implemented**
    (tokenizer support, tight/loose padding, `enforceReflectionOperatorSpacing`
-   — see Checklist items around line 197-236). This "provisional/draft"
+   — see Checklist items under "Tokenizer support pass for §5 Reflection" /
+   "§5 tight/loose padding rules implemented" below). This "provisional/draft"
    label predates that work landing; do not re-scope as a TODO without
    re-checking the Checklist first.
 6. Config — no new config keys for §1–4; §5 deliberately has none yet
@@ -163,9 +164,9 @@ which is family-generic, no C++-specific branching to extend).
 
 None recorded yet. **STALE, 2026-08-10**: this section (and Scope §5 above)
 previously claimed §5 Reflection real implementation "hasn't started" — false;
-see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
-`enforceReflectionOperatorSpacing` all landed). No open question remains for
-§5.
+see the "Tokenizer support pass for §5 Reflection" / tight-loose-padding /
+`enforceReflectionOperatorSpacing` Checklist items below (all landed). No
+open question remains for §5.
 
 ---
 
@@ -198,11 +199,10 @@ see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
 - [x] Tokenizer smoke check done (via sub-agent, read-only). Confirmed via
       `TokenizerCurly.java`'s `MULTI_CHAR_OPS` array (lines 114-120): `^^`,
       `[:`, `:]` were absent, mis-splitting into single chars (`^^` →
-      `^`+`^`, `[:` → `[`+`:`, `:]` → `:`+`]`) — no crash. A `/tmp` CLI
-      snippet confirmed this was actively **corrupting** (`^^SomeType` →
+      `^`+`^`, `[:` → `[`+`:`, `:]` → `:`+`]`) — no crash, but a `/tmp` CLI
+      snippet confirmed active **corruption** (`^^SomeType` →
       `^ ^ SomeType`; inconsistent interior spacing on `[: :]`), not inert
-      passthrough. No secondary cascading corruption found — expected,
-      contained finding.
+      passthrough. No secondary cascading corruption found.
 - [x] Tokenizer support pass for §5 Reflection done: `TokenizerCurly.java`'s
       `MULTI_CHAR_OPS` array gained `"^^"`, `"[:"`, `":]"` entries (none a
       strict prefix of another entry, no new ordering constraint). `":]"`
@@ -297,11 +297,10 @@ see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
       reindent). **Investigated, not a bug:** structured bindings collapse a
       trailing same-line comment's gap to a single space via
       `DeclarationAlignmentRuleCurly.java`'s grid path — attempted fix
-      reverted, since it broke five already-passing fixtures that all
-      expect this single-space normalization; confirmed established,
-      intentional behavior, no code change. Promoted to active in the
-      Makefile. `make test`: 104/104 forward + idempotency, zero
-      regressions.
+      reverted, since it broke five already-passing fixtures expecting this
+      single-space normalization; confirmed established, intentional
+      behavior, no code change. Promoted to active in the Makefile. `make
+      test`: 104/104 forward + idempotency, zero regressions.
 - [x] Author local test fixture pairs per `FUTURE_TEST_FIXTURES.md`'s
       "CPP26" section and register in the Makefile's `INP_FILES` /
       `test/README.txt`. Done: `cpp26_core_inp/out.cpp`,
@@ -400,8 +399,7 @@ see Checklist items ~197-236 (tokenizer pass, tight/loose padding,
 
       No fixtures added (no in-scope bug found). Completes the
       `ryanjk5.github.io/posts/rjk-duck` entry in "Test Fixtures (External,
-      corpus-scale)" (noted there as "useful extra source", not a
-      substitute for a repo-scale candidate).
+      corpus-scale)" (a "useful extra source", not a repo-scale substitute).
 - [x] Real-code testing pass against `stephenberry/glaze` done. Reused
       existing checkout at `/tmp/glaze` (not a fresh clone). 414
       `.hpp`/`.cpp`/`.h` files, formatted in one batch pass grouped by

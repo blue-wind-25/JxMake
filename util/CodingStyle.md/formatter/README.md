@@ -53,7 +53,7 @@ common enough that gating on extension alone caused genuine content corruption; 
 `STATE_JS_TS.md`'s 2026-08-13 implementation section). `.ts` deliberately stays gated off by
 default — a `.ts` file's legacy `<Type>expr` angle-bracket cast syntax collides with a JSX open
 tag, the same reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx` — but a `.ts` file
-that genuinely embeds JSX can opt in per-file with the `jsx-in-js` [`JXM_CFMT_CFG`
+that genuinely embeds JSX can opt in per-file with the `jsx-in-ts` [`JXM_CFMT_CFG`
 directive](#in-file-config-overrides) (or the equivalent CLI flag/env var/config-file key).
 JSX/TSX-syntax-*aware* reformatting (e.g. reflowing attributes/children) does not exist yet — see
 `STYLE_JS_TS.md`. Makefile detection is also basename-based (`Makefile`, `GNUmakefile`) for
@@ -76,7 +76,7 @@ with server mode (below) — the client sends the chosen language to the server,
 in place of its own extension-based guess for that request. There is no separate `jsx`/`tsx`
 `--lang` value — both are covered by `js`/`ts`. However, whether the JSX/TSX boundary-finding
 pre-pass runs is decided independently of `--lang`, purely from the actual filename's extension
-(`Lang.isJsxSyntax`) plus, for `.ts` only, the `jsx-in-js` opt-in described above; forcing
+(`Lang.isJsxSyntax`) plus, for `.ts` only, the `jsx-in-ts` opt-in described above; forcing
 `--lang js`/`--lang ts` on a file whose name doesn't match one of those rules selects the JS/TS
 pipeline but does not itself enable JSX detection. For a per-file override instead
 of a per-invocation one (so mixed-language file lists and templated sources like `.java.in`/
@@ -384,7 +384,7 @@ kotlin-import-blank-lines              = 1
 js-import-order                        = builtin, third-party, local
 js-import-sort                         = on
 js-import-blank-lines                  = 1
-jsx-in-js                              = off         # off | on -- `.ts`-scoped opt-in for JSX detection, see below
+jsx-in-ts                              = off         # off | on -- per-file opt-in for JSX embedded in a plain `.ts` file (`.tsx`/`.jsx`/`.js`/`.mjs`/`.cjs` detect JSX unconditionally and are unaffected by this key), see below
 
 # ── Python 3 ──────────────────────────────────────────────────────────────────
 python-import-sort                     = on
@@ -425,14 +425,14 @@ does. A future session adding a genuine comment-inclusive wrap decision to
 any of these should reuse `line-length-with-comment` rather than inventing a
 new key.
 
-**`--lang` vs. `jsx-in-js`.** These two look similar (both influence JS/TS-family
+**`--lang` vs. `jsx-in-ts`.** These two look similar (both influence JS/TS-family
 language handling) but sit at different tiers. `--lang` is *not* a config-file
 key at all — it's a CLI flag / server `lang` query param, with a matching
 `JXM_CFMT_CFG` pseudo-key as its only in-file form; it has no env var and
-cannot appear in `.jxmake-code-formatter`. `jsx-in-js` (JS/TS group above) is
+cannot appear in `.jxmake-code-formatter`. `jsx-in-ts` (JS/TS group above) is
 an ordinary config key like any other in this list, so it works through every
 tier: built-in default (`off`), `~/.config/jxmake-code-formatter/config`,
-`JXMAKE_CODE_FORMATTER_JSX_IN_JS`, `.jxmake-code-formatter`, CLI flag / server
+`JXMAKE_CODE_FORMATTER_JSX_IN_TS`, `.jxmake-code-formatter`, CLI flag / server
 query param, and `JXM_CFMT_CFG` — see "Configuration" above for the full
 precedence order.
 
@@ -788,11 +788,11 @@ here if and when it actually gains a documented gap.
    regression sweep. This is a known, currently-unresolved gap — no workaround exists
    short of avoiding deeply nested short calls inside very long lines.
 
-3. **`.ts` files with embedded JSX need the explicit `jsx-in-js` opt-in, and JSX-widening
+3. **`.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in, and JSX-widening
    validation is limited to one real corpus.** The JSX/TSX boundary-finding pre-pass runs
    unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but deliberately stays off by default on
    plain `.ts` (see "Language & path handling" above for why) — a legacy `.ts` file with real
-   embedded JSX and no `jsx-in-js` directive will have its JSX mis-tokenized as ordinary
+   embedded JSX and no `jsx-in-ts` directive will have its JSX mis-tokenized as ordinary
    angle-bracket/comparison syntax rather than preserved as an opaque span. Separately, the
    `.js`/`.mjs`/`.cjs` widening itself (recommendation 1) has been validated end-to-end against
    exactly one real-world corpus with embedded JSX-in-`.js` content

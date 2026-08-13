@@ -3972,6 +3972,27 @@ Real-code regressions:
                                                         walk back to the line's actual start regardless of
                                                         what's first on it; also fixes `placeElseOnOwnLine`,
                                                         which shares the helper.
+
+  real_code_regressions_204_inp/out.py               -- §8 compact-vs-block overflow-check bug (found via
+                                                        self-hosting dogfood on
+                                                        `tools/verifiers/{html,python,toml}_content_diff.py`'s
+                                                        hand-column-aligned `if`/`elif`/`else` one-liner
+                                                        chains): `applySingleStatementBody`'s already-compact
+                                                        branch measured the RAW verbatim single-physical-line
+                                                        text (including stale alignment padding between `:`
+                                                        and the body statement) against `lineLength`, instead
+                                                        of the normalized single-space form the line would
+                                                        actually render as. A padded `elif`/`else` line that
+                                                        comfortably fits once normalized was therefore wrongly
+                                                        judged as overflowing and expanded to block form on
+                                                        round1, while round2 (re-parsing the now-padding-free
+                                                        block) correctly re-joined it back to compact --
+                                                        genuine round1/round2 non-idempotency, not cosmetic.
+                                                        Fixed in `ScopePipelineIndent.applySingleStatementBody`
+                                                        by measuring `headerText + " " + bodyText` (the
+                                                        normalized form) instead of the raw verbatim span, and
+                                                        by collapsing stale padding down to a single space even
+                                                        when no expansion is needed.
                                                         `test/real_code_regressions_168_out.kt` (a
                                                         pre-existing fixture that had baked in the buggy
                                                         flush-left `catch` as its expected output) updated to

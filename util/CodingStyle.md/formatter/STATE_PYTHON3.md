@@ -97,6 +97,7 @@ numbering, do not restart). See `STATE_COMMON.md`'s lookup convention
 | RDD_KEY_268 | `normalize-comment-start-case`/`normalize-comment-end-period` implemented from scratch for python3's `#` comments, plus chain-grouping — reuses the existing classifier/GRU-backed decision path (`MiscRuleCore#capitalizeFirstLetter`/`#stripSoleTrailingPeriodAcrossLines`/`#classifyComment` were already family-agnostic) rather than a parallel ad hoc mechanism — see "Comment Normalization" section below |
 | RDD_KEY_282 | §9 gap-closing: 3 of 4 documented §9 gaps closed (multi-physical-line `def` header now recognized; semicolon-chained statements now recognized by both §9.1/§9.2 via `lineHasTopLevelReturnSegment`/`lastSemicolonSegmentStart`; a §8-compact preceding block now recognized by §9.2 via `classifyCompactSingleStatementHeaderColon` delegation); `try`/`except`/`finally` left as a scoped-out follow-up (STYLE_PYTHON3.md §9.2 names only `elif`/`else`) — see "§9 Gap Fixes" section below |
 | RDD_KEY_287 | §8/§7 join-threshold non-idempotency root-caused and fixed: the join fits-check in `applySingleStatementBody`/`classifyCaseLine`/`flushCaseGroup` undercounted a retained body trailing comment's width (excluded via `trimEndIdx`'s gap-token treatment of `COMMENT_LINE`, even though the comment survives untouched past the join's own replacement span) — genuine non-convergent flip-flop, not cosmetic; confirmed pre-existing (not session-introduced) via A/B build from commit `9eb1bd4`; fixed by measuring `joined + trailingSuffix` at all 3 call sites — see "§8/§7 join-threshold non-idempotency" section below |
+| RDD_KEY_288 | §8 compact-branch overflow-check non-idempotency root-caused and fixed (found via self-hosting dogfood on `tools/verifiers/{html,python,toml}_content_diff.py`'s hand-column-aligned `if`/`elif`/`else` chains): `applySingleStatementBody`'s already-compact branch measured the RAW verbatim single-physical-line text (including stale alignment padding between `:` and the body) against `lineLength`, instead of the normalized single-space form — a padded but actually-fitting `elif`/`else` was wrongly forced to expand on round1, then correctly re-joined on round2; genuine flip-flop, same bug family as RDD_KEY_287. Fixed by measuring `headerText + " " + bodyText` and collapsing stale padding to a single space even when no expansion is needed — see "§8 compact-branch overflow-check non-idempotency" section below |
 
 ---
 
@@ -814,6 +815,54 @@ same as every other language's dogfood precedent for a newly-landed rule.
       `test/real_code_regressions_202_{inp,out}.py` (covers both the plain
       `if`/`for` join path and the `case` virtualJoin path). `make test`:
       289/289 -> 290/290 forward + idempotency, zero regressions.
+
+      **§8 compact-branch overflow-check non-idempotency — root-caused and
+      FIXED (RDD_KEY_288).** Found via self-hosting dogfood (round1/round2
+      re-format of this repo's own `tools/verifiers/{html,python,toml}
+      _content_diff.py`, each containing a hand-column-aligned `if`/`elif`/
+      `else` one-liner chain, e.g. `if cond1: stmt1` /
+      `elif cond2:                  stmt2` /
+      `else:                  stmt3`). STYLE_PYTHON3.md §8's compactness
+      decision is per-branch/independent — no group-uniformity requirement
+      (unlike §7's explicit case-group all-or-nothing rule) — so each of
+      `if`/`elif`/`else` compacts or expands purely on its own fits-check.
+      Root cause: `applySingleStatementBody`'s "already compact" branch (the
+      `classifyCompactSingleStatementHeaderColon` path, for a header+body
+      already on one physical line) measured the RAW verbatim source span
+      (`verbatimLineText(header.start, header.end)`) against `lineLength` —
+      that raw span includes any stale whitespace between `:` and the body
+      statement, such as hand-written column-alignment padding. A padded
+      `elif`/`else` that comfortably fits once normalized to a single space
+      was therefore wrongly judged as overflowing, forcing it to expand to
+      block form on round1 alongside a genuinely-overflowing sibling `if`
+      branch. Round2, reformatting round1's now-block-form output, correctly
+      re-joins the padding-free `elif`/`else` headers back to compact via the
+      separate join path (which measures normalized `headerText + " " +
+      bodyText`, not raw verbatim text) — round1 and round2 disagree, a
+      genuine non-convergent flip-flop, same bug family/lesson as
+      RDD_KEY_287 (fits-check measuring the wrong text state instead of what
+      the line will actually render as). Fixed in `applySingleStatementBody`'s
+      compact-colon branch: `headerText`/`bodyText` now computed first, the
+      normalized `headerText + " " + bodyText` measured against `lineLength`
+      instead of the raw verbatim span, and stale padding is now collapsed to
+      a single space even when no expansion is needed (previously a
+      fits-but-padded line was left untouched here, only indirectly and
+      inconsistently normalized via an expand-then-rejoin round trip).
+      Verified against the real triggering files directly:
+      `tools/verifiers/{html,python,toml}_content_diff.py` are all
+      round1/round2-idempotent after the fix, matching §8's per-branch rule
+      (the `if` branch legitimately stays block-form since it alone exceeds
+      `line-length` even normalized; `elif`/`else` become compact one-liners
+      with normalized single-space spacing). New fixture
+      `test/real_code_regressions_204_{inp,out}.py`. `make test`: 312/312 ->
+      313/313 forward + idempotency, zero regressions (one unrelated
+      pre-existing failure on `test/real_code_regressions_172_inp.ts` from a
+      concurrently-running session's in-progress `BlockStructureRule.java`
+      edit was confirmed not caused by and untouched by this fix — reverting
+      only `ScopePipelineIndent.java` reproduced the identical `.ts` failure
+      with this session's edit absent). The three triggering
+      `tools/verifiers/*.py` files themselves left unreformatted in `tools/`
+      per the ground rule that bulk-adopting a reformat is the user's call.
 
       **§7 (Structural Pattern Matching) — `:` column alignment-only
       slice.** New `ScopePipelineIndent.CaseLine`/`applyCaseColonAlignment`/

@@ -2270,14 +2270,31 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
             final int compactColon = classifyCompactSingleStatementHeaderColon(tokens, rawLines, i);
             if(compactColon < 0) continue;
-            final String compactText = verbatimLineText(tokens, header.start, header.end);
-            if( physicalLineLength(compactText) <= lineLength ) continue;
             final int bodyStart = nextSignificant(tokens, compactColon + 1, header.end);
             if(bodyStart < 0) continue;
             final int bodyEnd = trimEndIdx(tokens, bodyStart, header.end);
             if( containsSemicolon(tokens, bodyStart, bodyEnd) ) continue;
             final String headerText = verbatimLineText(tokens, header.start, compactColon + 1);
             final String bodyText   = verbatimLineText(tokens, bodyStart, bodyEnd);
+            // Measure the NORMALIZED single-space form (headerText + " " + bodyText), not the raw
+            // verbatim source span -- the raw span can carry stale column-alignment padding between
+            // `:` and the body statement (e.g. a hand-aligned if/elif/else chain), which inflates
+            // physicalLineLength past lineLength even though the statement comfortably fits once
+            // normalized. Measuring the padded verbatim text wrongly forced such a line to expand to
+            // block form here while a later pass (or a subsequent formatting round re-parsing the
+            // now-padding-free line) would correctly re-join it back to compact -- a genuine
+            // non-convergent round1/round2 flip-flop, not cosmetic (found via self-hosting dogfood on
+            // tools/verifiers/*.py's column-aligned if/elif/else chains).
+            final String normalized = headerText + " " + bodyText;
+            if( physicalLineLength(normalized) <= lineLength ) {
+                // Still collapse any stale padding down to the canonical single space, even when no
+                // expansion is needed -- otherwise a fits-but-padded line is left untouched here and
+                // only gets normalized indirectly (and inconsistently) via a later expand+rejoin round.
+                if( !normalized.equals( verbatimLineText(tokens, header.start, bodyEnd) ) ) {
+                    replacements.add( new Replacement(header.start, bodyEnd, normalized) );
+                }
+                continue;
+            }
             replacements.add( new Replacement(
                 header.start, bodyEnd, headerText + "\n" + leadingIndent(tokens, header)
                         + singleStatementIndentUnit() + bodyText

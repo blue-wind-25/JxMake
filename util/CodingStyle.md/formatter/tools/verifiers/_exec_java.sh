@@ -8,13 +8,13 @@
 #     PROGRAM=kotlin_syntax_check
 #
 
+: "${JDK:=/opt/openjdk-21_linux-x64_bin/jdk-21}"
+: "${KLIB:=$HOME/xsdk/kotlin-compiler-2.4.0/kotlinc/lib}"
+
 if [ -z "$PROGRAM" ]; then
     echo "PROGRAM is not set." >&2
     exit 1
 fi
-
-JDK=/opt/openjdk-21_linux-x64_bin/jdk-21
-KLIB="$HOME/xsdk/kotlin-compiler-2.4.0/kotlinc/lib"
 
 JAVAC="$JDK/bin/javac"
 JAVA="$JDK/bin/java"

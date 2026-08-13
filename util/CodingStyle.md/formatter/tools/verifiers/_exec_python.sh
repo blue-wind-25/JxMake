@@ -9,12 +9,12 @@
 #     NODE_ENV=1
 #     PYTHON_MODULES="yaml requests"
 
+: "${PYTHON:=python3.12}"
+
 if [ -z "$PROGRAM" ]; then
     echo "PROGRAM is not set." >&2
     exit 1
 fi
-
-: "${PYTHON:=python3.12}"
 
 DIR="$(dirname "$0")"
 

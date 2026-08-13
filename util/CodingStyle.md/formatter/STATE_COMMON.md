@@ -194,6 +194,21 @@ bash_syntax_check.sh
 Jobs should invoke the appropriate wrapper script instead of directly
 executing `javac`, `java`, `node`, or `python3`.
 
+**Every `*_content_diff.*` tool above supports both single-pair and batch
+mode** (2026-08-14, extended to all — previously only `java_content_diff.java`/
+`kotlin_content_diff.java`/`js_ts_content_diff.js` had it): a single-pair
+invocation takes `<original> <formatted>`; a batch invocation takes
+`<original_base_dir> <formatted_base_dir> <rel_path_file_list.txt>` (one
+relative path per line, resolved against both base dirs) and runs every pair
+in one process invocation, avoiding a process-restart-per-file cost on a
+large dogfood corpus. Batch mode prints a `[yyyy-MM-dd HH:mm:ss.SSS]
+<relative path>` line before each pair (pinpoints a hang/slow file), treats a
+rel-path missing from either base dir as a warning-and-skip rather than a
+crash, wraps each pair's compare in a try/catch so one bad file doesn't
+abort the run, and ends with a `SUMMARY: N OK, N MISMATCH/ERROR, N MISSING`
+line whose counts drive the exit code. Use batch mode for any dogfood run
+over more than a handful of files.
+
 **Do NOT use `git stash`.** Back up any files you need to preserve to a
 temporary location, revert your changes for testing, and restore the
 backed-up files if needed — avoids leaving work hidden in a stash that gets

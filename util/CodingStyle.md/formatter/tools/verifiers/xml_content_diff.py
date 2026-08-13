@@ -31,23 +31,45 @@ dependency, unlike the Node-based *_syntax_check.js scripts) and comparing:
 Node-type mismatches (e.g. an element where the original had a comment) at
 the same tree position are reported as a structural mismatch.
 
-Usage:
-    python3 xml_content_diff.py <original.xml> <formatted.xml>
+Usage (two modes -- see also print_usage() below):
+    Single pair:
+        python3 xml_content_diff.py <original.xml> <formatted.xml>
+    Batch (one Python process invocation over a whole corpus, avoiding a
+    process restart per file -- rel-path list, one path per line, relative
+    to both base dirs alike):
+        python3 xml_content_diff.py <original_base_dir> <formatted_base_dir> <xml_rel_path_file_list.txt>
 
-Exit code 0 if all five checks pass (content preserved), 1 otherwise, with a
-description of every mismatch printed to stdout.
+Before each pair's diff, a "[yyyy-MM-dd HH:mm:ss.SSS] <relative path>" line is
+printed -- lets a hang/slow file in a large batch run be pinpointed, matching
+js_ts_content_diff.js's/java_content_diff.java's/kotlin_content_diff.java's
+own precedent. In batch mode, a rel-path missing from either base dir (or
+both) is a warning, not a crash -- the file is skipped and the run continues;
+the final SUMMARY line and process exit code still reflect it. A parse
+failure for one pair in batch mode is also caught and counted as a
+MISMATCH/ERROR rather than aborting the whole batch.
 
 Used for real-code dogfood testing per STATE_DATA_FORMATS.md's "Dogfood
 Output Validation" section -- written during the apache/maven XML dogfood
 session (first XML dogfood run). Reusable as-is for the other three XML
 test-fixture repos (apache/ant, jenkinsci/jenkins, w3c/svgwg) still pending.
+
+Exit code 0 if all five checks pass (content preserved, all pairs in batch
+mode), 1 otherwise (or if any pair is missing/errors in batch mode), 2 if
+either file fails to parse as XML at all in single-pair mode, or on a usage
+error.
 """
+import datetime
+import os
 import re
 import sys
 from xml.dom.minidom import parse
 from xml.parsers.expat import ExpatError
 
 WS_RE = re.compile(r"\s+")
+
+
+class ParseError(Exception):
+    pass
 
 
 def norm_ws(s):
@@ -120,34 +142,112 @@ def walk(a, b, path, errors):
             errors.append(f"{path}: CDATA content mismatch (must be byte-identical):\n    ORIGINAL : {a.data!r}\n    FORMATTED: {b.data!r}")
 
 
-def main():
-    if len(sys.argv) != 3:
-        print("Usage: xml_content_diff.sh <original.xml> <formatted.xml>")
-        sys.exit(2)
+def timestamp_now():
+    now = datetime.datetime.now()
 
-    orig_path, fmt_path = sys.argv[1], sys.argv[2]
+    return now.strftime("%Y-%m-%d %H:%M:%S.") + "%03d" % (now.microsecond // 1000)
 
+
+def print_timestamped_header(rel_path):
+    print("[%s] %s" % (timestamp_now(), rel_path))
+
+
+def compare_one(orig_path, fmt_path, orig_label, fmt_label):
+    """The full single-pair tree-walk check, shared by both modes. Raises
+    ParseError if either file fails to parse. Returns True if content is
+    preserved, False on a mismatch (mismatch details printed to stdout)."""
     try:
         orig_doc = parse(orig_path)
     except ExpatError as e:
-        print(f"SKIP: original does not parse as XML ({e}) -- content-diff not applicable")
-        sys.exit(2)
+        raise ParseError(f"original does not parse as XML ({e})")
     try:
         fmt_doc = parse(fmt_path)
     except ExpatError as e:
-        print(f"FORMATTED FILE FAILS TO PARSE: {e}")
-        sys.exit(1)
+        raise ParseError(f"formatted file fails to parse as XML ({e})")
 
     errors = []
     walk(orig_doc.documentElement, fmt_doc.documentElement, "root", errors)
 
     if errors:
-        print(f"CONTENT MISMATCH ({len(errors)} issue(s)) between {orig_path} and {fmt_path}:")
+        print(f"CONTENT MISMATCH ({len(errors)} issue(s)) between {orig_label} and {fmt_label}:")
         for e in errors: print(f"  - {e}")
+
+        return False
+
+    print(f"OK: content preserved between {orig_label} and {fmt_label}")
+
+    return True
+
+
+def print_usage():
+    sys.stderr.write("Usage: xml_content_diff.sh <original.xml> <formatted.xml>\n")
+    sys.stderr.write("       xml_content_diff.sh <original_base_dir> <formatted_base_dir> <xml_rel_path_file_list.txt>\n")
+
+
+def run_single(orig_arg, fmt_arg):
+    print_timestamped_header(orig_arg)
+
+    orig_exists, fmt_exists = os.path.exists(orig_arg), os.path.exists(fmt_arg)
+    if not orig_exists or not fmt_exists:
+        if not orig_exists and not fmt_exists: print(f"WARNING: both {orig_arg} and {fmt_arg} are missing")
+        elif not orig_exists:                  print(f"WARNING: {orig_arg} is missing")
+        else:                                  print(f"WARNING: {fmt_arg} is missing")
         sys.exit(1)
 
-    print(f"OK: content preserved between {orig_path} and {fmt_path}")
-    sys.exit(0)
+    try:
+        sys.exit(0 if compare_one(orig_arg, fmt_arg, orig_arg, fmt_arg) else 1)
+    except ParseError as e:
+        print(f"SKIP: {e} -- content-diff not applicable")
+        sys.exit(2)
+
+
+def run_batch(orig_base_dir, fmt_base_dir, file_list_path):
+    with open(file_list_path, "r", encoding="utf-8") as f:
+        rel_paths = [line.strip() for line in f if line.strip()]
+
+    ok_count = mismatch_count = missing_count = 0
+
+    for rel in rel_paths:
+        orig_path = os.path.join(orig_base_dir, rel)
+        fmt_path  = os.path.join(fmt_base_dir, rel)
+
+        print_timestamped_header(rel)
+
+        orig_exists, fmt_exists = os.path.exists(orig_path), os.path.exists(fmt_path)
+        if not orig_exists and not fmt_exists:
+            print(f"  WARNING: missing from both {orig_base_dir} and {fmt_base_dir} -- skipping")
+            missing_count += 1
+            continue
+        if not orig_exists:
+            print(f"  WARNING: missing from {orig_base_dir} -- skipping")
+            missing_count += 1
+            continue
+        if not fmt_exists:
+            print(f"  WARNING: missing from {fmt_base_dir} -- skipping")
+            missing_count += 1
+            continue
+
+        try:
+            if compare_one(orig_path, fmt_path, rel, rel): ok_count += 1
+            else:                                          mismatch_count += 1
+        except Exception as e:
+            print(f"  ERROR: {e}")
+            mismatch_count += 1
+
+    print("")
+    print(f"SUMMARY: {ok_count} OK, {mismatch_count} MISMATCH/ERROR, {missing_count} MISSING "
+          f"(of {ok_count + mismatch_count + missing_count} files checked)")
+
+    if mismatch_count > 0 or missing_count > 0: sys.exit(1)
+
+
+def main():
+    args = sys.argv[1:]
+    if len(args) == 2:   run_single(args[0], args[1])
+    elif len(args) == 3: run_batch(args[0], args[1], args[2])
+    else:
+        print_usage()
+        sys.exit(2)
 
 
 if __name__ == "__main__": main()

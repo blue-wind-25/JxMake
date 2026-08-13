@@ -788,19 +788,19 @@ here if and when it actually gains a documented gap.
    regression sweep. This is a known, currently-unresolved gap — no workaround exists
    short of avoiding deeply nested short calls inside very long lines.
 
-3. **`.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in, and JSX-widening
-   validation is limited to one real corpus.** The JSX/TSX boundary-finding pre-pass runs
-   unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but deliberately stays off by default on
-   plain `.ts` (see "Language & path handling" above for why) — a legacy `.ts` file with real
-   embedded JSX and no `jsx-in-ts` directive will have its JSX mis-tokenized as ordinary
-   angle-bracket/comparison syntax rather than preserved as an opaque span. Separately, the
-   `.js`/`.mjs`/`.cjs` widening itself (recommendation 1) has been validated end-to-end against
-   exactly one real-world corpus with embedded JSX-in-`.js` content
-   (`taniarascia/react-tutorial` — see `STATE_DOGFOOD.md`); it is not yet validated at the scale
-   of the dozens of non-JSX-bearing repos already dogfooded against this formatter, so a residual
-   risk of an unseen JSX-adjacent edge case remains for `.js`/`.mjs`/`.cjs` content this specific
-   corpus didn't exercise (e.g. JSX inside a template-literal interpolation in plain `.js` — no
-   real-world example of that combination has been dogfooded yet, only synthetic fixtures).
+3. **`.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in.** The JSX/TSX
+   boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but
+   deliberately stays off by default on plain `.ts` (see "Language & path handling" above for
+   why) — a legacy `.ts` file with real embedded JSX and no `jsx-in-ts` directive will have its
+   JSX mis-tokenized as ordinary angle-bracket/comparison syntax rather than preserved as an
+   opaque span. Separately, the `.js`/`.mjs`/`.cjs`/`.jsx`/`.tsx` pre-pass and downstream
+   formatting rules have now been validated end-to-end against five real-world corpora spanning
+   both JSX-in-`.js` and TSX (`taniarascia/react-tutorial`, `ruanyf/react-demos`,
+   `reactstrap/reactstrap`, `microsoft/TypeScript-React-Starter`,
+   `Lemoncode/react-typescript-samples`, `excalidraw/excalidraw` — see `STATE_DOGFOOD.md`),
+   which found and fixed real content-corruption bugs in JSX fragment shorthand (`<>...</>`) and
+   in multi-line template-literal `${...}` holes; a residual risk of an unseen JSX-adjacent edge
+   case not exercised by these corpora remains, as with any real-world dogfooding.
 
 4. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
    imports as third-party.** Local-import detection is syntactic only: an import specifier

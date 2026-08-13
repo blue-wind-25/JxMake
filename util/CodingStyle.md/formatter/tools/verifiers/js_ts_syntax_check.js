@@ -31,6 +31,17 @@ const ts = require('typescript');
 
 function scriptKindFor(file)
 {
+  // `.tsx`/`.jsx` need their own dedicated ScriptKind, not a fallback to plain TS/JS -- the
+  // TypeScript compiler's TS/JS parsers don't do JSX disambiguation at all (a bare `<T>` is
+  // always a type-assertion cast, never a JSX element), so a `.tsx` file parsed as plain TS
+  // (the old fallback here, since it doesn't end in exactly `.ts`) makes every real JSX
+  // element in the file a parse error, and a `.tsx` file's real TS generics (parsed as plain
+  // JS, since `.tsx` isn't `.ts`) make every generic a parse error instead. Found via
+  // STATE_JS_TS.md's Step 2 Increment 5 real-corpus dogfood: excalidraw/excalidraw's `.tsx`
+  // files with generic-heavy hooks (`useState<T>()`, etc.) were false-failing under the old
+  // JS fallback.
+  if( file.endsWith('.tsx') ) return ts.ScriptKind.TSX;
+  if( file.endsWith('.jsx') ) return ts.ScriptKind.JSX;
   return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }
 

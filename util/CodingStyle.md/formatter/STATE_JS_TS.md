@@ -1819,6 +1819,42 @@ active in the Makefile and passing.
     insertion gap) — exactly the class of defect real-corpus validation
     exists to catch, on both occasions unrelated to the wrap logic itself.
 
+  **2026-08-14 implementation session — `js_ts_syntax_check.sh` `.tsx`/`.jsx`
+  false-failure fix (checker tooling, not formatter source) (LANDED).**
+  Follow-on to Increment 5's excalidraw finding: of the 6 "pre-existing,
+  original-file-also-fails" checker-tool-limitation failures documented
+  above (`PasteChartDialog.tsx`, `Popover.tsx`, `TextField.tsx`,
+  `QuickSearch.tsx`, `CommandPalette/CommandPalette.tsx`, `main-menu/
+  DefaultItems.tsx`), root-caused the actual defect rather than leaving it
+  as an accepted checker gap: `tools/verifiers/js_ts_syntax_check.js`'s
+  `scriptKindFor` only special-cased the exact `.ts` extension (→
+  `ts.ScriptKind.TS`) and fell back to plain `ts.ScriptKind.JS` for
+  everything else, including `.tsx`/`.jsx`. Neither the TS nor JS
+  `ScriptKind` does JSX/TS-generic disambiguation the way `TSX`/`JSX` do —
+  a `.tsx` file parsed as plain `JS` makes every real TypeScript generic
+  (`useState<Foo>()`, etc.) a parse error, exactly the "Expression
+  expected" / "Unterminated template literal" shape seen in all 6 files.
+  **Fixed**: `scriptKindFor` now maps `.tsx` → `ts.ScriptKind.TSX` and
+  `.jsx` → `ts.ScriptKind.JSX` explicitly, before the existing `.ts`/else
+  fallback. Verified against all 6 previously-failing excalidraw files
+  (`/tmp/ed_round1`, reused): all 6 now exit 0. Re-ran the full 17-file
+  excalidraw sample: 0/17 syntax-check failures (previously 6/17, then
+  7/17 before the template-hole fix). Verified the fix doesn't mask a real
+  problem: `reactstrap/reactstrap`'s `index.js` (a `.js` file, unaffected
+  by this `.tsx`/`.jsx`-only change) still correctly fails on its
+  unrelated, genuine `export X from 'Y'` legacy-syntax limitation — same
+  as before, confirming the fix is scoped to exactly the `.tsx`/`.jsx`
+  gap and doesn't silently loosen checking elsewhere. `make test`:
+  312/312 forward + idempotency, unaffected (a tooling-only change, no
+  formatter source touched, no fixture needed — `tools/verifiers/` isn't
+  part of the fixture corpus). This closes the last open item from Step 2
+  Increment 5: every corpus tested this job (`react-tutorial`,
+  `TypeScript-React-Starter`, `react-demos`, `Lemoncode`, `reactstrap`,
+  `excalidraw`) is now either fully syntax-clean or has only failures
+  independently confirmed present on the ORIGINAL unformatted file (a
+  genuine pre-existing source-level issue outside this formatter's scope,
+  not a checker gap).
+
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,
   no code, no fixtures, no RDD_LOG key).** Follows on from the

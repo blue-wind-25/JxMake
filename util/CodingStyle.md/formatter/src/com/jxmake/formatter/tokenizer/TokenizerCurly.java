@@ -2221,7 +2221,15 @@ public class TokenizerCurly extends TokenizerCore {
                 break;
             }
             if( localBrace == 0 && Token.isOp(t, ">") ) break;
-            if( localBrace == 0 && !closing && ( t.type == TokenType.IDENTIFIER || Token.isPunct(t, "{") ) ) {
+            // A `{` at localBrace == 0 only starts a new attribute (spread, `{...props}`) when
+            // it's NOT the value half of a preceding `name={...}` -- otherwise it's the same
+            // attribute's own value hole, not a fresh boundary (found via Increment 2's own
+            // real-code smoke test: without this check, `attr={x}` wrongly split into two
+            // "attributes", `attr=` and `{x}`).
+            final boolean isValueHoleOpenBrace = Token.isPunct(t, "{") && s > 0
+                    && Token.isOp( tokens.get( sig.get(s - 1) ), "=" );
+            if( localBrace == 0 && !closing && !isValueHoleOpenBrace
+                    && ( t.type == TokenType.IDENTIFIER || Token.isPunct(t, "{") ) ) {
                 attrRawTokenIndices.add( sig.get(s) );
             }
             if( Token.isPunct(t, "{") ) { ++localBrace; ++s; continue; }

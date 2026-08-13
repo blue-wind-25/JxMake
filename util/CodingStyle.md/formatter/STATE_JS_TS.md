@@ -1510,9 +1510,69 @@ active in the Makefile and passing.
     list, unchanged); `JsxWrapDiagnostics` has no wired-in CLI/server-visible
     reporting — it is purely an internal counter read back by hand or by a
     future test harness, not a feature.
-  - **Where to resume**: Increment 2 (the actual wrap-decision function
-    from sub-context 3, applied only to the self-closing-tag case first) —
-    see the "Suggested increment breakdown" list above.
+  - **Where to resume (superseded by Increment 2 below — kept for
+    history).**
+
+  **2026-08-14 implementation session — Step 2, Increment 2 of 5 (real
+  wrap, self-closing tags only) (LANDED).** Implements step (2) of the
+  suggested increment breakdown: the actual wrap-decision function from
+  sub-context 3, applied only to a self-closing `JSX_SPAN` with no children
+  at all (sub-context 2's "strictly safer half") — increments 3-5
+  (children-bearing tags, spread/boolean/expression-attribute fixtures,
+  real-corpus validation) remain **NOT STARTED**.
+
+  - **`JsTsSpecificRule.enforceJsxSelfClosingAttributeWrap`** (+ private
+    helper `renderJsxSelfClosingWrapCandidate`) — mirrors
+    `MiscRuleCurly.enforceCallLineBreaking`'s decision-ladder shape (fits on
+    one line → no change; else wrap) without routing through that method's
+    comma-split/typed-signature machinery, per sub-context 3's own
+    recommendation (JSX attributes are whitespace-separated, not
+    comma-separated, and have no `Type name` shape to parse). A `JSX_SPAN`
+    is recognized as "self-closing, no children" purely via
+    `jsxOpeningTagEndOffset == text.length()` (the whole span text IS the
+    opening tag — a tag with real children always has trailing
+    child/closing-tag text past that offset, so this check alone correctly
+    excludes them without any separate "has children" flag). Width uses the
+    existing `lineColumnOf` helper (rendered column up to the span) plus the
+    span's own raw text length — same increment-1-approximation posture
+    documented on `JsxWrapDiagnostics` (no indentation-of-continuation-lines
+    complexity needed for the decision itself, only for the replacement
+    text). Wired into `FormatterCurly.format`'s Phase 4, immediately after
+    `switchRule.formatNonInlineSwitches`, gated on `lang.isJsxSyntax`.
+  - **Real bug found and fixed as a prerequisite**:
+    `TokenizerCurly.parseJsxTag`'s existing `attrRawTokenIndices` collection
+    (built by Increment 1 of Step 2, unconsumed until now) recorded a `{`
+    at `localBrace == 0` as a fresh attribute boundary unconditionally —
+    correct for a spread attribute (`{...props}`) but wrong for an ordinary
+    `name={value}` attribute's own value-hole open brace, which is the SAME
+    attribute as the identifier immediately before it, not a second one.
+    Left unnoticed by Increment 1 since detect-only mode never actually
+    consumed the boundary list for rendering. Fixed with
+    `isValueHoleOpenBrace` (a `{` immediately preceded by `=` at
+    `localBrace == 0` is skipped, not recorded) — found immediately via this
+    increment's own real-code smoke test (`attr={x}` wrongly split into
+    `attr=` and `{x}` as two separate wrapped lines before the fix).
+  - **Fixture-verified**: `jsx_tsx_wrap_detect_context_out.tsx` (Increment
+    1's own fixture) updated — its wide tag now genuinely wraps
+    one-attribute-per-line instead of staying byte-identical to the input,
+    the intended, expected effect of landing real wrap behavior on top of
+    detect-only measurement; its narrow tag is unchanged. New fixture pair
+    `test/jsx_tsx_self_closing_wrap_{inp,out}.tsx`: a single over-width
+    attribute wraps with `/>` on its own closing line; a zero-attribute
+    over-width tag stays on one line (nothing to wrap); an over-width tag
+    WITH children is left completely untouched (still out of scope).
+    `make test`: 307/307 → 308/308 forward + idempotency, zero regressions
+    on any other existing fixture. Manually verified round1/round2
+    byte-identical on both fixtures outside the Makefile-driven run too.
+  - **NOT done**: children-bearing tags (Increment 3); spread/boolean/
+    expression-attribute-specific fixtures (Increment 4 — this increment's
+    fixtures only exercise plain `name={expr}` attributes, since the
+    boundary-detection bug fix above was itself found via that shape); no
+    real-JSX-corpus validation (Increment 5) — all carried over unchanged
+    from every prior increment's own "NOT done" list.
+  - **Where to resume**: Increment 3 (extend to tags with children, gated
+    by the byte-identical-children assertion from sub-context 6) — see the
+    "Suggested increment breakdown" list above.
 
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,

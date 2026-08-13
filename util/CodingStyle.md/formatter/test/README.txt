@@ -533,18 +533,25 @@ JSX/TSX:
                                                         nested literal's entire segment chain into one
                                                         synthetic STRING token before rendering.
 
-  jsx_tsx_wrap_detect_context_inp/out.tsx            -- Step 2 ("context 11") Increment 1,
-                                                        detect-and-measure-only: a `<VeryLongComponentName
+  jsx_tsx_wrap_detect_context_inp/out.tsx            -- Step 2 ("context 11") Increment 1's original
+                                                        detect-and-measure-only fixture: a `<VeryLongComponentName
                                                         .../>` opening tag whose attribute list exceeds
                                                         `line-length`, and a short `<Small a={1} />` tag that
-                                                        doesn't. No line-breaking is emitted (increments 2-5 of
-                                                        Step 2 remain NOT STARTED) -- output is byte-identical
-                                                        to what the pre-existing formatter already produced;
-                                                        this fixture only locks in that guarantee. The actual
-                                                        over/under-width detection itself is verified via
-                                                        JsxWrapDiagnostics, not observable in this fixture's
-                                                        output -- see STATE_JS_TS.md for the manual
-                                                        verification method.
+                                                        doesn't. Its expected output was updated when Increment 2
+                                                        landed real self-closing-tag wrapping (previously
+                                                        byte-identical to the unwrapped input) -- the wide tag now
+                                                        wraps one-attribute-per-line, the narrow tag is unchanged.
+
+  jsx_tsx_self_closing_wrap_inp/out.tsx              -- Step 2 ("context 11") Increment 2: the actual
+                                                        wrap-decision function, scoped to a self-closing JSX_SPAN
+                                                        with no children (sub-context 2's "strictly safer half").
+                                                        Three cases: a single over-width attribute wraps onto its
+                                                        own line with a `/>` on its own closing line; a
+                                                        zero-attribute over-width tag is left on one line (nothing
+                                                        to wrap); an over-width tag WITH children is left
+                                                        completely untouched (children-bearing tags remain out of
+                                                        scope until a future increment adds the
+                                                        byte-identical-children safety net).
 
   jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
                                                         (recommendation 1): plain `.js` now gets the same JSX

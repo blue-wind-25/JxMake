@@ -5,7 +5,11 @@
 
 function Wide()
 {
-    return <VeryLongComponentName attributeOne={valueOne} attributeTwo={valueTwo} attributeThree={valueThree} />;
+    return <VeryLongComponentName
+        attributeOne={valueOne}
+        attributeTwo={valueTwo}
+        attributeThree={valueThree}
+    />;
 }
 
 function Narrow()

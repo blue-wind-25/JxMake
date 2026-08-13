@@ -429,6 +429,13 @@ public final class FormatterCurly extends FormatterCore {
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
         text = switchRule.formatNonInlineSwitches( tokenizer.apply(text) );
+        if(lang.isJsxSyntax) {
+            // STATE_JS_TS.md's Step 2 "context 11" scoping session, Increment 2 -- self-closing-tag
+            // attribute wrap only (tags with children remain out of scope, see that method's own
+            // doc comment). Runs after every earlier width-affecting pass has settled, same
+            // ordering rationale as enforceCallLineBreaking immediately above.
+            text = jsTsRule.enforceJsxSelfClosingAttributeWrap( tokenizer.apply(text) );
+        }
 
         // Phase 5: file-header-level structure
         if(isCOrCpp) {

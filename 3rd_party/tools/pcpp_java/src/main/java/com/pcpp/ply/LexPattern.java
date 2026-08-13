@@ -27,6 +27,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface LexPattern {
-    /** The regular expression pattern for this token rule. */
+
+    /** The regular expression pattern for this token rule */
     String value();
-}
+
+} // interface LexPattern

@@ -26,6 +26,7 @@ import java.util.function.Consumer;
  * it should be unique within a {@link GrammarSpec}.
  */
 public class GrammarRule {
+
     /**
      * A unique name for this rule (analogous to the Python function name, e.g. "p_expr").
      * Used as the key for action binding.
@@ -67,8 +68,13 @@ public class GrammarRule {
     // Constructors
     // -------------------------------------------------------------------------
 
-    public GrammarRule( String name, String pattern, Consumer<YaccProduction> action,
-        String file, int line )
+    public GrammarRule(
+        String                   name,
+        String                   pattern,
+        Consumer<YaccProduction> action,
+        String                   file,
+        int                      line
+    )
     {
         this.name    = name;
         this.pattern = pattern;
@@ -77,13 +83,13 @@ public class GrammarRule {
         this.line    = line;
     }
 
-    public GrammarRule( String name, String pattern, Consumer<YaccProduction> action )
+    public GrammarRule(String name, String pattern, Consumer<YaccProduction> action)
     {
         this(name, pattern, action, "<unknown>", 0);
     }
 
-    /** No-op rule (no semantic action). */
-    public GrammarRule( String name, String pattern )
+    /** No-op rule (no semantic action) */
+    public GrammarRule(String name, String pattern)
     {
         this(name, pattern, null, "<unknown>", 0);
     }
@@ -92,16 +98,16 @@ public class GrammarRule {
     // Factory helpers (for more fluent usage at call sites)
     // -------------------------------------------------------------------------
 
-    /** Create a rule with the given pattern and action. */
-    public static GrammarRule of( String name, String pattern, Consumer<YaccProduction> action )
+    /** Create a rule with the given pattern and action */
+    public static GrammarRule of(String name, String pattern, Consumer<YaccProduction> action)
     {
-        return new GrammarRule( name, pattern, action );
+        return new GrammarRule(name, pattern, action);
     }
 
-    /** Create a no-op rule (action leaves p[0] = null). */
-    public static GrammarRule of( String name, String pattern )
+    /** Create a no-op rule (action leaves p[0] = null) */
+    public static GrammarRule of(String name, String pattern)
     {
-        return new GrammarRule( name, pattern, null );
+        return new GrammarRule(name, pattern, null);
     }
 
     @Override
@@ -109,4 +115,5 @@ public class GrammarRule {
     {
         return "GrammarRule(" + name + ": " + pattern.trim() + ")";
     }
+
 } // class GrammarRule

@@ -22,6 +22,7 @@ import java.util.function.Consumer;
  *   callable - The actual Java action, bound by YaccBuilder.bindCallables()
  */
 public class MiniProduction {
+
     public final String str;
     public final String name;
     public final int    len;
@@ -36,7 +37,7 @@ public class MiniProduction {
      */
     public Consumer<YaccProduction> callable;
 
-    public MiniProduction( String str, String name, int len, String func, String file, int line )
+    public MiniProduction(String str, String name, int len, String func, String file, int line)
     {
         this.str  = str;
         this.name = name;
@@ -46,10 +47,10 @@ public class MiniProduction {
         this.line = line;
     }
 
-    /** Bind the named action to its callable from the spec's action map. */
-    public void bind( java.util.Map<String, Consumer<YaccProduction> > pdict )
+    /** Bind the named action to its callable from the spec's action map */
+    public void bind(java.util.Map<String, Consumer<YaccProduction>> pdict)
     {
-        if( func != null ) this.callable = pdict.get( func );
+        if(func != null) this.callable = pdict.get(func);
     }
 
     @Override
@@ -57,4 +58,5 @@ public class MiniProduction {
     {
         return str;
     }
+
 } // class MiniProduction

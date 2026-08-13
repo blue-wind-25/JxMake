@@ -14,21 +14,22 @@ package com.pcpp.ply;
  *   endlexpos - Ending lex position
  */
 public class YaccSymbol {
-    public String  type;
-    public Object  value;
-    public int     lineno;
-    public int     endlineno;
-    public int     lexpos;
-    public int     endlexpos;
 
-    /** Whether lineno has been set (Python uses hasattr, we track explicitly). */
+    public String type;
+    public Object value;
+    public int    lineno;
+    public int    endlineno;
+    public int    lexpos;
+    public int    endlexpos;
+
+    /** Whether lineno has been set (Python uses hasattr, we track explicitly) */
     public boolean hasLineno;
-    /** Whether lexpos has been set (Python uses hasattr, we track explicitly). */
+    /** Whether lexpos has been set (Python uses hasattr, we track explicitly) */
     public boolean hasLexpos;
 
     public YaccSymbol() {}
 
-    public YaccSymbol( String type, Object value )
+    public YaccSymbol(String type, Object value)
     {
         this.type  = type;
         this.value = value;
@@ -39,4 +40,5 @@ public class YaccSymbol {
     {
         return type != null ? type : "<null>";
     }
+
 } // class YaccSymbol

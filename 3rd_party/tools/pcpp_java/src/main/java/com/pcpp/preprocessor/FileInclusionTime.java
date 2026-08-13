@@ -6,14 +6,19 @@ package com.pcpp.preprocessor;
  * Mirrors FileInclusionTime in preprocessor.py.
  */
 public class FileInclusionTime {
+
     public final String including_path;
     public final String included_path;
     public final String included_abspath;
     public final int    depth;
-    public double       elapsed;
+    public       double elapsed;
 
-    public FileInclusionTime( String including_path, String included_path,
-        String included_abspath, int depth )
+    public FileInclusionTime(
+        String including_path,
+        String included_path,
+        String included_abspath,
+        int    depth
+    )
     {
         this.including_path   = including_path;
         this.included_path    = included_path;
@@ -21,4 +26,5 @@ public class FileInclusionTime {
         this.depth            = depth;
         this.elapsed          = 0.0;
     }
+
 } // class FileInclusionTime

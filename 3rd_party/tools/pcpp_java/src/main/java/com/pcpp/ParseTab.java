@@ -26,45 +26,7 @@ public class ParseTab {
 
     public static final String TAB_VERSION  = "3.10";
     public static final String LR_METHOD    = "LALR";
-    public static final String LR_SIGNATURE =
-        "leftCPP_COMMAleftCPP_QUESTIONCPP_COLONleftCPP_LOGICALORleftCPP_LOGICALAND" +
-        "leftCPP_BARleftCPP_HATleftCPP_AMPERSANDleftCPP_EQUALITYCPP_INEQUALITY" +
-        "leftCPP_LESSCPP_LESSEQUALCPP_GREATERCPP_GREATEREQUALleftCPP_LSHIFTCPP_RSHIFT" +
-        "leftCPP_PLUSCPP_MINUSleftCPP_STARCPP_FSLASHCPP_PERCENTrightUPLUSUMINUS" +
-        "CPP_EXCLAMATIONCPP_TILDECPP_AMPERSAND CPP_BAR CPP_CHAR CPP_COLON CPP_COMMA " +
-        "CPP_EQUALITY CPP_EXCLAMATION CPP_FSLASH CPP_GREATER CPP_GREATEREQUAL CPP_HAT " +
-        "CPP_ID CPP_INEQUALITY CPP_INTEGER CPP_LESS CPP_LESSEQUAL CPP_LOGICALAND " +
-        "CPP_LOGICALOR CPP_LPAREN CPP_LSHIFT CPP_MINUS CPP_PERCENT CPP_PLUS " +
-        "CPP_QUESTION CPP_RPAREN CPP_RSHIFT CPP_STAR CPP_STRING CPP_TILDE" +
-        "expression : CPP_INTEGERexpression : CPP_CHAR\n" +
-        "    expression : CPP_STRING\n" +
-        "              | CPP_LESS expression CPP_GREATER\n" +
-        "    expression : CPP_LPAREN expression CPP_RPARENexpression : CPP_PLUS expression %prec UPLUS" +
-        "expression : CPP_MINUS expression %prec UMINUS\n" +
-        "    expression : CPP_EXCLAMATION expression\n" +
-        "              | CPP_TILDE expression\n" +
-        "    \n" +
-        "    expression : expression CPP_STAR expression\n" +
-        "              | expression CPP_FSLASH expression\n" +
-        "              | expression CPP_PERCENT expression\n" +
-        "              | expression CPP_PLUS expression\n" +
-        "              | expression CPP_MINUS expression\n" +
-        "              | expression CPP_LSHIFT expression\n" +
-        "              | expression CPP_RSHIFT expression\n" +
-        "              | expression CPP_LESS expression\n" +
-        "              | expression CPP_LESSEQUAL expression\n" +
-        "              | expression CPP_GREATER expression\n" +
-        "              | expression CPP_GREATEREQUAL expression\n" +
-        "              | expression CPP_EQUALITY expression\n" +
-        "              | expression CPP_INEQUALITY expression\n" +
-        "              | expression CPP_AMPERSAND expression\n" +
-        "              | expression CPP_HAT expression\n" +
-        "              | expression CPP_BAR expression\n" +
-        "              | expression CPP_LOGICALAND expression\n" +
-        "              | expression CPP_LOGICALOR expression\n" +
-        "              | expression CPP_COMMA expression\n" +
-        "    expression : expression CPP_QUESTION expression CPP_COLON expression" +
-        "expression : CPP_ID CPP_LPAREN expression CPP_RPARENexpression : CPP_ID";
+    public static final String LR_SIGNATURE = "leftCPP_COMMAleftCPP_QUESTIONCPP_COLONleftCPP_LOGICALORleftCPP_LOGICALAND" + "leftCPP_BARleftCPP_HATleftCPP_AMPERSANDleftCPP_EQUALITYCPP_INEQUALITY" + "leftCPP_LESSCPP_LESSEQUALCPP_GREATERCPP_GREATEREQUALleftCPP_LSHIFTCPP_RSHIFT" + "leftCPP_PLUSCPP_MINUSleftCPP_STARCPP_FSLASHCPP_PERCENTrightUPLUSUMINUS" + "CPP_EXCLAMATIONCPP_TILDECPP_AMPERSAND CPP_BAR CPP_CHAR CPP_COLON CPP_COMMA " + "CPP_EQUALITY CPP_EXCLAMATION CPP_FSLASH CPP_GREATER CPP_GREATEREQUAL CPP_HAT " + "CPP_ID CPP_INEQUALITY CPP_INTEGER CPP_LESS CPP_LESSEQUAL CPP_LOGICALAND " + "CPP_LOGICALOR CPP_LPAREN CPP_LSHIFT CPP_MINUS CPP_PERCENT CPP_PLUS " + "CPP_QUESTION CPP_RPAREN CPP_RSHIFT CPP_STAR CPP_STRING CPP_TILDE" + "expression : CPP_INTEGERexpression : CPP_CHAR\n" + "    expression : CPP_STRING\n" + "              | CPP_LESS expression CPP_GREATER\n" + "    expression : CPP_LPAREN expression CPP_RPARENexpression : CPP_PLUS expression %prec UPLUS" + "expression : CPP_MINUS expression %prec UMINUS\n" + "    expression : CPP_EXCLAMATION expression\n" + "              | CPP_TILDE expression\n" + "    \n" + "    expression : expression CPP_STAR expression\n" + "              | expression CPP_FSLASH expression\n" + "              | expression CPP_PERCENT expression\n" + "              | expression CPP_PLUS expression\n" + "              | expression CPP_MINUS expression\n" + "              | expression CPP_LSHIFT expression\n" + "              | expression CPP_RSHIFT expression\n" + "              | expression CPP_LESS expression\n" + "              | expression CPP_LESSEQUAL expression\n" + "              | expression CPP_GREATER expression\n" + "              | expression CPP_GREATEREQUAL expression\n" + "              | expression CPP_EQUALITY expression\n" + "              | expression CPP_INEQUALITY expression\n" + "              | expression CPP_AMPERSAND expression\n" + "              | expression CPP_HAT expression\n" + "              | expression CPP_BAR expression\n" + "              | expression CPP_LOGICALAND expression\n" + "              | expression CPP_LOGICALOR expression\n" + "              | expression CPP_COMMA expression\n" + "    expression : expression CPP_QUESTION expression CPP_COLON expression" + "expression : CPP_ID CPP_LPAREN expression CPP_RPARENexpression : CPP_ID";
 
     // -------------------------------------------------------------------------
     // Action table items: token -> ([states...], [actions...])
@@ -407,30 +369,39 @@ public class ParseTab {
      * Positive = shift to state; negative = reduce by production index (-value);
      * 0 = accept.
      */
-    public static final Map<Integer, Map<String, Integer> > LR_ACTION;
+    public static final Map<Integer, Map<String, Integer>> LR_ACTION;
 
     /**
-     * LR_GOTO[state][nonTerminal] = next state.
+     * LR_GOTO[state][nonTerminal] = next state
      */
-    public static final Map<Integer, Map<String, Integer> > LR_GOTO;
+    public static final Map<Integer, Map<String, Integer>> LR_GOTO;
 
     static {
-        Map<Integer, Map<String, Integer> > action = new HashMap<>();
+        Map<Integer, Map<String, Integer>> action = new HashMap<>();
         for( Object[] entry : LR_ACTION_ITEMS ) {
-            String token   = (String) entry[0];
-            int[]  states  = (int[]) entry[1];
-            int[]  actions = (int[]) entry[2];
-            for( int i = 0; i < states.length; i++ ) action.computeIfAbsent( states[i], k -> new HashMap<>() ).put( token, actions[i] );
-        }
-        LR_ACTION = Collections.unmodifiableMap( action );
+            String token   = (String)entry[0];
+            int[]  states  = ( int[] ) entry[1];
+            int[]  actions = ( int[] ) entry[2];
+            for(int i = 0; i < states.length; ++i) action.computeIfAbsent(
+                states[i], k -> new HashMap<>()
+            ).put(
+                token, actions[i]
+            );
+        } // for
+        LR_ACTION = Collections.unmodifiableMap(action);
 
-        Map<Integer, Map<String, Integer> > go = new HashMap<>();
+        Map<Integer, Map<String, Integer>> go = new HashMap<>();
         for( Object[] entry : LR_GOTO_ITEMS ) {
-            String nonTerm    = (String) entry[0];
-            int[]  states     = (int[]) entry[1];
-            int[]  nextStates = (int[]) entry[2];
-            for( int i = 0; i < states.length; i++ ) go.computeIfAbsent( states[i], k -> new HashMap<>() ).put( nonTerm, nextStates[i] );
-        }
-        LR_GOTO = Collections.unmodifiableMap( go );
+            String nonTerm    = (String)entry[0];
+            int[]  states     = ( int[] ) entry[1];
+            int[]  nextStates = ( int[] ) entry[2];
+            for(int i = 0; i < states.length; ++i) go.computeIfAbsent(
+                states[i], k -> new HashMap<>()
+            ).put(
+                nonTerm, nextStates[i]
+            );
+        } // for
+        LR_GOTO = Collections.unmodifiableMap(go);
     }
+
 } // class ParseTab

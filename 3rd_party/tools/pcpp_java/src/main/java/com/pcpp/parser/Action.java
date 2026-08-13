@@ -6,11 +6,13 @@ package com.pcpp.parser;
  * Mirrors Action class in parser.py.
  */
 public final class Action {
+
     private Action() {}
 
-    /** Abort processing (don't execute), but pass the directive through to output. */
+    /** Abort processing (don't execute), but pass the directive through to output */
     public static final int IgnoreAndPassThrough = 0;
 
-    /** Abort processing (don't execute), and remove from output. */
-    public static final int IgnoreAndRemove      = 1;
+    /** Abort processing (don't execute), and remove from output */
+    public static final int IgnoreAndRemove = 1;
+
 } // class Action

@@ -6,7 +6,10 @@ package com.pcpp.ply;
  * Mirrors PLY's GrammarError from yacc.py.
  */
 public class GrammarError extends YaccError {
-    public GrammarError( String message ) {
+
+    public GrammarError(String message)
+    {
         super(message);
     }
-}
+
+} // class GrammarError

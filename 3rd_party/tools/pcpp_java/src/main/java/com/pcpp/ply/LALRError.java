@@ -6,7 +6,10 @@ package com.pcpp.ply;
  * Mirrors PLY's LALRError from yacc.py.
  */
 public class LALRError extends YaccError {
-    public LALRError( String message ) {
+
+    public LALRError(String message)
+    {
         super(message);
     }
-}
+
+} // class LALRError

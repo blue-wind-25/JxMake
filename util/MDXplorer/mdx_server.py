@@ -24,14 +24,13 @@ import urllib.parse
 import urllib.request
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
-
 from markdown_it import MarkdownIt
 from mdit_py_plugins.gfm import gfm_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin
 from pygments import highlight as _hl
 from pygments.formatters import HtmlFormatter
 from pygments.lexer import RegexLexer, bygroups
-from pygments.lexers import get_lexer_for_filename, TextLexer
+from pygments.lexers import TextLexer, get_lexer_for_filename
 from pygments.token import (
     Comment, Keyword, Name, Number, Operator,
     Punctuation, String, Text,
@@ -44,8 +43,8 @@ from pygments.util import ClassNotFound
 # ---------------------------------------------------------------------------
 
 class _MakefileLexer(RegexLexer):
-    name = "Makefile"
-    aliases = ["makefile", "make"]
+    name      = "Makefile"
+    aliases   = ["makefile", "make"]
     filenames = ["Makefile", "makefile"]
 
     # GNU Make built-in functions — sorted longest-first so e.g. filter-out
@@ -153,7 +152,7 @@ class _MakefileLexer(RegexLexer):
         "make_call_name": [
             (r"[ \t]+",                        Text),
             (r"[A-Za-z0-9_][A-Za-z0-9_.-]*",  Name.Function, "#pop"),
-            (r".",                             String, "#pop"),   # bail gracefully
+            (r".",                             String, "#pop"),   # Bail gracefully
         ],
 
         # =======================================================================
@@ -162,7 +161,7 @@ class _MakefileLexer(RegexLexer):
         "make_expr": [
             # Automatic-var directional suffixes: $(@D) $(@F) $(<F) …
             (r"[@<\^\?\*\+\|%][DF]", Name.Variable),
-            # call needs special treatment: its first arg is the callee name
+            # Call needs special treatment: its first arg is the callee name
             (r"call(?=[ \t,])", Name.Builtin, "make_call_name"),
             # Other built-in function names
             (_FUNC_RE, Name.Builtin),
@@ -226,26 +225,26 @@ _MAKEFILE_FILENAMES = frozenset({
 class _JxMakeLexer(RegexLexer):
     """Syntax lexer for the JxMake scripting language (.jxm / JxMakeFile)."""
 
-    name = "JxMake"
-    aliases = ["jxmake", "jxm"]
+    name      = "JxMake"
+    aliases   = ["jxmake", "jxm"]
     filenames = ["JxMakeFile", "*.jxm"]
 
     # -- Token type aliases for readability --
     _KW   = Keyword
-    _KWD  = Keyword.Declaration   # block-opening keywords (target, function, …)
-    _KWE  = Keyword.Reserved      # block-closing keywords (endtarget, endfunction, …)
-    _KWC  = Keyword.Pseudo        # compiler directives (:::include, :::pragma, …)
+    _KWD  = Keyword.Declaration   # Block-opening keywords (target, function, …)
+    _KWE  = Keyword.Reserved      # Block-closing keywords (endtarget, endfunction, …)
+    _KWC  = Keyword.Pseudo        # Compiler directives (:::include, :::pragma, …)
     _OP   = Operator
     _CM   = Comment
     _CMB  = Comment.Multiline
     _STS  = String.Single
     _STD  = String.Double
-    _STR_ = String.Backtick       # raw / backtick string
+    _STR_ = String.Backtick       # Raw / backtick string
     _NUM  = Number
     _VAR  = Name.Variable
     _SPV  = Name.Constant         # __special_var__
     _FUN  = Name.Function
-    _BIF  = Name.Builtin          # built-in $func(…)
+    _BIF  = Name.Builtin          # Built-in $func(…)
     _SHC  = Name.Label            # @ shell-command lines
 
     # Block/flow keywords (statement-level, not block-openers/closers)
@@ -305,7 +304,7 @@ class _JxMakeLexer(RegexLexer):
     ]
 
     # Partn/partnm shortcuts: ${V}<…>  $[V]<…>
-    # Emit the var part as _VAR and the opening '<' as Punctuation, then enter partn_index.
+    # Emit the var part as _VAR and the opening '<' as Punctuation, then enter partn_index
     _PARTN_SHORTCUTS = [
         (r"(\$\{[\w./]+\})(<)",      bygroups(_VAR, Punctuation), "partn_index"),
         (r"(\$\[[\w^*?+%~:]+\])(<)", bygroups(_VAR, Punctuation), "partn_index"),
@@ -436,8 +435,8 @@ class _JxMakeLexer(RegexLexer):
         # Each (* pushes this state again; *) pops one level.
         # ===================================================================
         "block_comment": [
-            (r"\(\*", _CMB, "block_comment"),   # nested open → push another level
-            (r"\*\)", _CMB, "#pop"),             # close → pop one level
+            (r"\(\*", _CMB, "block_comment"),   # Nested open → push another level
+            (r"\*\)", _CMB, "#pop"),             # Close → pop one level
             (r"[^(*\n]+", _CMB),
             (r"[(*]",     _CMB),
             (r"\n",       _CMB),
@@ -448,7 +447,7 @@ class _JxMakeLexer(RegexLexer):
         # ===================================================================
         "at_command": [
             (r"#.*$", _CM, "#pop"),          # # = end-of-args / comment
-            (r"\\\n", _SHC),                 # line continuation
+            (r"\\\n", _SHC),                 # Line continuation
             (r"\n",   Text, "#pop"),
             # Variable interpolation inside @-lines
             *_PATH_SHORTCUTS,
@@ -496,7 +495,7 @@ class _JxMakeLexer(RegexLexer):
             (r"\\'",    String.Escape),
             (r"\\\\",   String.Escape),
             (r"[^'\\\n]+", _STS),
-            (r"\\.",    _STS),   # other \X stored literally
+            (r"\\.",    _STS),   # Other \X stored literally
             (r"\n",     _STS),
         ],
 
@@ -534,7 +533,7 @@ class _JxMakeLexer(RegexLexer):
             (r"-?\d+",           _NUM),
             (r"[A-Za-z_][\w.]*", _VAR),
             (r"\s+",             Text),
-            (r".",               Text, "#pop"),   # bail gracefully on unexpected input
+            (r".",               Text, "#pop"),   # Bail gracefully on unexpected input
         ],
 
         # ===================================================================
@@ -613,7 +612,7 @@ class _JxMakeLexer(RegexLexer):
 
 _JXMAKE_FILENAMES = frozenset({"JxMakeFile"})
 
-_MAX_HIGHLIGHT_BYTES = 512 * 1024   # skip syntax highlighting for files larger than this
+_MAX_HIGHLIGHT_BYTES = 512 * 1024   # Skip syntax highlighting for files larger than this
 
 # ---------------------------------------------------------------------------
 # jxmake-code-formatter server integration
@@ -622,7 +621,7 @@ _MAX_HIGHLIGHT_BYTES = 512 * 1024   # skip syntax highlighting for files larger 
 _FORMATTER_LOCKFILE = os.path.expanduser(
     "~/.config/jxmake-code-formatter/server.lock"
 )
-_FORMATTER_TIMEOUT = 2.5  # seconds — connect+read timeout for calls to the formatter server
+_FORMATTER_TIMEOUT = 2.5  # Seconds — connect+read timeout for calls to the formatter server
 
 
 def _formatter_lockfile_port() -> int | None:
@@ -630,8 +629,7 @@ def _formatter_lockfile_port() -> int | None:
     try:
         with open(_FORMATTER_LOCKFILE, encoding="utf-8") as f:
             lines = f.read().splitlines()
-        if len(lines) < 2:
-            return None
+        if len(lines) < 2: return None
         return int(lines[1].strip())
     except (OSError, ValueError):
         return None
@@ -974,16 +972,16 @@ html.dark .theme-toggle:not(.format-toggle):not(.settings-toggle)::before {{ con
 
 class MDRServer(ThreadingHTTPServer):
     def __init__(
-        self,
-        server_address: tuple[str, int],
-        handler_class: type,
-        web_root: str,
-        formatter_port: int | None = None,
+        self          ,
+        server_address : tuple[str, int],
+        handler_class  : type,
+        web_root       : str,
+        formatter_port : int | None = None,
     ) -> None:
         super().__init__(server_address, handler_class)
         self.web_root: str = web_root
         # Explicit --formatter-port override, or None to auto-discover via the lockfile
-        # on every request (so a formatter server started/restarted later still gets found).
+        # on every request (so a formatter server started/restarted later still gets found)
         self.formatter_port: int | None = formatter_port
 
 
@@ -994,16 +992,17 @@ class MDRServer(ThreadingHTTPServer):
 class MDRHandler(SimpleHTTPRequestHandler):
 
     def translate_path(self, path: str) -> str:
-        path = urllib.parse.unquote(path).split("?", 1)[0].split("#", 1)[0]
+        path  = urllib.parse.unquote(path).split("?", 1)[0].split("#", 1)[0]
         parts = [p for p in posixpath.normpath(path).split("/") if p and p != ".."]
+
         return os.path.join(self.server.web_root, *parts) if parts else self.server.web_root
 
     def _safe_path(self) -> str | None:
-        fs = self.translate_path(self.path)
+        fs   = self.translate_path(self.path)
         real = os.path.realpath(fs)
         root = os.path.realpath(self.server.web_root)
-        if real != root and not real.startswith(root + os.sep):
-            return None
+        if real != root and not real.startswith(root + os.sep): return None
+
         return fs
 
     @property
@@ -1104,6 +1103,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                     return True
             except Exception:
                 pass
+
         return False
 
     def _serve_directory(self, dir_path: str) -> None:
@@ -1112,10 +1112,9 @@ class MDRHandler(SimpleHTTPRequestHandler):
         except OSError:
             self.send_error(403, "Permission denied")
             return
-        if self._not_modified(st.st_mtime):
-            return
+        if self._not_modified(st.st_mtime): return
         try:
-            # os.scandir caches is_dir() and stat() results — avoids a second
+            # Os.scandir caches is_dir() and stat() results — avoids a second
             # stat() call per entry compared to os.listdir() + os.path.isdir().
             with os.scandir(dir_path) as it:
                 entries = sorted(it, key=lambda e: (not e.is_dir(), e.name.lower()))
@@ -1134,12 +1133,11 @@ class MDRHandler(SimpleHTTPRequestHandler):
             safe = html.escape(entry.name)
             try:
                 entry_st = entry.stat()
-                mod = datetime.datetime.fromtimestamp(entry_st.st_mtime).strftime("%Y/%m/%d %H:%M")
+                mod      = datetime.datetime.fromtimestamp(entry_st.st_mtime).strftime("%Y/%m/%d %H:%M")
             except OSError:
                 entry_st = None
-                mod = ""
-            if entry.is_dir():
-                rows.append(
+                mod      = ""
+            if entry.is_dir(): rows.append(
                     f'<tr><td><a href="{href}/">{safe}/</a></td>'
                     f'<td style="text-align:right">—</td>'
                     f'<td>{mod}</td></tr>'
@@ -1153,7 +1151,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 )
 
         safe_url = html.escape(url_path)
-        crumb = self._breadcrumb(url_path)
+        crumb    = self._breadcrumb(url_path)
         body = (
             self._nav_bar(crumb) + "\n"
             '<table>\n'
@@ -1173,8 +1171,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         except OSError:
             self.send_error(404, "File not found")
             return
-        if self._not_modified(st.st_mtime):
-            return
+        if self._not_modified(st.st_mtime): return
         try:
             with open(file_path, encoding="utf-8") as f:
                 text = f.read()
@@ -1191,9 +1188,9 @@ class MDRHandler(SimpleHTTPRequestHandler):
                           r'</code></pre></div>', rendered)
         crumb = self._breadcrumb(url_path)
         if dir_url:
-            safe_url = html.escape(dir_url)
-            crumb += f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
-        body = f'{self._nav_bar(crumb)}\n{rendered}'
+            safe_url  = html.escape(dir_url)
+            crumb    += f' &nbsp;•&nbsp; <a href="{safe_url}">[directory listing]</a>'
+        body  = f'{self._nav_bar(crumb)}\n{rendered}'
         title = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body),
                         last_modified=st.st_mtime)
@@ -1207,8 +1204,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         if st.st_size > _MAX_HIGHLIGHT_BYTES:
             self._serve_raw(file_path, st)
             return
-        if self._not_modified(st.st_mtime):
-            return
+        if self._not_modified(st.st_mtime): return
         try:
             with open(file_path, encoding="utf-8", errors="replace") as f:
                 text = f.read()
@@ -1217,11 +1213,11 @@ class MDRHandler(SimpleHTTPRequestHandler):
             return
 
         url_path = self._url_path
-        crumb = self._breadcrumb(url_path)
-        inner = f'<div class="code-wrap">{_hl(text, lexer, _src_formatter)}</div>'
-        right = self._file_nav_right(self.path.split("?", 1)[0], in_format_mode=False)
-        body = f'{self._nav_bar(crumb, right_html=right)}\n{inner}'
-        title = html.escape(os.path.basename(file_path))
+        crumb    = self._breadcrumb(url_path)
+        inner    = f'<div class="code-wrap">{_hl(text, lexer, _src_formatter)}</div>'
+        right    = self._file_nav_right(self.path.split("?", 1)[0], in_format_mode=False)
+        body     = f'{self._nav_bar(crumb, right_html=right)}\n{inner}'
+        title    = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body),
                         last_modified=st.st_mtime)
 
@@ -1246,12 +1242,11 @@ class MDRHandler(SimpleHTTPRequestHandler):
             # showing 17173 regardless of the live server's real port.
             try:
                 groups = json.loads(data)
-                port = self._formatter_port()
+                port   = self._formatter_port()
                 if port is not None:
                     for group in groups:
                         for prop in group.get("properties", []):
-                            if prop.get("key") == "server-port":
-                                prop["default"] = str(port)
+                            if prop.get("key") == "server-port": prop["default"] = str(port)
                 data = json.dumps(groups).encode("utf-8")
             except (ValueError, TypeError, AttributeError) as e:
                 self.log_message("formatter: could not patch server-port default: %s", e)
@@ -1285,42 +1280,37 @@ class MDRHandler(SimpleHTTPRequestHandler):
 
         formatted = self._try_format(file_path, text, query)
         if formatted is None:
-            # Silent fallback to today's exact existing behavior.
-            if lexer is not None:
-                self._serve_source(file_path, lexer)
-            else:
-                self._serve_raw(file_path, st)
+            # Silent fallback to today's exact existing behavior
+            if lexer is not None: self._serve_source(file_path, lexer)
+            else: self._serve_raw(file_path, st)
             return
 
         if self._not_modified(st.st_mtime):
             return
 
         url_path = self._url_path
-        crumb = self._breadcrumb(url_path)
+        crumb    = self._breadcrumb(url_path)
         if lexer is not None:
             inner = f'<div class="code-wrap">{_hl(formatted, lexer, _src_formatter)}</div>'
-        else:
-            inner = (
+        else: inner = (
                 '<div class="code-wrap"><pre><code>'
                 + html.escape(formatted)
                 + '</code></pre></div>'
             )
         url_part = self.path.split("?", 1)[0]
-        right = self._file_nav_right(url_part, in_format_mode=True)
-        body = f'{self._nav_bar(crumb, right_html=right)}\n{inner}'
-        title = html.escape(os.path.basename(file_path))
+        right    = self._file_nav_right(url_part, in_format_mode=True)
+        body     = f'{self._nav_bar(crumb, right_html=right)}\n{inner}'
+        title    = html.escape(os.path.basename(file_path))
         self._send_html(_TEMPLATE.format(title=title, body=body),
                         last_modified=st.st_mtime)
 
     def _serve_raw(self, file_path: str, st: os.stat_result | None = None) -> None:
         try:
-            if st is None:
-                st = os.stat(file_path)
+            if st is None: st = os.stat(file_path)
         except OSError:
             self.send_error(404, "File not found")
             return
-        if self._not_modified(st.st_mtime):
-            return
+        if self._not_modified(st.st_mtime): return
         mime = self.guess_type(file_path)
         try:
             f = open(file_path, "rb")
@@ -1335,8 +1325,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
             self.send_header("Last-Modified",
                              email.utils.formatdate(st.st_mtime, usegmt=True))
             self.end_headers()
-            if self.command != "HEAD":
-                self.copyfile(f, self.wfile)
+            if self.command != "HEAD": self.copyfile(f, self.wfile)
         finally:
             f.close()
 
@@ -1345,12 +1334,12 @@ class MDRHandler(SimpleHTTPRequestHandler):
         lockfile the Java server writes on startup (auto-discovered fresh on every call so a
         server started/restarted after mdx_server.py itself doesn't require a restart here)."""
         explicit = self.server.formatter_port
-        if explicit is not None:
-            return explicit
+        if explicit is not None: return explicit
+
         return _formatter_lockfile_port()
 
     def _formatter_request(
-        self, url_path: str, method: str, body: bytes | None = None
+        self, url_path : str, method: str, body: bytes | None = None
     ) -> tuple[int, bytes] | None:
         """Issue a request to the formatter server. Returns (status, body) on any response
         received, or None if the server couldn't be reached at all (not discoverable, refused,
@@ -1380,8 +1369,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         params.append(("path", os.path.abspath(fs_path)))
         target = "/format?" + urllib.parse.urlencode(params)
         result = self._formatter_request(target, "POST", content.encode("utf-8"))
-        if result is None:
-            return None
+        if result is None: return None
         status, data = result
         if status != 200:
             self.log_message(
@@ -1389,6 +1377,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 status, fs_path, data.decode("utf-8", errors="replace"),
             )
             return None
+
         return data.decode("utf-8")
 
     _SETTINGS_BUTTON_HTML = (
@@ -1399,51 +1388,51 @@ class MDRHandler(SimpleHTTPRequestHandler):
     @staticmethod
     def _js_str(s: str) -> str:
         """Escape a string for embedding as a single-quoted JS string literal."""
+
         return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
     def _file_nav_right(self, url_part: str, in_format_mode: bool) -> str:
         """Nav-bar extra buttons for a file-view page: the format-view toggle plus the
         formatter-settings gear. `url_part` is the request path with no query string
         (percent-encoded, as received)."""
-        if in_format_mode:
-            toggle = (
+        if in_format_mode: toggle = (
                 '<a class="theme-toggle format-toggle" title="View original (unformatted)"'
                 f' href="{html.escape(url_part)}"></a>'
             )
-        else:
-            toggle = (
+        else: toggle = (
                 '<button class="theme-toggle format-toggle" title="View formatted"'
                 f' onclick="mdxToggleFormat({self._js_str(url_part)})"></button>'
             )
+
         return f'{toggle} {self._SETTINGS_BUTTON_HTML}'
 
     def _lexer_for_file(self, path: str):
         name = os.path.basename(path)
-        if name in _JXMAKE_FILENAMES or name.endswith(".jxm"):
-            return _JxMakeLexer(stripall=True)
+        if name in _JXMAKE_FILENAMES or name.endswith(".jxm"): return _JxMakeLexer(stripall=True)
         if name in _MAKEFILE_FILENAMES or name.endswith((".mk", ".mak")):
             return _MakefileLexer(stripall=True)
         try:
             lexer = get_lexer_for_filename(name, stripall=True)
         except ClassNotFound:
             return None
+
         return None if isinstance(lexer, TextLexer) else lexer
 
     def _breadcrumb(self, url_path: str) -> str:
-        parts = [p for p in url_path.strip("/").split("/") if p]
+        parts  = [p for p in url_path.strip("/").split("/") if p]
         crumbs = ['<a href="/">~</a>']
         for i, part in enumerate(parts):
             href = "/" + "/".join(urllib.parse.quote(p) for p in parts[: i + 1])
             safe = html.escape(part)
-            if i == len(parts) - 1:
-                crumbs.append(safe)
-            else:
-                crumbs.append(f'<a href="{href}/">{safe}</a>')
+            if i == len(parts) - 1: crumbs.append(safe)
+            else: crumbs.append(f'<a href="{href}/">{safe}</a>')
+
         return "/".join(crumbs)
 
     @staticmethod
     def _nav_bar(crumb_html: str, right_html: str = "") -> str:
         right = (f"{right_html} " if right_html else "") + _TOGGLE_HTML
+
         return (
             f'<nav class="breadcrumb">'
             f'<span>{crumb_html}</span>'
@@ -1458,8 +1447,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
-        if last_modified is not None:
-            self.send_header("Last-Modified",
+        if last_modified is not None: self.send_header("Last-Modified",
                              email.utils.formatdate(last_modified, usegmt=True))
         self.end_headers()
         if self.command != "HEAD":
@@ -1472,14 +1460,13 @@ class MDRHandler(SimpleHTTPRequestHandler):
         "application/xhtml+xml",
     })
 
-    def guess_type(self, path: str) -> str:  # type: ignore[override]
+    def guess_type(self, path: str) -> str:  # Type: ignore[override]
         mime, _ = mimetypes.guess_type(path)
         if mime and (
             mime.startswith("text/")
             or mime.startswith("image/")
             or mime in self._INLINE_MIME
-        ):
-            return mime
+        ): return mime
         try:
             with open(path, "rb") as f:
                 sample = f.read(8192)
@@ -1491,6 +1478,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
                 return "text/plain; charset=utf-8"
             except UnicodeDecodeError:
                 pass
+
         return mime or "application/octet-stream"
 
     def end_headers(self) -> None:
@@ -1502,15 +1490,14 @@ class MDRHandler(SimpleHTTPRequestHandler):
         title = f"{code} {message or 'Error'}"
         try:
             url_path = urllib.parse.unquote(getattr(self, "path", "/").split("?", 1)[0])
-            crumb = self._breadcrumb(url_path)
+            crumb    = self._breadcrumb(url_path)
         except Exception:
             crumb = '<a href="/">~</a>'
         body_parts = [
             self._nav_bar(crumb),
             f"<h1>{html.escape(title)}</h1>",
         ]
-        if explain:
-            body_parts.append(f"<p>{html.escape(explain)}</p>")
+        if explain: body_parts.append(f"<p>{html.escape(explain)}</p>")
         self._send_html(
             _TEMPLATE.format(title=html.escape(title), body="\n".join(body_parts)),
             status=code,
@@ -1577,5 +1564,4 @@ def main() -> None:
         print("\nShutting down.")
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()

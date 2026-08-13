@@ -50,7 +50,7 @@ fi
 
 # ── Absolutize path arguments relative to client's working directory ──────────
 # The server daemon runs in a fixed CWD; convert all relative paths to absolute
-# so the server can locate source files, output dirs, and classpath entries.
+# so the server can locate source files, output dirs, and classpath entries
 
 CLIENT_CWD="$(pwd)"
 
@@ -59,7 +59,7 @@ CLIENT_CWD="$(pwd)"
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
-# Build nc args; macOS nc requires -G for a connection timeout in addition to -w.
+# Build nc args; macOS nc requires -G for a connection timeout in addition to -w
 NC_ARGS=("-w" "30")
 if [[ "$OSTYPE" == "darwin"* ]]; then
     NC_ARGS+=("-G" "1")
@@ -70,7 +70,7 @@ fi
 # Falls back to /dev/tcp when nc is not available.
 if command -v nc >/dev/null 2>&1; then
     { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } \
-        | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
+ | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
 else
     exec 3<>/dev/tcp/localhost/"$PORT"
     { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } >&3
@@ -79,7 +79,7 @@ else
 fi
 
 # awk matches the US-wrapped sentinel lines directly and routes each
-# section to the appropriate temp file.
+# section to the appropriate temp file
 awk '
     # Match and consume sentinel lines (Unit Separator = \037)
     /^\037STDOUT\037$/ { mode="stdout"; next }
@@ -92,7 +92,7 @@ awk '
     mode == "extcod" { print > (wdir "/exitcode"); next }
 ' wdir="$WORK" "$WORK/response"
 
-# Emit stdout to stdout and stderr to stderr, preserving javac's separation.
+# Emit stdout to stdout and stderr to stderr, preserving javac's separation
 cat "$WORK/stdout"  2>/dev/null || true
 cat "$WORK/stderr" >&2 2>/dev/null || true
 

@@ -6,11 +6,15 @@ package com.pcpp.ply;
  * Mirrors PLY's YaccError from yacc.py.
  */
 public class YaccError extends RuntimeException {
-    public YaccError( String message ) {
+
+    public YaccError(String message)
+    {
         super(message);
     }
 
-    public YaccError( String message, Throwable cause ) {
+    public YaccError(String message, Throwable cause)
+    {
         super(message, cause);
     }
+
 } // class YaccError

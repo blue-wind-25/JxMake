@@ -50,7 +50,7 @@ else
 fi
 
 JAVA_BIN="$JDK_BIN/java"
-JAVAC_REAL="$JDK_BIN/javac.real"   # real javac after rename
+JAVAC_REAL="$JDK_BIN/javac.real"   # Real javac after rename
 JAR_DIR="$SCRIPT_DIR"
 JAR="$JAR_DIR/compile-server.jar"
 
@@ -62,41 +62,41 @@ PORT=$(derive_port "$JAVA_BIN")
 
 start_daemon() {
     if [[ ! -f "$JAR" ]]; then
-        echo "ERROR: compile-server.jar not found at $JAR" >&2
-        echo "       Run build-server.sh first." >&2
-        return 1
+    echo "ERROR: compile-server.jar not found at $JAR" >&2
+    echo "       Run build-server.sh first." >&2
+    return 1
     fi
 
     local PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
 
     if [[ -f "$PID_FILE" ]]; then
-        local PID
-        PID=$(cat "$PID_FILE")
-        if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
-            return 0
-        fi
-        rm -f "$PID_FILE"
+    local PID
+    PID=$(cat "$PID_FILE")
+    if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
+    return 0
+    fi
+    rm -f "$PID_FILE"
     fi
 
     if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
-        return 0
+    return 0
     fi
 
     local LOG="${TMPDIR_JVM}/javac-daemon-${PORT}.log"
     nohup "$JAVA_BIN" -Djava.io.tmpdir="$TMPDIR_JVM" -jar "$JAR" "$PORT" \
-        > "$LOG" 2>&1 &
+    > "$LOG" 2>&1 &
     local JAVA_PID=$!
 
     for i in {1..10}; do
-        sleep 0.5
-        if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
-            local PID
-            PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
-            if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
-                echo "$JAVA_PID" > "$PID_FILE"
-            fi
-            return 0
-        fi
+    sleep 0.5
+    if (echo > /dev/tcp/localhost/"$PORT") 2>/dev/null; then
+    local PID
+    PID=$(cat "$PID_FILE" 2>/dev/null || echo "-1")
+    if [[ "$PID" == "-1" ]] || ! [[ "$PID" =~ ^[0-9]+$ ]]; then
+    echo "$JAVA_PID" > "$PID_FILE"
+    fi
+    return 0
+    fi
     done
 
     echo "WARNING: javac daemon failed to start on port $PORT." >&2
@@ -106,14 +106,14 @@ start_daemon() {
 
 # ── Absolutize path arguments relative to client's working directory ──────────
 # The server daemon runs in a fixed CWD; convert all relative paths to absolute
-# so the server can locate source files, output dirs, and classpath entries.
+# so the server can locate source files, output dirs, and classpath entries
 
 CLIENT_CWD="$(pwd)"
 
 # ── Compilation helpers ───────────────────────────────────────────────────────
 
 # WORK dir is created at script scope so the EXIT trap always cleans it up,
-# even when run_via_daemon calls 'exit' directly.
+# even when run_via_daemon calls 'exit' directly
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 
@@ -121,18 +121,18 @@ run_via_daemon() {
     # Dynamically build the arguments for netcat based on the operating system
     local NC_ARGS=("-w" "30")
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        NC_ARGS+=("-G" "1") # Apply macOS-only connection timeout flag safely
+    NC_ARGS+=("-G" "1") # Apply macOS-only connection timeout flag safely
     fi
 
     # Route content via native network descriptors or dynamic netcat flags
     if command -v nc >/dev/null 2>&1; then
-        { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
+    { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } | nc "${NC_ARGS[@]}" localhost "$PORT" > "$WORK/response"
     else
         # Native safe fallback if netcat behaves erratically or isn't installed
-        exec 3<>/dev/tcp/localhost/"$PORT"
-        { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } >&3
-        cat <&3 > "$WORK/response"
-        exec 3>&-
+    exec 3<>/dev/tcp/localhost/"$PORT"
+    { process_javac_args "$@"; printf '\x1FENDINP\x1F\n'; } >&3
+    cat <&3 > "$WORK/response"
+    exec 3>&-
     fi
 
     awk '
@@ -157,10 +157,10 @@ run_via_daemon() {
 
 fallback_to_real() {
     if [[ -x "$JAVAC_REAL" ]]; then
-        exec "$JAVAC_REAL" "$@"
+    exec "$JAVAC_REAL" "$@"
     else
-        echo "ERROR: Daemon unavailable and $JAVAC_REAL not found." >&2
-        exit 1
+    echo "ERROR: Daemon unavailable and $JAVAC_REAL not found." >&2
+    exit 1
     fi
 }
 

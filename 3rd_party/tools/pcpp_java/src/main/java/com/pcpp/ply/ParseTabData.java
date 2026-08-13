@@ -20,18 +20,20 @@ import java.util.Map;
  *   [5] Integer line  - source line (may be null / 0)
  */
 public interface ParseTabData {
-    /** The action table: state → (token → action integer). */
-    Map<Integer, Map<String, Integer> > getAction();
 
-    /** The goto table: state → (non-terminal → next state). */
-    Map<Integer, Map<String, Integer> > getGoto();
+    /** The action table: state → (token → action integer) */
+    Map<Integer, Map<String, Integer>> getAction();
 
-    /** Raw production tuples. */
+    /** The goto table: state → (non-terminal → next state) */
+    Map<Integer, Map<String, Integer>> getGoto();
+
+    /** Raw production tuples */
     List<Object[]> getProductions();
 
-    /** "LALR" or "SLR". */
+    /** "LALR" or "SLR" */
     String getMethod();
 
-    /** Grammar signature used to validate table freshness. */
+    /** Grammar signature used to validate table freshness */
     String getSignature();
+
 } // interface ParseTabData

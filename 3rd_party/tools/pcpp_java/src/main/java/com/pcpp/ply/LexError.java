@@ -6,10 +6,13 @@ package com.pcpp.ply;
  * error handler is defined. Mirrors PLY's LexError from lex.py.
  */
 public class LexError extends RuntimeException {
+
     public final String text;
 
-    public              LexError( String message, String text ) {
+    public LexError(String message, String text)
+    {
         super(message);
         this.text = text;
     }
+
 } // class LexError

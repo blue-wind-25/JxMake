@@ -15,148 +15,31 @@ import java.util.Set;
 
 public class LexTab {
 
-    public static final String      TAB_VERSION = "3.10";
+    public static final String TAB_VERSION = "3.10";
 
     // All token names recognised by the lexer
-    public static final Set<String> LEX_TOKENS  = Collections.unmodifiableSet( new HashSet<>( Arrays.asList(
-        "CPP_AMPERSAND",
-        "CPP_ANDEQUAL",
-        "CPP_BAR",
-        "CPP_BSLASH",
-        "CPP_CHAR",
-        "CPP_COLON",
-        "CPP_COMMA",
-        "CPP_COMMENT1",
-        "CPP_COMMENT2",
-        "CPP_DEREFERENCE",
-        "CPP_DIVIDEEQUAL",
-        "CPP_DOT",
-        "CPP_DPOUND",
-        "CPP_DQUOTE",
-        "CPP_EQUAL",
-        "CPP_EQUALITY",
-        "CPP_EXCLAMATION",
-        "CPP_FLOAT",
-        "CPP_FSLASH",
-        "CPP_GREATER",
-        "CPP_GREATEREQUAL",
-        "CPP_HAT",
-        "CPP_ID",
-        "CPP_INEQUALITY",
-        "CPP_INTEGER",
-        "CPP_LBRACKET",
-        "CPP_LCURLY",
-        "CPP_LESS",
-        "CPP_LESSEQUAL",
-        "CPP_LINECONT",
-        "CPP_LOGICALAND",
-        "CPP_LOGICALOR",
-        "CPP_LPAREN",
-        "CPP_LSHIFT",
-        "CPP_LSHIFTEQUAL",
-        "CPP_MINUS",
-        "CPP_MINUSEQUAL",
-        "CPP_MINUSMINUS",
-        "CPP_MULTIPLYEQUAL",
-        "CPP_OREQUAL",
-        "CPP_PERCENT",
-        "CPP_PERCENTEQUAL",
-        "CPP_PLUS",
-        "CPP_PLUSEQUAL",
-        "CPP_PLUSPLUS",
-        "CPP_POUND",
-        "CPP_QUESTION",
-        "CPP_RBRACKET",
-        "CPP_RCURLY",
-        "CPP_RPAREN",
-        "CPP_RSHIFT",
-        "CPP_RSHIFTEQUAL",
-        "CPP_SEMICOLON",
-        "CPP_SQUOTE",
-        "CPP_STAR",
-        "CPP_STRING",
-        "CPP_TILDE",
-        "CPP_WS",
-        "CPP_XOREQUAL"
-        ) ) );
+    public static final Set<String> LEX_TOKENS = Collections.unmodifiableSet(
+        new HashSet<>( Arrays.asList("CPP_AMPERSAND", "CPP_ANDEQUAL", "CPP_BAR", "CPP_BSLASH", "CPP_CHAR", "CPP_COLON", "CPP_COMMA", "CPP_COMMENT1", "CPP_COMMENT2", "CPP_DEREFERENCE", "CPP_DIVIDEEQUAL", "CPP_DOT", "CPP_DPOUND", "CPP_DQUOTE", "CPP_EQUAL", "CPP_EQUALITY", "CPP_EXCLAMATION", "CPP_FLOAT", "CPP_FSLASH", "CPP_GREATER", "CPP_GREATEREQUAL", "CPP_HAT", "CPP_ID", "CPP_INEQUALITY", "CPP_INTEGER", "CPP_LBRACKET", "CPP_LCURLY", "CPP_LESS", "CPP_LESSEQUAL", "CPP_LINECONT", "CPP_LOGICALAND", "CPP_LOGICALOR", "CPP_LPAREN", "CPP_LSHIFT", "CPP_LSHIFTEQUAL", "CPP_MINUS", "CPP_MINUSEQUAL", "CPP_MINUSMINUS", "CPP_MULTIPLYEQUAL", "CPP_OREQUAL", "CPP_PERCENT", "CPP_PERCENTEQUAL", "CPP_PLUS", "CPP_PLUSEQUAL", "CPP_PLUSPLUS", "CPP_POUND", "CPP_QUESTION", "CPP_RBRACKET", "CPP_RCURLY", "CPP_RPAREN", "CPP_RSHIFT", "CPP_RSHIFTEQUAL", "CPP_SEMICOLON", "CPP_SQUOTE", "CPP_STAR", "CPP_STRING", "CPP_TILDE", "CPP_WS", "CPP_XOREQUAL") )
+    );
 
     /** re.MULTILINE flag value used when the table was generated (64 = re.DOTALL in Python). */
-    public static final int                 LEX_REFLAGS  = 64;
+    public static final int LEX_REFLAGS = 64;
 
-    public static final String              LEX_LITERALS = "+-*/%|&~^<>=!?()[]{}.,;:\\'\"";
+    public static final String LEX_LITERALS = "+-*/%|&~^<>=!?()[]{}.,;:\\'\"";
 
     // Lexer state info: state name -> state type ('inclusive' or 'exclusive')
     public static final Map<String, String> LEX_STATE_INFO;
     static {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put( "INITIAL", "inclusive" );
-        LEX_STATE_INFO = Collections.unmodifiableMap( m );
+        m.put("INITIAL", "inclusive");
+        LEX_STATE_INFO = Collections.unmodifiableMap(m);
     }
 
     /**
      * Combined regular expression pattern for the INITIAL lexer state.
      * Each named group corresponds to a token rule from cpp.py.
      */
-    public static final String LEX_STATE_RE_INITIAL_PATTERN =
-        "(?P<t_CPP_WS>([ \\t]+|\\n))" +
-        "|(?P<t_CPP_LINECONT>\\\\[ \\t]*\\n)" +
-        "|(?P<t_CPP_INTEGER>(((((0x)|(0X))[0-9a-fA-F]+)|(\\d+))([uU][lL]|[lL][uU]|[uU]|[lL])?))" +
-        "|(?P<t_CPP_STRING>\"([^\\\\\\n]|(\\\\(.|\\n)))*?\")" +
-        "|(?P<t_CPP_CHAR>(L)?'([^\\\\\\n]|(\\\\(.|\\n)))*?')" +
-        "|(?P<t_CPP_COMMENT1>(/\\*(.|\\n)*?\\*/))" +
-        "|(?P<t_CPP_COMMENT2>(//[^\\n]*))" +
-        "|(?P<t_CPP_FLOAT>((\\d+)(\\.\\d+)(e(\\+|-)?(\\d+))?|(\\d+)e(\\+|-)?(\\d+))([lL]|[fF])?)" +
-        "|(?P<t_CPP_ID>[A-Za-z_][\\w_]*)" +
-        "|(?P<t_CPP_LOGICALOR>\\|\\|)" +
-        "|(?P<t_CPP_PLUSPLUS>\\+\\+)" +
-        "|(?P<t_CPP_DPOUND>\\#\\#)" +
-        "|(?P<t_CPP_LSHIFTEQUAL><<=)" +
-        "|(?P<t_CPP_OREQUAL>\\|=)" +
-        "|(?P<t_CPP_PLUSEQUAL>\\+=)" +
-        "|(?P<t_CPP_RSHIFTEQUAL>>>=)" +
-        "|(?P<t_CPP_MULTIPLYEQUAL>\\*=)" +
-        "|(?P<t_CPP_BAR>\\|)" +
-        "|(?P<t_CPP_DIVIDEEQUAL>/=)" +
-        "|(?P<t_CPP_POUND>\\#)" +
-        "|(?P<t_CPP_PERCENTEQUAL>%=)" +
-        "|(?P<t_CPP_DEREFERENCE>->)" +
-        "|(?P<t_CPP_RPAREN>\\))" +
-        "|(?P<t_CPP_ANDEQUAL>&=)" +
-        "|(?P<t_CPP_RBRACKET>\\])" +
-        "|(?P<t_CPP_LPAREN>\\()" +
-        "|(?P<t_CPP_RSHIFT>>>)" +
-        "|(?P<t_CPP_LESSEQUAL><=)" +
-        "|(?P<t_CPP_HAT>\\^)" +
-        "|(?P<t_CPP_LOGICALAND>&&)" +
-        "|(?P<t_CPP_EQUALITY>==)" +
-        "|(?P<t_CPP_GREATEREQUAL>>=)" +
-        "|(?P<t_CPP_BSLASH>\\\\)" +
-        "|(?P<t_CPP_MINUSEQUAL>-=)" +
-        "|(?P<t_CPP_DOT>\\.)" +
-        "|(?P<t_CPP_MINUSMINUS>--)" +
-        "|(?P<t_CPP_LBRACKET>\\[)" +
-        "|(?P<t_CPP_PLUS>\\+)" +
-        "|(?P<t_CPP_XOREQUAL>^=)" +
-        "|(?P<t_CPP_STAR>\\*)" +
-        "|(?P<t_CPP_QUESTION>\\?)" +
-        "|(?P<t_CPP_LSHIFT><<)" +
-        "|(?P<t_CPP_INEQUALITY>!=)" +
-        "|(?P<t_CPP_DQUOTE>\")" +
-        "|(?P<t_CPP_MINUS>-)" +
-        "|(?P<t_CPP_RCURLY>})" +
-        "|(?P<t_CPP_GREATER>>)" +
-        "|(?P<t_CPP_LESS><)" +
-        "|(?P<t_CPP_SQUOTE>')" +
-        "|(?P<t_CPP_EXCLAMATION>!)" +
-        "|(?P<t_CPP_LCURLY>{)" +
-        "|(?P<t_CPP_EQUAL>=)" +
-        "|(?P<t_CPP_FSLASH>/)" +
-        "|(?P<t_CPP_COLON>:)" +
-        "|(?P<t_CPP_AMPERSAND>&)" +
-        "|(?P<t_CPP_COMMA>,)" +
-        "|(?P<t_CPP_TILDE>~)" +
-        "|(?P<t_CPP_SEMICOLON>;)" +
-        "|(?P<t_CPP_PERCENT>%)";
+    public static final String LEX_STATE_RE_INITIAL_PATTERN = "(?P<t_CPP_WS>([ \\t]+|\\n))" + "|(?P<t_CPP_LINECONT>\\\\[ \\t]*\\n)" + "|(?P<t_CPP_INTEGER>(((((0x)|(0X))[0-9a-fA-F]+)|(\\d+))([uU][lL]|[lL][uU]|[uU]|[lL])?))" + "|(?P<t_CPP_STRING>\"([^\\\\\\n]|(\\\\(.|\\n)))*?\")" + "|(?P<t_CPP_CHAR>(L)?'([^\\\\\\n]|(\\\\(.|\\n)))*?')" + "|(?P<t_CPP_COMMENT1>(/\\*(.|\\n)*?\\*/))" + "|(?P<t_CPP_COMMENT2>(//[^\\n]*))" + "|(?P<t_CPP_FLOAT>((\\d+)(\\.\\d+)(e(\\+|-)?(\\d+))?|(\\d+)e(\\+|-)?(\\d+))([lL]|[fF])?)" + "|(?P<t_CPP_ID>[A-Za-z_][\\w_]*)" + "|(?P<t_CPP_LOGICALOR>\\|\\|)" + "|(?P<t_CPP_PLUSPLUS>\\+\\+)" + "|(?P<t_CPP_DPOUND>\\#\\#)" + "|(?P<t_CPP_LSHIFTEQUAL><<=)" + "|(?P<t_CPP_OREQUAL>\\|=)" + "|(?P<t_CPP_PLUSEQUAL>\\+=)" + "|(?P<t_CPP_RSHIFTEQUAL>>>=)" + "|(?P<t_CPP_MULTIPLYEQUAL>\\*=)" + "|(?P<t_CPP_BAR>\\|)" + "|(?P<t_CPP_DIVIDEEQUAL>/=)" + "|(?P<t_CPP_POUND>\\#)" + "|(?P<t_CPP_PERCENTEQUAL>%=)" + "|(?P<t_CPP_DEREFERENCE>->)" + "|(?P<t_CPP_RPAREN>\\))" + "|(?P<t_CPP_ANDEQUAL>&=)" + "|(?P<t_CPP_RBRACKET>\\])" + "|(?P<t_CPP_LPAREN>\\()" + "|(?P<t_CPP_RSHIFT>>>)" + "|(?P<t_CPP_LESSEQUAL><=)" + "|(?P<t_CPP_HAT>\\^)" + "|(?P<t_CPP_LOGICALAND>&&)" + "|(?P<t_CPP_EQUALITY>==)" + "|(?P<t_CPP_GREATEREQUAL>>=)" + "|(?P<t_CPP_BSLASH>\\\\)" + "|(?P<t_CPP_MINUSEQUAL>-=)" + "|(?P<t_CPP_DOT>\\.)" + "|(?P<t_CPP_MINUSMINUS>--)" + "|(?P<t_CPP_LBRACKET>\\[)" + "|(?P<t_CPP_PLUS>\\+)" + "|(?P<t_CPP_XOREQUAL>^=)" + "|(?P<t_CPP_STAR>\\*)" + "|(?P<t_CPP_QUESTION>\\?)" + "|(?P<t_CPP_LSHIFT><<)" + "|(?P<t_CPP_INEQUALITY>!=)" + "|(?P<t_CPP_DQUOTE>\")" + "|(?P<t_CPP_MINUS>-)" + "|(?P<t_CPP_RCURLY>})" + "|(?P<t_CPP_GREATER>>)" + "|(?P<t_CPP_LESS><)" + "|(?P<t_CPP_SQUOTE>')" + "|(?P<t_CPP_EXCLAMATION>!)" + "|(?P<t_CPP_LCURLY>{)" + "|(?P<t_CPP_EQUAL>=)" + "|(?P<t_CPP_FSLASH>/)" + "|(?P<t_CPP_COLON>:)" + "|(?P<t_CPP_AMPERSAND>&)" + "|(?P<t_CPP_COMMA>,)" + "|(?P<t_CPP_TILDE>~)" + "|(?P<t_CPP_SEMICOLON>;)" + "|(?P<t_CPP_PERCENT>%)";
 
     /**
      * Group-function mapping for the INITIAL state pattern.
@@ -164,7 +47,7 @@ public class LexTab {
      * This mirrors the Python list of (func, type) tuples associated with the compiled regex.
      */
     public static final String[][]          LEX_STATE_RE_INITIAL_FUNCS = {
-        null, // group 0: full match (unused)
+        null, // Group 0: full match (unused)
         {
             "t_CPP_WS", "CPP_WS"
         },
@@ -355,18 +238,19 @@ public class LexTab {
     public static final Map<String, String> LEX_STATE_IGNORE;
     static {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put( "INITIAL", "" );
-        LEX_STATE_IGNORE = Collections.unmodifiableMap( m );
+        m.put("INITIAL", "");
+        LEX_STATE_IGNORE = Collections.unmodifiableMap(m);
     }
 
     // Error function names per state
     public static final Map<String, String> LEX_STATE_ERRORF;
     static {
         Map<String, String> m = new LinkedHashMap<>();
-        m.put( "INITIAL", "t_error" );
-        LEX_STATE_ERRORF = Collections.unmodifiableMap( m );
+        m.put("INITIAL", "t_error");
+        LEX_STATE_ERRORF = Collections.unmodifiableMap(m);
     }
 
     // End-of-file function names per state (empty map = no eof handlers)
     public static final Map<String, String> LEX_STATE_EOFF = Collections.emptyMap();
+
 } // class LexTab

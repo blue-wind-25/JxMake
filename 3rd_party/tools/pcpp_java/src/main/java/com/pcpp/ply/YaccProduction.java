@@ -20,6 +20,7 @@ import java.util.List;
  *   - The underlying slice and stack contain {@link YaccSymbol} entries.
  */
 public class YaccProduction {
+
     /**
      * The production slice: slice.get(0) is the LHS symbol (value written by action),
      * slice.get(1..n) are the matched RHS symbols.
@@ -34,18 +35,18 @@ public class YaccProduction {
     List<YaccSymbol> stack;
 
     /** The lexer that drove the parse (may be null). Set by LRParser. */
-    public Object    lexer;
+    public Object lexer;
 
     /** Back-reference to the LRParser instance. Set by LRParser. */
-    public LRParser  parser;
+    public LRParser parser;
 
-    /** Construct with an empty slice; slice/stack set later by the parser. */
-    public YaccProduction( List<YaccSymbol> slice )
+    /** Construct with an empty slice; slice/stack set later by the parser */
+    public YaccProduction(List<YaccSymbol> slice)
     {
         this.slice = slice;
     }
 
-    public YaccProduction( List<YaccSymbol> slice, List<YaccSymbol> stack )
+    public YaccProduction(List<YaccSymbol> slice, List<YaccSymbol> stack)
     {
         this.slice = slice;
         this.stack = stack;
@@ -64,14 +65,14 @@ public class YaccProduction {
      *   <li>n < 0   → look into the symbol stack (Python negative indexing)</li>
      * </ul>
      */
-    public Object get( int n )
+    public Object get(int n)
     {
-        if( n >= 0 ) {
-            return slice.get( n ).value;
+        if(n >= 0) {
+            return slice.get(n).value;
         }
         else {
             int idx = stack.size() + n;
-            return stack.get( idx ).value;
+            return stack.get(idx).value;
         }
     }
 
@@ -79,31 +80,32 @@ public class YaccProduction {
      * Set the value of the nth symbol in the production.
      * Typically only n == 0 is used (to set the result).
      */
-    public void set( int n, Object value )
+    public void set(int n, Object value)
     {
-        slice.get( n ).value = value;
+        slice.get(n).value = value;
     }
 
     // -------------------------------------------------------------------------
     // Convenience helpers
     // -------------------------------------------------------------------------
 
-    /** Convenience: set the result (p[0]). */
-    public void setResult( Object value )
+    /** Convenience: set the result (p[0]) */
+    public void setResult(Object value)
     {
-        slice.get( 0 ).value = value;
+        slice.get(0).value = value;
     }
 
-    /** Convenience: get the result (p[0]). */
+    /** Convenience: get the result (p[0]) */
     public Object getResult()
     {
-        return slice.get( 0 ).value;
+        return slice.get(0).value;
     }
 
-    /** Return the token at position index as a {@link LexToken} (null if not a token). */
-    public LexToken getToken( int index )
+    /** Return the token at position index as a {@link LexToken} (null if not a token) */
+    public LexToken getToken(int index)
     {
-        Object v = get( index );
+        Object v = get(index);
+
         return v instanceof LexToken ? (LexToken) v : null;
     }
 
@@ -120,11 +122,12 @@ public class YaccProduction {
      * Get a sublist of values for the slice indices i (inclusive) .. j (exclusive).
      * Mirrors Python p[i:j].
      */
-    public List<Object> getSlice( int i, int j )
+    public List<Object> getSlice(int i, int j)
     {
         List<Object> result = new ArrayList<>();
         int          end    = Math.min( j, slice.size() );
-        for( int k = i; k < end; k++ ) result.add( slice.get( k ).value );
+        for(int k = i; k < end; ++k) result.add( slice.get(k).value );
+
         return result;
     }
 
@@ -136,9 +139,10 @@ public class YaccProduction {
      * Return the line number of the nth symbol (0 if not set).
      * Mirrors Python p.lineno(n).
      */
-    public int lineno( int n )
+    public int lineno(int n)
     {
-        YaccSymbol s = slice.get( n );
+        YaccSymbol s = slice.get(n);
+
         return s.hasLineno ? s.lineno : 0;
     }
 
@@ -146,9 +150,9 @@ public class YaccProduction {
      * Set the line number of the nth symbol.
      * Mirrors Python p.set_lineno(n, lineno).
      */
-    public void setLineno( int n, int lineno )
+    public void setLineno(int n, int lineno)
     {
-        YaccSymbol s = slice.get( n );
+        YaccSymbol s = slice.get(n);
         s.lineno    = lineno;
         s.hasLineno = true;
     }
@@ -157,11 +161,12 @@ public class YaccProduction {
      * Return the (startLine, endLine) span for the nth symbol.
      * Mirrors Python p.linespan(n).
      */
-    public int[] linespan( int n )
+    public int[] linespan(int n)
     {
-        YaccSymbol s         = slice.get( n );
+        YaccSymbol s         = slice.get(n);
         int        startLine = s.hasLineno ? s.lineno : 0;
         int        endLine   = s.hasLineno ? s.endlineno : startLine;
+
         return new int[] {
                    startLine, endLine
         };
@@ -171,9 +176,10 @@ public class YaccProduction {
      * Return the lex position of the nth symbol (0 if not set).
      * Mirrors Python p.lexpos(n).
      */
-    public int lexpos( int n )
+    public int lexpos(int n)
     {
-        YaccSymbol s = slice.get( n );
+        YaccSymbol s = slice.get(n);
+
         return s.hasLexpos ? s.lexpos : 0;
     }
 
@@ -181,9 +187,9 @@ public class YaccProduction {
      * Set the lex position of the nth symbol.
      * Mirrors Python p.set_lexpos(n, lexpos).
      */
-    public void setLexpos( int n, int lexpos )
+    public void setLexpos(int n, int lexpos)
     {
-        YaccSymbol s = slice.get( n );
+        YaccSymbol s = slice.get(n);
         s.lexpos    = lexpos;
         s.hasLexpos = true;
     }
@@ -192,11 +198,12 @@ public class YaccProduction {
      * Return the (startLexpos, endLexpos) span for the nth symbol.
      * Mirrors Python p.lexspan(n).
      */
-    public int[] lexspan( int n )
+    public int[] lexspan(int n)
     {
-        YaccSymbol s        = slice.get( n );
+        YaccSymbol s        = slice.get(n);
         int        startPos = s.hasLexpos ? s.lexpos : 0;
         int        endPos   = s.hasLexpos ? s.endlexpos : startPos;
+
         return new int[] {
                    startPos, endPos
         };
@@ -221,23 +228,28 @@ public class YaccProduction {
      * Caught by the LRParser parse loop (mirrors Python's SyntaxError).
      */
     static class ParseSyntaxError extends RuntimeException {
-        ParseSyntaxError() {
+
+        ParseSyntaxError()
+        {
             // Suppress stack trace for performance — this is a control-flow exception.
             super(null, null, true, false);
         }
+
     } // class ParseSyntaxError
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder( "[" );
-        if( slice != null ) {
-            for( int i = 0; i < slice.size(); i++ ) {
-                if( i > 0 ) sb.append( ", " );
-                sb.append( slice.get( i ).value );
+        StringBuilder sb = new StringBuilder("[");
+        if(slice != null) {
+            for( int i = 0; i < slice.size(); ++i ) {
+                if(i > 0) sb.append(", ");
+                sb.append( slice.get(i).value );
             }
         }
-        sb.append( "]" );
+        sb.append("]");
+
         return sb.toString();
     }
+
 } // class YaccProduction

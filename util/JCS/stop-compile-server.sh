@@ -23,33 +23,33 @@ stop_one() {
     local PID_FILE="${TMPDIR_JVM}/javac-daemon-${PORT}.pid"
 
     if [[ ! -f "$PID_FILE" ]]; then
-        echo "No PID file found for port $PORT ($PID_FILE). Daemon may not be running."
-        return 1
+    echo "No PID file found for port $PORT ($PID_FILE). Daemon may not be running."
+    return 1
     fi
 
     local PID
     PID=$(cat "$PID_FILE")
 
     if ! [[ "$PID" =~ ^[0-9]+$ ]]; then
-        echo "Invalid PID '$PID' in $PID_FILE for port $PORT. Removing stale PID file."
-        rm -f "$PID_FILE"
-        return 1
+    echo "Invalid PID '$PID' in $PID_FILE for port $PORT. Removing stale PID file."
+    rm -f "$PID_FILE"
+    return 1
     fi
 
     if kill -0 "$PID" 2>/dev/null; then
-        echo "Stopping javac daemon on port $PORT (PID $PID)..."
-        kill "$PID"
-        for i in {1..6}; do
-            sleep 0.5
-            kill -0 "$PID" 2>/dev/null || { echo "Stopped."; return 0; }
-        done
-        echo "Daemon did not exit cleanly, sending SIGKILL..."
-        kill -9 "$PID" 2>/dev/null || true
-        rm -f "$PID_FILE"
-        echo "Killed."
+    echo "Stopping javac daemon on port $PORT (PID $PID)..."
+    kill "$PID"
+    for i in {1..6}; do
+    sleep 0.5
+    kill -0 "$PID" 2>/dev/null || { echo "Stopped."; return 0; }
+    done
+    echo "Daemon did not exit cleanly, sending SIGKILL..."
+    kill -9 "$PID" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    echo "Killed."
     else
-        echo "Daemon for port $PORT (PID $PID) is not running. Cleaning up stale PID file."
-        rm -f "$PID_FILE"
+    echo "Daemon for port $PORT (PID $PID) is not running. Cleaning up stale PID file."
+    rm -f "$PID_FILE"
     fi
 }
 

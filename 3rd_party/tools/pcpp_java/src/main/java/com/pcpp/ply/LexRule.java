@@ -18,9 +18,10 @@ package com.pcpp.ply;
  * Both are derived automatically by {@link LexerSpec} helpers.
  */
 public class LexRule {
+
     /** Symbolic rule name, e.g. {@code "t_ID"} or {@code "t_INITIAL_error"}. */
     public final String name;
-    /** Regex pattern string. */
+    /** Regex pattern string */
     public final String pattern;
     /**
      * Optional callback. {@code null} for simple string rules.
@@ -41,7 +42,7 @@ public class LexRule {
      * @param pattern  regex pattern
      * @param callback function invoked on match
      */
-    public LexRule( String name, String pattern, TokenCallback callback )
+    public LexRule(String name, String pattern, TokenCallback callback)
     {
         this.name     = name;
         this.pattern  = pattern;
@@ -56,7 +57,7 @@ public class LexRule {
      * @param pattern regex pattern
      * @param ignore  if {@code true} matched text is discarded silently
      */
-    public LexRule( String name, String pattern, boolean ignore )
+    public LexRule(String name, String pattern, boolean ignore)
     {
         this.name     = name;
         this.pattern  = pattern;
@@ -70,12 +71,12 @@ public class LexRule {
      * @param name    symbolic name
      * @param pattern regex pattern
      */
-    public LexRule( String name, String pattern )
+    public LexRule(String name, String pattern)
     {
         this(name, pattern, false);
     }
 
-    /** Returns {@code true} if this is a function rule (has a callback). */
+    /** Returns {@code true} if this is a function rule (has a callback) */
     public boolean isFunction()
     {
         return callback != null;
@@ -86,4 +87,5 @@ public class LexRule {
     {
         return "LexRule{name='" + name + "', pattern='" + pattern + "'}";
     }
+
 } // class LexRule

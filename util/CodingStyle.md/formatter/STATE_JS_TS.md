@@ -1855,6 +1855,31 @@ active in the Makefile and passing.
   genuine pre-existing source-level issue outside this formatter's scope,
   not a checker gap).
 
+  **2026-08-14 implementation session — `js_ts_syntax_check.sh` legacy
+  `export X from 'Y'` re-export support (checker tooling, not formatter
+  source) (LANDED).** Follow-on: `reactstrap/reactstrap`'s `src/index.js`
+  (the sole remaining accepted failure from the reactstrap row above) uses
+  `export Foo from './Bar';` — a bare-default-re-export shorthand from the
+  never-standardized Babel-only `@babel/plugin-proposal-export-default-from`
+  proposal — for every one of its ~100 re-exports. `ts.createSourceFile`
+  has no grammar support for this form under any `ScriptKind` (only the
+  standard `export { default as Foo } from './Bar';` and `export * from
+  './Bar';` forms parse), so it isn't fixable by a `ScriptKind` change the
+  way the `.tsx`/`.jsx` gap was. **Fixed** by having the checker rewrite
+  each matching line (`/^(\s*)export\s+([A-Za-z_$][\w$]*)\s+from(\s+
+  ['"][^'"]+['"]\s*;?\s*)$/`) to the standard-equivalent `export { default
+  as Foo } from './Bar';` before parsing — a checker-only, line-preserving
+  rewrite (keeps diagnostic line numbers aligned for any other issue on the
+  same file) that never touches formatter output. Verified: `index.js` now
+  exits 0; a real syntax error (`const x = ;`) is still caught (exit 1,
+  unaffected by the rewrite since it doesn't match the pattern); full
+  197-file reactstrap `src/` sweep (incl. subdirectories) now 0/197
+  failures. `make test`: 312/312 forward + idempotency, unaffected
+  (tooling-only, no formatter source touched, no fixture needed). This was
+  the last remaining accepted checker-tool gap across all 6 corpora in
+  Step 2 Increment 5 — every corpus is now either fully syntax-clean or has
+  zero remaining known checker limitations.
+
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,
   no code, no fixtures, no RDD_LOG key).** Follows on from the

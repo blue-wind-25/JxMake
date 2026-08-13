@@ -45,9 +45,29 @@ function scriptKindFor(file)
   return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }
 
+// `export Foo from './Bar';` (bare default re-export, no `{ }`/`*`) is a real,
+// still-in-use Babel-only syntax (`@babel/plugin-proposal-export-default-from`,
+// never standardized into ECMAScript or TypeScript) that `ts.createSourceFile`
+// cannot parse under any ScriptKind -- found via STATE_JS_TS.md's Step 2
+// Increment 5 real-corpus dogfood: reactstrap/reactstrap's `src/index.js` uses
+// this form for every one of its ~100 re-exports, and fails identically on the
+// original, unformatted file (not a formatter bug). Rewritten line-for-line to
+// the standard-equivalent `export { default as Foo } from './Bar';` before
+// parsing so line numbers stay aligned for any other diagnostic on the same
+// file; this is a checker-only rewrite; it never touches formatter output.
+const LEGACY_EXPORT_DEFAULT_FROM = /^(\s*)export\s+([A-Za-z_$][\w$]*)\s+from(\s+['"][^'"]+['"]\s*;?\s*)$/;
+
+function rewriteLegacyExportDefaultFrom(source)
+{
+  return source
+    .split('\n')
+    .map(line => line.replace(LEGACY_EXPORT_DEFAULT_FROM, '$1export { default as $2 } from$3'))
+    .join('\n');
+} // rewriteLegacyExportDefaultFrom
+
 function checkFile(fileName)
 {
-    const source = fs.readFileSync(fileName, 'utf8');
+    const source = rewriteLegacyExportDefaultFrom(fs.readFileSync(fileName, 'utf8'));
 
   const sf = ts.createSourceFile(
     fileName,

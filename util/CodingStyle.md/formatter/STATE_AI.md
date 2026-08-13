@@ -102,8 +102,8 @@ function as a keyword or as prose here; is this trailing dot a sentence-ender
 or part of a token) that a small **purpose-trained** classifier (the GRU's
 ~500k-parameter footprint) can plausibly handle, unlike a small
 instruction-tuned LLM (confirmed NOT FEASIBLE, see below). Builds on the
-already-implemented rule-based
-comment-grammar classifier (Task H in `STATE.md`, `RDD_KEY_94`–98):
+already-implemented rule-based comment-grammar classifier (Task H in
+`STATE.md`, `RDD_KEY_94`–98):
 `CommentFeatureExtractor`/`CommentFeatureVector`, `NonLatinScriptGate`,
 `KeywordAmbiguityGate`, `CommentClassifier`/`CommentClassifierWeights`
 (`YES`/`NO`/`ABSTAIN`), gated behind `comment-normalization-classifier`
@@ -869,7 +869,7 @@ now `on` by default alongside `comment-normalization-classifier` (on since
 2026-07-30). Weights = user-retrained file above (98.7%/474 rows).
 
 **REVERTED same day — 98.7% was training-fit, not held-out; corrected via
-5-round CV.** 7 misses on 474-row on-training eval: no single fixable
+5-round CV.** 7 misses on 474-row on-training eval, no single fixable
 mechanical shape (all 6 wrong-decisions `NO`→`YES`; 4/7 clustered on Kotlin
 `this`/`object`/`is` meta-keyword-discussion sentences — genuine semantic
 ambiguity, not gate-able). Ran `tools/gru/cross_validate.py` (5 rounds,
@@ -1332,19 +1332,19 @@ tools/gru/cross_validate.py` clean after the fix.
 result investigated; out-of-distribution GRU check added and run.** User's
 2026-08-11 `make gru-cv-corpus` run (`Zcv_corpus.zip`, seed 1000-1004, full
 `tools/gru/sample_default.txt` — 119641 lines, train=95712/test=23929 per
-round) reported `mean=0.9933 stdev=0.0008 min=0.9920 max=0.9939` — inspected
-`gru_cv_corpus.out` directly. **Diagnosis: same training-fit-vs-held-out
-shape as the 2026-08-02 98.7%-vs-86.3% gap, not a new bug.** This CV run
-splits `sample_default.txt` itself, which is overwhelmingly the
-`GenerateSampleDefault.java` auto-labeled majority (easy, mechanically-
-labeled-by-the-rules-already YES/NO), not the 594-row hand-labeled hard-case
-set — per-round confusion matrices confirm the skew directly
-(`tn+fn` ~600-700 vs `tp+fp` ~23000 per round). The genuinely-hard,
-hand-labeled-only CV (474/522-row sets, 2026-08-02/2026-08-02-later) is the
-number that actually bounds real generalization (86.3% mean at the time);
-this run measures something different (near-in-distribution accuracy on a
-corpus dominated by already-easy examples) and was never intended as a
-substitute for it — 99.33% is real but not informative about hard cases.
+round) reported `mean=0.9933 stdev=0.0008 min=0.9920 max=0.9939`
+(`gru_cv_corpus.out`, inspected directly). **Diagnosis: same
+training-fit-vs-held-out shape as the 2026-08-02 98.7%-vs-86.3% gap, not a
+new bug.** This CV run splits `sample_default.txt` itself, overwhelmingly
+the `GenerateSampleDefault.java` auto-labeled majority (easy, already
+rule-labeled YES/NO), not the 594-row hand-labeled hard-case set —
+per-round confusion matrices confirm the skew directly (`tn+fn` ~600-700 vs
+`tp+fp` ~23000 per round). The genuinely-hard, hand-labeled-only CV
+(474/522-row sets, 2026-08-02/2026-08-02-later) is the number that actually
+bounds real generalization (86.3% mean at the time); this run instead
+measures near-in-distribution accuracy on a corpus dominated by
+already-easy examples, never a substitute for it — 99.33% is real but not
+informative about hard cases.
 
 **New out-of-distribution check, no ground truth needed.** Built two new
 permanent tools (`tools/gru/FilterAbstain.java`,
@@ -1352,16 +1352,15 @@ permanent tools (`tools/gru/FilterAbstain.java`,
 `gru-filter-abstain`/`gru-real-corpus-tally`) to sanity-check the shipped
 weights against a real, unrelated codebase without hand-labeling: extract
 comments from `../../../../Shadow/Pt/*.{h,hpp,tpp,c,cpp}` (external repo,
-687 candidate files, `extract_comments.py` → 188709 raw comments),
-`FilterAbstain` down to the 4461 the rule-based `CommentClassifier` itself
-ABSTAINs on (the only lines the GRU stage ever reaches in production — a
-raw random sample is mostly non-ambiguous lines the GRU never sees, so
-sampling *before* this filter under-exercises the GRU the same way the
-full-corpus CV above does), then a fixed-seed 200-line sample (user's
-explicit hard cap) fed through `GruRealCorpusTally` at
-`abstainThreshold` = 0.5 / 0.68 / 0.70 / 0.72 / 0.76 / 0.90 (shared forward-
-pass probabilities per line, one pass per threshold, same technique as
-`GruEval`'s sweep):
+687 candidate files, `extract_comments.py` → 188709 raw comments), filter
+down to the 4461 the rule-based `CommentClassifier` itself ABSTAINs on (the
+only lines the GRU stage ever reaches in production — a raw random sample
+is mostly non-ambiguous lines the GRU never sees, so sampling *before* this
+filter under-exercises the GRU the same way the full-corpus CV above does),
+then feed a fixed-seed 200-line sample (user's explicit hard cap) through
+`GruRealCorpusTally` at `abstainThreshold` = 0.5 / 0.68 / 0.70 / 0.72 /
+0.76 / 0.90 (shared forward-pass probabilities per line, one pass per
+threshold, same technique as `GruEval`'s sweep):
 
 ```
 threshold=0.50  GRU-YES=183 GRU-NO=17 GRU-ABSTAIN=0   gru-decide-rate=100.0%
@@ -1372,15 +1371,15 @@ threshold=0.76  GRU-YES=180 GRU-NO=13 GRU-ABSTAIN=7   gru-decide-rate=96.5%
 threshold=0.90  GRU-YES=166 GRU-NO=7  GRU-ABSTAIN=27  gru-decide-rate=86.5%
 ```
 
-**Reading:** on genuinely out-of-distribution text, all of 0.68/0.72/0.76
+**Reading:** on genuinely out-of-distribution text, 0.68/0.72/0.76 all
 behave almost identically to the shipped 0.7 (96.5-97.0% decide-rate,
 ~13x YES:NO skew) — none of the three requested points meaningfully changes
-behavior versus the current default; the classifier is still resolving
-nearly everything confidently even on unseen code, and only 0.90 (well
-outside the requested range) meaningfully raises the abstain rate (13.5%).
-15-line manual spot-check of the sampled rule-ABSTAIN lines: most are
-genuine fluent English keyword-led sentences (`"do current buffer contents
-need written?"`, `"else RGB order"`, `"if no instance is selected yet"`) —
+behavior versus the current default; the classifier still resolves nearly
+everything confidently even on unseen code, and only 0.90 (well outside the
+requested range) meaningfully raises the abstain rate (13.5%). 15-line
+manual spot-check of the sampled rule-ABSTAIN lines: most are genuine
+fluent English keyword-led sentences (`"do current buffer contents need
+written?"`, `"else RGB order"`, `"if no instance is selected yet"`) —
 plausible-looking YES calls, not obvious garbage/majority-class collapse —
 but one sampled line was a multi-line commented-out code block
 (`BIO_set_cipher_ctx`) that should mechanically be NO; not checked whether
@@ -1391,12 +1390,12 @@ truly unseen text," not "is it correct." **Disposition: 0.68/0.72/0.76 do
 not look more realistic than 0.70 by this measure — no threshold change
 made.** `abstainThreshold` stays `0.7` in
 `code-formatter-ai-assist-weights.json`; no weights/trainer/tools code
-changed. If a genuine precision check against Shadow/Pt-class text is wanted
-later, hand-labeling a Pool-A-shaped subset (see `add_target_index.py`) of
+changed. A genuine precision check against Shadow/Pt-class text would need
+hand-labeling a Pool-A-shaped subset (see `add_target_index.py`) of
 `FilterAbstain`'s output and running it through `GruEval` (not
-`GruRealCorpusTally`, which is decisiveness-only) is the next step — not
-done this session (out of scope; user said "we decide more as needed" after
-just these 3 threshold points).
+`GruRealCorpusTally`, which is decisiveness-only) — not done this session
+(out of scope; user said "we decide more as needed" after just these 3
+threshold points).
 
 `make jar` + `make test`: **286/286 forward, 286/286 idempotency** — clean
 (new tools live under `tools/gru/`, outside `src/`, don't affect the shipped
@@ -1407,10 +1406,10 @@ repo root.
 
 **Follow-up (same day) — ran the 3 threshold candidates against genuinely
 held-out data, then adopted `abstainThreshold = 0.76`.** Two further checks
-before deciding, both against real held-out/unlabeled data (not the 594-row
-bench, which is training-fit — reran it anyway as a sanity check: 100%
-precision at all four thresholds tested, confirming it can't discriminate
-between them, as expected):
+before deciding, both against real held-out/unlabeled data — not the
+594-row bench, which is training-fit (reran it anyway as a sanity check:
+100% precision at all four thresholds, confirming, as expected, that it
+can't discriminate between them):
 
 1. **Per-CV-round held-out sweep.** Ran `GruEval` at 0.68/0.70/0.72/0.76
    against each of `Zcv_corpus.zip`'s 5 rounds' own `test_round{N}.txt`,
@@ -1441,12 +1440,12 @@ weights (e.g. `weights_round3.json`, which had the lowest FP count at
 Rejected on two grounds: (1) round-to-round differences are noise at this
 scale (the CV's own `stdev=0.0008` on precision says so directly; round3
 has the fewest FPs at 0.76 but not the fewest FNs — a different column
-picks a different "best" round), and (2) each round is trained on only
-95712 of 119641 rows (80%, since 20% is deliberately held out for that
-round's own test) — strictly less data than a full-corpus retrain for no
-benefit. CV's job (estimating generalization, validating a threshold
-choice) was already done; shipping a fold's intermediate weights would
-throw away data and chase noise.
+picks a different "best" round), and (2) each round trains on only 95712
+of 119641 rows (80%, since 20% is deliberately held out for that round's
+own test) — strictly less data than a full-corpus retrain for no benefit.
+CV's job (estimating generalization, validating a threshold choice) was
+already done; shipping a fold's intermediate weights would throw away data
+and chase noise.
 
 **Decision: keep the full-corpus-trained weights, raise `abstainThreshold`
 0.7 → 0.76 only** (same "pure inference-time metadata, no retrain needed"

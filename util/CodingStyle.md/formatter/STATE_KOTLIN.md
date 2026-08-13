@@ -519,7 +519,7 @@ fixtures).
 **2026-08-10: first full-corpus-scale run (JetBrains/kotlin, ~16000 files,
 `/tmp/jb_kotlin_kt_new/kotlin-master` vs. round1 output
 `/tmp/kt_r1_content`) found an 85% false-flag rate in the first 500 files —
-by-hand investigation showed every difference sampled was a legitimate,
+by-hand investigation showed every sampled difference was a legitimate,
 already-documented formatter transformation, not content loss. Four
 tolerance gaps found and fixed in `kotlin_content_diff.java`:**
 
@@ -529,28 +529,27 @@ tolerance gaps found and fixed in `kotlin_content_diff.java`:**
    which physical line a `{`/`}` sits on, so a pure Allman-only
    transformation (verified with a synthetic `fun bar(): Int\n{ ... }` vs.
    the K&R original) already round-trips clean with zero code change. The
-   original 500-file sample's Allman-tagged false flags were actually
-   gap 2 (braceless-collapse) and/or gap 3 (closing comments) co-occurring
-   in the same class/function — misattributed during the initial by-hand
-   triage, not a distinct bug of their own. No fix needed or made for this
-   item.
+   original 500-file sample's Allman-tagged false flags were actually gap 2
+   (braceless-collapse) and/or gap 3 (closing comments) co-occurring in the
+   same class/function, misattributed during the initial by-hand triage —
+   no fix needed or made.
 2. **Single-statement control-block brace omission (STYLE_KOTLIN.md §10,
    mirrors STYLE.md's general rule and js_ts_content_diff.js's existing
    Block-with-one-statement tolerance) — FIXED.** `collectLeafText`'s
    ASTNode walk now special-cases a `KtBlockExpression` whose PSI parent is
-   `KtContainerNodeForControlStructureBody` (confirmed empirically: this one
-   parent type covers `for`/`while`/`do`/`if`/`else` bodies alike, no need
-   to enumerate keywords) and whose body is exactly one statement — its
-   `LBRACE`/`RBRACE` leaf tokens are skipped, the statement is walked
-   directly. A block with 0 or 2+ statements is untouched (still walked with
-   braces), so a genuinely dropped/added statement inside a
-   braceless-collapsed body is still caught by the ordinary per-leaf
-   comparison — verified via negative control (a `for` loop with 2
-   statements collapsed down to 1 correctly still reports
-   `top-level declaration #0 structure/content differs`).
+   `KtContainerNodeForControlStructureBody` (this one parent type covers
+   `for`/`while`/`do`/`if`/`else` bodies alike, no need to enumerate
+   keywords) and whose body is exactly one statement: its `LBRACE`/`RBRACE`
+   leaf tokens are skipped, the statement walked directly. A block with 0
+   or 2+ statements is untouched (still walked with braces), so a
+   genuinely dropped/added statement inside a braceless-collapsed body is
+   still caught by the ordinary per-leaf comparison — verified via
+   negative control (a `for` loop with 2 statements collapsed to 1
+   correctly still reports `top-level declaration #0 structure/content
+   differs`).
 3. **Closing-comment addition for `class`/`object`/`companion object`/`init`
-   bodies (STYLE_KOTLIN.md §3.1/§3.4) — FIXED**, widened past the Promise.kt
-   repro to a real observed formatter quirk. New
+   bodies (STYLE_KOTLIN.md §3.1/§3.4) — FIXED**, widened past the
+   `Promise.kt` repro to a real observed formatter quirk. New
    `namedConstructClosingComments(KtFile)` walks the ORIGINAL file's
    `KtClassOrObject`/`KtClassInitializer` declarations, building a
    per-declaration group of acceptable closing-comment texts consumed
@@ -564,8 +563,8 @@ tolerance gaps found and fixed in `kotlin_content_diff.java`:**
    `// class GeneratedSuites` (wrong keyword), while a supertyped
    `object Default : X {}` / `object BuilderContext : Y {}` got bare
    `// Default` / `// BuilderContext` (keyword omitted) — a pre-existing
-   quirk in the formatter's own `object` classifier (not touched here, out
-   of scope). Widened the `object` variant group to accept all four
+   quirk in the formatter's own `object` classifier, out of scope, not
+   touched here. Widened the `object` variant group to accept all four
    observed shapes (`object <name>`, `class <name>`, bare `<name>`, plus
    the always-correct anonymous `object`), still requiring the group's own
    real declared name — a wrong name is still rejected (verified: `class
@@ -581,8 +580,8 @@ tolerance gaps found and fixed in `kotlin_content_diff.java`:**
    pairing/matching bug as guessed, it simply never existed in this file.**
    `kotlin_content_diff.java`'s own top-of-file doc comment claimed
    trailing-period differences were already tolerated, but
-   `stripCommentDelims` had no such logic — confirmed via
-   `grep -n "period"` returning zero hits before this fix, unlike
+   `stripCommentDelims` had no such logic — confirmed via `grep -n
+   "period"` returning zero hits before this fix, unlike
    `java_content_diff.java`, which has had `normalizeTrailingPeriod` since
    RDD_KEY-era work on that tool. Fixed by porting `normalizeTrailingPeriod`
    verbatim (same single-trailing-period guard, so a real ellipsis/decimal
@@ -617,8 +616,8 @@ existing MISMATCH (`top-level declaration #1`/`#3`) is a separate,
 pre-existing, unrelated issue, untouched here.
 
 First fix attempt (widen `when`'s own trailing clause to accept any text,
-`^when( .+)?$`) was tried and caught by this session's own negative control
-before landing: it also let a WRONG subject name slip through uncaught
+`^when( .+)?$`) was caught by this session's own negative control before
+landing: it also let a WRONG subject name slip through uncaught
 (`// when val wrongName = x` on an actual `when (val accessDenied = x)`
 incorrectly reported as content-preserved) — reverted, since a checker whose
 whole purpose is catching genuine content loss must not swallow a real wrong
@@ -638,47 +637,44 @@ verbatim so the tolerance only ever accepts the one subject text a real
 `when` in that file could actually produce. Consumed one-per-`when`, same
 one-for-one consumption discipline as the `class`/`object` groups.
 
-**Verified:**
-- All 4 originally-named repro files re-checked: `PathRecursiveFunctionsTest.kt`
-  and `PathTreeWalkTest.kt` now report `OK` (previously bogus MISMATCH);
-  `coreRuntime.kt` and `PathRecursiveCopyBetweenIncompatibleFileSystemsTest.kt`
-  still report MISMATCH, but only on their separate pre-existing
-  `top-level declaration` content issues — the specific bogus `when`-comment
-  flag is confirmed gone from all four (never present in the 4th to begin
-  with).
-- `37c806a`'s original positive case, `Promise.kt`
-  (`libraries/stdlib/common-js-wasmjs/src/kotlin/js/Promise.kt`), still
-  reports `OK`.
-- Local `test/kt_combined_inp/out.kt` / `test/kt_comments_inp/out.kt`:
-  unchanged output before/after this fix — same pre-existing unrelated
-  `top-level declaration #10` mismatch (both fixtures) and `// end for`/
-  `// end foreach` comment-loss flag (`kt_comments` only), exactly as
-  documented in `37c806a`'s own entry above. No `test/` fixture modified.
-- Two new negative controls (hand-crafted, `/tmp` only, not registered as
-  permanent fixtures): (1) a `when (val accessDenied = x) {...}` whose
-  formatted closing comment names the wrong captured variable
-  (`// when val wrongName = x`) — still correctly flagged; (2) a subject-less
-  `when {...}` whose formatted closing comment names a nonexistent subject
-  (`// when x`) — still correctly flagged.
+**Verified:** all 4 originally-named repro files re-checked —
+`PathRecursiveFunctionsTest.kt` and `PathTreeWalkTest.kt` now report `OK`
+(previously bogus MISMATCH); `coreRuntime.kt` and
+`PathRecursiveCopyBetweenIncompatibleFileSystemsTest.kt` still report
+MISMATCH, but only on their separate pre-existing `top-level declaration`
+content issues — the bogus `when`-comment flag is confirmed gone from all
+four (never present in the 4th to begin with). `37c806a`'s original
+positive case, `Promise.kt`
+(`libraries/stdlib/common-js-wasmjs/src/kotlin/js/Promise.kt`), still
+reports `OK`. Local `test/kt_combined_inp/out.kt` / `test/kt_comments_inp/out.kt`
+unchanged before/after this fix — same pre-existing unrelated `top-level
+declaration #10` mismatch (both fixtures) and `// end for`/`// end foreach`
+comment-loss flag (`kt_comments` only), exactly as documented in
+`37c806a`'s own entry above; no `test/` fixture modified. Two new negative
+controls (hand-crafted, `/tmp` only, not registered as permanent fixtures)
+both still correctly flagged: (1) a `when (val accessDenied = x) {...}`
+whose formatted closing comment names the wrong captured variable
+(`// when val wrongName = x`); (2) a subject-less `when {...}` whose
+formatted closing comment names a nonexistent subject (`// when x`).
 
 No formatter source changed — `tools/verifiers/kotlin_content_diff.java`
 only.
 
 **Verification beyond the 4 named repros:** re-ran against a 25-file and a
 40-file random sample from the same two on-disk trees. 25-file sample went
-from 18/25 to 21/25 passing; remaining 4 failures are pre-existing, distinct
-issues confirmed present before this session's changes too (via
-`git stash`) — not caused or masked by this fix, out of scope for this pass:
-(a) a real, separately-reproducible trailing-comma-drop when a multi-line
-call/initializer argument list collapses onto one line (conflicts with
-STYLE_KOTLIN.md's own §7.2 "trailing comma preserved as-is, no pass
-adds/strips one" — worth a future formatter-source investigation, not a
-checker-tolerance gap); (b) one file (`LLFirSupertypeLazyResolver.kt`) has
-an unrelated, pre-existing comment-multiset anomaly not investigated
+from 18/25 to 21/25 passing; the remaining 4 failures are pre-existing,
+distinct issues confirmed present before this session's changes too (via
+`git stash`) — not caused or masked by this fix, out of scope for this
+pass: (a) a real, separately-reproducible trailing-comma-drop when a
+multi-line call/initializer argument list collapses onto one line
+(conflicts with STYLE_KOTLIN.md's own §7.2 "trailing comma preserved as-is,
+no pass adds/strips one" — worth a future formatter-source investigation,
+not a checker-tolerance gap); (b) one file (`LLFirSupertypeLazyResolver.kt`)
+has an unrelated, pre-existing comment-multiset anomaly not investigated
 further this session. Local `test/kt_combined_inp/out.kt` and
 `test/kt_comments_inp/out.kt` fixtures re-checked before/after: before this
 fix both had spurious closing-comment additions flagged, now clean on that
-front, same otherwise-unchanged pre-existing mismatches noted above. No
+front, same otherwise-unchanged pre-existing mismatches noted above; no
 `test/` fixture files were modified.
 
 **2026-08-11: first full 16153-file JetBrains/kotlin content-diff pass
@@ -688,7 +684,7 @@ safely). This session's round1 (`/tmp/kt_r1_content`) was initially reused
 from a prior session per instruction, but its file mtimes (2026-08-10
 05:10) predated both `37c806a` (05:43) and `126ae68` (06:24) — a stale-data
 condition caught via the ambiguity-handling protocol before drawing any
-conclusion from it. Round1 was regenerated fresh from
+conclusion from it, so round1 was regenerated fresh from
 `/tmp/jb_kotlin_kt_new/kotlin-master` using the current JAR (built post-fix)
 via the standard `--preserve-tree --root DIR --out DIR` batch pattern,
 4-way chunked. Content-diff re-run (3-way chunked,
@@ -777,13 +773,12 @@ inserting exactly one space between a literal `*` and a following backtick
 run regardless of how many (including zero) whitespace characters separated
 them in the source. Deliberately narrow, per the task's ambiguity-protocol
 guidance to prefer the narrowest fix: `normalizeWhitespace`'s existing
-`\s+` -> `" "` collapse cannot equate "zero space" with "one space" (there is
-no whitespace run to collapse on the zero-space side), so this needed its own
-targeted rule rather than being already covered. Only a literal `*`
-immediately adjacent to a backtick run is touched — no other whitespace
-shape in a comment body is affected, so a real dropped/added/reordered word
-elsewhere (including inside the same fenced block) is still caught
-unchanged.
+`\s+` -> `" "` collapse cannot equate "zero space" with "one space" (no
+whitespace run to collapse on the zero-space side), so this needed its own
+targeted rule. Only a literal `*` immediately adjacent to a backtick run is
+touched — no other whitespace shape in a comment body is affected, so a
+real dropped/added/reordered word elsewhere (including inside the same
+fenced block) is still caught unchanged.
 
 **Verification against the named repro:** `KaScopeProvider.kt` (original
 `/tmp/jb_kotlin_kt_new/kotlin-master/...`, fresh round1
@@ -792,14 +787,13 @@ unchanged.
 `* ````` difference, confirmed via direct `diff`) to `OK: content preserved`.
 
 **Negative controls (hand-crafted, `/tmp/kcd_neg`, not registered as
-permanent fixtures):** (1) two KDoc comments differing only by a real
-sentence change outside the fenced block (`"a real sentence about foo"` vs
-`"a totally different sentence about bar"`) — still correctly flagged
-MISMATCH. (2) two KDoc comments whose fenced-code-block CONTENT differs
+permanent fixtures), both still correctly flagged MISMATCH:** (1) two KDoc
+comments differing only by a real sentence change outside the fenced block
+(`"a real sentence about foo"` vs `"a totally different sentence about
+bar"`); (2) two KDoc comments whose fenced-code-block CONTENT differs
 (`bar()` dropped from inside the fence, distinct from the fence's own
-delimiter spacing) — still correctly flagged MISMATCH, confirming the fix
-doesn't widen to swallow a real change merely because it's near a backtick
-fence.
+delimiter spacing) — confirming the fix doesn't widen to swallow a real
+change merely because it's near a backtick fence.
 
 **Bucket re-check — the actual finding, correcting the "412/72%" framing
 above:** recovered the exact 412-file comment-only list from this run's own
@@ -947,7 +941,7 @@ Design Decisions above — this list is the per-project index: scope, config,
 RDD_KEYs, fixtures, verification result).
 
 1. **RobotCoding `gui_frontend_android`** (Android/Gradle app, 46 `.kt`
-   files) — complete, config: default. 9 idempotency bugs (RDD_KEY_134–140)
+   files) — complete, config default. 9 idempotency bugs (RDD_KEY_134–140),
    then ~50 compile errors across 9 files via `./gradlew compileDebugKotlin`
    (RDD_KEY_141–144). Final: `BUILD SUCCESSFUL`, zero errors (2 pre-existing
    unrelated deprecation warnings). Verified via tool (2).
@@ -958,7 +952,7 @@ RDD_KEYs, fixtures, verification result).
    round1/round2 idempotency diffing + tool (1) against `commonMain` only.
    One bug found but not fixed at the time — RDD_KEY_149 (later resolved by
    RDD_KEY_163).
-3. **`github.com/Kotlin/kotlinx.coroutines`** — fully closed, config:
+3. **`github.com/Kotlin/kotlinx.coroutines`** — fully closed, config
    default. Scoped to `kotlinx-coroutines-core`'s `common`+`jvm` source
    sets (163 `.kt` files), tool (3) per user instruction instead of a
    Gradle build. Idempotency: 11 non-idempotent files, resolved across
@@ -971,8 +965,8 @@ RDD_KEYs, fixtures, verification result).
    `.editorconfig`). Initial pass: RDD_KEY_152–153. A later 125-file re-run
    surfaced a residual 10-file idempotency gap in 4 shapes: RDD_KEY_163
    (also resolved RDD_KEY_149's deferred `okio` bug), RDD_KEY_164,
-   RDD_KEY_165, RDD_KEY_166. Fixtures `_46`–`_49`. `make test`: 68/68.
-   Confirmed via a fresh full-125-file re-run, `diff -rq round1 round2`
+   RDD_KEY_165, RDD_KEY_166. Fixtures `_46`–`_49`. `make test`: 68/68,
+   confirmed via a fresh full-125-file re-run with `diff -rq round1 round2`
    empty.
 5. **`github.com/arrow-kt/arrow`** — fully closed, all bugs resolved.
    Functional-programming library, scoped to `arrow-core`'s and
@@ -981,9 +975,9 @@ RDD_KEYs, fixtures, verification result).
    instruction instead of the Gradle-copy dance. Compile-breaking:
    RDD_KEY_171–173, RDD_KEY_176. Idempotency-only: RDD_KEY_174, RDD_KEY_175,
    RDD_KEY_177 (investigation's last open item). Fixtures `_59`–`_64`.
-   Verified: a fresh full-scope 63-file reformat is round1/round2
-   byte-identical; `kotlin_syntax_check` 0 errors across all 63 files
-   (started at 5); `make test` 88/88 clean, zero regressions throughout.
+   Verified: fresh full-scope 63-file reformat round1/round2 byte-identical;
+   `kotlin_syntax_check` 0 errors across all 63 files (started at 5); `make
+   test` 88/88 clean, zero regressions throughout.
 
 **Not started / in progress**
 
@@ -1127,18 +1121,17 @@ validated at full-corpus scale. D3 remains the next-highest-value open item
 
 ## D3 investigation history (2026-07-31 design session + 2026-08-01 implementation attempt, RDD_KEY_226)
 
-**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 — no longer tracked as
-independently open here; see that file's "D3 fold" section.** Summary
-below for reference; full narrative in RDD_KEY_221/RDD_KEY_226 (`RDD_LOG.md`).
-
-Root cause (RDD_KEY_221): `MiscRuleCurly.renderCallCandidate`'s no-newline
-fits-check measures a candidate against `lineStartIndex(tokens, nameIdx)`
-(nearest physical `NEWLINE` backward), which is volatile — a sibling
-candidate's own prior wrap on the same logical statement shrinks the
-"enclosing line" a later candidate measures against, causing a false
-un-wrap on the next round. Repro: `EqualityAndComparisonCallsTransformer.kt`
-(`when`-arm with two call candidates; round1 wraps both correctly, round2
-wrongly un-wraps the second).
+**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 (see D3 table row
+above).** Kept here only for the two reverted fix attempts' detail, not in
+`RDD_LOG.md`'s terse `RDD_KEY_221`/`RDD_KEY_226` topic line. Root cause
+(RDD_KEY_221): `MiscRuleCurly.renderCallCandidate`'s no-newline fits-check
+measures a candidate against `lineStartIndex(tokens, nameIdx)` (nearest
+physical `NEWLINE` backward), which is volatile — a sibling candidate's own
+prior wrap on the same logical statement shrinks the "enclosing line" a
+later candidate measures against, causing a false un-wrap on the next
+round. Repro: `EqualityAndComparisonCallsTransformer.kt` (`when`-arm with
+two call candidates; round1 wraps both correctly, round2 wrongly un-wraps
+the second).
 
 Two fix attempts, both reverted, neither landed:
 - **Attempt 1** (anchor measurement at `nameIdx` instead) — discards

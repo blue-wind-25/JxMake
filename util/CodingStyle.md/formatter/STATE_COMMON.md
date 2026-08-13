@@ -3,7 +3,7 @@
 Read this file first, no matter which job you're picking up. It holds every
 process convention identical across jobs — commit workflow, ambiguity
 handling, file exclusions, testing methodology, RDD_LOG.md lookup
-discipline. The per-job file assumes all of this and does not restate it; it
+discipline — which the per-job file assumes and does not restate; that file
 only contains what's specific to that job (Project Layout, Resolved Design
 Decisions index, Open Questions, Checklist).
 
@@ -124,24 +124,24 @@ batch, store the rest in the corresponding state file.
 **Diagnosing a hung `make test` / batch run**: `Main.main`'s per-file loop
 (`--standalone` batch mode used by `make test`, processes every fixture in
 one JVM invocation) prints `jxmake-code-formatter: processing <file>` to
-stderr immediately before each file, so a hang shows exactly which file
-it's stuck on (added 2026-08-04 after a switch-case-reindent fix attempt
-caused an infinite loop mid-`make test` with no way to tell which fixture
-was stuck — see STATE_C_CPP_JAVA.md's Tier-4-escalation entry). Unconditional
-stderr trace, not gated behind a flag — stderr isn't diffed by `make test`,
-so it can't affect pass/fail.
+stderr immediately before each file, pinpointing which file a hang is stuck
+on (added 2026-08-04 after a switch-case-reindent fix attempt caused an
+infinite loop mid-`make test` with no way to tell which fixture was stuck —
+see STATE_C_CPP_JAVA.md's Tier-4-escalation entry). Unconditional, not
+gated behind a flag — stderr isn't diffed by `make test`, so it can't
+affect pass/fail.
 
 **Diagnosing a hung server (`--server`/`make test-server`)**:
 `ServerMode.FormatHandler.handle` similarly prints
 `jxmake-code-formatter: processing <path>` (or `(no path, lang=<lang>)` for
 inline-content requests) to stderr right before calling
-`GdrPipelineGate.applyAndFormat`, added the same day for the same reason.
-Matters more here: `HttpServer` is created with no explicit executor
-(`HttpServer.create(...)`'s default), so requests dispatch on a single
-internal thread — one hung request blocks every subsequent request to that
-server instance indefinitely. Verified via `make test-server` (still passes,
-trace lines visible per request) and `make test` (still 243/243 — unrelated
-code path).
+`GdrPipelineGate.applyAndFormat`, added the same day for the same reason —
+it matters more here because `HttpServer` is created with no explicit
+executor (`HttpServer.create(...)`'s default), so requests dispatch on a
+single internal thread and one hung request blocks every subsequent request
+to that server instance indefinitely. Verified via `make test-server`
+(still passes, trace lines visible per request) and `make test` (still
+243/243 — unrelated code path).
 
 **Verifier toolchain** — needed to build/run `tools/verifiers/*` and
 `tools/gru/*`; shared across every job that touches those tools. Invoke via
@@ -427,11 +427,11 @@ by Curly's signature/call-rendering). `KotlinDeclarationAlignmentRule`/
 extracted method bodies into Core vs Curly files (byte-identical) — scale
 marker count to file size. An inherited static nested class must be
 imported via its declaring class's canonical name, not the subclass (javac
-rejects the subclass import form). Bulk `private`→`protected` fixes needed
-wherever a Core method is now called from a Curly sibling. `git rm` (not
-`rm` + `git add`) needed to stage a deletion on this system's old git
-version. Watch for extraction scripts dropping a `public/private static`
-modifier prefix when a marker starts mid-declaration — verify each
+rejects the subclass import form). Bulk `private`→`protected` fixes are
+needed wherever a Core method is now called from a Curly sibling. `git rm`
+(not `rm` + `git add`) is needed to stage a deletion on this system's old
+git version. Watch for extraction scripts dropping a `public/private
+static` modifier prefix when a marker starts mid-declaration — verify each
 extracted nested class's modifiers against the original.
 
 **Result:** every file group landed as its own checkpoint commit, `make
@@ -504,13 +504,13 @@ yet**: the two changes are only useful together — server-side concurrency
 alone does nothing if the client still sends strictly one-by-one, since only
 one request is ever in flight for the added threads to work on. Nobody
 chasing throughput uses one-by-one anyway (see "Invoke the formatter JAR
-once per batch, not once per file" above) — real clients that would benefit
+once per batch, not once per file" above); real clients that would benefit
 are genuinely independent concurrent callers (e.g. multiple editor
 instances or CI jobs hitting one shared server), not a single client
 pipelining its own requests. Worth reconsidering if a concurrent-multi-
-client scenario actually materializes — at that point the motivation is
-availability (a single slow/hung request blocks every other client
-indefinitely) more than the raw one-by-one benchmark number.
+client scenario materializes — at that point the motivation is availability
+(a single slow/hung request blocks every other client indefinitely) more
+than the raw one-by-one benchmark number.
 
 **2026-08-09: implemented.** Landed `server-concurrency` (default `1`,
 `Config.java`/`ServerMode.start` -- `HttpServer.setExecutor(Executors.newFixedThreadPool(N))`
@@ -614,11 +614,11 @@ identifiers), and a following word immediately followed by `:` with no
 trailing space (URL schemes/directive comments — `https:`, `ftp:`,
 `tslint:`). Built in two passes: the first (ellipsis/symbol/abbreviation/
 camelCase checks) fixed all 4 `make test` regressions found with the flag
-forced on; the second (colon/single-letter-abbreviation checks) was added
-after real-code dogfood against `/tmp/angular` (angular/angular, 300 `.ts`
-files) found `https://...`/`ftp://...`/`tslint:...`/`e.g.`/`i.e.`
-self-capitalization bugs the fixture suite hadn't covered — that dogfood
-pass went from 16 differing files to 7 (6 legitimate, 1 accepted known
+forced on; the second (colon/single-letter-abbreviation checks) followed a
+real-code dogfood against `/tmp/angular` (angular/angular, 300 `.ts` files)
+that found `https://...`/`ftp://...`/`tslint:...`/`e.g.`/`i.e.`
+self-capitalization bugs the fixture suite hadn't covered, taking that
+dogfood pass from 16 differing files to 7 (6 legitimate, 1 accepted known
 limitation, below).
 
 **Accepted known limitation, not fixed further:** with
@@ -626,7 +626,7 @@ limitation, below).
 (`isCommentNoCapitalizeWord`, excludes words like `import`) is never
 consulted — mirrors `capitalizeFirstLetter`'s pre-existing sentence-1
 behavior exactly (classifier-on path trusts the classifier alone and skips
-the keyword list), an inherited limitation, not a new one. Concretely, a
+the keyword list), an inherited, not new, limitation. Concretely, a
 mid-comment-group line of commented-out code such as
 `// import './rxjs/rxjs.spec';` can be capitalized to `// Import '...'` if
 the classifier judges it plausible. Confirmed by the user as an acceptable
@@ -871,15 +871,16 @@ cp -vf /tmp/gru_tools_r1/*.{java,py} .
 No syntax errors found; AST differed only in comments. `java_content_diff`
 initially flagged **INCORRECT COMMENT NORMALIZATION** on `tools/gru/*.java`,
 **resolved (2026-07-29) as a false alarm in `java_content_diff.java` itself**
-(not a formatter bug) — three expected behaviors it didn't yet account for:
-reflowed single-line Javadoc openers tripping its naive whitespace-collapse
-on the doubled `*` continuation marker; new closing-brace annotations
-(`} // while`) flagged as suspect additions; `normalize-comment-end-period`
-(STYLE.md #15) legitimately stripping a sole trailing `.`. Fixed in
-`java_content_diff.java` (strips the `* ` marker before collapsing
-whitespace, strips a sole trailing `.` on both sides, exempts closing-brace
-annotations from the "unexplained addition" check); re-ran clean, all 9
-`tools/gru` files zero comment mismatches. No classifier fix was needed.
+(not a formatter bug) — three expected behaviors it hadn't accounted for
+yet: reflowed single-line Javadoc openers tripping its naive
+whitespace-collapse on the doubled `*` continuation marker; new
+closing-brace annotations (`} // while`) flagged as suspect additions;
+`normalize-comment-end-period` (STYLE.md #15) legitimately stripping a sole
+trailing `.`. Fixed in `java_content_diff.java` (strips the `* ` marker
+before collapsing whitespace, strips a sole trailing `.` on both sides,
+exempts closing-brace annotations from the "unexplained addition" check);
+re-ran clean, all 9 `tools/gru` files zero comment mismatches — no
+classifier fix needed.
 
 **2026-08-08: broadened to all of `tools/*` (simplified process, no
 round2-JAR fixed-point check).** Widened from the `tools/gru`-only example

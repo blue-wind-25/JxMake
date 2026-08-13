@@ -9,22 +9,22 @@ only contains what's specific to this job.
 ## Status: COMPLETE (2026-08-03), readability refactor 2026-08-05
 
 All four gaps (levels 1-4) are landed behind the cumulative
-`html5-tc-gap-level` config key (default `0`, still off by default —
-**intentional by design, user-confirmed 2026-08-10, not a leftover TODO** —
-current behavior unchanged unless a caller opts in). Full-suite dogfood
-re-validation across all three corpora (`apache/ant manual/`,
-`WordPress/wordpress-develop`, `alexandersandberg/html5-elements-tester`) at
-both level `0` and level `4` came back clean — no regression attributable to
-any of the four gaps. `make test`: 236/236 forward + idempotency (244/244
-after the 2026-08-05 refactor, zero-behavior-change). Originally split out
-of `STATE_DATA_FORMATS.md`'s "HTML5 deep tree-construction edge cases" item
-1 (2026-08-02); insertion-mode design settled the same day as `RDD_KEY_230`.
+`html5-tc-gap-level` config key (default `0` — **intentional by design,
+user-confirmed 2026-08-10, not a leftover TODO**; current behavior
+unchanged unless a caller opts in). Full-suite dogfood re-validation across
+all three corpora (`apache/ant manual/`, `WordPress/wordpress-develop`,
+`alexandersandberg/html5-elements-tester`) at levels `0` and `4` came back
+clean — no regression attributable to any of the four gaps. `make test`:
+236/236 forward + idempotency (244/244 after the 2026-08-05 refactor,
+zero-behavior-change). Originally split out of `STATE_DATA_FORMATS.md`'s
+"HTML5 deep tree-construction edge cases" item 1 (2026-08-02);
+insertion-mode design settled the same day as `RDD_KEY_230`.
 
 **Real-world impact: low.** All four gaps are WPT's own deliberately
-pathological conformance fixtures; every dogfood corpus checked formats
-cleanly with respect to them — no real-world regression has ever been
-attributed to them. This job exists for spec-conformance completeness, not
-because a real corpus hit a bug.
+pathological conformance fixtures; every dogfood corpus formats cleanly
+with respect to them, and no real-world regression has ever been
+attributed to them — this job exists for spec-conformance completeness,
+not because a real corpus hit a bug.
 
 ---
 
@@ -42,7 +42,7 @@ because a real corpus hit a bug.
    recovery) — fiddliest of the four; done last.
 
 **Design decision (`RDD_KEY_230`, 2026-08-02, in `RDD_LOG.md`):** rejected
-one large shared insertion-mode state machine. Actual design is three
+one large shared insertion-mode state machine in favor of three
 independent, narrow, config-gated state pieces: `bodyInserted` (gap 3);
 `isInTableInsertionMode()` + `FosterBuffer`/`fosterBufferStack` (gap 1);
 `currentFormElementPointer` (gap 2). No generic insertion-mode enum/frame
@@ -54,15 +54,15 @@ next lands.
 
 **Contrast — fixes that did NOT need this design:** `RDD_KEY_223`
 (`apache/ant manual/running.html`, orphan `</p>`) only needed a name-only
-`Deque<String> openTagStack`, no insertion-mode value — name matching, not a
-mode-dependent behavior switch. Tag-name case-folding
+`Deque<String> openTagStack` — name matching, not a mode-dependent
+behavior switch, and no insertion-mode value. Tag-name case-folding
 (`real_code_regressions_112`) was a self-contained lookup table, unrelated
 to tree shape.
 
 **Comparative risk note (2026-08-02):** GDR (`STATE_CURLY_GDR.md`) remains
-the more dangerous job in practice — demonstrated architectural collision
-with shipped pipeline logic (`RDD_KEY_229`). This tc gap job has no such
-demonstrated collision; before any level ships it's an inert, unbuilt,
+the more dangerous job in practice — it has a demonstrated architectural
+collision with shipped pipeline logic (`RDD_KEY_229`). This tc gap job has
+no such collision; before any level ships it's an inert, unbuilt,
 low-real-world-impact feature.
 
 ---
@@ -70,11 +70,10 @@ low-real-world-impact feature.
 ## Config: `html5-tc-gap-level`
 
 Integer, default **`0`** (today's behavior, RDD_KEY_223-style heuristics
-only). Resolved exactly like any other config value (same precedence chain
-as every other key) — no extra `lang.isHtml5 &&` guard needed, since
-`html5-tc-gap-level` only has effect when `lang.isHtml5` is already true
-elsewhere in the pipeline. Levels cumulative, strictly ordered
-simplest-to-most-complex:
+only). Resolved via the same precedence chain as every other config value
+— no extra `lang.isHtml5 &&` guard needed, since the key only takes effect
+where `lang.isHtml5` is already true elsewhere in the pipeline. Levels are
+cumulative, strictly ordered simplest-to-most-complex:
 
 | Level | Gap enabled | What it adds |
 |---|---|---|
@@ -97,15 +96,14 @@ updated once level 1 landed (config-key index, Known Limitations section).
 `html5TcGapLevel` int field/getter, `"html5-tc-gap-level"` in `ALL_KEYS`.
 `XmlSpecificRule.java`: `bodyInserted` boolean field; `format()` calls
 `insertImplicitBodyIfNeeded(nodes)` after `parseNodes(false)`, before
-`renderNodes`. confirms no explicit `<body>` present, treats the first
-non-whitespace/non-comment/non-DOCTYPE/non-`<head>` sibling as the
-synthesis point, wraps it + all following siblings in one synthesized
-`<body>` element. **Known residual gap FIXED (2026-08-11):** when source
-had no explicit `<head>` tag either, the old sibling heuristic wrapped
-`<meta>`/`<title>`/`<script>` into `<body>` immediately instead of
+`renderNodes`. It confirms no explicit `<body>` is present, treats the
+first non-whitespace/non-comment/non-DOCTYPE/non-`<head>` sibling as the
+synthesis point, and wraps it plus all following siblings in one
+synthesized `<body>` element. **Known residual gap FIXED (2026-08-11):**
+when source had no explicit `<head>` tag either, the old sibling heuristic
+wrapped `<meta>`/`<title>`/`<script>` into `<body>` immediately instead of
 implicitly opening `<head>` first. Root cause: the synthesis point was
-picked by a sibling-shape heuristic (first non-whitespace/non-comment/
-non-DOCTYPE/non-`<head>` sibling) rather than a real tracked "head
+picked by a sibling-shape heuristic rather than a real tracked "head
 insertion mode closed" transition, so a leading `<meta>`/`<title>`/
 `<script>` run with no `<head>` wrapper had nothing to distinguish it from
 real body content. Fixed by adding a `headInsertionModeClosed` boolean
@@ -156,7 +154,7 @@ open sets the pointer only if none already active; a suppressed form still
 parses normally but is recorded via `pendingSuppressedFormNode`, and
 `parseNodes` splices its children into its own children list instead of
 adding the form node itself (spec's "ignore the start tag" recovery, minus
-dropping content). **Tested and confirmed sufficient:** single field
+dropping content). **Tested and confirmed sufficient:** a single field
 (not a `Deque`) — stress-tested nested `<template>`-in-`<form>`-in-`<form>`
 shape; the `<template>` boundary's save/restore rides the Java call stack
 so no cross-boundary state store beyond one field is needed. Fixtures:
@@ -170,16 +168,16 @@ lookup set (`a`, `b`, `big`, `code`, `em`, `font`, `i`, `nobr`, `s`, `small`,
 implicitly closed because the next token is a real closing tag belonging to
 one of its ancestors (classic `<b>1<i>2</b>3</i>`); `pendingReconstruct
 FormattingTemplate` side channel (same Option-B shape), consumed by
-`parseNodes` right after adding that ancestor node, reconstructing a clone of
-the orphaned element as its next sibling via `reconstructFormattingElement`
+`parseNodes` right after adding that ancestor node, reconstructing a clone
+of the orphaned element as its next sibling via `reconstructFormattingElement`
 (mirrors `parseElement`'s tail logic but for a synthesized open tag).
 **Deliberately narrowed subset of the spec algorithm** (documented deviation,
 same pattern as levels 2-3): no reified "list of active formatting
 elements," no bounded-iteration furthest-block search, no bookmark-based
 re-insertion — full generality judged too large/risky for one checkpoint.
-Implemented: only the single most-recently-orphaned formatting element is
-tracked (plain field, not a stack), detected only for the narrow "next token
-closes an ancestor" case, reconstructed as a plain next-sibling clone.
+Only the single most-recently-orphaned formatting element is tracked (plain
+field, not a stack), detected only for the narrow "next token closes an
+ancestor" case, reconstructed as a plain next-sibling clone.
 **Known limitation:** a second, simultaneous misnesting (two formatting
 elements orphaned by the same ancestor's close) only reconstructs the
 innermost one — an outer one is silently dropped (field overwritten, not
@@ -243,9 +241,9 @@ genuinely cumulative ordered threshold, so `>=` against a plain `int` is
 correct and idiomatic; an enum would only relocate the same comparisons
 behind `.ordinal()` with no real gain. `Config.java`'s own `html5TcGapLevel`
 field has no comparison sites, so it needed no constants. Verified zero
-behavior change: `make test` unchanged at 244/244 forward + 244/244
-idempotency, plus a real-corpus spot check (`/tmp/ant/manual`, all `.html`
-files, at `html5-tc-gap-level=4` via env var) round1/round2 byte-identical.
+behavior change: `make test` unchanged at 244/244 forward + idempotency,
+plus a real-corpus spot check (`/tmp/ant/manual`, all `.html` files, at
+`html5-tc-gap-level=4` via env var) round1/round2 byte-identical.
 
 ---
 

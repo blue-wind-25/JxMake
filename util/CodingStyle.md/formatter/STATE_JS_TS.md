@@ -14,7 +14,7 @@ directory, not duplicated here — this file tracks current state only.
 Real formatting logic for JavaScript/TypeScript, per `STYLE_JS_TS.md` (which
 derives most rules from `STYLE_JAVA.md`/`STYLE_KOTLIN.md` given JS/TS's
 C-family brace/paren/statement shape). Scaffold gate is flipped
-(`Lang.isScaffoldOnly` no longer includes js/ts) and all §1–15 rules are
+(`Lang.isScaffoldOnly` no longer includes js/ts); all §1–15 rules are
 implemented in `JsTsSpecificRule.java` (+ `JsTsDeclarationAlignmentRule.java`
 for the declaration-alignment grid), wired into `FormatterCurly`'s phase
 pipeline. Current `make test`: 297/297 forward + idempotency (grows as
@@ -27,12 +27,12 @@ fixtures are added; see dogfood sections below for count history).
 All planned baseline work is **DONE**: §1–15 implemented, JS and TS local
 fixtures active, and real-code dogfood passes completed for
 `expressjs/express`, `nestjs/nest`, `vuejs/core`, `lodash/lodash`,
-`angular/angular` (categorized, all clusters fixed — cluster 4's residue
-was itself split into 3 findings across two sessions, all 3 now fixed, see
+`angular/angular` (categorized, all clusters fixed — cluster 4's residue was
+itself split into 3 findings across two sessions, all 3 now fixed, see
 RDD_KEY_269/RDD_KEY_271), and `microsoft/TypeScript` (categorized, all
 clusters fixed, see RDD_KEY_270). No dogfood finding remains open as of
 RDD_KEY_271 — see "Active work" below. JS/TS basics were deliberately
-hardened to a stable baseline before Python3 (next job in rotation) per
+hardened to a stable baseline before Python3 (next job in rotation), per
 user direction.
 
 ---
@@ -668,16 +668,16 @@ active in the Makefile and passing.
     any of these three, matching the parent task's "natural next pair"
     grouping advice.
   - **Ambiguity safety confirmed, not just assumed**: a bare `?`/`:` OP
-    token unambiguously means ternary here because the character-level
-    lexer's `MULTI_CHAR_OPS` already matches `?.` (optional chaining),
-    `??` (nullish coalescing), and `?:` before ever falling through to a
-    single-char `?` token — so this check cannot misfire on those other
-    `?`-shaped operators. A context check firing on a *non*-JSX `<` (e.g.
-    a real less-than comparison, or a legacy `<T>` cast in a ternary
-    else-branch) is still safe even so: `findJsxSpanEnd`/`parseJsxTag`
+    token unambiguously means ternary here, since the character-level
+    lexer's `MULTI_CHAR_OPS` already matches `?.` (optional chaining), `??`
+    (nullish coalescing), and `?:` before ever falling through to a
+    single-char `?` token, so this check can't misfire on those other
+    `?`-shaped operators. A context check firing on a *non*-JSX `<` (e.g. a
+    real less-than comparison, or a legacy `<T>` cast in a ternary
+    else-branch) is still safe regardless: `findJsxSpanEnd`/`parseJsxTag`
     returns -1 for anything that doesn't parse as a balanced JSX tree,
     leaving tokens untouched — the same self-correcting property Increment
-    1 already relied on for the `return`-context `<T>`-cast ambiguity.
+    1 relied on for the `return`-context `<T>`-cast ambiguity.
   - **Fixture-verified**: `test/jsx_tsx_arrow_ternary_context_{inp,out}.tsx`
     (bare-arrow-body JSX return; a ternary with two simple-element
     branches; a ternary whose truthy branch is a nested JSX tree with an
@@ -689,20 +689,19 @@ active in the Makefile and passing.
     itself contains a ternary of two JSX elements — verifying context
     interaction, not just isolated context recognition). `make test`:
     292/292 → 294/294 forward + idempotency, zero regressions on any
-    existing `.js`/`.ts`/`.tsx` fixture (including Increment 1's own
-    `jsx_tsx_return_context` fixture, hand-diffed unchanged as an extra
+    existing `.js`/`.ts`/`.tsx` fixture, including Increment 1's own
+    `jsx_tsx_return_context` fixture (hand-diffed unchanged as an extra
     check beyond the Makefile-driven `make test` run).
-  - **Nothing from the design broke on contact this increment** — unlike
+  - **Nothing from the design broke on contact this increment**: unlike
     Increment 1's `isRegexLiteralAllowedHere` surprise, no new
-    character-level-lexer carve-out was needed for `=>`/`?`/`:`
-    (they were already ordinary multi-char/single-char OP tokens with no
-    JSX-unaware lexer assumption to fix).
+    character-level-lexer carve-out was needed for `=>`/`?`/`:` (already
+    ordinary multi-char/single-char OP tokens with no JSX-unaware lexer
+    assumption to fix).
   - **NOT done**: still no real-JSX-corpus validation (react itself,
     `create-react-app` output, or similar); `js_ts_content_diff.js` still
-    not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
-    unchanged from Increment 1's own "NOT done" list.
-  - **Where to resume (superseded by Increment 3 below — kept for
-    history).**
+    not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over from
+    Increment 1's "NOT done" list.
+  - **Where to resume**: superseded by Increment 3 below (kept for history).
 
   **2026-08-12 implementation session, Increment 3 — LANDED (5/11
   contexts, still no real corpus validation).** Adds call-argument-start
@@ -727,26 +726,23 @@ active in the Makefile and passing.
     opener, then applies the same `[`-always/`(`-only-if-call-open test to
     that enclosing bracket; an enclosing `{` (object literal) or no
     enclosing bracket at all is correctly NOT recognized this increment).
-  - **Ambiguity safety unchanged from Increments 1/2**: `findJsxSpanEnd`/
-    `parseJsxTag` still returns -1 for anything that doesn't parse as
-    balanced JSX, so a context check firing on a real less-than comparison
-    or index expression is harmless — same self-correcting property relied
-    on throughout.
+  - **Ambiguity safety unchanged from Increments 1/2** — same -1-on-
+    unbalanced-JSX self-correcting property, harmless on a real less-than
+    comparison or index expression.
   - **Fixture-verified**: `test/jsx_tsx_call_array_context_{inp,out}.tsx`
     — a call with two JSX arguments (first immediately after `(`, second
     after a top-level `,`) and an array literal of two JSX elements (first
     immediately after `[`, second after a top-level `,`); an `if (x < 1)`
     comparison confirmed untouched. `make test`: 294/294 → 295/295 forward
     + idempotency, zero regressions on any existing `.js`/`.ts`/`.tsx`
-    fixture. Manually re-verified round1/round2 byte-identical on the new
-    fixture outside the Makefile-driven run as well.
-  - **Nothing from the design broke on contact this increment** — no new
+    fixture, manually re-verified round1/round2 byte-identical outside the
+    Makefile-driven run as well.
+  - **Nothing from the design broke on contact** — no new
     character-level-lexer carve-out needed, same as Increment 2.
   - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
     still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
-    unchanged from Increments 1/2's own "NOT done" lists.
-  - **Where to resume (superseded by Increment 4 below — kept for
-    history).**
+    from Increments 1/2's "NOT done" lists.
+  - **Where to resume**: superseded by Increment 4 below (kept for history).
 
   **2026-08-12 implementation session, Increment 4 — LANDED (7/11
   contexts, still no real corpus validation).** Adds assignment-RHS (incl.
@@ -768,20 +764,20 @@ active in the Makefile and passing.
     silently under-covering compound-assignment RHS starts. `JSX_LOGICAL_OPS`
     = `&&`, `||`, `??`.
   - **Attribute-`=` ambiguity (flagged by the parent task) checked, confirmed
-    a non-issue**: `findJsxSpans`'s outer scan only ever re-examines a `<`
+    a non-issue**: `findJsxSpans`'s outer scan only re-examines a `<`
     immediately after a recognized-context token; a JSX tag's own attribute
     `=` (e.g. `bar={x}` inside `<Foo bar={x} />`) is only followed by `<` if
     the attribute value were bare JSX with no braces/quotes at all (e.g.
     `bar=<Bar/>`), which isn't valid JSX syntax in the first place (attribute
     values must be a string literal or a `{...}` expression) — so this
-    shape essentially cannot occur in real JSX, and even if it somehow did,
-    the same `findJsxSpanEnd`/`parseJsxTag` returns -1 safety net that every
-    prior increment relies on would leave it untouched. No special-casing
-    needed in `isAssignmentOrLogicalRhsStart` beyond the plain lookback.
-  - **Ambiguity safety unchanged from prior increments**: same -1-on-
-    unbalanced-JSX self-correcting property relied on throughout — a `<`
-    after `=`/`&&`/etc. that's actually a real comparison (`x = y < z`) or
-    a legacy `<T>` cast falls through untouched.
+    shape essentially cannot occur in real JSX, and even if it did, the same
+    `findJsxSpanEnd`/`parseJsxTag` returns -1 safety net every prior
+    increment relies on would leave it untouched. No special-casing needed
+    in `isAssignmentOrLogicalRhsStart` beyond the plain lookback.
+  - **Ambiguity safety unchanged from prior increments** — same -1-on-
+    unbalanced-JSX self-correcting property: a `<` after `=`/`&&`/etc.
+    that's actually a real comparison (`x = y < z`) or a legacy `<T>` cast
+    falls through untouched.
   - **Fixture-verified**: `test/jsx_tsx_assign_logical_context_{inp,out}.tsx`
     (a plain `=` assignment, a `+=` compound assignment, and each of
     `&&`/`||`/`??` immediately preceding a JSX open; an `if (x < 1)`
@@ -792,16 +788,15 @@ active in the Makefile and passing.
     call-argument-start, array-element-start, both ternary branches,
     arrow-body — in one small component, to catch context-interaction
     bugs). `make test`: 295/295 → 297/297 forward + idempotency, zero
-    regressions on any existing `.js`/`.ts`/`.tsx` fixture. Manually
+    regressions on any existing `.js`/`.ts`/`.tsx` fixture, manually
     re-verified round1/round2 byte-identical on both new fixtures outside
     the Makefile-driven run as well.
-  - **Nothing from the design broke on contact this increment** — no new
+  - **Nothing from the design broke on contact** — no new
     character-level-lexer carve-out needed, same as Increments 2/3.
   - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
     still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
-    unchanged from Increments 1/2/3's own "NOT done" lists.
-  - **Where to resume (superseded by Increment 5 below — kept for
-    history).**
+    from Increments 1/2/3's "NOT done" lists.
+  - **Where to resume**: superseded by Increment 5 below (kept for history).
 
   **2026-08-13 implementation session, Increment 5 — LANDED (8/11
   contexts, still no real corpus validation).** Adds grouping-paren-start
@@ -817,42 +812,40 @@ active in the Makefile and passing.
     grouping `(` — grouping parens don't have comma-separated "elements" in
     JS/TS expression grammar the way call args/array elements do, so
     there's no such shape to add).
-  - **Ambiguity safety, confirmed but with a wider blast radius than prior
-    increments**: same -1-on-unbalanced-JSX self-correcting property
-    relied on throughout, but this increment's context check fires much
-    more broadly than Increments 1-4 — *any* non-call `(` (control-flow
-    parens like `if (...)`/`while (...)`/`for (...)`, any bare grouping
-    expression) now gets tested. Verified deliberately via the fixture's
-    `if (x < 1)` case: `if`'s `(` is not preceded by an IDENTIFIER/`)`/`]`
-    (preceded by the `if` KEYWORD), so `isCallOpenParen` returns `false`
-    and `isGroupingParenStart` returns `true` — `x < 1` is then offered to
-    `findJsxSpanEnd`/`parseJsxTag`, which correctly returns -1 (not a
-    balanced JSX tree), leaving the tokens untouched. This is the same
-    safety net every prior increment relies on, just exercised on a much
-    higher volume of real-world `(` shapes (nearly every control-flow
-    statement in a `.tsx` file) than before — worth flagging for a future
-    corpus-validation pass as the context most likely to reveal a
-    performance or correctness edge case at scale, even though no such
-    issue was found in this session's own testing.
+  - **Ambiguity safety confirmed, but with a wider blast radius than prior
+    increments**: same -1-on-unbalanced-JSX self-correcting property, but
+    this increment's context check fires much more broadly than Increments
+    1-4 — *any* non-call `(` (control-flow parens like `if (...)`/
+    `while (...)`/`for (...)`, any bare grouping expression) now gets
+    tested. Verified via the fixture's `if (x < 1)` case: `if`'s `(` is not
+    preceded by an IDENTIFIER/`)`/`]` (preceded by the `if` KEYWORD), so
+    `isCallOpenParen` returns `false` and `isGroupingParenStart` returns
+    `true` — `x < 1` is then offered to `findJsxSpanEnd`/`parseJsxTag`,
+    which correctly returns -1 (not a balanced JSX tree), leaving the
+    tokens untouched. Same safety net every prior increment relies on, just
+    exercised on a much higher volume of real-world `(` shapes (nearly
+    every control-flow statement in a `.tsx` file) — worth flagging for a
+    future corpus-validation pass as the context most likely to reveal a
+    performance or correctness edge case at scale, even though none was
+    found in this session's own testing.
   - **Fixture-verified**: `test/jsx_tsx_grouping_paren_context_{inp,out}.tsx`
     (a bare `const a = (<span>...</span>);` and a
     `const b = (<div className="b">{a}</div>);` with a `{}` hole; an `if
     (x < 1)` comparison confirmed untouched, doubling as the fallback-safety
     proof above). `make test`: 297/297 → 298/298 forward + idempotency, zero
-    regressions on any existing `.js`/`.ts`/`.tsx` fixture. Manually
+    regressions on any existing `.js`/`.ts`/`.tsx` fixture, manually
     re-verified round1/round2 byte-identical on the new fixture outside the
     Makefile-driven run as well.
-  - **Nothing from the design broke on contact this increment** — no new
+  - **Nothing from the design broke on contact** — no new
     character-level-lexer carve-out needed, same as Increments 2/3/4.
   - **NOT done**: still no real-JSX-corpus validation; `js_ts_content_diff.js`
     still not updated for `.tsx`/JSX `ts.ScriptKind` — both carried over
-    unchanged from Increments 1-4's own "NOT done" lists. The `<T>`-cast-vs-
-    JSX ambiguity's `.tsx`-only resolution is still not stress-tested
-    against an actual `const x = <T>foo;` cast-shaped `.tsx` input in any
-    of the 8 now-landed contexts, carried over from Increment 4 unchanged
-    (not this increment's own gap).
-  - **Where to resume (superseded by Increment 6 below — kept for
-    history).**
+    from Increments 1-4's "NOT done" lists. The `<T>`-cast-vs-JSX
+    ambiguity's `.tsx`-only resolution is still not stress-tested against
+    an actual `const x = <T>foo;` cast-shaped `.tsx` input in any of the 8
+    now-landed contexts (carried over from Increment 4, not this
+    increment's own gap).
+  - **Where to resume**: superseded by Increment 6 below (kept for history).
 
   **2026-08-13 implementation session, Increment 6 — LANDED (10/11
   contexts, item 10 found structurally unreachable at this pass's level,
@@ -910,14 +903,14 @@ active in the Makefile and passing.
     tracked as the one remaining item for a future session willing to take
     on a tokenizer-level (not `findJsxSpans`-level) change.
   - **Ambiguity safety unchanged from every prior increment**: same
-    -1-on-unbalanced-JSX self-correcting property relied on throughout.
+    -1-on-unbalanced-JSX self-correcting property throughout.
   - **Fixture-verified**: `test/jsx_tsx_hole_spread_context_{inp,out}.tsx`
     (a `return`-context `<div>` whose child hole's sole content is another
     JSX element, `<div>{<span>nested</span>}</div>`; a spread call argument
     `foo(...items, <span>tail</span>)`; a spread array element
     `[...items, <span>tail</span>]`; an `if (x < 1)` comparison confirmed
     untouched). `make test`: 298/298 → 299/299 forward + idempotency, zero
-    regressions on any existing `.js`/`.ts`/`.tsx` fixture. Manually
+    regressions on any existing `.js`/`.ts`/`.tsx` fixture, manually
     re-verified round1/round2 byte-identical on the new fixture outside
     the Makefile-driven run as well.
   - **NOT done**: still no real-JSX-corpus validation (react itself,
@@ -925,7 +918,7 @@ active in the Makefile and passing.
     not updated for `.tsx`/JSX `ts.ScriptKind`; the `<T>`-cast-vs-JSX
     ambiguity's `.tsx`-only resolution still not stress-tested against an
     actual `const x = <T>foo;` cast-shaped `.tsx` input — all three carried
-    over unchanged from prior increments' own "NOT done" lists.
+    over from prior increments' "NOT done" lists.
   - **Where to resume (superseded by the 2026-08-13 scoping session below
     for item 10's own breakdown — kept for history; still accurate on the
     real-JSX-corpus-validation point, which the scoping session below does
@@ -1865,12 +1858,12 @@ hypothesis index — do not re-derive from scratch.
 - **RDD_KEY_246** (2 attempts reverted) — pinned the root cause:
   `applyOversizedAggregateInitClosingBracePass` decides `}` placement from
   whether the aggregate initializer already contains an embedded NEWLINE,
-  which is stale pre- vs. post-call-wrap. Attempt 1 (re-run the pass alone)
-  fixed the symptom but exposed the same staleness in
-  `JsTsDeclarationAlignmentRule.spansMultipleLines`'s grouping decision.
-  Attempt 2 (full `ScopePipelineCurly.process` re-run) fixed the repro but
-  regressed `real_code_regressions_100.ts` (collapsed an already-correct
-  `} // interface ParserOptions`) plus several Java/Kotlin/cpp26 fixtures —
+  stale pre- vs. post-call-wrap. Attempt 1 (re-run the pass alone) fixed the
+  symptom but exposed the same staleness in `JsTsDeclarationAlignmentRule.
+  spansMultipleLines`'s grouping decision. Attempt 2 (full
+  `ScopePipelineCurly.process` re-run) fixed the repro but regressed
+  `real_code_regressions_100.ts` (collapsed an already-correct `} //
+  interface ParserOptions`) plus several Java/Kotlin/cpp26 fixtures —
   reverted. Lesson carried into RDD_KEY_248: an unconditional full
   `processScope` re-run is unsafe; the eventual fix re-ran only two of the
   five passes. (Also flagged a general pitfall: redirect long `make test`
@@ -1894,9 +1887,8 @@ hypothesis index — do not re-derive from scratch.
   and found the real mechanism: `BlockStructureRule.alignBracelessElseIfChain`
   runs after `enforceCallLineBreaking` and pads a short `else` to align with
   its `if`; round1's rejoin-check measures the `else` prefix before that
-  padding lands, so a candidate wrongly rejoins. This is a distinct
-  interaction from bug #1's `alignBracelessElseIfChain` issue, and is what
-  RDD_KEY_250 fixed.
+  padding lands, so a candidate wrongly rejoins. Distinct from bug #1's
+  `alignBracelessElseIfChain` issue; fixed by RDD_KEY_250.
 - **RDD_KEY_250 (FIXED)** — right after `alignBracelessElseIfChain` in
   `FormatterCurly.format`, re-run `enforceCallLineBreaking` twice + one
   `enforceComplexityPadding` (same fix shape as RDD_KEY_248; a single
@@ -1920,23 +1912,22 @@ round1 but re-indented to 4sp and unaligned on round2. Root cause:
 `if`/`else` lines' raw indent to match exactly, with a recovery case only
 for "the `if` line was left-padded wider than `else`" — on round2, some
 earlier pass (never individually identified) leaves the standalone `else`
-line indented one level *deeper* than its `if` instead, the opposite
-direction, which the existing recovery didn't handle, so the chain-scan
+line indented one level *deeper* than its `if` instead (the opposite
+direction), which the existing recovery didn't handle, so the chain-scan
 breaks and no alignment is applied. Confirmed distinct from the
-`processScope` double-pass family (#2/#3): this is a single indentation
-value, not a grouping/padding decision, and occurs before
-`alignBracelessElseIfChain` runs (a single-pass method). Fix: widened the
-chain-recovery case to also strip excess indent when `jIndent > indentLen`
-for a bare-`else` member (chain size 1 only), mirroring the existing
-narrower-`if` recovery in the opposite direction. Verified: both files
-individually idempotent; full `angular/angular` corpus (5394 `.ts`)
-idempotency-violation count went 9→7, the 2 newly-fixed files exactly
-`shared.ts`/`directive_outputs.ts`, zero regressions elsewhere (an initial
-raw round1-output diff showed 178 differing files, traced to stale GRU
-classifier weights in the comparison jar, not this fix, ruled out via 3
-independent checks). `make test` 258/258 → 259/259. New fixture:
-`test/real_code_regressions_184_{inp,out}.ts`. Kotlin (shares
-`BlockStructureRule`/`KotlinSpecificRule.alignBracelessElseIfChain`)
+`processScope` double-pass family (#2/#3): a single indentation value, not
+a grouping/padding decision, occurring before `alignBracelessElseIfChain`
+runs (a single-pass method). Fix: widened the chain-recovery case to also
+strip excess indent when `jIndent > indentLen` for a bare-`else` member
+(chain size 1 only), mirroring the existing narrower-`if` recovery in the
+opposite direction. Verified: both files individually idempotent; full
+`angular/angular` corpus (5394 `.ts`) idempotency-violation count went
+9→7, the 2 newly-fixed files exactly `shared.ts`/`directive_outputs.ts`,
+zero regressions elsewhere (an initial raw round1-output diff showed 178
+differing files, traced to stale GRU classifier weights in the comparison
+jar, not this fix, ruled out via 3 independent checks). `make test`
+258/258 → 259/259. New fixture: `test/real_code_regressions_184_{inp,out}.ts`.
+Kotlin (shares `BlockStructureRule`/`KotlinSpecificRule.alignBracelessElseIfChain`)
 re-verified only via `make test`, no dedicated Kotlin corpus re-run.
 
 ### 2. `microsoft/TypeScript` cluster #3 — `harness/collectionsImpl.ts` (FIXED, RDD_KEY_270)
@@ -1955,14 +1946,14 @@ wasn't separately traced). Fix (direct extension of RDD_KEY_248):
 `applyAssignmentsPass` added as a third pass inside `processScope`'s
 `closingBraceAndDeclarationsOnly` re-run mode, after the closing-brace and
 declarations passes. The RDD_KEY_246 failure mode (shared trailing-gap
-force-reindent step) was checked by inspection — that step is gated by one
-boolean untied to which passes run inside the branch, so it's unaffected.
-Validated via A/B rebuild (repro obtained via direct `curl` of the file
-from GitHub, no full clone) rather than corpus dogfood. `make test`
-259/259 → 260/260. New fixture: `test/real_code_regressions_185_{inp,out}.ts`.
-Known unrelated pre-existing artifact: `js_ts_content_diff.js` flags this
-file's top-level `interface`/`class` headers as MISMATCH both before and
-after the fix — a content-diff tool gap, not this bug.
+force-reindent step) was checked by inspection — gated by one boolean
+untied to which passes run inside the branch, so unaffected. Validated via
+A/B rebuild (repro via direct `curl` of the file from GitHub, no full
+clone) rather than corpus dogfood. `make test` 259/259 → 260/260. New
+fixture: `test/real_code_regressions_185_{inp,out}.ts`. Known unrelated
+pre-existing artifact: `js_ts_content_diff.js` flags this file's top-level
+`interface`/`class` headers as MISMATCH both before and after the fix — a
+content-diff tool gap, not this bug.
 
 ### 3. `angular/angular` cluster 4 residue group #3 — `web_animations_player_spec.ts`, `input_transform.ts` (FIXED, RDD_KEY_271)
 
@@ -1996,7 +1987,7 @@ files (byte-for-byte repro pre-fix, full idempotency + `js_ts_syntax_check.sh`
 clean post-fix). `make test` 260/260 → 261/261. New fixture:
 `test/real_code_regressions_186_{inp,out}.ts` (combines both bugs in one
 minimized file). No fresh full-corpus re-run performed (checkout
-unavailable) — validation scope is the two real files plus the fixture
+unavailable); validation scope is the two real files plus the fixture
 suite, same precedent as RDD_KEY_270.
 
 ---

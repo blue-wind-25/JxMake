@@ -169,12 +169,12 @@ error, exit 1 if any file errors, else exit 0):
 All six verified against hand-crafted good/bad pairs (malformed trailing
 comma, unclosed brace, mismatched tag, etc.) before trusted for dogfood use.
 
-**Content-preservation checkers** (Python; proves "still means the same
+**Content-preservation checkers** (Python; prove "still means the same
 thing," not just "still parses" — motivated by the CSS `twbs/bootstrap`
 rtlcss-comment corruption bug, fixture `real_code_regressions_69`, still
 valid CSS and would have slipped past `css_syntax_check.js` alone). Each
-verified against a hand-crafted good pair (whitespace-only reformat) plus
-deliberately-mutated bad pair(s) before trusted for dogfood use; each
+verified, before trusted for dogfood use, against a hand-crafted good pair
+(whitespace-only reformat) plus deliberately-mutated bad pair(s); each
 caught its bad case:
 
 - `css_content_diff.py` — stdlib `re` only. Checks comment text
@@ -286,20 +286,20 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 - **JSON/JSON5/CSS** are neither tag-based, curly, nor indent-based per the
   `Lang.java` family predicates. **Resolved (RDD_KEY_189):** no new
   `TokenizerCore` sibling (no `TokenizerFlat`) — each extends
-  `TokenizerCore` directly with a minimal override. JSON/JSON5 share one
+  `TokenizerCore` directly with a minimal override: JSON/JSON5 share one
   `JsonSpecificRule.java` (gated on `lang.isJson5`), CSS gets
-  `CssSpecificRule.java`; YAML/TOML get `YamlSpecificRule.java`/
-  `TomlSpecificRule.java` on the same reasoning. **Resolved further
-  (RDD_KEY_190), once JSON/JSON5 real logic landed:** JSON/JSON5 and CSS
-  form a new "SimpleBraced" `Lang.isSimpleBraced` family —
-  `TokenizerSimpleBraced` (shared `/* */` block-comment scan) and
-  `FormatterSimpleBraced` (shared `padKeysForColonAlignment` group-padding,
-  §1.1/§3.1's identical colon-alignment shape); `JsonTokenizer` extends
-  `TokenizerSimpleBraced`, `FormatterJson` extends `FormatterSimpleBraced`
-  (`FormatterCore.forLanguage`'s `isJson || isJson5` branch). Distinct from
-  the still-hypothetical YAML/TOML-only "Flat" family (no braces at all) —
-  CSS later joined `SimpleBraced` for real; YAML/TOML did NOT
-  (RDD_KEY_192) — each implements its own from-scratch parser (line-based
+  `CssSpecificRule.java`, YAML/TOML get `YamlSpecificRule.java`/
+  `TomlSpecificRule.java`. **Resolved further (RDD_KEY_190), once JSON/JSON5
+  real logic landed:** JSON/JSON5 and CSS form a new "SimpleBraced"
+  `Lang.isSimpleBraced` family — `TokenizerSimpleBraced` (shared `/* */`
+  block-comment scan) and `FormatterSimpleBraced` (shared
+  `padKeysForColonAlignment` group-padding, §1.1/§3.1's identical
+  colon-alignment shape); `JsonTokenizer` extends `TokenizerSimpleBraced`,
+  `FormatterJson` extends `FormatterSimpleBraced`
+  (`FormatterCore.forLanguage`'s `isJson || isJson5` branch) — CSS later
+  joined `SimpleBraced` for real. Distinct from the still-hypothetical
+  YAML/TOML-only "Flat" family (no braces at all): YAML/TOML did NOT join
+  (RDD_KEY_192), each implementing its own from-scratch parser (line-based
   for YAML, flat single-pass line-scanner for TOML).
 - Implementation order (all complete): JSON/JSON5 → CSS → YAML/TOML → XML →
   HTML5 (HTML5 last, depended on CSS and, for one exception below, JS/TS).
@@ -437,10 +437,9 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      threading state across recursive `parseNodes`/`parseElement` calls to
      avoid double-insertion); status quo (RDD_KEY_185: bare top-level
      content reindents as an ordinary sibling) doesn't corrupt output, just
-     isn't spec-faithful. Tag-name case-folding was fixed standalone (item
-     3 below).
-     **UPDATE:** all three gaps above were subsequently implemented in
-     `STATE_HTML5_TCG.md` as levels 1-3 (implicit `<body>` insertion,
+     isn't spec-faithful. Tag-name case-folding was fixed standalone (item 3
+     below). **UPDATE:** all three gaps above were subsequently implemented
+     in `STATE_HTML5_TCG.md` as levels 1-3 (implicit `<body>` insertion,
      foster-parenting, misnested `<form>`-in-`<template>`) — landed and
      full-suite dogfood re-validated with zero regressions, opt-in behind
      `html5-tc-gap-level` (default `0`, off) per that job's file. No longer
@@ -503,8 +502,8 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      idempotency. Full `apache/ant manual/` 226-file re-run: 226/226
      forward + idempotency + `html_syntax_check.sh` clean; direct `<p`
      tag-count check on `running.html` confirms exactly one `<p></p>`
-     synthesized (60 vs. original 59). `<body>` child count now matches the
-     browser's 82 — the "1 `<p>` lost" residual is gone.
+     synthesized (60 vs. original 59) — `<body>` child count now matches
+     the browser's 82, closing the "1 `<p>` lost" residual.
 
   3. **Tag-name case-folding — DONE, fixed standalone**
      (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New

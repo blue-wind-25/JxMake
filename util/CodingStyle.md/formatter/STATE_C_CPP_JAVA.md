@@ -173,10 +173,10 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   (blanket `.h` -> C++ risks misapplying C++-only rules to genuine C headers; content-sniffing
   heuristics too fragile to trust) — require an explicit `--lang cpp` override instead. Verified
   for real (2026-08-11): a `.h` fixture containing `^^ int` and `[:refl:]` left `^^` untouched
-  under default inference, correctly tightened to `^^int` under `--lang cpp` (which also flips
+  under default inference but correctly tightened to `^^int` under `--lang cpp` (which also flips
   the empty-param-list rendering from C's `foo(void)` to C++'s `foo()`, confirming the whole `cpp`
   pipeline — not just the reflection rules — engages correctly). `Main.java`'s `--lang` override
-  already takes priority over extension-based `inferLanguage` with no bug found; no source change
+  already takes priority over extension-based `inferLanguage`, no bug found, no source change
   needed. Documented in `README.md`'s Known Limitations, curly-brace family, item 6. `make test`:
   278/278 forward + idempotency, unchanged.
 
@@ -400,7 +400,7 @@ user direction — `*_out` files are hand-authored and may themselves contain er
 **Real-code testing (pivoted from synthetic dogfooding — found bugs faster):** see
 STATE_COMMON.md's "Real-code testing methodology" for the repeatable round1/round2/compile
 recipe and fixture-registration convention. Full bug-by-bug root-cause narratives for
-completed candidates have been compacted out of this file into the "Finished" list below —
+completed candidates have been compacted out of this file into the "Finished" list below,
 still available via `git log`/`git show` on the noted commits/fixtures.
 
 **Tools/compiler used**
@@ -670,7 +670,7 @@ on the noted commits/fixtures)
      Full-tree re-run not attempted, ~350kloc not worth re-cloning just to confirm already-fixed
      bugs stay fixed) — `github.com/microsoft/STL` (`stl/inc/`+`stl/src/`, 289 files ~9MB,
      extensionless headers copied to `.hpp` first; excluded `.ixx` module units). Full-tree round1:
-     all 289 formatted, no crashes. Round1/round2: 110/289 differed initially. `clang++` compile
+     all 289 formatted, no crashes; round1/round2 initially differed on 110/289. `clang++` compile
      not attempted (needs STL's own CMake+MSVC harness); full-tree idempotency is load-bearing.
 
      2 bugs fixed: (a) `applyLineEndings` default (`lf`) fast path skipped `\r` stripping — false

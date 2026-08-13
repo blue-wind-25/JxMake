@@ -522,7 +522,7 @@ same as every other language's dogfood precedent for a newly-landed rule.
       skippable, unlike WHITESPACE/NEWLINE/COMMENT, so both branches'
       comma-continuation sites needed it explicitly). Multi-module
       `import a, b` was a genuinely separate gap from the `multiPhysicalLine`
-      call-site gate — its rejection was an internal `classifyImport`
+      call-site gate: its rejection was an internal `classifyImport`
       comma-check, unrelated to that gate, so a plain single-physical-line
       `import a, b` was rejected too before this fix. A parenthesized
       clause carrying any comment inside its span (checked via the
@@ -532,7 +532,7 @@ same as every other language's dogfood precedent for a newly-landed rule.
       missed) disables only that clause's own within-clause resort
       (`nameListStart`/`nameListEnd` set to -1, forcing
       `flushImportGroup`'s pre-existing verbatim-reproduction fallback for
-      that statement) — the statement still participates in cross-statement
+      that statement); the statement still participates in cross-statement
       group classification/movement, since that's already unconditionally
       safe (verbatim whole-line reproduction). Two safety bugs found and
       fixed via real-code testing (see RDD_KEY_277 for full detail): an
@@ -548,7 +548,7 @@ same as every other language's dogfood precedent for a newly-landed rule.
       per-name-commented parenthesized clause; full `/tmp/django` corpus
       (2927 files) dogfooded twice (before/after the comment-scan-range fix)
       with zero crashes both times. A final post-fix corpus re-run found
-      exactly 2 remaining non-idempotent files; both isolated via A/B
+      exactly 2 remaining non-idempotent files, both isolated via A/B
       testing (pre-change git-stash build vs. post-change build, same
       minimized input) to be **pre-existing, unrelated
       comment-normalization-classifier non-determinism**, not caused by
@@ -559,13 +559,13 @@ same as every other language's dogfood precedent for a newly-landed rule.
       because the parenthesized clause it lives in was previously
       frozen/untouched by the old reject-outright behavior and is now,
       correctly, exposed to the separate (already-flaky, out-of-scope for
-      this job — see the comment-grammar classifier job)
-      comment-normalization pass for the first time. Both cases: comment
-      *styling* only differs between rounds — no import name/module content
-      lost, reordered incorrectly, or otherwise corrupted. §3's gap list
-      above (multi-physical-line untouched / parenthesized rejected /
-      multi-module rejected) is now historical, superseded by this entry —
-      `XL.txt` TIER 9 item resolved.
+      this job — see the comment-grammar classifier job) comment-normalization
+      pass for the first time. Both cases: comment *styling* only differs
+      between rounds — no import name/module content lost, reordered
+      incorrectly, or otherwise corrupted. §3's gap list above
+      (multi-physical-line untouched / parenthesized rejected / multi-module
+      rejected) is now historical, superseded by this entry — `XL.txt`
+      TIER 9 item resolved.
 
       **§4 (Decorators).** New `ScopePipelineIndent.applyDecoratorSpacing` +
       bracket-padding helpers. For each single-physical-line `@` line: gap
@@ -707,30 +707,29 @@ same as every other language's dogfood precedent for a newly-landed rule.
       picked up correctly by the alignment slice, not this new pass).
 
       **One real, pre-existing bug found and fixed via `psf/black`
-      dogfood re-run (not just static reasoning):** newly wrapping many
-      more inline signatures into one-per-line form exposed a latent
-      non-convergent idempotency bug in the pre-existing
-      `trySignatureGroup`, unrelated to the new wrap pass's own logic —
-      reproducible by feeding an already-one-per-line signature straight
-      to the pre-existing code, no wrap pass involved. A parameter with
-      neither a type hint nor a default (e.g. a bare `**kwargs` last
-      parameter) still gets its name right-padded to the group's
-      `maxNameLen` with nothing following to absorb the padding;
+      dogfood re-run:** newly wrapping many more inline signatures into
+      one-per-line form exposed a latent non-convergent idempotency bug in
+      the pre-existing `trySignatureGroup`, unrelated to the new wrap
+      pass's own logic — reproducible by feeding an already-one-per-line
+      signature straight to the pre-existing code, no wrap pass involved.
+      A parameter with neither a type hint nor a default (e.g. a bare
+      `**kwargs` last parameter) still gets its name right-padded to the
+      group's `maxNameLen` with nothing following to absorb the padding;
       `trySignatureGroup`'s per-parameter replacement span stopped at the
       last *significant* token (`trimEndIdx`) rather than the segment's
       own trailing `NEWLINE`, so any whitespace a previous round had
-      already baked in between that token and the newline (i.e. the
-      previous round's own padding) was left behind as literal orphaned
-      text the new round's padding then stacked on top of — trailing
-      whitespace grew by another `maxNameLen`-derived amount every round.
-      Fixed: each parameter's span now always extends through its
-      segment's own `NEWLINE`, swallowing any such leftover whitespace.
-      Confirmed via a minimal repro NOT involving the new wrap pass at
-      all. The remaining ~10 of the original 13 `psf/black` idempotency
-      mismatches were independently confirmed unrelated (pre-existing
-      comment-classifier capitalization non-determinism, and the §8
-      join-threshold bug -- see RDD_KEY_287 below for its full diagnosis
-      and fix) -- not caused by this session's changes. New fixture
+      already baked in between that token and the newline (the previous
+      round's own padding) was left behind as literal orphaned text the
+      new round's padding then stacked on top of — trailing whitespace
+      grew by another `maxNameLen`-derived amount every round. Fixed:
+      each parameter's span now always extends through its segment's own
+      `NEWLINE`, swallowing any such leftover whitespace. Confirmed via a
+      minimal repro not involving the new wrap pass at all. The remaining
+      ~10 of the original 13 `psf/black` idempotency mismatches were
+      independently confirmed unrelated to this session's changes
+      (pre-existing comment-classifier capitalization non-determinism, and
+      the §8 join-threshold bug — see RDD_KEY_287 below for its full
+      diagnosis and fix). New fixture
       `test/real_code_regressions_201_{inp,out}.py`.
 
       Local fixtures: `test/py_signature_wrap_{inp,out}.py`
@@ -768,8 +767,8 @@ same as every other language's dogfood precedent for a newly-landed rule.
 
       **§8/§7 join-threshold non-idempotency — root-caused and FIXED
       (RDD_KEY_287).** Previously tracked only as a one-line symptom name
-      ("§8 join-threshold behavior") among the non-determinism sources
-      seen but never diagnosed during `psf/black`/`click`/`flask`/`django`
+      ("§8 join-threshold behavior") among the non-determinism sources seen
+      but never diagnosed during `psf/black`/`click`/`flask`/`django`
       round1->round2 dogfood re-runs. Root cause: `applySingleStatementBody`'s
       join-fits-check, `classifyCaseLine`'s §7 `case` virtualJoin
       fits-check, and `flushCaseGroup`'s post-alignment length guard each
@@ -781,21 +780,21 @@ same as every other language's dogfood precedent for a newly-landed rule.
       spans up to `bodyContentEnd`, a body's trailing comment (deliberately
       retained verbatim per the 2026-08-11 extension above) survives
       untouched immediately after the joined text on the same physical
-      output line — so the fits-check silently undercounted the comment's
-      width. Round1 could therefore accept and emit a joined line that is
-      actually over `lineLength` once the comment is counted; round2 then
-      saw that already-compact, over-limit line and correctly reversed it
-      via the separate compact-overflow-expand branch (which DOES measure
-      the whole physical line, comment included) — a genuine
-      non-convergent flip-flop, not the cosmetic comment-classifier
-      capitalization non-determinism it had been lumped in with.
-      Confirmed via minimal repro (`if total_length == max_length and i !=
-      last_index: break  # Not at sentence end...`, from `pallets/click`'s
-      `utils.py`) and an A/B build from commit `9eb1bd4` (the commit
-      landing the §8 body-trailing-comment-retention extension, well
-      before this session's or the recent §4/§6 signature-wrap work)
-      reproducing the identical flip-flop — proving it was genuinely
-      pre-existing, not introduced by recent changes. Fixed narrowly in
+      output line, so the fits-check silently undercounted the comment's
+      width. Round1 could therefore accept and emit a joined line actually
+      over `lineLength` once the comment is counted; round2 then saw that
+      already-compact, over-limit line and correctly reversed it via the
+      separate compact-overflow-expand branch (which DOES measure the
+      whole physical line, comment included) — a genuine non-convergent
+      flip-flop, not the cosmetic comment-classifier capitalization
+      non-determinism it had been lumped in with. Confirmed via minimal
+      repro (`if total_length == max_length and i != last_index: break  #
+      Not at sentence end...`, from `pallets/click`'s `utils.py`) and an
+      A/B build from commit `9eb1bd4` (the commit landing the §8
+      body-trailing-comment-retention extension, well before this
+      session's or the recent §4/§6 signature-wrap work) reproducing the
+      identical flip-flop — proving it was genuinely pre-existing, not
+      introduced by recent changes. Fixed narrowly in
       `ScopePipelineIndent.java` only, 3 call sites, all now measuring
       `joined + trailingSuffix` (the untouched comment/whitespace suffix)
       instead of `joined` alone: `applySingleStatementBody`'s join branch,

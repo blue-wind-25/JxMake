@@ -1439,27 +1439,30 @@ public class TokenizerCurly extends TokenizerCore {
             }
             if(c == '`') {
                 ++pos;
-                addToken( tokens, new Token(
-                    TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null
-                ) );
+                addToken(
+                    tokens, new Token( TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null )
+                );
                 return;
             } // if
             if( c == '$' && peek(1) == '{' ) {
-                addToken( tokens, new Token(
-                    TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null
-                ) );
+                addToken(
+                    tokens, new Token( TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null )
+                );
                 pos += 2;
-                addToken( tokens, new Token(TokenType.TEMPLATE_HOLE_OPEN, "${", braceDepth, parenDepth, null) );
+                addToken(
+                    tokens,
+                    new Token(TokenType.TEMPLATE_HOLE_OPEN, "${", braceDepth, parenDepth, null)
+                );
                 emitTemplateHoleInterior(tokens);
                 segStart = pos;
                 continue;
-            }
+            } // if
             ++pos;
         } // while
         syntaxError = true;
-        addToken( tokens, new Token(
-            TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null
-        ) );
+        addToken(
+            tokens, new Token( TokenType.STRING, source.substring(segStart, pos), braceDepth, parenDepth, null )
+        );
     }
 
     /**
@@ -1492,24 +1495,27 @@ public class TokenizerCurly extends TokenizerCore {
                 --holeDepth;
                 if(holeDepth == 0) {
                     ++pos; // Consume the hole's own closing `}`
-                    addToken( tokens, new Token(TokenType.TEMPLATE_HOLE_CLOSE, "}", braceDepth, parenDepth, null) );
+                    addToken(
+                        tokens,
+                        new Token(TokenType.TEMPLATE_HOLE_CLOSE, "}", braceDepth, parenDepth, null)
+                    );
                     return;
-                }
+                } // if
                 // A genuine nested `}` (e.g. closing an object literal/block inside the
                 // interpolation expression) -- fall through to ordinary dispatch below, which
                 // correctly decrements the tokenizer's global braceDepth via emitCloseBrace.
-            }
+            } // if
             else if(c == '{') {
                 ++holeDepth;
                 // Falls through to ordinary dispatch, which increments global braceDepth via
                 // emitOpenBrace -- holeDepth tracks the same nesting independently, purely to
-                // recognize this hole's own terminator.
+                // recognize this hole's own terminator
             }
             tokenizeOneUnit(tokens);
             if(syntaxError) return;
         } // while
         // Unterminated hole (EOF before the matching `}`) -- same posture as the rest of this
-        // tokenizer's unterminated-construct handling.
+        // tokenizer's unterminated-construct handling
         syntaxError = true;
     }
 
@@ -1578,15 +1584,19 @@ public class TokenizerCurly extends TokenizerCore {
         if(i < 0) return true;
         final Token last = tokens.get(i);
         switch(last.type) {
+
             case IDENTIFIER: /* FALL-THROUGH */
             case NUMBER: /* FALL-THROUGH */
             case STRING: /* FALL-THROUGH */
             case CHAR:
                 return false;
+
             case KEYWORD:
                 return !( "this".equals(last.text) || "super".equals(last.text) );
+
             case PUNCT:
                 return !( ")".equals(last.text) || "]".equals(last.text) || "}".equals(last.text) );
+
             case OP:
                 // `.jsx`/`.tsx` only: a `/` immediately after `<` is virtually always a JSX
                 // closing tag (`</Foo>`) or the tail of a self-closing tag (`<Foo/>` -- the OP
@@ -1603,8 +1613,10 @@ public class TokenizerCurly extends TokenizerCore {
                 if( lang.isJsxSyntax && "<".equals(last.text) ) return false;
 
                 return !( "++".equals(last.text) || "--".equals(last.text) );
+
             default:
                 return true;
+
         } // switch
     }
 
@@ -1996,25 +2008,36 @@ public class TokenizerCurly extends TokenizerCore {
             // legacy `<T>` cast) is still safe even if this check fires on it -- findJsxSpanEnd/
             // parseJsxTag returns -1 for anything that doesn't actually parse as a balanced JSX
             // tree, leaving the tokens untouched.
-            final boolean isJsxContext = Token.isKeyword(prev, "return")
-                    || Token.isOp(prev, "=>")
-                    || Token.isOp(prev, "?")
-                    || Token.isOp(prev, ":")
-                    || isCallArgumentOrArrayElementStart(tokens, sig, s)
-                    || isAssignmentOrLogicalRhsStart(prev)
-                    || isGroupingParenStart(tokens, sig, s)
-                    || Token.isPunct(prev, "{")
-                    || ( prev != null && prev.type == TokenType.TEMPLATE_HOLE_OPEN )
-                    || isSpreadContext(tokens, sig, s);
-            if( !isJsxContext ) continue;
+            final boolean isJsxContext = Token.isKeyword(
+                prev, "return"
+            ) || Token.isOp(
+                prev, "=>"
+            ) || Token.isOp(
+                prev, "?"
+            ) || Token.isOp(
+                prev, ":"
+            ) || isCallArgumentOrArrayElementStart(
+                tokens, sig, s
+            ) || isAssignmentOrLogicalRhsStart(
+                prev
+            ) || isGroupingParenStart(
+                tokens, sig, s
+            ) || Token.isPunct(
+                prev, "{"
+            ) || (prev != null && prev.type == TokenType.TEMPLATE_HOLE_OPEN) || isSpreadContext(
+                tokens, sig, s
+            );
+            if(!isJsxContext) continue;
 
             final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
             if(endTokenIdx < 0) continue; // Unbalanced/not real JSX here -- leave tokens untouched
 
             final StringBuilder text = new StringBuilder();
-            for( int k = idx; k <= endTokenIdx; ++k ) text.append( tokens.get(k).text );
+            for(int k = idx; k <= endTokenIdx; ++k) text.append( tokens.get(k).text );
 
-            final Token span = new Token(TokenType.JSX_SPAN, text.toString(), cur.braceDepth, cur.parenDepth, null);
+            final Token span = new Token(
+                TokenType.JSX_SPAN, text.toString(), cur.braceDepth, cur.parenDepth, null
+            );
             span.frozen = true;
 
             // STATE_JS_TS.md's Step 2 "context 11" scoping session, sub-context 1 (Increment 1,
@@ -2028,21 +2051,21 @@ public class TokenizerCurly extends TokenizerCore {
             // findJsxSpanEnd's own first iteration requires kind 0 or 2 to proceed at all).
             final JsxTagResult rootTag = parseJsxTag(tokens, sig, s);
             if( rootTag != null && (rootTag.kind == 0 || rootTag.kind == 2) ) {
-                final int tagEndRawIdx = sig.get(rootTag.newSigPos - 1); // Raw index of the tag's own '>'
-                int       offset       = 0;
+                final int           tagEndRawIdx   = sig.get(rootTag.newSigPos - 1); // Raw index of the tag's own '>'
+                      int           offset         = 0;
                 final List<Integer> attrBoundaries = new ArrayList<>();
-                for( int k = idx; k <= tagEndRawIdx; ++k ) {
+                for(int k = idx; k <= tagEndRawIdx; ++k) {
                     if( rootTag.attrRawTokenIndices.contains(k) ) attrBoundaries.add(offset);
                     offset += tokens.get(k).text.length();
                 }
                 span.jsxOpeningTagEndOffset = offset;
                 span.jsxAttrBoundaries      = attrBoundaries;
-            }
+            } // if
 
             // Replace tokens[idx..endTokenIdx] (inclusive) with the single span token. No other
             // tokens are inserted/removed by this pass (unlike reclassifyAngleBrackets), so a
             // straightforward remove-then-set is sufficient.
-            for( int k = endTokenIdx; k > idx; --k ) tokens.remove(k);
+            for(int k = endTokenIdx; k > idx; --k) tokens.remove(k);
             tokens.set(idx, span);
 
             // Re-derive `sig` for every position after `s` against the now-shorter token list --
@@ -2052,22 +2075,38 @@ public class TokenizerCurly extends TokenizerCore {
             final int removed = endTokenIdx - idx;
             for( int k = sig.size() - 1; k > s; --k ) {
                 if( sig.get(k) > endTokenIdx ) sig.set( k, sig.get(k) - removed );
-                else sig.remove(k);
+                else                           sig.remove(k);
             }
-        } // for
+        } // for s
     }
 
-    /** Assignment operators (per STATE_JS_TS.md's design list item 6: "after `=`... also covers
+    /**
+     * Assignment operators (per STATE_JS_TS.md's design list item 6: "after `=`... also covers
      *  `+=`/`-=`/etc. compound assignment operators -- same RHS-start shape"). Matches the exact set
      *  of assignment-shaped entries this tokenizer's own {@link #MULTI_CHAR_OPS} emits, plus the
      *  plain single-char `=`. Not reused from {@code MiscRuleCore.ASSIGNMENT_OPS} (rules package) --
      *  that field is `protected` and cross-package, and is missing `&&=`/`||=`/`??=`/`<<=`/`>>>=`
-     *  which this tokenizer's own lexer does emit; kept local and tokenizer-scoped instead. */
+     *  which this tokenizer's own lexer does emit; kept local and tokenizer-scoped instead.
+     */
     private static final Set<String> JSX_ASSIGNMENT_OPS = setOf(
-            "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=", ">>>=", "&&=", "||=", "??="
+        "=",
+        "+=",
+        "-=",
+        "*=",
+        "/=",
+        "%=",
+        "&=",
+        "|=",
+        "^=",
+        "<<=",
+        ">>=",
+        ">>>=",
+        "&&=",
+        "||=",
+        "??="
     );
 
-    /** Logical/nullish short-circuit operators (design list item 7: "after `&&`, `||`, `??`"). */
+    /** Logical/nullish short-circuit operators (design list item 7: "after `&&`, `||`, `??`") */
     private static final Set<String> JSX_LOGICAL_OPS = setOf("&&", "||", "??");
 
     /**
@@ -2084,6 +2123,7 @@ public class TokenizerCurly extends TokenizerCore {
     private boolean isAssignmentOrLogicalRhsStart(final Token prev)
     {
         if(prev == null || prev.type != TokenType.OP) return false;
+
         return JSX_ASSIGNMENT_OPS.contains(prev.text) || JSX_LOGICAL_OPS.contains(prev.text);
     }
 
@@ -2112,12 +2152,12 @@ public class TokenizerCurly extends TokenizerCore {
                 }
                 ++s;
                 continue;
-            }
+            } // if
 
             final JsxTagResult r = parseJsxTag(tokens, sig, s);
             if(r == null) return -1;
             final int newS = r.newSigPos;
-            final int kind = r.kind; // 0 = open, 1 = close, 2 = self-close
+            final int kind = r.kind;      // 0 = open, 1 = close, 2 = self-close
 
             if(kind == 1) {
                 // Tag-name identity check (STATE_JS_TS.md's 2026-08-13 hardening) -- a closing tag
@@ -2129,7 +2169,7 @@ public class TokenizerCurly extends TokenizerCore {
                 final String expected = openNames.pop();
                 if( !expected.equals(r.tagName) ) return -1;
                 if( openNames.isEmpty() ) return sig.get(newS - 1);
-            }
+            } // if
             else if(kind == 2) {
                 if( openNames.isEmpty() ) return sig.get(newS - 1);
             }
@@ -2152,9 +2192,9 @@ public class TokenizerCurly extends TokenizerCore {
      */
     private static final class JsxTagResult {
 
-        final int          newSigPos;
-        final int          kind;
-        final String       tagName;
+        final int           newSigPos;
+        final int           kind;
+        final String        tagName;
         final List<Integer> attrRawTokenIndices; // Raw `tokens` indices where each attribute in an
                                                    // open/self-close tag begins, in source order --
                                                    // empty for a closing tag (kind == 1). See
@@ -2162,7 +2202,12 @@ public class TokenizerCurly extends TokenizerCore {
                                                    // session, sub-context 1 -- consumed only by
                                                    // findJsxSpans to populate Token#jsxAttrBoundaries.
 
-        JsxTagResult(final int newSigPos, final int kind, final String tagName, final List<Integer> attrRawTokenIndices)
+        JsxTagResult(
+            final int           newSigPos,
+            final int           kind,
+            final String        tagName,
+            final List<Integer> attrRawTokenIndices
+        )
         {
             this.newSigPos           = newSigPos;
             this.kind                = kind;
@@ -2188,10 +2233,14 @@ public class TokenizerCurly extends TokenizerCore {
      *  scoping session, sub-context 1 -- unused by anything in this method itself, consumed only
      *  by {@link #findJsxSpans}.
      */
-    private JsxTagResult parseJsxTag(final List<Token> tokens, final List<Integer> sig, final int s0)
+    private JsxTagResult parseJsxTag(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           s0
+    )
     {
         final int n = sig.size();
-        int       s = s0 + 1; // Skip the opening '<'
+              int s = s0 + 1;     // Skip the opening '<'
         if(s >= n) return null;
 
         final boolean closing = Token.isOp( tokens.get( sig.get(s) ), "/" );
@@ -2227,8 +2276,8 @@ public class TokenizerCurly extends TokenizerCore {
         }
 
         final List<Integer> attrRawTokenIndices = new ArrayList<>();
-        int     localBrace   = 0;
-        boolean selfClosing = false;
+              int           localBrace          = 0;
+              boolean       selfClosing         = false;
         while(s < n) {
             final Token t = tokens.get( sig.get(s) );
             if( localBrace == 0 && Token.isOp(t, "/") && s + 1 < n
@@ -2243,12 +2292,16 @@ public class TokenizerCurly extends TokenizerCore {
             // attribute's own value hole, not a fresh boundary (found via Increment 2's own
             // real-code smoke test: without this check, `attr={x}` wrongly split into two
             // "attributes", `attr=` and `{x}`).
-            final boolean isValueHoleOpenBrace = Token.isPunct(t, "{") && s > 0
-                    && Token.isOp( tokens.get( sig.get(s - 1) ), "=" );
-            if( localBrace == 0 && !closing && !isValueHoleOpenBrace
-                    && ( t.type == TokenType.IDENTIFIER || Token.isPunct(t, "{") ) ) {
-                attrRawTokenIndices.add( sig.get(s) );
-            }
+            final boolean isValueHoleOpenBrace = Token.isPunct(
+                t, "{"
+            ) && s > 0 && Token.isOp(
+                tokens.get( sig.get(s - 1) ), "="
+            );
+            if( localBrace == 0 && !closing && !isValueHoleOpenBrace && ( t.type == TokenType.IDENTIFIER || Token.isPunct(
+                t, "{"
+            ) ) ) attrRawTokenIndices.add(
+                sig.get(s)
+            );
             if( Token.isPunct(t, "{") ) { ++localBrace; ++s; continue; }
             if( Token.isPunct(t, "}") ) { if(localBrace > 0) --localBrace; ++s; continue; }
             ++s;
@@ -2257,15 +2310,23 @@ public class TokenizerCurly extends TokenizerCore {
         if( s >= n || !Token.isOp( tokens.get( sig.get(s) ), ">" ) ) return null;
         ++s; // Consume '>'
 
-        return new JsxTagResult( s, closing ? 1 : (selfClosing ? 2 : 0), tagNameStr, attrRawTokenIndices );
+        return new JsxTagResult(
+            s, closing ? 1 : (selfClosing ? 2 : 0), tagNameStr, attrRawTokenIndices
+        );
     }
 
-    /** Balance-skips a `{...}` hole starting at {@code sig.get(s)} (a `{` token); returns the
-     *  `sig` position immediately after the matching `}`, or -1 if unbalanced. */
-    private int skipBalancedBraceHole(final List<Token> tokens, final List<Integer> sig, final int s0)
+    /**
+     * Balance-skips a `{...}` hole starting at {@code sig.get(s)} (a `{` token); returns the
+     *  `sig` position immediately after the matching `}`, or -1 if unbalanced.
+     */
+    private int skipBalancedBraceHole(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           s0
+    )
     {
         int braceDepth = 0;
-        int s           = s0;
+        int s          = s0;
         while( s < sig.size() ) {
             final Token t = tokens.get( sig.get(s) );
             if( Token.isPunct(t, "{") ) ++braceDepth;
@@ -2274,7 +2335,7 @@ public class TokenizerCurly extends TokenizerCore {
                 if(braceDepth == 0) return s + 1;
             }
             ++s;
-        }
+        } // while
 
         return -1;
     }
@@ -2302,7 +2363,11 @@ public class TokenizerCurly extends TokenizerCore {
      *  recognized this increment.</li>
      *  </ul>
      */
-    private boolean isCallArgumentOrArrayElementStart(final List<Token> tokens, final List<Integer> sig, final int s)
+    private boolean isCallArgumentOrArrayElementStart(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           s
+    )
     {
         if(s == 0) return false;
         final Token prev = tokens.get( sig.get(s - 1) );
@@ -2317,19 +2382,30 @@ public class TokenizerCurly extends TokenizerCore {
             if( Token.isPunct(open, "[") ) return true;
             if( Token.isPunct(open, "(") ) return isCallOpenParen(tokens, sig, openIdx);
             return false;
-        }
+        } // if
 
         return false;
     }
 
-    /** True when the `(` token at {@code sig.get(parenS)} is a call-open -- immediately preceded
+    /**
+     * True when the `(` token at {@code sig.get(parenS)} is a call-open -- immediately preceded
      *  by an IDENTIFIER, `)`, or `]` (same notion `reclassifyAngleBrackets`'s generic-safe-token
-     *  check already uses to distinguish a call from a bare grouping paren). */
-    private boolean isCallOpenParen(final List<Token> tokens, final List<Integer> sig, final int parenS)
+     *  check already uses to distinguish a call from a bare grouping paren).
+     */
+    private boolean isCallOpenParen(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           parenS
+    )
     {
         if(parenS == 0) return false;
         final Token before = tokens.get( sig.get(parenS - 1) );
-        return before.type == TokenType.IDENTIFIER || Token.isPunct(before, ")") || Token.isPunct(before, "]");
+
+        return before.type == TokenType.IDENTIFIER || Token.isPunct(
+            before, ")"
+        ) || Token.isPunct(
+            before, "]"
+        );
     }
 
     /**
@@ -2340,12 +2416,17 @@ public class TokenizerCurly extends TokenizerCore {
      *  by {@link #isCallArgumentOrArrayElementStart} -- this check deliberately only fires on the
      *  complementary case to avoid double-claiming the same `(` shape both ways.
      */
-    private boolean isGroupingParenStart(final List<Token> tokens, final List<Integer> sig, final int s)
+    private boolean isGroupingParenStart(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           s
+    )
     {
         if(s == 0) return false;
-        final int parenS = s - 1;
-        final Token prev = tokens.get( sig.get(parenS) );
+        final int   parenS = s - 1;
+        final Token prev   = tokens.get( sig.get(parenS) );
         if( !Token.isPunct(prev, "(") ) return false;
+
         return !isCallOpenParen(tokens, sig, parenS);
     }
 
@@ -2364,17 +2445,24 @@ public class TokenizerCurly extends TokenizerCore {
         if(s == 0) return false;
         final Token prev = tokens.get( sig.get(s - 1) );
         if( !Token.isOp(prev, "...") ) return false;
+
         return isCallArgumentOrArrayElementStart(tokens, sig, s - 1);
     }
 
-    /** Scans backward from (but not including) {@code sig.get(beforeS)} tracking bracket depth
+    /**
+     * Scans backward from (but not including) {@code sig.get(beforeS)} tracking bracket depth
      *  across `(`/`)`, `[`/`]`, `{`/`}`, and returns the `sig` index of the nearest unmatched
      *  opening bracket -- the bracket that directly encloses position {@code beforeS} -- or -1 if
-     *  none is found (top level). Used to classify a top-level `,` by what it's inside of. */
-    private int findEnclosingOpenBracket(final List<Token> tokens, final List<Integer> sig, final int beforeS)
+     *  none is found (top level). Used to classify a top-level `,` by what it's inside of.
+     */
+    private int findEnclosingOpenBracket(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           beforeS
+    )
     {
         final java.util.Deque<String> stack = new java.util.ArrayDeque<>();
-        for( int s = beforeS - 1; s >= 0; --s ) {
+        for(int s = beforeS - 1; s >= 0; --s) {
             final Token t = tokens.get( sig.get(s) );
             if( Token.isPunct(t, ")") || Token.isPunct(t, "]") || Token.isPunct(t, "}") ) {
                 stack.push(t.text);
@@ -2383,7 +2471,8 @@ public class TokenizerCurly extends TokenizerCore {
                 if( stack.isEmpty() ) return s;
                 stack.pop();
             }
-        }
+        } // for
+
         return -1;
     }
 

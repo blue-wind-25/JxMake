@@ -43,8 +43,8 @@ public final class FormatterCurly extends FormatterCore {
         final TokenizerCurly tokenizerCore = new TokenizerCurly(lang);
         final boolean        isCOrCpp      = lang.isCpp || lang.isC;
 
-        final int                indentWidth                = config.indentSize();
-        final int                lineLengthLimit            = config.lineLength();
+        final int indentWidth     = config.indentSize();
+        final int lineLengthLimit = config.lineLength();
 
         final java.util.function.Function<String, List<Token>> tokenizer = (final String s) -> {
             final List<Token> tokens = tokenizerCore.tokenize(s);
@@ -55,12 +55,9 @@ public final class FormatterCurly extends FormatterCore {
             // JSX_SPAN tokens at all (every non-.jsx/.tsx file, by construction).
             if(lang.isJsxSyntax) {
                 for(final Token t : tokens) {
-                    if(t.type == com.jxmake.formatter.tokenizer.TokenizerCore.TokenType.JSX_SPAN
-                            && t.jsxOpeningTagEndOffset >= 0) {
-                        com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement(
-                            t.jsxOpeningTagEndOffset, lineLengthLimit
-                        );
-                    }
+                    if(t.type == com.jxmake.formatter.tokenizer.TokenizerCore.TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement(
+                        t.jsxOpeningTagEndOffset, lineLengthLimit
+                    );
                 } // for
             } // if
             return tokens;
@@ -435,7 +432,7 @@ public final class FormatterCurly extends FormatterCore {
             // doc comment). Runs after every earlier width-affecting pass has settled, same
             // ordering rationale as enforceCallLineBreaking immediately above.
             text = jsTsRule.enforceJsxSelfClosingAttributeWrap( tokenizer.apply(text) );
-        }
+        } // if
 
         // Phase 5: file-header-level structure
         if(isCOrCpp) {

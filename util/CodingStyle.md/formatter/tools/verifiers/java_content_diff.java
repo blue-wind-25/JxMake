@@ -369,7 +369,7 @@ public class java_content_diff {
             s -> BRACE_ANNOTATION.matcher(s).matches() ) );
 
         if( mismatches.isEmpty() ) {
-            System.out.println( "OK: content preserved (" + origLabel + " == " + fmtLabel + ")" );
+            System.out.println("OK: content preserved (" + origLabel + " == " + fmtLabel + ")");
 
             return true;
         }
@@ -418,7 +418,7 @@ public class java_content_diff {
             ok = compareOne(origPath, fmtPath, origArg, fmtArg);
         }
         catch(Exception e) {
-            System.err.println( "ERROR: failed to parse " + origArg + " or " + fmtArg + ": " + e );
+            System.err.println("ERROR: failed to parse " + origArg + " or " + fmtArg + ": " + e);
             System.exit(2);
             return;
         }

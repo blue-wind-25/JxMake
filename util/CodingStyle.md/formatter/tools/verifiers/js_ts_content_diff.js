@@ -318,12 +318,12 @@ function pad3(n)
  */
 function timestampNow()
 {
-  const d = new Date();
+    const d = new Date();
 
-  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
-    ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) +
-    '.' + pad3(d.getMilliseconds());
-}
+  return d.getFullYear() + '-' + pad2( d.getMonth() + 1 ) + '-' + pad2( d.getDate() ) +
+    ' ' + pad2( d.getHours() ) + ':' + pad2( d.getMinutes() ) + ':' + pad2( d.getSeconds() ) +
+    '.' + pad3( d.getMilliseconds() );
+} // timestampNow
 
 /**
  * Printed immediately before a pair's AST diff starts -- if the tool
@@ -357,16 +357,16 @@ function printTimestampedHeader(relPath)
  */
 function compareOne(origPath, fmtPath, origLabel, fmtLabel)
 {
-  const origSrc = fs.readFileSync(origPath, 'utf8');
-  const fmtSrc  = fs.readFileSync(fmtPath, 'utf8');
+    const origSrc = fs.readFileSync(origPath, 'utf8');
+    const fmtSrc  = fs.readFileSync(fmtPath, 'utf8');
 
-  const origFile = parse( origSrc, path.basename(origPath) );
-  const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
+    const origFile = parse( origSrc, path.basename(origPath) );
+    const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
 
-  const mismatches = [];
+    const mismatches = [];
 
-  const origBuckets = topLevelBuckets(origFile);
-  const fmtBuckets  = topLevelBuckets(fmtFile);
+    const origBuckets = topLevelBuckets(origFile);
+    const fmtBuckets  = topLevelBuckets(fmtFile);
 
   mismatches.push( ...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports) );
 
@@ -399,28 +399,32 @@ function compareOne(origPath, fmtPath, origLabel, fmtLabel)
 function printUsage()
 {
   console.error('Usage: js_ts_content_diff.sh <original.(js|ts)> <formatted.(js|ts)>');
-  console.error('       js_ts_content_diff.sh <original_base_dir> <formatted_base_dir> <js_ts_rel_path_file_list.txt>');
+  console.error(
+      '       js_ts_content_diff.sh <original_base_dir> <formatted_base_dir> <js_ts_rel_path_file_list.txt>'
+  );
 }
 
 function runSingle(origArg, fmtArg)
 {
   printTimestampedHeader(origArg);
 
-  const origExists = fs.existsSync(origArg);
-  const fmtExists  = fs.existsSync(fmtArg);
+    const origExists = fs.existsSync(origArg);
+    const fmtExists  = fs.existsSync(fmtArg);
   if(!origExists || !fmtExists) {
-         if(!origExists && !fmtExists) console.log('WARNING: both ' + origArg + ' and ' + fmtArg + ' are missing');
+         if(!origExists && !fmtExists) console.log(
+             'WARNING: both ' + origArg + ' and ' + fmtArg + ' are missing'
+         );
     else if(!origExists)               console.log('WARNING: ' + origArg + ' is missing');
     else                                console.log('WARNING: ' + fmtArg + ' is missing');
     process.exit(1);
-  }
+  } // if
 
   if( !compareOne(origArg, fmtArg, origArg, fmtArg) ) process.exit(1);
-}
+} // runSingle
 
 function runBatch(origBaseDir, fmtBaseDir, fileListPath)
 {
-  const relPaths = fs.readFileSync(fileListPath, 'utf8').split('\n');
+    const relPaths = fs.readFileSync(fileListPath, 'utf8').split('\n');
 
   let okCount = 0, mismatchCount = 0, missingCount = 0;
 
@@ -436,10 +440,12 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
     const origExists = fs.existsSync(origPath);
     const fmtExists  = fs.existsSync(fmtPath);
     if(!origExists && !fmtExists) {
-      console.log('  WARNING: missing from both ' + origBaseDir + ' and ' + fmtBaseDir + ' -- skipping');
+      console.log(
+          '  WARNING: missing from both ' + origBaseDir + ' and ' + fmtBaseDir + ' -- skipping'
+      );
       ++missingCount;
       continue;
-    }
+    } // if
     if(!origExists) {
       console.log('  WARNING: missing from ' + origBaseDir + ' -- skipping');
       ++missingCount;
@@ -468,11 +474,11 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
   );
 
   if(mismatchCount > 0 || missingCount > 0) process.exit(1);
-}
+} // runBatch
 
 function main()
 {
-  const args = process.argv.slice(2);
+    const args = process.argv.slice(2);
        if(args.length === 2) runSingle( args[0], args[1] );
   else if(args.length === 3) runBatch( args[0], args[1], args[2] );
   else                       {

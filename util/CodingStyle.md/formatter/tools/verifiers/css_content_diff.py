@@ -168,9 +168,10 @@ def run_single(orig_arg, fmt_arg):
 
     orig_exists, fmt_exists = os.path.exists(orig_arg), os.path.exists(fmt_arg)
     if not orig_exists or not fmt_exists:
-        if not orig_exists and not fmt_exists: print(f"WARNING: both {orig_arg} and {fmt_arg} are missing")
-        elif not orig_exists:                  print(f"WARNING: {orig_arg} is missing")
-        else:                                  print(f"WARNING: {fmt_arg} is missing")
+        if not orig_exists and not fmt_exists:
+            print(f"WARNING: both {orig_arg} and {fmt_arg} are missing")
+        elif not orig_exists: print(f"WARNING: {orig_arg} is missing")
+        else: print(f"WARNING: {fmt_arg} is missing")
         sys.exit(1)
 
     sys.exit(0 if compare_one(orig_arg, fmt_arg, orig_arg, fmt_arg) else 1)
@@ -204,7 +205,7 @@ def run_batch(orig_base_dir, fmt_base_dir, file_list_path):
 
         try:
             if compare_one(orig_path, fmt_path, rel, rel): ok_count += 1
-            else:                                          mismatch_count += 1
+            else: mismatch_count += 1
         except Exception as e:
             print(f"  ERROR: {e}")
             mismatch_count += 1
@@ -218,7 +219,7 @@ def run_batch(orig_base_dir, fmt_base_dir, file_list_path):
 
 def main():
     args = sys.argv[1:]
-    if len(args) == 2:   run_single(args[0], args[1])
+    if len(args) == 2: run_single(args[0], args[1])
     elif len(args) == 3: run_batch(args[0], args[1], args[2])
     else:
         print_usage()

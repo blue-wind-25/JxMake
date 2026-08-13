@@ -1051,7 +1051,7 @@ public final class PowerShellSpecificRule {
         for( int i = lead; i < line.length(); ++i ) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-                 if(c == '(' || c == '[' || c == '{') depth++;
+            if(c == '(' || c == '[' || c == '{') depth++;
             else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
             else if( depth == 0 && c == '|' && !isDoublePipe(line, i) ) {
                 segs.add( line.substring(start, i).trim() );

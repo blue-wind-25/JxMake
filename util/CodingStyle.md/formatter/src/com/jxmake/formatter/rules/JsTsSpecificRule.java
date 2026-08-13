@@ -264,7 +264,7 @@ public final class JsTsSpecificRule {
                 // hole's own expression (a multi-line ternary) wrapped onto its own line.
                 depthStack.push(depth);
                 ++depth;
-            }
+            } // if
             else if( isPunct(
                 t, ")"
             ) || isPunct(
@@ -376,7 +376,7 @@ public final class JsTsSpecificRule {
         ) || isPunct(
             t, "["
         ) ) return false;
-        if( t.type == TokenType.TEMPLATE_HOLE_OPEN ) return false;
+        if(t.type == TokenType.TEMPLATE_HOLE_OPEN) return false;
         if( t.type == TokenType.OP && CONTINUATION_OPS.contains(t.text) ) return false;
         if( t.type == TokenType.KEYWORD && CONTINUATION_KEYWORDS.contains(t.text) ) return false;
         if( endsWithDecoratorApplication(tokens, idx, parenCloseToOpen) ) return false;
@@ -829,7 +829,7 @@ public final class JsTsSpecificRule {
             // session's static trace) once JSX-in-hole detection was implemented and manually
             // verified against a `${a+b}` case. Token-based instead of text-based since the hole's
             // interior is already real tokens here -- simpler than re-tokenizing a substring.
-            else if( t.type == TokenType.TEMPLATE_HOLE_OPEN ) {
+            else if(t.type == TokenType.TEMPLATE_HOLE_OPEN) {
                 final int closeIdx = findMatchingTemplateHoleClose(tokens, i);
                 if(closeIdx > i) {
                     final String rendered = renderTemplateHoleInterior(
@@ -837,12 +837,12 @@ public final class JsTsSpecificRule {
                     );
                     if(rendered != null) {
                         overrides.put(i + 1, rendered);
-                        for( int k = i + 2; k < closeIdx; ++k ) overrides.put(k, "");
+                        for(int k = i + 2; k < closeIdx; ++k) overrides.put(k, "");
                     }
                     i = closeIdx; // Skip past the whole hole -- nested holes inside it were
-                                  // already folded into `rendered` by renderTemplateHoleInterior's
-                                  // own recursion, not independently reprocessed by this loop.
-                }
+                                  // Already folded into `rendered` by renderTemplateHoleInterior's
+                                  // own recursion, not independently reprocessed by this loop
+                } // if
             }
         } // for
 
@@ -865,7 +865,7 @@ public final class JsTsSpecificRule {
                 --depth;
                 if(depth == 0) return i;
             }
-        }
+        } // for
 
         return -1;
     }
@@ -894,12 +894,12 @@ public final class JsTsSpecificRule {
     private String renderTemplateHoleInterior(final List<Token> interior, final MiscRuleCurly misc)
     {
         final List<Token> significant = new ArrayList<>();
-        int i = 0;
+              int         i           = 0;
         while( i < interior.size() ) {
             final Token t = interior.get(i);
             if( t.type == TokenType.NEWLINE || isComment(t) ) return null;
-            if( t.frozen && t.type != TokenType.JSX_SPAN ) return null;
-            if( t.type == TokenType.WHITESPACE ) { ++i; continue; }
+            if(t.frozen && t.type != TokenType.JSX_SPAN) return null;
+            if(t.type == TokenType.WHITESPACE) { ++i; continue; }
             if( t.type == TokenType.STRING && !t.text.isEmpty() && t.text.charAt(0) == '`' ) {
                 // Start of a nested template literal's segment chain (STRING, [HOLE_OPEN,
                 //  interior, HOLE_CLOSE, STRING]*). Earlier this folded each of its own
@@ -914,48 +914,61 @@ public final class JsTsSpecificRule {
                 //  the tokenizer had never segmented it (found via a non-idempotent round-trip
                 //  probe on `a ${ `b ${x+1}` } d`, STATE_JS_TS.md sub-context 2).
                 final StringBuilder combined = new StringBuilder(t.text);
-                boolean closed = t.text.length() >= 2 && t.text.charAt(t.text.length() - 1) == '`';
+                      boolean       closed   = t.text.length() >= 2 && t.text.charAt(
+                          t.text.length() - 1
+                      ) == '`';
                 ++i;
                 while(!closed) {
-                    if( i >= interior.size() || interior.get(i).type != TokenType.TEMPLATE_HOLE_OPEN ) {
-                        return null; // Malformed/unexpected shape -- bail defensively
-                    }
+                    if( i >= interior.size() || interior.get(
+                        i
+                    ).type != TokenType.TEMPLATE_HOLE_OPEN ) return null; // Malformed/unexpected shape -- bail defensively
                     final int closeIdx = findMatchingTemplateHoleClose(interior, i);
                     if(closeIdx < 0) return null; // Unbalanced -- should be unreachable, bail defensively
-                    final String nested = renderTemplateHoleInterior(
+                    final String        nested = renderTemplateHoleInterior(
                         interior.subList(i + 1, closeIdx), misc
                     );
-                    final StringBuilder raw = new StringBuilder();
-                    for( int k = i + 1; k < closeIdx; ++k ) raw.append( interior.get(k).text );
-                    combined.append("${").append( nested != null ? nested : raw.toString() ).append('}');
+                    final StringBuilder raw    = new StringBuilder();
+                    for(int k = i + 1; k < closeIdx; ++k) raw.append( interior.get(k).text );
+                    combined.append(
+                        "${"
+                    ).append(
+                        nested != null ? nested : raw.toString()
+                    ).append(
+                        '}'
+                    );
                     i = closeIdx + 1;
-                    if( i >= interior.size() || interior.get(i).type != TokenType.STRING ) {
-                        return null; // Malformed/unexpected shape -- bail defensively
-                    }
+                    if( i >= interior.size() || interior.get(
+                        i
+                    ).type != TokenType.STRING ) return null; // Malformed/unexpected shape -- bail defensively
                     final Token seg = interior.get(i);
                     combined.append(seg.text);
-                    closed = !seg.text.isEmpty() && seg.text.charAt(seg.text.length() - 1) == '`';
+                    closed = !seg.text.isEmpty() && seg.text.charAt( seg.text.length() - 1 ) == '`';
                     ++i;
                 } // while !closed
-                significant.add( new Token(TokenType.STRING, combined.toString(), t.braceDepth, t.parenDepth, null) );
+                significant.add(
+                    new Token( TokenType.STRING, combined.toString(), t.braceDepth, t.parenDepth, null )
+                );
                 continue;
-            }
-            if( t.type == TokenType.TEMPLATE_HOLE_OPEN ) {
+            } // if
+            if(t.type == TokenType.TEMPLATE_HOLE_OPEN) {
                 final int closeIdx = findMatchingTemplateHoleClose(interior, i);
                 if(closeIdx < 0) return null; // Unbalanced -- should be unreachable, bail defensively
-                final String nested = renderTemplateHoleInterior(
+                final String        nested = renderTemplateHoleInterior(
                     interior.subList(i + 1, closeIdx), misc
                 );
-                final StringBuilder raw = new StringBuilder();
-                for( int k = i + 1; k < closeIdx; ++k ) raw.append( interior.get(k).text );
+                final StringBuilder raw    = new StringBuilder();
+                for(int k = i + 1; k < closeIdx; ++k) raw.append( interior.get(k).text );
                 final Token synthetic = new Token(
-                    TokenType.STRING, "${" + (nested != null ? nested : raw.toString()) + "}",
-                    t.braceDepth, t.parenDepth, null
+                    TokenType.STRING,
+                    "${" + ( nested != null ? nested : raw.toString() ) + "}",
+                    t.braceDepth,
+                    t.parenDepth,
+                    null
                 );
                 significant.add(synthetic);
                 i = closeIdx + 1;
                 continue;
-            }
+            } // if
             if(t.type == TokenType.TEMPLATE_HOLE_CLOSE) return null; // Unreachable, defensive only
             significant.add(t);
             ++i;
@@ -1444,13 +1457,13 @@ public final class JsTsSpecificRule {
         final StringBuilder out = new StringBuilder();
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( t.type == TokenType.JSX_SPAN ) {
+            if(t.type == TokenType.JSX_SPAN) {
                 final String wrapped = renderJsxSelfClosingWrapCandidate(tokens, i);
-                out.append( wrapped != null ? wrapped : t.text );
+                out.append(wrapped != null ? wrapped : t.text);
                 continue;
             }
             out.append(t.text);
-        }
+        } // for
 
         return out.toString();
     }
@@ -1467,32 +1480,34 @@ public final class JsTsSpecificRule {
     private String renderJsxSelfClosingWrapCandidate(final List<Token> tokens, final int idx)
     {
         final Token t = tokens.get(idx);
-        if( t.jsxOpeningTagEndOffset < 0 ) return null;
+        if(t.jsxOpeningTagEndOffset < 0) return null;
         if( t.jsxAttrBoundaries == null || t.jsxAttrBoundaries.isEmpty() ) return null;
 
         final int openingTagWidth = t.jsxOpeningTagEndOffset;
-        final int width = lineColumnOf(tokens, idx) + openingTagWidth;
+        final int width           = lineColumnOf(tokens, idx) + openingTagWidth;
         if(width <= lineLengthLimit) return null; // Already fits -- Option 0
 
-        final String indent     = lineIndent(tokens, idx);
-        final String attrIndent = indent + defaultIndentUnit;
-        final String text       = t.text;
-        final List<Integer> b   = t.jsxAttrBoundaries;
+        final String        indent     = lineIndent(tokens, idx);
+        final String        attrIndent = indent + defaultIndentUnit;
+        final String        text       = t.text;
+        final List<Integer> b          = t.jsxAttrBoundaries;
 
         // Opening tag text only -- `tail` (children + closing tag, when present) is never
-        // touched, only spliced back in verbatim at the very end (sub-context 2).
+        // touched, only spliced back in verbatim at the very end (sub-context 2)
         final String openingTagText = text.substring(0, t.jsxOpeningTagEndOffset);
         final String tail           = text.substring(t.jsxOpeningTagEndOffset);
 
         int tagOpenEnd = b.get(0);
-        while( tagOpenEnd > 0 && Character.isWhitespace( openingTagText.charAt(tagOpenEnd - 1) ) ) --tagOpenEnd;
+        while( tagOpenEnd > 0 && Character.isWhitespace(
+            openingTagText.charAt(tagOpenEnd - 1)
+        ) ) --tagOpenEnd;
 
         final boolean selfClosing = openingTagText.endsWith("/>");
         final String  closeMarker = selfClosing ? "/>" : ">";
         final String  lastSeg     = openingTagText.substring( b.get( b.size() - 1 ) );
         final int     closeAt     = lastSeg.lastIndexOf(closeMarker);
         if(closeAt < 0) return null; // Defensive -- always true for a well-formed root tag, but never guess
-        final String  lastAttrText = lastSeg.substring(0, closeAt).trim();
+        final String lastAttrText = lastSeg.substring(0, closeAt).trim();
 
         final StringBuilder wrapped = new StringBuilder( openingTagText.substring(0, tagOpenEnd) );
         for( int a = 0; a < b.size() - 1; ++a ) {

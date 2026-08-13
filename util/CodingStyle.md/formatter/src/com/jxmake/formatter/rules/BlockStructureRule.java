@@ -3258,12 +3258,10 @@ public class BlockStructureRule {
             for( int k = 0; k < chain.size() && !anyBraced; ++k ) {
                 final String  line     = lines[ chain.get(k) ];
                 final boolean isElseIf = line.regionMatches(indentLen, "else if(", 0, 8);
-                final boolean isBare   = line.regionMatches(
-                    indentLen, "else ", 0, 5
-                ) && !isElseIf;
+                final boolean isBare   = line.regionMatches(indentLen, "else ", 0, 5) && !isElseIf;
                 if(isBare) continue; // Bare `else { ... }` is a deliberately supported shape
-                final int condStart = isElseIf ? indentLen + "else if".length() : indentLen + 2;
-                      int depth     = 0;
+                final int condStart  = isElseIf ? indentLen + "else if".length() : indentLen + 2;
+                      int depth      = 0;
                       int closeParen = -1;
                 for( int c = condStart; c < line.length(); ++c ) {
                     final char ch = line.charAt(c);
@@ -3343,7 +3341,7 @@ public class BlockStructureRule {
                     // never-before-guarded shape that caused real corruption.
                     prefixEnd[k] = indentLen + "else".length();
                     continue;
-                }
+                } // if
                 final int openParen  = isElseIf ? indentLen + "else if".length() : indentLen + leftPad[k] + 2;
                       int depth      = 0;
                       int closeParen = -1;
@@ -3381,11 +3379,11 @@ public class BlockStructureRule {
                 // every reformat (found via self-hosting dogfood on
                 // `TokenizerCurly.skipBalancedBraceHole`). Symmetric bare-`else` check just
                 // above.
-                if( startsBracedBody(line, prefixEnd[k]) ) {
+                if( startsBracedBody( line, prefixEnd[k] ) ) {
                     ok = false;
                     break;
                 }
-                target       = Math.max(
+                target = Math.max(
                     target, prefixEnd[k] + 1
                 ); // +1: desired body column, one past the space
             } // for k

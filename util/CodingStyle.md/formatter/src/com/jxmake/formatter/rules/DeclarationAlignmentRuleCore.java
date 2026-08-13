@@ -320,10 +320,7 @@ public abstract class DeclarationAlignmentRuleCore {
         // `.cjs` (STATE_JS_TS.md's 2026-08-13 implementation section) exposed this shape at
         // real-fixture scale for the first time; the segmented shape's original `.jsx`/`.tsx`-only
         // validation never happened to include a template literal inside a declaration statement.
-        if( prev.type == TokenType.TEMPLATE_HOLE_OPEN || prev.type == TokenType.TEMPLATE_HOLE_CLOSE
-                || cur.type == TokenType.TEMPLATE_HOLE_OPEN || cur.type == TokenType.TEMPLATE_HOLE_CLOSE ) {
-            return false;
-        }
+        if(prev.type == TokenType.TEMPLATE_HOLE_OPEN || prev.type == TokenType.TEMPLATE_HOLE_CLOSE || cur.type == TokenType.TEMPLATE_HOLE_OPEN || cur.type == TokenType.TEMPLATE_HOLE_CLOSE) return false;
         if( isTightToken(cur) ) return false;
         // Kotlin's negated type-check/containment operators (`!is`, `!in`) are a single tight
         // lexical unit -- STYLE_KOTLIN.md renders them with no space between `!` and the

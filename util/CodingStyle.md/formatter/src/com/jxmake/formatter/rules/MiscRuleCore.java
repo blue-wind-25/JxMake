@@ -1116,7 +1116,7 @@ public static final class Assignment {
             final Token t = stmt.get(k);
             if( isGapToken(t) ) continue;
             if(scanState == 2) {
-                     if( isPunct(t, "[") ) { ++scanDepth; }
+                if( isPunct(t, "[") ) { ++scanDepth; }
                 else if( isPunct(t, "]") ) { --scanDepth; if(scanDepth == 0) scanState = 0; }
                 else if( isPunct(t, ";") ) { return null; }
                 continue;
@@ -1541,10 +1541,7 @@ public static final class Assignment {
         // implementation section) exposed this shape at real-fixture scale for the first time; the
         // segmented shape's original `.jsx`/`.tsx`-only validation never happened to include a
         // template literal with real surrounding text (see that same session's dogfood notes).
-        if( prev.type == TokenType.TEMPLATE_HOLE_OPEN || prev.type == TokenType.TEMPLATE_HOLE_CLOSE
-                || cur.type == TokenType.TEMPLATE_HOLE_OPEN || cur.type == TokenType.TEMPLATE_HOLE_CLOSE ) {
-            return false;
-        }
+        if(prev.type == TokenType.TEMPLATE_HOLE_OPEN || prev.type == TokenType.TEMPLATE_HOLE_CLOSE || cur.type == TokenType.TEMPLATE_HOLE_OPEN || cur.type == TokenType.TEMPLATE_HOLE_CLOSE) return false;
         // Kotlin's `fun <T> foo(...)` generic-function type-parameter clause is the one shape
         // where an ANGLE_BRACKET_OPEN is *not* tight against what precedes it -- every other
         // opener (`Foo<T>`, `foo<T>(...)`) directly follows the identifier it qualifies, but this

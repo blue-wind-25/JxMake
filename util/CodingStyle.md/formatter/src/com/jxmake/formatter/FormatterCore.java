@@ -51,7 +51,9 @@ public abstract class FormatterCore {
      *  `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` files are unaffected by this parameter either way.
      */
     public static FormatterCore forLanguage(
-        final String language, final String filePath, final boolean jsxInTsOptIn
+        final String  language,
+        final String  filePath,
+        final boolean jsxInTsOptIn
     )
     {
         final Lang lang = new Lang(language, filePath, jsxInTsOptIn);

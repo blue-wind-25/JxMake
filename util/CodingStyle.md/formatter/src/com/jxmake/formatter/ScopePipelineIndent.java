@@ -2289,12 +2289,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if( physicalLineLength(normalized) <= lineLength ) {
                 // Still collapse any stale padding down to the canonical single space, even when no
                 // expansion is needed -- otherwise a fits-but-padded line is left untouched here and
-                // only gets normalized indirectly (and inconsistently) via a later expand+rejoin round.
-                if( !normalized.equals( verbatimLineText(tokens, header.start, bodyEnd) ) ) {
-                    replacements.add( new Replacement(header.start, bodyEnd, normalized) );
-                }
+                // only gets normalized indirectly (and inconsistently) via a later expand+rejoin round
+                if( !normalized.equals(
+                    verbatimLineText(tokens, header.start, bodyEnd)
+                ) ) replacements.add(
+                    new Replacement(header.start, bodyEnd, normalized)
+                );
                 continue;
-            }
+            } // if
             replacements.add( new Replacement(
                 header.start, bodyEnd, headerText + "\n" + leadingIndent(tokens, header)
                         + singleStatementIndentUnit() + bodyText

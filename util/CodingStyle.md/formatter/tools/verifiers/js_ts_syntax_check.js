@@ -42,8 +42,9 @@ function scriptKindFor(file)
   // JS fallback.
   if( file.endsWith('.tsx') ) return ts.ScriptKind.TSX;
   if( file.endsWith('.jsx') ) return ts.ScriptKind.JSX;
+
   return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
-}
+} // scriptKindFor
 
 // `export Foo from './Bar';` (bare default re-export, no `{ }`/`*`) is a real,
 // still-in-use Babel-only syntax (`@babel/plugin-proposal-export-default-from`,
@@ -61,13 +62,13 @@ function rewriteLegacyExportDefaultFrom(source)
 {
   return source
     .split('\n')
-    .map(line => line.replace(LEGACY_EXPORT_DEFAULT_FROM, '$1export { default as $2 } from$3'))
+    .map( (line) => line.replace(LEGACY_EXPORT_DEFAULT_FROM, '$1export { default as $2 } from$3') )
     .join('\n');
 } // rewriteLegacyExportDefaultFrom
 
 function checkFile(fileName)
 {
-    const source = rewriteLegacyExportDefaultFrom(fs.readFileSync(fileName, 'utf8'));
+    const source = rewriteLegacyExportDefaultFrom( fs.readFileSync(fileName, 'utf8') );
 
   const sf = ts.createSourceFile(
     fileName,

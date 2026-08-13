@@ -497,7 +497,7 @@ public class CppSpecificRule {
         for(int i = fromIdx; i >= 0; --i) {
             final Token t = tokens.get(i);
             if( isGapToken(t) ) continue;
-                 if(t.type == TokenType.ANGLE_BRACKET_CLOSE) { ++depth; }
+            if(t.type == TokenType.ANGLE_BRACKET_CLOSE) { ++depth; }
             else if(t.type == TokenType.ANGLE_BRACKET_OPEN) { --depth; }
             else if( isPunct(t, ")") ) { ++depth; }
             else if( isPunct(t, "(") ) { --depth; }

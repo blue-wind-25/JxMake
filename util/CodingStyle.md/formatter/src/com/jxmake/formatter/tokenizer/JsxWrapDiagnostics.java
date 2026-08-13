@@ -29,23 +29,23 @@ public final class JsxWrapDiagnostics {
 
     private JsxWrapDiagnostics() {}
 
-    private static final AtomicInteger measuredCount        = new AtomicInteger(0);
-    private static final AtomicInteger overWidthCount        = new AtomicInteger(0);
+    private static final AtomicInteger measuredCount  = new AtomicInteger(0);
+    private static final AtomicInteger overWidthCount = new AtomicInteger(0);
 
-    /** Test-only reset, so one fixture's counts don't leak into the next test run's assertions. */
+    /** Test-only reset, so one fixture's counts don't leak into the next test run's assertions */
     public static void reset()
     {
         measuredCount.set(0);
         overWidthCount.set(0);
     }
 
-    /** Total number of {@code JSX_SPAN} opening tags measured so far (over-width or not). */
+    /** Total number of {@code JSX_SPAN} opening tags measured so far (over-width or not) */
     public static int measuredCount()
     {
         return measuredCount.get();
     }
 
-    /** Number of measured opening tags whose raw width exceeded {@code lineLengthLimit}. */
+    /** Number of measured opening tags whose raw width exceeded {@code lineLengthLimit} */
     public static int overWidthCount()
     {
         return overWidthCount.get();
@@ -57,7 +57,10 @@ public final class JsxWrapDiagnostics {
      *  character width, `<` through `>`/`/>` inclusive) -- see this class's own doc comment for
      *  the documented column-position approximation this increment accepts.
      */
-    public static void recordOpeningTagMeasurement(final int openingTagWidth, final int lineLengthLimit)
+    public static void recordOpeningTagMeasurement(
+        final int openingTagWidth,
+        final int lineLengthLimit
+    )
     {
         measuredCount.incrementAndGet();
         if(openingTagWidth > lineLengthLimit) overWidthCount.incrementAndGet();

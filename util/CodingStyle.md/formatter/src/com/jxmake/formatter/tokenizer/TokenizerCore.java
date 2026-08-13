@@ -56,7 +56,7 @@ public class TokenizerCore {
                              // embedded newlines; `frozen` is always true. No new fields added to
                              // Token for this -- see STATE_JS_TS.md's 2026-08-12 design session.
         TEMPLATE_HOLE_OPEN,  // JS/TS `.jsx`/`.tsx` only — a template literal's `${` hole boundary,
-                             // see TokenizerCurly#emitTemplateLiteralSegmented. Dedicated type
+                             // See TokenizerCurly#emitTemplateLiteralSegmented. Dedicated type
                              // (STATE_JS_TS.md's 2026-08-13 scoping session sub-context 1, option
                              // (b)) rather than a plain PUNCT "${" -- option (a) (reusing PUNCT) was
                              // tried first per the scoping session's own recommendation and found,
@@ -64,7 +64,8 @@ public class TokenizerCore {
                              // logic that doesn't check for a matching real `{` (see RDD_LOG for the
                              // key); a dedicated type is invisible to every such check by construction.
         TEMPLATE_HOLE_CLOSE  // The matching `}` closing a TEMPLATE_HOLE_OPEN. Never a plain PUNCT
-                             // "}" for the same reason as above -- see TokenizerCurly#emitTemplateHoleInterior.
+
+                             // "}" for the same reason as above -- see TokenizerCurly#emitTemplateHoleInterior
 
     } // enum TokenType
 
@@ -92,8 +93,8 @@ public class TokenizerCore {
         // these fields, and reading them has zero effect on any rendered output as of that
         // increment -- consumption is limited to JsxWrapDiagnostics's internal-only measurement
         // hook.
-        public       int            jsxOpeningTagEndOffset = -1;
-        public       List<Integer>  jsxAttrBoundaries       = null;
+        public int           jsxOpeningTagEndOffset = -1;
+        public List<Integer> jsxAttrBoundaries      = null;
 
         public Token(
             final TokenType type,

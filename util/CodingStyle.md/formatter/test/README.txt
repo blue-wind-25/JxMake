@@ -3988,15 +3988,46 @@ Real-code regressions:
                                                         round1, while round2 (re-parsing the now-padding-free
                                                         block) correctly re-joined it back to compact --
                                                         genuine round1/round2 non-idempotency, not cosmetic.
-                                                        Fixed in `ScopePipelineIndent.applySingleStatementBody`
-                                                        by measuring `headerText + " " + bodyText` (the
+                                                        Fixed in
+                                                        `ScopePipelineIndent.applySingleStatementBody` by
+                                                        measuring `headerText + " " + bodyText` (the
                                                         normalized form) instead of the raw verbatim span, and
-                                                        by collapsing stale padding down to a single space even
-                                                        when no expansion is needed.
+                                                        by collapsing stale padding down to a single space
+                                                        even when no expansion is needed.
                                                         `test/real_code_regressions_168_out.kt` (a
                                                         pre-existing fixture that had baked in the buggy
                                                         flush-left `catch` as its expected output) updated to
                                                         the corrected indented form.
+
+  real_code_regressions_205_inp/out.java             -- 2 bugs found via self-hosting dogfood on
+                                                        `src/**/*.java` (`JsTsSpecificRule.java`,
+                                                        `TokenizerCurly.java`), combined into one fixture: (1)
+                                                        `BlockStructureRule.extractSingleIdentifier`'s
+                                                        negated-single-identifier case (`while(!closed)`)
+                                                        returned the bare identifier, dropping the leading
+                                                        `!`, when generating a same-kind-nested-loop
+                                                        disambiguating closing-comment label
+                                                        (`extractVariable`, used only when a
+                                                        `while`/`for`/`switch` is nested inside another of the
+                                                        same kind) -- silently inverted an existing
+                                                        hand-written `} // while !closed` comment's meaning to
+                                                        `} // while closed`. Fixed by preserving the `!` in
+                                                        the returned label text. (2)
+                                                        `alignBracelessElseIfChain`'s chain detection is
+                                                        purely line-text-pattern-based (`if(`/`else if(`/`else
+                                                        ` prefixes) with no check that a matched `if`/`else
+                                                        if` member's body is actually braceless -- a
+                                                        hand-written mixed chain (`if(...) ++x;` immediately
+                                                        followed by a genuinely braced `else if(...) { ... }`)
+                                                        was wrongly recognized as an all-braceless chain and
+                                                        had its `if` keyword left-padded by the `else if`/`if`
+                                                        keyword-length delta anyway, corrupting a correctly
+                                                        flush-aligned pair's indentation on every reformat.
+                                                        Fixed by bailing the whole chain untouched, before any
+                                                        mutation, the moment any non-bare-else member's body
+                                                        is braced (a bare terminal `else { ... }` remains a
+                                                        deliberately supported shape, per the pre-existing
+                                                        `real_code_regressions_172_out.ts` fixture).
 
 How Tests Are Run
 -----------------

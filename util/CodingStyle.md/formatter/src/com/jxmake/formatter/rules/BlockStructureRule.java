@@ -3072,11 +3072,18 @@ public class BlockStructureRule {
             if( !isGap(t) ) sig.add(t);
         }
         if( sig.size() == 1 && sig.get(0).type == TokenType.IDENTIFIER ) return sig.get(0).text;
+        // A negated single-identifier condition (`while(!closed)`) still identifies the same
+        // loop-control variable, but the leading `!` must be preserved in the generated label --
+        // dropping it (returning bare "closed" for a `!closed` condition) silently inverts the
+        // label's meaning (found via self-hosting dogfood on
+        // `JsTsSpecificRule.renderTemplateHoleInterior`'s nested `while(!closed)`, whose
+        // hand-written `} // while !closed` closing comment got corrupted to `} // while closed`
+        // on reformat).
         if( sig.size() == 2 && isOp(
             sig.get(0), "!"
         ) && sig.get(
             1
-        ).type == TokenType.IDENTIFIER ) return sig.get(
+        ).type == TokenType.IDENTIFIER ) return "!" + sig.get(
             1
         ).text;
 
@@ -3234,6 +3241,49 @@ public class BlockStructureRule {
                 ++i;
                 continue;
             }
+            // Bail the whole chain, untouched, before any mutation, the moment any non-bare-else
+            // member's body is braced -- this method's own name and every caller assume an
+            // all-braceless chain (RDD_KEY_129: "mixed/braced chain left untouched"), but
+            // detection above is purely line-text-pattern-based (`if(`/`else if(`/`else `
+            // prefixes), with no check that a member's body actually is braceless. A hand-written
+            // mixed chain whose `if`/`else if` branch happens to already be a genuine one-line
+            // braceless statement, immediately followed (or preceded) by a sibling branch that is
+            // genuinely braced (`{ ... }`), was wrongly recognized as an all-braceless chain --
+            // must be checked here, before the keyword left-padding loop below ever mutates
+            // `lines[]`, not only during the later body-column pass (which runs after that
+            // mutation already happened, too late to prevent it). Found via self-hosting dogfood
+            // on `TokenizerCurly.skipBalancedBraceHole`'s `if(...) ++braceDepth; else if(...) {
+            // ... }`.
+            boolean anyBraced = false;
+            for( int k = 0; k < chain.size() && !anyBraced; ++k ) {
+                final String  line     = lines[ chain.get(k) ];
+                final boolean isElseIf = line.regionMatches(indentLen, "else if(", 0, 8);
+                final boolean isBare   = line.regionMatches(
+                    indentLen, "else ", 0, 5
+                ) && !isElseIf;
+                if(isBare) continue; // Bare `else { ... }` is a deliberately supported shape
+                final int condStart = isElseIf ? indentLen + "else if".length() : indentLen + 2;
+                      int depth     = 0;
+                      int closeParen = -1;
+                for( int c = condStart; c < line.length(); ++c ) {
+                    final char ch = line.charAt(c);
+                    if(ch == '(') {
+                        ++depth;
+                    }
+                    else if(ch == ')') {
+                        --depth;
+                        if(depth == 0) {
+                            closeParen = c;
+                            break;
+                        }
+                    }
+                } // for c
+                if( closeParen >= 0 && startsBracedBody(line, closeParen + 1) ) anyBraced = true;
+            } // for k
+            if(anyBraced) {
+                i = j;
+                continue;
+            }
 
             // Left-pad the leading keyword of every non-bare-else branch (in practice always
             // just the lone `if`) up to the widest keyword prefix in the chain, so the
@@ -3286,6 +3336,11 @@ public class BlockStructureRule {
                     indentLen, "else ", 0, 5
                 ) && !isElseIf;
                 if(isBareElse) {
+                    // A bare terminal `else { ... }` with a braced body is a deliberately
+                    // supported shape (this method's column-alignment already applies to it, see
+                    // e.g. `test/real_code_regressions_172_out.ts`'s `else                   {`)
+                    // -- only an `if`/`else if` member's braced body (checked below) is the
+                    // never-before-guarded shape that caused real corruption.
                     prefixEnd[k] = indentLen + "else".length();
                     continue;
                 }
@@ -3312,6 +3367,24 @@ public class BlockStructureRule {
                     break;
                 }
                 prefixEnd[k] = closeParen + 1;
+                // Bail the whole chain (leave every line's original indentation/spacing fully
+                // untouched) the moment any member's body is braced -- this method's own name
+                // and every caller assume an all-braceless chain (RDD_KEY_129: "mixed/braced
+                // chain left untouched"), but detection here is purely line-text-pattern-based
+                // (`if(`/`else if(`/`else ` prefixes), with no check that the body actually is
+                // braceless. A hand-written mixed chain whose first (`if`) branch happens to
+                // already be a genuine one-line braceless statement, immediately followed by a
+                // sibling `else if( ... ) { ... }` branch that is genuinely braced, was
+                // wrongly recognized as a 2-member braceless chain and left-padded the `if`
+                // keyword by the `"else if".length() - "if".length()` delta anyway --
+                // corrupting a correctly-flush-aligned `if`/`else if` pair's indentation on
+                // every reformat (found via self-hosting dogfood on
+                // `TokenizerCurly.skipBalancedBraceHole`). Symmetric bare-`else` check just
+                // above.
+                if( startsBracedBody(line, prefixEnd[k]) ) {
+                    ok = false;
+                    break;
+                }
                 target       = Math.max(
                     target, prefixEnd[k] + 1
                 ); // +1: desired body column, one past the space
@@ -3355,6 +3428,20 @@ public class BlockStructureRule {
         } // while
 
         return String.join("\n", lines);
+    }
+
+    /**
+     * True iff, skipping any run of spaces starting at {@code from}, {@code line}'s next
+     * non-space character is {@code '{'} -- i.e. the branch beginning at {@code from} has a
+     * braced (not braceless) body. Used by {@link #alignBracelessElseIfChain} to bail its
+     * whole-chain keyword/body-column alignment on any member with a braced body.
+     */
+    private boolean startsBracedBody(final String line, final int from)
+    {
+        int idx = from;
+        while( idx < line.length() && line.charAt(idx) == ' ' ) ++idx;
+
+        return idx < line.length() && line.charAt(idx) == '{';
     }
 
     /** Length of the whitespace run (spaces/tabs only) at the start of {@code line} */

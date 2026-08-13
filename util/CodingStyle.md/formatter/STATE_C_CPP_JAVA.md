@@ -160,6 +160,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_281 | Tier2 backlog re-verification: `SwitchRule.deriveUnit`'s "hardcoded 4-space fallback" (real-code-testing item (9), `fmtlib/fmt` at `indent-size = 2`) was already fixed by `c0a2305` (2026-07-06) before this item's narrative sentence gained a disposition marker -- `deriveUnit` already returns `defaultIndentUnit`, built from `config.indentSize()` via `FormatterCurly`'s one `new SwitchRule(lang, lineLengthLimit, indentWidth)` call site; `MiscRuleCore.DEFAULT_INDENT_WIDTH` (literal `4`) is dead at runtime, reachable only via the unused 2-arg constructor overload. No source change made. Re-verified via a fresh flush-case-label `.cpp` scratch fixture at `indent-size = 2` (and `= 8`): idempotent, unit correctly scales with configured indent-size. `make test` unchanged, 278/278. |
 | RDD_KEY_283 | `using` alias declarations (C++11+) column-aligned on `=` via new isolated `parseUsingAlias`/`renderUsingAliasGroup` path in `DeclarationAlignmentRuleCurly`; bails out untouched on any `...` token to avoid colliding with C++26 pack-indexing/variadic-template spacing rules. `make test` 283/283 -> 284/284. Fixture: `test/cpp_using_alias_{inp,out}.cpp`. See narrative entry in "Known Gaps -- Fixed" for full detail. |
 | RDD_KEY_284 | Follow-up to RDD_KEY_283: pack-indexing/variadic-template `using` aliases (`template<typename... T> using Name = T...[N];`) are now ALSO aligned, via new `Declaration.aliasRawTypeText`/`templatePrefixRawText` verbatim-raw-text fields instead of bailing -- `enforcePackIndexingSpacing` runs after declaration alignment regardless of which pass emitted the line, so only the aliased type needed this; the `template<...>` prefix has no such downstream fix-up pass, so it's rendered verbatim too rather than regenerated, sidestepping the question. Also fixed: a standalone comment between `template<...>` and `using` has no home in the `Declaration` model and was being silently dropped -- now detected and bailed on (leave untouched); and a same-line trailing-comment spacing bug (single space instead of the codebase's two-space convention). `make test` unchanged at 284/284 (refines the existing `cpp_using_alias`/`cpp26_comments` fixtures, no new fixture). See narrative entry for full detail. |
+| RDD_KEY_289 | Self-hosting dogfood (`JsTsSpecificRule.java`/`TokenizerCurly.java`): 2 bugs, combined fixture `real_code_regressions_205`. (a) `BlockStructureRule.extractSingleIdentifier`'s negated-single-identifier case (`while(!closed)`) dropped the leading `!` when building a same-kind-nested-loop closing-comment label, inverting an existing `} // while !closed` comment's meaning to `} // while closed` -- fixed to preserve the `!`. (b) `alignBracelessElseIfChain`'s chain detection is purely line-text-pattern-based with no check that a matched `if`/`else if` member's body is actually braceless -- a hand-written mixed chain (braceless `if` immediately followed by a genuinely braced `else if(...) { ... }`) got its `if` keyword left-padded by the keyword-length delta anyway, corrupting a correctly flush-aligned pair's indentation every reformat -- fixed by bailing the whole chain untouched, before any mutation, the moment any non-bare-else member's body is braced (bare terminal `else { ... }` remains supported, per `real_code_regressions_172_out.ts`). `make test`: 313/313 -> 314/314, zero regressions. |
 | RDD_KEY_286 | `JXM_CFMT_CFG` directive gained a `--lang` pseudo-key (`//% JXM_CFMT_CFG --lang=cpp`) for a per-file language override, highest-priority (wins over CLI `--lang`/server `lang` param too) -- addresses the `.h`-defaults-to-C Open Question below (an explicit per-file fix, not a change to the default) and templated sources (`.java.in`/`.java.inc`) whose extension can't be inferred at all. `InFileConfig.parse` special-cases the key, validates via `Lang.isRecognized`; `Main.processFile`/`ServerMode.FormatHandler` reordered to read the file/body before deciding language. New fixture `in_file_config_lang_{inp,out}.h`. `make test`/`make test-server`: 285/285 -> 286/286, zero regressions. `README.md` updated (new subsection, precedence list, Known Limitations item 6 broadened from C++26-only to the whole C++ pipeline). |
 
 ---
@@ -856,6 +857,20 @@ RDD_KEY_88.
 
 
 ## Known Gaps — Fixed
+
+- **Self-hosting dogfood (`src/**/*.java` formatted with itself), 2 bugs found comparing `src/`
+  against a fresh format of `src/` — FIXED, see RDD_KEY_289 (index above) for full detail.**
+  (a) `JsTsSpecificRule.java`'s hand-written `} // while !closed` closing comment (inside
+  `renderTemplateHoleInterior`'s nested `while(!closed)`) got its `!` silently dropped on
+  reformat (`BlockStructureRule.extractSingleIdentifier`'s negated-single-identifier case).
+  (b) `TokenizerCurly.java`'s `skipBalancedBraceHole` — a correctly flush-aligned
+  `if( ... ) ++braceDepth; else if( ... ) { ... }` pair (only reachable after its own method
+  signature wraps to multi-line, which is what surfaced it, though the root cause is unrelated
+  to signature-wrapping) had its `if` over-indented by 5 columns every reformat
+  (`alignBracelessElseIfChain` misrecognizing a mixed braceless/braced chain as fully
+  braceless). `make test`: 313/313 -> 314/314 forward + idempotency, zero regressions. New
+  fixture `test/real_code_regressions_205_{inp,out}.java` (combines both bugs). `src/`'s two
+  affected files left untouched (per this session's scope — no bulk-reformat/adopt performed).
 
 - **[Shared with STATE_JS_TS.md] `formatNonInlineSwitches` vs. `alignInlineSwitches`/call-wrap
   ordering gap (switch-case fallthrough non-idempotency) — FIXED 2026-08-07 (RDD_KEY_263).**

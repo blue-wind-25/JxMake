@@ -802,7 +802,15 @@ here if and when it actually gains a documented gap.
    in multi-line template-literal `${...}` holes; a residual risk of an unseen JSX-adjacent edge
    case not exercised by these corpora remains, as with any real-world dogfooding.
 
-4. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
+4. **JSX/TSX-syntax-aware reformatting doesn't exist, beyond one specific wrap rule.** Real JSX
+   tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte as opaque,
+   unformatted spans — the only content-aware transform implemented is wrapping an overlong JSX
+   opening tag's attribute list (self-closing and children-bearing tags, all attribute kinds).
+   There is no reflowing of JSX children, no attribute reordering, and no other JSX-specific
+   line-breaking; a JSX span's internal whitespace/line breaks are whatever the author wrote,
+   unchanged, except at that one wrap point.
+
+5. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
    imports as third-party.** Local-import detection is syntactic only: an import specifier
    is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
    a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
@@ -811,7 +819,7 @@ here if and when it actually gains a documented gap.
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
    is a known, accepted simplification — no source-root config key is planned.
 
-5. **Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
+6. **Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
    relative-delta technique.** `ScopePipeline.applyDeclarationsPass` (declarations) shifts a
    block's lines by one delta computed from a single reference line rather than deriving each
    line's target from its own brace-nesting depth, which assumes the block's original
@@ -842,7 +850,7 @@ here if and when it actually gains a documented gap.
    its own brace-nesting depth, including through nested switches, so it no longer exhibits this
    gap.)
 
-6. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
+7. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
    commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and
    also the `#`-comment tooling family (Makefile/Bash/PowerShell) and YAML/TOML.** See "Config
    file format" → [Multi-sentence comment
@@ -851,7 +859,7 @@ here if and when it actually gains a documented gap.
    '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
    codebases that keep a lot of commented-out code inside otherwise-prose comment groups.
 
-7. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
+8. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
    rules (`^^`, `[: :]` splice brackets), but every C++-specific behavior across the whole `cpp`
    pipeline (e.g. empty-parameter-list rendering, `template`/`requires` handling, and every other
    C++20/C++23/C++26 rule this formatter implements) — never applies to a `.h` file's content

@@ -965,6 +965,19 @@ General Scope-Depth Reindentation:
                                                         (STRING) rather than plain TEXT, preventing regex
                                                         interior brackets from miscounting structural depth.
 
+  curly_gdr_multipass_oneliner_inp/out.js            -- Real-world minified/compiled one-liner function bodies
+                                                        (react-demos dogfood shape, STATE_JS_TS.md's Step 2
+                                                        Increment 5 corpus sweep), with
+                                                        curly-general-scope-reindent=on;
+                                                        curly-general-scope-reindent-multipass=on via in-file
+                                                        config. Confirmed the exact real bug: single-pass GDR
+                                                        (multipass off) is non-idempotent on this shape
+                                                        (`--check` exits 1); with multipass on it's fully
+                                                        idempotent (`--check` exits 0) -- proves the already-
+                                                        shipped multipass workaround (RDD_KEY_243) also covers
+                                                        this real-world case, not just the synthetic
+                                                        one-true-brace shapes the other GDR fixtures exercise.
+
   java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
                                                         leading indentation at all), with
                                                         curly-general-scope-reindent=on via in-file config --

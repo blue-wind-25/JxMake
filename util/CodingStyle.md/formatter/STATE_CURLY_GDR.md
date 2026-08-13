@@ -1120,6 +1120,44 @@ plan, not a placeholder.
       source, so this crash predates and was unaffected by this session's
       convergence-loop change.
 
+- [x] **Add a real-world-derived multipass regression fixture** (2026-08-14,
+      follow-on from `STATE_JS_TS.md`'s Step 2 Increment 5 real-corpus
+      sweep). That sweep's `ruanyf/react-demos` dogfood pass found
+      `demo13/app.js` (compiled/minified, no JSX — filed there only as an
+      "unrelated pre-existing finding, out of scope") is non-idempotent
+      under this formatter's default (GDR-off) path: minified one-liner
+      function bodies like `function _classCallCheck(instance, Constructor)
+      { if(...) throw new TypeError(...); }` get reindented differently on
+      a second pass. Verified directly this session (`/tmp/gdr_check` vs
+      `/tmp/gdr_off_check`, reusing the cached `react-demos` checkout): with
+      GDR off (default), round1 != round2 (confirmed non-idempotent,
+      reproducing the original finding); with `curly-general-scope-
+      reindent=on;curly-general-scope-reindent-multipass=on`, round1 ==
+      round2, byte-identical, and `js_ts_syntax_check.sh` clean — the
+      already-shipped multipass workaround (`RDD_KEY_243`) also resolves
+      this real-world shape, not just the synthetic one-true-brace/fluent-
+      chain shapes the existing GDR fixtures cover. Added
+      `test/curly_gdr_multipass_oneliner_{inp,out}.js`: the real
+      `_createClass`/`_classCallCheck`/`_possibleConstructorReturn`/
+      `_inherits` Babel-helper one-liners from `demo13/app.js`, with
+      `/*% JXM_CFMT_CFG curly-general-scope-reindent=on;curly-general-
+      scope-reindent-multipass=on */` via in-file config. Confirmed the
+      fixture genuinely isolates the fix before saving expected output:
+      the same input with `curly-general-scope-reindent-multipass=off`
+      substituted in is non-idempotent (`--standalone --check` exits 1);
+      with multipass on it's idempotent (`--check` exits 0). Expected
+      output generated via `--standalone --in-place`, syntax-checked clean
+      via `tools/verifiers/js_ts_syntax_check.sh`. Registered in
+      `Makefile`'s `INP_FILES` right after `curly_gdr_js_regex_inp.ts`
+      (before `java_flush_left_inp.java`) and in `test/README.txt`
+      immediately after the `curly_gdr_js_regex_inp/out.ts` entry. `make
+      test`: 311/311 → 312/312 forward + idempotency, zero regressions.
+      Does not touch `STATE_JS_TS.md`'s own finding text (still correctly
+      filed there as "documented not fixed, out of scope for that job") —
+      this fixture lives entirely in this job per the project's job-
+      isolation convention, cross-referenced only in this entry's own
+      prose, not by editing the other job's file.
+
 - [x] **Fix the base single-pass `curly-general-scope-reindent` ordering
       bug** (`RDD_KEY_229`) directly, independent of the opt-in multipass
       workaround. Investigated 2026-08-05 while fixing

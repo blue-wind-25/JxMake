@@ -495,6 +495,7 @@ INP_FILES += powershell_combined_inp.ps1
 INP_FILES += curly_general_scope_reindent_inp.hpp
 INP_FILES += curly_gdr_multipass_inp.java
 INP_FILES += curly_gdr_js_regex_inp.ts
+INP_FILES += curly_gdr_multipass_oneliner_inp.js
 INP_FILES += java_flush_left_inp.java
 INP_FILES += html_js_flush_left_inp.html
 

@@ -242,7 +242,7 @@ active in the Makefile and passing.
 - **IMPLEMENTED (2026-08-13) — see the "2026-08-13 implementation session —
   JSX-in-`.js`/`.ts` detection (LANDED)" section above for the full
   writeup.** `.js`/`.mjs`/`.cjs` now get the JSX pre-pass unconditionally;
-  `.ts` stays gated off by default with a new `jsx-in-js` Config-key
+  `.ts` stays gated off by default with a new `jsx-in-ts` Config-key
   opt-in; `TokenizerCurly`'s tag-matching was hardened with tag-name
   identity tracking; two latent template-literal-spacing bugs the
   widening exposed were found and fixed;
@@ -283,7 +283,7 @@ active in the Makefile and passing.
   yet validated against a widened-default real corpus): extend detection
   unconditionally to `.js`/`.mjs`/`.cjs`, keep `.ts` extension-gated by
   default (matching Prettier/tsc's own split), and offer a `.ts`-scoped
-  config/CLI opt-in (e.g. `--jsx-in-js`) for the legacy-`.ts`-with-JSX case
+  config/CLI opt-in (e.g. `--jsx-in-ts`) for the legacy-`.ts`-with-JSX case
   instead. A tag-name-identity hardening of `parseJsxTag`/`findJsxSpanEnd`
   (currently only tracks nesting depth, not name — `<a>...</b>` balances
   today) is called out as worth doing before or alongside any widening.
@@ -1675,8 +1675,8 @@ active in the Makefile and passing.
     non-JSX reason (e.g. `useContext`/hooks-only files with no JSX at
     all). No mainstream tool researched in point 1 uses this heuristic —
     consistent with rejecting it here too.
-  - **(c) Config/CLI opt-in only** (a `--jsx-in-js` flag, or a
-    per-file `JXM_CFMT_CFG --jsx-in-js=on` directive mirroring the existing
+  - **(c) Config/CLI opt-in only** (a `--jsx-in-ts` flag, or a
+    per-file `JXM_CFMT_CFG --jsx-in-ts=on` directive mirroring the existing
     `--lang` in-file-override precedent, `RDD_KEY_286`). Matches ESLint's
     real-world pattern (project-level explicit opt-in, not per-file
     sniffing) and gives the safest possible blast radius — zero risk to any
@@ -1697,7 +1697,7 @@ active in the Makefile and passing.
     **not** extend to plain `.ts` by default — mirror TS's/Prettier's own
     deliberate `.ts`/`.tsx` split, since `.ts` is exactly where the
     `<Type>expr` cast collision is real and non-rare; instead expose (c)
-    (a `--jsx-in-js`/`JXM_CFMT_CFG` opt-in) for the `.ts` case, so a user
+    (a `--jsx-in-ts`/`JXM_CFMT_CFG` opt-in) for the `.ts` case, so a user
     with a legacy `.ts`-with-embedded-JSX file (same convention as the
     dogfood repo but TS-flavored) has an explicit, safe path without
     changing the `.ts` default. This is not a full-confidence
@@ -1754,7 +1754,7 @@ active in the Makefile and passing.
      Prettier use (the legacy `<Type>expr` angle-bracket cast collides with
      a JSX open tag).
   3. **Design decision for the `.ts`-scoped opt-in:** a plain new `Config`
-     key, `jsx-in-js`, rather than a special-cased CLI-only flag. Checked
+     key, `jsx-in-ts`, rather than a special-cased CLI-only flag. Checked
      precedent first — `InFileConfig.isEligible` admits any key satisfying
      `Config.isKnownKey(key) && !SERVER_SCOPED_KEYS.contains(key)`, so a
      new boolean `Config` key automatically works everywhere (CLI flag,
@@ -1762,13 +1762,13 @@ active in the Makefile and passing.
      and `JXM_CFMT_CFG` in-file directive) with no extra plumbing — unlike
      `--lang` (RDD_KEY_286), which needed hand-written special-casing
      specifically because it is *not* an ordinary `Config` key. Since
-     `jsx-in-js` has no such reason to be special, the generic mechanism
-     was the right fit; a bespoke `--jsx-in-js`-only flag would have
+     `jsx-in-ts` has no such reason to be special, the generic mechanism
+     was the right fit; a bespoke `--jsx-in-ts`-only flag would have
      needlessly reinvented what `Config`/`InFileConfig` already provide for
      free. Landed as: `Config.ALL_KEYS`/`GROUPS` (`"JS/TS"` group)/
-     `describeOne`/`fromRawMap` entries, a `jsxInJs` field +
-     `isJsxInJs()` getter, threaded through `FormatterCore`'s new 3-arg
-     `forLanguage(language, filePath, jsxInJsOptIn)` overload and
+     `describeOne`/`fromRawMap` entries, a `jsxInTs` field +
+     `isJsxInTs()` getter, threaded through `FormatterCore`'s new 3-arg
+     `forLanguage(language, filePath, jsxInTsOptIn)` overload and
      `GdrPipelineGate.applyAndFormat` (the single call site both `Main` and
      `ServerMode` route through).
   4. `TokenizerCurly.parseJsxTag` now returns a small `JsxTagResult`
@@ -1779,6 +1779,20 @@ active in the Makefile and passing.
      close with no open at all) returns `-1`, the same safe-fallback every
      other rejection in this pass already uses (never throws, never
      silently accepts).
+
+  **Renamed `jsx-in-js` → `jsx-in-ts` (2026-08-13, same day, user request).**
+  The key originally landed as `jsx-in-js` (point 3 above); a user review of
+  README.md flagged that name as misleading -- the "js" reads as ".js
+  files" even though the key applies exclusively to `.ts` files and has
+  zero effect on `.js`/`.jsx`/`.tsx`/`.mjs`/`.cjs`, which detect JSX
+  unconditionally regardless of this key. Renamed throughout: `Config`'s
+  `ALL_KEYS`/`GROUPS`/`describeOne`/`fromRawMap` entries, the `jsxInTs`
+  field + `isJsxInTs()` getter, `Lang`'s/`FormatterCore`'s
+  `jsxInTsOptIn` parameter, `GdrPipelineGate`'s call site, the
+  `ts_jsx_optin_inp/out.ts` fixture's `JXM_CFMT_CFG` directive, and every
+  doc reference (README.md, this file, `test/README.txt`). Pure rename,
+  no behavior change -- `make test` still 307/307 forward + idempotency
+  after the rename.
 
   **Two latent bugs found and fixed along the way** (both invisible before
   this session because widening JSX detection to plain `.js` is what first
@@ -1814,7 +1828,7 @@ active in the Makefile and passing.
   rationale): `jsx_in_plain_js_inp/out.js` (real JSX in plain `.js`,
   preserved), `ts_jsx_default_off_inp/out.ts` (`.ts`'s legacy `<Type>` cast
   left untouched by default), `ts_jsx_optin_inp/out.ts` (`.ts` + `` /*%
-  JXM_CFMT_CFG jsx-in-js=on */ `` — JSX now detected/preserved),
+  JXM_CFMT_CFG jsx-in-ts=on */ `` — JSX now detected/preserved),
   `jsx_mismatched_tag_inp/out.jsx` and `js_mismatched_tag_inp/out.js`
   (`<a>text</b>` bails out to plain, non-corrupted formatting in both the
   pre-existing `.jsx` gate and the newly-widened `.js` context). `make

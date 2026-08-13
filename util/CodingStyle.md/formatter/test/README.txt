@@ -558,7 +558,7 @@ JSX/TSX:
                                                         a legacy angle-bracket cast (`<string>x`) is left as
                                                         ordinary TS syntax, not misdetected as a JSX open tag.
 
-  ts_jsx_optin_inp/out.ts                            -- Recommendation 3: the new `jsx-in-js` Config key (set
+  ts_jsx_optin_inp/out.ts                            -- Recommendation 3: the new `jsx-in-ts` Config key (set
                                                         via a `JXM_CFMT_CFG` in-file directive here) lets a
                                                         `.ts` file opt into the JSX pre-pass -- same
                                                         real-shape JSX content as jsx_in_plain_js, now

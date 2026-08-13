@@ -43,7 +43,7 @@ public final class Config {
         "curly-general-scope-reindent",
         "curly-general-scope-reindent-multipass",
         "html5-tc-gap-level",
-        "jsx-in-js"
+        "jsx-in-ts"
     };
 
     private static final java.util.Set<String> ALL_KEYS_SET =
@@ -208,7 +208,7 @@ public final class Config {
     private int html5TcGapLevel = 0;
 
     /**
-     * {@code jsx-in-js} -- `.ts`-scoped opt-in for the JSX boundary-finding pre-pass
+     * {@code jsx-in-ts} -- `.ts`-scoped opt-in for the JSX boundary-finding pre-pass
      *  ({@code TokenizerCurly.findJsxSpans}, gated by {@code Lang.isJsxSyntax}). `.jsx`/`.tsx`
      *  always run the pre-pass (unchanged); `.js`/`.mjs`/`.cjs` now also run it unconditionally
      *  (see `STATE_JS_TS.md`'s 2026-08-13 implementation section) since plain JS has no competing
@@ -218,7 +218,7 @@ public final class Config {
      *  force it on for one legacy `.ts`-with-embedded-JSX file that isn't renamed to `.tsx`. No
      *  effect on any other language/extension.
      */
-    private boolean jsxInJs = false;
+    private boolean jsxInTs = false;
 
     private Config()
     {
@@ -410,9 +410,9 @@ public final class Config {
         return html5TcGapLevel;
     }
 
-    public boolean isJsxInJs()
+    public boolean isJsxInTs()
     {
-        return jsxInJs;
+        return jsxInTs;
     }
 
     /**
@@ -479,7 +479,7 @@ public final class Config {
         groups.put(
             "JS/TS",
             new String[] {
-                "js-import-order", "js-import-sort", "js-import-blank-lines", "jsx-in-js"
+                "js-import-order", "js-import-sort", "js-import-blank-lines", "jsx-in-ts"
             }
         );
         groups.put(
@@ -579,31 +579,6 @@ public final class Config {
               String   note = null;
         switch(key) {
 
-            case "line-length":
-                defaultValue  = String.valueOf(defaults.lineLength);
-                allowedValues = null;
-                note          = "Not read by CSS, TOML, Makefile, Bash, or PowerShell (no line-length-driven "
-                              + "wrap rule exists for those); read by every other language.";
-                break;
-
-            case "line-length-with-comment":
-                defaultValue  = String.valueOf(defaults.lineLengthWithComment);
-                allowedValues = null;
-                note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) — the 'code + comment' fits-check "
-                              + "width for a line carrying a trailing same-line comment. No other language folds a "
-                              + "trailing comment into its own wrap decision, so this key has no effect elsewhere.";
-                break;
-
-            case "indent-size":
-                defaultValue  = String.valueOf(defaults.indentSize);
-                allowedValues = null;
-                break;
-
-            case "indent-style":
-                defaultValue  = defaults.indentStyle;
-                allowedValues = INDENT_STYLE_CHOICES;
-                break;
-
             case "server-port":
                 defaultValue  = String.valueOf(defaults.serverPort);
                 allowedValues = null;
@@ -628,14 +603,29 @@ public final class Config {
                               + "'server-concurrency' + 2.";
                 break;
 
-            case "closing-comment-min-lines":
-                defaultValue  = String.valueOf(defaults.closingCommentMinLines);
+            case "line-length":
+                defaultValue  = String.valueOf(defaults.lineLength);
+                allowedValues = null;
+                note          = "Not read by CSS, TOML, Makefile, Bash, or PowerShell (no line-length-driven "
+                              + "wrap rule exists for those); read by every other language.";
+                break;
+
+            case "line-length-with-comment":
+                defaultValue  = String.valueOf(defaults.lineLengthWithComment);
+                allowedValues = null;
+                note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) — the 'code + comment' fits-check "
+                              + "width for a line carrying a trailing same-line comment. No other language folds a "
+                              + "trailing comment into its own wrap decision, so this key has no effect elsewhere.";
+                break;
+
+            case "indent-size":
+                defaultValue  = String.valueOf(defaults.indentSize);
                 allowedValues = null;
                 break;
 
-            case "format-macros":
-                defaultValue  = defaults.formatMacros ? "on" : "off";
-                allowedValues = ON_OFF_CHOICES;
+            case "indent-style":
+                defaultValue  = defaults.indentStyle;
+                allowedValues = INDENT_STYLE_CHOICES;
                 break;
 
             case "line-endings":
@@ -663,8 +653,28 @@ public final class Config {
                 allowedValues = ON_OFF_CHOICES;
                 break;
 
+            case "closing-comment-min-lines":
+                defaultValue  = String.valueOf(defaults.closingCommentMinLines);
+                allowedValues = null;
+                break;
+
+            case "curly-general-scope-reindent":
+                defaultValue  = defaults.curlyGeneralScopeReindent ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
+            case "curly-general-scope-reindent-multipass":
+                defaultValue  = defaults.curlyGeneralScopeReindentMultipass ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
             case "header-guard-rename":
                 defaultValue  = defaults.headerGuardRename ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
+            case "format-macros":
+                defaultValue  = defaults.formatMacros ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
 
@@ -723,6 +733,11 @@ public final class Config {
                 allowedValues = null;
                 break;
 
+            case "jsx-in-ts":
+                defaultValue  = defaults.jsxInTs ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
             case "python-import-sort":
                 defaultValue  = defaults.pythonImportSort ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
@@ -730,6 +745,11 @@ public final class Config {
 
             case "python-import-blank-lines":
                 defaultValue  = String.valueOf(defaults.pythonImportBlankLines);
+                allowedValues = null;
+                break;
+
+            case "html5-tc-gap-level":
+                defaultValue  = String.valueOf(defaults.html5TcGapLevel);
                 allowedValues = null;
                 break;
 
@@ -741,26 +761,6 @@ public final class Config {
             case "gru-weights-path":
                 defaultValue  = defaults.gruWeightsPath;
                 allowedValues = null;
-                break;
-
-            case "curly-general-scope-reindent":
-                defaultValue  = defaults.curlyGeneralScopeReindent ? "on" : "off";
-                allowedValues = ON_OFF_CHOICES;
-                break;
-
-            case "curly-general-scope-reindent-multipass":
-                defaultValue  = defaults.curlyGeneralScopeReindentMultipass ? "on" : "off";
-                allowedValues = ON_OFF_CHOICES;
-                break;
-
-            case "html5-tc-gap-level":
-                defaultValue  = String.valueOf(defaults.html5TcGapLevel);
-                allowedValues = null;
-                break;
-
-            case "jsx-in-js":
-                defaultValue  = defaults.jsxInJs ? "on" : "off";
-                allowedValues = ON_OFF_CHOICES;
                 break;
 
             default:
@@ -980,8 +980,8 @@ public final class Config {
         config.html5TcGapLevel                    = parseInt(
             raw, "html5-tc-gap-level", config.html5TcGapLevel
         );
-        config.jsxInJs                            = parseBoolean(
-            raw, "jsx-in-js", config.jsxInJs
+        config.jsxInTs                            = parseBoolean(
+            raw, "jsx-in-ts", config.jsxInTs
         );
 
         return config;

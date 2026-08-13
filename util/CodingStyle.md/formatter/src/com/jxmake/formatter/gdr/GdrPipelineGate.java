@@ -77,7 +77,7 @@ public final class GdrPipelineGate {
     )
     {
         final FormatterCore formatter = FormatterCore.forLanguage(
-            language, filePath, config.isJsxInJs()
+            language, filePath, config.isJsxInTs()
         );
 
         final String gdr1      = apply(source, language, config);

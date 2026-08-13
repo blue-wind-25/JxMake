@@ -1570,9 +1570,84 @@ active in the Makefile and passing.
     boundary-detection bug fix above was itself found via that shape); no
     real-JSX-corpus validation (Increment 5) — all carried over unchanged
     from every prior increment's own "NOT done" list.
-  - **Where to resume**: Increment 3 (extend to tags with children, gated
-    by the byte-identical-children assertion from sub-context 6) — see the
-    "Suggested increment breakdown" list above.
+  - **Where to resume (superseded by Increment 3 below — kept for
+    history).**
+
+  **2026-08-14 implementation session — Step 2, Increment 3 of 5 (extend to
+  children-bearing tags) (LANDED).** Implements step (3) of the suggested
+  increment breakdown: extends the same wrap-decision function to a root
+  `JSX_SPAN` that has real children (an opening tag, not just a
+  self-closing one) — increments 4-5 (spread/boolean/expression-attribute
+  fixtures, real-corpus validation) remain **NOT STARTED**.
+
+  - **`JsTsSpecificRule.renderJsxSelfClosingWrapCandidate`** (method name
+    kept for continuity with the Increment 2 pipeline wiring, despite now
+    handling both shapes) — generalized from Increment 2's self-closing-only
+    check (`jsxOpeningTagEndOffset == text.length()`) to accept ANY root
+    `JSX_SPAN` with `jsxOpeningTagEndOffset >= 0` and a non-empty
+    `jsxAttrBoundaries` list. No tokenizer change was needed:
+    `TokenizerCurly.findJsxSpans` already populated both fields for an
+    opening tag (`rootTag.kind == 0`) as well as a self-closing one
+    (`kind == 2`) back in Increment 1 — only the render method itself had
+    the artificially narrow self-closing-only gate.
+  - **Width measurement fix (found while designing this increment, not a
+    regression)**: Increment 2's width check used
+    `lineColumnOf(...) + t.text.length()`, i.e. the ENTIRE span's raw text
+    including any children. For a self-closing tag this is identical to the
+    opening tag's own width (there is no child text), so Increment 2 never
+    noticed. For a children-bearing tag this is wrong — measuring the whole
+    subtree means a short opening tag with huge/multi-line children would
+    spuriously "overflow" (or a real multi-line child block's own newlines
+    would corrupt the column arithmetic entirely). Fixed by measuring
+    `openingTagWidth = t.jsxOpeningTagEndOffset` (an int offset, not the
+    full text length) — this is the same approximation
+    `JsxWrapDiagnostics` (Increment 1) already uses for its own
+    over-width counter, so this fix brings the real wrap decision back in
+    line with that established precedent rather than introducing a new one.
+  - **Splice mechanism**: `text` is split into `openingTagText =
+    text.substring(0, jsxOpeningTagEndOffset)` (rewritten, one attribute
+    per line, same as Increment 2) and `tail = text.substring(
+    jsxOpeningTagEndOffset)` (children + closing tag, when present — empty
+    string for a self-closing tag). `tail` is appended to the wrapped
+    output completely unmodified — no re-tokenizing, no trimming, no
+    whitespace normalization of any kind — this IS sub-context 2's
+    byte-identical-children guarantee, enforced structurally (the code
+    physically cannot touch those bytes, not just "chooses" not to).
+    The opening tag's own closing marker is now detected per-tag
+    (`openingTagText.endsWith("/>")` → `/>` on its own closing line;
+    otherwise a bare `>` on its own closing line, with `tail` — starting
+    with the children — appended directly after with no extra newline
+    inserted, since `tail`'s own leading whitespace/newlines, if any, are
+    already whatever the source author wrote and must not be touched).
+  - **Fixture-verified**: `test/jsx_tsx_self_closing_wrap_{inp,out}.tsx`
+    extended with three new cases (kept the two Increment 2 cases plus the
+    old "children untouched" case, renamed `WithChildrenShort` since it's
+    now a genuine "opening tag alone still fits, so no wrap" case rather
+    than an "out of scope" one): `WithChildrenWrapped` (over-width opening
+    tag, short single-expression child `{child}`) wraps the opening tag
+    with a bare `>` on its own line, `{child}...` spliced back on
+    immediately after; `WithMultilineChildrenPreservedVerbatim` (over-width
+    opening tag, real multi-line JSX children — nested `<span>`,
+    deliberately irregular internal whitespace, an embedded `.map()`
+    expression) wraps the opening tag while every byte of the children
+    section comes through unchanged — verified directly via `--diff`
+    showing the children/closing-tag lines untouched, and round-trip
+    (`--in-place` twice) byte-identical output, in addition to the
+    Makefile-driven `make test` run: 308/308 forward + 308/308
+    idempotency, zero regressions on any other existing fixture (no new
+    fixture files needed registering — the pair was already registered by
+    Increment 2, only its content changed).
+  - **NOT done**: spread/boolean/expression-attribute-specific fixtures
+    (Increment 4 — every fixture through this increment only exercises
+    plain `name={expr}` attributes); no real-JSX-corpus validation
+    (Increment 5) — both carried over unchanged from every prior
+    increment's own "NOT done" list.
+  - **Where to resume**: Increment 4 (spread-attribute `{...props}`,
+    bare-boolean-attribute `disabled`, and expression-valued-attribute
+    `attr={a.b.c(x, y)}` specific fixtures, per sub-context 6's fixture
+    plan, to prove the wrap logic doesn't need real JSX-grammar
+    understanding, only balance-tracking) — see the "Suggested increment
+    breakdown" list above.
 
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,

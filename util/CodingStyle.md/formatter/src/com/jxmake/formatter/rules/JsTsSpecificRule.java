@@ -1419,15 +1419,17 @@ public final class JsTsSpecificRule {
 
     // ── Step 2 "context 11" Increment 2: self-closing-tag attribute wrap ─────────────
     /**
-     * STATE_JS_TS.md's Step 2 "context 11" scoping session, Increment 2 of the suggested
-     *  5-increment breakdown: the actual wrap-decision function, applied only to a self-closing
-     *  {@code JSX_SPAN} with no children at all (sub-context 2's "strictly safer half" of Step 2's
-     *  scope -- a tag with real children is explicitly out of scope until a future increment adds
-     *  the byte-identical-children safety net sub-context 2 requires first). Mirrors {@link
-     *  MiscRuleCurly#enforceCallLineBreaking}'s decision-ladder shape (fits on one line -> no
-     *  change; else one-attribute-per-line) without routing through that method's comma-split/
-     *  typed-signature machinery, which doesn't fit JSX's whitespace-separated, comma-less
-     *  attribute list (sub-context 3).
+     * STATE_JS_TS.md's Step 2 "context 11" scoping session, Increments 2-3 of the suggested
+     *  5-increment breakdown: the actual wrap-decision function, applied to any root
+     *  {@code JSX_SPAN} opening tag -- self-closing (Increment 2) or with children (Increment 3).
+     *  Mirrors {@link MiscRuleCurly#enforceCallLineBreaking}'s decision-ladder shape (fits on one
+     *  line -> no change; else one-attribute-per-line) without routing through that method's
+     *  comma-split/typed-signature machinery, which doesn't fit JSX's whitespace-separated,
+     *  comma-less attribute list (sub-context 3). Per sub-context 2's whitespace-significance
+     *  hazard, only the opening tag itself (up through its own {@code >} / {@code />}) is ever
+     *  rewritten -- everything from {@link Token#jsxOpeningTagEndOffset} onward (children plus the
+     *  closing tag, when present) is spliced back in byte-for-byte untouched, never re-tokenized
+     *  or re-rendered.
      */
     public String enforceJsxSelfClosingAttributeWrap(final List<Token> tokens)
     {
@@ -1446,44 +1448,52 @@ public final class JsTsSpecificRule {
     }
 
     /**
-     * Returns replacement text for the self-closing {@code JSX_SPAN} at {@code idx} if its
-     *  opening tag doesn't fit on its current line and needs one-attribute-per-line wrapping, or
-     *  {@code null} for no change (Option 0: already fits, or out of this increment's scope --
-     *  has children, or has no attributes to wrap in the first place).
+     * Returns replacement text for the root {@code JSX_SPAN} at {@code idx} if its opening tag
+     *  doesn't fit on its current line and needs one-attribute-per-line wrapping, or {@code null}
+     *  for no change (Option 0: already fits, or has no attributes to wrap in the first place).
+     *  Width is measured over the opening tag only ({@link Token#jsxOpeningTagEndOffset} bytes of
+     *  {@code text}), never over any children -- a children-bearing tag's child content is opaque
+     *  to this measurement, same approximation Increment 1's {@code JsxWrapDiagnostics} already
+     *  uses, so a short opening tag with huge children never spuriously wraps.
      */
     private String renderJsxSelfClosingWrapCandidate(final List<Token> tokens, final int idx)
     {
         final Token t = tokens.get(idx);
-        // `jsxOpeningTagEndOffset == text.length()` identifies exactly a self-closing root tag
-        // with no children -- a tag with children always has trailing child/closing-tag text
-        // past its own opening tag, so this offset would be strictly less than `text.length()`
-        // for that shape (out of scope this increment, see sub-context 2).
-        if( t.jsxOpeningTagEndOffset != t.text.length() ) return null;
+        if( t.jsxOpeningTagEndOffset < 0 ) return null;
         if( t.jsxAttrBoundaries == null || t.jsxAttrBoundaries.isEmpty() ) return null;
 
-        final int width = lineColumnOf(tokens, idx) + t.text.length();
+        final int openingTagWidth = t.jsxOpeningTagEndOffset;
+        final int width = lineColumnOf(tokens, idx) + openingTagWidth;
         if(width <= lineLengthLimit) return null; // Already fits -- Option 0
 
-        final String         indent     = lineIndent(tokens, idx);
-        final String         attrIndent = indent + defaultIndentUnit;
-        final String         text       = t.text;
-        final List<Integer>  b          = t.jsxAttrBoundaries;
+        final String indent     = lineIndent(tokens, idx);
+        final String attrIndent = indent + defaultIndentUnit;
+        final String text       = t.text;
+        final List<Integer> b   = t.jsxAttrBoundaries;
+
+        // Opening tag text only -- `tail` (children + closing tag, when present) is never
+        // touched, only spliced back in verbatim at the very end (sub-context 2).
+        final String openingTagText = text.substring(0, t.jsxOpeningTagEndOffset);
+        final String tail           = text.substring(t.jsxOpeningTagEndOffset);
 
         int tagOpenEnd = b.get(0);
-        while( tagOpenEnd > 0 && Character.isWhitespace( text.charAt(tagOpenEnd - 1) ) ) --tagOpenEnd;
+        while( tagOpenEnd > 0 && Character.isWhitespace( openingTagText.charAt(tagOpenEnd - 1) ) ) --tagOpenEnd;
 
-        final String lastSeg       = text.substring( b.get( b.size() - 1 ) );
-        final int    selfCloseAt   = lastSeg.lastIndexOf("/>");
-        if(selfCloseAt < 0) return null; // Defensive -- always true for a self-closing root, but never guess
-        final String lastAttrText  = lastSeg.substring(0, selfCloseAt).trim();
+        final boolean selfClosing = openingTagText.endsWith("/>");
+        final String  closeMarker = selfClosing ? "/>" : ">";
+        final String  lastSeg     = openingTagText.substring( b.get( b.size() - 1 ) );
+        final int     closeAt     = lastSeg.lastIndexOf(closeMarker);
+        if(closeAt < 0) return null; // Defensive -- always true for a well-formed root tag, but never guess
+        final String  lastAttrText = lastSeg.substring(0, closeAt).trim();
 
-        final StringBuilder wrapped = new StringBuilder( text.substring(0, tagOpenEnd) );
+        final StringBuilder wrapped = new StringBuilder( openingTagText.substring(0, tagOpenEnd) );
         for( int a = 0; a < b.size() - 1; ++a ) {
-            final String seg = text.substring( b.get(a), b.get(a + 1) ).trim();
+            final String seg = openingTagText.substring( b.get(a), b.get(a + 1) ).trim();
             wrapped.append('\n').append(attrIndent).append(seg);
         }
         wrapped.append('\n').append(attrIndent).append(lastAttrText);
-        wrapped.append('\n').append(indent).append("/>");
+        wrapped.append('\n').append(indent).append(closeMarker);
+        wrapped.append(tail);
 
         return wrapped.toString();
     }

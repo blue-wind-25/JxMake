@@ -15,7 +15,26 @@ function NoAttrs()
     return <ThisSelfClosingTagHasNoAttributesAtAllSoItStaysOnOneLineNoMatterHowLongItsNameIs />;
 }
 
-function WithChildren()
+function WithChildrenShort()
 {
     return <VeryLongComponentNameWithChildren attributeOne={valueOne} attributeTwo={valueTwo}>{child}</VeryLongComponentNameWithChildren>;
+}
+
+function WithChildrenWrapped()
+{
+    return <VeryLongComponentNameWithChildrenIndeed
+        attributeOneIsQuiteLong={valueOne}
+        attributeTwoIsAlsoQuiteLong={valueTwo}
+    >{child}</VeryLongComponentNameWithChildrenIndeed>;
+}
+
+function WithMultilineChildrenPreservedVerbatim()
+{
+    return <VeryLongComponentNameWithMultilineChildrenHereForSure
+        attributeOneIsQuiteLong={valueOne}
+        attributeTwoIsAlsoQuiteLong={valueTwo}
+    >
+        <span>  weird   spacing   preserved  </span>
+        {items.map(x => <li key={x.id}>{x.label}</li>)}
+    </VeryLongComponentNameWithMultilineChildrenHereForSure>;
 }

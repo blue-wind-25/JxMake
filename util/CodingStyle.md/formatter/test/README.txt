@@ -542,16 +542,30 @@ JSX/TSX:
                                                         byte-identical to the unwrapped input) -- the wide tag now
                                                         wraps one-attribute-per-line, the narrow tag is unchanged.
 
-  jsx_tsx_self_closing_wrap_inp/out.tsx              -- Step 2 ("context 11") Increment 2: the actual
-                                                        wrap-decision function, scoped to a self-closing JSX_SPAN
-                                                        with no children (sub-context 2's "strictly safer half").
-                                                        Three cases: a single over-width attribute wraps onto its
-                                                        own line with a `/>` on its own closing line; a
-                                                        zero-attribute over-width tag is left on one line (nothing
-                                                        to wrap); an over-width tag WITH children is left
-                                                        completely untouched (children-bearing tags remain out of
-                                                        scope until a future increment adds the
-                                                        byte-identical-children safety net).
+  jsx_tsx_self_closing_wrap_inp/out.tsx              -- Step 2 ("context 11") Increments 2-3: the actual
+                                                        wrap-decision function, now covering both self-closing
+                                                        JSX_SPANs (Increment 2) and children-bearing ones
+                                                        (Increment 3). Five cases: a single over-width attribute on
+                                                        a self-closing tag wraps onto its own line with a `/>` on
+                                                        its own closing line; a zero-attribute over-width
+                                                        self-closing tag is left on one line (nothing to wrap); an
+                                                        over-width tag WITH children but whose OPENING TAG alone
+                                                        fits under `line-length` is left on one line (width is
+                                                        measured over the opening tag only, never the children,
+                                                        matching Increment 1's own `JsxWrapDiagnostics`
+                                                        approximation); an over-width opening tag WITH a short
+                                                        single-expression child wraps its attributes with a bare
+                                                        `>` (not `/>`) on its own closing line, with `{child}...`
+                                                        spliced back on immediately after, byte-for-byte unchanged;
+                                                        and an over-width opening tag with real multi-line JSX
+                                                        children (nested elements, deliberately irregular internal
+                                                        whitespace, an embedded `.map()` expression) wraps its own
+                                                        attributes while every byte from the opening tag's `>`
+                                                        onward -- children plus closing tag -- comes through
+                                                        provably byte-identical, the explicit gating assertion
+                                                        sub-context 6 requires before children-bearing wrap could
+                                                        land (verified via `--diff` showing zero hunks touching
+                                                        those lines, and round-trip idempotency).
 
   jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
                                                         (recommendation 1): plain `.js` now gets the same JSX

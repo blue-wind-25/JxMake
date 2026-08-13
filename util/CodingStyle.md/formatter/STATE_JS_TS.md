@@ -1678,12 +1678,96 @@ active in the Makefile and passing.
     idempotency, zero regressions on any other existing fixture.
   - **NOT done**: real-JSX-corpus validation (Increment 5) — carried over
     unchanged from every prior increment's own "NOT done" list.
-  - **Where to resume**: Increment 5 (real-corpus validation against the
-    dogfood repos already registered in `STATE_DOGFOOD.md`:
-    `taniarascia/react-tutorial`, `ruanyf/react-demos`,
-    `reactstrap/reactstrap`, `microsoft/TypeScript-React-Starter`,
-    `Lemoncode/react-typescript-samples`, `excalidraw/excalidraw`) — see
-    the "Suggested increment breakdown" list above.
+  - **Where to resume (superseded by Increment 5 below — kept for
+    history).**
+
+  **2026-08-14 implementation session — Step 2, Increment 5 of 5 (real-corpus
+  validation) (IN PROGRESS — 5 of 6 corpora done, `excalidraw/excalidraw`
+  still pending).** Implements step (5), the final increment of the
+  suggested breakdown: dogfood every JSX/TSX corpus already registered in
+  `STATE_DOGFOOD.md`, alternating JSX/TSX repo-by-repo per user direction,
+  re-running the two corpora already marked DONE there (that DONE status
+  predates all of Step 2 — it only ever validated Step 1's boundary
+  detection, never the wrap logic Increments 2-4 landed on top of it).
+
+  - **`taniarascia/react-tutorial` (JSX, re-run)**: reused the cached
+    `/tmp/dogfood_react_tutorial` checkout. All 5 `.js` files round1/round2
+    idempotent, `js_ts_syntax_check.sh` 5/5 clean. No line in this corpus
+    naturally exceeds `line-length` with a JSX opening tag, so the wrap
+    logic itself never engaged here — the pass still validates that
+    Increments 2-4 introduced no regression on real code that doesn't
+    happen to trigger them.
+  - **`microsoft/TypeScript-React-Starter` (TSX, re-run)**: fresh clone
+    (`/tmp/ts_react_starter_dogfood`, prior checkout no longer cached). Same
+    10 `.tsx` files as the original pass, `--preserve-tree`. Round1/round2
+    idempotent, `js_ts_syntax_check.sh` 10/10 clean. Same finding as
+    react-tutorial: no wrap-triggering line in this corpus either.
+  - **`ruanyf/react-demos` (JSX)**: fresh clone (`/tmp/react_demos_dogfood`).
+    Real JSX in this repo lives almost entirely inside `.html` files'
+    `<script type="text/babel">` blocks, which `XmlSpecificRule.
+    JS_SCRIPT_TYPES` deliberately doesn't recognize as JS (`text/babel`
+    isn't in that allowlist) — out of this job's scope, a separate
+    HTML5 script-dispatch concern, left untouched by design, not a gap.
+    Of the repo's few standalone `.js` files, only `demo13/src/browser.js`
+    and `demo13/src/app.js` contain real JSX (`demo13/{app,server,
+    browser}.js` at the repo root are already-compiled babel OUTPUT with no
+    JSX at all, just `React.createElement` calls). Both real-JSX files are
+    round1/round2 idempotent and `js_ts_syntax_check.sh`-clean. Found one
+    **unrelated pre-existing bug**, not caused by any JSX/Step-2 code:
+    `demo13/app.js` (compiled, non-JSX, minified one-liner function bodies)
+    is NOT idempotent — a general curly-brace-family reindent pass
+    re-breaks an already-reformatted `function f(...) { ... }` one-liner
+    differently on a second pass. Filed as a known finding, not fixed here
+    (general curly-family issue, unrelated to any JSX content, out of this
+    job's scope — would belong to STATE_C_CPP_JAVA.md's curly-family work
+    or a new dedicated investigation).
+  - **`Lemoncode/react-typescript-samples` (TSX)**: fresh clone
+    (`/tmp/lemoncode_dogfood`, 329 `.tsx` files total). Sampled 15 files
+    across `hooks/` and `old_class_components_samples/` (seeded `shuf`,
+    excluding `.spec.`/`.test.` files) rather than the full set, matching
+    this corpus's much larger size relative to the others. All 15
+    round1/round2 idempotent, `js_ts_syntax_check.sh` 15/15 clean. Two files
+    had multi-line, one-attribute-per-line JSX matching the wrap output
+    shape (`hooks/07_ColorPicker/src/app.tsx`,
+    `old_class_components_samples/03 Navigation/src/components/header.tsx`)
+    — confirmed via diff against the original that this was the AUTHOR'S
+    own pre-existing formatting, not something the wrap logic newly
+    produced (no line in this sample naturally overflows `line-length`).
+  - **`reactstrap/reactstrap` (JSX)**: fresh clone (`/tmp/reactstrap_dogfood`,
+    108 `.js` files under `src/`, excluding `__tests__/`). Ran the FULL set
+    (small enough not to need sampling), `--preserve-tree`. **Found a real,
+    reproducible content-corruption bug** (not a wrap-logic issue — a Step 1
+    detection gap): `parseJsxTag` required a tag-name `IDENTIFIER`
+    unconditionally, so JSX fragment shorthand (`<>...</>`, no tag name at
+    all) was never recognized as JSX by `findJsxSpans` in the first place.
+    `DropdownToggle.js` had `return <>{returnFunction({ ref: this.context.
+    onToggleRef })}</>;` — with the fragment invisible to JSX detection,
+    its `{...}` content fell through to ordinary JS statement-level
+    formatting, which wrongly inserted a semicolon INSIDE the expression
+    hole: `{returnFunction(...)}}` → `{returnFunction(...);}` — an actual
+    behavior change, exactly the class of bug real-corpus validation exists
+    to catch. **Fixed** in `parseJsxTag`: when the token immediately after
+    `<`/`</` is `>` (not an `IDENTIFIER`), it's a fragment — `tagNameStr` is
+    given an empty-string sentinel (`""`) instead of returning `null`, so
+    `findJsxSpanEnd`'s existing tag-identity check (`expected.equals(
+    r.tagName)`) already pairs `<>`...`</>` correctly with no other logic
+    changes anywhere (fragments never have attributes, so the wrap logic in
+    `JsTsSpecificRule` never engages on one either — `jsxAttrBoundaries` is
+    always empty for a fragment root). New regression fixture
+    `test/jsx_tsx_fragment_shorthand_{inp,out}.tsx`: the exact corrupted
+    shape (bare-expression fragment child), a multi-child fragment, and a
+    fragment nested inside a normal element's children — all three
+    round-trip byte-identical. `make test`: 309/309 → 310/310 forward +
+    idempotency, zero regressions. Re-ran the full 108-file reactstrap sweep
+    against the fixed jar afterward: fully idempotent, zero errors,
+    `DropdownToggle.js` now syntax-clean (only pre-existing false-fail
+    remaining is `index.js`, a `js_ts_syntax_check.sh` limitation on legacy
+    `export X from 'Y'` syntax — confirmed present on the ORIGINAL
+    unformatted file too, not a formatter bug).
+  - **NOT done yet**: `excalidraw/excalidraw` (TSX, large pure-TSX
+    production codebase) — the sixth and final corpus, not yet started.
+  - **Where to resume**: `excalidraw/excalidraw` dogfood pass, then close
+    out Increment 5 (and Step 2 overall) once that's done.
 
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,

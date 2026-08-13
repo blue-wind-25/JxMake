@@ -584,6 +584,28 @@ JSX/TSX:
                                                         tag combining all three kinds plus a plain attribute in
                                                         one tag wraps each onto its own line in source order.
 
+  jsx_tsx_fragment_shorthand_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
+                                                        validation): regression fixture for a real
+                                                        content-corruption bug found dogfooding
+                                                        reactstrap/reactstrap's DropdownToggle.js.
+                                                        `parseJsxTag` required a tag-name IDENTIFIER
+                                                        unconditionally, so bare fragment shorthand (`<>`/
+                                                        `</>`, no tag name) was never recognized as JSX at
+                                                        all -- its `{...}` expression content fell through to
+                                                        ordinary JS statement-level formatting, which wrongly
+                                                        inserted a semicolon inside the hole
+                                                        (`{returnFunction(...)}}` -> `{returnFunction(...);}`),
+                                                        an actual behavior change. Fixed by giving fragments an
+                                                        empty-string tagName sentinel so the existing
+                                                        open/close tag-identity check pairs them correctly with
+                                                        no other logic changes. Three cases: a bare-expression
+                                                        fragment child (the exact corrupted shape); a
+                                                        multi-child fragment; a fragment nested inside a normal
+                                                        element's children. All three round-trip byte-identical
+                                                        (fragments have no attributes, so wrap logic never
+                                                        engages -- this fixture is purely about detection, not
+                                                        wrapping).
+
   jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
                                                         (recommendation 1): plain `.js` now gets the same JSX
                                                         boundary-finding pre-pass as `.jsx`/`.tsx`

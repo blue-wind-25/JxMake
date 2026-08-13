@@ -455,6 +455,7 @@ INP_FILES += jsx_tsx_template_hole_nested_inp.tsx
 INP_FILES += jsx_tsx_wrap_detect_context_inp.tsx
 INP_FILES += jsx_tsx_self_closing_wrap_inp.tsx
 INP_FILES += jsx_tsx_attr_kinds_wrap_inp.tsx
+INP_FILES += jsx_tsx_fragment_shorthand_inp.tsx
 INP_FILES += jsx_in_plain_js_inp.js
 INP_FILES += ts_jsx_default_off_inp.ts
 INP_FILES += ts_jsx_optin_inp.ts

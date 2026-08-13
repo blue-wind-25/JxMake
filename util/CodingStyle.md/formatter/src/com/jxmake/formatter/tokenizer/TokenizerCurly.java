@@ -2200,13 +2200,30 @@ public class TokenizerCurly extends TokenizerCore {
             if(s >= n) return null;
         }
 
-        if( tokens.get( sig.get(s) ).type != TokenType.IDENTIFIER ) return null; // Tag name required
-        final StringBuilder tagName = new StringBuilder( tokens.get( sig.get(s) ).text );
-        ++s;
-        while( s + 1 < n && Token.isOp( tokens.get( sig.get(s) ), "." )
-                && tokens.get( sig.get(s + 1) ).type == TokenType.IDENTIFIER ) {
-            tagName.append('.').append( tokens.get( sig.get(s + 1) ).text );
-            s += 2; // Dotted component name, e.g. `React.Fragment`
+        // Fragment shorthand (`<>`/`</>`): the tag-name IDENTIFIER is entirely absent, `>` follows
+        // the `<` (or `</`) immediately. Real-corpus dogfood (STATE_JS_TS.md's Step 2 Increment 5,
+        // reactstrap's DropdownToggle.js) found this case wasn't recognized at all -- a bare `<>`
+        // failed the old unconditional "tag name required" check below and returned null, so
+        // findJsxSpans never even considered the fragment JSX, letting its `{...}` expression hole
+        // fall through to ordinary JS statement-level formatting and get corrupted (a stray `;`
+        // inserted inside the hole). Empty string is the fragment's `tagName` sentinel -- open/close
+        // fragments both use "", so findJsxSpanEnd's existing tag-identity check (`expected.equals(
+        // r.tagName)`) already pairs them correctly with zero changes needed there.
+        final boolean isFragment = Token.isOp( tokens.get( sig.get(s) ), ">" );
+        final String  tagNameStr;
+        if(isFragment) {
+            tagNameStr = "";
+        }
+        else {
+            if( tokens.get( sig.get(s) ).type != TokenType.IDENTIFIER ) return null; // Tag name required
+            final StringBuilder tagName = new StringBuilder( tokens.get( sig.get(s) ).text );
+            ++s;
+            while( s + 1 < n && Token.isOp( tokens.get( sig.get(s) ), "." )
+                    && tokens.get( sig.get(s + 1) ).type == TokenType.IDENTIFIER ) {
+                tagName.append('.').append( tokens.get( sig.get(s + 1) ).text );
+                s += 2; // Dotted component name, e.g. `React.Fragment`
+            }
+            tagNameStr = tagName.toString();
         }
 
         final List<Integer> attrRawTokenIndices = new ArrayList<>();
@@ -2240,7 +2257,7 @@ public class TokenizerCurly extends TokenizerCore {
         if( s >= n || !Token.isOp( tokens.get( sig.get(s) ), ">" ) ) return null;
         ++s; // Consume '>'
 
-        return new JsxTagResult( s, closing ? 1 : (selfClosing ? 2 : 0), tagName.toString(), attrRawTokenIndices );
+        return new JsxTagResult( s, closing ? 1 : (selfClosing ? 2 : 0), tagNameStr, attrRawTokenIndices );
     }
 
     /** Balance-skips a `{...}` hole starting at {@code sig.get(s)} (a `{` token); returns the

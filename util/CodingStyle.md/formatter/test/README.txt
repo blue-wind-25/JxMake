@@ -606,6 +606,26 @@ JSX/TSX:
                                                         engages -- this fixture is purely about detection, not
                                                         wrapping).
 
+  jsx_tsx_template_hole_wrap_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
+                                                        validation): regression fixture for a second real
+                                                        content-corruption bug found dogfooding
+                                                        excalidraw/excalidraw's SearchMenu.tsx. Not a JSX bug
+                                                        at all -- `enforceSemicolonInsertion`'s depth counter
+                                                        never tracked TEMPLATE_HOLE_OPEN/TEMPLATE_HOLE_CLOSE
+                                                        (a template literal's `${...}` hole) the way it tracks
+                                                        `(`/`[`, so a NEWLINE right after `${` in a multi-line
+                                                        hole (e.g. a wrapped ternary) was seen at depth 0 and
+                                                        got a stray `;` appended directly onto `${`
+                                                        (`` `${x} ${\n cond ? a : b\n}` `` ->
+                                                        `` `${x} ${;\n...` ``), corrupting the template
+                                                        literal. Fixed by treating TEMPLATE_HOLE_OPEN/CLOSE
+                                                        like `(`/`)` in the depth counter, plus a defensive
+                                                        exclusion in needsSemicolonAfter. Two cases: the exact
+                                                        corrupted shape (multi-line ternary inside a `${}`
+                                                        hole with a sibling `${}` before it) and a simpler
+                                                        single-expression multi-line hole. Both idempotent,
+                                                        no semicolon ever inserted inside either hole.
+
   jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
                                                         (recommendation 1): plain `.js` now gets the same JSX
                                                         boundary-finding pre-pass as `.jsx`/`.tsx`

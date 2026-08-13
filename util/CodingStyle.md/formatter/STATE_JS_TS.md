@@ -1682,9 +1682,9 @@ active in the Makefile and passing.
     history).**
 
   **2026-08-14 implementation session — Step 2, Increment 5 of 5 (real-corpus
-  validation) (IN PROGRESS — 5 of 6 corpora done, `excalidraw/excalidraw`
-  still pending).** Implements step (5), the final increment of the
-  suggested breakdown: dogfood every JSX/TSX corpus already registered in
+  validation) (LANDED — all 6 corpora done; Step 2 complete).** Implements
+  step (5), the final increment of the suggested breakdown: dogfood every
+  JSX/TSX corpus already registered in
   `STATE_DOGFOOD.md`, alternating JSX/TSX repo-by-repo per user direction,
   re-running the two corpora already marked DONE there (that DONE status
   predates all of Step 2 — it only ever validated Step 1's boundary
@@ -1764,10 +1764,60 @@ active in the Makefile and passing.
     remaining is `index.js`, a `js_ts_syntax_check.sh` limitation on legacy
     `export X from 'Y'` syntax — confirmed present on the ORIGINAL
     unformatted file too, not a formatter bug).
-  - **NOT done yet**: `excalidraw/excalidraw` (TSX, large pure-TSX
-    production codebase) — the sixth and final corpus, not yet started.
-  - **Where to resume**: `excalidraw/excalidraw` dogfood pass, then close
-    out Increment 5 (and Step 2 overall) once that's done.
+  - **`excalidraw/excalidraw` (TSX)**: fresh clone (`/tmp/excalidraw_dogfood`,
+    303 `.tsx` files under `packages/`/`examples/`, excluding
+    `node_modules/`). Sampled 17 files: the 7 files whose lines naturally
+    exceed `line-length` inside a JSX opening tag (real wrap-trigger
+    candidates: `CustomFooter.tsx`, `AI.tsx`, `BraveMeasureTextError.tsx`,
+    `EyeDropper.tsx`, `icons.tsx`, `DefaultItems.tsx`,
+    `WelcomeScreen.Hints.tsx`) plus 10 randomly sampled others (seeded
+    `shuf`, excluding `examples/` and `.test.` files), matching the
+    sampling approach used for the similarly large Lemoncode corpus.
+    Round1/round2 fully idempotent (`diff -rq` empty, confirmed twice), zero
+    formatter errors. **Found a second real, reproducible
+    content-corruption bug**, unrelated to JSX detection or wrapping at
+    all: `enforceSemicolonInsertion`'s depth counter (which decides whether
+    a `NEWLINE` is a genuine statement boundary) tracked `(`/`[`/expression-
+    `{` but never `TEMPLATE_HOLE_OPEN`/`TEMPLATE_HOLE_CLOSE` (a template
+    literal's `` ${...} `` hole boundary tokens). A `NEWLINE` immediately
+    after `` ${ `` inside a multi-line hole (e.g. a wrapped ternary) was
+    therefore evaluated at depth 0 as if it were a real statement boundary,
+    and `needsSemicolonAfter` had no exclusion for `TEMPLATE_HOLE_OPEN`
+    either, so a stray `;` got appended directly onto the `` ${ `` token.
+    Real code: `packages/excalidraw/components/SearchMenu.tsx` had
+    `` const matchCount = `${searchMatches.items.length} ${\n  cond\n    ? a\n    : b\n}`; ``
+    — round1 output corrupted the second hole into
+    `` `${searchMatches.items.length} ${;\n...` ``, a genuine parse-breaking
+    change (`js_ts_syntax_check.sh` caught it as "Expression expected" /
+    "Unterminated template literal", the only one of the 7 syntax-check
+    failures in this sample whose ORIGINAL file passed clean — the other 6
+    fail identically on their originals too, the same
+    `js_ts_syntax_check.sh` legacy-syntax limitation seen in prior corpora,
+    confirmed via direct per-file original-vs-formatted comparison and left
+    as-is). **Fixed** in `JsTsSpecificRule.enforceSemicolonInsertion`:
+    `TEMPLATE_HOLE_OPEN` now pushes/increments depth exactly like `(`, and
+    `TEMPLATE_HOLE_CLOSE` pops it exactly like `)`; `needsSemicolonAfter`
+    also now explicitly returns `false` for `TEMPLATE_HOLE_OPEN` as a
+    defensive belt-and-suspenders in case `lastSigIdx` ever lands there via
+    another path. New regression fixture
+    `test/jsx_tsx_template_hole_wrap_{inp,out}.tsx`: the exact corrupted
+    shape (multi-line ternary in a `` ${} `` hole with a sibling `` ${} ``
+    before it) plus a simpler single-expression multi-line hole — both
+    idempotent, no semicolon ever inserted inside either hole. `make test`:
+    310/310 → 311/311 forward + idempotency, zero regressions. Re-ran the
+    full 17-file excalidraw sample against the fixed jar afterward: still
+    fully idempotent, and `SearchMenu.tsx` now syntax-clean — only the same
+    6 pre-existing (original-file-also-fails) checker-tool-limitation
+    failures remain.
+  - **Step 2 status: all 5 increments landed.** Generic grouped-expression
+    wrapping of an overlong `JSX_SPAN` opening tag's attribute list is
+    complete: self-closing and children-bearing tags, all attribute kinds
+    (plain, spread, boolean, expression-valued), validated idempotent and
+    syntax-clean across 6 real-world JSX/TSX corpora (2 re-runs + 4 new),
+    with two genuine content-corruption bugs found and fixed along the way
+    (JSX fragment-shorthand detection gap; template-literal-hole semicolon-
+    insertion gap) — exactly the class of defect real-corpus validation
+    exists to catch, on both occasions unrelated to the wrap logic itself.
 
   **2026-08-13 research session — JSX-in-`.js`/`.ts` detection (open
   question from the react-tutorial dogfood finding) (design/research only,

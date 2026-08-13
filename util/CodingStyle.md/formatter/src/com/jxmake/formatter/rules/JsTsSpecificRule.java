@@ -254,7 +254,14 @@ public final class JsTsSpecificRule {
                 );
             } // if
 
-            if( isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN ) {
+            if( isPunct(t, "(") || isPunct(t, "[") || t.type == TokenType.ANGLE_BRACKET_OPEN
+                    || t.type == TokenType.TEMPLATE_HOLE_OPEN ) {
+                // A template literal's `${...}` hole is a single expression, exactly like a `(...)`
+                // group -- no statement boundary can occur inside it. Real-corpus dogfood
+                // (STATE_JS_TS.md's Step 2 Increment 5, excalidraw's SearchMenu.tsx) found this was
+                // missing: a NEWLINE right after `${` was seen at depth 0 (since TEMPLATE_HOLE_OPEN
+                // wasn't tracked here at all), so a stray `;` got inserted right after `${` when the
+                // hole's own expression (a multi-line ternary) wrapped onto its own line.
                 depthStack.push(depth);
                 ++depth;
             }
@@ -262,7 +269,7 @@ public final class JsTsSpecificRule {
                 t, ")"
             ) || isPunct(
                 t, "]"
-            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE ) {
+            ) || t.type == TokenType.ANGLE_BRACKET_CLOSE || t.type == TokenType.TEMPLATE_HOLE_CLOSE ) {
                 if( !depthStack.isEmpty() ) depth = depthStack.pop();
             }
             else if( isPunct(t, "{") ) {
@@ -369,6 +376,7 @@ public final class JsTsSpecificRule {
         ) || isPunct(
             t, "["
         ) ) return false;
+        if( t.type == TokenType.TEMPLATE_HOLE_OPEN ) return false;
         if( t.type == TokenType.OP && CONTINUATION_OPS.contains(t.text) ) return false;
         if( t.type == TokenType.KEYWORD && CONTINUATION_KEYWORDS.contains(t.text) ) return false;
         if( endsWithDecoratorApplication(tokens, idx, parenCloseToOpen) ) return false;

@@ -384,7 +384,7 @@ kotlin-import-blank-lines              = 1
 js-import-order                        = builtin, third-party, local
 js-import-sort                         = on
 js-import-blank-lines                  = 1
-jsx-in-js                              = off         # off | on -- `.ts`-scoped opt-in for JSX detection, see below
+jsx-in-js                              = off         # off | on -- opt-in for JSX embedded in a plain `.ts` file specifically (NOT `.tsx`/`.jsx`/`.js`/`.mjs`/`.cjs`, which detect JSX unconditionally regardless of this key); despite the key's name, this does not affect `.js` files at all, see below
 
 # ── Python 3 ──────────────────────────────────────────────────────────────────
 python-import-sort                     = on

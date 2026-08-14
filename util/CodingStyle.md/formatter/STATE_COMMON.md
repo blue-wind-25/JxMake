@@ -179,6 +179,22 @@ python_content_diff.sh
 makefile_syntax_check.sh
 
 bash_syntax_check.sh
+
+tools/verifiers/_exec_c_cpp_env.sh
+tools/verifiers/_exec_c_cpp.sh
+tools/verifiers/_exec_c_cpp.py
+
+tools/verifiers/c_syntax_check.sh
+tools/verifiers/c_content_diff.sh
+tools/verifiers/c20_syntax_check.sh
+tools/verifiers/c20_content_diff.sh
+
+tools/verifiers/cpp_syntax_check.sh
+tools/verifiers/cpp_content_diff.sh
+tools/verifiers/cpp20_syntax_check.sh
+tools/verifiers/cpp20_content_diff.sh
+tools/verifiers/cpp26_syntax_check.sh
+tools/verifiers/cpp26_content_diff.sh
 ```
 
 **Every `*_content_diff.*` tool supports both single-pair and batch mode**

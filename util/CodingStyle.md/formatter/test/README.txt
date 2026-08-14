@@ -4011,67 +4011,34 @@ Real-code regressions:
                                                         body is braced (bare terminal `else { ... }` stays
                                                         supported, per `real_code_regressions_172_out.ts`).
 
-  real_code_regressions_206_inp/out.java             -- (RDD_KEY_290, found via `openrewrite/rewrite`
-                                                        full-tree dogfood re-verification) a switch-arrow arm
-                                                        whose body is a braceless `if/else`, where the arm's
-                                                        own closing `}` sits on the same physical line as the
-                                                        `else` branch's statement, was non-idempotent: round1
-                                                        left the `}` attached to the `else`'s line, round2
-                                                        pulled it onto its own line. Fixed in
-                                                        `BlockStructureRule`'s bare-`else` handling to force
-                                                        the `}` onto its own line immediately, matching what
-                                                        round2 would otherwise have produced.
+  real_code_regressions_206_inp/out.java             -- (RDD_KEY_290, openrewrite/rewrite dogfood)
+                                                        switch-arrow arm with a braceless `if/else` body was
+                                                        non-idempotent on the arm's closing `}` placement.
+                                                        Fixed in `BlockStructureRule`'s bare-`else` handling.
 
-  real_code_regressions_207_inp/out.java             -- (RDD_KEY_291, found via `openrewrite/rewrite`
-                                                        full-tree dogfood re-verification) a `List<String[]>
-                                                        urlSpecs = Arrays.asList(new String[]{...}, ...)`
-                                                        declaration's alignment-group membership was
-                                                        non-idempotent:
-                                                        `DeclarationAlignmentRuleCurly.containsMultilineBraceBody`
-                                                        bailed on ANY multi-line brace pair in the
-                                                        initializer, including a safe flat array-literal
-                                                        argument list that only became multi-line because
-                                                        round1's own `enforceCallLineBreaking` wrapped it --
-                                                        dropping `urlSpecs` from its alignment group on round2
-                                                        and collapsing the group's shared type-column padding.
-                                                        Fixed by narrowing the bail to only fire when the
-                                                        multi-line brace pair also contains a top-level `;` (a
-                                                        genuine multi-statement body, the original RDD_KEY_225
-                                                        concern), not merely being multi-line.
+  real_code_regressions_207_inp/out.java             -- (RDD_KEY_291, openrewrite/rewrite dogfood) a
+                                                        `List<String[]>` declaration with a wrapped
+                                                        array-literal initializer lost its alignment-group
+                                                        membership on round2. Fixed by narrowing
+                                                        `DeclarationAlignmentRuleCurly.containsMultilineBraceBody`'s
+                                                        bail to require a top-level `;` (genuine
+                                                        multi-statement body), not merely being multi-line.
 
-  real_code_regressions_208_inp/out.java             -- (RDD_KEY_293, found via `openrewrite/rewrite`
-                                                        full-tree dogfood re-verification,
-                                                        `TabsAndIndentsVisitor.java`/`YamlParser.java`) a
-                                                        wrapped call argument's closing-paren continuation
-                                                        line gained 4 extra indent spaces between round1 and
-                                                        round2: `MiscRuleCurly.renderCallCandidate`'s blanket
-                                                        `topLevelArgs.size() <= 1` bail froze an
-                                                        already-wrapped single-argument call at whatever
-                                                        indent it happened to have, even after
-                                                        `SwitchRule.formatNonInlineSwitches` (which runs
-                                                        between this method's two call sites in
-                                                        `FormatterCurly.format`) shifted the call's own
-                                                        opening line's indent (case-body reindent) without
-                                                        touching its continuation/closing lines. Narrowed the
-                                                        bail (for C/C++/Java only -- Kotlin/JS/TS keep the
-                                                        original blanket bail, since widening it there
-                                                        regressed other fixtures) to only fire when the sole
-                                                        argument's own content genuinely spans multiple
-                                                        physical lines, via a new `containsInternalNewline`
-                                                        check, letting a single-physical-line argument be
-                                                        safely re-derived from its current physical-line
-                                                        indent on every pass.
+  real_code_regressions_208_inp/out.java             -- (RDD_KEY_293, openrewrite/rewrite dogfood) a wrapped
+                                                        call argument's closing-paren line gained indent
+                                                        between round1/round2 after `SwitchRule` shifted the
+                                                        call's opening-line indent. Narrowed
+                                                        `MiscRuleCurly.renderCallCandidate`'s single-argument
+                                                        bail (C/C++/Java only) via a new
+                                                        `containsInternalNewline` check.
 
   real_code_regressions_209_inp/out.ts               -- `hasBreakableCall` under-approximation fix:
                                                         `BlockStructureRule.refuseUnrescuableCollapse` now
                                                         also refuses a braceless-if/else collapse when a
-                                                        rescuable call exists but wrapping its own argument
-                                                        list can't possibly bring the line under
-                                                        `lineLengthLimit` (best-case optimistic estimate),
-                                                        scoped off whenever an array/object literal is in play
-                                                        (a second, uncounted rescue mechanism -- preserves
-                                                        `real_code_regressions_81`'s existing accepted
-                                                        behavior).
+                                                        rescuable call's argument list can't possibly fit
+                                                        under `lineLengthLimit`, scoped off when an
+                                                        array/object literal is in play (preserves
+                                                        `real_code_regressions_81`'s existing behavior).
 
 How Tests Are Run
 -----------------

@@ -1374,7 +1374,33 @@ public static final class Signature {
             // split point and then append a synthetic comma on top of the one already present,
             // duplicating it. Leave such single-argument candidates untouched (Option 0).
             final List<List<Token>> topLevelArgs = splitTopLevelCommas(paramsSlice);
-            if( topLevelArgs.size() <= 1 ) return null;
+            // Narrowed 2026-08-15 (RDD_KEY_293): the blanket bail above only needs to protect
+            // against re-splitting a single argument whose OWN content genuinely spans multiple
+            // physical lines (the real misdetection risk the comment describes). When the sole
+            // argument's full text sits on exactly one physical line -- the newline(s) present in
+            // `paramsSlice` are only the call's own leading/trailing wrap newlines around it, not
+            // an internal one -- `groupByOriginalLine` (used by `renderCallPreserveGroups` below)
+            // produces exactly one row with no comma-split risk at all, so it's safe to re-derive.
+            // Without this narrowing, an already-wrapped single-argument call was frozen at
+            // whatever indent it happened to have forever, even after a later pass (e.g.
+            // `SwitchRule.formatNonInlineSwitches`'s case-body reindent, which runs between this
+            // method's first and second calls in `FormatterCurly.format`) shifted the call's own
+            // opening line's indent without touching its continuation/closing lines -- stale
+            // indent baked into round1's output, only self-correcting on round2 once
+            // `applyDeclarationsPass` re-flattened the (paren-only, no brace) initializer back to
+            // one line first. Found via `openrewrite/rewrite`'s
+            // `TabsAndIndentsVisitor.java`/`YamlParser.java` idempotency re-verification.
+            if( topLevelArgs.size() <= 1 ) {
+                // Kotlin/JS/TS keep the original blanket bail unconditionally -- the narrowing
+                // below is verified only for C/C++/Java (see this block's own doc comment); widening
+                // it to Kotlin/JS/TS regressed `real_code_regressions_43.kt` (a genuine 2-arg
+                // candidate elsewhere in the same pipeline run whose own rendering shape depends on
+                // this bail's exact scope) and `curly_gdr_multipass_oneliner.js` (interacts badly
+                // with the `curly-general-scope-reindent` pre-pass architecture, out of scope here
+                // per STATE_C_CPP_JAVA.md's Open Questions). Left untouched, same as before.
+                if( lang.isKotlin || lang.isJs || lang.isTs ) return null;
+                if( topLevelArgs.isEmpty() || containsInternalNewline( topLevelArgs.get(0) ) ) return null;
+            } // if
             // Same "leave untouched" posture as the single-argument case above, extended to a
             // multi-argument call where one of the *siblings* is itself a multi-line brace body
             // (e.g. a trailing/leading lambda or anonymous-class argument, `Thread({

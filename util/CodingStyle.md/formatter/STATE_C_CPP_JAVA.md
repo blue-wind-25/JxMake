@@ -823,27 +823,60 @@ RDD_KEY_88.
   No fixture (none ever existed for this occurrence).
 
 - **`openrewrite/rewrite` full-tree re-verification (2026-08-09), 4 residual idempotency diffs —
-  1 remains ACCEPTED, not fixed; 2 FIXED this session (2026-08-15, see "Known Gaps — Fixed",
-  `RDD_KEY_290`/`RDD_KEY_291`).** Found during item (17)'s deferred full-tree round1/round2 re-run
-  (see that entry for the run's own detail — this only records the 4 unresolved diffs left over
-  after that session's one real bug, the primitive-type-declaration collapse, was fixed and
-  fixtured as `real_code_regressions_187`). All 4 are cosmetic (idempotency-only, no invalid-syntax
-  risk — the `java_syntax_check` full-tree baseline stayed 3510/3510 clean both before and after).
-  Remaining OPEN (explicitly out of scope for the 2026-08-15 fix session — do not touch without a
-  separate task):
-  - `rewrite-kotlin/src/main/java/org/openrewrite/kotlin/format/TabsAndIndentsVisitor.java` and
-    `rewrite-yaml/src/main/java/org/openrewrite/yaml/YamlParser.java`: a wrapped call argument's
-    closing-paren continuation line gains 4 extra indent spaces between round1 and round2 —
-    indent-width-decided-before-a-later-pass-grows-it family, same root-cause shape as the original
-    Cluster 1 fix (`isSingleLineBody`/`expandedIndentWidth`) and the now-fixed
-    `PowerShellSpecificRule.java` self-format bug (see "Known Gaps — Open" note above and
-    `STATE_COMMON.md`'s "Formatter self-formatting" section — landed 2026-08-09 via
-    `ScopePipelineCurly.reapplyAssignmentsPassOnly`), but a different trigger site (a wrapped-call
-    continuation line's own indent, not a comment-column-alignment width) that was never fixed by
-    that landing.
+  1 remains ACCEPTED, not fixed; 3 FIXED (2026-08-15, see "Known Gaps — Fixed",
+  `RDD_KEY_290`/`RDD_KEY_291`/`RDD_KEY_293`).** Found during item (17)'s deferred full-tree
+  round1/round2 re-run (see that entry for the run's own detail — this only records the 4
+  unresolved diffs left over after that session's one real bug, the primitive-type-declaration
+  collapse, was fixed and fixtured as `real_code_regressions_187`). All 4 are cosmetic
+  (idempotency-only, no invalid-syntax risk — the `java_syntax_check` full-tree baseline stayed
+  3510/3510 clean both before and after).
 
 
 ## Known Gaps — Fixed
+
+- **`openrewrite/rewrite` full-tree re-verification residual gaps, wrapped-call continuation-indent
+  shape — FIXED 2026-08-15 (`RDD_KEY_293`).** Repro:
+  `rewrite-kotlin/src/main/java/org/openrewrite/kotlin/format/TabsAndIndentsVisitor.java` and
+  `rewrite-yaml/src/main/java/org/openrewrite/yaml/YamlParser.java` — a wrapped call argument's
+  closing-paren continuation line gained 4 extra indent spaces between round1 and round2. Same
+  root-cause family as the original Cluster 1 fix (`isSingleLineBody`/`expandedIndentWidth`) and
+  the `PowerShellSpecificRule.java` self-format bug (`ScopePipelineCurly.reapplyAssignmentsPassOnly`),
+  but a different trigger site. Root cause: `SwitchRule.formatNonInlineSwitches` (runs between the
+  two `MiscRuleCurly.enforceCallLineBreaking` call sites in `FormatterCurly.format`) shifts a
+  switch-case body statement's own leading indent (+4) without touching an already-wrapped
+  single-argument call's continuation/closing lines nested inside it. Combined with
+  `MiscRuleCurly.renderCallCandidate`'s blanket `topLevelArgs.size() <= 1` bail (added to protect
+  against a genuine comma-misdetection risk when a lone argument's own content spans multiple
+  physical lines), an already-wrapped single-argument call was permanently frozen at whatever
+  indent it happened to have, producing round1's stale shape; round2 self-corrected only because
+  `applyDeclarationsPass` (lacking RDD_KEY_225's brace-only bail applicability to a paren-only
+  initializer) flattened the initializer back to one line first, letting the by-then-correct indent
+  be recomputed fresh. Fixed by narrowing the bail: the blanket bail is now gated to only fire when
+  the sole argument's own content genuinely spans multiple physical lines (new
+  `containsInternalNewline` helper check), letting a single-physical-line argument's wrap be safely
+  re-derived from its current physical-line indent on every pass — for C/C++/Java. Kotlin/JS/TS
+  keep the ORIGINAL blanket `topLevelArgs.size() <= 1` bail unconditionally: widening the narrowed
+  check to those languages regressed `real_code_regressions_43.kt` (a genuine `topLevelArgs.size()
+  == 2` candidate elsewhere in the same pipeline run whose own rendering shape turned out to depend
+  on this bail's exact scope, for a reason not fully traced) and `curly_gdr_multipass_oneliner.js`
+  (a genuine architectural conflict with the `curly-general-scope-reindent-multipass` pre-pass
+  system's deliberately deeper logical-depth indentation for one-liner bodies — see
+  `STATE_CURLY_GDR.md`, out of scope to touch here). Two prior fix attempts before landing this
+  scoped version: (1) the unscoped `containsInternalNewline`-only narrowing (no language gate)
+  regressed those same 2 fixtures; (2) a flat `lang.isKotlin || lang.isJs || lang.isTs || ...`
+  top-level OR condition was WRONG — it unconditionally bailed for those languages regardless of
+  `topLevelArgs.size()`, silently changing behavior for size-`>1` candidates that previously fell
+  through unaffected, which made things worse (4 regressions instead of 2, including 2 new TS
+  failures). The landed version instead nests the language gate strictly inside the existing
+  `topLevelArgs.size() <= 1` branch, preserving the original size-`>1` fallthrough for every
+  language unchanged. Verified via a minimal isolated repro (nested `if`/switch/case chain with a
+  braceless-`else` branch containing a wrapped single-argument call, matching the real files'
+  shape) — non-idempotent before the fix, byte-identical round1/round2 after. New fixture
+  `test/real_code_regressions_208_{inp,out}.java`. Re-verified against both real triggering files
+  (from the pre-existing local `/tmp/rewrite` corpus copy): round1 and round2 outputs now
+  byte-identical for both. `make test`: 316/316 forward + idempotency, zero regressions. Left both
+  corpus files themselves unreformatted — bulk-adopting a corpus reformat is out of scope for this
+  fix.
 
 - **Self-hosting dogfood (`src/**/*.java` formatted with itself), 2 bugs found comparing `src/`
   against a fresh format of `src/` — FIXED, see RDD_KEY_289 (index above) for full detail.**

@@ -4039,6 +4039,29 @@ Real-code regressions:
                                                         genuine multi-statement body, the original RDD_KEY_225
                                                         concern), not merely being multi-line.
 
+  real_code_regressions_208_inp/out.java             -- (RDD_KEY_293, found via `openrewrite/rewrite`
+                                                        full-tree dogfood re-verification,
+                                                        `TabsAndIndentsVisitor.java`/`YamlParser.java`) a
+                                                        wrapped call argument's closing-paren continuation
+                                                        line gained 4 extra indent spaces between round1 and
+                                                        round2: `MiscRuleCurly.renderCallCandidate`'s blanket
+                                                        `topLevelArgs.size() <= 1` bail froze an
+                                                        already-wrapped single-argument call at whatever
+                                                        indent it happened to have, even after
+                                                        `SwitchRule.formatNonInlineSwitches` (which runs
+                                                        between this method's two call sites in
+                                                        `FormatterCurly.format`) shifted the call's own
+                                                        opening line's indent (case-body reindent) without
+                                                        touching its continuation/closing lines. Narrowed the
+                                                        bail (for C/C++/Java only -- Kotlin/JS/TS keep the
+                                                        original blanket bail, since widening it there
+                                                        regressed other fixtures) to only fire when the sole
+                                                        argument's own content genuinely spans multiple
+                                                        physical lines, via a new `containsInternalNewline`
+                                                        check, letting a single-physical-line argument be
+                                                        safely re-derived from its current physical-line
+                                                        indent on every pass.
+
 How Tests Are Run
 -----------------
 

@@ -479,7 +479,11 @@ public class BlockStructureRule {
                                 }
                             }
                             if(!hasNewlineAlready) {
-                                for(final Token bt : tokens.subList(i, bodyEnd)) out.append(bt.text);
+                                for( final Token bt : tokens.subList(
+                                    i, bodyEnd
+                                ) ) out.append(
+                                    bt.text
+                                );
                                 out.append('\n').append( mostRecentLineIndent(tokens, i) );
                                 out.append( tokens.get(afterBody).text );
                                 i = afterBody + 1;
@@ -2141,7 +2145,7 @@ public class BlockStructureRule {
     /**
      * True if an array (`[`) or object (`{`) literal token appears anywhere in
      *  {@code [from, to]} -- see {@link #refuseUnrescuableCollapse}'s call site for why this gates
-     *  the stricter post-wrap-estimate check off.
+     *  the stricter post-wrap-estimate check off
      */
     private boolean containsListLiteral(final List<Token> tokens, final int from, final int to)
     {

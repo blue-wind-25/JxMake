@@ -1398,8 +1398,10 @@ public static final class Signature {
                 // this bail's exact scope) and `curly_gdr_multipass_oneliner.js` (interacts badly
                 // with the `curly-general-scope-reindent` pre-pass architecture, out of scope here
                 // per STATE_C_CPP_JAVA.md's Open Questions). Left untouched, same as before.
-                if( lang.isKotlin || lang.isJs || lang.isTs ) return null;
-                if( topLevelArgs.isEmpty() || containsInternalNewline( topLevelArgs.get(0) ) ) return null;
+                if(lang.isKotlin || lang.isJs || lang.isTs) return null;
+                if( topLevelArgs.isEmpty() || containsInternalNewline(
+                    topLevelArgs.get(0)
+                ) ) return null;
             } // if
             // Same "leave untouched" posture as the single-argument case above, extended to a
             // multi-argument call where one of the *siblings* is itself a multi-line brace body

@@ -27,7 +27,8 @@ public final class MiscRuleTags extends MiscRuleCore {
         super(lang, normalizeCommentStartCase, normalizeCommentEndPeriod, commentNormalizationClassifier,
                 indentWidth, lineLengthLimit);
         throw new UnsupportedOperationException(
-                "MiscRuleTags (XML/HTML5) is not yet implemented -- see STATE_DATA_FORMATS.md");
+            "MiscRuleTags (XML/HTML5) is not yet implemented -- see STATE_DATA_FORMATS.md"
+        );
     }
 
 } // class MiscRuleTags

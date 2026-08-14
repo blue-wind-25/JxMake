@@ -774,7 +774,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 for( int k = 0; k < sawNewline.size(); ++k ) sawNewline.set(k, Boolean.TRUE);
             }
             else if( isPunct(t, ";") && !sawSemi.isEmpty() ) {
-                sawSemi.set(sawSemi.size() - 1, Boolean.TRUE);
+                sawSemi.set( sawSemi.size() - 1, Boolean.TRUE );
             }
         } // for
 

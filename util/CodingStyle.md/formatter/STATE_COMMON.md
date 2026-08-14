@@ -141,10 +141,25 @@ on-demand compilation.
 Available wrappers:
 
 ```
+_exec_c_cpp.py
+_exec_c_cpp.sh
+_exec_c_cpp_env.sh
 _exec_java.sh
 _exec_node_env.sh
 _exec_nodejs.sh
 _exec_python.sh
+
+c_syntax_check.sh
+c_content_diff.sh
+c20_syntax_check.sh
+c20_content_diff.sh
+
+cpp_syntax_check.sh
+cpp_content_diff.sh
+cpp20_syntax_check.sh
+cpp20_content_diff.sh
+cpp26_syntax_check.sh
+cpp26_content_diff.sh
 
 java_syntax_check.sh
 java_content_diff.sh
@@ -179,22 +194,6 @@ python_content_diff.sh
 makefile_syntax_check.sh
 
 bash_syntax_check.sh
-
-tools/verifiers/_exec_c_cpp_env.sh
-tools/verifiers/_exec_c_cpp.sh
-tools/verifiers/_exec_c_cpp.py
-
-tools/verifiers/c_syntax_check.sh
-tools/verifiers/c_content_diff.sh
-tools/verifiers/c20_syntax_check.sh
-tools/verifiers/c20_content_diff.sh
-
-tools/verifiers/cpp_syntax_check.sh
-tools/verifiers/cpp_content_diff.sh
-tools/verifiers/cpp20_syntax_check.sh
-tools/verifiers/cpp20_content_diff.sh
-tools/verifiers/cpp26_syntax_check.sh
-tools/verifiers/cpp26_content_diff.sh
 ```
 
 **Every `*_content_diff.*` tool supports both single-pair and batch mode**

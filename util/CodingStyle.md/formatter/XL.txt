@@ -124,9 +124,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_204_inp/out.py`
-    to   `real_code_regressions_205_inp/out.java`
-[DONE]
+    from `real_code_regressions_206_inp/out.java`
+    to   `real_code_regressions_207_inp/out.java`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -136,6 +135,64 @@ Compact (don't use sub-agent because I will end this session soon) the narration
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
+
+Directory `util/CodingStyle.md/formatter/tools/verifiers`.
+
+Task 1:
+  Check `python_content_diff.py` batch mode. Its batch mode may have bug (maybe concurrency bug
+  that cause wrong diff, wrong output, mixed output, etc.
+
+Task 2:
+  Based on:
+    _exec_*.sh
+    *_content_diff.sh
+    *_syntax_check.sh
+  Please create:
+    c_syntax_check.sh       (legacy C until C17/18)
+    c_content_diff.sh       (legacy C until C17/18)
+    c20_syntax_check.sh     (C23)
+    c20_content_diff.sh     (C23)
+    cpp_syntax_check.sh     (legacy C++ until C++17)
+    cpp_content_diff.sh     (legacy C++ until C++17)
+    cpp20_syntax_check.sh   (C++20 until C++23)
+    cpp20_content_diff.sh   (C++20 until C++23)
+    cpp26_syntax_check.sh   (C++26)
+    cpp26_content_diff.sh   (C++26)
+
+The GCC/CLANG executable path should be put in `_exec_c_cpp_env.sh`, with the default:
+```
+: "${GXX:=/opt/gcc-12.2.0/bin/g++}"
+: "${CLANGXX:=$HOME/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++}"
+: "${USER_LD_LIBRARY_PATH:=/opt/isl-0.16.1/lib}"
+```
+
+The usage should be put in `_exec_c_cpp.sh`. The usage should be something like
+ (please adjust the `-std` as needed):
+```
+$GXX -std=gnu99 -fsyntax-only <file>.c
+$GXX -std=c++20 -fsyntax-only <file>.cpp
+$CLANGXX -std=c++23 -fsyntax-only <file>.cpp
+
+$CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file1.cpp > file1.ast
+$CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file2.cpp > file2.ast
+diff -u file1.ast file2.ast
+
+$CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file1.cpp > file1.json
+$CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file2.cpp > file2.json
+git diff --no-index file1.json file2.json
+
+$GXX -std=c++20 -fdump-tree-original -fsyntax-only file1.cpp > file1.ast
+$GXX -std=c++20 -fdump-tree-original -fsyntax-only file2.cpp > file2.ast
+diff -u file1.ast file2.ast
+```
+
+The script `_exec_c_cpp.sh` will most-likely needs a helper script `_exec_c_cpp.py` (e.g., for the batch mode).
+In this case ensure `_exec_c_cpp.py` can run with Python as low as Python 3.6.
+Simpy use `#!/usr/bin/env python3`, there is no need to make a configurable ${PYTHON} for `_exec_c_cpp.py`.
+
+Ensure before comitting all `.sh` scripts are `chmod a+x` first.
+
+----------------------------------------------------------------------------------------------------
 
 === TIER 0: Recurring job ===
 
@@ -233,32 +290,25 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [C_CPP_JAVA] `openrewrite/rewrite` 2 residual cosmetic idempotency diffs, new trigger sites of
-  known-but-cleanly-fixed bug families: switch-arrow braceless if/else closing-brace instability
-  (`ModerneWebsiteExampleTest.java`, Cluster 2 shape); `List<String>` alignment padding collapses
-  3→1 space on round2 (`Pep508RequirementTest.java`, Cluster 5 shape). (Third openrewrite diff —
-  wrapped-call indent growth — moved to Tier4: `PowerShellSpecificRule.java` bug family, 3 reverted
-  fix attempts.)
+- [C_CPP_JAVA] Non-idempotent declarations-pass reindent on internally-inconsistent source, 2nd
+  occurrence (`tool/JSONEncoderLite.java` repro) — raw-source-indent vs. scope-depth-indent
+  divergence, same class as the switch-case gap (7-session fix).
+
+- [C_CPP_JAVA] `openrewrite/rewrite` wrapped-call continuation line gains 4 extra indent spaces on
+  round2 (`TabsAndIndentsVisitor.java`, `YamlParser.java`) — same "indent decided before a later
+  pass grows it" family as the now-fixed `PowerShellSpecificRule.java` self-format bug (that one's
+  4-session fix, Attempts 1-3 reverted for breaking 8 then 3 fixtures, landed 2026-08-09), but a
+  different trigger site never touched by that fix.
 
 - [JS_TS] `hasBreakableCall` under-approximation: braceless-if/else collapse-rescue heuristic checks
   only whether a rescuable call exists, not whether wrapping actually clears `lineLengthLimit` —
   same "which pass sees final stable width" class as RDD_KEY_245/246/248/249/250 (249 had a
   reverted regression-causing fix attempt).
 
-- [C_CPP_JAVA] `openrewrite/rewrite` wrapped-call continuation line gains 4 extra indent spaces on
-  round2 (`TabsAndIndentsVisitor.java`, `YamlParser.java`) — same "indent decided before a later
-  pass grows it" family as the `PowerShellSpecificRule.java` self-format bug (4-session fix,
-  Attempts 1-3 reverted for breaking 8 then 3 fixtures).
-
-- [C_CPP_JAVA] Non-idempotent declarations-pass reindent on internally-inconsistent source, 2nd
-  occurrence (`ScopePipeline.applyDeclarationsPass`, `tool/JSONEncoderLite.java` repro) — same
-  "raw-source-indent vs. scope-depth-indent divergence" class as the switch-case gap (7-session fix).
-
 - [CURLY_GDR] Untested risk (not a confirmed bug): GDR-2 (second multipass cycle) may silently
   overwrite already-STYLE.md-compliant indentation from the pipeline's own relative-delta
-  reindenters (`SwitchRule.applyNonInlineCaseIndent`, `ScopePipeline.applyDeclarationsPass`, the
-  STYLE.md §8 continuation-indent renderer). Adversarial testing only covered a Java switch-in-if
-  case; TS/Kotlin switch-case/ternary-wrap untried. Same bug family this job has regressed on before.
+  reindenters. Adversarial testing only covered a Java switch-in-if case; TS/Kotlin
+  switch-case/ternary-wrap untried. Same bug family this job has regressed on before.
 
 Use sub-agent. This can be a substantial work.
 

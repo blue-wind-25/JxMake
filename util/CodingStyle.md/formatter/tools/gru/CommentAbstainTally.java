@@ -61,7 +61,8 @@ public final class CommentAbstainTally {
               int                malformed     = 0;
 
         try ( BufferedReader reader = new BufferedReader(
-                new InputStreamReader( Files.newInputStream( input.toPath() ), StandardCharsets.UTF_8 ) ) ) {
+            new InputStreamReader( Files.newInputStream( input.toPath() ), StandardCharsets.UTF_8 )
+        ) ) {
             String line;
             while( ( line = reader.readLine() ) != null ) {
                 if( line.isEmpty() ) continue;

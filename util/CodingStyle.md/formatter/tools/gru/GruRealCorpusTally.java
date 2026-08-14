@@ -77,7 +77,8 @@ public final class GruRealCorpusTally {
         for(double t : thresholds) perThreshold.put( t, new int[3] );
 
         try ( BufferedReader reader = new BufferedReader(
-                new InputStreamReader( Files.newInputStream(corpusPath), StandardCharsets.UTF_8 ) ) ) {
+            new InputStreamReader( Files.newInputStream(corpusPath), StandardCharsets.UTF_8 )
+        ) ) {
             String line;
             while( ( line = reader.readLine() ) != null ) {
                 if( line.isEmpty() ) continue;

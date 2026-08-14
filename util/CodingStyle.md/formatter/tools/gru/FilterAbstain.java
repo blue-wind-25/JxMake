@@ -52,9 +52,10 @@ public final class FilterAbstain {
 
         int total = 0, kept = 0;
         try ( BufferedReader reader = new BufferedReader(
-                new InputStreamReader( Files.newInputStream( Paths.get( args[0] ) ), StandardCharsets.UTF_8 ) );
+            new InputStreamReader( Files.newInputStream( Paths.get( args[0] ) ), StandardCharsets.UTF_8 )
+        );
               PrintWriter out = new PrintWriter(
-                Files.newBufferedWriter( Paths.get( args[1] ), StandardCharsets.UTF_8 )
+                  Files.newBufferedWriter( Paths.get( args[1] ), StandardCharsets.UTF_8 )
               ) ) {
             String line;
             while( ( line = reader.readLine() ) != null ) {

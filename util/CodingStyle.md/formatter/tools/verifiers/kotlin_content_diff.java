@@ -311,7 +311,8 @@ public class kotlin_content_diff {
      *  uses for `class`/`object`/`init`, rather than a free-floating pattern.
      */
     static final java.util.regex.Pattern CONTROL_FLOW_CLOSING = java.util.regex.Pattern.compile(
-        "^(while|for|if|else|do|try|catch|finally)( \\S+)?$");
+        "^(while|for|if|else|do|try|catch|finally)( \\S+)?$"
+    );
 
     /**
      * STYLE_KOTLIN.md §3.1: `class`/`object`/`companion object` bodies (and

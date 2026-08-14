@@ -98,8 +98,7 @@ def filter_output(text):
         # 3) strip "<...>" angle-bracket noise, except on #include lines
         #    (where "<...>" is a real system-header name, not AST/template
         #    punctuation)
-        if "#include" not in l:
-            l = re.sub(r"<[^>]*>", "", l)
+        if "#include" not in l: l = re.sub(r"<[^>]*>", "", l)
         out_lines.append(l)
 
     text = "\n".join(out_lines)
@@ -122,7 +121,7 @@ def dump_one(compiler, mode, std, lang, path, extra_opts):
     cmd += list(extra_opts) + [path]
 
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    out = filter_output(proc.stdout.decode("utf-8", errors="replace"))
+    out  = filter_output(proc.stdout.decode("utf-8", errors="replace"))
 
     if proc.returncode != 0:
         raise DumpError("compiler invocation failed (exit %d) for %s:\n%s" % (proc.returncode, path, out))
@@ -198,7 +197,7 @@ def run_batch(compiler, mode, std, lang, orig_base_dir, fmt_base_dir, file_list_
     # not a concurrency-bug candidate.
     for rel in rel_paths:
         orig_path = os.path.join(orig_base_dir, rel)
-        fmt_path = os.path.join(fmt_base_dir, rel)
+        fmt_path  = os.path.join(fmt_base_dir, rel)
 
         print_timestamped_header(rel)
 
@@ -217,7 +216,8 @@ def run_batch(compiler, mode, std, lang, orig_base_dir, fmt_base_dir, file_list_
             continue
 
         try:
-            if compare_one(compiler, mode, std, lang, orig_path, fmt_path, rel, rel, extra_opts): ok_count += 1
+            if compare_one(compiler, mode, std, lang, orig_path, fmt_path, rel, rel, extra_opts):
+                ok_count += 1
             else: mismatch_count += 1
         except Exception as e:
             print("  ERROR: %s" % e)
@@ -249,8 +249,7 @@ def main():
     compiler, mode, std, lang = args[0], args[1], args[2], args[3]
     rest = args[4:]
 
-    if len(rest) == 2:
-        run_single(compiler, mode, std, lang, rest[0], rest[1], extra_opts)
+    if len(rest) == 2: run_single(compiler, mode, std, lang, rest[0], rest[1], extra_opts)
     elif len(rest) == 4 and rest[0] == "--batch":
         run_batch(compiler, mode, std, lang, rest[1], rest[2], rest[3], extra_opts)
     else:

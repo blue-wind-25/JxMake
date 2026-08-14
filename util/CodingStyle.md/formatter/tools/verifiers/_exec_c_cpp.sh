@@ -35,8 +35,8 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   - strip ANSI color escape sequences
 _c_cpp_filter() {
     grep -v 'no version information available' \
-      | sed -E 's/ 0x[0-9a-fA-F]+//g; /#include/!s/<[^>]*>//g' \
-      | sed -E 's/\x1B\[[0-9;]*[mK]//g'
+    | sed -E 's/ 0x[0-9a-fA-F]+//g; /#include/!s/<[^>]*>//g' \
+    | sed -E 's/\x1B\[[0-9;]*[mK]//g'
 }
 
 if [ -z "$PROGRAM" ] || [ -z "$MODE" ] || [ -z "$EXT" ]; then
@@ -47,76 +47,76 @@ fi
 case "$MODE" in
 SYNTAX)
     if [ "${#SC_RUNS[@]}" -eq 0 ]; then
-        echo "SC_RUNS must be set for MODE=SYNTAX." >&2
-        exit 1
+    echo "SC_RUNS must be set for MODE=SYNTAX." >&2
+    exit 1
     fi
 
     # Leading dash-prefixed args (before the first file) are extra compiler
-    # options; everything from the first non-dash arg on is a file.
+    # options; everything from the first non-dash arg on is a file
     EXTRA_OPTS=()
     FILES=()
     for a in "$@"; do
-        if [ "${#FILES[@]}" -eq 0 ] && [ "${a#-}" != "$a" ]; then
-            EXTRA_OPTS+=("$a")
-        else
-            FILES+=("$a")
-        fi
+    if [ "${#FILES[@]}" -eq 0 ] && [ "${a#-}" != "$a" ]; then
+    EXTRA_OPTS+=("$a")
+    else
+    FILES+=("$a")
+    fi
     done
 
     if [ "${#FILES[@]}" -eq 0 ]; then
-        echo "Usage: ${PROGRAM}.sh [extra compiler options, e.g. -Iinclude/dir ...] <file.${EXT}> [file2.${EXT} ...]" >&2
-        exit 2
+    echo "Usage: ${PROGRAM}.sh [extra compiler options, e.g. -Iinclude/dir ...] <file.${EXT}> [file2.${EXT} ...]" >&2
+    exit 2
     fi
 
     status=0
     for f in "${FILES[@]}"; do
-        for run in "${SC_RUNS[@]}"; do
-            cvar="${run%%:*}"; rest="${run#*:}"
-            std="${rest%%:*}"; rest="${rest#*:}"
-            lang="${rest%%:*}"; label="${rest#*:}"
-            compiler="${!cvar}"
+    for run in "${SC_RUNS[@]}"; do
+    cvar="${run%%:*}"; rest="${run#*:}"
+    std="${rest%%:*}"; rest="${rest#*:}"
+    lang="${rest%%:*}"; label="${rest#*:}"
+    compiler="${!cvar}"
 
-            echo "[$label] $f"
-            out=$("$compiler" -x "$lang" -std="$std" -fsyntax-only "${EXTRA_OPTS[@]}" "$f" 2>&1)
-            rc=$?
-            printf '%s\n' "$out" | _c_cpp_filter
-            if [ $rc -ne 0 ]; then
-                status=1
-            fi
-        done
+    echo "[$label] $f"
+    out=$("$compiler" -x "$lang" -std="$std" -fsyntax-only "${EXTRA_OPTS[@]}" "$f" 2>&1)
+    rc=$?
+    printf '%s\n' "$out" | _c_cpp_filter
+    if [ $rc -ne 0 ]; then
+    status=1
+    fi
+    done
     done
     exit $status
     ;;
 
 DIFF)
     if [ -z "$CD_COMPILER_VAR" ] || [ -z "$CD_DIFF_MODE" ] || [ -z "$CD_STD" ] || [ -z "$CD_LANG" ]; then
-        echo "CD_COMPILER_VAR, CD_DIFF_MODE, CD_STD, CD_LANG must be set for MODE=DIFF." >&2
-        exit 1
+    echo "CD_COMPILER_VAR, CD_DIFF_MODE, CD_STD, CD_LANG must be set for MODE=DIFF." >&2
+    exit 1
     fi
 
     ARGS=("$@")
     EXTRA_OPTS=()
     for i in "${!ARGS[@]}"; do
-        if [ "${ARGS[$i]}" = "--" ]; then
-            EXTRA_OPTS=("${ARGS[@]:$((i+1))}")
-            ARGS=("${ARGS[@]:0:$i}")
-            break
-        fi
+    if [ "${ARGS[$i]}" = "--" ]; then
+    EXTRA_OPTS=("${ARGS[@]:$((i + 1))}")
+    ARGS=("${ARGS[@]:0:$i}")
+    break
+    fi
     done
 
     compiler="${!CD_COMPILER_VAR}"
 
     if [ "${#ARGS[@]}" -eq 2 ]; then
-        exec python3 "$DIR/_exec_c_cpp.py" "$compiler" "$CD_DIFF_MODE" "$CD_STD" "$CD_LANG" \
+    exec python3 "$DIR/_exec_c_cpp.py" "$compiler" "$CD_DIFF_MODE" "$CD_STD" "$CD_LANG" \
             "${ARGS[0]}" "${ARGS[1]}" -- "${EXTRA_OPTS[@]}"
     elif [ "${#ARGS[@]}" -eq 3 ]; then
-        exec python3 "$DIR/_exec_c_cpp.py" "$compiler" "$CD_DIFF_MODE" "$CD_STD" "$CD_LANG" \
-            --batch "${ARGS[0]}" "${ARGS[1]}" "${ARGS[2]}" -- "${EXTRA_OPTS[@]}"
+    exec python3 "$DIR/_exec_c_cpp.py" "$compiler" "$CD_DIFF_MODE" "$CD_STD" "$CD_LANG" \
+    --batch "${ARGS[0]}" "${ARGS[1]}" "${ARGS[2]}" -- "${EXTRA_OPTS[@]}"
     else
-        echo "Usage: ${PROGRAM}.sh <original.${EXT}> <formatted.${EXT}>" >&2
-        echo "       ${PROGRAM}.sh <original_base_dir> <formatted_base_dir> <${EXT}_rel_path_file_list.txt>" >&2
-        echo "       (extra compiler options, e.g. -Iinclude/dir, may be appended after '--')" >&2
-        exit 2
+    echo "Usage: ${PROGRAM}.sh <original.${EXT}> <formatted.${EXT}>" >&2
+    echo "       ${PROGRAM}.sh <original_base_dir> <formatted_base_dir> <${EXT}_rel_path_file_list.txt>" >&2
+    echo "       (extra compiler options, e.g. -Iinclude/dir, may be appended after '--')" >&2
+    exit 2
     fi
     ;;
 

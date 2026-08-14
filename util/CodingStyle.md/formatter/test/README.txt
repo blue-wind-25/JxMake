@@ -4011,6 +4011,34 @@ Real-code regressions:
                                                         body is braced (bare terminal `else { ... }` stays
                                                         supported, per `real_code_regressions_172_out.ts`).
 
+  real_code_regressions_206_inp/out.java             -- (RDD_KEY_290, found via `openrewrite/rewrite`
+                                                        full-tree dogfood re-verification) a switch-arrow arm
+                                                        whose body is a braceless `if/else`, where the arm's
+                                                        own closing `}` sits on the same physical line as the
+                                                        `else` branch's statement, was non-idempotent: round1
+                                                        left the `}` attached to the `else`'s line, round2
+                                                        pulled it onto its own line. Fixed in
+                                                        `BlockStructureRule`'s bare-`else` handling to force
+                                                        the `}` onto its own line immediately, matching what
+                                                        round2 would otherwise have produced.
+
+  real_code_regressions_207_inp/out.java             -- (RDD_KEY_291, found via `openrewrite/rewrite`
+                                                        full-tree dogfood re-verification) a `List<String[]>
+                                                        urlSpecs = Arrays.asList(new String[]{...}, ...)`
+                                                        declaration's alignment-group membership was
+                                                        non-idempotent:
+                                                        `DeclarationAlignmentRuleCurly.containsMultilineBraceBody`
+                                                        bailed on ANY multi-line brace pair in the
+                                                        initializer, including a safe flat array-literal
+                                                        argument list that only became multi-line because
+                                                        round1's own `enforceCallLineBreaking` wrapped it --
+                                                        dropping `urlSpecs` from its alignment group on round2
+                                                        and collapsing the group's shared type-column padding.
+                                                        Fixed by narrowing the bail to only fire when the
+                                                        multi-line brace pair also contains a top-level `;` (a
+                                                        genuine multi-statement body, the original RDD_KEY_225
+                                                        concern), not merely being multi-line.
+
 How Tests Are Run
 -----------------
 

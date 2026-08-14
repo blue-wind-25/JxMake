@@ -816,23 +816,14 @@ RDD_KEY_88.
   ACCEPTED, not fixed, single occurrence. No fixture.
 
 - **`openrewrite/rewrite` full-tree re-verification (2026-08-09), 4 residual idempotency diffs —
-  ACCEPTED, not fixed.** Found during item (17)'s deferred full-tree round1/round2 re-run (see that
-  entry for the run's own detail — this only records the 4 unresolved diffs left over after that
-  session's one real bug, the primitive-type-declaration collapse, was fixed and fixtured as
-  `real_code_regressions_187`). All 4 are cosmetic (idempotency-only, no invalid-syntax risk — the
-  `java_syntax_check` full-tree baseline stayed 3510/3510 clean both before and after), and each
-  matches an already-documented deep/risky architectural bug family elsewhere in this file rather
-  than being a novel shape — judged not worth a blind fix at this session's scope, same call already
-  made for the open `PowerShellSpecificRule.java` self-format bug in `STATE_COMMON.md`'s "Formatter
-  self-formatting" section. No fixture registered (root cause not isolated to a minimal repro this
-  session). Left OPEN for a future session:
-  - `rewrite-java-test/src/test/java/org/openrewrite/java/ModerneWebsiteExampleTest.java`: a
-    switch-arrow braceless `if/else` body followed by the arm's own closing `}` on the same physical
-    line (`default -> { if(...) ...; else b.append(c); }`) keeps the `}` attached to the `else`
-    branch's body on round1, but gets it pulled onto its own line on round2 — switch-arrow-brace
-    pass-ordering family, same shape as the original Cluster 2 fix
-    (`appendChainNewlineBeforeElse`)/`findBracelessStatementEnd` but a different trigger site
-    (switch-arrow body, not a plain `if/else` chain).
+  1 remains ACCEPTED, not fixed; 2 FIXED this session (2026-08-15, see "Known Gaps — Fixed",
+  `RDD_KEY_290`/`RDD_KEY_291`).** Found during item (17)'s deferred full-tree round1/round2 re-run
+  (see that entry for the run's own detail — this only records the 4 unresolved diffs left over
+  after that session's one real bug, the primitive-type-declaration collapse, was fixed and
+  fixtured as `real_code_regressions_187`). All 4 are cosmetic (idempotency-only, no invalid-syntax
+  risk — the `java_syntax_check` full-tree baseline stayed 3510/3510 clean both before and after).
+  Remaining OPEN (explicitly out of scope for the 2026-08-15 fix session — do not touch without a
+  separate task):
   - `rewrite-kotlin/src/main/java/org/openrewrite/kotlin/format/TabsAndIndentsVisitor.java` and
     `rewrite-yaml/src/main/java/org/openrewrite/yaml/YamlParser.java`: a wrapped call argument's
     closing-paren continuation line gains 4 extra indent spaces between round1 and round2 —
@@ -840,11 +831,6 @@ RDD_KEY_88.
     Cluster 1 fix (`isSingleLineBody`/`expandedIndentWidth`) and the still-open
     `PowerShellSpecificRule.java` self-format bug, but a different trigger site (a wrapped-call
     continuation line's own indent, not a comment-column-alignment width).
-  - `rewrite-python/src/test/java/org/openrewrite/python/internal/pep508/Pep508RequirementTest.java`:
-    a `List<String>` declaration's alignment-group padding (3 spaces before the variable name)
-    collapses to 1 space on round2 — alignment-padding-collapse family, same shape as the original
-    (now-fixed) Cluster 5 (`DeclarationAlignmentRuleCurly.parseDeclaration`'s function-pointer-
-    declarator misdetection), but a different trigger site not yet isolated.
 
 
 ## Known Gaps — Fixed
@@ -862,6 +848,53 @@ RDD_KEY_88.
   braceless). `make test`: 313/313 -> 314/314 forward + idempotency, zero regressions. New
   fixture `test/real_code_regressions_205_{inp,out}.java` (combines both bugs). `src/`'s two
   affected files left untouched (per this session's scope — no bulk-reformat/adopt performed).
+
+- **`openrewrite/rewrite` full-tree re-verification residual gaps, Cluster 2 shape (switch-arrow
+  braceless if/else closing-brace instability) — FIXED 2026-08-15 (`RDD_KEY_290`).** Repro:
+  `rewrite-java-test/src/test/java/org/openrewrite/java/ModerneWebsiteExampleTest.java`'s
+  switch-arrow arm `default -> { if(c < 0x20) b.append(...); else b.append(c); }` — the arm's own
+  closing `}` sits on the same physical line as the braceless `else`'s statement. Root cause: a
+  pass-ordering disagreement between `ScopePipelineCurly.processScope`'s one-liner-vs-has-newline
+  branch decision (controls whether a scope's trailing gap before `}` gets force-reindented onto
+  its own line) and `BlockStructureRule`'s bare-`else` handling, which forced a newline before
+  `else` but had no symmetric fixup for a `}` trailing the `else`'s own body on the same line —
+  round1 (body still one physical line when `ScopePipelineCurly` runs) left the `}` attached;
+  round2 (body already split by round1) force-reindented it onto its own line. Fixed by adding a
+  new `else if` branch in `BlockStructureRule`'s bare-`else` handling: when a braceless `else`
+  body's own statement end is immediately followed, on the same physical line with nothing frozen
+  in between, by a `}`, force that `}` onto its own new line at the `else`'s resolved indent —
+  matching what round2 would otherwise have produced, so both rounds converge. Verified via
+  minimal repro (non-idempotent before, byte-identical round1/round2 after) and against the real
+  `ModerneWebsiteExampleTest.java` (from a local `/tmp/rewrite` corpus copy — round1/round2 now
+  byte-identical). New fixture `test/real_code_regressions_206_{inp,out}.java`. `make test`:
+  314/314 -> 316/316 forward + idempotency (fixtures 206 and 207 registered together), zero
+  regressions. See `RDD_KEY_290` in `RDD_LOG.md` for full detail.
+
+- **`openrewrite/rewrite` full-tree re-verification residual gaps, Cluster 5 shape (alignment
+  padding collapse) — FIXED 2026-08-15 (`RDD_KEY_291`).** Repro:
+  `rewrite-python/src/test/java/org/openrewrite/python/internal/pep508/Pep508RequirementTest.java`'s
+  `List<String[]> urlSpecs = Arrays.asList(new String[]{...}, ...)` declaration, grouped with
+  following `List<String> markers`/`whitespaces` declarations for column alignment. Root cause:
+  `DeclarationAlignmentRuleCurly.containsMultilineBraceBody` (added for `RDD_KEY_225`) bailed
+  `parseDeclaration` out of the alignment group whenever the initializer contained ANY multi-line
+  brace pair, at any nesting depth — over-broad, since it also caught a SAFE shape: a flat,
+  comma-separated array-literal argument list (no embedded statement) that only became multi-line
+  because round1's own `enforceCallLineBreaking` wrapped it one-argument-per-line. `urlSpecs`
+  joined its alignment group on round1 (still all on short lines at that point) but dropped out on
+  round2 (now sees round1's own multi-line wrapping and bails), narrowing the group and collapsing
+  `markers`/`whitespaces`' shared padding from 3 spaces to 1. Fixed by narrowing
+  `containsMultilineBraceBody` to only bail when a multi-line brace pair's interior ALSO contains a
+  top-level `;` (a genuine multi-statement lambda/anonymous-class body, the original `RDD_KEY_225`
+  concern) — implemented via two parallel per-open-brace-level flag stacks (`sawNewline`/
+  `sawSemi`), mirroring the `;`-presence check `isFlatAggregateInit` already uses for the same
+  distinction. A flat array-literal list has no `;` inside its braces, so it no longer bails
+  regardless of how many lines a later pass wraps it onto. Verified via a minimal repro extracted
+  verbatim from the real declarations (non-idempotent before, byte-identical round1/round2 after)
+  and against the real `Pep508RequirementTest.java` (from the same local `/tmp/rewrite` corpus
+  copy — round1/round2 now byte-identical). New fixture
+  `test/real_code_regressions_207_{inp,out}.java`. `make test`: 314/314 -> 316/316 forward +
+  idempotency (fixtures 206 and 207 registered together), zero regressions. See `RDD_KEY_291` in
+  `RDD_LOG.md` for full detail.
 
 - **[Shared with STATE_JS_TS.md] `formatNonInlineSwitches` vs. `alignInlineSwitches`/call-wrap
   ordering gap (switch-case fallthrough non-idempotency) — FIXED 2026-08-07 (RDD_KEY_263).**

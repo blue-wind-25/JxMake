@@ -443,6 +443,51 @@ public class BlockStructureRule {
                         } // if
                     } // if
                 } // if
+                else if( !isElseIf && next < n && !isPunct( tokens.get(next), "{" )
+                        && !anyFrozen(tokens, i, next) ) {
+                    // Braceless bare-`else` body (the symmetric C/C++/Java sibling of the
+                    // already-braceless `if` handling further above): when this else's own
+                    // single-statement body's terminating `;` is immediately followed, on the
+                    // SAME physical line (no newline in the gap), by a `}` that closes some
+                    // OUTER scope -- e.g. a switch-arrow arm's own block body, `default -> {
+                    // if(x) a(); else b(); }` -- force that `}` onto its own new line at this
+                    // else's own (already-resolved) indent. Without this, a switch-arrow
+                    // braceless if/else body whose arm-closing `}` sits on the same line as the
+                    // `else`-branch's own statement is non-idempotent: the `if`-branch already
+                    // gets a forced newline before `else` (appendChainNewlineBeforeElse above),
+                    // but nothing does the mirror-image fixup for the `}` trailing the `else`
+                    // branch -- round1 leaves it attached to the else's own line, while
+                    // ScopePipelineCurly.process's later force-reindent-the-trailing-gap logic
+                    // (a fully separate pass that runs BEFORE this one on a fresh format, but
+                    // sees the already-multi-line body FIRST on a second format) only fires once
+                    // the whole span already contains a top-level newline -- disagreeing with
+                    // this pass across rounds (found via openrewrite/rewrite's
+                    // ModerneWebsiteExampleTest.java `js`/`json` escaping helper's `default ->
+                    // { if(c < 0x20) ...; else b.append(c); }`). Scoping to "no newline already
+                    // present" makes this a no-op (and idempotent) once either this fix or
+                    // ScopePipeline's own later pass has already split it.
+                    final int bodyEnd = findBracelessStatementEnd(tokens, next, n);
+                    if( bodyEnd >= 0 && !anyFrozen(tokens, next, bodyEnd) ) {
+                        final int afterBody = skipWhitespaceOnly(tokens, bodyEnd);
+                        if( afterBody < n && isPunct( tokens.get(afterBody), "}" )
+                                && !anyFrozen(tokens, bodyEnd, afterBody + 1) ) {
+                            boolean hasNewlineAlready = false;
+                            for(int g = bodyEnd; g < afterBody; ++g) {
+                                if( tokens.get(g).type == TokenType.NEWLINE ) {
+                                    hasNewlineAlready = true;
+                                    break;
+                                }
+                            }
+                            if(!hasNewlineAlready) {
+                                for(final Token bt : tokens.subList(i, bodyEnd)) out.append(bt.text);
+                                out.append('\n').append( mostRecentLineIndent(tokens, i) );
+                                out.append( tokens.get(afterBody).text );
+                                i = afterBody + 1;
+                                continue;
+                            } // if
+                        } // if
+                    } // if
+                } // else if
             }
             out.append(t.text);
             ++i;

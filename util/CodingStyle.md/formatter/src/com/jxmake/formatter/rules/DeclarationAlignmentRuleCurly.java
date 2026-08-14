@@ -723,31 +723,58 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
      * True iff {@code initTokens} contains any `{`...`}` pair (at any nesting depth, matched by a
      *  simple depth counter -- exact partner matching isn't needed, only "some brace pair's
      *  interior held a NEWLINE token in the original source") whose interior originally spanned
-     *  more than one physical source line. Used by {@link #parseDeclaration} to bail out of
-     *  column-aligning a declaration whose initializer embeds a multi-line lambda/anonymous-class
-     *  body mid-expression (e.g. a `.map(x -> { ...multi-statement... })` call in a stream chain)
-     *  -- this class's {@link DeclarationAlignmentRuleCore#renderInitTokens} has no multi-line
-     *  render path and would otherwise flatten such a body onto one, arbitrarily long physical
-     *  line that no later pass can safely re-wrap. See the call site's own comment for the
-     *  real-code-testing history (`jenkinsci/jenkins`'s `PluginManager.doPluginsSearch`).
+     *  more than one physical source line AND contains a top-level `;` inside that same brace
+     *  pair (a real multi-statement body -- a lambda/anonymous-class block, never a flat
+     *  aggregate-init element list, which has no statement terminator at all). Used by
+     *  {@link #parseDeclaration} to bail out of column-aligning a declaration whose initializer
+     *  embeds a multi-line lambda/anonymous-class body mid-expression (e.g. a `.map(x -> {
+     *  ...multi-statement... })` call in a stream chain) -- this class's
+     *  {@link DeclarationAlignmentRuleCore#renderInitTokens} has no multi-line render path and
+     *  would otherwise flatten such a body onto one, arbitrarily long physical line that no later
+     *  pass can safely re-wrap. See the call site's own comment for the real-code-testing history
+     *  (`jenkinsci/jenkins`'s `PluginManager.doPluginsSearch`).
+     *
+     *  <p>The `;`-inside requirement (RDD_KEY, openrewrite/rewrite `Pep508RequirementTest.java`
+     *  idempotency fix) narrows the original (2026-08-05) any-multi-line-brace bail: a top-level
+     *  call argument that is itself a flat aggregate init with no embedded statement (e.g. `new
+     *  String[] { a, b }` as one element of a longer `Arrays.asList(new String[] {...}, new
+     *  String[] {...}, ...)` argument list) IS safely re-wrappable later by
+     *  {@code MiscRuleCurly.enforceCallLineBreaking} (a top-level, comma-separated call-argument
+     *  shape, exactly what that pass wraps) -- unlike the genuinely dangerous lambda/anonymous-
+     *  class-body shape this bail exists for, which has no such later re-wrap path. Without this
+     *  narrowing, a declaration whose initializer's own `new String[] {...}` arguments get wrapped
+     *  one-per-line by `enforceCallLineBreaking` on round1 (this method still saw the pre-wrap,
+     *  still-flat-per-element source and did not bail) then bails on round2 (this method now sees
+     *  round1's own multi-line output and DOES bail), dropping that declaration out of its
+     *  alignment group entirely on round2 and collapsing the group's surviving members' padding --
+     *  a non-idempotency bug distinct from, but same family as, the (already-fixed) Cluster 5
+     *  `parseDeclaration` function-pointer-declarator misdetection.
      */
     private boolean containsMultilineBraceBody(final List<Token> initTokens)
     {
-        // Stack of "has this open brace level seen a NEWLINE yet" flags, one per currently-open
-        // `{`. A plain List used as a stack (push/pop at the end) -- simpler to reason about here
-        // than java.util.Deque's reversed push/pop-order semantics.
-        final List<Boolean> openLevels = new ArrayList<>();
+        // Stack of "has this open brace level seen a NEWLINE yet"/"has this open brace level seen
+        // a top-level `;` yet" flag pairs, one per currently-open `{`. A plain List used as a
+        // stack (push/pop at the end) -- simpler to reason about here than java.util.Deque's
+        // reversed push/pop-order semantics.
+        final List<Boolean> sawNewline = new ArrayList<>();
+        final List<Boolean> sawSemi    = new ArrayList<>();
         for(final Token t : initTokens) {
             if( isPunct(t, "{") ) {
-                openLevels.add(Boolean.FALSE);
+                sawNewline.add(Boolean.FALSE);
+                sawSemi.add(Boolean.FALSE);
             }
             else if( isPunct(t, "}") ) {
-                if( !openLevels.isEmpty() && openLevels.remove(
-                    openLevels.size() - 1
-                ) ) return true;
+                if( !sawNewline.isEmpty() ) {
+                    final boolean levelSawNewline = sawNewline.remove( sawNewline.size() - 1 );
+                    final boolean levelSawSemi    = sawSemi.remove( sawSemi.size() - 1 );
+                    if(levelSawNewline && levelSawSemi) return true;
+                } // if
             }
-            else if( t.type == TokenType.NEWLINE && !openLevels.isEmpty() ) {
-                for( int k = 0; k < openLevels.size(); ++k ) openLevels.set(k, Boolean.TRUE);
+            else if( t.type == TokenType.NEWLINE && !sawNewline.isEmpty() ) {
+                for( int k = 0; k < sawNewline.size(); ++k ) sawNewline.set(k, Boolean.TRUE);
+            }
+            else if( isPunct(t, ";") && !sawSemi.isEmpty() ) {
+                sawSemi.set(sawSemi.size() - 1, Boolean.TRUE);
             }
         } // for
 

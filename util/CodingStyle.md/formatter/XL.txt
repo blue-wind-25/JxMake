@@ -174,6 +174,10 @@ $GXX -std=gnu99 -fsyntax-only file.c       2>&1 | grep -v 'no version informatio
 $GXX -std=c++20 -fsyntax-only file.cpp     2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g'
 $CLANGXX -std=c++23 -fsyntax-only file.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g'
 
+$GXX -std=c++20 -fdump-tree-original=- -fsyntax-only file1.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file1.ast
+$GXX -std=c++20 -fdump-tree-original=- -fsyntax-only file2.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file2.ast
+diff -u file1.ast file2.ast
+
 $CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file1.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file1.ast
 $CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file2.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file2.ast
 diff -u file1.ast file2.ast
@@ -181,16 +185,24 @@ diff -u file1.ast file2.ast
 $CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file1.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file1.json
 $CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file2.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file2.json
 git diff --no-index file1.json file2.json
-
-$GXX -std=c++20 -fdump-tree-original=- -fsyntax-only file1.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file1.ast
-$GXX -std=c++20 -fdump-tree-original=- -fsyntax-only file2.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file2.ast
-diff -u file1.ast file2.ast
 ```
+
 NOTE : - The `grep -v 'no version information available'` is used to filter a harmless libstdc++
          symbol-versioning warnings (not a compile error)
        - The `sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g'` is used to filter generated
-         addresses.
-       - The `sed -E 's/\\x1B\\[[0-9;]*[mK]//g'` is used to filter ANSI color sequences.
+         addresses. Please adjust it as needed.
+       - The `sed -E 's/\\x1B\\[[0-9;]*[mK]//g'` is used to filter ANSI color sequences. Please
+          adjust it as needed.
+
+You will need to add the extra options (e.g., `-I`) when invoking the syntax-checker and content-diff
+`*.sh` later. So you may want to make the script print this information when the prints their usage
+help, such as:
+```
+Usage: cpp_syntax_check.sh <file.cpp> [file2.cpp ...]
+
+Usage: cpp_content_diff.sh <original.cpp> <formatted.cpp>
+       cpp_content_diff.sh <original_base_dir> <formatted_base_dir> <cpp_rel_path_file_list.txt>
+```
 
 The script `_exec_c_cpp.sh` will most-likely needs a helper script `_exec_c_cpp.py` (e.g., for the
 batch mode). In this case ensure `_exec_c_cpp.py` can run with Python as low as Python 3.6. Simpy
@@ -207,6 +219,9 @@ Ensure before comitting these `.sh` scripts are `chmod a+x` first:
     cpp20_content_diff.sh
     cpp26_syntax_check.sh
     cpp26_content_diff.sh
+
+Your sandbox may not have the same GCC and CLANG, so set the env vars as needed when working in
+your sandbox.
 
 ----------------------------------------------------------------------------------------------------
 

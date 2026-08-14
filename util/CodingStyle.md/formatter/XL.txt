@@ -236,6 +236,7 @@ literal `c++23`/`c++26`/`c23` spellings directly. So for the "C++26"-labeled scr
 has no C++26 mode to fall back to; best-effort would be `$GXX -std=c++2b` as a partial/non-C++26
 secondary check, or skip `$GXX` for that script entirely. Same for a "C23"-labeled C script:
 `$CLANGXX -std=c23` works, `$GXX -std=c2x` is the closest GCC equivalent, not literal C23.)
+[DONE]
 
 ----------------------------------------------------------------------------------------------------
 
@@ -335,7 +336,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [CURLY_GDR] Not reproduced (2026-08-15) -- TS switch-in-if, TS ternary-wrap, Kotlin
+- [CURLY_GDR] NOT REPRODUCED (2026-08-15) -- TS switch-in-if, TS ternary-wrap, Kotlin
   when-in-if, Kotlin ternary-wrap, plus two harder combined/deep-nesting variants all
   survive GDR-2 correctly (only fixes the known RDD_KEY_229 else-brace bug, doesn't touch
   switch-case/ternary regions). Synthetic-only, not exhaustive. See STATE_CURLY_GDR.md.

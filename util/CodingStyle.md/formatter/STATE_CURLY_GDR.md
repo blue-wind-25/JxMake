@@ -642,6 +642,63 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       reformat; (3) not an exhaustive search — deeper/wider adversarial
       constructions in C/C++, other JS/TS shapes, and combos with
       switch-case/ternary-wrap in TS/Kotlin remain untried.
+
+      **2026-08-15 follow-up: targeted the "combos with switch-case/
+      ternary-wrap in TS/Kotlin remain untried" gap named above**
+      (investigation only, no source touched; corresponds to `XL.txt` TIER
+      9's `GDR-2` bug entry: "GDR-2 (second multipass cycle) may silently
+      overwrite already-STYLE.md-compliant indentation from the pipeline's
+      own relative-delta reindenters"). Built synthetic repros in `/tmp`
+      via `JXM_CFMT_CFG curly-general-scope-reindent=on;curly-general-
+      scope-reindent-multipass=on`, formatted with `code-formatter.sh`, and
+      — critically — compared each against the same input with
+      `multipass=off` to isolate exactly what GDR-2 (the second GDR
+      application in the multipass sequence) changes relative to
+      GDR-1-only output, not just idempotency:
+      - TS `switch`-in-`if` (`case`/`break` bodies via
+        `SwitchRule.applyNonInlineCaseIndent`) — round1==round2==round3;
+        vs. the multipass-off baseline, GDR-2 changed *only* a pre-existing
+        `RDD_KEY_229`-shape else-brace mis-indent, leaving the switch-case
+        region byte-for-byte identical to the multipass-off baseline.
+        **PASS.**
+      - TS wrapped/nested ternary chain (STYLE.md §8 continuation-indent
+        renderer) — same result: idempotent, GDR-2 left the ternary
+        continuation columns untouched vs. the multipass-off baseline, only
+        fixed the same class of else-brace bug. **PASS.**
+      - Kotlin `when`-in-`if` (Kotlin's switch-case equivalent) — same
+        pattern, idempotent, `when`-arm bodies untouched by GDR-2. **PASS.**
+      - Kotlin nested `if`-expression ternary-equivalent wrap — same
+        pattern, idempotent, wrap columns untouched by GDR-2. **PASS.**
+      - Two harder combined/deep-nesting variants built to push past the
+        four named shapes: a 15-level-deep nested Kotlin `if`/`else` with a
+        `when`-in-`if` plus a nested `if`-expression wrap at the bottom, and
+        a TS `switch`-in-`if` whose `case` body contains both a wrapped
+        fluent chain (`.filter().map().forEach()` — the exact shape
+        `RDD_KEY_240` exploited) and a nested ternary in a sibling `case`.
+        Both fully idempotent (round1==round2==round3), and both show the
+        identical pattern vs. their multipass-off baseline: GDR-2 fixes the
+        `RDD_KEY_229`-shape else-brace bug, touches nothing else. **PASS.**
+
+      **Disposition: NOT REPRODUCED.** Across all four originally-named
+      untried shapes plus two harder combined/deep-nesting variants
+      deliberately built to stress the same `RDD_KEY_240`-family
+      fluent-chain/deep-nesting triggers, GDR-2 never touched a line inside
+      a `SwitchRule.applyNonInlineCaseIndent`/`when`-arm/STYLE.md §8
+      ternary-continuation region — it only ever corrected the already-
+      documented `RDD_KEY_229`-shape closing-brace mis-indent that
+      GDR-1-only leaves behind. No evidence found that GDR-2 clobbers the
+      pipeline's own relative-delta reindent decisions, for any shape
+      tried. **Not an exhaustive proof** (synthetic repros only, no
+      dedicated real-code TS/Kotlin corpus pull for this specific question
+      — judged out of scope for a single investigation task given six
+      shapes already cleared cleanly and every real-code corpus this job
+      has separately tested under multipass — `javaparser-core(-
+      generators)`, `angular` TS cluster-5, `serge-sans-paille/frozen` —
+      already showing zero non-idempotency). No fixture added — this
+      session was scoped to `STATE_CURLY_GDR.md`/`XL.txt` edits only (ran
+      concurrently alongside another session's unrelated work elsewhere in
+      the repo), so all testing was `/tmp`-only, no `test/` writes. `XL.txt`
+      TIER 9's `GDR-2` bullet updated to reflect this result.
 - [x] **Fix `RDD_KEY_240`'s confirmed second-order-oscillation
       counterexample** (2026-08-05, follow-on to the stress-test item
       above). `GdrPipelineGate.applyAndFormat`'s hardcoded, unconditional

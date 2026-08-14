@@ -205,7 +205,7 @@ Usage: cpp_content_diff.sh <original.cpp> <formatted.cpp>
 ```
 
 The script `_exec_c_cpp.sh` will most-likely needs a helper script `_exec_c_cpp.py` (e.g., for the
-batch mode). In this case ensure `_exec_c_cpp.py` can run with Python as low as Python 3.6. Simpy
+batch mode). In this case ensure `_exec_c_cpp.py` can run with Python as low as Python 3.6. Simply
 use `#!/usr/bin/env python3`, there is no need to make a configurable ${PYTHON} for `_exec_c_cpp.py`.
 
 Ensure before comitting these `.sh` scripts are `chmod a+x` first:
@@ -335,10 +335,11 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [CURLY_GDR] Untested risk (not a confirmed bug): GDR-2 (second multipass cycle) may silently
-  overwrite already-STYLE.md-compliant indentation from the pipeline's own relative-delta
-  reindenters. Adversarial testing only covered a Java switch-in-if case; TS/Kotlin
-  switch-case/ternary-wrap untried. Same bug family this job has regressed on before.
+- [CURLY_GDR] Not reproduced (2026-08-15) -- TS switch-in-if, TS ternary-wrap, Kotlin
+  when-in-if, Kotlin ternary-wrap, plus two harder combined/deep-nesting variants all
+  survive GDR-2 correctly (only fixes the known RDD_KEY_229 else-brace bug, doesn't touch
+  switch-case/ternary regions). Synthetic-only, not exhaustive. See STATE_CURLY_GDR.md.
+  Downgrade to low-priority/informational.
 
 Use sub-agent. This can be a substantial work.
 

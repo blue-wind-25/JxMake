@@ -168,24 +168,29 @@ The GCC/CLANG executable path should be put in `_exec_c_cpp_env.sh`, with the de
 ```
 
 The usage should be put in `_exec_c_cpp.sh`. The usage should be something like
- (please adjust the `-std` as needed):
+(please adjust the `-std` and other options as needed):
 ```
-$GXX -std=gnu99 -fsyntax-only <file>.c
-$GXX -std=c++20 -fsyntax-only <file>.cpp
-$CLANGXX -std=c++23 -fsyntax-only <file>.cpp
+$GXX -std=gnu99 -fsyntax-only file.c       2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g'
+$GXX -std=c++20 -fsyntax-only file.cpp     2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g'
+$CLANGXX -std=c++23 -fsyntax-only file.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g'
 
-$CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file1.cpp > file1.ast
-$CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file2.cpp > file2.ast
+$CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file1.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file1.ast
+$CLANGXX -std=c++23 -Xclang -ast-dump -fsyntax-only file2.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file2.ast
 diff -u file1.ast file2.ast
 
-$CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file1.cpp > file1.json
-$CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file2.cpp > file2.json
+$CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file1.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file1.json
+$CLANGXX -std=c++23 -Xclang -ast-dump=json -fsyntax-only file2.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file2.json
 git diff --no-index file1.json file2.json
 
-$GXX -std=c++20 -fdump-tree-original -fsyntax-only file1.cpp > file1.ast
-$GXX -std=c++20 -fdump-tree-original -fsyntax-only file2.cpp > file2.ast
+$GXX -std=c++20 -fdump-tree-original=- -fsyntax-only file1.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file1.ast
+$GXX -std=c++20 -fdump-tree-original=- -fsyntax-only file2.cpp 2>&1 | grep -v 'no version information available' | sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g' | sed -E 's/\\x1B\\[[0-9;]*[mK]//g' > file2.ast
 diff -u file1.ast file2.ast
 ```
+NOTE : - The `grep -v 'no version information available'` is used to filter a harmless libstdc++
+         symbol-versioning warnings (not a compile error)
+       - The `sed -E 's/ 0x[0a-fA-F0-9]+//g; /#include/!s/<[^>]*>//g'` is used to filter generated
+         addresses.
+       - The `sed -E 's/\\x1B\\[[0-9;]*[mK]//g'` is used to filter ANSI color sequences.
 
 The script `_exec_c_cpp.sh` will most-likely needs a helper script `_exec_c_cpp.py` (e.g., for the
 batch mode). In this case ensure `_exec_c_cpp.py` can run with Python as low as Python 3.6. Simpy

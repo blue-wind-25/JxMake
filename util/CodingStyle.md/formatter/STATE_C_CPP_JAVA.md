@@ -167,35 +167,6 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 
 ## Open Questions
 
-- **BLOCKED — "Non-idempotent switch-case re-indent" gap's second occurrence
-  (`ScopePipeline.applyDeclarationsPass`, `tool/JSONEncoderLite.java`) could not be reproduced
-  this session; fix not attempted.** Task: fix the "Known Gaps — Open" bullet's Second occurrence
-  sub-entry (a lone declaration inside a deeply/inconsistently hand-indented `switch default`
-  block drifting 1 space/round, root-caused to `ScopePipelineCurly.applyDeclarationsPass`'s
-  raw-source-derived indent diverging from scope-depth-derived indent). Located the real file
-  (`/home/aloysius/Projects/JxMake/src/jxm/tool/JSONEncoderLite.java`, read-only) and ran round1
-  -> round2 -> round3 at default config and at `indent-size = 2`/`3` overrides (per
-  `STATE_COMMON.md`'s indent-size fallback rule): the only non-idempotent diff found is an
-  unrelated, already-documented call-wrap bug (`field.get(object)` wrapping onto its own line in
-  round1 then collapsing back in round2, near the file's `java.lang.String`/`Pattern` case) that
-  self-resolves within one extra round and is not in `applyDeclarationsPass` at all. No 1-space-
-  per-round drift observed anywhere in this file at any tested `indent-size`.
-  Also hand-built several synthetic repros matching the description (lone/paired declarations
-  inside heavily/inconsistently hand-indented `switch default` blocks, including a
-  brace-less-`default:`-with-misaligned-siblings shape) — all converged idempotently within one
-  round; one synthetic case surfaced a *different*, already-idempotent formatting oddity (a
-  `default:`-without-braces declaration's raw 21-space indent left completely untouched instead
-  of being rounded to a 4-space multiple, `/tmp/repro4/T.java` — not investigated further, filed
-  here only as a side observation, not the bug this task targeted) but not the described drift.
-  Read `ScopePipelineCore.normalizeIndent`/`ScopePipelineCurly.applyDeclarationsPass` (lines
-  831-904) in full to confirm understanding of the raw-indent-rounding mechanism the Known-Gaps
-  bullet describes, but could not exercise the actual divergence it names without a working repro.
-  **Per `STATE_COMMON.md`'s ambiguity protocol: stopping here rather than guessing at a fix with
-  no reproduction.** Next session should either dig up the original (uncommitted) synthetic repro
-  referenced by the Known-Gaps bullet, or re-run a fuller `src/jxm` dogfood pass (not just this one
-  file) to find a live instance before attempting the fix. Known-Gaps bullet left unchanged
-  (ACCEPTED, not fixed) — this entry only records that a fix attempt was made and blocked.
-
 - **`.h` -> C++26 §5 reflection rules (`^^`/`[: :]`) gap: VERIFIED, not a bug, documented.**
   `Lang.infer` maps `.h` to `"c"` by default, so `FormatterCurly`'s `lang.isCpp`-gated
   `enforceReflectionOperatorSpacing`/`enforceAttributeAndSpliceBracketPadding` calls never run for
@@ -832,17 +803,24 @@ RDD_KEY_88.
   internally-inconsistent-indentation shape and the nested-switch-in-switch shape (see "Known Gaps
   — Fixed" below, `RDD_KEY_251`). The disjoint **second occurrence** below (a different root
   cause entirely — `ScopePipeline.applyDeclarationsPass`, not `SwitchRule` — found on a lone
-  declaration inside a switch body, not a switch-case re-indent) remains ACCEPTED, not fixed;
-  original write-up retained for context:
+  declaration inside a switch body, not a switch-case re-indent) — **CLOSED 2026-08-15, no longer
+  reproduces (RDD_KEY_292).** Original write-up retained for context:
 
-  **Second occurrence** — local `src/jxm` dogfood (candidate 23): `tool/JSONEncoderLite.java` has
+  **Second occurrence** — local `src/jxm` dogfood (candidate 23): `tool/JSONEncoderLite.java` had
   a lone declaration inside a deeply/inconsistently hand-indented `switch default` block whose
-  indentation drifts by 1 space per round. Root-caused via a minimal synthetic repro (not
-  committed) to the same architectural bug class: `ScopePipeline.applyDeclarationsPass`'s
-  raw-source-derived indent diverges from scope-depth-derived indent when the original source's
+  indentation was reported to drift by 1 space per round. Root-caused at the time (no committed
+  repro) to the same architectural bug class: `ScopePipeline.applyDeclarationsPass`'s
+  raw-source-derived indent diverging from scope-depth-derived indent when the original source's
   raw indentation for that line is inconsistent with the block's structural depth — same shape as
-  the (now-fixed) switch-case gap, triggered via the declarations pass instead. Same disposition:
-  ACCEPTED, not fixed, single occurrence. No fixture.
+  the (now-fixed) switch-case gap, triggered via the declarations pass instead.
+
+  **2026-08-15 re-check:** a fix attempt against the real `tool/JSONEncoderLite.java` file (default
+  config and `indent-size = 2`/`3`) and several hand-built synthetic repros matching the
+  description all converged idempotently — no drift reproduces any more. Most likely incidentally
+  fixed by unrelated `applyDeclarationsPass`/indent-normalization work landed since (e.g.
+  RDD_KEY_231), though not proven since the original repro was never committed. Closed as
+  no-longer-reproducing rather than fixed by a code change; reopen if a fresh instance surfaces.
+  No fixture (none ever existed for this occurrence).
 
 - **`openrewrite/rewrite` full-tree re-verification (2026-08-09), 4 residual idempotency diffs —
   1 remains ACCEPTED, not fixed; 2 FIXED this session (2026-08-15, see "Known Gaps — Fixed",

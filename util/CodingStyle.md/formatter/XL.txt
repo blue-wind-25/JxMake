@@ -221,7 +221,21 @@ Ensure before comitting these `.sh` scripts are `chmod a+x` first:
     cpp26_content_diff.sh
 
 Your sandbox may not have the same GCC and CLANG, so set the env vars as needed when working in
-your sandbox.
+your sandbox. (This only applies if you're running via Claude Code web/Android app, i.e. an
+Anthropic-hosted remote sandbox — not this PC. On this PC the default paths above are already
+correct and verified working (2026-08-15): `/opt/gcc-12.2.0/bin/g++` and
+`$HOME/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++` both exist and run `-fsyntax-only`
+successfully. One caveat: `g++` needs `LD_LIBRARY_PATH` to include `/opt/isl-0.16.1/lib` or its
+`cc1`/`cc1plus` fails with `libisl.so.15: cannot open shared object file` — `_exec_c_cpp_env.sh`
+must actually `export LD_LIBRARY_PATH="$USER_LD_LIBRARY_PATH:$LD_LIBRARY_PATH"` (not just define
+the var) for any script using `$GXX` to work; `clang++` doesn't need it. Verified max `-std` on
+this GCC 12.2.0: `c++20`/`c++2b` (no literal `c++23`/`c++26` alias — GCC 12 doesn't recognize
+those spellings), `gnu99`/`c17`/`c2x` (no literal `c23` alias either). Clang 22.1.8 accepts the
+literal `c++23`/`c++26`/`c23` spellings directly. So for the "C++26"-labeled script
+(`cpp26_syntax_check.sh`), only `$CLANGXX -std=c++26` is meaningful on this machine's GCC — `$GXX`
+has no C++26 mode to fall back to; best-effort would be `$GXX -std=c++2b` as a partial/non-C++26
+secondary check, or skip `$GXX` for that script entirely. Same for a "C23"-labeled C script:
+`$CLANGXX -std=c23` works, `$GXX -std=c2x` is the closest GCC equivalent, not literal C23.)
 
 ----------------------------------------------------------------------------------------------------
 

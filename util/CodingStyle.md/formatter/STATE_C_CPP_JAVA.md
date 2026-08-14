@@ -167,6 +167,35 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 
 ## Open Questions
 
+- **BLOCKED — "Non-idempotent switch-case re-indent" gap's second occurrence
+  (`ScopePipeline.applyDeclarationsPass`, `tool/JSONEncoderLite.java`) could not be reproduced
+  this session; fix not attempted.** Task: fix the "Known Gaps — Open" bullet's Second occurrence
+  sub-entry (a lone declaration inside a deeply/inconsistently hand-indented `switch default`
+  block drifting 1 space/round, root-caused to `ScopePipelineCurly.applyDeclarationsPass`'s
+  raw-source-derived indent diverging from scope-depth-derived indent). Located the real file
+  (`/home/aloysius/Projects/JxMake/src/jxm/tool/JSONEncoderLite.java`, read-only) and ran round1
+  -> round2 -> round3 at default config and at `indent-size = 2`/`3` overrides (per
+  `STATE_COMMON.md`'s indent-size fallback rule): the only non-idempotent diff found is an
+  unrelated, already-documented call-wrap bug (`field.get(object)` wrapping onto its own line in
+  round1 then collapsing back in round2, near the file's `java.lang.String`/`Pattern` case) that
+  self-resolves within one extra round and is not in `applyDeclarationsPass` at all. No 1-space-
+  per-round drift observed anywhere in this file at any tested `indent-size`.
+  Also hand-built several synthetic repros matching the description (lone/paired declarations
+  inside heavily/inconsistently hand-indented `switch default` blocks, including a
+  brace-less-`default:`-with-misaligned-siblings shape) — all converged idempotently within one
+  round; one synthetic case surfaced a *different*, already-idempotent formatting oddity (a
+  `default:`-without-braces declaration's raw 21-space indent left completely untouched instead
+  of being rounded to a 4-space multiple, `/tmp/repro4/T.java` — not investigated further, filed
+  here only as a side observation, not the bug this task targeted) but not the described drift.
+  Read `ScopePipelineCore.normalizeIndent`/`ScopePipelineCurly.applyDeclarationsPass` (lines
+  831-904) in full to confirm understanding of the raw-indent-rounding mechanism the Known-Gaps
+  bullet describes, but could not exercise the actual divergence it names without a working repro.
+  **Per `STATE_COMMON.md`'s ambiguity protocol: stopping here rather than guessing at a fix with
+  no reproduction.** Next session should either dig up the original (uncommitted) synthetic repro
+  referenced by the Known-Gaps bullet, or re-run a fuller `src/jxm` dogfood pass (not just this one
+  file) to find a live instance before attempting the fix. Known-Gaps bullet left unchanged
+  (ACCEPTED, not fixed) — this entry only records that a fix attempt was made and blocked.
+
 - **`.h` -> C++26 §5 reflection rules (`^^`/`[: :]`) gap: VERIFIED, not a bug, documented.**
   `Lang.infer` maps `.h` to `"c"` by default, so `FormatterCurly`'s `lang.isCpp`-gated
   `enforceReflectionOperatorSpacing`/`enforceAttributeAndSpliceBracketPadding` calls never run for
@@ -828,9 +857,12 @@ RDD_KEY_88.
     `rewrite-yaml/src/main/java/org/openrewrite/yaml/YamlParser.java`: a wrapped call argument's
     closing-paren continuation line gains 4 extra indent spaces between round1 and round2 —
     indent-width-decided-before-a-later-pass-grows-it family, same root-cause shape as the original
-    Cluster 1 fix (`isSingleLineBody`/`expandedIndentWidth`) and the still-open
-    `PowerShellSpecificRule.java` self-format bug, but a different trigger site (a wrapped-call
-    continuation line's own indent, not a comment-column-alignment width).
+    Cluster 1 fix (`isSingleLineBody`/`expandedIndentWidth`) and the now-fixed
+    `PowerShellSpecificRule.java` self-format bug (see "Known Gaps — Open" note above and
+    `STATE_COMMON.md`'s "Formatter self-formatting" section — landed 2026-08-09 via
+    `ScopePipelineCurly.reapplyAssignmentsPassOnly`), but a different trigger site (a wrapped-call
+    continuation line's own indent, not a comment-column-alignment width) that was never fixed by
+    that landing.
 
 
 ## Known Gaps — Fixed

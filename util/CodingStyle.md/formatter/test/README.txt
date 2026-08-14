@@ -4062,6 +4062,17 @@ Real-code regressions:
                                                         safely re-derived from its current physical-line
                                                         indent on every pass.
 
+  real_code_regressions_209_inp/out.ts               -- `hasBreakableCall` under-approximation fix:
+                                                        `BlockStructureRule.refuseUnrescuableCollapse` now
+                                                        also refuses a braceless-if/else collapse when a
+                                                        rescuable call exists but wrapping its own argument
+                                                        list can't possibly bring the line under
+                                                        `lineLengthLimit` (best-case optimistic estimate),
+                                                        scoped off whenever an array/object literal is in play
+                                                        (a second, uncounted rescue mechanism -- preserves
+                                                        `real_code_regressions_81`'s existing accepted
+                                                        behavior).
+
 How Tests Are Run
 -----------------
 

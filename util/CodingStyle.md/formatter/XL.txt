@@ -125,7 +125,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_206_inp/out.java`
-    to   `real_code_regressions_208_inp/out.java`
+    to   `real_code_regressions_209_inp/out.ts`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -334,11 +334,6 @@ NONE FOR NOW
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
-
-- [JS_TS] `hasBreakableCall` under-approximation: braceless-if/else collapse-rescue heuristic checks
-  only whether a rescuable call exists, not whether wrapping actually clears `lineLengthLimit` —
-  same "which pass sees final stable width" class as RDD_KEY_245/246/248/249/250 (249 had a
-  reverted regression-causing fix attempt).
 
 - [CURLY_GDR] Untested risk (not a confirmed bug): GDR-2 (second multipass cycle) may silently
   overwrite already-STYLE.md-compliant indentation from the pipeline's own relative-delta

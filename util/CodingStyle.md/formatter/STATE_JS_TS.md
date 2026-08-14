@@ -99,6 +99,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_274 | Tier-3 shape #2 (class-field `:`-alignment group splitting on round2), FIXED: a same-line leading comment forces its own line in `flushClassFieldGroup`, adding a NEWLINE the source never had; old `blankLineBetween` miscounted it as a real blank line. Fixed by requiring the two NEWLINEs be strictly back-to-back. Fixture `real_code_regressions_196` |
 | RDD_KEY_275 | Tier-3 shape #4 (closing `}` non-idempotently gains a stale `// if` comment), FIXED as a verified side effect of RDD_KEY_273 (no separate code change; A/B bisection proved it). Fixture `real_code_regressions_197` (CRLF) |
 | RDD_KEY_276 | Tier-3 shape #3 (interface intersection-type closing brace shifts column on round2), FIXED: a field literally named `class` made `classBraceKind`'s backward KEYWORD scan misclassify its own nested object-type-literal brace as a class body. Fixed via `isFieldNameKeywordUsage` (skip a `class`/`interface` token immediately followed by `:`/`?`). Fixture `real_code_regressions_198` |
+| RDD_KEY_294 | `hasBreakableCall` under-approximation (XL.txt Tier 9, RDD_KEY_245/246/248/249/250 family), FIXED: `refuseUnrescuableCollapse` now also refuses a braceless-if/else collapse when the one rescuable call's own best-case arg-removal still can't clear `lineLengthLimit` (`maxRescueSavings`), gated off whenever an array/object literal is present in the scanned span (`containsListLiteral`) to preserve `real_code_regressions_81`/`_93`'s already-accepted "over limit is fine, rejoin anyway" behavior (2nd attempt; 1st, an ungated width gate, regressed `_81`). Fixture `real_code_regressions_209` |
 
 ---
 
@@ -936,15 +937,18 @@ finish adjusting column widths, flip-flopping every round.
   fixture but did NOT reproduce against real `location_shim.ts` — flagged
   under Open Questions above, not investigated further.
 
-  **Known residual limitation** (not a regression, confirmed via
-  `format_date.ts:519`/`checker.ts:16487`): `hasBreakableCall` only asks
-  "does a rescuable call exist," not "will wrapping it actually bring the
-  line under the limit" — when the one breakable call's wrap doesn't shrink
-  the line far enough (e.g. dominated by a long `+`-chain), collapse still
-  proceeds and the line stays over-limit post-wrap. A narrower
-  post-wrap-estimate comparison was identified as a possible fix direction
-  but not attempted (the two extremes were already disproven, see
-  RDD_KEY_249).
+  **Known residual limitation — FIXED (RDD_KEY_294).** `hasBreakableCall`
+  only asked "does a rescuable call exist," not "will wrapping it actually
+  bring the line under the limit" — when the one breakable call's wrap
+  didn't shrink the line far enough (e.g. dominated by a long `+`-chain),
+  collapse still proceeded and the line stayed over-limit post-wrap. Fixed
+  via a narrower post-wrap-estimate comparison (`maxRescueSavings`,
+  optimistic upper-bound), gated off whenever an array/object literal is in
+  the scanned span (`containsListLiteral`) — an ungated first attempt
+  regressed `real_code_regressions_81` for the same reason RDD_KEY_249
+  already documented for that fixture ("over limit is fine, rejoin anyway,
+  as long as it's round-stable"). See RDD_KEY_294 for the full writeup.
+  Fixture `real_code_regressions_209`. `make test`: 318/318.
 
 **2026-08-07 re-scan (doc-only, no fix)**: full `packages/`+`devtools/`
 re-scan, 3906 files. 7 of the 9 previously-"not fixed" root-cause-#3 files

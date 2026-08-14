@@ -2111,7 +2111,73 @@ public class BlockStructureRule {
         ) + candidate.length();
         if(width <= lineLengthLimit) return false;
 
-        return !hasBreakableCall(tokens, scanFrom, scanTo);
+        if( !hasBreakableCall(tokens, scanFrom, scanTo) ) return true;
+
+        // Known residual (STATE_JS_TS.md, "hasBreakableCall" gap, fixed -- see RDD_LOG.md for the
+        //  key): a rescuable call existing is necessary but not sufficient -- if the call's own
+        //  argument list is too small a fraction of the over-limit width (e.g. a long `+`-chain
+        //  dominates), wrapping it still leaves the line over `lineLengthLimit`. Best-case
+        //  (upper-bound, deliberately optimistic so this narrow addition can only REFUSE a
+        //  collapse it wouldn't have refused before, never wrongly ALLOW one it used to correctly
+        //  refuse) estimate: assume every rescuable call's entire argument-list text is removed
+        //  from this physical line (the most `enforceCallLineBreaking`'s wrap could ever save
+        //  here) and recheck against the limit.
+        //
+        // Deliberately scoped OFF whenever an array/object literal (`[`/`{`) sits in the scanned
+        //  span: those give `enforceCallLineBreaking`'s sibling one-element-per-line list-breaking
+        //  a second, much larger rescue mechanism this estimate has no visibility into (see
+        //  `real_code_regressions_81`'s `return [ ... ]` shape -- its own best-case call-arg-only
+        //  estimate also fails to clear the limit, yet the existing, deliberately-accepted,
+        //  already-committed output collapses anyway; RDD_KEY_249 already found and reverted a
+        //  fix attempt that broke exactly this fixture by not distinguishing this case). Only
+        //  fire the stricter check when a call's own argument-wrap is the ONLY rescue mechanism in
+        //  play, which is the shape the actually-reported residual (`checker.ts`/`format_date.ts`,
+        //  a long `+`-chain with no enclosing list literal) has.
+        if( containsListLiteral(tokens, scanFrom, scanTo) ) return false;
+
+        return width - maxRescueSavings(tokens, scanFrom, scanTo) > lineLengthLimit;
+    }
+
+    /**
+     * True if an array (`[`) or object (`{`) literal token appears anywhere in
+     *  {@code [from, to]} -- see {@link #refuseUnrescuableCollapse}'s call site for why this gates
+     *  the stricter post-wrap-estimate check off.
+     */
+    private boolean containsListLiteral(final List<Token> tokens, final int from, final int to)
+    {
+        for(int i = from; i <= to; ++i) {
+            final Token t = tokens.get(i);
+            if( isPunct(t, "[") || isPunct(t, "{") ) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Upper-bound estimate of how much physical-line width {@code MiscRuleCurly
+     *  .enforceCallLineBreaking} could remove by wrapping every {@link #hasBreakableCall}-rescuable
+     *  call found in {@code [from, to]} -- sums each call's own raw argument-list text width (from
+     *  just after its `(` to just before its matching `)`). Deliberately optimistic (a real wrap
+     *  still leaves the `name(` prefix and indentation on the line, so actual savings are always
+     *  <= this estimate) -- see {@link #refuseUnrescuableCollapse}'s call site for why an
+     *  optimistic-only estimate is the safe direction here.
+     */
+    private int maxRescueSavings(final List<Token> tokens, final int from, final int to)
+    {
+        int savings = 0;
+        for(int i = from; i <= to; ++i) {
+            final Token t = tokens.get(i);
+            if(t.type != TokenType.IDENTIFIER) continue;
+            final int parenIdx = nextSignificantIndexLocal(tokens, i);
+            if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
+            final int closeIdx = matchParenForwardLocal(tokens, parenIdx);
+            if(closeIdx < 0 || closeIdx > to) continue;
+            final int argsFrom = nextSignificantIndexLocal(tokens, parenIdx);
+            if(argsFrom < 0 || argsFrom >= closeIdx) continue;
+            for(int j = argsFrom; j < closeIdx; ++j) savings += tokens.get(j).text.length();
+        } // for
+
+        return savings;
     }
 
     /**

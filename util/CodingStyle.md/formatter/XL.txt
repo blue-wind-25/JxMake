@@ -232,7 +232,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [CURLY_GDR] NOT REPRODUCED (2026-08-15) -- TS switch-in-if, TS ternary-wrap, Kotlin
+- [CURLY_GDR] *NOT REPRODUCED* (2026-08-15) -- TS switch-in-if, TS ternary-wrap, Kotlin
   when-in-if, Kotlin ternary-wrap, plus two harder combined/deep-nesting variants all
   survive GDR-2 correctly (only fixes the known RDD_KEY_229 else-brace bug, doesn't touch
   switch-case/ternary regions). Synthetic-only, not exhaustive. See STATE_CURLY_GDR.md.
@@ -258,20 +258,17 @@ NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known
   in favor of GDR pre-pass's absolute-target model — cleanup/consolidation, not a bug fix; medium
   risk (touches an already-working pass; regression risk is to correctness, not just style).
 
-- [HTML5_TCG] Level-4 adoption-agency algorithm tracks only a single most-recently-orphaned
-  formatting element; a second, simultaneous misnesting under the same ancestor is silently
-  dropped instead of queued. Root-caused, confirmed against real `parse5` spec ground truth
-  (2026-08-11) — spec-correct fix needs a "reconstruct active formatting elements on next insert"
-  mechanism, not a simple queue, expanding level 4 toward the full spec algorithm RDD_KEY_230
-  deliberately rejected. Decision-pending among 3 options (leave as documented limitation /
-  implement full mechanism / implement a documented non-spec-exact approximation) — see
-  `STATE_HTML5_TCG.md`'s Open Questions.
-
 - [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
   architecture class as CURLY_GDR above), lower value (XML rarely needs deep reindent vs.
   curly-brace nesting). Worst value/risk ratio in this tier — listed last accordingly.
 
 Use sub-agent. This can be a substantial work.
+
+RESOLVED — [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements"
+decision (2026-08-15, RDD_KEY_295): leave as documented limitation, no code change (real-world
+impact nil — needs two *simultaneous* misnestings, never observed in any dogfood corpus).
+Priority left unchanged relative to CURLY_GDR (stays below it). Not permanently closed — revisit
+if a future case surfaces. See `STATE_HTML5_TCG.md`'s Open Questions.
 
 === TIER 9: May not worth pursuing -- [Dogfood] ===
 

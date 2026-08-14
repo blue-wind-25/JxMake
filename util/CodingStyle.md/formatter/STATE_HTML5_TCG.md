@@ -247,8 +247,9 @@ plus a real-corpus spot check (`/tmp/ant/manual`, all `.html` files, at
 
 ## Open Questions
 
-**Level 4 two-simultaneous-misnesting fix (`XL.txt` TIER 9 item) — blocked,
-2026-08-11, needs user decision.** Investigated upgrading
+**Level 4 two-simultaneous-misnesting fix (`XL.txt` TIER 9 item) — was
+blocked 2026-08-11 needing a user decision; RESOLVED 2026-08-15, see
+below.** Investigated upgrading
 `pendingAdoptionNode`/`pendingAdoptionOuterTagLower` (single field pair) to
 a small stack/list, so a second simultaneous misnesting under the same
 ancestor is queued instead of overwriting the first (see Level 4's "Known
@@ -286,24 +287,21 @@ deliberately rejected for level 4, see "Deliberately narrowed subset"
 above) than the "small, contained upgrade... not a rewrite of the
 adoption-agency algorithm" scope this fix was proposed under.
 
-**Not implemented.** Per STATE_COMMON.md's ambiguity-handling protocol,
-stopping here rather than shipping a queue-based fix that would produce an
-order different from real spec behavior (silently wrong in a new way,
-instead of the current honestly-documented single-slot limitation). No
-source file touched this session. Options for a future session, needing a
-user decision on which to pursue:
+**RESOLVED (2026-08-15, user decision, `RDD_KEY_295`).** Option 1: leave
+the known limitation as-is. No code change — real-world impact is nil
+(needs two *simultaneous* misnestings under the same ancestor, never
+observed in any dogfood corpus run so far). Options 2 (full "reconstruct
+active formatting elements" mechanism) and 3 (queue-based non-spec-exact
+approximation) were both rejected: option 2's scope-creep toward the full
+spec algorithm `RDD_KEY_230` deliberately rejected wasn't justified by
+zero observed real-world impact, and option 3 risks being silently wrong
+in a new way instead of the current honestly-documented single-slot
+limitation.
 
-1. Leave the known limitation as-is (already accepted/documented, low
-   real-world impact per this file's own top-of-file dogfood findings —
-   needs two *simultaneous* misnestings, which real-world corpora have
-   never hit).
-2. Implement the fuller "reconstruct active formatting elements on next
-   text/element insert" mechanism needed for spec-correct multi-misnesting
-   output — a materially bigger, riskier change than originally scoped,
-   effectively expanding level 4 toward the full spec algorithm the design
-   doc (`RDD_KEY_230`) deliberately rejected.
-3. Implement a queue-based fix that is a deliberate, documented
-   approximation (not spec-exact) or an incremental risk assessment.
+**Not permanently closed** — revisit if a future dogfood pass or
+real-world input surfaces an actual two-simultaneous-misnesting case,
+which would invalidate the "nil real-world impact" premise this decision
+rests on.
 
 ---
 
@@ -314,3 +312,4 @@ Full text in `RDD_LOG.md` (grep-only lookup, see `STATE_COMMON.md`):
 | Key | Topic |
 |---|---|
 | RDD_KEY_230 | Insertion-mode state design: no generic enum/frame stack — three independent narrow state pieces (`bodyInserted`; `isInTableInsertionMode()` + `FosterBuffer`/`fosterBufferStack`; `currentFormElementPointer`), plus the `html5-tc-gap-level` config key (default `0`, levels `1`-`4`). |
+| RDD_KEY_295 | Level-4 two-simultaneous-orphaned-formatting-element open question resolved: leave as documented limitation, no code change (real-world impact nil); revisit if a future case surfaces. |

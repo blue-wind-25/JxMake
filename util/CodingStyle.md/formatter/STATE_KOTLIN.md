@@ -975,27 +975,22 @@ RDD_KEYs, fixtures, verification result).
 
 **Not started / in progress**
 
-1. **`github.com/JetBrains/kotlin`** — IN PROGRESS. Kotlin compiler's own
-   source tree (~16k `.kt` files after filters), originally a last-resort/
-   stress candidate (similar posture to `microsoft/STL`/`llvm-project` in
-   the C++ list); substantial work has landed. Category 1 (parse
-   errors/corruption) fully closed. Category 2 (idempotency): D2a, D4, D1
-   fully closed. **D3's root cause is confirmed (RDD_KEY_221) but unfixed**
-   — two candidate fixes tried and reverted (RDD_KEY_221, RDD_KEY_226; full
-   detail in the D3 table row and "D3 investigation history" below); see
-   `README.md`'s Known Limitations section. D3 remains open (~34 files,
-   incl. 2 reclassified out of D2a's former residual:
-   `GenerateReleaseNotes.kt`/`TypeBridging.kt`) — a real fix needs actual
-   Kotlin statement-boundary tracking (depth-0 NEWLINE ending a statement
-   vs. one mid-wrap in the current candidate's own already-broken
-   rendering). Folded into `STATE_CURLY_GDR.md`'s GDR job as of 2026-08-02
-   (see that file's "D3 fold" section for next steps). **2026-08-03:**
-   enabling `curly-general-scope-reindent`/`-multipass` does not resolve D3
-   as a side effect (negative result, root-caused, no code changed; see
-   `RDD_KEY_235` and `STATE_CURLY_GDR.md`'s checklist entry) — a real fix
-   still needs a direct change to `MiscRuleCurly.renderCallCandidate`'s
-   fits-check itself. Full diagnosis, tool commands, and per-cluster fix
-   history remain below in "Dogfood: JetBrains/kotlin" for reference.
+1. **`github.com/JetBrains/kotlin`** — Kotlin compiler's own source tree
+   (~16k `.kt` files after filters), originally a last-resort/stress
+   candidate (similar posture to `microsoft/STL`/`llvm-project` in the C++
+   list). Category 1 (parse errors/corruption) fully closed. Category 2
+   (idempotency): D2a, D4, D1, and **D3 all fully closed** — see
+   `STATE_CURLY_GDR.md`'s D3 checklist item (now `[x]`) and `RDD_KEY_298`
+   for the fix (`FormatterCurly.formatOne` re-runs itself for Kotlin only,
+   up to `MAX_SETTLE_PASSES = 5`, until two consecutive passes are
+   byte-identical — a convergence-loop fix, not a stable-measurement fix;
+   six prior attempts at the latter, RDD_KEY_221/226/235/252/253, were all
+   reverted). Re-validated against this same corpus subtree
+   (`compiler/ir/backend.js/src`, 188 files): 188/188 idempotent and
+   syntax-clean post-fix. `README.md`'s Known Limitations no longer lists
+   Kotlin under the wrap-decision-flap item. Full diagnosis, tool commands,
+   and per-cluster fix history remain below in "Dogfood: JetBrains/kotlin"
+   for reference.
 
 **When a test completes:** move/compact its entry from "Not started" into
 "Finished dogfood / real-code testing", and add a new numbered entry to
@@ -1008,10 +1003,11 @@ RDD_KEYs, fixtures, verification result).
 **Current status:** Category 1 (parse errors/corruption) **fully closed**
 (0 genuine formatter-caused failures; the only remaining
 `kotlin_syntax_check` hits are 2 pre-existing BOM syntax-checker artifacts,
-unrelated to the formatter). Category 2 (idempotency-only): D2a, D4, D1
-**fully closed**; **D3 still open — folded into `STATE_CURLY_GDR.md` as of
-2026-08-02** (see that file's "D3 fold" section). Per-cluster detail
-(file counts, RDD_KEYs, fixtures) is in the tables below.
+unrelated to the formatter). Category 2 (idempotency-only): D2a, D4, D1,
+**and D3 all fully closed** — D3 was folded into `STATE_CURLY_GDR.md` as of
+2026-08-02 and fixed there 2026-08-16, `RDD_KEY_298` (see that file's D3
+checklist item). Per-cluster detail (file counts, RDD_KEYs, fixtures) is in
+the tables below.
 
 Checkout: `/tmp/jb_kotlin_kt/kotlin-master` (fresh `.kt`-only tarball
 extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`,
@@ -1098,7 +1094,7 @@ full 334, **not** exhaustive — treat as directional.
 |---|---|---|---|
 | **D2a.** Chained-fluent-call closing-brace drift (`}.apply {`, `}?.let {`, etc — a span's own `braceIndent`/`spanIndent` read off the volatile physical text of the PRECEDING span's own `}`) | 22 | 332 of 334 known flap files | **FIXED** (RDD_KEY_214/215/216, fixtures `_165`/`_166`/`_167`). Generalized `isChainedCatchFinally` (RDD_KEY_158) into `isChainedFluentCall`, inheriting the preceding span's resolved `prevEffectiveSpanIndent`; root-caused against `declarationBuilders.kt`. 6-file residual: 5 fixed (`fun`-with-wrapped-`where`-clause gap RDD_KEY_215 + boolean-operator-chained continuation RDD_KEY_216); last 2 (`GenerateReleaseNotes.kt`/`TypeBridging.kt`) reclassified as ordinary D3, left open there. `make test`: 214/214 → 215/215 → 216/216, zero regressions. |
 | **D1.** Declaration/accessor column-alignment padding flap (round1 vs round2 disagree on padding width) | 12 | ~100 | **FULLY FIXED** (RDD_KEY_219 fixture `_169`, RDD_KEY_220 fixture `_170`). Same family as RDD_KEY_139/162 (group-width recompute instability). Three root causes: (1) `renderAlignedGroup` rendered surviving rows as one flat shared-width grid even with an excluded overflowing row mid-group — fixed via maximal contiguous runs. (2) same bug in `applyGetterSetterPass` — new Kotlin-gated `renderKotlinFilteredRuns`. (3) a member whose own solo width fits but whose group's shared-column padding alone pushes it over — fixed by porting RDD_KEY_162's fixed-point budget-exclusion loop into a depth-aware `GetterSetterRuleCurly.render`/`KotlinGetterSetterRule.render` override. |
-| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | ~33 (broader than the original ~15-20 "lambda header" estimate — includes plain call-argument and `if(...)` condition wraps too) | **FOLDED INTO `STATE_CURLY_GDR.md` as of 2026-08-02 — no longer independently open here.** Root cause confirmed (RDD_KEY_221): `MiscRuleCurly.renderCallCandidate`'s fits-check measures against a volatile physical line boundary, not a stable logical-statement one. Two candidate fixes tried and reverted (RDD_KEY_221, RDD_KEY_226) — full detail in "D3 investigation history" section below. Includes 2 files reclassified out of D2a's former residual (`GenerateReleaseNotes.kt`/`TypeBridging.kt`). |
+| **D3.** Multi-line-call/condition wrap-decision flap (one line in round1, exploded across multiple lines in round2, or vice versa) | 4 | ~33 (broader than the original ~15-20 "lambda header" estimate — includes plain call-argument and `if(...)` condition wraps too) | **FIXED** (folded into `STATE_CURLY_GDR.md` as of 2026-08-02, landed there 2026-08-16, `RDD_KEY_298`). Root cause confirmed (RDD_KEY_221): `MiscRuleCurly.renderCallCandidate`'s fits-check measures against a volatile physical line boundary, not a stable logical-statement one. Two candidate stable-measurement fixes tried and reverted (RDD_KEY_221, RDD_KEY_226) — full detail in "D3 investigation history" section below. Actual fix took a different approach: `FormatterCurly.formatOne` re-runs itself for Kotlin only until two consecutive passes are byte-identical (convergence loop, `MAX_SETTLE_PASSES = 5`), sidestepping the volatile-measurement problem instead of solving it directly. Includes 2 files reclassified out of D2a's former residual (`GenerateReleaseNotes.kt`/`TypeBridging.kt`), both confirmed fixed by the same change. |
 | **D4.** Minor adjacent-closing-brace spacing flap (`) }` vs `)}`) | 1 | ~8 | **FIXED** (RDD_KEY_218, fixture `_168`). `collapseBracelessBody` dropped a source-preserved trailing space before an already-braceless body's enclosing `}` via `renderInline`'s no-trailing-whitespace behavior. Reproduced against `JsArgumentsImpl.kt`; also fixed a latent instance already baked into fixture `real_code_regressions_33_out.kt`. |
 
 Sample total: 22+12+4+1 = 39 of 40 (`org.w3c.dom.kt` showed both a D1 and a
@@ -1110,14 +1106,17 @@ item.** `kotlin_content_diff` ran end-to-end across the full 16153-file
 corpus (see `STATE_DOGFOOD.md`'s `JetBrains/kotlin` row): 15583 OK, 570
 MISMATCH, all sampled as already-documented checker-tolerance gaps on
 legitimate transforms — no new bug found, `RDD_KEY_278`/`RDD_KEY_279`
-validated at full-corpus scale. D3 remains the next-highest-value open item
-(tracked in `STATE_CURLY_GDR.md`, not here — see the fold note above).
+validated at full-corpus scale. **D3 fixed 2026-08-16** (tracked and landed
+in `STATE_CURLY_GDR.md`, `RDD_KEY_298` — see the fold note above); no
+further open item here.
 
-## D3 investigation history (2026-07-31 design session + 2026-08-01 implementation attempt, RDD_KEY_226)
+## D3 investigation history (2026-07-31 design session + 2026-08-01 implementation attempt, RDD_KEY_226; fixed 2026-08-16, RDD_KEY_298)
 
-**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 (see D3 table row
-above).** Kept here only for the two reverted fix attempts' detail, absent
-from `RDD_LOG.md`'s terse `RDD_KEY_221`/`RDD_KEY_226` topic line. Root cause
+**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 and fixed there
+2026-08-16 (see D3 table row above and `STATE_CURLY_GDR.md`'s D3 checklist
+item / `RDD_KEY_298` for the landed fix).** Kept here only for the two
+reverted fix attempts' detail, absent from `RDD_LOG.md`'s terse
+`RDD_KEY_221`/`RDD_KEY_226` topic line. Root cause
 (RDD_KEY_221): `MiscRuleCurly.renderCallCandidate`'s no-newline fits-check
 measures a candidate against `lineStartIndex(tokens, nameIdx)` (nearest
 physical `NEWLINE` backward), which is volatile — a sibling candidate's own

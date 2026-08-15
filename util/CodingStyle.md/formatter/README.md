@@ -780,7 +780,7 @@ here if and when it actually gains a documented gap.
    `curly-general-scope-reindent-multipass` turned on.
 
 2. **Multi-line-call/condition wrap decision can flap across repeated formatting passes,
-   affecting C/C++/Java/Kotlin/JS/TS.** Whether a small call or condition nested inside a
+   affecting C/C++/Java/JS/TS.** Whether a small call or condition nested inside a
    longer expression stays on one line or gets wrapped is, in one code path, decided by
    measuring the length of its entire surrounding source line rather than just the
    candidate's own rendered content:
@@ -795,8 +795,11 @@ here if and when it actually gains a documented gap.
    rather than the candidate's own logical content, the same input can format differently the
    first time versus if the already-formatted output is fed back in and formatted again — i.e.
    formatting is not always idempotent for this narrow shape. This is a known,
-   currently-unresolved gap — no workaround exists short of avoiding deeply nested short calls
-   inside very long lines.
+   currently-unresolved gap for C/C++/Java/JS/TS — no workaround exists short of avoiding
+   deeply nested short calls inside very long lines. **Kotlin is no longer affected**: as of
+   2026-08-16, `FormatterCurly.formatOne` re-runs itself for Kotlin files specifically (up to
+   5 passes) until two consecutive passes produce byte-identical output, converging on a fixed
+   point instead of flapping — see `STATE_CURLY_GDR.md`'s D3 entry.
 
 3. **`.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in.** The JSX/TSX
    boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but

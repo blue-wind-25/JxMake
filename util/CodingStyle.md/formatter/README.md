@@ -819,36 +819,14 @@ here if and when it actually gains a documented gap.
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
    is a known, accepted simplification — no source-root config key is planned.
 
-6. **Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
-   relative-delta technique.** `ScopePipeline.applyDeclarationsPass` (declarations) shifts a
-   block's lines by one delta computed from a single reference line rather than deriving each
-   line's target from its own brace-nesting depth, which assumes the block's original
-   indentation was internally consistent. On generated sources (e.g. JavaCC/ANTLR-style parser
-   output) whose *own* output has inconsistent per-line indentation within a single block — a
-   generator quirk, not something realistic hand-written code exhibits — one reformat pass can
-   land a line one indent level off from its true target. For example, a declaration inside a
-   `switch default` block where a generator's own output already mixes indent widths:
-
-   ```java
-   switch (kind) {
-       default:
-           int result = compute();
-         emit(result);  // one column short of the declaration above, in the same block
-           break;
-   }
-   ```
-
-   reformatting that output a second time (an idempotency check: format once, then format the
-   result again and compare) converges it to a different value than either the first pass or
-   the original source — i.e. two formatting passes are not guaranteed to produce
-   byte-identical output on such input. Observed rarely in real-code testing, out of thousands
-   of real-world files tested across many candidates. A real fix would need the pass to derive
-   each line's target from structural depth rather than a relative delta from one reference
-   line — a nontrivial rework with regression risk to existing behavior, not planned unless a
-   broader pattern of real-world impact emerges. (`SwitchRule.applyNonInlineCaseIndent` used to
-   share this same root cause for `case` bodies; it was fixed to derive each line's target from
-   its own brace-nesting depth, including through nested switches, so it no longer exhibits this
-   gap.)
+6. ~~Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
+   relative-delta technique (`ScopePipeline.applyDeclarationsPass`).~~ **CLOSED 2026-08-15
+   (RDD_KEY_292) — no longer reproduces.** A fix attempt against the original real-code repro
+   (`JSONEncoderLite.java`) plus several hand-built synthetic repros matching the description all
+   converged idempotently; most likely fixed as a side effect of unrelated indent-normalization
+   work landed since. See `STATE_C_CPP_JAVA.md`'s Known Gaps for detail. (The sibling
+   `SwitchRule.applyNonInlineCaseIndent` case-body gap this entry used to reference was fixed
+   earlier, independently — see that entry's history.)
 
 7. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
    commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and

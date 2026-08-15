@@ -61,9 +61,12 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/RDD_LOG.md
   behavior change must update `README.md` (it's the user-facing document)
   in the same commit — normally its `## Known Limitations` section, adding
   or rewriting the relevant bullet. `README.md` is user-facing and must
-  **not** reference `STATE_*.md`, `RDD_LOG.md` keys, or any other
-  implementation note — write each bullet so it stands alone for a reader
-  with no access to this directory's internal process files. Do not skip
+  **not** reference `STATE_*.md`, `RDD_LOG.md` keys, `test/` fixtures, or
+  any other implementation note or test corpus — write each bullet so it
+  stands alone for a reader with no access to this directory's internal
+  process files or test suite. If a bullet needs to show what triggers a
+  limitation, use an inline code snippet instead of pointing at a fixture
+  file. Do not skip
   the update because the change feels small; a past session shipped a fix
   without touching `README.md` and the gap had to be found and backfilled
   later.

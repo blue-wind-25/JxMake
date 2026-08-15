@@ -19,7 +19,7 @@ large enough to warrant its own file (unlike Kotlin or JS/TS), same as
 `BashSpecificRule`, all five §2 rules); PowerShell (`Lang.isPowerShell`,
 `.ps1`/`.psm1` infer, `FormatterPowerShell`, `PowerShellSpecificRule`, all
 six §3 rules) — see checklist below. `Lang.SCAFFOLD_ONLY_LANGUAGES` stays
-empty — each was added directly to `Lang.SUPPORTED_LANGUAGES` as it landed.
+empty; each was added directly to `Lang.SUPPORTED_LANGUAGES` as it landed.
 
 **Canonical language order** for any documentation/help-string/`--lang`
 enumeration is recorded in `CLAUDE.md` (search "Canonical language order")
@@ -32,8 +32,8 @@ enumeration is recorded in `CLAUDE.md` (search "Canonical language order")
 ## Scope
 
 Each language has its own `STYLE_TOOLING.md` section (§1 Makefile, §2 Bash,
-§3 PowerShell). What distinguishes this job from every other language job: a
-short **fixed list** of specific transforms plus an explicit "leave
+§3 PowerShell). What distinguishes this job from every other language job:
+a short **fixed list** of specific transforms plus an explicit "leave
 everything else byte-identical" rule — no general-purpose
 reindentation/re-wrapping fallback like curly-brace or data-format languages
 have. The main risk is getting that "don't touch anything else" boundary
@@ -78,8 +78,8 @@ started (docs-only, no code landed yet).
 
 No language-specific config keys — the five/six fixed-rule-list transforms
 per language are unconditional (mirrors the "no gate" precedent already set
-by the rest of this job, since none of RDD_KEY_254–RDD_KEY_258 asked for
-one). Comment normalization (RDD_KEY_261) reuses the existing global
+by the rest of this job; none of RDD_KEY_254–RDD_KEY_258 asked for one).
+Comment normalization (RDD_KEY_261) reuses the existing global
 `normalize-comment-start-case`/`normalize-comment-end-period` keys already
 defined in `Config.java` for JSON/YAML/CSS/TOML/XML — no new keys added.
 
@@ -113,7 +113,7 @@ sandbox — availability unconfirmed, check before relying on it).
 
 None remaining — all six original scoping questions were resolved in one
 session (RDD_KEY_254–RDD_KEY_258 above; RDD_KEY_254 covers both the
-Makefile §1.1 and PowerShell §3.2 instances of the same alignment-group-
+Makefile §1.1 and PowerShell §3.2 instances of the same alignment-group
 boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
 
 ---
@@ -162,8 +162,8 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (§2.2, §2.5) inline via a `RunBuffer` flushing on every kind change;
       pass B is line-oriented (§2.1/§2.3/§2.4), guarded by a per-line purity
       flag (first non-whitespace char is code). Arithmetic nested inside a
-      double-quoted string is still processed (per §2.5), but nested inside
-      `$(...)`/backticks stays opaque, consistent with leaving nested
+      double-quoted string is still processed (§2.5); nested inside
+      `$(...)`/backticks it stays opaque, consistent with leaving
       command-substitution content untouched. Smoke-tested manually (§2
       combined example, pipe-in-string/comment safety,
       heredoc/backtick/`$(...)` safety — byte-identical + idempotent). `make
@@ -325,10 +325,10 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `\`-escaped characters.
       (2) `runPassA`'s root/code-mode tokenizer had no backslash-escape
       handling, so a `\'` case-arm pattern (e.g. `\'*)`) fell through to the
-      plain `'` branch and opened a real single-quote string frame that
-      stayed open until an unrelated later `'` closed it, corrupting
-      brace-depth indentation downstream (only visible as a round1/round2
-      shape difference) — fixed by adding a root-context `c == '\\'` branch
+      plain `'` branch, opening a real single-quote string frame that stayed
+      open until an unrelated later `'` closed it, corrupting brace-depth
+      indentation downstream (visible only as a round1/round2 shape
+      difference) — fixed by adding a root-context `c == '\\'` branch
       (mirrors existing escape handling in the `D`/`Q`/`B` frame types) that
       consumes the backslash and next character as plain code before any
       quote-opening check runs.

@@ -10,13 +10,13 @@ Dogfood corpus status: see `STATE_DOGFOOD.md`.
 
 Tracks data/markup format support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_DATA_FORMATS.md` (JSON/JSON5,
-XML, CSS, HTML5, YAML, TOML). **All six are DONE** — real tokenizer/parser/
-printer logic landed for each, `make test` green (see Checklist for
-per-format final counts/deferred edge cases; RDD_KEY_190/191/192/193/194 for
+XML, CSS, HTML5, YAML, TOML). **All six DONE** — real tokenizer/parser/
+printer logic landed for each, `make test` green (per-format final
+counts/deferred edge cases in Checklist; RDD_KEY_190/191/192/193/194 for
 implementation history). HTML5's `<script>` dispatch to JS/TS is also real
-(commits `a3c5c81`/`7cca3a4`/`679fafb`, after `STATE_JS_TS.md` landed a real
-JS/TS formatter) — see `XmlSpecificRule.renderScriptOrStyle` and the HTML5
-checklist entry below.
+(commits `a3c5c81`/`7cca3a4`/`679fafb`, landed after `STATE_JS_TS.md` got a
+real JS/TS formatter) — see `XmlSpecificRule.renderScriptOrStyle` and the
+HTML5 checklist entry below.
 
 ---
 
@@ -126,11 +126,11 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
   as JSON's — no config toggle.
 - **HTML5:** no HTML5-specific config beyond the CSS/JSON keys above plus
   whatever the JS/TS formatter defines in its own state file.
-- **YAML:** uses the existing global `indent-size` (no YAML-specific default
+- **YAML:** uses the existing global `indent-size` (no YAML-specific
   override — global default of 4 stands). **`indent-style` is
   ignored/inapplicable for YAML** — YAML forbids tab indentation, output is
   always space-indented regardless of configured value (RDD_KEY_191). Local
-  YAML fixtures should set `indent-size=2` via an in-file
+  YAML fixtures set `indent-size=2` via an in-file
   `#% JXM_CFMT_CFG indent-size=2` directive to exercise YAML's
   community-standard indent width, rather than changing the tool-wide
   default (RDD_KEY_191).
@@ -145,10 +145,10 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 "Did the formatter corrupt the file" (real-code-testing pass, see Checklist)
 is checked two ways per format, both in `tools/verifiers/` (committed,
 licensed project tooling; `java_syntax_check`/`kotlin_syntax_check` also
-live in `tools/verifiers/`, unrelated to this campaign):
+live there, unrelated to this campaign):
 
 **Syntax checkers** (six Node.js scripts, parse-only, `line:col: message` on
-error, exit 1 if any file errors, else exit 0):
+error, exit 1 if any file errors else 0):
 - `json_syntax_check.js` (`JSON.parse`, plain `.json` only)
 - `json5_syntax_check.js` (`json5`)
 - `yaml_syntax_check.js` (`js-yaml`, `loadAll()` for multi-doc streams)
@@ -173,9 +173,9 @@ comma, unclosed brace, mismatched tag, etc.) before trusted for dogfood use.
 thing," not just "still parses" — motivated by the CSS `twbs/bootstrap`
 rtlcss-comment corruption bug, fixture `real_code_regressions_69`, still
 valid CSS and would have slipped past `css_syntax_check.js` alone). Each
-verified, before trusted for dogfood use, against a hand-crafted good pair
-(whitespace-only reformat) plus deliberately-mutated bad pair(s); each
-caught its bad case:
+verified against a hand-crafted good pair (whitespace-only reformat) plus
+deliberately-mutated bad pair(s) before trusted for dogfood use; each caught
+its bad case:
 
 - `css_content_diff.py` — stdlib `re` only. Checks comment text
   byte-identical/in-order, comment-stripped/colon-normalized token stream,
@@ -184,23 +184,23 @@ caught its bad case:
   `necolas/normalize.css`.
 - `xml_content_diff.py` — stdlib `xml.dom.minidom`. Walks both DOMs in
   parallel (skipping pure-whitespace text nodes): element names + attribute
-  name/value pairs **in order** (XML preserves attribute order per §2.2,
-  so reordering is a real bug); text/comment content whitespace-normalized;
+  name/value pairs **in order** (XML preserves attribute order per §2.2, so
+  reordering is a real bug); text/comment content whitespace-normalized;
   CDATA byte-identical; node-type mismatch at the same tree position =
   structural mismatch. Written during `apache/maven`.
 - `toml_content_diff.py` — this system's Python (3.6) has no stdlib
   `tomllib`/`toml`/`tomli`, so it shells out to an inline Node helper
   (`node -e ... -- <path>`, note `<path>` lands at `argv[1]` not `argv[2]`
-  with `-e`) using `smol-toml` to parse to JSON, then deep-compares.
-  Written during `rust-lang/cargo`. Needs the same
-  `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as the `*_syntax_check.js`
-  scripts (unlike the stdlib-only Python checkers).
+  with `-e`) using `smol-toml` to parse to JSON, then deep-compares. Written
+  during `rust-lang/cargo`. Needs the same `LD_LIBRARY_PATH`/`NODE_PATH`/
+  `PATH` env as the `*_syntax_check.js` scripts (unlike the stdlib-only
+  Python checkers).
 - `yaml_content_diff.py` — PyYAML parses directly via `yaml.safe_load_all`
   (multi-doc aware) on both files and deep-compares; a best-effort
   `#`-comment-line scan reports textual diffs as informational-only.
-  Written during `kubernetes/kubernetes`; caught a real bug (a
-  block-scalar sequence item silently truncated) that `yaml_syntax_check.js`
-  alone missed since the truncated output was still valid YAML.
+  Written during `kubernetes/kubernetes`; caught a real bug (a block-scalar
+  sequence item silently truncated) that `yaml_syntax_check.js` alone
+  missed since the truncated output was still valid YAML.
 - `html_content_diff.py` — stdlib can't parse real-world HTML5 (not
   XML-well-formed), so shells out to an inline Node helper using `parse5`
   into a simplified JSON tree, walked in parallel comparing tag
@@ -220,10 +220,10 @@ Usage is uniform: `python3 <script> <original> <formatted>`.
 
 Requires the same `LD_LIBRARY_PATH`/`NODE_PATH`/`PATH` env as
 `STATE_JS_TS.md`'s "Tools/compiler used" section (same `node` binary, same
-`~/mynpm`-installed package location) — see that file for the exact export
-lines and why `LD_LIBRARY_PATH` is required on this system. Install each
-script's package once via `npm install --prefix ~/mynpm <pkg>` (json5,
-js-yaml, smol-toml, postcss, @xmldom/xmldom, parse5) before first use.
+`~/mynpm`-installed package location — see that file for the exact export
+lines and why `LD_LIBRARY_PATH` is required here). Install each script's
+package once via `npm install --prefix ~/mynpm <pkg>` (json5, js-yaml,
+smol-toml, postcss, @xmldom/xmldom, parse5) before first use.
 
 ---
 
@@ -281,8 +281,8 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   HTML5 share one parser/renderer, gated internally on `lang.isHtml5`
   (mirrors curly classes branching on `isKotlin`). Concrete XML/HTML5-only
   rule logic (§2/§4) lands in one `XmlSpecificRule.java`, fully real
-  (RDD_KEY_193/194), gating HTML5-only additions (void elements,
-  `<script>`/`<style>` dispatcher) on `lang.isHtml5`.
+  (RDD_KEY_193/194), with HTML5-only additions (void elements,
+  `<script>`/`<style>` dispatcher) gated on `lang.isHtml5`.
 - **JSON/JSON5/CSS** are neither tag-based, curly, nor indent-based per the
   `Lang.java` family predicates. **Resolved (RDD_KEY_189):** no new
   `TokenizerCore` sibling (no `TokenizerFlat`) — each extends
@@ -297,17 +297,17 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   colon-alignment shape); `JsonTokenizer` extends `TokenizerSimpleBraced`,
   `FormatterJson` extends `FormatterSimpleBraced`
   (`FormatterCore.forLanguage`'s `isJson || isJson5` branch) — CSS later
-  joined `SimpleBraced` for real. Distinct from the still-hypothetical
-  YAML/TOML-only "Flat" family (no braces at all): YAML/TOML did NOT join
+  joined `SimpleBraced` too. Distinct from the still-hypothetical YAML/TOML-
+  only "Flat" family (no braces at all): YAML/TOML did NOT join
   (RDD_KEY_192), each implementing its own from-scratch parser (line-based
   for YAML, flat single-pass line-scanner for TOML).
 - Implementation order (all complete): JSON/JSON5 → CSS → YAML/TOML → XML →
   HTML5 (HTML5 last, depended on CSS and, for one exception below, JS/TS).
 - **HTML-before-JS/TS contingency — historical, fully superseded.** HTML5
-  landed (RDD_KEY_194) before `STATE_JS_TS.md` had a real JS/TS formatter,
-  so `renderScriptOrStyle` initially threw for real JS-type `<script>`
-  content instead of dispatching it. Superseded (commits
-  `a3c5c81`/`7cca3a4`/`679fafb`) once JS/TS shipped — see HTML5 checklist
+  landed (RDD_KEY_194) before `STATE_JS_TS.md` had a real JS/TS formatter, so
+  `renderScriptOrStyle` initially threw for real JS-type `<script>` content
+  instead of dispatching it — superseded (commits
+  `a3c5c81`/`7cca3a4`/`679fafb`) once JS/TS shipped; see the HTML5 checklist
   entry below for current dispatch behavior.
 
 ## Open Questions
@@ -316,21 +316,20 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   RESOLVED (RDD_KEY_265, 2026-08-08 session).** `FormatterSimpleBraced`
   gained `normalizeComment`/`normalizeCommentTrivia`/
   `normalizeLineCommentChain`/`normalizeBlockComment` (+ private
-  `tryBannerShape`): JSON5's consecutive standalone `//` comments (no blank
+  `tryBannerShape`): consecutive standalone JSON5 `//` comments (no blank
   line between) chain-group like curly's `//` (only the first capitalized;
   sole trailing `.` stripped only across the whole chain); a multi-line
-  `/* */` already in the conventional ` * `-per-line banner shape gets the
-  same single-unit treatment; any other multi-line shape falls back to the
-  pre-existing whole-comment-scan behavior (not left untouched — an early
-  version got that wrong, caught by `css_comments` regressing). Wired into
-  `JsonSpecificRule.collectTrivia` (now defers normalization until the
-  whole leading-trivia span is collected, via a parallel raw-text +
-  blank-before list) and `CssSpecificRule` (block-comment-only, no
-  chaining possible — CSS never lexes `//`). `test/json5_comments_out.json5`
-  regenerated (two adjacent `//` comments with no `.` between them
-  legitimately merge into one chain); new fixture
-  `test/json5_comment_banner_{inp,out}.json5`. `make test`: 254/254 ->
-  255/255 forward + idempotency, zero regressions.
+  `/* */` already in the ` * `-per-line banner shape gets the same
+  single-unit treatment; any other multi-line shape falls back to the
+  pre-existing whole-comment-scan behavior (an early version left it
+  untouched instead, caught by `css_comments` regressing). Wired into
+  `JsonSpecificRule.collectTrivia` (defers normalization until the whole
+  leading-trivia span is collected, via a parallel raw-text +
+  blank-before list) and `CssSpecificRule` (block-comment-only — CSS never
+  lexes `//`, so no chaining). `test/json5_comments_out.json5` regenerated
+  (two adjacent `//` comments with no `.` between legitimately merge into
+  one chain); new fixture `test/json5_comment_banner_{inp,out}.json5`.
+  `make test`: 254/254 -> 255/255 forward + idempotency, zero regressions.
 
 - **YAML/TOML `#`-chain-grouping parity with curly — RESOLVED (RDD_KEY_266,
   2026-08-08 session).** New `ToolingCommentNormalizer.normalizeChain`
@@ -343,9 +342,9 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   own `finalizeComments`. New fixtures `yaml_comment_chain_{inp,out}.yaml`,
   `toml_comment_chain_{inp,out}.toml`; 5 pre-existing YAML fixtures
   regenerated for correctly-grouped output. `make test`: 255/255 ->
-  257/257 forward + idempotency, zero regressions. Closes both decisions
-  #1 and #2 of the 2026-08-08 brief for the data-formats job — no open
-  items remain from that brief.
+  257/257 forward + idempotency, zero regressions. Closes both decisions #1
+  and #2 of the 2026-08-08 brief for this job — no open items remain from
+  it.
 
 - **HTML5 Test-Fixture Repos winnowing — RESOLVED (user, 2026-07-24).**
   `twbs/bootstrap` docs (Astro/MDX), `mdn/content` (Markdown),
@@ -358,19 +357,18 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 - **WordPress magic-comment capitalization — RESOLVED 2026-07-30.**
   Found: `normalize-comment-start-case=on`'s `normComment` unconditionally
   capitalized lowercase-starting comments (no directive-shape exclusion,
-  unlike CSS's `isSingleTokenDirective`), rewriting WordPress magic
-  comments `<!--more-->`/`<!--nextpage-->` to `<!--More-->`/
-  `<!--Nextpage-->` (`WordPress/wordpress-develop` HTML5 dogfood,
-  2026-07-24). Fix (user, 2026-07-30): went broad rather than an
-  allow-list — `XmlSpecificRule.isSingleWordDirective` now skips
-  capitalization whenever a comment's entire trimmed body is one word with
-  no interior whitespace (no `:`/`-` requirement, unlike CSS's narrower
-  rule), after a real-corpus check across `WordPress/wordpress-develop`/
-  `web-platform-tests/wpt`/`alexandersandberg/html5-elements-tester` found
-  zero genuine one-word prose comments. Accepted false-negative risk (e.g.
-  a genuine `<!--todo-->` now also stays lowercase), documented in
-  `README.md`'s Known Limitations. `make test`: 219/219 forward,
-  219/219 idempotency.
+  unlike CSS's `isSingleTokenDirective`), rewriting WordPress magic comments
+  `<!--more-->`/`<!--nextpage-->` to `<!--More-->`/`<!--Nextpage-->`
+  (`WordPress/wordpress-develop` HTML5 dogfood, 2026-07-24). Fix (user,
+  2026-07-30): went broad rather than an allow-list —
+  `XmlSpecificRule.isSingleWordDirective` now skips capitalization whenever
+  a comment's entire trimmed body is one word with no interior whitespace
+  (no `:`/`-` requirement, unlike CSS's narrower rule), after a real-corpus
+  check across `WordPress/wordpress-develop`/`web-platform-tests/wpt`/
+  `alexandersandberg/html5-elements-tester` found zero genuine one-word
+  prose comments. Accepted false-negative risk (e.g. a genuine
+  `<!--todo-->` now also stays lowercase), documented in `README.md`'s
+  Known Limitations. `make test`: 219/219 forward, 219/219 idempotency.
 
 - **HTML5 optional/implied end tags — RESOLVED in stages (RDD_KEY_198/199/
   200; `alexandersandberg/html5-elements-tester` dogfood, 3 sequential
@@ -404,30 +402,29 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
 
   1. **`web-platform-tests/wpt` residual gaps — DEFERRED, split into its own
      job `STATE_HTML5_TCG.md` (2026-08-02, tc gap job in `CLAUDE.md`'s
-     routing table) — that file is now authoritative for this gap's
-     background/status; this entry is kept only as a compact history
-     pointer.** After 4 bugs fixed in the initial `html/syntax/` session
-     (EOF-implied-close; `<image>`->`<img>` rewrite; `<head>`/`<body>`
-     implied-close-trigger; `<xmp>` raw-text) and a follow-up
-     (`real_code_regressions_110`: generalized `<image>` into
-     `TAG_NAME_REWRITES`, broadened tolerant-close fallback from EOF-only to
-     any mismatched/unrecognized closing tag, fixed 3 of 9 residual files),
-     remaining gaps (catalogued by category, not re-verified against the
-     live corpus — no network access): foster-parenting-driven tree
-     reshaping (`foreign_content_009/010.html`); misnested `<form>`
-     reconstruction inside `<template>`; implicit `<body>` start-tag
-     insertion (content after an implicitly-closed `<head>` with no
-     `<body>` start tag ever written — distinct from the already-fixed
-     `<head>`/`<body>` implied-close trigger). A separate crash site
-     (raw-text elements whose literal closing tag never appears before EOF)
-     was found and FIXED (`real_code_regressions_111`) — capture-verbatim
-     instead of throwing. All three remaining gaps need the same
-     prerequisite: an explicit open-elements-stack + HTML5 insertion-mode
-     state machine (currently implicit in the Java call stack) — comparable
-     in size/risk to `STATE_COMMON.md`'s "general scope-depth
-     reindentation" Architectural TODO (recommended order: implicit
-     `<body>` insertion first/narrowest, then foster-parenting, then
-     misnested `<form>`-in-`<template>`, then adoption agency last).
+     routing table), now authoritative for this gap's background/status;
+     kept here only as a compact history pointer.** After 4 bugs fixed in
+     the initial `html/syntax/` session (EOF-implied-close; `<image>`->
+     `<img>` rewrite; `<head>`/`<body>` implied-close-trigger; `<xmp>`
+     raw-text) and a follow-up (`real_code_regressions_110`: generalized
+     `<image>` into `TAG_NAME_REWRITES`, broadened tolerant-close fallback
+     from EOF-only to any mismatched/unrecognized closing tag, fixed 3 of 9
+     residual files), remaining gaps (catalogued by category, not
+     re-verified against the live corpus — no network access):
+     foster-parenting-driven tree reshaping (`foreign_content_009/010.html`);
+     misnested `<form>` reconstruction inside `<template>`; implicit
+     `<body>` start-tag insertion (content after an implicitly-closed
+     `<head>` with no `<body>` start tag ever written — distinct from the
+     already-fixed `<head>`/`<body>` implied-close trigger). A separate
+     crash site (raw-text elements whose literal closing tag never appears
+     before EOF) was found and FIXED (`real_code_regressions_111`) —
+     capture-verbatim instead of throwing. All three remaining gaps share
+     one prerequisite: an explicit open-elements-stack + HTML5
+     insertion-mode state machine (currently implicit in the Java call
+     stack) — comparable in size/risk to `STATE_COMMON.md`'s "general
+     scope-depth reindentation" Architectural TODO (recommended order:
+     implicit `<body>` insertion first/narrowest, then foster-parenting,
+     then misnested `<form>`-in-`<template>`, then adoption agency last).
      Real-world impact low — every dogfood corpus run so far formatted
      cleanly with zero structural loss; these gaps only bite WPT's
      deliberately pathological conformance fixtures. 2026-07-26
@@ -438,13 +435,13 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      avoid double-insertion); status quo (RDD_KEY_185: bare top-level
      content reindents as an ordinary sibling) doesn't corrupt output, just
      isn't spec-faithful. Tag-name case-folding was fixed standalone (item 3
-     below). **UPDATE:** all three gaps above were subsequently implemented
-     in `STATE_HTML5_TCG.md` as levels 1-3 (implicit `<body>` insertion,
+     below). **UPDATE:** all three gaps were subsequently implemented in
+     `STATE_HTML5_TCG.md` as levels 1-3 (implicit `<body>` insertion,
      foster-parenting, misnested `<form>`-in-`<template>`) — landed and
      full-suite dogfood re-validated with zero regressions, opt-in behind
      `html5-tc-gap-level` (default `0`, off) per that job's file. No longer
-     an open gap in this job; see `STATE_HTML5_TCG.md` for implementation
-     notes/known limitations of each level.
+     an open gap here; see `STATE_HTML5_TCG.md` for each level's
+     implementation notes/known limitations.
 
   2. **`apache/ant` `manual/running.html` — FIXED (RDD_KEY_223, 2026-08-01).**
      Narrower self-contained fix, not item 1's full insertion-mode-state
@@ -453,44 +450,42 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      `</p>` with **no matching open `<p>` anywhere** (different shape than
      RDD_KEY_204's *open*-`<p>`-closed-by-sibling case). `parseNodes`'s
      `stopAtCloseTag` was unconditional, so the orphan `</p>` broke out of
-     `<body>`'s children loop and fell into the tolerant-close fallback
-     (same mechanism WPT's `charset/after-bogus.html` needs), implicitly
-     closing `<body>` **without consuming the `</p>` token** — cascaded to
-     `<html>` too, so output closed `</body></html>` at the orphan `</p>`
-     and dumped the rest of the real document as raw siblings after
-     `</html>`. Materially bigger than the "1 `<p>` lost" content-diff
-     originally reported, since `html_content_diff.py` (via `parse5`)
-     re-parents post-`</html>` content back inside `<body>` almost
-     transparently, masking magnitude — **note for anyone touching
-     `html_content_diff.py`: it can under-report this class of
-     serialization-level structural bug**, spot-check raw output text
-     directly.
+     `<body>`'s children loop into the tolerant-close fallback (same
+     mechanism WPT's `charset/after-bogus.html` needs), implicitly closing
+     `<body>` **without consuming the `</p>` token** — cascaded to `<html>`
+     too, so output closed `</body></html>` at the orphan `</p>` and dumped
+     the rest of the real document as raw siblings after `</html>`.
+     Materially bigger than the "1 `<p>` lost" content-diff originally
+     reported, since `html_content_diff.py` (via `parse5`) re-parents
+     post-`</html>` content back inside `<body>` almost transparently,
+     masking magnitude — **note for anyone touching `html_content_diff.py`:
+     it can under-report this class of serialization-level structural bug**,
+     spot-check raw output text directly.
      **Fix:** `XmlSpecificRule` gained an `openTagStack` (`Deque<String>` of
      currently-open lowercased tag names, pushed/popped around
      `parseElement`) and `peekCloseTagNameLower`; `parseNodes`'s
      `stopAtCloseTag` branch now cascade-closes only if the closing tag's
      name is found anywhere in the stack (`lang.isHtml5` only — strict
      XML/XHTML unchanged), else discards the stray/orphan closing tag in
-     place and continues. Discard-only (no `<p></p>` synthesis) was used
-     here, not full per-spec behavior — accepted, matches "preserve as
-     written, don't fabricate tags" posture (RDD_KEY_185); full reasoning in
-     RDD_KEY_223. Fixtures `test/real_code_regressions_173_{inp,out}.html`
-     (minimal orphan-`</p>` repro) and
-     `test/real_code_regressions_174_{inp,out}.html` (regression guard for
-     the mismatched-tag-cascades-to-ancestor path, `charset/after-bogus.html`
-     idiom via unclosed `<bogus>`/`</div>`). `make test`: 221/221 ->
-     223/223 forward + idempotency, zero regressions. `apache/ant manual/`
-     226-file corpus re-run: 226/226 forward + idempotency +
-     `html_syntax_check.sh` clean; content-diff confirms structural
-     corruption gone (`</body></html>` now at genuine end) — pre-existing
-     "1 `<p>` lost" (`<body>` child count 82 vs 81, accepted
-     discard-vs-synthesize gap) unchanged residual, not a regression; 4
-     other files' pre-existing comment-capitalization mismatches confirmed
-     identical against a pre-fix baseline.
+     place and continues. Discard-only (no `<p></p>` synthesis), not full
+     per-spec behavior — accepted, matches "preserve as written, don't
+     fabricate tags" posture (RDD_KEY_185); full reasoning in RDD_KEY_223.
+     Fixtures `test/real_code_regressions_173_{inp,out}.html` (minimal
+     orphan-`</p>` repro) and `test/real_code_regressions_174_{inp,out}.html`
+     (regression guard for the mismatched-tag-cascades-to-ancestor path,
+     `charset/after-bogus.html` idiom via unclosed `<bogus>`/`</div>`).
+     `make test`: 221/221 -> 223/223 forward + idempotency, zero
+     regressions. `apache/ant manual/` 226-file corpus re-run: 226/226
+     forward + idempotency + `html_syntax_check.sh` clean; content-diff
+     confirms structural corruption gone (`</body></html>` now at genuine
+     end) — pre-existing "1 `<p>` lost" (`<body>` child count 82 vs 81,
+     accepted discard-vs-synthesize gap) unchanged residual, not a
+     regression; 4 other files' pre-existing comment-capitalization
+     mismatches confirmed identical against a pre-fix baseline.
 
      **Residual gap closed too (RDD_KEY_236, 2026-08-03, user-directed).**
-     The discard-only choice above was superseded: browsers don't discard
-     an orphan `</p>` — the real HTML5 "p end tag" algorithm synthesizes an
+     The discard-only choice above was superseded: browsers don't discard an
+     orphan `</p>` — the real HTML5 "p end tag" algorithm synthesizes an
      empty `<p></p>` at that point (spec-mandated for parser-state
      interoperability, not primarily rendering). New
      `XmlSpecificRule.synthesizeEmptyElement` builds a synthetic empty
@@ -499,49 +494,48 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      branch) now call it when the discarded tag name is `"p"`, other tag
      names unchanged. Fixture `real_code_regressions_173_out.html` updated
      (gained the synthesized `<p></p>`). `make test`: 238/238 forward +
-     idempotency. Full `apache/ant manual/` 226-file re-run: 226/226
-     forward + idempotency + `html_syntax_check.sh` clean; direct `<p`
-     tag-count check on `running.html` confirms exactly one `<p></p>`
-     synthesized (60 vs. original 59) — `<body>` child count now matches
-     the browser's 82, closing the "1 `<p>` lost" residual.
+     idempotency. Full `apache/ant manual/` 226-file re-run: 226/226 forward
+     + idempotency + `html_syntax_check.sh` clean; direct `<p` tag-count
+     check on `running.html` confirms exactly one `<p></p>` synthesized (60
+     vs. original 59) — `<body>` child count now matches the browser's 82,
+     closing the "1 `<p>` lost" residual.
 
   3. **Tag-name case-folding — DONE, fixed standalone**
      (`real_code_regressions_112`, commit `10b20cf`, user, 2026-07-25). New
      `XmlSpecificRule.SVG_TAG_NAME_CASE_FIXUP` map holds the spec's "Adjust
      SVG tag names" table (`altglyph`->`altGlyph`, `lineargradient`->
-     `linearGradient`, `fegaussianblur`->`feGaussianBlur`,
-     `foreignobject`->`foreignObject`, etc.), gated on `svgDepth > 0`
-     (mutually exclusive with `TAG_NAME_REWRITES`'s `svgDepth == 0`).
-     Surfaced a latent bug in `parseElement`'s closing-tag match (rewritten
-     `tagName` no longer matched the source's differently-cased closing
-     tag), fixed via new case-insensitive `startsWithCloseTagIgnoreCase`,
-     HTML5-gated only. **MathML's `definitionurl`->`definitionURL` fixup:
-     FIXED** — new `mathmlDepth` tracking mirroring the existing `svgDepth`
-     pattern; fixture `test/html_mathml_case_fixup_{inp,out}.html`.
-     `make test`: 161/161 -> 282/282 (cumulative with other fixtures added
-     since).
+     `linearGradient`, `fegaussianblur`->`feGaussianBlur`, `foreignobject`->
+     `foreignObject`, etc.), gated on `svgDepth > 0` (mutually exclusive
+     with `TAG_NAME_REWRITES`'s `svgDepth == 0`). Surfaced a latent bug in
+     `parseElement`'s closing-tag match (rewritten `tagName` no longer
+     matched the source's differently-cased closing tag), fixed via new
+     case-insensitive `startsWithCloseTagIgnoreCase`, HTML5-gated only.
+     **MathML's `definitionurl`->`definitionURL` fixup: FIXED** — new
+     `mathmlDepth` tracking mirrors the existing `svgDepth` pattern; fixture
+     `test/html_mathml_case_fixup_{inp,out}.html`. `make test`: 161/161 ->
+     282/282 (cumulative with other fixtures added since).
 
 - **HTML5 commented-out markup-fragment comment corruption — RESOLVED
-  (RDD_KEY_224, 2026-08-01).** Found: re-verifying
-  `real_code_regressions_125`'s 4 "comment-capitalization-only" diffs from
-  the `apache/ant manual/` corpus showed 2 of 4 were NOT benign:
-  `Tasks/antlr.html`/`Tasks/attrib.html` each contain a commented-out HTML
-  fragment (`<!--tr> <td>fork</td>...</tr-->`, `<!--p>By default...</p-->`)
-  where the author's `<!--`/`<` boundary landed mid-tag, leaving the
-  comment content starting with a bare tag-name-open fragment
-  (`tr>`/`p>`); `normalize-comment-start-case` capitalized these to
-  `Tr>`/`P>`, corrupting the commented-out markup (3 mismatches). Different
-  shape from both existing directive-shape precedents (CSS's
-  `isSingleTokenDirective`, HTML5's `isSingleWordDirective`) — multi-word,
-  starting with markup syntax rather than prose.
+  (RDD_KEY_224, 2026-08-01).** Found: re-verifying `real_code_regressions_125`'s
+  4 "comment-capitalization-only" diffs from the `apache/ant manual/`
+  corpus showed 2 of 4 were NOT benign: `Tasks/antlr.html`/`Tasks/attrib.html`
+  each contain a commented-out HTML fragment (`<!--tr> <td>fork</td>...
+  </tr-->`, `<!--p>By default...</p-->`) where the author's `<!--`/`<`
+  boundary landed mid-tag, leaving the comment content starting with a bare
+  tag-name-open fragment (`tr>`/`p>`); `normalize-comment-start-case`
+  capitalized these to `Tr>`/`P>`, corrupting the commented-out markup (3
+  mismatches). Different shape from both existing directive-shape
+  precedents (CSS's `isSingleTokenDirective`, HTML5's
+  `isSingleWordDirective`) — multi-word, starting with markup syntax rather
+  than prose.
   **Fix:** new `XmlSpecificRule.isMarkupFragmentDirective(text)` — true iff
   `text`'s leading run of lowercase letters is immediately followed by `>`
   (no interior whitespace) AND that run is a member of a new closed
   `MARKUP_FRAGMENT_TAG_NAMES` set of real HTML5 tag names (a set
   restriction, not "any lowercase word immediately followed by `>`",
-  deliberately avoiding false positives on coincidental short words);
-  wired into `normComment` alongside `isSingleWordDirective`. Evidence:
-  grepped `apache/ant manual/`, `WordPress/wordpress-develop`, and
+  deliberately avoiding false positives on coincidental short words); wired
+  into `normComment` alongside `isSingleWordDirective`. Evidence: grepped
+  `apache/ant manual/`, `WordPress/wordpress-develop`, and
   `alexandersandberg/html5-elements-tester` for `<!--[a-z]+>` — exactly 2
   `<!--tr>` + 1 `<!--p>` corpus-wide, matching the 3 real diffs, zero
   false-positive-shaped hits (`web-platform-tests/wpt` not re-checked,
@@ -549,14 +543,14 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   diffs (`Tasks/imageio.html`/`Tasks/image.html`, identical string
   `attributes inherited from MatchingTask` -> `Attributes inherited from
   MatchingTask`) checked separately and confirmed genuine (if
-  coincidentally lowercase-starting) prose, correctly excluded from this
-  fix and left to ordinary capitalization. New fixture
-  `test/real_code_regressions_175_{inp,out}.html` (both fragment shapes
-  plus real `<p>`/`<tr>` regression guards). `make test`: 223/223 ->
-  224/224 forward + idempotency, zero regressions. `apache/ant manual/`
-  226-file corpus re-run: 226/226 forward + idempotency +
-  `html_syntax_check.sh`; content-diff mismatches down from 4 to 3 (see
-  Real-Code Testing Results below).
+  coincidentally lowercase-starting) prose, correctly excluded from this fix
+  and left to ordinary capitalization. New fixture
+  `test/real_code_regressions_175_{inp,out}.html` (both fragment shapes plus
+  real `<p>`/`<tr>` regression guards). `make test`: 223/223 -> 224/224
+  forward + idempotency, zero regressions. `apache/ant manual/` 226-file
+  corpus re-run: 226/226 forward + idempotency + `html_syntax_check.sh`;
+  content-diff mismatches down from 4 to 3 (see Real-Code Testing Results
+  below).
 
 ## Checklist
 
@@ -598,16 +592,16 @@ per-repo dogfood bugs):
       TIER 9 Dogfood (it was never actually a dogfood-corpus finding, and is
       permanent, not a live TODO).
 
-      **Mixed text+element content splitting onto separate lines —
-      FIXED (2026-08-04).** Real correctness bug, not just style: an
-      element interleaving a non-whitespace TEXT node and an ELEMENT node
-      (e.g. `<p>Click <a href="x">here</a> to continue.</p>`) rendered each
-      child on its own indented line, inserting newlines/indentation into
-      content whose whitespace can be semantically significant (XHTML-like
-      prose, Android string resources with embedded `<b>`/`<a>` markup,
-      DocBook, SVG `<text>`). **Design decision (made with the user):** such
-      mixed content now renders **inline, exactly as originally written,
-      with no reflow**, even past `line-length` — mirroring the existing
+      **Mixed text+element content splitting onto separate lines — FIXED
+      (2026-08-04).** Real correctness bug, not just style: an element
+      interleaving a non-whitespace TEXT node and an ELEMENT node (e.g.
+      `<p>Click <a href="x">here</a> to continue.</p>`) rendered each child
+      on its own indented line, inserting newlines/indentation into content
+      whose whitespace can be semantically significant (XHTML-like prose,
+      Android string resources with embedded `<b>`/`<a>` markup, DocBook,
+      SVG `<text>`). **Design decision (made with the user):** mixed content
+      now renders **inline, exactly as originally written, with no
+      reflow**, even past `line-length` — mirroring the existing
       opaque/preserve-verbatim posture for DOCTYPE/PI (§2.3), CDATA (§2.4
       default case), and multi-line comments (§2.5); an overflowing
       mixed-content line is an intentional accepted limitation.
@@ -627,11 +621,11 @@ per-repo dogfood bugs):
       no-newline-in-original-span condition is deliberate** — without it a
       block container whose bare text-node siblings already spanned
       multiple source lines (e.g. a `<div>` with a prose line before a
-      `<ul>`) would also match "mixed" and get incorrectly collapsed onto
-      one long line (`test/html_combined_*` caught this when the condition
-      was first omitted); restricting to already-single-line content means
-      only genuine inline text-flow prose collapses, preserving
-      RDD_KEY_185's pre-existing block-level reindent behavior.
+      `<ul>`) would also match "mixed" and incorrectly collapse onto one
+      long line (`test/html_combined_*` caught this when the condition was
+      first omitted); restricting to already-single-line content means only
+      genuine inline text-flow prose collapses, preserving RDD_KEY_185's
+      pre-existing block-level reindent behavior.
       **Interaction found+fixed with HTML5 tc-gap level 4 (adoption
       agency):** preserving a misnested formatting element's raw span
       verbatim (e.g. `<b>one<i>two</b>` from `<b>1<i>2</b>3</i>`) leaves the
@@ -643,32 +637,31 @@ per-repo dogfood bugs):
       `pendingReconstructFormattingTemplate` consumption: before calling
       `reconstructFormattingElement`, skip whitespace and check (via
       `startsWithTriggerTag`) whether the cursor already sits at a literal
-      start tag matching the template's tag name — if so, no new wrapper is
-      synthesized. Fixtures updated to correct (inline, not split) output:
+      start tag matching the template's tag name — if so, skip synthesizing
+      a new wrapper. Fixtures updated to correct (inline, not split) output:
       `xml_mixed_content_*` (new), plus `html_combined_out.html`,
       `html_tc_gap_level3_adoption_unchanged_out.html`, and
-      `html_tc_gap_level4_adoption_agency_out.html`. `make test`: 242/242
-      -> 243/243 forward + idempotency, zero regressions.
+      `html_tc_gap_level4_adoption_agency_out.html`. `make test`: 242/242 ->
+      243/243 forward + idempotency, zero regressions.
 
       **§2.4 CDATA-inside-`<style>` dispatch exception — IMPLEMENTED
       (2026-08-04).** The `<script>` side (unwrap CDATA, dispatch to JS/TS,
-      re-wrap) already landed earlier alongside the `<script>`/`<style>`
-      dispatcher itself (HTML5 checklist entry below, commits
+      re-wrap) already landed alongside the `<script>`/`<style>` dispatcher
+      itself (HTML5 checklist entry below, commits
       `a3c5c81`/`7cca3a4`/`679fafb`); the `<style>` branch had no matching
       check and fed a `<style><![CDATA[ ... ]]></style>` block's literal
       CDATA markers into the CSS parser as bogus content. Fixed by giving
       `<style>` the same detect/unwrap-CDATA/dispatch-to-`CssSpecificRule`/
-      re-wrap treatment as `<script>` already had, deliberately matching
-      that precedent rather than inventing a second convention. Known
-      limitation carried over (not new): formatted CSS output containing
-      the literal sequence `]]>` would prematurely terminate the CDATA
-      section on re-wrap — accepted as an extremely rare edge case, not
-      worth escaping machinery. Fixture: extended
-      `test/html_comments_inp.html`/`_out.html` with a
+      re-wrap treatment `<script>` already had, matching that precedent
+      rather than inventing a second convention. Known limitation carried
+      over (not new): formatted CSS output containing the literal sequence
+      `]]>` would prematurely terminate the CDATA section on re-wrap —
+      accepted as an extremely rare edge case, not worth escaping machinery.
+      Fixture: extended `test/html_comments_inp.html`/`_out.html` with a
       `<style id="cdata-style"><![CDATA[ ... ]]></style>` block (that
-      fixture already covered the CDATA-wrapped `<script>` idiom and
-      opaque CDATA elsewhere, closing the last of the three cases). `make
-      test`: 242/242 forward + idempotency, zero regressions.
+      fixture already covered the CDATA-wrapped `<script>` idiom and opaque
+      CDATA elsewhere, closing the last of the three cases). `make test`:
+      242/242 forward + idempotency, zero regressions.
 
       **`indent-style = auto` — IMPLEMENTED (2026-08-04).** Previously
       unhandled: `FormatterXml.formatOne` passed `config.indentStyle()`
@@ -676,8 +669,8 @@ per-repo dogfood bugs):
       `"tabs".equals(indentStyle)`), so a literal `"auto"` silently fell
       through to spaces; `Main.java`'s own `formatStandalone` "auto"
       resolution doesn't cover XML either (`IndentationDetector.detect`'s
-      directory sampling never looks at `.xml`). Fixed by resolving
-      `"auto"` at the `XmlSpecificRule` construction call site: when
+      directory sampling never looks at `.xml`). Fixed by resolving `"auto"`
+      at the `XmlSpecificRule` construction call site: when
       `config.indentStyle()` is `"auto"`, calls the previously-unused
       `IndentationDetector.detectFromContent(content)` (scans for the first
       indented line's leading character, falls back to

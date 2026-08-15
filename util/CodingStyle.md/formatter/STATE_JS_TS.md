@@ -217,22 +217,22 @@ JS/TS fixtures are active in the Makefile and passing.
 user-proposed 3-step approach (tokenizer marks a whole JSX tree as one plain
 `IDENTIFIER`; `{...}` holes become `__JSn__` placeholders handed to the HTML
 formatter; each placeholder's content re-sent through the JS/TS formatter)
-was assessed and **not adopted**: Step 1 discards structure needed by
-width/alignment passes (same fragility class as RDD_KEY_248/249/250) without
-a dedicated opaque/frozen token; Step 2's HTML-formatter reuse is sound for
-splice mechanics but JSX diverges from real HTML5 (self-closing tags,
-case-sensitive component names, fragments, `onClick={handler}`-style
-attribute-valued embeds) in ways the HTML5 tree-construction pass isn't
-verified to tolerate; Step 3 is unbounded-depth recursion
-(`items.map(x => <li>{x}</li>)`), not the flat step described. Real JSX
-parsers resolve the `<` ambiguity via grammar-position lexer modes, which
-this codebase's flat-tokenizer architecture has no equivalent of — the
-portable idea extracted instead: a dedicated pre-pass testing `<` at a short
-enumerable list of expression-start token-adjacency contexts, recursing into
-`{}` holes, without needing a real AST. `@babel/parser` was considered and
-rejected for a JSX-aware `js_ts_content_diff.js` (avoid a second parser
-dependency/npm-pin gotcha) — stick with `ts.createSourceFile`'s
-`TSX`/`JSX` `ScriptKind`s if that checker is ever extended.
+was **not adopted**: Step 1 discards structure needed by width/alignment
+passes (same fragility class as RDD_KEY_248/249/250) without a dedicated
+opaque/frozen token; Step 2's HTML-formatter reuse is sound for splice
+mechanics but JSX diverges from real HTML5 (self-closing tags, case-sensitive
+component names, fragments, `onClick={handler}`-style attribute-valued
+embeds) in ways the HTML5 tree-construction pass isn't verified to tolerate;
+Step 3 is unbounded-depth recursion (`items.map(x => <li>{x}</li>)`), not the
+flat step described. Real JSX parsers resolve the `<` ambiguity via
+grammar-position lexer modes, which this codebase's flat-tokenizer
+architecture has no equivalent of — the portable idea extracted instead: a
+dedicated pre-pass testing `<` at a short enumerable list of expression-start
+token-adjacency contexts, recursing into `{}` holes, without needing a real
+AST. `@babel/parser` was considered and rejected for a JSX-aware
+`js_ts_content_diff.js` (avoid a second parser dependency/npm-pin gotcha) —
+stick with `ts.createSourceFile`'s `TSX`/`JSX` `ScriptKind`s if that checker
+is ever extended.
 
 **Design session (2026-08-12, no code, no RDD key).** Fleshed out the
 portable idea into a concrete design, later implemented essentially as
@@ -562,34 +562,34 @@ complete).**
   both times.
 
 **Research session (2026-08-13, no code/RDD key) — how real tooling handles
-JSX-in-`.js`/`.ts` detection, informing the widening below.** Confirmed via
-direct research: Babel/`@babel/parser` requires an explicit `jsx` plugin
-opt-in at the parser-options level (no extension-sniffing in the bare
-parser); Prettier's default parser for the whole `.js`/`.mjs`/`.cjs`/`.jsx`
-family always enables JSX, but for `.ts` uses a separate TS-scanner-based
-parser with JSX off, only enabling it for `.tsx` — TS and Prettier both
-treat `.ts`/`.tsx` as fundamentally different because of the real
-`<Type>value`-cast-vs-JSX-open-tag ambiguity (a well-known, deliberate TS
-restriction — `<Type>` casts are disallowed in `.tsx`, `as Type` required
-instead). ESLint/`@babel/eslint-parser` require explicit project-config
-opt-in, not per-file sniffing. No mainstream tool content-sniffs (e.g. for
-`import React`) to decide JSX-ness — confirmed unreliable independently: the
-"automatic" JSX runtime (React 17+) doesn't require importing React at all,
-so an import-based heuristic would miss exactly the modern case while
+JSX-in-`.js`/`.ts` detection, informing the widening below.** Babel/
+`@babel/parser` requires an explicit `jsx` plugin opt-in at the
+parser-options level (no extension-sniffing in the bare parser); Prettier's
+default parser for the whole `.js`/`.mjs`/`.cjs`/`.jsx` family always enables
+JSX, but for `.ts` uses a separate TS-scanner-based parser with JSX off,
+only enabling it for `.tsx` — TS and Prettier both treat `.ts`/`.tsx` as
+fundamentally different because of the real `<Type>value`-cast-vs-JSX-open-
+tag ambiguity (a well-known, deliberate TS restriction — `<Type>` casts are
+disallowed in `.tsx`, `as Type` required instead). ESLint/
+`@babel/eslint-parser` require explicit project-config opt-in, not per-file
+sniffing. No mainstream tool content-sniffs (e.g. for `import React`) to
+decide JSX-ness — confirmed unreliable independently: the "automatic" JSX
+runtime (React 17+) doesn't require importing React at all, so an
+import-based heuristic would miss exactly the modern case while
 over-triggering on hooks-only non-JSX files that happen to import React.
 
 Re-reading this codebase's own `isJsxContext`'s 11 `||`-clauses confirmed
 every one requires `<` to be the first token of a brand-new expression — an
-ordinary comparison's `<` is never in that position (the left operand
-always precedes it), so comparisons are structurally excluded by
-construction, not merely caught by the -1 fallback. The one real residual
-ambiguity is the `<Type>expr` legacy cast, which is rare-to-nonexistent in
-true `.js` (that syntax isn't even valid JS) but real in `.ts`. A second,
-genuine, previously-unguarded gap was found in the same re-read: tag
-matching only tracked nesting *depth*, not tag *name* — `<a>...</b>` would
-balance as if valid — flagged as worth hardening regardless, and load-
-bearing once detection widens past `.jsx`/`.tsx` (closes off the residual
-cast-collision risk for `.js`/`.ts`).
+ordinary comparison's `<` is never in that position (the left operand always
+precedes it), so comparisons are structurally excluded by construction, not
+merely caught by the -1 fallback. The one real residual ambiguity is the
+`<Type>expr` legacy cast, rare-to-nonexistent in true `.js` (that syntax
+isn't even valid JS) but real in `.ts`. A second, genuine,
+previously-unguarded gap was found in the same re-read: tag matching only
+tracked nesting *depth*, not tag *name* — `<a>...</b>` would balance as if
+valid — flagged as worth hardening regardless, and load-bearing once
+detection widens past `.jsx`/`.tsx` (closes off the residual cast-collision
+risk for `.js`/`.ts`).
 
 **Recommendation (implemented as written): hybrid.** Extend detection
 unconditionally to `.js`/`.mjs`/`.cjs` (mirrors Babel/Prettier, justified by
@@ -646,13 +646,13 @@ formatting in both `.jsx` and the newly-widened `.js`). `make test`:
 
 **`taniarascia/react-tutorial` re-dogfooded against the real `.js` corpus
 that motivated this whole effort**: all 5 files now round-trip clean,
-`js_ts_syntax_check.sh` 5/5 (previously 4/5 failed, including the
-`Api.js` truncation/`{entry}`→`{entry;}` corruption that originally
-motivated this widening). Idempotent. Content-diff still flags 4/5 as
-MISMATCH — confirmed by manual whitespace-stripped diff as entirely
-legitimate style transforms (arrow-parens, semicolons, closing comments),
-no lost/garbled JSX, a documented `js_ts_content_diff.js` JSX-non-awareness
-limitation, not a formatter bug. `STATE_DOGFOOD.md` row updated.
+`js_ts_syntax_check.sh` 5/5 (previously 4/5 failed, including the `Api.js`
+truncation/`{entry}`→`{entry;}` corruption that originally motivated this
+widening). Idempotent. Content-diff still flags 4/5 as MISMATCH — manual
+whitespace-stripped diff confirms entirely legitimate style transforms
+(arrow-parens, semicolons, closing comments), no lost/garbled JSX: a
+documented `js_ts_content_diff.js` JSX-non-awareness limitation, not a
+formatter bug. `STATE_DOGFOOD.md` row updated.
 
 ---
 
@@ -835,17 +835,18 @@ tokenizing (fixed via `emitRegexLiteral`/`isRegexLiteralAllowedHere`).
 Final: 141/141 `node --check`, idempotent, semantic smoke test passed.
 
 **nestjs/nest (HEAD `7e6e313`)**: five bugs fixed: (1) `/**` JSDoc opener
-corruption, universal curly-family bug in `reformatMultiLineBlockComment`
+corruption, a universal curly-family bug in `reformatMultiLineBlockComment`
 (assumed 2-char opener; fixed to scan forward while char is `*`; also fixed
-Java/Kotlin); (2) dot+space corruption in `renderCallCandidate`'s
+in Java/Kotlin); (2) dot+space corruption in `renderCallCandidate`'s
 `sigForRender` for multi-arg calls whose every arg is a bare dotted
 member-access (fixed: force `sigForRender` to `null` for JS/TS, fixture
 `_81`); (3) content duplication in `enforceClassFieldAlignmentGrid` on
-nested `class` braces (fixed: only grid outermost brace per nesting level,
-fixture `_82`); (4) comment-continuation-indent drift on an object-shaped
-intersection alias (fixed: only reindent at depth 0, fixture `_84`); (5)
-`join(...)` call-wrap/collapse non-idempotency at exactly `lineLengthLimit`
-(fixed: fits-check on multi-line-source branch, fixture `_93`).
+nested `class` braces (fixed: only grid the outermost brace per nesting
+level, fixture `_82`); (4) comment-continuation-indent drift on an
+object-shaped intersection alias (fixed: only reindent at depth 0, fixture
+`_84`); (5) `join(...)` call-wrap/collapse non-idempotency at exactly
+`lineLengthLimit` (fixed: fits-check on the multi-line-source branch,
+fixture `_93`).
 
 ### `vuejs/core` dogfood — DONE
 

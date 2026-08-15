@@ -1,8 +1,8 @@
 # STATE_AI.md — AI-Assist Design Reference and GRU Job State
 
-This file documents the background and architecture for the JAR's built-in
-`ai-assist` feature. (No dogfood corpus for this job — see `STATE_DOGFOOD.md`'s
-note.)
+This file documents the background/architecture for the JAR's built-in
+`ai-assist` feature. (No dogfood corpus for this job — see
+`STATE_DOGFOOD.md`'s note.)
 
 - **Step 2** (argument-layout / getter-setter-grouping) — **NOT FEASIBLE**,
   permanently, reference-only, no active work. No tractable grouping-intent
@@ -10,10 +10,10 @@ note.)
 - **Step 3** (comment-classifier abstain-case resolution) — **FEASIBLE, GRU
   only**, the active tracked job per `CLAUDE.md`'s job table
   (`com.jxmake.formatter.classifier.gru`), following the same
-  `STATE_COMMON.md` process conventions as every other job. A narrow
-  classification decision, not a layout-authorship judgment call — feasible
-  only via a purpose-trained bidirectional GRU; the small-instruction-tuned-LLM
-  variant is **NOT FEASIBLE** (tested and failed; see below).
+  `STATE_COMMON.md` conventions as every other job. A narrow classification
+  decision, not a layout-authorship judgment call — feasible only via a
+  purpose-trained bidirectional GRU; the small-instruction-tuned-LLM variant
+  is **NOT FEASIBLE** (tested and failed; see below).
 
 ---
 
@@ -22,15 +22,15 @@ note.)
 The JAR cannot distinguish meaningful author-expressed argument grouping from
 arbitrary line breaks — the core prerequisite for reliable AI candidate
 selection — so a small on-device model (3B–7B) has no reliable basis for
-choosing between candidates. The mechanical fallback (dropped form if args
-fit on one indented line, one-per-line otherwise) is therefore permanent
-behavior when inline exceeds 100 chars. The architecture (grammar-constrained
+choosing between candidates. Permanent behavior when inline exceeds 100
+chars is therefore the mechanical fallback (dropped form if args fit on one
+indented line, one-per-line otherwise). The architecture (grammar-constrained
 single-token response via `/v1/chat/completions`, candidate layout
-generation, fail-safe fallback) remains valid and reusable if a
-grouping-intent heuristic or a larger model (7B+) is proven reliable in
-future. Tier-3 aesthetic decisions (argument layout, non-standard
-getter/setter grouping) are instead handled by the capable-AI workflow in
-`README.txt` / `AI_PREAMBLE_AESTHETIC.md`.
+generation, fail-safe fallback) stays valid/reusable if a grouping-intent
+heuristic or a larger model (7B+) is proven reliable in future. Tier-3
+aesthetic decisions (argument layout, non-standard getter/setter grouping)
+are instead handled by the capable-AI workflow in `README.txt` /
+`AI_PREAMBLE_AESTHETIC.md`.
 
 Checklist — Step 2 (all NOT FEASIBLE, no implementation needed): `Config.java`
 ai-assist keys, `AiDecisionClient.java`, `AI_DECISION_PROMPT.md`,
@@ -51,10 +51,10 @@ llama.cpp on Raspberry Pi CM5), reused as Step 3's architecture pattern:
 - JAR generates N candidate layouts for a Tier-3 decision point.
 - Grammar constraint (`root ::= "0" | "1" | ... | "N"`) forces a single-token
   response via `/v1/chat/completions` (llama.cpp applies the model's chat
-  template automatically — portable across llama.cpp/Ollama/vLLM/LM Studio).
+  template automatically — portable across llama.cpp/Ollama/vLLM/LM Studio),
   `temperature = 0.0`.
 - Model never rewrites source text — JAR executes the chosen layout
-  mechanically. AI only invoked when there's a genuine multi-candidate choice.
+  mechanically, invoking AI only when a genuine multi-candidate choice exists.
 
 **Tools/compiler used:** llama.cpp (https://github.com/ggml-org/llama.cpp);
 Qwen2.5-Coder-3B-Instruct-GGUF (tested: `qwen2.5-coder-3b-instruct-q4_k_m.gguf`).
@@ -103,24 +103,24 @@ or part of a token) that a small **purpose-trained** classifier (the GRU's
 ~500k-parameter footprint) can plausibly handle, unlike a small
 instruction-tuned LLM (confirmed NOT FEASIBLE, see below). Builds on the
 already-implemented rule-based comment-grammar classifier (Task H in
-`STATE.md`, `RDD_KEY_94`–98):
-`CommentFeatureExtractor`/`CommentFeatureVector`, `NonLatinScriptGate`,
-`KeywordAmbiguityGate`, `CommentClassifier`/`CommentClassifierWeights`
-(`YES`/`NO`/`ABSTAIN`), gated behind `comment-normalization-classifier`
-(defaults `on` since the 2026-07-30 KEYWORD_BIAS fix, see below).
-Reuses Step 2's confirmed architecture pattern (grammar-constrained short
-response, `temperature=0.0`, fail-safe fallback, `RDD_EXT_9` caching) — only
-the small-LLM variant is NOT FEASIBLE, not the pattern itself.
+`STATE.md`, `RDD_KEY_94`–98): `CommentFeatureExtractor`/`CommentFeatureVector`,
+`NonLatinScriptGate`, `KeywordAmbiguityGate`, `CommentClassifier`/
+`CommentClassifierWeights` (`YES`/`NO`/`ABSTAIN`), gated behind
+`comment-normalization-classifier` (defaults `on` since the 2026-07-30
+KEYWORD_BIAS fix, see below). Reuses Step 2's confirmed architecture pattern
+(grammar-constrained short response, `temperature=0.0`, fail-safe fallback,
+`RDD_EXT_9` caching) — only the small-LLM variant is NOT FEASIBLE, not the
+pattern itself.
 
 **Small-LLM classifier fallback: NOT FEASIBLE (confirmed by testing).** Small
 instruction-tuned models (1B–3B class) cannot reliably tell whether a word at
 the start of a sentence is plain English prose or a language keyword —
 exactly the `KeywordAmbiguityGate`/Step 3 task. Tested and failed: Qwen
-(1B–3B), Qwen2.5-Coder (1B–3B), Gemma (1B–3B). Not tested, not expected to
+(1B–3B), Qwen2.5-Coder (1B–3B), Gemma (1B–3B); not tested but not expected to
 fare better: Llama 3B. **A small on-device LLM will not be used for Step 3,
 full stop** — not as v1, not as a fallback behind the GRU, not for
 non-Latin-comment routing. The bidirectional GRU is the only Step 3 approach
-going forward. Does not reopen Step 2. Doesn't rule out a larger model (7B+)
+going forward. Doesn't reopen Step 2, doesn't rule out a larger model (7B+)
 — untested, no such path currently designed.
 
 **Model size determination:** a bidirectional GRU with ~500k parameters is
@@ -128,16 +128,16 @@ the best accuracy/latency/footprint balance for this narrow classification
 decision. Bidirectional because the full comment text is available upfront
 (not streamed) — only ~2x encoding compute, no autoregressive-latency
 downside. Pipeline: rules first (high confidence → done; abstain → GRU
-classifier → final decision). If GRU accuracy proves insufficient, the next
-step is a fresh design discussion (larger model/different hyperparameters),
-not a revival of the rejected small-LLM fallback.
+classifier → final decision). If GRU accuracy proves insufficient, next step
+is a fresh design discussion (larger model/different hyperparameters), not a
+revival of the rejected small-LLM fallback.
 
 **Non-Latin comments:** `RDD_KEY_95`'s `NonLatinScriptGate` disables the
 rule-based classifier entirely (≡ `ABSTAIN`) for any comment with a
 non-Latin codepoint, deferring to the full-file AI pass. Closed, not
 unstarted: depended on the small-LLM fallback's multi-language
 understanding, which is NOT FEASIBLE — no Step 3 LLM branch exists to route
-to. `RDD_KEY_95`'s behavior stands unchanged. A GRU trained specifically on
+to; `RDD_KEY_95`'s behavior stands unchanged. A GRU trained specifically on
 non-Latin/mixed-language examples would be a distinct, unexplored idea.
 **Disposition (2026-08-10): assessed, not planned.** A dedicated non-Latin
 GRU would need its own training corpus (no dogfood corpus for any non-Latin
@@ -205,18 +205,17 @@ decision: the task-separation path (a second model/weights file, or a
 task/schema field added to the shared abstain-resolution pipeline) will NOT
 be pursued. Reason: `MiscRuleCore.classifyComment`
 (capitalize-first-letter / strip-trailing-period) routes through the same
-`GruAbstainResolver.resolve` / same trained weights as the main Step 3 "is
-this a real explanatory comment" job — there is no separate model or `task`
-dimension in the RDD_EXT_20/21 schema (`lang`/`label`/`targetWordIndex`/
-`escaped-text`) distinguishing the two. Training "does this trailing dot end
-a sentence, vs. sit mid-token (`.hpp`, `e.g.`, `v1.0`)?" into the same label
-column the main job uses for a different question ("is this comment
-substantive prose vs. noise?") risks degrading the main job's 92.4%+ mean
-held-out precision. The cross-cutting correctness risk to the main GRU
-classifier outweighs the value of closing this narrow a gap — this item is
-dead; do not revisit without a new explicit owner decision to reopen it. The
-mechanical rule limitation (`dotCount != 1` → leave as-is) remains permanent
-behavior. Original problem statement preserved below for future reference.
+`GruAbstainResolver.resolve`/trained weights as the main Step 3 "is this a
+real explanatory comment" job — no separate model or `task` dimension exists
+in the RDD_EXT_20/21 schema (`lang`/`label`/`targetWordIndex`/`escaped-text`)
+to distinguish the two. Training "does this trailing dot end a sentence, vs.
+sit mid-token (`.hpp`, `e.g.`, `v1.0`)?" into the same label column the main
+job uses for "is this comment substantive prose vs. noise?" risks degrading
+the main job's 92.4%+ mean held-out precision — that cross-cutting
+correctness risk outweighs the value of closing this narrow a gap. Item is
+dead; do not revisit without a new explicit owner decision. The mechanical
+rule limitation (`dotCount != 1` → leave as-is) remains permanent behavior.
+Original problem statement preserved below for reference.
 
 `MiscRule.stripSoleTrailingPeriod` (§15) strips a comment's trailing `.` only
 when it's the *sole* `.` in the text — conservative, to avoid mangling an
@@ -229,14 +228,13 @@ AI_PREAMBLE_FULL.md §15):
 // Combined .hpp test: pragma once, concepts, templates, classes, extern C.
 ```
 
-`.hpp` and the trailing `C.` both count as dots, so `dotCount != 1` and the
-genuinely sentence-ending trailing period is left in place (expected:
-stripped). Distinguishing a mid-word/mid-token dot from a true
-sentence-ending dot is a natural-language judgment call with no tractable
-mechanical heuristic. This is permanently an accepted mechanical-rule
-limitation (`dotCount != 1` → leave as-is) — see the 2026-08-11 disposition
-above for why the GRU task-separation path that would have addressed it is
-not being pursued.
+`.hpp` and the trailing `C.` both count as dots, so `dotCount != 1`, leaving
+the genuinely sentence-ending period in place (expected: stripped).
+Distinguishing a mid-word/mid-token dot from a true sentence-ending dot is a
+natural-language judgment call with no tractable mechanical heuristic —
+permanently accepted as this limitation (`dotCount != 1` → leave as-is); see
+the 2026-08-11 disposition above for why the GRU task-separation fix isn't
+being pursued.
 
 ---
 
@@ -1242,89 +1240,83 @@ as of this entry — still sitting in `target/gru/`.
 
 ---
 
-**2026-08-11 — `cross_validate.py` round-loop resumability.** User separately
-added a `--progress-every` CLI param (threaded through to each round's
-`GruTrainer` invocation, already supported by the trainer) by hand; the
-round-loop's own skip-if-already-done logic was reviewed as absent and then
-implemented. Each round now checks `weights_round{N}.json` existence AND the
-absence of its sibling checkpoint (`GruTrainer`'s own
-`CHECKPOINT_CURRENT_SUFFIX`, appended directly to the `--out` path it was
-given, i.e. `weights_round{N}.json.ckpt-current.bin`, not a same-stem
-sibling) before deciding a round is complete — mirrors the trainer's own
-resumability semantics (checkpoint deleted only on normal completion; present
-means a prior run crashed mid-round, so that round is NOT skipped and is
-(re-)run normally). A skipped round still runs `GruEval` against the existing
-`weights_round{N}.json` so its precision is read back fresh and folded into
-the same in-memory `precisions` list every other round contributes to — no
-result is cached/assumed. `train_path`/`test_path` are still rewritten every
-round regardless of skip (deterministic given the fixed per-round seed,
-cheap, and required for `GruEval`'s test split either way). Handles
-`args.rounds` growing across a resumed run for free — rounds are addressed by
-index/seed, so already-done low indices skip and any new higher indices past
-what previously existed just run normally, no special-casing needed. Fixed
-the pre-existing cosmetic double-space in the `--progress-every` f-string
-while in there.
+**2026-08-11 — `cross_validate.py` round-loop resumability.** User added a
+`--progress-every` CLI param by hand (threaded through to each round's
+`GruTrainer` invocation, already trainer-supported); the round-loop's own
+skip-if-already-done logic, found absent, was implemented. Each round now
+checks `weights_round{N}.json` existence AND absence of its sibling
+checkpoint (`GruTrainer`'s own `CHECKPOINT_CURRENT_SUFFIX`, appended to the
+`--out` path given, i.e. `weights_round{N}.json.ckpt-current.bin`, not a
+same-stem sibling) before treating a round as complete — mirroring the
+trainer's own resumability semantics (checkpoint deleted only on normal
+completion; present means a prior run crashed mid-round, so that round runs
+(re-)normally, not skipped). A skipped round still runs `GruEval` against
+the existing `weights_round{N}.json`, reading its precision back fresh into
+the same in-memory `precisions` list every round contributes to — nothing
+cached/assumed. `train_path`/`test_path` are rewritten every round
+regardless of skip (deterministic given the fixed per-round seed, cheap,
+and needed for `GruEval`'s test split either way). `args.rounds` growing
+across a resumed run works for free — rounds are addressed by index/seed,
+so done low indices skip and new higher indices just run, no
+special-casing needed. Also fixed a pre-existing cosmetic double-space in
+the `--progress-every` f-string.
 
-**Validation (no full CV run — multi-hour per `STATE_AI.md`'s own prior CV
-timing notes):** standalone Python snippet (not committed, scratch-only)
-exercised the exact `weights_path.exists() and not checkpoint_path.exists()`
-expression against a temp dir through all 3 states — nothing on disk (not
-done), weights only (done), weights + checkpoint (not done, simulating a
-mid-round crash) — plus checkpoint removed again afterward (done again,
-simulating normal completion) — all 4 assertions passed.
-`python3 -m py_compile tools/gru/cross_validate.py` clean. Static review of
-the aggregation path: `eval_cmd`/`PRECISION_RE` parsing/`precisions.append`
-are unconditional after the skip/train branch, so a skipped round's
-precision is appended identically to a freshly-trained round's — no
-aggregation-path change was needed, only the branch guarding the expensive
-`GruTrainer` subprocess call itself.
+**Validation (no full CV run — multi-hour per this file's own prior CV
+timing notes):** a standalone Python snippet (scratch-only) exercised
+`weights_path.exists() and not checkpoint_path.exists()` against a temp dir
+through all 3 states — nothing on disk, weights only, weights+checkpoint
+(simulating a mid-round crash), then checkpoint removed again (simulating
+completion) — all 4 assertions passed. `python3 -m py_compile
+tools/gru/cross_validate.py` clean. Static review confirmed the aggregation
+path (`eval_cmd`/`PRECISION_RE` parsing/`precisions.append`) is
+unconditional after the skip/train branch, so a skipped round's precision
+appends identically to a fresh one's — only the branch guarding the
+expensive `GruTrainer` subprocess call itself needed changing.
 
-**2026-08-11 (same day, follow-up) — user-reported "GRU_CV_ARGS not honored" +
-"no progress printed" both root-caused to one bug, fixed.** Investigated in
-order:
+**2026-08-11 (same day, follow-up) — user-reported "GRU_CV_ARGS not
+honored" + "no progress printed", both root-caused to one bug, fixed.**
 
 1. `gru-cv-corpus`'s Makefile recipe (line 290) does reference
-   `$(GRU_CV_ARGS)` on `cross_validate.py`'s command line — not a stale/dead
-   variable, ruled out.
-2. `cross_validate.py`'s argparse: `--epochs`/`--patience`/`--eval-threshold`/
-   `--progress-every` are all declared and threaded into `train_cmd`/
-   `eval_cmd` correctly, no hardcoded override found. **Confirmed via a real
-   run** (below) that `--epochs`/`--patience` do reach `GruTrainer` — its own
-   startup line echoes `maxEpochs=2, patience=1` exactly matching what was
-   passed.
-3. **Root cause found here:** the round loop's `subprocess.run(train_cmd,
+   `$(GRU_CV_ARGS)` on `cross_validate.py`'s command line — not stale/dead,
+   ruled out.
+2. `cross_validate.py`'s argparse declares and threads `--epochs`/
+   `--patience`/`--eval-threshold`/`--progress-every` into `train_cmd`/
+   `eval_cmd` correctly, no hardcoded override found — confirmed by a real
+   run (below): `GruTrainer`'s startup line echoed `maxEpochs=2, patience=1`
+   exactly matching what was passed.
+3. **Root cause:** the round loop's `subprocess.run(train_cmd,
    cwd=formatter_dir, check=True, stdout=subprocess.DEVNULL,
-   stderr=subprocess.DEVNULL)` (introduced when mini-batch/checkpoint support
-   landed, predates this session) discards the `GruTrainer` subprocess's
-   stdout/stderr entirely — every `GruTrainer: epoch ...` progress line
-   `--progress-every` gates is silently thrown away regardless of the flag's
-   value. This alone explains symptom 2. It also explains the *appearance* of
-   symptom 1: with training output fully suppressed, there was no way to
-   observe whether `--epochs`/`--patience` were actually taking effect (only
-   the final per-round precision line, from `GruEval`, was ever visible) —
-   the args were correctly wired all along; the visibility into them was not.
+   stderr=subprocess.DEVNULL)` (introduced when mini-batch/checkpoint
+   support landed, predates this session) discards the `GruTrainer`
+   subprocess's stdout/stderr entirely, silently dropping every
+   `--progress-every`-gated `GruTrainer: epoch ...` line regardless of the
+   flag — explaining symptom 2 directly, and symptom 1's *appearance*: with
+   output suppressed there was no way to see whether `--epochs`/
+   `--patience` were taking effect (only the final `GruEval` precision line
+   was ever visible) — the args were wired correctly all along; only
+   visibility was missing.
 4. `GruTrainer.java`'s `printProgress` (~line 1216) writes via
    `System.out.println` unconditionally when called, gated only by
-   `progressEvery > 0 && examplesSeen % progressEvery == 0` (~line 567) — not
-   itself broken or behind a separate verbosity flag.
-5. **Fix:** removed the `stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL`
-   from the training subprocess call so it inherits `cross_validate.py`'s own
-   stdout/stderr (no `PIPE`/`DEVNULL`) — flows straight through to the console
-   for a manual run, or to `GRU_CV_LOG` under `make gru-cv-corpus`'s existing
-   `> $(GRU_CV_LOG) 2>&1` redirection, no Makefile change needed. The
-   `GruEval` subprocess call (`stdout=subprocess.PIPE`) is intentionally left
-   as-is — its output is parsed via `PRECISION_RE`, not just logged.
+   `progressEvery > 0 && examplesSeen % progressEvery == 0` (~line 567) —
+   not itself broken or behind a separate verbosity flag.
+5. **Fix:** removed `stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL`
+   from the training subprocess call so it inherits `cross_validate.py`'s
+   own stdout/stderr — flows through to the console for a manual run, or to
+   `GRU_CV_LOG` under `make gru-cv-corpus`'s existing `> $(GRU_CV_LOG) 2>&1`
+   redirection, no Makefile change needed. The `GruEval` subprocess call
+   (`stdout=subprocess.PIPE`) is intentionally left as-is — its output is
+   parsed via `PRECISION_RE`, not just logged.
 
 **Validated with a real tiny end-to-end run** (not just static review, since
 this is runtime plumbing): 12-line synthetic examples file, `--rounds 1
 --epochs 2 --patience 1 --progress-every=1 --eval-threshold 0.7`. Before the
-fix: zero `GruTrainer:` lines printed. After the fix: full progress output
-appeared, including `GruTrainer: starting -- ... maxEpochs=2, patience=1 ...`
-(confirming the passed `--epochs`/`--patience` were honored all along) and a
-`GruTrainer: epoch N, progress M/8 (...)` line for every one of the 8 training
-examples per epoch (matching `--progress-every=1`), through to the final
-`GruEval` precision line unaffected. `python3 -m py_compile
-tools/gru/cross_validate.py` clean after the fix.
+fix: zero `GruTrainer:` lines printed. After: full progress output
+appeared, including `GruTrainer: starting -- ... maxEpochs=2, patience=1
+...` (confirming `--epochs`/`--patience` were honored all along) and a
+`GruTrainer: epoch N, progress M/8 (...)` line per training example per
+epoch (matching `--progress-every=1`), through to the final `GruEval`
+precision line, unaffected. `python3 -m py_compile tools/gru/cross_validate.py`
+clean after the fix.
 
 ---
 

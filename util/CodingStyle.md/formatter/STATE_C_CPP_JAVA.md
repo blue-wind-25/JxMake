@@ -175,19 +175,18 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   heuristics too fragile to trust) — require an explicit `--lang cpp` override instead. Verified
   for real (2026-08-11): a `.h` fixture containing `^^ int` and `[:refl:]` left `^^` untouched
   under default inference but correctly tightened to `^^int` under `--lang cpp` (which also flips
-  the empty-param-list rendering from C's `foo(void)` to C++'s `foo()`, confirming the whole `cpp`
+  empty-param-list rendering from C's `foo(void)` to C++'s `foo()`, confirming the whole `cpp`
   pipeline — not just the reflection rules — engages correctly). `Main.java`'s `--lang` override
   already takes priority over extension-based `inferLanguage`, no bug found, no source change
   needed. Documented in `README.md`'s Known Limitations, curly-brace family, item 6. `make test`:
   278/278 forward + idempotency, unchanged.
 
-  **2026-08-12 follow-up:** a per-file alternative to remembering `--lang cpp` on every
-  invocation now exists -- the `JXM_CFMT_CFG` directive's new `--lang` pseudo-key (RDD_KEY_286).
-  Known Limitations item 6 broadened at the same time from "C++26 §5 reflection rules only" to
-  the whole C++-only rule surface (the underlying gap was never reflection-specific -- every
-  C++-only rule in the `cpp` pipeline was equally affected, item 6's wording just hadn't said so
-  yet). The default `.h` -> `"c"` inference itself is unchanged; still the project owner's
-  decision per this entry's original text above.
+  **2026-08-12 follow-up:** a per-file alternative to remembering `--lang cpp` on every invocation
+  now exists — the `JXM_CFMT_CFG` directive's new `--lang` pseudo-key (RDD_KEY_286). Known
+  Limitations item 6 broadened at the same time from "C++26 §5 reflection rules only" to the whole
+  C++-only rule surface (never reflection-specific — every C++-only rule in the `cpp` pipeline was
+  equally affected, item 6's wording just hadn't said so yet). The default `.h` -> `"c"` inference
+  itself is unchanged, still the project owner's decision per this entry's original text above.
 
 - **range-v3 real-code-testing item 20, bug (a): RESOLVED.** Idempotency divergence in
   `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause/fix: entry (20) in
@@ -250,11 +249,11 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   every gcc-passing fixture also passes clang. The `-stdlib=libc++`-only failures found
   (standalone header-fragment fixtures missing full context, e.g. `platform.hpp`) are expected
   snippet noise — none pass gcc either. No other finished-dogfood entry records a clang/gcc
-  discrepancy (item 22 `microsoft/proxy` matched gcc cleanly with
-  `clang++ -std=c++23 -stdlib=libc++`). The adjacent item (20) `range-v3` corpus (likely origin of
-  this report) was only ever verified against gcc, never clang, and its `/tmp` checkout is now
-  empty (no filenames recorded). Closed as not reproducible against the current fixture set;
-  re-open with concrete filenames if it resurfaces.
+  discrepancy (item 22 `microsoft/proxy` matched gcc cleanly with `clang++ -std=c++23
+  -stdlib=libc++`). The adjacent item (20) `range-v3` corpus (likely origin of this report) was
+  only ever verified against gcc, never clang, and its `/tmp` checkout is now empty (no filenames
+  recorded). Closed as not reproducible against the current fixture set; re-open with concrete
+  filenames if it resurfaces.
 
 ---
 

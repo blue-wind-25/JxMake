@@ -1,7 +1,7 @@
 # STATE_CURLY_GDR.md — General Scope-Depth Reindentation (curly reindent job)
 
-Read `STATE_COMMON.md` first — shared commit workflow, ambiguity-handling
-protocol, file-exclusion rules, and real-code-testing methodology. This
+Read `STATE_COMMON.md` first (shared commit workflow, ambiguity-handling
+protocol, file-exclusion rules, and real-code-testing methodology). This
 file holds only what is specific to this job.
 
 ---
@@ -26,15 +26,15 @@ Split out of `STATE_COMMON.md`'s old "Architectural TODOs" section
 
 ## Background: why this is its own dedicated job, not a quick fix
 
-**Current state** (confirmed by direct testing, C++26 session): the
-formatter does not reindent ordinary body statements from scratch — original
+**Current state** (confirmed by direct testing, C++26 session): the formatter
+does not reindent ordinary body statements from scratch — original
 whitespace is preserved except for specific recognized rewrites. Only
-`SwitchRule.applyNonInlineCaseIndent` and `ScopePipeline.applyDeclarationsPass`
-reindent anything, both applying one **relative delta** from a single
-reference line, not an absolute target from brace-nesting depth.
-`STATE_C_CPP_JAVA.md`'s "Known Gaps — Open" documents two real bugs from
-this shape (`ASTParser.java` in `javaparser/javaparser`; local
-`tool/JSONEncoderLite.java`) — non-idempotent reindentation on
+`SwitchRule.applyNonInlineCaseIndent` and
+`ScopePipeline.applyDeclarationsPass` reindent anything, both applying a
+**relative delta** from a single reference line, not an absolute target from
+brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps — Open" documents
+two real bugs from this shape (`ASTParser.java` in `javaparser/javaparser`;
+local `tool/JSONEncoderLite.java`) — non-idempotent reindentation on
 internally-inconsistent source, both ACCEPTED-not-fixed: the real fix
 (absolute target from structural depth) is nontrivial, with real regression
 risk for a narrow shape.
@@ -612,16 +612,16 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       see `RDD_KEY_240`:** a single-level TS/JS `if (...) {
       arr.filter(x => x > 0).map(x => x*2).forEach(x => {...}); } else if
       (...) { ... }` (depth 1) with multipass on: round1 differs from
-      round2 on the wrapped `.map(...)` continuation's indent column.
-      round2 == round3 == round4 == round5 (stable after that point) — the
-      true fixed point exists but needs a second full formatter invocation
-      to reach, not the one bounded-4-stage invocation the design assumed.
-      This **directly falsified** this file's earlier claim that "a second
-      full 4-stage application should be a no-op end to end." Root cause:
-      same circular dependency `RDD_KEY_229` diagnosed, manifesting one
-      level deeper than the 4-stage bound accounts for. Reproduces in plain
-      JS/TS at depth 1; reproduces in Kotlin at much deeper nesting (30
-      levels); did not reproduce in the equivalent Java shape at any depth.
+      round2 on the wrapped `.map(...)` continuation's indent column, but
+      round2 == round3 == round4 == round5 — a true fixed point exists but
+      needs a second full formatter invocation to reach, not the one
+      bounded-4-stage invocation the design assumed. This **falsifies**
+      this file's earlier claim that "a second full 4-stage application
+      should be a no-op end to end." Root cause: the same circular
+      dependency `RDD_KEY_229` diagnosed, manifesting one level deeper than
+      the 4-stage bound accounts for. Reproduces in plain JS/TS at depth 1
+      and in Kotlin at much deeper nesting (30 levels); did not reproduce in
+      the equivalent Java shape at any depth.
 
       **No source code changed this session** — fixing the bounded-loop
       architecture itself is a real, separate follow-on (landed next, see
@@ -631,14 +631,14 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       expected output, wrong for a documented not-yet-fixed gap).
 
       **Honest confidence assessment:** this is evidence the 4-stage bound
-      is insufficient for at least one real (if narrow/synthetic) shape,
-      not just "unproven." Does not mean every real-world file is at risk —
+      is insufficient for at least one real (if narrow/synthetic) shape, not
+      just "unproven" — but not evidence every real-world file is at risk:
       every real-code corpus tested so far (700+ files, Java/C++/TS) still
-      cleared cleanly, and the shape needed (wrapped fluent/arrow chain
-      immediately inside a one-true-brace-joined if/else-if) is fairly
+      cleared cleanly, and the triggering shape (a wrapped fluent/arrow
+      chain immediately inside a one-true-brace-joined if/else-if) is fairly
       specific. Known: (1) the 4-stage bound is not a structural guarantee,
-      confirmed by direct counterexample; (2) at least for the cases found,
-      the oscillation is bounded and damps out after one additional full
+      confirmed by direct counterexample; (2) for the cases found, the
+      oscillation is bounded and damps out after one additional full
       reformat; (3) not an exhaustive search — deeper/wider adversarial
       constructions in C/C++, other JS/TS shapes, and combos with
       switch-case/ternary-wrap in TS/Kotlin remain untried.

@@ -73,7 +73,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java | STATE_C_CPP_JAVA.md | VMA-GIT/anemonesoft (local) | DONE | |
 | Kotlin | STATE_KOTLIN.md | arrow-kt/arrow | DONE | |
 | Kotlin | STATE_KOTLIN.md | gui_frontend_android | DONE | |
-| Kotlin | STATE_KOTLIN.md | JetBrains/kotlin | DONE - PARTIAL FIX | D3 still open — root cause confirmed, fix attempt reverted (28 fixture regressions); RDD_KEY_235 confirmed GDR/multipass doesn't resolve it (see STATE_CURLY_GDR.md). 2026-08-11: full 16153-file content-diff pass completed (15583 OK, 570 MISMATCH — all sampled as checker tolerance gaps on already-documented legitimate transforms, no new bug); RDD_KEY_278/279 validated at full-corpus scale |
+| Kotlin | STATE_KOTLIN.md | JetBrains/kotlin | DONE | D3 fixed 2026-08-16 (RDD_KEY_298, see STATE_CURLY_GDR.md) — `FormatterCurly.formatOne` re-runs itself for Kotlin only until two consecutive passes converge; re-validated on the same 188-file `compiler/ir/backend.js/src` subtree the repro came from, 188/188 idempotent and syntax-clean. 2026-08-11: full 16153-file content-diff pass completed (15583 OK, 570 MISMATCH — all sampled as checker tolerance gaps on already-documented legitimate transforms, no new bug); RDD_KEY_278/279 validated at full-corpus scale |
 | Kotlin | STATE_KOTLIN.md | kotlinx.coroutines | DONE | |
 | Kotlin | STATE_KOTLIN.md | square/kotlinpoet | DONE | |
 | Kotlin | STATE_KOTLIN.md | square/okio | DONE | |

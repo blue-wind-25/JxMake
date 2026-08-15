@@ -70,6 +70,7 @@ started (docs-only, no code landed yet).
 | RDD_KEY_261 | Comment normalization landed (refines, doesn't reverse, RDD_KEY_260): shared `ToolingCommentNormalizer` (start-case + end-period, reusing the existing global config keys) wired into all three; Bash alone gets a Unix-tool-name no-capitalize word list, Makefile/PowerShell get plain cap only |
 | RDD_KEY_267 | `#`-comment chain-grouping (2026-08-08 brief #3, curly/RDD_KEY_265/RDD_KEY_266 parity): consecutive standalone `#` comment lines now normalize as one unit via `ToolingCommentNormalizer.normalizeChain` instead of independently; fixed a latent bug stripping a mid-chain sole `.` not on the chain's last comment |
 | RDD_KEY_272 | Pure refactor: RDD_KEY_267's deferred-placeholder chain mechanism (duplicated in `BashSpecificRule`/`PowerShellSpecificRule`) extracted into shared `ToolingCommentNormalizer.ChainCollector` (both files hold one field instead of separate `ChainEntry`/`resolveChainEntries` copies); Makefile untouched (simple lookahead, no deferred mechanism). Byte-identical output, `make test` 261/261 unchanged |
+| RDD_KEY_296 | PowerShell §3.1 `applyBraceIndent` bug fix (dogfood against `util/JCS/*.ps1`): scope depth generalized from brace-only to also track `(`/`[`/`)`/`]` (fixes `param(...)`-block content flushed to enclosing brace depth); new backtick-continuation-aware indent bump (`lineEndsWithBacktick`) fixes inconsistent reindent of `` ` ``-continued lines. New fixture `real_code_regressions_210` |
 
 ---
 
@@ -558,3 +559,30 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       regenerated/verified). `make test`: 257/257 forward + idempotency,
       zero regressions (no new fixtures needed). Closes out decision #3 of
       the 2026-08-08 brief.
+- [x] **PowerShell -- `util/JCS/*.ps1` (6 files), DONE, 1 bug found and
+      fixed (RDD_KEY_296, 2026-08-15).** A prior dogfood pass over
+      `util/JCS/*.ps1` flagged all 6 files with formatting diffs suggesting
+      a real bug (`param(...)` block contents flushed to column 0;
+      backtick line-continuations re-indented inconsistently) but left
+      unfixed/unadopted (no content-diff verifier for PowerShell, round1
+      discarded). Repro'd with a synthetic `.ps1` (indented `param(...)` +
+      a backtick-continued statement) before touching code. Root cause:
+      `PowerShellSpecificRule.applyBraceIndent` tracked scope depth via
+      `{`/`}` only, so a multi-line paren/bracket-delimited construct (a
+      `param(...)` list) had its interior flattened to the enclosing brace
+      depth; backtick continuations had no depth signal at all. Fixed by
+      generalizing `countLeadingCloses`/`countCodeChar` (now varargs) to
+      also count `(`/`[`/`)`/`]`, and adding a `lineEndsWithBacktick`-driven
+      `contLine` flag that bumps a continuation line's indent by one level,
+      chaining across consecutive backtick-continued lines, reset on a
+      blank or non-continuation line. New fixture
+      `test/real_code_regressions_210_{inp,out}.ps1` (combined param-block
+      + backtick-continuation repro). `make test`: 319/319 forward +
+      idempotency (was 318/318). Verified against the real trigger files:
+      all 6 `util/JCS/*.ps1` files reformatted, `param(...)` blocks and
+      backtick continuations both confirmed correct, round1/round2 diff
+      empty (idempotent) across all 6. Remaining diffs against originals
+      are pre-existing, unrelated tooling-job behaviors (operator/`=`
+      alignment, comment normalization) already covered by earlier
+      RDD_KEYs -- not touched by this fix. See `RDD_KEY_296` for full
+      narrative.

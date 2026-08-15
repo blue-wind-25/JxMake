@@ -4040,6 +4040,14 @@ Real-code regressions:
                                                         array/object literal is in play (preserves
                                                         `real_code_regressions_81`'s existing behavior).
 
+  real_code_regressions_210_inp/out.ps1              -- `applyBraceIndent` (STYLE_TOOLING.md §3.1) fix:
+                                                        `param(...)` block contents and backtick
+                                                        line-continuations no longer collapse to the enclosing
+                                                        brace depth. Scope depth now also tracks `(`/`[`
+                                                        alongside `{`, and a line ending in an unescaped
+                                                        code-kind backtick bumps the next line's indent by one
+                                                        level.
+
 How Tests Are Run
 -----------------
 

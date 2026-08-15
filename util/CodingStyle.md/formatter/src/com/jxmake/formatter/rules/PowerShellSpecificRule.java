@@ -628,9 +628,10 @@ public final class PowerShellSpecificRule {
         final boolean[]    pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final char[][]     kinds = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
-        final List<String> out   = new ArrayList<>( lines.lines.size() );
-              int          depth = 0;
+        final char[][]     kinds   = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
+        final List<String> out     = new ArrayList<>( lines.lines.size() );
+              int          depth   = 0;
+              boolean      contLine = false; // true when this line is a backtick continuation of the previous one
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
             final String line    = lines.lines.get(li);
@@ -639,15 +640,21 @@ public final class PowerShellSpecificRule {
 
             if( trimmed.isEmpty() ) {
                 out.add("");
+                contLine = false;
                 continue;
             }
 
+            // Scope depth tracks '('/'['/'{' and ')'/']'/'}' uniformly (not just braces) so a
+            // multi-line paren/bracket group (e.g. a `param(...)` block, a multi-line call argument
+            // list) indents like any other nested construct instead of being reindented flat to the
+            // enclosing brace depth -- still "naive" (STYLE_TOOLING.md §3.1: every opener/closer
+            // treated identically regardless of construct kind), just no longer brace-only.
             final int leadingCloses = countLeadingCloses(trimmed, line, lk);
-            final int open          = countCodeChar(trimmed, line, lk, '{');
-            final int close         = countCodeChar(trimmed, line, lk, '}');
+            final int open          = countCodeChar(trimmed, line, lk, '{', '(', '[');
+            final int close         = countCodeChar(trimmed, line, lk, '}', ')', ']');
 
             if( pure[li] ) {
-                final int printDepth = Math.max(0, depth - leadingCloses);
+                final int printDepth = Math.max(0, depth - leadingCloses) + (contLine ? 1 : 0);
                 out.add( indent(printDepth) + trimmed );
             }
             else {
@@ -655,13 +662,31 @@ public final class PowerShellSpecificRule {
                 out.add(line);
             }
 
-            depth = Math.max(0, depth + open - close);
+            depth    = Math.max(0, depth + open - close);
+            contLine = pure[li] && lineEndsWithBacktick(line, lk);
         } // for
 
         lines.lines.clear();
         lines.lines.addAll(out);
 
         return lines.join();
+    }
+
+    /**
+     * True when {@code line} ends (ignoring nothing -- PowerShell requires the backtick to be the
+     * literal last character) with a code-kind backtick line-continuation -- i.e. the next physical
+     * line is a continuation of this statement and should be indented one level deeper.
+     */
+    private static boolean lineEndsWithBacktick(final String line, final char[] lk)
+    {
+        int n = line.length() - 1;
+        int count = 0;
+        while( n >= 0 && line.charAt(n) == '`' && n < lk.length && lk[n] == 'C' ) {
+            ++count;
+            --n;
+        }
+
+        return (count % 2) == 1; // Odd trailing-backtick run = an unescaped continuation backtick
     }
 
     /**
@@ -692,8 +717,8 @@ public final class PowerShellSpecificRule {
                 // Opaque non-ws at the start (e.g. comment line) -- not a leading close
                 break;
             }
-            if(c == '}') n++;
-            else         break;
+            if(c == '}' || c == ')' || c == ']') n++;
+            else                                 break;
         } // for
 
         return n;
@@ -703,16 +728,18 @@ public final class PowerShellSpecificRule {
         final String trimmed,
         final String line,
         final char[] lineKind,
-        final char   target
+        final char...  targets
     )
     {
         final int base = leadingWhitespace(line).length();
               int n    = 0;
         for( int i = 0; i < trimmed.length(); ++i ) {
             final int ki = base + i;
-            if( ki >= 0 && ki < lineKind.length && lineKind[ki] == 'C' && trimmed.charAt(
-                i
-            ) == target ) n++;
+            if( ki < 0 || ki >= lineKind.length || lineKind[ki] != 'C' ) continue;
+            final char c = trimmed.charAt(i);
+            for(final char t : targets) {
+                if(c == t) { n++; break; }
+            }
         }
 
         return n;

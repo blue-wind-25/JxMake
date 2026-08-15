@@ -49,8 +49,7 @@ so a file containing real JSX tag syntax is safe to run through the formatter �
 portions round-trip unchanged while surrounding plain JS/TS gets normal formatting. The pre-pass
 runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs` (mirrors Prettier's own
 default — real-world `.js` files with embedded JSX, e.g. older Create-React-App projects, are
-common enough that gating on extension alone caused genuine content corruption; see
-`STATE_JS_TS.md`'s 2026-08-13 implementation section). `.ts` deliberately stays gated off by
+common enough that gating on extension alone caused genuine content corruption). `.ts` deliberately stays gated off by
 default — a `.ts` file's legacy `<Type>expr` angle-bracket cast syntax collides with a JSX open
 tag, the same reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx` — but a `.ts` file
 that genuinely embeds JSX can opt in per-file with the `jsx-in-ts` [`JXM_CFMT_CFG`
@@ -775,18 +774,20 @@ here if and when it actually gains a documented gap.
    affecting C/C++/Java/Kotlin/JS/TS.** Whether a small call or condition nested inside a
    longer expression stays on one line or gets wrapped is, in one code path, decided by
    measuring the length of its entire surrounding source line rather than just the
-   candidate's own rendered content. For a short nested call sitting inside a long
-   enclosing line, this can wrap it unnecessarily. Because the measurement is based on the
-   surrounding line's physical layout rather than the candidate's own logical content, the
-   same input can format differently the first time versus if the already-formatted output
-   is fed back in and formatted again — i.e. formatting is not always idempotent for this
-   narrow shape. A fix was attempted (measuring from the candidate's own position instead
-   of its enclosing line's start) but caused numerous unrelated formatting regressions
-   elsewhere, because a candidate's line-prefix content (e.g. `return `, `if (`, `val x =
-   `) legitimately needs to count toward the line-length limit in most other cases. The fix
-   was reverted rather than landed narrowly or accompanied by a wide, unreviewed
-   regression sweep. This is a known, currently-unresolved gap — no workaround exists
-   short of avoiding deeply nested short calls inside very long lines.
+   candidate's own rendered content:
+
+   ```java
+   // Short nested call, but the enclosing line is long -- may wrap unnecessarily:
+   someVeryLongVariableNameHere = anotherLongIdentifier + shortCall(a, b);
+   ```
+
+   For a short nested call sitting inside a long enclosing line, this can wrap it
+   unnecessarily. Because the measurement is based on the surrounding line's physical layout
+   rather than the candidate's own logical content, the same input can format differently the
+   first time versus if the already-formatted output is fed back in and formatted again — i.e.
+   formatting is not always idempotent for this narrow shape. This is a known,
+   currently-unresolved gap — no workaround exists short of avoiding deeply nested short calls
+   inside very long lines.
 
 3. **`.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in.** The JSX/TSX
    boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but
@@ -797,10 +798,10 @@ here if and when it actually gains a documented gap.
    formatting rules have now been validated end-to-end against five real-world corpora spanning
    both JSX-in-`.js` and TSX (`taniarascia/react-tutorial`, `ruanyf/react-demos`,
    `reactstrap/reactstrap`, `microsoft/TypeScript-React-Starter`,
-   `Lemoncode/react-typescript-samples`, `excalidraw/excalidraw` — see `STATE_DOGFOOD.md`),
-   which found and fixed real content-corruption bugs in JSX fragment shorthand (`<>...</>`) and
-   in multi-line template-literal `${...}` holes; a residual risk of an unseen JSX-adjacent edge
-   case not exercised by these corpora remains, as with any real-world dogfooding.
+   `Lemoncode/react-typescript-samples`, `excalidraw/excalidraw`), including JSX fragment
+   shorthand (`<>...</>`) and multi-line template-literal `${...}` holes; a residual risk of an
+   unseen JSX-adjacent edge case not exercised by these corpora remains, as with any real-world
+   testing.
 
 4. **JSX/TSX-syntax-aware reformatting doesn't exist, beyond one specific wrap rule.** Real JSX
    tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte as opaque,
@@ -819,16 +820,7 @@ here if and when it actually gains a documented gap.
    for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
    is a known, accepted simplification — no source-root config key is planned.
 
-6. ~~Non-idempotent reindent on internally-inconsistent generated source, for a pass using a
-   relative-delta technique (`ScopePipeline.applyDeclarationsPass`).~~ **CLOSED 2026-08-15
-   (RDD_KEY_292) — no longer reproduces.** A fix attempt against the original real-code repro
-   (`JSONEncoderLite.java`) plus several hand-built synthetic repros matching the description all
-   converged idempotently; most likely fixed as a side effect of unrelated indent-normalization
-   work landed since. See `STATE_C_CPP_JAVA.md`'s Known Gaps for detail. (The sibling
-   `SwitchRule.applyNonInlineCaseIndent` case-body gap this entry used to reference was fixed
-   earlier, independently — see that entry's history.)
-
-7. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
+6. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
    commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and
    also the `#`-comment tooling family (Makefile/Bash/PowerShell) and YAML/TOML.** See "Config
    file format" → [Multi-sentence comment
@@ -837,7 +829,7 @@ here if and when it actually gains a documented gap.
    '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
    codebases that keep a lot of commented-out code inside otherwise-prose comment groups.
 
-8. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
+7. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
    rules (`^^`, `[: :]` splice brackets), but every C++-specific behavior across the whole `cpp`
    pipeline (e.g. empty-parameter-list rendering, `template`/`requires` handling, and every other
    C++20/C++23/C++26 rule this formatter implements) — never applies to a `.h` file's content
@@ -851,9 +843,9 @@ here if and when it actually gains a documented gap.
    cpp` on the CLI, the `lang=cpp` query parameter in server mode, or (to avoid having to
    remember the flag on every invocation) a per-file `//% JXM_CFMT_CFG --lang=cpp` /
    `/*% JXM_CFMT_CFG --lang=cpp */` directive at the top of the file itself — see [In-file config
-   overrides](#in-file-config-overrides) above. Verified: the override takes priority over
-   extension-based inference for `.h` files specifically — `^^`/`[: :]` are left untouched under
-   default `.h` inference and correctly rewritten under `--lang cpp`.
+   overrides](#in-file-config-overrides) above. The override takes priority over extension-based
+   inference for `.h` files specifically — e.g. `^^`/`[: :]` are left untouched under default
+   `.h` inference and correctly rewritten under `--lang cpp`.
 
 ### Tag-based family (XML/HTML5)
 

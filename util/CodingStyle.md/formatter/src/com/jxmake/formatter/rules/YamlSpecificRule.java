@@ -159,30 +159,11 @@ public final class YamlSpecificRule {
      */
     private static int findMappingColon(final String s)
     {
-        boolean inSingle = false;
-        boolean inDouble = false;
-        int     depth    = 0;
-        for( int i = 0; i < s.length(); ++i ) {
-            final char ch = s.charAt(i);
-            if(inSingle) {
-                if(ch == '\'') inSingle = false;
-                continue;
-            }
-            if(inDouble) {
-                     if(ch == '\\') i++;
-                else if(ch == '"')  inDouble = false;
-                continue;
-            }
-                 if(ch == '\'') inSingle = true;
-            else if(ch == '"') inDouble = true;
-            else if(ch == '{' || ch == '[') depth++;
-            else if(ch == '}' || ch == ']') depth--;
-            else if( ch == ':' && depth == 0 && ( i + 1 == s.length() || s.charAt(
+        return YamlTomlSharedRule.scanQuoteAwareBracket(
+            s, (str, i, ch, depth) -> ch == ':' && depth == 0 && ( i + 1 == str.length() || str.charAt(
                 i + 1
-            ) == ' ' ) ) return i;
-        } // for
-
-        return -1;
+            ) == ' ' )
+        ).stopIndex;
     }
 
     /**

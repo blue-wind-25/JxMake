@@ -114,6 +114,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_266 | YAML/TOML `#`-comment chain-grouping parity with curly, shared implementation with the tooling job (RDD_KEY_267): new `ToolingCommentNormalizer.normalizeChain`; `YamlSpecificRule`/`TomlSpecificRule` each gained a `finalizeComments` deferred-normalization step (TOML also gained new per-comment blank-line tracking it lacked before). Fixtures `yaml_comment_chain_{inp,out}.yaml`/`toml_comment_chain_{inp,out}.toml`; 5 pre-existing YAML fixtures regenerated. |
 | RDD_KEY_280 | YAML/TOML DRY cleanup (Tier1 item): `YamlSpecificRule`/`TomlSpecificRule`'s duplicated `=`/`:`-alignment padding, same-line `#`-comment splitting, and comment start-case/end-period normalization factored into new package-private `rules/YamlTomlSharedRule.java`. Pure pull-up, no behavior change; `make test` 278/278 forward + idempotency before and after. |
 | RDD_KEY_300 | 2026-08-16 cleanup pass: `JsonSpecificRule`/`CssSpecificRule`'s `repeatChar`/`indent` (byte-identical to each other and to `YamlTomlSharedRule`'s own pre-RDD_KEY_280 copy) promoted to `FormatterSimpleBraced`; `YamlTomlSharedRule` re-routed to delegate there too. Full details/rationale in `RDD_LOG.md`. |
+| RDD_KEY_302 | Follow-up to RDD_KEY_300's deferred item: `TomlSpecificRule.bracketBalance`/`findAssignmentEquals`/`YamlSpecificRule.findMappingColon`'s duplicated quote-aware bracket-depth scanner consolidated into `YamlTomlSharedRule.scanQuoteAwareBracket` (real parameterized-terminal-condition abstraction, `BracketScanStop`/`BracketScanResult`, not a packed-int return). Full details/rationale (including the packed-int-return regression found and fixed mid-task) in `RDD_LOG.md`. |
 
 ---
 
@@ -755,20 +756,30 @@ per-repo dogfood bugs):
       factored into `rules/YamlTomlSharedRule.java` — **RESOLVED,
       RDD_KEY_280** (see Resolved Design Decisions). `FormatterToml` mirrors
       `FormatterYaml`.
-      **2026-08-16 cleanup-pass candidate (not consolidated, deferred):**
+      **2026-08-16 cleanup-pass candidate — RESOLVED (follow-up session):**
       `TomlSpecificRule.bracketBalance`/`findAssignmentEquals` and
-      `YamlSpecificRule.findMappingColon` are a near-identical quote-aware
-      (`'`/`"`-respecting, backslash-escape-aware) bracket-depth character
-      scanner, each with its own terminal condition (TOML: none, returns
-      final depth; TOML also: stop at bare `=` at depth 0; YAML: stop at `:`
-      at depth 0 followed by space/EOL) — genuinely near-identical in
-      mechanism, but a real consolidation needs a parameterized-terminal-
-      condition abstraction, not a thin same-signature wrapper like
-      RDD_KEY_300's `repeatChar`/`indent` pull-up. Left unconsolidated this
-      pass per the caution guardrail (bracket-depth tracking is exactly the
-      area with this codebase's prior pass-ordering-bug history) — a future
-      pass could pick this up specifically if it designs and proves the
-      abstraction via `make test` before/after.
+      `YamlSpecificRule.findMappingColon` (the near-identical quote-aware
+      bracket-depth scanner flagged above) were consolidated into
+      `YamlTomlSharedRule.scanQuoteAwareBracket(String, BracketScanStop)`, a
+      real parameterized-terminal-condition abstraction (functional
+      interface `BracketScanStop.shouldStopAt(s, i, ch, depth)`, plus a
+      `BracketScanResult(stopIndex, finalDepth)` result holder — not a
+      packed-int return, see below). All three call sites now delegate. A
+      first attempt using a packed-int return (negative-encoded "not found"
+      sentinel) caused a real regression — a lone unmatched `]` continuation
+      line drives `depth` negative, and the encoding collided with a
+      legitimate found-index for some negative-depth values, silently
+      corrupting `parseMultilinePlainScalar`'s continuation detection and
+      truncating output (`real_code_regressions_83_out.yaml`, `make test`
+      322/323). Fixed by switching to the explicit result-holder type,
+      eliminating the sentinel-collision bug class entirely. Verified: `make
+      test`/`make test-server` 323/323 clean; a real-code dogfood
+      idempotency pass against `cpython` (86 `.toml` + 38 `.yaml`) and
+      `azure-pipelines-tasks` (55 `.yaml`) showed byte-identical round1
+      output between the pre- and post-consolidation code across the whole
+      corpus, with one pre-existing (reproduces identically on unmodified
+      code too) non-idempotency case, `cpython/Misc/stable_abi.toml`
+      (blank-line-count drift), left as out of scope. See `RDD_KEY_302`.
 - [x] **YAML/TOML local fixtures** authored ahead of implementation, then
       verified against real logic and uncommented in the Makefile:
       `yaml_core_*`, `yaml_comments_*`, `toml_core_*`, `toml_comments_*`.

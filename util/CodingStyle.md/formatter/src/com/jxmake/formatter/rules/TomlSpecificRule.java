@@ -142,28 +142,9 @@ public final class TomlSpecificRule {
     /** Finds the first unquoted, unbracketed '=' -- the key/value separator. Returns -1 if none. */
     private static int findAssignmentEquals(final String s)
     {
-        boolean inSingle = false;
-        boolean inDouble = false;
-        int     depth    = 0;
-        for( int i = 0; i < s.length(); ++i ) {
-            final char ch = s.charAt(i);
-            if(inSingle) {
-                if(ch == '\'') inSingle = false;
-                continue;
-            }
-            if(inDouble) {
-                     if(ch == '\\') i++;
-                else if(ch == '"')  inDouble = false;
-                continue;
-            }
-                 if(ch == '\'')              inSingle = true;
-            else if(ch == '"')               inDouble = true;
-            else if(ch == '{' || ch == '[')  depth++;
-            else if(ch == '}' || ch == ']')  depth--;
-            else if(ch == '=' && depth == 0) return i;
-        } // for
-
-        return -1;
+        return YamlTomlSharedRule.scanQuoteAwareBracket(
+            s, (str, i, ch, depth) -> ch == '=' && depth == 0
+        ).stopIndex;
     }
 
     /**
@@ -213,27 +194,7 @@ public final class TomlSpecificRule {
      */
     private static int bracketBalance(final String s)
     {
-        boolean inSingle = false;
-        boolean inDouble = false;
-        int     depth    = 0;
-        for( int i = 0; i < s.length(); ++i ) {
-            final char ch = s.charAt(i);
-            if(inSingle) {
-                if(ch == '\'') inSingle = false;
-                continue;
-            }
-            if(inDouble) {
-                     if(ch == '\\') i++;
-                else if(ch == '"')  inDouble = false;
-                continue;
-            }
-                 if(ch == '\'')             inSingle = true;
-            else if(ch == '"')              inDouble = true;
-            else if(ch == '{' || ch == '[') depth++;
-            else if(ch == '}' || ch == ']') depth--;
-        } // for
-
-        return depth;
+        return YamlTomlSharedRule.scanQuoteAwareBracket(s, null).finalDepth;
     }
 
     // ---- AST -----------------------------------------------------------------------------------

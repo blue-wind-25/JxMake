@@ -128,6 +128,78 @@ final class YamlTomlSharedRule {
      *  the two callers' own {@code Item} classes are unrelated (YAML's carries sequence/mapping
      *  fields TOML has no use for, and vice versa).
      */
+    /**
+     * Terminal-condition callback for {@link #scanQuoteAwareBracket} -- invoked once per character
+     *  not consumed by quote/bracket handling, after any bracket-depth delta for that character has
+     *  already been applied to {@code depth}. Return {@code true} to stop the scan at index
+     *  {@code i}.
+     */
+    interface BracketScanStop {
+
+        boolean shouldStopAt(String s, int i, char ch, int depth);
+
+    } // interface BracketScanStop
+
+    /**
+     * Result of {@link #scanQuoteAwareBracket}: {@code stopIndex} is the index of the first
+     *  character {@code stop} matched, or {@code -1} if it never matched (including when
+     *  {@code stop} was {@code null}); {@code finalDepth} is the net bracket depth at the end of
+     *  the scan (meaningful for a caller like {@code bracketBalance} that scans with no terminal
+     *  condition -- {@code stopIndex} is always {@code -1} in that case). Plain result-holder, not
+     *  a packed/encoded int, to avoid any sentinel-collision risk when depth can legitimately go
+     *  negative (e.g. a lone {@code ]} continuation line).
+     */
+    static final class BracketScanResult {
+
+        final int stopIndex;
+        final int finalDepth;
+
+        BracketScanResult(final int stopIndex, final int finalDepth)
+        {
+            this.stopIndex  = stopIndex;
+            this.finalDepth = finalDepth;
+        }
+
+    } // class BracketScanResult
+
+    /**
+     * Shared core of the quote-aware ({@code '`/`"`-respecting, backslash-escape-aware inside
+     *  double quotes only) `{}`/`[]`-depth scanner previously duplicated (with a different terminal
+     *  condition each time) as {@code TomlSpecificRule.bracketBalance}/{@code findAssignmentEquals}
+     *  and {@code YamlSpecificRule.findMappingColon}. {@code stop} is consulted for every character
+     *  not itself consumed as a quote/bracket character; pass {@code null} for a scan with no
+     *  terminal condition (i.e. one that always runs to the end of {@code s}).
+     */
+    static BracketScanResult scanQuoteAwareBracket(final String s, final BracketScanStop stop)
+    {
+        boolean inSingle = false;
+        boolean inDouble = false;
+        int     depth    = 0;
+        for( int i = 0; i < s.length(); ++i ) {
+            final char ch = s.charAt(i);
+            if(inSingle) {
+                if(ch == '\'') inSingle = false;
+                continue;
+            }
+            if(inDouble) {
+                     if(ch == '\\') i++;
+                else if(ch == '"')  inDouble = false;
+                continue;
+            }
+                 if(ch == '\'')             inSingle = true;
+            else if(ch == '"')              inDouble = true;
+            else {
+                if(ch == '{' || ch == '[') depth++;
+                else if(ch == '}' || ch == ']') depth--;
+                if( stop != null && stop.shouldStopAt(
+                    s, i, ch, depth
+                ) ) return new BracketScanResult(i, depth);
+            }
+        } // for
+
+        return new BracketScanResult(-1, depth);
+    }
+
     static String[] computeColonAlignmentPadding(
         final int                 size,
         final IntPredicate        isKeyed,

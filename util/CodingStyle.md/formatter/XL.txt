@@ -233,31 +233,19 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [CURLY_GDR] *NOT REPRODUCED* (2026-08-15) -- TS switch-in-if, TS ternary-wrap, Kotlin
-  when-in-if, Kotlin ternary-wrap, plus two harder combined/deep-nesting variants all
-  survive GDR-2 correctly (only fixes the known RDD_KEY_229 else-brace bug, doesn't touch
-  switch-case/ternary regions). Synthetic-only, not exhaustive. See STATE_CURLY_GDR.md.
-  Downgrade to low-priority/informational.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
-
-NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known Limitations entry:
-- [C_CPP_JAVA] apache/ant `JikesOutputParser.java`.
-- [TOOLING] ohmyzsh `tools/upgrade.sh` pipe-spacing.
-- [KOTLIN] Kotlin D3 wrap-decision-flap statement-boundary tracking.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
 - [CURLY_GDR] `curly-general-scope-reindent = on` correctness still a "hard, multi-session
   problem" (continuation-vs-block depth, exclusion zones, ordering). HIGH risk (architectural,
   prior attempts regressed fixtures), high value (completes an already-shipped-but-default-off
-  feature). Subsumes two narrower facets already named in `STATE_CURLY_GDR.md`: the
+  feature, also fixes the minified-JS non-idempotency noted in README's Known Limitations).
+  Subsumes two narrower facets already named in `STATE_CURLY_GDR.md`: the
   `MAX_MULTIPASS_CYCLES = 20` cap's untested adequacy on deeper/wider shapes, and `GdrTokenizer`'s
-  "acceptable at this stage" literal-shape-coverage caveat. Additional confirming instance
-  (2026-08-15 XL.txt sweep): a minified one-liner `if/else` JS repro (`ruanyf/react-demos`
-  `demo13/app.js`, see STATE_JS_TS.md's Open Questions) is non-idempotent at default config but
-  IS idempotent with `curly-general-scope-reindent`/`-multipass = on` — confirms flipping the
-  default (once correctness is solid) would fix this class of gap too, not a separate item.
+  "acceptable at this stage" literal-shape-coverage caveat.
 
 - [C_CPP_JAVA] Retire `SwitchRule.applyNonInlineCaseIndent`/`ScopePipeline.applyDeclarationsPass`
   in favor of GDR pre-pass's absolute-target model — cleanup/consolidation, not a bug fix; medium
@@ -276,12 +264,6 @@ NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known
 
 Use sub-agent. This can be a substantial work.
 
-RESOLVED — [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements"
-decision (2026-08-15, RDD_KEY_295): leave as documented limitation, no code change (real-world
-impact nil — needs two *simultaneous* misnestings, never observed in any dogfood corpus).
-Priority left unchanged relative to CURLY_GDR (stays below it). Not permanently closed — revisit
-if a future case surfaces. See `STATE_HTML5_TCG.md`'s Open Questions.
-
 === TIER 9: May not worth pursuing -- [Dogfood] ===
 
 - [C_CPP_JAVA] `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, TOO MASSIVE to even
@@ -290,6 +272,19 @@ if a future case surfaces. See `STATE_HTML5_TCG.md`'s Open Questions.
 - [JS] `nodejs/node` dogfood — same, TOO MASSIVE.
 
 Use sub-agent. This can be a substantial work.
+
+=== TIER Z: Closed, revisit only if new evidence surfaces ===
+
+- [CURLY_GDR] GDR-2 (second multipass cycle) risk of silently mis-scoping deeper/adjacent
+  regions — NOT REPRODUCED across 6 synthetic adversarial shapes (TS switch-in-if, TS
+  ternary-wrap, Kotlin when-in-if, Kotlin ternary-wrap, 2 combined/deep-nesting variants), all
+  survive correctly. Synthetic-only, not exhaustive — see STATE_CURLY_GDR.md. Revisit if a real
+  case surfaces.
+
+- [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" — resolved
+  2026-08-15 (RDD_KEY_295) as a documented limitation, no code change (needs two *simultaneous*
+  misnestings, never observed in any dogfood corpus). Revisit if a future case surfaces. See
+  `STATE_HTML5_TCG.md`'s Open Questions.
 
 === TIER X: Dead ===
 

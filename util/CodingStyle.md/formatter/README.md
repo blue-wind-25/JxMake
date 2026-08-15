@@ -768,7 +768,16 @@ here if and when it actually gains a documented gap.
    non-idempotency gap.** See "Config file format" → [General scope-depth reindentation
    (GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent) above for what the
    `curly-general-scope-reindent` key does, its scope, the joined-one-true-brace-style gap, and
-   the `curly-general-scope-reindent-multipass` workaround.
+   the `curly-general-scope-reindent-multipass` workaround. The same default-off gap also affects
+   minified/compiled JS with one-liner function bodies, e.g.:
+
+   ```js
+   function foo(a,b){if(a){return b;}else{return a;}}
+   ```
+
+   which is not idempotent under the default config (a second formatting pass re-breaks it
+   differently) but round-trips cleanly with both `curly-general-scope-reindent` and
+   `curly-general-scope-reindent-multipass` turned on.
 
 2. **Multi-line-call/condition wrap decision can flap across repeated formatting passes,
    affecting C/C++/Java/Kotlin/JS/TS.** Whether a small call or condition nested inside a

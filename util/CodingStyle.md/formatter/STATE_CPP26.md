@@ -429,6 +429,21 @@ open question remains for §5.
       `SwitchRule`/init-list-wrapping/operator-spacing in the C/C++/Java
       job.
 
+      **2026-08-15 XL.txt sweep re-check: likely already resolved, not
+      re-added to any backlog.** The original `/tmp/glaze` checkout is gone
+      (system-cleaned), so the exact files couldn't be re-diffed, but
+      hand-built repros matching each described shape (long-wrapped ctor
+      with a member-initializer-list referencing `other.field`; a
+      declaration-alignment group with a wrapped call argument) all came
+      back byte-identical round1/round2 against the current JAR — no
+      dot-space corruption, no drift. Plausible cause: several general
+      pass-ordering fixes landed in `STATE_C_CPP_JAVA.md` since this entry
+      (RDD_KEY_193 assignment-pass re-run, RDD_KEY_290/291/293 openrewrite
+      cluster fixes) incidentally cover the same mechanism. Not proven since
+      the original corpus files are unavailable — if a fresh `glaze` clone
+      surfaces the same diffs again, re-open in `STATE_C_CPP_JAVA.md`'s Known
+      Gaps, not here (this job's scope is C++26 §1-5 only).
+
       **2026-08-11: `json_patch_test.cpp` idempotency mismatch FIXED
       (RDD_KEY_285).** Re-cloned `glaze` fresh (the `/tmp/glaze` checkout
       referenced above had been cleaned by the system since); reproduced the

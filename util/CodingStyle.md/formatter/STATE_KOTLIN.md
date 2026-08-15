@@ -1,8 +1,8 @@
 # STATE_KOTLIN.md — Kotlin JAR Implementation Tracker
 
 Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions.
-`STATE_C_CPP_JAVA.md` is NOT required reading — only `STATE_COMMON.md` is.
-Dogfood corpus status: see `STATE_DOGFOOD.md`.
+`STATE_C_CPP_JAVA.md` is not required reading. Dogfood corpus status: see
+`STATE_DOGFOOD.md`.
 
 ---
 
@@ -12,49 +12,48 @@ Tracks Kotlin support in the deterministic JAR formatter
 (`util/CodingStyle.md/formatter/`), per `STYLE_KOTLIN.md` / `STYLE_KOTLIN2.md`.
 
 **Overall status: implementation complete (Steps 0-4 DONE, `make test`
-green). Step 5 dogfood core goal (tree compiles clean) met. Bucket D3
+green). Step 5 dogfood core goal (tree compiles clean) met.** Bucket D3
 (see "Dogfood: JetBrains/kotlin" below) — root cause confirmed, two fix
 attempts tried and reverted — was folded into `STATE_CURLY_GDR.md`'s GDR
 job as of 2026-08-02 and is no longer tracked here. This job has no
-independently-open item.**
+independently-open item.
 
 **RESOLVED (2026-08-11): trailing-comma drop on multi-line call/list-literal
-collapse-preserve — see RDD_KEY_279.** Was a real formatter bug (not a
-checker gap), found during content-diff-checker validation work. Repro:
+collapse-preserve — see RDD_KEY_279.** A real formatter bug (not a checker
+gap), found during content-diff-checker validation. Repro:
 `generators/main/PrinterUtils.kt` line ~74, `"kotlin.io",` lost its trailing
-comma after formatting; conflicted with `STYLE_KOTLIN.md` §7.2 ("trailing
+comma after formatting — conflicted with `STYLE_KOTLIN.md` §7.2 ("trailing
 comma preserved as-is, no pass adds/strips one").
 
-Root cause was *generic* (not Kotlin-specific) in `MiscRuleCurly`:
+Root cause was generic (not Kotlin-specific), in `MiscRuleCurly`:
 1. `groupByOriginalLine` silently dropped a dangling trailing empty group
    produced by a source trailing comma before `)`.
 2. `renderCallPreserveGroups`/`renderCallDropped`/`renderCallOnePerLine`
-   each independently withheld a comma on the very last rendered item
-   unconditionally, for every language — correct for C/C++/Java (not
-   idiomatic there), wrong for Kotlin.
+   each unconditionally withheld the last rendered item's comma, for every
+   language — correct for C/C++/Java (non-idiomatic there), wrong for
+   Kotlin.
 
 **Fix landed:** new `hasTrailingComma(paramsSlice)` helper checks the raw
-slice's last significant token before any splitting discards the signal;
-a `keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice)`
+slice's last significant token before splitting discards the signal; a
+`keepTrailingComma = lang.isKotlin && hasTrailingComma(paramsSlice)`
 exception gates all three render methods — `renderCallDropped` appends a
 `,` to the collapsed one-line args text when set; `renderCallOnePerLine`
 folds it into each line's existing trailing-comma condition;
 `renderCallPreserveGroups` widens its last-item comma-suppression check
 from `!(r == rows.size() - 1 && c == row.size() - 1)` to
-`!isVeryLast || keepTrailingComma`. All three are additive/gated behind
-`lang.isKotlin`, which is always `false` for C/C++/Java — their existing
-"never emit a final trailing comma" behavior is unchanged.
+`!isVeryLast || keepTrailingComma`. All three are gated behind
+`lang.isKotlin` (always `false` for C/C++/Java), so their existing "never
+emit a final trailing comma" behavior is unchanged.
 
 **Verification:** `make test` **276/276 → 277/277** forward + idempotency,
-zero regressions (276/276 confirmed identical immediately before and
-immediately after the source change, isolating the +1 to the one new
-fixture). New fixture `test/real_code_regressions_199_{inp,out}.kt` covers:
-a multi-line call with a trailing comma (preserved), the same call without
-one (still not added), and a `listOf(...)` list-literal with a trailing
-comma (confirms list-literals share the same call-shaped render path — no
-separate fix needed). Manual repro against a standalone `.kt` file via
-`--diff` also confirmed both before (comma dropped) and after (comma
-preserved) the fix.
+zero regressions (276/276 confirmed identical immediately before/after the
+source change, isolating the +1 to the new fixture). New fixture
+`test/real_code_regressions_199_{inp,out}.kt` covers a multi-line call with
+a trailing comma (preserved), the same call without one (still not added),
+and a `listOf(...)` list-literal with a trailing comma (confirms
+list-literals share the call-shaped render path — no separate fix needed).
+Manual repro against a standalone `.kt` file via `--diff` confirmed both
+before (dropped) and after (preserved).
 
 ---
 
@@ -77,21 +76,21 @@ Formatter.java (FormatterCore + FormatterCurly)
 ```
 
 **Any change to one of these for Kotlin's benefit must not change behavior
-for C/C++/Java.** Before/after every such change, re-run `make test` (all
-C/C++/Java fixtures) and confirm zero regressions — shared-class edits are
+for C/C++/Java.** Re-run `make test` (all C/C++/Java fixtures) before/after
+every such change and confirm zero regressions — shared-class edits are
 this job's biggest risk. Record the before/after test count in the commit
 message.
 
 Kotlin-only work belongs in new files (see Project Layout below), alongside
-`JavaSpecificRule.java`/`CppSpecificRule.java`, not folded into them.
+`JavaSpecificRule.java`/`CppSpecificRule.java` — not folded into them.
 
 **Before modifying a shared class, grep first — do not read
 `STATE_C_CPP_JAVA.md` in full.** Run `grep -Fm1 'ClassName' RDD_LOG.md`
 (substitute the class/method) to surface existing `RDD_KEY_n` decisions
 already explaining its shape — e.g. `TokenizerCore`'s multi-char operator
 table (RDD_KEY_69), or why a rule class re-derives named-construct-ness from
-raw tokens instead of trusting one flag (RDD_KEY_84/85). Usually sufficient.
-Only read `STATE_C_CPP_JAVA.md`'s Project Layout section (never Checklist or
+raw tokens instead of trusting one flag (RDD_KEY_84/85). Usually sufficient;
+read `STATE_C_CPP_JAVA.md`'s Project Layout section only (never Checklist or
 full history) if the grep hits don't explain what you're looking at.
 
 ---
@@ -111,9 +110,9 @@ util/CodingStyle.md/formatter/
     kt_comments_inp.kt / kt_comments_out.kt
 ```
 
-Existing shared files under Hard Constraint are modified in-place,
-additively, when Kotlin needs a shared capability they don't yet have
-(e.g. a new operator token) — not duplicated per-language.
+Existing shared files under Hard Constraint are modified in place,
+additively, when Kotlin needs a shared capability it lacks (e.g. a new
+operator token) — never duplicated per-language.
 
 New Kotlin-only rule classes beyond `KotlinSpecificRule.java`:
 `KotlinDeclarationAlignmentRule` (extends `DeclarationAlignmentRule`),
@@ -396,9 +395,9 @@ idempotency check (output re-run through formatter should be unchanged).
 
 **Status: dogfood tree compiles clean end-to-end — Step 5's core goal is
 met.** Future sessions: regression-watching/polish only, not a
-known-broken state. D3 (see "Dogfood: JetBrains/kotlin" below) is folded
-into `STATE_CURLY_GDR.md` as of 2026-08-02; this job has no
-independently-open item (see Purpose above).
+known-broken state. D3 (see "Dogfood: JetBrains/kotlin" below) was folded
+into `STATE_CURLY_GDR.md` as of 2026-08-02; this job has no independently-
+open item (see Purpose above).
 
 Applied STATE_COMMON.md's real-code-testing methodology (clone a real,
 compiling Kotlin project → format → idempotency round1 vs round2 →
@@ -407,16 +406,16 @@ compile-check) once Steps 0-4 were complete.
 **Standalone `K2JVMCompiler` classpath — rejected, do not use.** A bare
 `kotlin-compiler-embeddable` + `kotlin-stdlib` classpath can't resolve
 `android.*`/AndroidX imports (every file under
-`gui_frontend_android/app/src/main/java/*.kt` needs them), only resolvable
-via the project's own Gradle build. Use the Gradle wrapper (tool (2) below)
-for any Android/Gradle candidate.
+`gui_frontend_android/app/src/main/java/*.kt` needs them) — only the
+project's own Gradle build resolves them. Use the Gradle wrapper (tool (2)
+below) for any Android/Gradle candidate.
 
 For `gui_frontend_android`: copy once into a **persistent** location —
 `~/Projects/Shadow/rc_gui_frontend_android_DOGFOOD` — not `/tmp`, so it
 survives reboots. Never write to `~/Projects/RobotCoding/gui_frontend_android`
-itself (read-only); always re-verify a fix against the true pristine
-originals there (a stale dogfood copy can hold already-formatted output and
-falsely look fixed/unfixed).
+itself (read-only); always re-verify a fix against the pristine originals
+there (a stale dogfood copy can hold already-formatted output and falsely
+look fixed/unfixed).
 
 **One-time setup after the copy:** edit `gradle.properties` in the dogfood
 copy so `project.buildDir=build` (plain relative value — the original
@@ -439,12 +438,12 @@ ends by `exec bash`-ing into an interactive session — source only its
 `export`/`cd` lines for a scripted run.)
 
 **Lightweight PSI-based syntax-only checker (`kotlin_syntax_check`) —
-viable, distinct from the rejected full-compilation recipe above.** The
-rejection above is about a bare classpath doing a *full compile*; this
-tool is lighter — parses a `.kt` file to a PSI/AST via
+viable, distinct from the rejected full-compilation recipe above.** That
+rejection is about a bare classpath doing a *full compile*; this tool is
+lighter — parses a `.kt` file to a PSI/AST via
 `KotlinCoreEnvironment`/`KtPsiFactory` and reports `PsiErrorElement` nodes
-(parse errors only, no semantic/type checking, never resolves `android.*`
-imports so the AndroidX objection doesn't apply). Plain classpath-based
+(parse errors only, no semantic/type checking; never resolves `android.*`
+imports, so the AndroidX objection doesn't apply). Plain classpath-based
 standalone Java program; every needed class is bundled in the single
 shaded `~/xsdk/kotlin-compiler-2.4.0/kotlinc/lib/kotlin-compiler.jar`
 (confirmed via `unzip -l`, no separate intellij-core/trove4j jars needed).
@@ -462,10 +461,10 @@ for the `$JDK`/`$KLIB` env setup and why each is needed):
 ```
 
 Exits 0 and prints "OK: no syntax errors" when clean; exits 1 and prints
-each `PsiErrorElement`'s description + text range when a parse error is
-found. Verified against this project's own `test/kt_combined_out.kt`
-(passes clean) and a deliberately corrupted copy with injected stray `}}}`
-(correctly reports the right errors at the right offsets).
+each `PsiErrorElement`'s description + text range on a parse error.
+Verified against this project's own `test/kt_combined_out.kt` (passes
+clean) and a deliberately corrupted copy with injected stray `}}}`
+(correctly reports errors at the right offsets).
 
 **Recommended use going forward:** run `kotlin_syntax_check` first as a
 near-instant pre-filter. It does NOT replace `./gradlew compileDebugKotlin`
@@ -486,17 +485,17 @@ modeled on `java_content_diff`'s content-family split (import sorting,
 declaration-alignment whitespace, comment-case normalization are
 legitimate transforms, not corruption):
 - **imports** — multiset (`getImportedFqName()` + `isAllUnder()`/alias,
-  sorted) since reordering is legitimate.
+  sorted); reordering is legitimate.
 - **every top-level declaration** — original relative order; each
-  canonicalized by hand-rolled leaf-token walk (whitespace/comment/KDoc
+  canonicalized by a hand-rolled leaf-token walk (whitespace/comment/KDoc
   skipped, remaining leaf text joined with single spaces) rather than a
-  pretty-printer (IntelliJ PSI is a lossless CST with no built-in
-  canonical form).
+  pretty-printer (IntelliJ PSI is a lossless CST with no built-in canonical
+  form).
 - **comments** (line/block/KDoc) — multiset, whitespace-normalized and
   lowercased (case-only change not flagged; dropped/corrupted comment is).
 
 **Gotcha hit and fixed during verification:** leaf-token walk and comment
-extraction MUST use `ASTNode.getChildren(null)` (via `PsiElement.getNode()`),
+extraction must use `ASTNode.getChildren(null)` (via `PsiElement.getNode()`),
 not `PsiElement.getChildren()`/`PsiTreeUtil.findChildrenOfType()` — for
 stub-based elements (`KtClass`, `KtProperty`, `KtNamedFunction`), the PSI
 form silently omits plain leaf tokens, including comments
@@ -518,35 +517,33 @@ fixtures).
 
 **2026-08-10: first full-corpus-scale run (JetBrains/kotlin, ~16000 files,
 `/tmp/jb_kotlin_kt_new/kotlin-master` vs. round1 output
-`/tmp/kt_r1_content`) found an 85% false-flag rate in the first 500 files —
-by-hand investigation showed every sampled difference was a legitimate,
+`/tmp/kt_r1_content`) found an 85% false-flag rate in the first 500 files
+— by-hand investigation showed every sampled difference was a legitimate,
 already-documented formatter transformation, not content loss. Four
 tolerance gaps found and fixed in `kotlin_content_diff.java`:**
 
 1. **Allman brace insertion for function bodies (STYLE_KOTLIN.md §3) —
-   investigated, turned out NOT to be a real gap.** `canonicalize`'s
-   leaf-token walk already joins tokens with single spaces regardless of
-   which physical line a `{`/`}` sits on, so a pure Allman-only
-   transformation (verified with a synthetic `fun bar(): Int\n{ ... }` vs.
-   the K&R original) already round-trips clean with zero code change. The
-   original 500-file sample's Allman-tagged false flags were actually gap 2
-   (braceless-collapse) and/or gap 3 (closing comments) co-occurring in the
-   same class/function, misattributed during the initial by-hand triage —
-   no fix needed or made.
+   investigated, not a real gap.** `canonicalize`'s leaf-token walk already
+   joins tokens with single spaces regardless of which physical line a
+   `{`/`}` sits on, so a pure Allman-only transformation (verified with a
+   synthetic `fun bar(): Int\n{ ... }` vs. the K&R original) already
+   round-trips clean, no code change. The 500-file sample's Allman-tagged
+   false flags were actually gap 2 (braceless-collapse) and/or gap 3
+   (closing comments) co-occurring in the same class/function, misattributed
+   during the initial triage — no fix made.
 2. **Single-statement control-block brace omission (STYLE_KOTLIN.md §10,
    mirrors STYLE.md's general rule and js_ts_content_diff.js's existing
    Block-with-one-statement tolerance) — FIXED.** `collectLeafText`'s
    ASTNode walk now special-cases a `KtBlockExpression` whose PSI parent is
-   `KtContainerNodeForControlStructureBody` (this one parent type covers
-   `for`/`while`/`do`/`if`/`else` bodies alike, no need to enumerate
-   keywords) and whose body is exactly one statement: its `LBRACE`/`RBRACE`
-   leaf tokens are skipped, the statement walked directly. A block with 0
-   or 2+ statements is untouched (still walked with braces), so a
-   genuinely dropped/added statement inside a braceless-collapsed body is
-   still caught by the ordinary per-leaf comparison — verified via
-   negative control (a `for` loop with 2 statements collapsed to 1
-   correctly still reports `top-level declaration #0 structure/content
-   differs`).
+   `KtContainerNodeForControlStructureBody` (covers `for`/`while`/`do`/
+   `if`/`else` bodies alike, no need to enumerate keywords) with exactly one
+   statement: its `LBRACE`/`RBRACE` leaf tokens are skipped, the statement
+   walked directly. A block with 0 or 2+ statements stays untouched (still
+   walked with braces), so a genuinely dropped/added statement inside a
+   braceless-collapsed body is still caught by the ordinary per-leaf
+   comparison — verified via negative control (a `for` loop with 2
+   statements collapsed to 1 still correctly reports `top-level declaration
+   #0 structure/content differs`).
 3. **Closing-comment addition for `class`/`object`/`companion object`/`init`
    bodies (STYLE_KOTLIN.md §3.1/§3.4) — FIXED**, widened past the
    `Promise.kt` repro to a real observed formatter quirk. New
@@ -559,31 +556,31 @@ tolerance gaps found and fixed in `kotlin_content_diff.java`:**
    (`getNameIdentifier() == null`; `getName()` defaults an anonymous
    companion to `"Companion"`) from a named one. **Real-corpus spot-check**
    (25-file random sample) found the formatter's own `object`-closing-
-   comment naming is inconsistent: a plain `object GeneratedSuites {}` got
+   comment naming inconsistent: a plain `object GeneratedSuites {}` got
    `// class GeneratedSuites` (wrong keyword), while a supertyped
    `object Default : X {}` / `object BuilderContext : Y {}` got bare
    `// Default` / `// BuilderContext` (keyword omitted) — a pre-existing
    quirk in the formatter's own `object` classifier, out of scope, not
-   touched here. Widened the `object` variant group to accept all four
-   observed shapes (`object <name>`, `class <name>`, bare `<name>`, plus
-   the always-correct anonymous `object`), still requiring the group's own
-   real declared name — a wrong name is still rejected (verified: `class
-   Bar` on an actual `class Foo` still flags `class bar` as unexplained).
-   General non-named-construct closing comments (`// for`, `// if`,
-   `// when kind`, STYLE.md's length-gated §7 rule, a second false-flag
-   source in the same files) get a separate, deliberately loose
-   `CONTROL_FLOW_CLOSING` regex tolerance (keyword + at most one trailing
-   word), mirroring `java_content_diff.java`'s `BRACE_ANNOTATION` pattern
-   for the same keyword family — not verified against an actual construct,
-   matching the already-shipped Java tolerance's own looseness there.
-4. **KDoc trailing-period tolerance (STYLE.md §15) — root cause was NOT a
-   pairing/matching bug as guessed, it simply never existed in this file.**
+   touched. Widened the `object` variant group to accept all four observed
+   shapes (`object <name>`, `class <name>`, bare `<name>`, plus the
+   always-correct anonymous `object`), still requiring the group's own real
+   declared name — a wrong name is still rejected (verified: `class Bar` on
+   an actual `class Foo` still flags `class bar` as unexplained). General
+   non-named-construct closing comments (`// for`, `// if`, `// when kind`,
+   STYLE.md's length-gated §7 rule, a second false-flag source in the same
+   files) get a separate, deliberately loose `CONTROL_FLOW_CLOSING` regex
+   tolerance (keyword + at most one trailing word), mirroring
+   `java_content_diff.java`'s `BRACE_ANNOTATION` pattern for the same
+   keyword family — not verified against an actual construct, matching the
+   already-shipped Java tolerance's own looseness.
+4. **KDoc trailing-period tolerance (STYLE.md §15) — root cause was not a
+   pairing/matching bug as guessed; it simply never existed in this file.**
    `kotlin_content_diff.java`'s own top-of-file doc comment claimed
    trailing-period differences were already tolerated, but
-   `stripCommentDelims` had no such logic — confirmed via `grep -n
+   `stripCommentDelims` had no such logic (confirmed via `grep -n
    "period"` returning zero hits before this fix, unlike
    `java_content_diff.java`, which has had `normalizeTrailingPeriod` since
-   RDD_KEY-era work on that tool. Fixed by porting `normalizeTrailingPeriod`
+   RDD_KEY-era work there. Fixed by porting `normalizeTrailingPeriod`
    verbatim (same single-trailing-period guard, so a real ellipsis/decimal
    run is left alone) into `stripCommentDelims`. Verified against
    `JsArray.kt` (4 KDoc comments, period-only difference — now passes
@@ -596,9 +593,9 @@ tolerance, found and fixed.** A follow-up session hit a bogus MISMATCH on
 `when (val accessDenied = error.suppressedExceptions.single()) {`, a genuine
 `when`-with-captured-subject statement), reported as `comments: present in
 formatted, missing from original: [when val accessdenied =
-error.suppressedexceptions.single()]`. Root cause was NOT a structural
+error.suppressedexceptions.single()]`. Root cause was not a structural
 comment-collection bug (`collectComments` correctly extracted the comment
-via `ASTNode.getChildren(null)`, as designed) and NOT misclassified code —
+via `ASTNode.getChildren(null)`, as designed) and not misclassified code —
 the formatted file genuinely emits a real
 `} // when val accessDenied = error.suppressedExceptions.single()` closing
 comment there (`KotlinSpecificRule.formatWhenExpressions`/RDD_KEY_101 names
@@ -606,22 +603,21 @@ the `when`'s full parenthesized subject verbatim, whitespace-collapsed).
 Gap 3's `CONTROL_FLOW_CLOSING` regex (`^(...|when)( \S+)?$`) only tolerates
 `when` + at most one trailing word, so a multi-word `val`/`var`-capture
 subject like this one was rejected as an unexplained addition — the
-tolerance was too NARROW in this direction, the opposite of how it was
+tolerance was too narrow in this direction, the opposite of how it was
 initially (mis)diagnosed. Confirmed the same shape in `PathTreeWalkTest.kt`
 (`when (val pathString = ...)`) and `coreRuntime.kt`
-(`when val typeOf = jsTypeOf(obj)`);
-`PathRecursiveCopyBetweenIncompatibleFileSystemsTest.kt` (the 4th named
-repro) turned out to contain no `when` at all, unaffected by this bug — its
-existing MISMATCH (`top-level declaration #1`/`#3`) is a separate,
-pre-existing, unrelated issue, untouched here.
+(`when val typeOf = jsTypeOf(obj)`); `PathRecursiveCopyBetweenIncompatibleFileSystemsTest.kt`
+(the 4th named repro) turned out to contain no `when` at all, unaffected by
+this bug — its existing MISMATCH (`top-level declaration #1`/`#3`) is a
+separate, pre-existing, unrelated issue, untouched here.
 
 First fix attempt (widen `when`'s own trailing clause to accept any text,
 `^when( .+)?$`) was caught by this session's own negative control before
-landing: it also let a WRONG subject name slip through uncaught
+landing: it also let a wrong subject name slip through uncaught
 (`// when val wrongName = x` on an actual `when (val accessDenied = x)`
 incorrectly reported as content-preserved) — reverted, since a checker whose
 whole purpose is catching genuine content loss must not swallow a real wrong
-comment just to fix a false positive elsewhere.
+comment to fix a false positive elsewhere.
 
 Landed fix: removed `when` from `CONTROL_FLOW_CLOSING`'s loose keyword list
 entirely (`while`/`for`/`if`/`else`/`do`/`try`/`catch`/`finally` keep their
@@ -647,8 +643,8 @@ four (never present in the 4th to begin with). `37c806a`'s original
 positive case, `Promise.kt`
 (`libraries/stdlib/common-js-wasmjs/src/kotlin/js/Promise.kt`), still
 reports `OK`. Local `test/kt_combined_inp/out.kt` / `test/kt_comments_inp/out.kt`
-unchanged before/after this fix — same pre-existing unrelated `top-level
-declaration #10` mismatch (both fixtures) and `// end for`/`// end foreach`
+unchanged before/after — same pre-existing unrelated `top-level declaration
+#10` mismatch (both fixtures) and `// end for`/`// end foreach`
 comment-loss flag (`kt_comments` only), exactly as documented in
 `37c806a`'s own entry above; no `test/` fixture modified. Two new negative
 controls (hand-crafted, `/tmp` only, not registered as permanent fixtures)
@@ -661,16 +657,16 @@ No formatter source changed — `tools/verifiers/kotlin_content_diff.java`
 only.
 
 **Verification beyond the 4 named repros:** re-ran against a 25-file and a
-40-file random sample from the same two on-disk trees. 25-file sample went
-from 18/25 to 21/25 passing; the remaining 4 failures are pre-existing,
+40-file random sample from the same two on-disk trees. The 25-file sample
+went from 18/25 to 21/25 passing; the remaining 4 failures are pre-existing,
 distinct issues confirmed present before this session's changes too (via
-`git stash`) — not caused or masked by this fix, out of scope for this
-pass: (a) a real, separately-reproducible trailing-comma-drop when a
-multi-line call/initializer argument list collapses onto one line
-(conflicts with STYLE_KOTLIN.md's own §7.2 "trailing comma preserved as-is,
-no pass adds/strips one" — worth a future formatter-source investigation,
-not a checker-tolerance gap); (b) one file (`LLFirSupertypeLazyResolver.kt`)
-has an unrelated, pre-existing comment-multiset anomaly not investigated
+`git stash`) — not caused or masked by this fix, out of scope here: (a) a
+real, separately-reproducible trailing-comma-drop when a multi-line
+call/initializer argument list collapses onto one line (conflicts with
+STYLE_KOTLIN.md's own §7.2 "trailing comma preserved as-is, no pass
+adds/strips one" — worth a future formatter-source investigation, not a
+checker-tolerance gap); (b) one file (`LLFirSupertypeLazyResolver.kt`) has
+an unrelated, pre-existing comment-multiset anomaly not investigated
 further this session. Local `test/kt_combined_inp/out.kt` and
 `test/kt_comments_inp/out.kt` fixtures re-checked before/after: before this
 fix both had spurious closing-comment additions flagged, now clean on that
@@ -684,7 +680,7 @@ safely). This session's round1 (`/tmp/kt_r1_content`) was initially reused
 from a prior session per instruction, but its file mtimes (2026-08-10
 05:10) predated both `37c806a` (05:43) and `126ae68` (06:24) — a stale-data
 condition caught via the ambiguity-handling protocol before drawing any
-conclusion from it, so round1 was regenerated fresh from
+conclusion, so round1 was regenerated fresh from
 `/tmp/jb_kotlin_kt_new/kotlin-master` using the current JAR (built post-fix)
 via the standard `--preserve-tree --root DIR --out DIR` batch pattern,
 4-way chunked. Content-diff re-run (3-way chunked,
@@ -695,7 +691,7 @@ SUMMARY (combined): 15583 OK, 570 MISMATCH/ERROR, 0 MISSING (of 16153)
 ```
 
 Both specifically-named repro cases from the RDD_KEY_279 fix are confirmed
-clean against fresh round1 (were still showing the bug against the stale
+clean against fresh round1 (they still showed the bug against the stale
 round1, which is exactly what motivated re-checking after regeneration):
 `FirIntegerLiteralOperatorCallBuilder.kt`'s `extensionReceiver,` call-arg
 trailing comma, and `fileUtils.kt`'s three `action: (...) -> T,`
@@ -713,15 +709,14 @@ structure/content differs` only, or both):
 
 - 412 files: comment-only mismatches. Root cause identified via
   `KaScopeProvider.kt`: the formatter normalizes a KDoc continuation line's
-  leading-asterisk spacing inside a fenced code block (`*```` → `* ````),
-  a legitimate, intentional KDoc-formatting transformation — but
+  leading-asterisk spacing inside a fenced code block (`*```` → `* ````), a
+  legitimate, intentional KDoc-formatting transformation — but
   `kotlin_content_diff`'s comment comparison only normalizes case and a
   single trailing period (per its existing gap-4 tolerance), not general
-  internal whitespace within a comment's body text. This is a **checker
-  tolerance gap**, not formatter corruption — the comment's semantic content
-  is unchanged, only inter-token spacing inside the KDoc shifted. Not fixed
-  this session (out of scope — this run's mandate was validate-and-document,
-  not fix).
+  internal whitespace within a comment's body. A **checker tolerance gap**,
+  not formatter corruption — comment semantics unchanged, only inter-token
+  spacing inside the KDoc shifted. Not fixed this session (out of scope —
+  this run's mandate was validate-and-document, not fix).
 - 158 files (143 declaration-only + 15 both): sampled ~20 by hand
   (`GCInfo.kt`, `KaptOptions.kt`, `PartialLinkageLogLevel.kt`,
   `Number2String.kt`, `json.kt`, `InvokeWhenCreatedTest.kt`,
@@ -737,17 +732,17 @@ structure/content differs` only, or both):
   rule), single-statement-body call-argument re-wrapping, import
   regrouping/reordering, and blank-line insertion around declarations. None
   of the ~20 sampled files showed a dropped, added, or semantically altered
-  statement — no genuinely new formatter bug found in this sample.
-- No new open item added to this file's checklist as a result of this run:
-  every observed shape is either (a) a known, already-documented legitimate
-  transformation the checker simply doesn't yet tolerate (comment internal
+  statement — no genuinely new formatter bug found.
+- No new open item added to this file's checklist from this run: every
+  observed shape is either (a) a known, already-documented legitimate
+  transformation the checker doesn't yet tolerate (comment internal
   whitespace, closing-brace comments beyond the current whitelist,
   semicolon-strip, pre-increment, function-signature-group colon alignment),
   or (b) already covered by this file's pre-existing "not investigated
   further" notes above (25/40-file sample's item (a)/(b)). Widening
   `kotlin_content_diff`'s tolerances further is a checker-improvement task,
-  not a formatter bug fix, and is left as a documented future opportunity
-  rather than acted on here (out of scope for this run).
+  not a formatter bug fix — left as a documented future opportunity, not
+  acted on here.
 
 **Conclusion: first full-corpus-scale content-diff validation pass complete.**
 15583/16153 (96.5%) byte-for-content-identical-modulo-tolerated-transforms;
@@ -761,10 +756,9 @@ checker gap — FIXED, but corrects this section's own over-generalization.**
 The 412-file "comment-only mismatches" bucket above was described as having
 its root cause "identified via `KaScopeProvider.kt`" (a KDoc continuation
 line's `*` gaining/losing exactly one space before a fenced-code-block
-backtick run, e.g. `*```` -> `* ````). That description was accurate for
-`KaScopeProvider.kt` itself but turned out to be an over-generalization when
-re-checked against the full 412-file list — the bucket is heterogeneous, not
-one single root cause repeated 412 times.
+backtick run, e.g. `*```` -> `* ````). Accurate for `KaScopeProvider.kt`
+itself, but an over-generalization once re-checked against the full 412-file
+list — the bucket is heterogeneous, not one root cause repeated 412 times.
 
 Fix landed in `tools/verifiers/kotlin_content_diff.java`: new
 `normalizeKdocAsteriskFenceSpacing(String)`, applied in `stripCommentDelims`
@@ -797,8 +791,8 @@ change merely because it's near a backtick fence.
 
 **Bucket re-check — the actual finding, correcting the "412/72%" framing
 above:** recovered the exact 412-file comment-only list from this run's own
-three chunk logs (`/tmp/kt_content_diff_a{a,b,c}.log`, still on disk;
-parsed by matching each `MISMATCH` block's own reason lines) and re-ran
+three chunk logs (`/tmp/kt_content_diff_a{a,b,c}.log`, still on disk; parsed
+by matching each `MISMATCH` block's reason lines) and re-ran
 `kotlin_content_diff` (batch mode) against all 412 with the fix applied:
 
 ```
@@ -809,8 +803,8 @@ Before this fix: 0/412 OK (all 412 were MISMATCH by definition, since that's
 how the bucket was selected from the prior run's logs). After: 12/412 OK —
 a real but small improvement, not the "close to zero" the background section
 anticipated. Hand-sampling ~30 of the remaining 400 found the bucket actually
-contains several DIFFERENT, previously-undocumented comment-tolerance gaps,
-none of which are the KDoc-fence-spacing shape this fix targets:
+contains several different, previously-undocumented comment-tolerance gaps,
+none matching the KDoc-fence-spacing shape this fix targets:
 - A `when (val x = expr)`-closing-comment mismatch family (~118 of the 400)
   where the *call-wrapping* transform (an argument list broken across lines)
   bakes extra spaces around parens/commas into the emitted closing-comment
@@ -828,7 +822,7 @@ none of which are the KDoc-fence-spacing shape this fix targets:
 - `@sample` KDoc-tag list merging/reordering differences.
 
 **2026-08-11 follow-up: `when`-closing-comment paren/comma spacing bug — FIXED
-(the ~118-file bucket named above).** Root cause was in the FORMATTER
+(the ~118-file bucket named above).** Root cause was in the formatter
 (`KotlinSpecificRule.formatWhenExpressions`), not the checker this time —
 unlike the KDoc-fence fix above. `subject = literalSlice(tokens, j + 1,
 closeParen).trim().replaceAll("\\s+", " ")` collapses any whitespace run
@@ -839,7 +833,7 @@ before this Phase-3 pass) wrapped across lines, that wrap places its own
 NEWLINE+indent immediately after the call's `(` or immediately before its
 matching `)`. Collapsing that adjacent whitespace to a single space bakes a
 spurious `( `/` )` gap into the comment that the un-wrapped rendering of the
-same subject never has (calls are tight inside their own parens, no other
+same subject never has (calls are tight inside their own parens; no other
 rule in this codebase puts a space there). Confirmed via
 `core/descriptors/src/org/jetbrains/kotlin/resolve/SealedClassInheritorsProvider.kt`:
 source `when (val actualDescriptor = scope.getContributedClassifier(descriptor.name,
@@ -867,9 +861,9 @@ escalation needed.
 **Verification:** built the exact ~118-file estimate's real member list from
 the 3 chunk logs (`/tmp/kt_content_diff_a{a,b,c}.log`, `MISMATCH` blocks
 whose `comments:` reason contains `when` and a paren-adjacent space) — 73
-files found (the original ~118 was itself a hand-sample-scaled estimate, not
-an exact count; 73 is the exact membership recovered this session). Before
-fix: `kotlin_content_diff` batch mode against the existing stale
+files found (the original ~118 was a hand-sample-scaled estimate, not an
+exact count; 73 is the exact membership recovered this session). Before fix:
+`kotlin_content_diff` batch mode against the existing stale
 `/tmp/kt_r1_content` — **0/73 OK** (all 73 MISMATCH by construction, matching
 how the bucket was selected). After fix: reformatted all 73 with the fixed
 JAR into `/tmp/kt_r1_fix` and re-ran batch mode — **65/73 OK**. The remaining
@@ -883,7 +877,7 @@ Also caught a second, independent instance of this exact bug baked into this
 job's own checked-in fixture: `test/real_code_regressions_148_out.kt` (added
 under RDD_KEY for C5's original newline-collapse fix) had `min( left, 2 )`/
 `min( right, 3 )` inside its own `when`-closing comment as "expected" output
-— a real bug the original fixture's own author didn't notice at the time.
+— a real bug the original fixture author didn't notice at the time.
 Corrected to `min(left, 2)`/`min(right, 3)`, documented in
 `test/README.txt`'s existing `real_code_regressions_148` entry rather than
 adding a new fixture (this one already exercises the exact repro shape
@@ -902,13 +896,13 @@ Committed: `src/com/jxmake/formatter/rules/KotlinSpecificRule.java` (fix),
 **Disposition:** the fix as scoped (task item 2) is complete, correct, and
 verified against its named repro and both negative controls — not widened
 further, since each of the four causes above is its own separate gap needing
-its own separate investigation/fix, not a natural extension of "asterisk
-before a backtick run." Widening this fix to cover them would mean guessing
-at unrelated shapes without their own repro/negative-control pairs, against
+its own investigation/fix, not a natural extension of "asterisk before a
+backtick run." Widening this fix to cover them would mean guessing at
+unrelated shapes without their own repro/negative-control pairs, against
 this session's narrow mandate. Left as documented future checker-improvement
-work, same "out of scope for this run" posture the original 2026-08-11 run
-already took toward the whole 570-file remainder. `make test`: 277/277
-forward + idempotency, unaffected (this fix touches only
+work, same "out of scope" posture the original 2026-08-11 run already took
+toward the whole 570-file remainder. `make test`: 277/277 forward +
+idempotency, unaffected (this fix touches only
 `tools/verifiers/kotlin_content_diff.java`, not any file `make test`
 exercises).
 
@@ -923,8 +917,8 @@ Sufficient for a non-Android/non-Gradle candidate's own source set (e.g.
 okio's `commonMain`, kotlinpoet's `jvmMain`) — needs no external dependency
 graph beyond the stdlib; `expect`/`actual`/unresolved-reference noise from
 checking one source set in isolation is expected and ignored. Cannot
-resolve AndroidX or a multi-module Gradle project's own dependencies — see
-the rejected K2JVMCompiler note above and use (2) instead for those.
+resolve AndroidX or a multi-module Gradle project's dependencies — see the
+rejected K2JVMCompiler note above and use (2) instead for those.
 
 (2) `./gradlew compileDebugKotlin` — full command block above (with
 `ANDROID_HOME`/JDK 21 on `PATH`, run against a persistent dogfood copy,
@@ -996,9 +990,9 @@ RDD_KEYs, fixtures, verification result).
    vs. one mid-wrap in the current candidate's own already-broken
    rendering). Folded into `STATE_CURLY_GDR.md`'s GDR job as of 2026-08-02
    (see that file's "D3 fold" section for next steps). **2026-08-03:**
-   enabling `curly-general-scope-reindent`/`-multipass` does NOT resolve D3
+   enabling `curly-general-scope-reindent`/`-multipass` does not resolve D3
    as a side effect (negative result, root-caused, no code changed; see
-   `RDD_KEY_235` and `STATE_CURLY_GDR.md`'s checklist entry). A real fix
+   `RDD_KEY_235` and `STATE_CURLY_GDR.md`'s checklist entry) — a real fix
    still needs a direct change to `MiscRuleCurly.renderCallCandidate`'s
    fits-check itself. Full diagnosis, tool commands, and per-cluster fix
    history remain below in "Dogfood: JetBrains/kotlin" for reference.
@@ -1022,8 +1016,8 @@ unrelated to the formatter). Category 2 (idempotency-only): D2a, D4, D1
 Checkout: `/tmp/jb_kotlin_kt/kotlin-master` (fresh `.kt`-only tarball
 extraction from `codeload.github.com/JetBrains/kotlin/tar.gz/refs/heads/master`,
 `tar --wildcards '*.kt'` instead of a full git clone to avoid this huge
-repo's non-Kotlin majority) — reuse this checkout, do not re-clone. Scope:
-all `*.kt` excluding `*/testData/*` (compiler test fixtures), `*/build/*`,
+repo's non-Kotlin majority) — reuse, do not re-clone. Scope: all `*.kt`
+excluding `*/testData/*` (compiler test fixtures), `*/build/*`,
 `*/resources/*`, anything with `generated` in its name — ~16k files
 (`/tmp/kt_filelist.txt`).
 
@@ -1122,16 +1116,16 @@ validated at full-corpus scale. D3 remains the next-highest-value open item
 ## D3 investigation history (2026-07-31 design session + 2026-08-01 implementation attempt, RDD_KEY_226)
 
 **Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 (see D3 table row
-above).** Kept here only for the two reverted fix attempts' detail, not in
-`RDD_LOG.md`'s terse `RDD_KEY_221`/`RDD_KEY_226` topic line. Root cause
+above).** Kept here only for the two reverted fix attempts' detail, absent
+from `RDD_LOG.md`'s terse `RDD_KEY_221`/`RDD_KEY_226` topic line. Root cause
 (RDD_KEY_221): `MiscRuleCurly.renderCallCandidate`'s no-newline fits-check
 measures a candidate against `lineStartIndex(tokens, nameIdx)` (nearest
 physical `NEWLINE` backward), which is volatile — a sibling candidate's own
 prior wrap on the same logical statement shrinks the "enclosing line" a
-later candidate measures against, causing a false un-wrap on the next
-round. Repro: `EqualityAndComparisonCallsTransformer.kt` (`when`-arm with
-two call candidates; round1 wraps both correctly, round2 wrongly un-wraps
-the second).
+later candidate measures against, causing a false un-wrap on the next round.
+Repro: `EqualityAndComparisonCallsTransformer.kt` (`when`-arm with two call
+candidates; round1 wraps both correctly, round2 wrongly un-wraps the
+second).
 
 Two fix attempts, both reverted, neither landed:
 - **Attempt 1** (anchor measurement at `nameIdx` instead) — discards
@@ -1144,24 +1138,24 @@ Two fix attempts, both reverted, neither landed:
   `;`-separated (RDD_KEY_115), so the scan walks past the current
   statement into an unrelated preceding sibling, inflating the measured
   width. Minimal repro `real_code_regressions_20_inp.kt` (a `val display =
-  ...` statement followed by `showMessage(context, display)`, which
-  already fits but gets a false-positive wrap). Reverted in full
+  ...` statement followed by `showMessage(context, display)`, which already
+  fits but gets a false-positive wrap). Reverted in full
   (`git checkout -- src/com/jxmake/formatter/rules/MiscRuleCurly.java`);
   `make test` back to 225/225.
 
 **Conclusion:** the `;`/`{`/`}` depth-0 boundary rule alone can't handle
-Kotlin's mostly-NEWLINE-delimited statement grammar. A real fix needs
-actual Kotlin statement-boundary tracking (depth-0 NEWLINE that ends a
-statement vs. one mid-wrap inside the current candidate's own
-already-broken rendering) — closer to the "General scope-depth
-reindentation" architectural TODO's territory than a self-contained fix.
-No fixture was added (fix never landed).
+Kotlin's mostly-NEWLINE-delimited statement grammar. A real fix needs actual
+Kotlin statement-boundary tracking (depth-0 NEWLINE that ends a statement
+vs. one mid-wrap inside the candidate's own already-broken rendering) —
+closer to the "General scope-depth reindentation" architectural TODO's
+territory than a self-contained fix. No fixture was added (fix never
+landed).
 
 ## Open Questions
 
-- **C4 — closed, no open question remains.** Was a miscategorized instance
-  of C5, not a real bug: both collapse paths always join condition/body
-  with a literal `" "`, so a missing separator is impossible by
-  construction. Re-verified clean against the fixed JAR once C5's actual
-  bug was patched. See Category 1 table's C4/C5 rows for detail; C4's
-  ~44-file estimate folds into C5's count.
+- **C4 — closed, no open question remains.** A miscategorized instance of
+  C5, not a real bug: both collapse paths always join condition/body with a
+  literal `" "`, so a missing separator is impossible by construction.
+  Re-verified clean against the fixed JAR once C5's actual bug was patched.
+  See Category 1 table's C4/C5 rows for detail; C4's ~44-file estimate folds
+  into C5's count.

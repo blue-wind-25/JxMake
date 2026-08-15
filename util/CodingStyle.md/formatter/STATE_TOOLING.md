@@ -19,7 +19,7 @@ large enough to warrant its own file (unlike Kotlin or JS/TS), same as
 `BashSpecificRule`, all five §2 rules); PowerShell (`Lang.isPowerShell`,
 `.ps1`/`.psm1` infer, `FormatterPowerShell`, `PowerShellSpecificRule`, all
 six §3 rules) — see checklist below. `Lang.SCAFFOLD_ONLY_LANGUAGES` stays
-empty — each was added directly to `Lang.SUPPORTED_LANGUAGES` as it landed.
+empty; each was added directly to `Lang.SUPPORTED_LANGUAGES` as it landed.
 
 **Canonical language order** for any documentation/help-string/`--lang`
 enumeration is recorded in `CLAUDE.md` (search "Canonical language order")
@@ -32,8 +32,8 @@ enumeration is recorded in `CLAUDE.md` (search "Canonical language order")
 ## Scope
 
 Each language has its own `STYLE_TOOLING.md` section (§1 Makefile, §2 Bash,
-§3 PowerShell). What distinguishes this job from every other language job: a
-short **fixed list** of specific transforms plus an explicit "leave
+§3 PowerShell). What distinguishes this job from every other language job:
+a short **fixed list** of specific transforms plus an explicit "leave
 everything else byte-identical" rule — no general-purpose
 reindentation/re-wrapping fallback like curly-brace or data-format languages
 have. The main risk is getting that "don't touch anything else" boundary
@@ -78,8 +78,8 @@ started (docs-only, no code landed yet).
 
 No language-specific config keys — the five/six fixed-rule-list transforms
 per language are unconditional (mirrors the "no gate" precedent already set
-by the rest of this job, since none of RDD_KEY_254–RDD_KEY_258 asked for
-one). Comment normalization (RDD_KEY_261) reuses the existing global
+by the rest of this job; none of RDD_KEY_254–RDD_KEY_258 asked for one).
+Comment normalization (RDD_KEY_261) reuses the existing global
 `normalize-comment-start-case`/`normalize-comment-end-period` keys already
 defined in `Config.java` for JSON/YAML/CSS/TOML/XML — no new keys added.
 
@@ -113,7 +113,7 @@ sandbox — availability unconfirmed, check before relying on it).
 
 None remaining — all six original scoping questions were resolved in one
 session (RDD_KEY_254–RDD_KEY_258 above; RDD_KEY_254 covers both the
-Makefile §1.1 and PowerShell §3.2 instances of the same alignment-group-
+Makefile §1.1 and PowerShell §3.2 instances of the same alignment-group
 boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
 
 ---
@@ -162,8 +162,8 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       (§2.2, §2.5) inline via a `RunBuffer` flushing on every kind change;
       pass B is line-oriented (§2.1/§2.3/§2.4), guarded by a per-line purity
       flag (first non-whitespace char is code). Arithmetic nested inside a
-      double-quoted string is still processed (per §2.5), but nested inside
-      `$(...)`/backticks stays opaque, consistent with leaving nested
+      double-quoted string is still processed (§2.5); nested inside
+      `$(...)`/backticks it stays opaque, consistent with leaving
       command-substitution content untouched. Smoke-tested manually (§2
       combined example, pipe-in-string/comment safety,
       heredoc/backtick/`$(...)` safety — byte-identical + idempotent). `make
@@ -278,7 +278,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       jobs may be reusable — check before cloning anything new.
       Sourced 2026-08-07 after a `/tmp` walk of existing dogfood checkouts;
       missing repos cloned same day (git 1.8 has no partial-clone/
-      sparse-checkout — large trees used selective raw download of
+      sparse-checkout, so large trees used selective raw download of
       `*.ps1`/`*.psm1` or clone+strip). User aborted the last oversized pull
       (`azure-pipelines-tasks`); rest not fetched. All rows stay
       `NOT STARTED` in `STATE_DOGFOOD.md` until a real dogfood *run*.
@@ -325,10 +325,10 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `\`-escaped characters.
       (2) `runPassA`'s root/code-mode tokenizer had no backslash-escape
       handling, so a `\'` case-arm pattern (e.g. `\'*)`) fell through to the
-      plain `'` branch and opened a real single-quote string frame that
-      stayed open until an unrelated later `'` closed it, corrupting
-      brace-depth indentation downstream (only visible as a round1/round2
-      shape difference) — fixed by adding a root-context `c == '\\'` branch
+      plain `'` branch, opening a real single-quote string frame that stayed
+      open until an unrelated later `'` closed it, corrupting brace-depth
+      indentation downstream (visible only as a round1/round2 shape
+      difference) — fixed by adding a root-context `c == '\\'` branch
       (mirrors existing escape handling in the `D`/`Q`/`B` frame types) that
       consumes the backslash and next character as plain code before any
       quote-opening check runs.
@@ -355,7 +355,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       scope). **Known accepted gap, not fixed:** one of those already-
       invalid-under-bash files (`tools/upgrade.sh`) also has `pipeSpacing`
       insert a space inside a zsh extended-glob alternation indistinguishable
-      from a real pipe (`(|.git)` -> `( | .git)`) — not a new breakage class
+      from a real pipe (`(|.git)` -> `( | .git)`) — not a new breakage class,
       since the file already failed `bash -n` before formatting;
       dialect-detecting `.sh`-extension-but-actually-zsh content is out of
       scope (same "no general grammar, fixed transform list" boundary as
@@ -394,48 +394,45 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `RunBuffer` accumulate a parallel `kindOut` string in lockstep with its
       own `out` (new `kindResult()`, appended per real output character on
       every `flush()`), so `kind` is built aligned to `RunBuffer`'s actual
-      emitted output rather than re-derived from `content` positions. The
-      remaining gap was the placeholder-substitution step: `ChainCollector.
-      resolve()`'s textual `String.replace(placeholder, finalText)` on
-      `transformed` can't be reused for the kind string (all `'C'`/`'O'`
-      characters, never literally contains the placeholder marker text), so a
-      companion `ChainCollector.resolveKind(preResolveTransformed,
-      preResolveKind)` was added that locates each placeholder's position in
-      the pre-substitution `transformed` string via `indexOf`, then splices a
-      run of `'O'` of the same length as that entry's resolved final text
-      (`resolve()` now records `resolvedLength` per entry) into the kind
-      string at the matching offset, keeping `kind` positionally aligned with
-      `resolve()`'s return value; `resolveKind()` must be called after
-      `resolve()`. Verified via a minimal repro (standalone `#` comment
-      followed by `if($x -eq $null)`), the original `Tasks/Common/
-      VstsAzureHelpers_/Utility.ps1` (diff now empty), and the full corpus
-      (all 1123 `.ps1` files under `/tmp/azure-pipelines-tasks`, diff empty,
-      zero formatter errors). New permanent fixture
-      `test/real_code_regressions_192_{inp,out}.ps1` (registered in
-      `Makefile` `INP_FILES` and `test/README.txt`). `make test`: 269/269
-      forward + idempotency (was 268/268 before this fix). **Accepted loose
-      end:** the original content-indexed `char[] kind` local inside
-      `runPassA` is now dead write-only code (every `kind[i] = ...`
-      assignment is never read after this fix) — left in place rather than
-      stripped (~50 scattered dead-store lines judged higher-risk to remove
-      than to leave); a future cleanup pass may strip it. See
-      `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row (updated
-      from "OPEN Q" to fixed).
+      emitted output, not re-derived from `content` positions. Remaining gap:
+      the placeholder-substitution step. `ChainCollector.resolve()`'s
+      textual `String.replace(placeholder, finalText)` on `transformed`
+      can't be reused for the kind string (all `'C'`/`'O'` characters, never
+      literally containing the placeholder marker text), so a companion
+      `ChainCollector.resolveKind(preResolveTransformed, preResolveKind)`
+      locates each placeholder's position in the pre-substitution
+      `transformed` string via `indexOf`, then splices a run of `'O'` of the
+      same length as that entry's resolved final text (`resolve()` now
+      records `resolvedLength` per entry) into the kind string at the
+      matching offset, keeping `kind` aligned with `resolve()`'s return
+      value; `resolveKind()` must run after `resolve()`. Verified via a
+      minimal repro (standalone `#` comment followed by `if($x -eq $null)`),
+      the original `Tasks/Common/VstsAzureHelpers_/Utility.ps1` (diff now
+      empty), and the full corpus (all 1123 `.ps1` files under
+      `/tmp/azure-pipelines-tasks`, diff empty, zero formatter errors). New
+      permanent fixture `test/real_code_regressions_192_{inp,out}.ps1`
+      (registered in `Makefile` `INP_FILES` and `test/README.txt`). `make
+      test`: 269/269 forward + idempotency (was 268/268 before this fix).
+      **Accepted loose end:** the original content-indexed `char[] kind`
+      local inside `runPassA` is now dead write-only code (every
+      `kind[i] = ...` assignment is never read after this fix) — left in
+      place rather than stripped (~50 scattered dead-store lines judged
+      higher-risk to remove than to leave); a future cleanup pass may strip
+      it. See `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row
+      (updated from "OPEN Q" to fixed).
       **Resolved, 2026-08-11 (Tier1 cleanup):** the dead-write-only
       `char[] kind` local was removed from `runPassA` entirely — the
       declaration plus all ~32 now-unread `kind[i] = ...`/
-      `kind[i] = kind[i + 1] = ...` assignment statements (verified via
-      `grep -n "kind\["` that every one fell inside `runPassA`'s own body
-      and that `PassAResult.kind` is built solely from
-      `chainCollector.resolveKind(...)`, never from this local — so every
-      write was genuinely unread). Every other `kind[...]` reference in the
-      file (`computeLinePurity`, `applyOperatorSpacing`,
-      `applyPipelineSplit`, etc.) reads a *different* `kind`/`char[]` --
-      either a method parameter or `passA.kind` -- and was left untouched.
-      Pure deletion, no behavior change: `make test` 278/278 forward +
-      idempotency (unchanged pass count), and
-      `powershell_combined_{inp,out}.ps1`,
-      `real_code_regressions_{182,191,192}_out.ps1` all reformat
+      `kind[i] = kind[i + 1] = ...` assignments (verified via `grep -n
+      "kind\["` that every one fell inside `runPassA`'s own body, and that
+      `PassAResult.kind` is built solely from `chainCollector.resolveKind(...)`,
+      never from this local — every write was genuinely unread). Every other
+      `kind[...]` reference in the file (`computeLinePurity`,
+      `applyOperatorSpacing`, `applyPipelineSplit`, etc.) reads a *different*
+      `kind`/`char[]` — either a method parameter or `passA.kind` — and was
+      left untouched. Pure deletion, no behavior change: `make test`
+      278/278 forward + idempotency (unchanged pass count); `powershell_combined_{inp,out}.ps1`
+      and `real_code_regressions_{182,191,192}_out.ps1` all reformat
       byte-identical to their committed `_out` fixtures before and after.
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
@@ -443,13 +440,12 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `diff -ru` empty (idempotent). Spot-checked round1 with
       `make -n -f <file>`; exit codes differed from originals only because
       this run copies just the `Makefile`/`*.mk` (not its sibling source
-      tree) into a different relative path — confirmed the failures are
-      "No such file"/"no rule" for sibling sources and `-std=c++20` rejected
-      by this sandbox's old g++, same failure class as the unmodified
-      originals run from their real location. No formatter-induced
-      breakage; content diff showed only the intended §1.1-§1.4 +
-      RDD_KEY_261 transforms; no bug found. See `STATE_DOGFOOD.md` for
-      per-repo rows.
+      tree) into a different relative path — the failures are "No such
+      file"/"no rule" for sibling sources and `-std=c++20` rejected by this
+      sandbox's old g++, same failure class as the unmodified originals run
+      from their real location. No formatter-induced breakage; content diff
+      showed only the intended §1.1-§1.4 + RDD_KEY_261 transforms; no bug
+      found. See `STATE_DOGFOOD.md` for per-repo rows.
       **Makefile — `ericniebler/range-v3` + `python/cpython`, DONE (2026-08-09,
       fresh re-clones after the 2026-08-07 checkouts were found
       broken/incomplete).** `range-v3` genuinely has zero `Makefile`/
@@ -486,9 +482,9 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `applyAssignAlignment`/`applySwitchArmAlignment` so both always see an
       already-split, stable shape.
       (2) `applyOperatorSpacing` treated bare `/` (not just `/=`) as binary
-      division with no awareness of PowerShell's command-argument parsing
-      mode — real bareword paths/URLs as command arguments (`Copy-Item
-      -Force $profileDir/* $targetProfileDir`, an unquoted
+      division, unaware of PowerShell's command-argument parsing mode — real
+      bareword paths/URLs as command arguments (`Copy-Item -Force
+      $profileDir/* $targetProfileDir`, an unquoted
       `https://api.nuget.org/v3/index.json`) got corrupted into extra,
       wrongly-split arguments — real content corruption, not a style nit.
       Fixed by dropping bare `/` from the binary-operator set entirely (kept
@@ -497,15 +493,15 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       round1/round2 diff empty across all 228 files, `make test` 252/252
       forward + idempotency (was 251/251). No PowerShell
       interpreter/`Invoke-ScriptAnalyzer`/`PSParser` available in this
-      sandbox (confirmed via `which pwsh`/`which powershell`, both absent),
-      so validity relied on round1/round2 idempotency plus manual reading of
+      sandbox (`which pwsh`/`which powershell` both absent), so validity
+      relied on round1/round2 idempotency plus manual reading of
       representative diffs — STYLE_TOOLING.md's "availability unconfirmed"
-      caveat now resolved as **not available**. New permanent fixture pair
+      caveat now resolved as **not available**. Fixture pair
       `test/real_code_regressions_182_{inp,out}.ps1` reproduces both bugs
       minimally, distilled from the three real files diffed above.
 - [x] Implement comment normalization for Makefile/Bash/PowerShell
-      (RDD_KEY_261) -- previously untouched entirely (STYLE_TOOLING.md §0).
-      New shared `ToolingCommentNormalizer` (first-letter capitalization +
+      (RDD_KEY_261) -- previously untouched (STYLE_TOOLING.md §0). New
+      shared `ToolingCommentNormalizer` (first-letter capitalization +
       sole-trailing-period stripping, no classifier/GRU dependency) wired
       into all three via the existing global `normalize-comment-start-case`/
       `normalize-comment-end-period` config keys (no new keys). Bash's
@@ -518,55 +514,54 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       forward + idempotency.
 - [x] Update `CLAUDE.md`'s implementation-status paragraph, `README.md`,
       `../README.txt` once any of the three moves from scaffold to real
-      logic (do not update ahead of actual landed code — see
-      `STATE_COMMON.md`'s doc-sync convention).
+      logic (not ahead of actual landed code — see `STATE_COMMON.md`'s
+      doc-sync convention).
       `README.md`/`../README.txt`: Makefile/Bash/PowerShell now
       JAR-implemented (`--lang`/`lang=` values, extension/basename mapping,
       `STYLE_TOOLING.md` style-guide link, AI full-file fallback +
       layout-judgment exclusion, shell/`reformat_file.py` dispatch).
-      `CLAUDE.md`: job table row marked implemented; Current implementation
+      `CLAUDE.md`: job table row marked implemented; current implementation
       status names `FormatterMakefile`/`FormatterBash`/`FormatterPowerShell`
-      (+ rule classes); canonical-order note now requires the three in
-      every current-capability list (no longer "reserved/not-yet").
+      (+ rule classes); canonical-order note now requires the three in every
+      current-capability list (no longer "reserved/not-yet").
 - [x] Implement `#`-comment chain-grouping (RDD_KEY_267, 2026-08-08 brief
       decision #3, curly-parity companion to RDD_KEY_265/RDD_KEY_266).
       `MakefileSpecificRule.parseBlock`'s `COMMENT_LINE` branch now scans
       forward collecting every immediately-following comment line before
       normalizing the whole run via `ToolingCommentNormalizer.normalizeChain`
-      (was: normalized each line independently). Bash/PowerShell (`runPassA`,
-      character-level tokenizers) needed a deferred-placeholder approach
-      since they normalize+emit inline with no lookahead: a new
-      `Frame.standalone`/`lineNo` pair (computed when a `#` frame is pushed)
-      drives a new path where a standalone comment's raw body is stored in a
-      `ChainEntry` list behind a unique placeholder marker emitted in its
-      place; a trailing (non-standalone) comment still normalizes
-      immediately, never deferred. After the pass-A scan,
-      `resolveChainEntries` groups entries into chains wherever `lineNo` is
-      strictly consecutive (any gap -- blank line, code line, or an
-      intervening trailing comment -- breaks the chain), normalizes each
-      chain, and substitutes placeholders for final text. Found and fixed a
-      real latent bug in RDD_KEY_261's original per-comment-only logic:
-      existing fixtures' `# Copyright (C) 2024 Example Corp.` line (part of
-      a 4-line standalone block also containing a period-free SPDX line and
-      two blank `#` lines) had its trailing `.` wrongly stripped because
-      each line's own period count was checked in isolation; chain-grouped,
-      the strip step only ever touches the chain's *last* comment (the
-      trailing blank line, which has no `.` to strip), so the mid-chain
-      period now correctly survives -- exactly curly's own semantics.
-      `makefile_combined_out.mk`, `bash_combined_out.sh`,
-      `powershell_combined_out.ps1`, `real_code_regressions_182_out.ps1`
-      regenerated from the live JAR to reflect the fix (user
-      regenerated/verified). `make test`: 257/257 forward + idempotency,
-      zero regressions (no new fixtures needed). Closes out decision #3 of
-      the 2026-08-08 brief.
+      (was: normalized each line independently). Bash/PowerShell
+      (`runPassA`, character-level tokenizers) needed a deferred-placeholder
+      approach since they normalize+emit inline with no lookahead: a new
+      `Frame.standalone`/`lineNo` pair (set when a `#` frame is pushed)
+      stores a standalone comment's raw body in a `ChainEntry` list behind a
+      unique placeholder marker emitted in its place; a trailing
+      (non-standalone) comment still normalizes immediately, never deferred.
+      After the pass-A scan, `resolveChainEntries` groups entries into
+      chains wherever `lineNo` is strictly consecutive (any gap — blank
+      line, code line, or an intervening trailing comment — breaks the
+      chain), normalizes each chain, and substitutes placeholders for final
+      text. Found and fixed a real latent bug in RDD_KEY_261's original
+      per-comment-only logic: existing fixtures' `# Copyright (C) 2024
+      Example Corp.` line (part of a 4-line standalone block also
+      containing a period-free SPDX line and two blank `#` lines) had its
+      trailing `.` wrongly stripped because each line's own period count
+      was checked in isolation; chain-grouped, the strip step only touches
+      the chain's *last* comment (the trailing blank line, which has no `.`
+      to strip), so the mid-chain period now correctly survives — exactly
+      curly's own semantics. `makefile_combined_out.mk`,
+      `bash_combined_out.sh`, `powershell_combined_out.ps1`,
+      `real_code_regressions_182_out.ps1` regenerated from the live JAR
+      (user regenerated/verified). `make test`: 257/257 forward +
+      idempotency, zero regressions (no new fixtures needed). Closes
+      decision #3 of the 2026-08-08 brief.
 - [x] **PowerShell -- `util/JCS/*.ps1` (6 files), DONE, 1 bug found and
       fixed (RDD_KEY_296, 2026-08-15).** A prior dogfood pass over
       `util/JCS/*.ps1` flagged all 6 files with formatting diffs suggesting
-      a real bug (`param(...)` block contents flushed to column 0;
-      backtick line-continuations re-indented inconsistently) but left
+      a real bug (`param(...)` block contents flushed to column 0; backtick
+      line-continuations re-indented inconsistently) but left
       unfixed/unadopted (no content-diff verifier for PowerShell, round1
-      discarded). Repro'd with a synthetic `.ps1` (indented `param(...)` +
-      a backtick-continued statement) before touching code. Root cause:
+      discarded). Repro'd with a synthetic `.ps1` (indented `param(...)` + a
+      backtick-continued statement) before touching code. Root cause:
       `PowerShellSpecificRule.applyBraceIndent` tracked scope depth via
       `{`/`}` only, so a multi-line paren/bracket-delimited construct (a
       `param(...)` list) had its interior flattened to the enclosing brace
@@ -576,13 +571,12 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `contLine` flag that bumps a continuation line's indent by one level,
       chaining across consecutive backtick-continued lines, reset on a
       blank or non-continuation line. New fixture
-      `test/real_code_regressions_210_{inp,out}.ps1` (combined param-block
-      + backtick-continuation repro). `make test`: 319/319 forward +
+      `test/real_code_regressions_210_{inp,out}.ps1` (combined param-block +
+      backtick-continuation repro). `make test`: 319/319 forward +
       idempotency (was 318/318). Verified against the real trigger files:
       all 6 `util/JCS/*.ps1` files reformatted, `param(...)` blocks and
       backtick continuations both confirmed correct, round1/round2 diff
-      empty (idempotent) across all 6. Remaining diffs against originals
-      are pre-existing, unrelated tooling-job behaviors (operator/`=`
-      alignment, comment normalization) already covered by earlier
-      RDD_KEYs -- not touched by this fix. See `RDD_KEY_296` for full
-      narrative.
+      empty (idempotent) across all 6. Remaining diffs against originals are
+      pre-existing, unrelated tooling-job behaviors (operator/`=` alignment,
+      comment normalization) already covered by earlier RDD_KEYs -- not
+      touched by this fix. See `RDD_KEY_296` for full narrative.

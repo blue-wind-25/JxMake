@@ -1,16 +1,15 @@
 # STATE_COMMON.md — Shared Process Conventions
 
-Read this file first, no matter which job you're picking up. It holds every
-process convention identical across jobs — commit workflow, ambiguity
+Read this file first, regardless of which job you're picking up. It holds
+every process convention identical across jobs — commit workflow, ambiguity
 handling, file exclusions, testing methodology, RDD_LOG.md lookup
 discipline — which the per-job file assumes and does not restate; that file
-only contains what's specific to that job (Project Layout, Resolved Design
+holds only what's specific to that job (Project Layout, Resolved Design
 Decisions index, Open Questions, Checklist).
 
-**Do NOT read `README.md`** unless the user explicitly asks. All decisions
-relevant to implementation are recorded in each job file's own **Resolved
-Design Decisions** index (full text in `RDD_LOG.md` — see lookup convention
-below).
+**Do NOT read `README.md`** unless the user explicitly asks. Implementation-
+relevant decisions are recorded in each job file's own **Resolved Design
+Decisions** index (full text in `RDD_LOG.md` — see lookup convention below).
 
 **ONLY** read the source file you are currently implementing or directly
 modifying. Do NOT read other source files unless a specific checklist item
@@ -117,9 +116,9 @@ batch, store the rest in the corresponding state file.
 
 **Diagnosing a hung `make test`/batch run**: `Main.main`'s per-file loop
 (`--standalone` batch mode, one JVM invocation) prints
-`jxmake-code-formatter: processing <file>` to stderr immediately before each
-file, pinpointing a stuck file (added 2026-08-04 after a switch-case-reindent
-fix attempt caused an infinite loop mid-`make test` with no way to tell which
+`jxmake-code-formatter: processing <file>` to stderr right before each file,
+pinpointing a stuck file (added 2026-08-04 after a switch-case-reindent fix
+attempt caused an infinite loop mid-`make test` with no way to tell which
 fixture was stuck — see `STATE_C_CPP_JAVA.md`'s Tier-4-escalation entry).
 Unconditional (stderr isn't diffed by `make test`).
 
@@ -279,9 +278,9 @@ Covered by `make test-server`, documented in `README.md`'s Server Wire
 Protocol section.
 
 **Client env-var forwarding on delegation — DONE.** Tiers 2/3 of the
-precedence chain were resolved by the server process (risking staleness for
-tier 3, since a JVM's env is fixed at process start). Fixed via
-`Config.clientEnvOverrides()`; `Main.delegateToServer` forwards its own live
+precedence chain were resolved server-side (risking staleness at tier 3,
+since a JVM's env is fixed at process start). Fixed via
+`Config.clientEnvOverrides()`: `Main.delegateToServer` forwards its own live
 `JXMAKE_CODE_FORMATTER_*` snapshot as inline query-param overrides on every
 delegated request. Documented in `README.md`'s Configuration section
 ("Server mode note on tiers 2/3").
@@ -391,7 +390,7 @@ updated accordingly.
 curly-brace-family (C/C++/Java/Kotlin) logic. Ahead of Python3/data-format/
 JS-TS jobs landing real logic, each was split into a slim `*Core` base plus
 family siblings (`*Curly`, and skeletons for `*Indent`/`*Tags`) so each
-future job gets a clean landing file. Mechanical rename/move only, no
+future job gets a clean landing file — mechanical rename/move only, no
 behavior change. `Lang.java` gained `isCurly`/`isIndentBased`/`isTagBased`
 predicates first; `FormatterCore.forLanguage(String)` is the static
 dispatcher factory (picks `Curly`/`Indent`/`Tags` by family) —

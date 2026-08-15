@@ -1,11 +1,11 @@
 # STATE_DOGFOOD.md — Dogfood Corpus Master Index
 
-Master index of every dogfood corpus run (or planned) across all jobs — lets
-a session check status at a glance without re-reading every `STATE_*.md`.
-Not a substitute for a job's own `STATE_*.md`: full bug detail, root causes,
-fixes, and `make test` counts live only there. Update this file's row
-whenever a dogfood run starts, finishes, or is rejected — alongside the job
-file's own detail.
+Master index of every dogfood corpus run (or planned) across all jobs, so a
+session can check status at a glance without re-reading every `STATE_*.md`.
+Not a substitute for a job's own `STATE_*.md` — full bug detail, root
+causes, fixes, and `make test` counts live only there. Update this file's
+row whenever a dogfood run starts, finishes, or is rejected, alongside the
+job file's own detail.
 
 ## Status legend
 
@@ -20,11 +20,11 @@ file's own detail.
 `UNSUITABLE` corpora (rejected as unfit for use, not a completed-run status)
 are listed separately at the bottom, not mixed into the main table.
 
-**Table formatting note**: cells below are intentionally *not* pipe-aligned
-(single space around `|`, no column-width padding) — hand-alignment would
-force every row to pad out to match one long `Note` cell, growing over time.
-GitHub-flavored markdown doesn't require aligned pipes to render correctly.
-Keep new rows unaligned; don't re-align the whole table when adding one.
+**Table formatting note**: cells are intentionally *not* pipe-aligned (single
+space around `|`, no column-width padding) — aligning by hand would force
+every row to pad out to match the longest `Note` cell, and GitHub-flavored
+markdown doesn't need aligned pipes to render correctly. Keep new rows
+unaligned; don't re-align the whole table when adding one.
 
 ## Main table
 
@@ -143,14 +143,14 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java/Python3/JS/Bash | STATE_COMMON.md | recurring self-format pass (tools/*, XL.txt TIER 0 item 2, 2026-08-12) | DONE - BUG FOUND, FIXED | 69 files (.java/.py/.js/.sh); round1/round2 idempotent; content-diff clean on all 6 files with actual changes; syntax-checked clean. Surfaced a real formatter bug in `tools/gru/FilterAbstain.java`'s output (flush-left `catch`, see src/** row below); after fix, re-ran and re-adopted that one file. Round1 adopted over real `tools/*` |
 
 **Note on `microsoft/TypeScript`'s status**: cluster #3's shared braceless-
-collapse root cause (same as `angular/angular` cluster 4) is fixed.
-`applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering (formerly the
-residual cause here) is also fixed — shared-curly-pipeline scope, not
-JS/TS-specific (see STATE_C_CPP_JAVA.md Open Questions,
+collapse root cause (same as `angular/angular` cluster 4) is fixed, as is the
+`applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering issue that was
+the residual cause here — shared-curly-pipeline scope, not JS/TS-specific
+(see STATE_C_CPP_JAVA.md Open Questions,
 `ScopePipelineCurly.reapplyAssignmentsPassOnly`). The 2026-08-09
 reconfirmation found 5 residual shapes, all now fixed: `watchPublic.ts`'s
-nested-array-literal corruption plus the 4 Tier-3 shapes (RDD_KEY_273-276)
-— see table row above and `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript"
+nested-array-literal corruption plus the 4 Tier-3 shapes (RDD_KEY_273-276) —
+see the table row above and `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript"
 section for per-shape detail.
 
 Corpus scope: `src/` only (601 real `.ts` files, 379045 lines) — excluded

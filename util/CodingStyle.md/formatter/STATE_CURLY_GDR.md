@@ -32,12 +32,19 @@ whitespace is preserved except for specific recognized rewrites. Only
 `SwitchRule.applyNonInlineCaseIndent` and
 `ScopePipeline.applyDeclarationsPass` reindent anything, both applying a
 **relative delta** from a single reference line, not an absolute target from
-brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps — Open" documents
-two real bugs from this shape (`ASTParser.java` in `javaparser/javaparser`;
-local `tool/JSONEncoderLite.java`) — non-idempotent reindentation on
-internally-inconsistent source, both ACCEPTED-not-fixed: the real fix
-(absolute target from structural depth) is nontrivial, with real regression
-risk for a narrow shape.
+brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps" originally
+documented two real bugs from this shape (`ASTParser.java` in
+`javaparser/javaparser`; local `tool/JSONEncoderLite.java`) — non-idempotent
+reindentation on internally-inconsistent source, both then ACCEPTED-not-
+fixed: the real fix (absolute target from structural depth) is nontrivial,
+with real regression risk for a narrow shape. **Status update (both now
+closed, kept for historical context on why this job exists):**
+`tool/JSONEncoderLite.java`'s instance stopped reproducing and was closed
+2026-08-15 (`RDD_KEY_292`); `ASTParser.java`'s instance was closed
+2026-08-16 (`RDD_KEY_301`, documentation-only — round-trips cleanly once
+both `curly-general-scope-reindent` and `curly-general-scope-reindent-
+multipass` are turned on, i.e. exactly the general pass this job built).
+See `STATE_C_CPP_JAVA.md`'s "Known Gaps — Fixed" for both.
 
 **Why a *general* version is much harder/riskier than those two narrow
 passes:**

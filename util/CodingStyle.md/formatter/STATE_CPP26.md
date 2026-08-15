@@ -411,8 +411,17 @@ below (all landed). No open question remains for §5.
       gaps:
       - 33/37: known switch/case relative-delta reindentation drift
         (`SwitchRule.applyNonInlineCaseIndent`) on internally inconsistent
-        source — same shape as the already-ACCEPTED `javaparser`/
-        `JSONEncoderLite.java` gaps.
+        source — same shape as the then-ACCEPTED `javaparser`/
+        `JSONEncoderLite.java` gaps. **Status note (2026-08-16 cleanup
+        pass):** the general switch-case-on-internally-inconsistent-source
+        shape was fixed 2026-08-07 (`RDD_KEY_251`, see `STATE_C_CPP_JAVA.md`)
+        and both `javaparser`/`JSONEncoderLite.java` gaps referenced here are
+        now closed too (`RDD_KEY_292`/`RDD_KEY_301`) — not independently
+        re-verified against these specific 33 `glaze` files this pass (the
+        original `/tmp/glaze` checkout is gone per the 2026-08-15 re-check
+        note below), but plausibly also fixed incidentally; re-open in
+        `STATE_C_CPP_JAVA.md`'s Known Gaps if a fresh `glaze` clone
+        surfaces the same drift again.
       - `glaze_asio.hpp`/`ordered_map_test.cpp`: member-initializer-list
         wrapping inserts a stray space after `.` (`other.index` ->
         `other. index`) on wrap — general init-list-wrapping bug, not

@@ -198,10 +198,16 @@ JS/TS fixtures are active in the Makefile and passing.
 
 - **Unrelated bug found, not fixed (out of this job's scope):**
   `ruanyf/react-demos`'s `demo13/app.js` (compiled, non-JSX, minified
-  one-liner function bodies) is not idempotent — a general curly-brace-
-  family reindent pass re-breaks an already-reformatted one-liner
-  differently on a second pass. Belongs to `STATE_C_CPP_JAVA.md`'s
-  curly-family work or a new dedicated investigation.
+  one-liner function bodies) is not idempotent at default config — a
+  general curly-brace-family reindent pass re-breaks an already-reformatted
+  one-liner differently on a second pass. **2026-08-15 XL.txt sweep
+  verification:** confirmed live with a minimal repro
+  (`function foo(a,b){if(a){return b;}else{return a;}}`); also confirmed the
+  same repro IS idempotent with `curly-general-scope-reindent`/`-multipass =
+  on`. Not a separate bug — just another instance of the already-tracked
+  `curly-general-scope-reindent` default-off gap (`STATE_CURLY_GDR.md`,
+  XL.txt TIER 9 Feature). No new tracker item added; noted as extra
+  confirming evidence on the existing CURLY_GDR entry instead.
 
 ---
 

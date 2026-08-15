@@ -215,12 +215,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-- [C_CPP_JAVA] Minified/compiled one-liner `if/else`/`for` bodies non-idempotent under a
-  general curly-brace reindent pass — round1 partially reformats, round2 reformats
-  differently again (verified live 2026-08-15, minimal repro: `function foo(a,b){if(a){return
-  b;}else{return a;}}` diverges between rounds). Found via JS/TS job's `ruanyf/react-demos`
-  dogfood (`demo13/app.js`), general curly-family bug not JS/TS-specific. See
-  STATE_JS_TS.md's Open Questions.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -258,7 +253,11 @@ NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known
   prior attempts regressed fixtures), high value (completes an already-shipped-but-default-off
   feature). Subsumes two narrower facets already named in `STATE_CURLY_GDR.md`: the
   `MAX_MULTIPASS_CYCLES = 20` cap's untested adequacy on deeper/wider shapes, and `GdrTokenizer`'s
-  "acceptable at this stage" literal-shape-coverage caveat.
+  "acceptable at this stage" literal-shape-coverage caveat. Additional confirming instance
+  (2026-08-15 XL.txt sweep): a minified one-liner `if/else` JS repro (`ruanyf/react-demos`
+  `demo13/app.js`, see STATE_JS_TS.md's Open Questions) is non-idempotent at default config but
+  IS idempotent with `curly-general-scope-reindent`/`-multipass = on` — confirms flipping the
+  default (once correctness is solid) would fix this class of gap too, not a separate item.
 
 - [C_CPP_JAVA] Retire `SwitchRule.applyNonInlineCaseIndent`/`ScopePipeline.applyDeclarationsPass`
   in favor of GDR pre-pass's absolute-target model — cleanup/consolidation, not a bug fix; medium

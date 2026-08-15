@@ -30,7 +30,7 @@
     javac -cp libs\*.jar -d build\classes src\Main.java
 #>
 param(
-    [Parameter(ValueFromRemainingArguments=$true)]
+    [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$CompileArgs = @()
 )
 
@@ -46,7 +46,7 @@ $ErrorActionPreference = 'Stop'
 $TmpDir = $env:TEMP
 
 # ── Sentinel constants ────────────────────────────────────────────────────────
-# PowerShell strings are UTF-16 and can contain US (char 0x1F) natively.
+# PowerShell strings are UTF-16 and can contain US (char 0x1F) natively
 $US         = [char]0x1F
 $SEN_ENDINP = "${US}ENDINP${US}"
 
@@ -55,11 +55,11 @@ $SEN_ENDINP = "${US}ENDINP${US}"
 $ScriptDir = $PSScriptRoot
 
 # Prefer the JDK that contains this script (installed in bin dir),
-# then JAVA_HOME, then whatever java is on PATH.
+# then JAVA_HOME, then whatever java is on PATH
 if (Test-Path (Join-Path $ScriptDir 'java.exe')) {
-    $JdkBin  = $ScriptDir
+    $JdkBin = $ScriptDir
 } elseif ($env:JAVA_HOME -and (Test-Path (Join-Path $env:JAVA_HOME 'bin\java.exe'))) {
-    $JdkBin  = Join-Path $env:JAVA_HOME 'bin'
+    $JdkBin = Join-Path $env:JAVA_HOME 'bin'
 } else {
     $JavaExe = Get-Command java -ErrorAction SilentlyContinue
     if (-not $JavaExe) {
@@ -69,9 +69,9 @@ if (Test-Path (Join-Path $ScriptDir 'java.exe')) {
     $JdkBin = Split-Path -Parent $JavaExe.Source
 }
 
-$JavaBin    = Join-Path $JdkBin 'java.exe'
-$JavacReal  = Join-Path $JdkBin 'javac.real.exe'
-$JarPath    = Join-Path $ScriptDir 'compile-server.jar'
+$JavaBin   = Join-Path $JdkBin 'java.exe'
+$JavacReal = Join-Path $JdkBin 'javac.real.exe'
+$JarPath   = Join-Path $ScriptDir 'compile-server.jar'
 
 # ── Port derivation ───────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ function Start-Daemon {
         $existingPid = [int](Get-Content $PidFile -ErrorAction SilentlyContinue)
         try {
             $proc = Get-Process -Id $existingPid -ErrorAction Stop
-            return $true   # daemon is alive
+            return $true   # Daemon is alive
         } catch {
             Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
         }
@@ -113,19 +113,19 @@ function Start-Daemon {
     if (Test-PortOpen $Port) { return $true }
 
     # Start daemon as a detached process
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName         = $JavaBin
-    $psi.Arguments        = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $Port"
-    $psi.UseShellExecute  = $false
-    $psi.CreateNoWindow   = $true
+    $psi                        = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName               = $JavaBin
+    $psi.Arguments              = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $Port"
+    $psi.UseShellExecute        = $false
+    $psi.CreateNoWindow         = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError  = $true
-    $proc = [System.Diagnostics.Process]::Start($psi)
+    $proc                       = [System.Diagnostics.Process]::Start($psi)
 
     # Asynchronously drain output to the log file (fire-and-forget)
     $logStream = [System.IO.StreamWriter]::new($LogFile, $false,
         [System.Text.Encoding]::UTF8)
-    $logStream.AutoFlush = $true
+    $logStream.AutoFlush     = $true
     $proc.OutputDataReceived += { param($s,$e); if ($e.Data) { $logStream.WriteLine($e.Data) } }
     $proc.ErrorDataReceived  += { param($s,$e); if ($e.Data) { $logStream.WriteLine($e.Data) } }
     $proc.BeginOutputReadLine()
@@ -135,7 +135,8 @@ function Start-Daemon {
     for ($i = 0; $i -lt 10; $i++) {
         Start-Sleep -Milliseconds 500
         if (Test-PortOpen $Port) {
-            $proc.Id | Set-Content $PidFile
+            $proc.Id |
+                Set-Content $PidFile
             return $true
         }
     }
@@ -147,7 +148,7 @@ function Start-Daemon {
 
 # ── Absolutize path arguments relative to client's working directory ──────────
 # The server daemon runs in a fixed CWD; convert all relative paths to absolute
-# so the server can locate source files, output dirs, and classpath entries.
+# so the server can locate source files, output dirs, and classpath entries
 
 $ClientCwd = $PWD.Path
 
@@ -158,13 +159,13 @@ $ProcessedArgs = Process-JavacArgs $CompileArgs
 function Invoke-ViaDaemon {
     $client = $null
     try {
-        $client  = New-Object System.Net.Sockets.TcpClient
+        $client = New-Object System.Net.Sockets.TcpClient
         $client.Connect('127.0.0.1', $Port)
-        $stream  = $client.GetStream()
-        $enc     = [System.Text.Encoding]::UTF8
-        $writer  = New-Object System.IO.StreamWriter($stream, $enc)
+        $stream           = $client.GetStream()
+        $enc              = [System.Text.Encoding]::UTF8
+        $writer           = New-Object System.IO.StreamWriter($stream, $enc)
         $writer.AutoFlush = $true
-        $reader  = New-Object System.IO.StreamReader($stream, $enc)
+        $reader           = New-Object System.IO.StreamReader($stream, $enc)
 
         foreach ($arg in $ProcessedArgs) { $writer.WriteLine($arg) }
         $writer.WriteLine($SEN_ENDINP)
@@ -186,13 +187,13 @@ function Invoke-ViaDaemon {
                     switch ($mode) {
                         'stdout' { $stdoutLines.Add($line) }
                         'stderr' { $stderrLines.Add($line) }
-                        'extcod' { $exitCode = [int]$line  }
+                        'extcod' { $exitCode = [int]$line }
                     }
                 }
             }
         }
 
-        foreach ($l in $stdoutLines) { [Console]::Out.WriteLine($l)   }
+        foreach ($l in $stdoutLines) { [Console]::Out.WriteLine($l) }
         foreach ($l in $stderrLines) { [Console]::Error.WriteLine($l) }
         exit $exitCode
     } finally {

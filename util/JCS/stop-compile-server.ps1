@@ -18,10 +18,10 @@
     stop-compile-server.cmd          # stops all daemons
 #>
 param(
-    [Parameter(Position=0)]
+    [Parameter(Position = 0)]
     [string]$Port = '',
 
-    [Parameter(Position=1)]
+    [Parameter(Position = 1)]
     [string]$JavaBin = ''
 )
 

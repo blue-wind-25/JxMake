@@ -17,12 +17,12 @@
 # Returns an [int]; throws if the version string cannot be parsed.
 function Get-JavaMajorPort {
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$JavaBin
     )
     $verLines = & $JavaBin '-version' 2>&1
     $verStr   = $verLines[0].ToString()
     if ($verStr -match '"1\.(\d+)') { return [int]$Matches[1] * 1000 }
-    if ($verStr -match '"(\d+)')    { return [int]$Matches[1] * 1000 }
+    if ($verStr -match '"(\d+)') { return [int]$Matches[1] * 1000 }
     throw "Cannot parse Java version from: $verStr"
 }

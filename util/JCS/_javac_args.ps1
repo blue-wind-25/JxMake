@@ -15,13 +15,13 @@
         $args = Process-JavacArgs $CompileArgs
 #>
 
-# Convert a single path to absolute, using $ClientCwd as the base.
+# Convert a single path to absolute, using $ClientCwd as the base
 function Abs-Path([string]$p) {
     if ([System.IO.Path]::IsPathRooted($p)) { return $p }
     return [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($ClientCwd, $p))
 }
 
-# Convert a semicolon-separated classpath string to absolute paths.
+# Convert a semicolon-separated classpath string to absolute paths
 function Abs-Cp([string]$cp) {
     return ($cp -split ';' | ForEach-Object { Abs-Path $_ }) -join ';'
 }
@@ -39,8 +39,8 @@ function Process-JavacArgs([string[]]$javacArgs) {
 
     foreach ($a in $javacArgs) {
         if ($nextMode -ne '') {
-            if ($nextMode -eq 'cp')     { $out.Add((Abs-Cp   $a)) }
-            else                         { $out.Add((Abs-Path $a)) }
+            if ($nextMode -eq 'cp') { $out.Add((Abs-Cp   $a)) }
+            else { $out.Add((Abs-Path $a)) }
             $nextMode = ''
         } elseif ($dirFlags -contains $a) {
             $out.Add($a); $nextMode = 'single'

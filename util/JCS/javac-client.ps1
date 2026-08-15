@@ -24,10 +24,10 @@
     javac-client.cmd 0     -cp libs\*.jar -d build\classes src\Main.java
 #>
 param(
-    [Parameter(Mandatory=$true, Position=0)]
+    [Parameter(Mandatory = $true, Position = 0)]
     [string]$Port,
 
-    [Parameter(ValueFromRemainingArguments=$true)]
+    [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$CompileArgs = @()
 )
 
@@ -40,15 +40,15 @@ $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_javac_args.ps1"
 
 # ── Sentinel constants ────────────────────────────────────────────────────────
-# PowerShell strings are UTF-16 and can contain US (char 0x1F) natively.
-$US           = [char]0x1F
-$SEN_ENDINP   = "${US}ENDINP${US}"
+# PowerShell strings are UTF-16 and can contain US (char 0x1F) natively
+$US         = [char]0x1F
+$SEN_ENDINP = "${US}ENDINP${US}"
 
 # ── Port resolution ───────────────────────────────────────────────────────────
 
 $resolvedPort = [int]$Port
 if ($resolvedPort -eq 0) {
-    $javaBin = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\java.exe' } else { 'java' }
+    $javaBin      = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\java.exe' } else { 'java' }
     $resolvedPort = Get-JavaMajorPort -JavaBin $javaBin
 }
 
@@ -69,7 +69,7 @@ try {
 
 # ── Absolutize path arguments relative to client's working directory ──────────
 # The server daemon runs in a fixed CWD; convert all relative paths to absolute
-# so the server can locate source files, output dirs, and classpath entries.
+# so the server can locate source files, output dirs, and classpath entries
 
 $ClientCwd = $PWD.Path
 
@@ -79,13 +79,13 @@ $processedArgs = Process-JavacArgs $CompileArgs
 
 $client = $null
 try {
-    $client  = New-Object System.Net.Sockets.TcpClient
+    $client = New-Object System.Net.Sockets.TcpClient
     $client.Connect('127.0.0.1', $resolvedPort)
-    $stream  = $client.GetStream()
-    $enc     = [System.Text.Encoding]::UTF8
-    $writer  = New-Object System.IO.StreamWriter($stream, $enc)
+    $stream           = $client.GetStream()
+    $enc              = [System.Text.Encoding]::UTF8
+    $writer           = New-Object System.IO.StreamWriter($stream, $enc)
     $writer.AutoFlush = $true
-    $reader  = New-Object System.IO.StreamReader($stream, $enc)
+    $reader           = New-Object System.IO.StreamReader($stream, $enc)
 
     # Send each absolutized javac argument on its own line, then the ENDINP sentinel
     foreach ($arg in $processedArgs) {
@@ -114,7 +114,7 @@ try {
                 switch ($mode) {
                     'stdout' { $stdoutLines.Add($line) }
                     'stderr' { $stderrLines.Add($line) }
-                    'extcod' { $exitCode = [int]$line  }
+                    'extcod' { $exitCode = [int]$line }
                 }
             }
         }
@@ -125,7 +125,7 @@ try {
 
 # ── Output -- preserve javac's stdout/stderr separation ───────────────────────
 
-foreach ($l in $stdoutLines) { [Console]::Out.WriteLine($l)   }
+foreach ($l in $stdoutLines) { [Console]::Out.WriteLine($l) }
 foreach ($l in $stderrLines) { [Console]::Error.WriteLine($l) }
 
 exit $exitCode

@@ -17,10 +17,10 @@
     start-compile-server.cmd 0 "C:\jdk21\bin\java.exe"
 #>
 param(
-    [Parameter(Mandatory=$true, Position=0)]
+    [Parameter(Mandatory = $true, Position = 0)]
     [string]$Port,
 
-    [Parameter(Position=1)]
+    [Parameter(Position = 1)]
     [string]$JavaBin = ''
 )
 
@@ -95,11 +95,11 @@ try {
 
 Write-Host "Starting javac daemon on port $resolvedPort using $verStr..."
 
-$psi = New-Object System.Diagnostics.ProcessStartInfo
-$psi.FileName        = $JavaBin
-$psi.Arguments       = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $resolvedPort"
-$psi.UseShellExecute = $false
-$psi.CreateNoWindow  = $true
+$psi                        = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName               = $JavaBin
+$psi.Arguments              = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $resolvedPort"
+$psi.UseShellExecute        = $false
+$psi.CreateNoWindow         = $true
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError  = $true
 
@@ -108,7 +108,7 @@ $proc = [System.Diagnostics.Process]::Start($psi)
 # Drain output asynchronously to log file
 $logWriter = [System.IO.StreamWriter]::new($LogFile, $false,
     [System.Text.Encoding]::UTF8)
-$logWriter.AutoFlush = $true
+$logWriter.AutoFlush     = $true
 $proc.OutputDataReceived += { param($s,$e); if ($e.Data) { $logWriter.WriteLine($e.Data) } }
 $proc.ErrorDataReceived  += { param($s,$e); if ($e.Data) { $logWriter.WriteLine($e.Data) } }
 $proc.BeginOutputReadLine()
@@ -121,11 +121,12 @@ for ($i = 0; $i -lt 10; $i++) {
         $t = New-Object System.Net.Sockets.TcpClient
         $t.Connect('127.0.0.1', $resolvedPort)
         $t.Close()
-        $proc.Id | Set-Content $PidFile
+        $proc.Id |
+            Set-Content $PidFile
         Write-Host "Daemon started (PID $($proc.Id)), listening on port $resolvedPort"
         Write-Host "Log: $LogFile"
         exit 0
-    } catch { }
+    } catch {}
 }
 
 [Console]::Error.WriteLine("ERROR: Daemon did not start within 5 seconds. Check $LogFile")

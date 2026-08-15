@@ -918,7 +918,8 @@ here if and when it actually gains a documented gap.
    sourced helper scripts are typically shebang-less) is still not caught by this method, since
    the fallback for no-shebang content is deliberately permissive rather than content-sniffed;
    this is unchanged from before and not planned to be closed, per the content-sniffing
-   evaluation above. See `STATE_TOOLING.md` for the full writeup.
+   evaluation above. See `STATE_TOOLING.md` for the full writeup, and
+   `test/real_code_regressions_213_inp/out.sh` (byte-identical fixture) for the regression test.
 
 ### AI-assist (GRU)
 

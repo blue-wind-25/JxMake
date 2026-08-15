@@ -4074,6 +4074,18 @@ Real-code regressions:
                                                         body each contain their own call, both on one original
                                                         over-limit source line.
 
+  real_code_regressions_213_inp/out.sh               -- Bash zsh-dialect shebang skip-gate:
+                                                        `FormatterBash.formatOne` now detects a
+                                                        `#!/usr/bin/env zsh` (or bare `#!/.../zsh`) shebang
+                                                        and skips formatting entirely rather than applying
+                                                        bash-grammar rules to zsh-only syntax (extended-glob
+                                                        alternation, etc.), which previously misfired on
+                                                        constructs like `(|.git)`. `_inp` and `_out` are
+                                                        byte-identical, proving the file is left untouched.
+                                                        See `STATE_TOOLING.md` for the design and empirical
+                                                        validation, and `README.md`'s Bash Known Limitations
+                                                        for the user-facing summary.
+
 How Tests Are Run
 -----------------
 

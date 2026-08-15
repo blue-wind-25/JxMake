@@ -628,14 +628,13 @@ same as every other language's dogfood precedent for a newly-landed rule.
       not corrupted. 8-case smoke + `make test` 114/114.
 
       **DECIDED CLOSED [2026-08-12], not a future job — do not re-add to a
-      checklist/XL.txt tier that implies revisiting.** Internal
-      expression re-spacing matches `black`/`ruff format` convention
-      (both also leave f-string interiors alone), so the gap is
-      intentional scope, not a missed feature. Fixing it would also need
-      a real Python-expression tokenizer/spacer — reusing the C-family
-      `needsSpaceBetween` here risks silent semantic corruption (`*`
-      multiplication, `**`/`//`/`:=`, keyword operators, comprehension
-      `for`/`if`), not just a style miss. See `XL.txt` TIER X: Dead.
+      checklist/XL.txt tier that implies revisiting.** Internal expression
+      re-spacing matches `black`/`ruff format` convention (both also leave
+      f-string interiors alone), so the gap is intentional scope, not a
+      missed feature. Fixing it would need a real Python-expression
+      tokenizer/spacer — reusing the C-family `needsSpaceBetween` (see the
+      operator list above) risks silent semantic corruption, not just a
+      style miss. See `XL.txt` TIER X: Dead.
 
       **§6 (Function Signature Wrapping) — alignment slice.** New
       `MiscRuleIndent.PyParam` (name/type/default triples, trailing-comma

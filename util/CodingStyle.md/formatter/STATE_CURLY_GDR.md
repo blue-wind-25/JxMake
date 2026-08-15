@@ -654,33 +654,26 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       — critically — compared each against the same input with
       `multipass=off` to isolate exactly what GDR-2 (the second GDR
       application in the multipass sequence) changes relative to
-      GDR-1-only output, not just idempotency:
-      - TS `switch`-in-`if` (`case`/`break` bodies via
-        `SwitchRule.applyNonInlineCaseIndent`) — round1==round2==round3;
-        vs. the multipass-off baseline, GDR-2 changed *only* a pre-existing
-        `RDD_KEY_229`-shape else-brace mis-indent, leaving the switch-case
-        region byte-for-byte identical to the multipass-off baseline.
-        **PASS.**
-      - TS wrapped/nested ternary chain (STYLE.md §8 continuation-indent
-        renderer) — same result: idempotent, GDR-2 left the ternary
-        continuation columns untouched vs. the multipass-off baseline, only
-        fixed the same class of else-brace bug. **PASS.**
-      - Kotlin `when`-in-`if` (Kotlin's switch-case equivalent) — same
-        pattern, idempotent, `when`-arm bodies untouched by GDR-2. **PASS.**
-      - Kotlin nested `if`-expression ternary-equivalent wrap — same
-        pattern, idempotent, wrap columns untouched by GDR-2. **PASS.**
-      - Two harder combined/deep-nesting variants built to push past the
-        four named shapes: a 15-level-deep nested Kotlin `if`/`else` with a
-        `when`-in-`if` plus a nested `if`-expression wrap at the bottom, and
-        a TS `switch`-in-`if` whose `case` body contains both a wrapped
-        fluent chain (`.filter().map().forEach()` — the exact shape
-        `RDD_KEY_240` exploited) and a nested ternary in a sibling `case`.
-        Both fully idempotent (round1==round2==round3), and both show the
-        identical pattern vs. their multipass-off baseline: GDR-2 fixes the
-        `RDD_KEY_229`-shape else-brace bug, touches nothing else. **PASS.**
+      GDR-1-only output, not just idempotency. All four named shapes — TS
+      `switch`-in-`if` (`case`/`break` bodies via
+      `SwitchRule.applyNonInlineCaseIndent`), TS wrapped/nested ternary
+      chain (STYLE.md §8 continuation-indent renderer), Kotlin `when`-in-`if`
+      (Kotlin's switch-case equivalent), and Kotlin nested `if`-expression
+      ternary-equivalent wrap — came back idempotent (round1==round2==round3)
+      and showed the identical pattern vs. the multipass-off baseline: GDR-2
+      changed *only* a pre-existing `RDD_KEY_229`-shape else-brace mis-indent,
+      leaving the case/ternary/when/wrap region byte-for-byte identical to
+      the multipass-off baseline. **All four PASS.** Two harder
+      combined/deep-nesting variants built to push past those shapes — a
+      15-level-deep nested Kotlin `if`/`else` with a `when`-in-`if` plus a
+      nested `if`-expression wrap at the bottom, and a TS `switch`-in-`if`
+      whose `case` body contains both a wrapped fluent chain
+      (`.filter().map().forEach()` — the exact shape `RDD_KEY_240`
+      exploited) and a nested ternary in a sibling `case` — were also fully
+      idempotent and showed the same pattern. **Both PASS.**
 
       **Disposition: NOT REPRODUCED.** Across all four originally-named
-      untried shapes plus two harder combined/deep-nesting variants
+      untried shapes plus the two harder combined/deep-nesting variants
       deliberately built to stress the same `RDD_KEY_240`-family
       fluent-chain/deep-nesting triggers, GDR-2 never touched a line inside
       a `SwitchRule.applyNonInlineCaseIndent`/`when`-arm/STYLE.md §8

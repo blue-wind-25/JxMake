@@ -577,9 +577,9 @@ on the noted commits/fixtures)
      braceless if/else body's closing `}` moves between rounds), `rewrite-kotlin/.../
      TabsAndIndentsVisitor.java` + `rewrite-yaml/.../YamlParser.java` (wrapped call continuation
      line gains 4 indent spaces between rounds), `rewrite-python/.../Pep508RequirementTest.java`
-     (`List<String>` alignment padding collapses 3→1 space on round2). One transient
+     (`List<String>` alignment padding collapses 3→1 space on round2). One transient,
      non-reproducible `NoClassDefFoundError: MiscRuleCore$SepMatch` crash hit mid-batch (JVM
-     classloader hiccup, not a formatter bug) — re-running the affected subdirectory alone
+     classloader hiccup, not a formatter bug); re-running the affected subdirectory alone
      (`rewrite-gradle`, 241 files) was clean.
 
      Baseline (unformatted 3510 files): 3510/3510 OK. Round1 (before fix): **1 new syntax error**
@@ -840,8 +840,8 @@ RDD_KEY_88.
   closing-paren continuation line gained 4 extra indent spaces between round1 and round2. Same
   root-cause family as the original Cluster 1 fix (`isSingleLineBody`/`expandedIndentWidth`) and
   the `PowerShellSpecificRule.java` self-format bug (`ScopePipelineCurly.reapplyAssignmentsPassOnly`),
-  but a different trigger site. Root cause: `SwitchRule.formatNonInlineSwitches` (runs between the
-  two `MiscRuleCurly.enforceCallLineBreaking` call sites in `FormatterCurly.format`) shifts a
+  different trigger site. Root cause: `SwitchRule.formatNonInlineSwitches` (runs between the two
+  `MiscRuleCurly.enforceCallLineBreaking` call sites in `FormatterCurly.format`) shifts a
   switch-case body statement's own leading indent (+4) without touching an already-wrapped
   single-argument call's continuation/closing lines nested inside it. Combined with
   `MiscRuleCurly.renderCallCandidate`'s blanket `topLevelArgs.size() <= 1` bail (added to protect
@@ -850,32 +850,34 @@ RDD_KEY_88.
   indent it happened to have, producing round1's stale shape; round2 self-corrected only because
   `applyDeclarationsPass` (lacking RDD_KEY_225's brace-only bail applicability to a paren-only
   initializer) flattened the initializer back to one line first, letting the by-then-correct indent
-  be recomputed fresh. Fixed by narrowing the bail: the blanket bail is now gated to only fire when
-  the sole argument's own content genuinely spans multiple physical lines (new
-  `containsInternalNewline` helper check), letting a single-physical-line argument's wrap be safely
-  re-derived from its current physical-line indent on every pass — for C/C++/Java. Kotlin/JS/TS
-  keep the ORIGINAL blanket `topLevelArgs.size() <= 1` bail unconditionally: widening the narrowed
-  check to those languages regressed `real_code_regressions_43.kt` (a genuine `topLevelArgs.size()
-  == 2` candidate elsewhere in the same pipeline run whose own rendering shape turned out to depend
-  on this bail's exact scope, for a reason not fully traced) and `curly_gdr_multipass_oneliner.js`
-  (a genuine architectural conflict with the `curly-general-scope-reindent-multipass` pre-pass
-  system's deliberately deeper logical-depth indentation for one-liner bodies — see
-  `STATE_CURLY_GDR.md`, out of scope to touch here). Two prior fix attempts before landing this
-  scoped version: (1) the unscoped `containsInternalNewline`-only narrowing (no language gate)
-  regressed those same 2 fixtures; (2) a flat `lang.isKotlin || lang.isJs || lang.isTs || ...`
-  top-level OR condition was WRONG — it unconditionally bailed for those languages regardless of
-  `topLevelArgs.size()`, silently changing behavior for size-`>1` candidates that previously fell
-  through unaffected, which made things worse (4 regressions instead of 2, including 2 new TS
-  failures). The landed version instead nests the language gate strictly inside the existing
-  `topLevelArgs.size() <= 1` branch, preserving the original size-`>1` fallthrough for every
-  language unchanged. Verified via a minimal isolated repro (nested `if`/switch/case chain with a
-  braceless-`else` branch containing a wrapped single-argument call, matching the real files'
-  shape) — non-idempotent before the fix, byte-identical round1/round2 after. New fixture
+  be recomputed fresh.
+
+  Fixed by narrowing the bail to only fire when the sole argument's own content genuinely spans
+  multiple physical lines (new `containsInternalNewline` helper check), letting a
+  single-physical-line argument's wrap be safely re-derived from its current physical-line indent
+  on every pass — for C/C++/Java only. Kotlin/JS/TS keep the ORIGINAL blanket
+  `topLevelArgs.size() <= 1` bail unconditionally: widening the narrowed check to those languages
+  regressed `real_code_regressions_43.kt` (a genuine `topLevelArgs.size() == 2` candidate elsewhere
+  in the same pipeline run whose rendering shape turned out to depend on this bail's exact scope,
+  for a reason not fully traced) and `curly_gdr_multipass_oneliner.js` (a genuine architectural
+  conflict with the `curly-general-scope-reindent-multipass` pre-pass system's deliberately deeper
+  logical-depth indentation for one-liner bodies — see `STATE_CURLY_GDR.md`, out of scope to touch
+  here). Two prior fix attempts rejected: (1) the unscoped `containsInternalNewline`-only narrowing
+  (no language gate) regressed those same 2 fixtures; (2) a flat
+  `lang.isKotlin || lang.isJs || lang.isTs || ...` top-level OR condition was WRONG — it
+  unconditionally bailed for those languages regardless of `topLevelArgs.size()`, silently changing
+  behavior for size-`>1` candidates that previously fell through unaffected (4 regressions instead
+  of 2, including 2 new TS failures). The landed version nests the language gate strictly inside the
+  existing `topLevelArgs.size() <= 1` branch, preserving the original size-`>1` fallthrough for
+  every language unchanged.
+
+  Verified via a minimal isolated repro (nested `if`/switch/case chain with a braceless-`else`
+  branch containing a wrapped single-argument call, matching the real files' shape) —
+  non-idempotent before the fix, byte-identical round1/round2 after. New fixture
   `test/real_code_regressions_208_{inp,out}.java`. Re-verified against both real triggering files
-  (from the pre-existing local `/tmp/rewrite` corpus copy): round1 and round2 outputs now
-  byte-identical for both. `make test`: 316/316 forward + idempotency, zero regressions. Left both
-  corpus files themselves unreformatted — bulk-adopting a corpus reformat is out of scope for this
-  fix.
+  (pre-existing local `/tmp/rewrite` corpus copy): round1/round2 now byte-identical for both.
+  `make test`: 316/316 forward + idempotency, zero regressions. Both corpus files themselves left
+  unreformatted — bulk-adopting a corpus reformat is out of scope for this fix.
 
 - **Self-hosting dogfood (`src/**/*.java` formatted with itself), 2 bugs found comparing `src/`
   against a fresh format of `src/` — FIXED, see RDD_KEY_289 (index above) for full detail.**
@@ -1002,39 +1004,36 @@ before/after detail available via `git log`/`git show`.
   guard.
 - **`using` alias declarations not aligned** — FIXED (RDD_KEY_283), C++-only. The generic
   `parseDeclaration` path rejected `using Name = Type;` since `typeKeywords.contains(...)` never
-  accepts `using` (a KEYWORD, not a type) — the inverted grammar doesn't fit the forward
-  `Type name = init;` model. Added `Declaration.isUsingAlias`/10-arg constructor plus a new
-  `parseUsingAlias` branch (guarded by `lang.isCpp`) storing the alias name in `Declaration.name`,
-  the aliased type in `initTokens`, and a dummy singleton `typeTokens` (unused `using` token) so
-  `ScopePipelineCurly`'s splice-back anchor lookup has a real token. `groupDeclarations` breaks a
-  group on any `isUsingAlias` change; rendering dispatches to a new `renderUsingAliasGroup`
-  (3-column `ColumnGrid`: `using` / name / `= Type;`) aligning the `=` column. Collided with the
-  pre-existing C++26 pack-indexing/variadic-template fixtures (`template<typename... T> using
-  Name = T...[...]`, found via `make test`) because the generic re-render bypassed
-  `CppSpecificRule.enforcePackIndexingSpacing`/a variadic-template tight-join rule that owns that
-  spacing — fixed with a bail-out in `parseUsingAlias` (leave the statement fully untouched)
-  whenever any `...` token appears in `templatePrefix` or the aliased-type tokens. Verified:
-  `make test` 283/283 -> 284/284 forward + idempotency, zero regressions. New fixture:
-  `test/cpp_using_alias_{inp,out}.cpp`. See RDD_KEY_283 in RDD_LOG.md for full detail.
+  accepts `using` (a KEYWORD, not a type) — inverted grammar doesn't fit the forward `Type name =
+  init;` model. Added `Declaration.isUsingAlias`/10-arg constructor plus a new `parseUsingAlias`
+  branch (guarded by `lang.isCpp`) storing the alias name in `Declaration.name`, the aliased type
+  in `initTokens`, and a dummy singleton `typeTokens` so `ScopePipelineCurly`'s splice-back anchor
+  lookup has a real token. `groupDeclarations` breaks a group on any `isUsingAlias` change;
+  rendering dispatches to a new `renderUsingAliasGroup` (3-column `ColumnGrid`: `using` / name /
+  `= Type;`) aligning the `=` column. Collided with pre-existing C++26 pack-indexing/variadic-
+  template fixtures (`template<typename... T> using Name = T...[...]`) because the generic
+  re-render bypassed `CppSpecificRule.enforcePackIndexingSpacing`'s tight-join rule — fixed with a
+  bail-out in `parseUsingAlias` (leave untouched) whenever `...` appears in `templatePrefix` or the
+  aliased-type tokens. Verified: `make test` 283/283 -> 284/284 forward + idempotency, zero
+  regressions. New fixture: `test/cpp_using_alias_{inp,out}.cpp`. See RDD_KEY_283 in RDD_LOG.md for
+  full detail.
 - **Pack-indexing/variadic-template `using` aliases still left unaligned** — FIXED (RDD_KEY_284,
   follow-up to RDD_KEY_283), C++-only. RDD_KEY_283's `...`-token bail-out was broader than
-  necessary: `CppSpecificRule.enforcePackIndexingSpacing` runs as a whole-file pass strictly AFTER
-  declaration alignment, re-tokenizing whatever text alignment produced regardless of which pass
-  emitted it — so the aliased-type half of the bail was overly conservative. Added
-  `Declaration.aliasRawTypeText`/`templatePrefixRawText` (nullable, set only when the span
-  contains `...`): `renderUsingAliasGroup` now emits these verbatim instead of regenerating
-  through `renderInitTokens`/`renderTemplatePrefix` — safe since Phase 4 fixes up the aliased
-  type's spacing anyway, and safe for the `template<...>` prefix (no downstream fix-up pass)
-  precisely because nothing is regenerated. Two more real bugs found via `make test` against
-  `cpp26_comments`: (1) a standalone comment between a `template<...>` prefix and `using` has
-  nowhere to live in the `Declaration` model, so accepting such a statement silently dropped the
-  comment — fixed by scanning the raw gap for a `COMMENT_LINE`/`COMMENT_BLOCK` token and bailing
-  if found; (2) `renderUsingAliasGroup`'s trailing same-line-comment append used a single space
-  instead of the codebase's two-space convention — only visible on a singleton alias group with
-  no sibling to mask it via grid padding. Verified: `make test` unchanged at 284/284 forward +
-  idempotency; `test/cpp26_comments_{inp,out}.cpp`'s expected output updated in place (`Selected`/
-  `Skipped` now align on `=`; `Nth`, preceded by a standalone comment, stays unaligned as its own
-  singleton), byte-identical to actual output. See RDD_KEY_284 in RDD_LOG.md for full detail.
+  necessary — `enforcePackIndexingSpacing` runs strictly after declaration alignment, re-tokenizing
+  whatever text alignment produced regardless of which pass emitted it, so the aliased-type half of
+  the bail was overly conservative. Added `Declaration.aliasRawTypeText`/`templatePrefixRawText`
+  (nullable, set only when the span contains `...`): `renderUsingAliasGroup` emits these verbatim
+  instead of regenerating — safe since Phase 4 fixes the aliased type's spacing anyway, and safe
+  for the `template<...>` prefix precisely because nothing is regenerated. Two more real bugs found
+  via `make test` against `cpp26_comments`: (1) a standalone comment between a `template<...>`
+  prefix and `using` had nowhere to live in the `Declaration` model, silently dropped — fixed by
+  scanning the raw gap for a `COMMENT_LINE`/`COMMENT_BLOCK` token and bailing if found; (2)
+  `renderUsingAliasGroup`'s trailing same-line-comment append used a single space instead of the
+  codebase's two-space convention — only visible on a singleton alias group with no sibling to mask
+  it via grid padding. Verified: `make test` unchanged at 284/284 forward + idempotency;
+  `test/cpp26_comments_{inp,out}.cpp`'s expected output updated in place (`Selected`/`Skipped` now
+  align on `=`; `Nth`, preceded by a standalone comment, stays unaligned as its own singleton),
+  byte-identical to actual output. See RDD_KEY_284 in RDD_LOG.md for full detail.
 - **Preprocessor directive glued onto a following Java method definition** — FIXED,
   genuinely Java-specific (C++'s `applySignaturePass` branch incidentally routes around it via
   a separate line-rescan). `leadStart`/`sigLeadStart` landed directly on a leading

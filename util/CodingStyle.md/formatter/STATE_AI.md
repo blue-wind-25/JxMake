@@ -1365,29 +1365,25 @@ threshold=0.90  GRU-YES=166 GRU-NO=7  GRU-ABSTAIN=27  gru-decide-rate=86.5%
 
 **Reading:** on genuinely out-of-distribution text, 0.68/0.72/0.76 all
 behave almost identically to the shipped 0.7 (96.5-97.0% decide-rate,
-~13x YES:NO skew) — none of the three requested points meaningfully changes
-behavior versus the current default; the classifier still resolves nearly
-everything confidently even on unseen code, and only 0.90 (well outside the
-requested range) meaningfully raises the abstain rate (13.5%). 15-line
-manual spot-check of the sampled rule-ABSTAIN lines: most are genuine
-fluent English keyword-led sentences (`"do current buffer contents need
-written?"`, `"else RGB order"`, `"if no instance is selected yet"`) —
-plausible-looking YES calls, not obvious garbage/majority-class collapse —
-but one sampled line was a multi-line commented-out code block
+~13x YES:NO skew); only 0.90 (outside the requested range) meaningfully
+raises the abstain rate (13.5%). 15-line manual spot-check of the sampled
+rule-ABSTAIN lines: most are genuine fluent English keyword-led sentences
+(`"do current buffer contents need written?"`, `"else RGB order"`, `"if no
+instance is selected yet"`) — plausible YES calls, not garbage/majority-
+class collapse — but one was a multi-line commented-out code block
 (`BIO_set_cipher_ctx`) that should mechanically be NO; not checked whether
-GRU got that specific one right (no ground truth in this pass). **No
-precision number is claimable from this pass** (Shadow/Pt has no hand
-labels) — this only answers "does the abstain rate/skew look realistic on
-truly unseen text," not "is it correct." **Disposition: 0.68/0.72/0.76 do
-not look more realistic than 0.70 by this measure — no threshold change
-made.** `abstainThreshold` stays `0.7` in
-`code-formatter-ai-assist-weights.json`; no weights/trainer/tools code
-changed. A genuine precision check against Shadow/Pt-class text would need
-hand-labeling a Pool-A-shaped subset (see `add_target_index.py`) of
-`FilterAbstain`'s output and running it through `GruEval` (not
-`GruRealCorpusTally`, which is decisiveness-only) — not done this session
-(out of scope; user said "we decide more as needed" after just these 3
-threshold points).
+GRU got that one right (no ground truth in this pass). **No precision
+number is claimable from this pass** (Shadow/Pt has no hand labels) — it
+only answers whether the abstain rate/skew looks realistic on unseen text,
+not whether it's correct. **Disposition:** no threshold change made —
+0.68/0.72/0.76 don't look more realistic than 0.70 by this measure;
+`abstainThreshold` stays `0.7` in `code-formatter-ai-assist-weights.json`,
+no weights/trainer/tools code changed. A genuine precision check against
+Shadow/Pt-class text would need hand-labeling a Pool-A-shaped subset (see
+`add_target_index.py`) of `FilterAbstain`'s output and running it through
+`GruEval` (not `GruRealCorpusTally`, decisiveness-only) — not done this
+session (out of scope; user said "we decide more as needed" after just
+these 3 threshold points).
 
 `make jar` + `make test`: **286/286 forward, 286/286 idempotency** — clean
 (new tools live under `tools/gru/`, outside `src/`, don't affect the shipped
@@ -1397,11 +1393,11 @@ stay under `/tmp`/scratchpad per RDD_EXT_19 — not committed, not left in the
 repo root.
 
 **Follow-up (same day) — ran the 3 threshold candidates against genuinely
-held-out data, then adopted `abstainThreshold = 0.76`.** Two further checks
-before deciding, both against real held-out/unlabeled data — not the
-594-row bench, which is training-fit (reran it anyway as a sanity check:
-100% precision at all four thresholds, confirming, as expected, that it
-can't discriminate between them):
+held-out data, then adopted `abstainThreshold = 0.76`.** Two checks before
+deciding, both against real held-out/unlabeled data — not the 594-row
+bench, which is training-fit (reran it anyway as a sanity check: 100%
+precision at all four thresholds, confirming, as expected, it can't
+discriminate between them):
 
 1. **Per-CV-round held-out sweep.** Ran `GruEval` at 0.68/0.70/0.72/0.76
    against each of `Zcv_corpus.zip`'s 5 rounds' own `test_round{N}.txt`,
@@ -1426,18 +1422,17 @@ can't discriminate between them):
    all behaved almost identically to 0.70 (96.5-97.0% decide-rate) — no
    evidence any of the three regressed decisiveness on unseen text.
 
-**Considered and rejected: using one of the 5 CV rounds' own trained
-weights (e.g. `weights_round3.json`, which had the lowest FP count at
-0.76) as the production weights file**, instead of a full-corpus retrain.
-Rejected on two grounds: (1) round-to-round differences are noise at this
-scale (the CV's own `stdev=0.0008` on precision says so directly; round3
-has the fewest FPs at 0.76 but not the fewest FNs — a different column
-picks a different "best" round), and (2) each round trains on only 95712
-of 119641 rows (80%, since 20% is deliberately held out for that round's
-own test) — strictly less data than a full-corpus retrain for no benefit.
-CV's job (estimating generalization, validating a threshold choice) was
-already done; shipping a fold's intermediate weights would throw away data
-and chase noise.
+**Considered and rejected:** using one of the 5 CV rounds' own trained
+weights (e.g. `weights_round3.json`, lowest FP count at 0.76) as the
+production weights file, instead of a full-corpus retrain. Rejected: (1)
+round-to-round differences are noise at this scale (the CV's own
+`stdev=0.0008` on precision says so; round3 has the fewest FPs at 0.76 but
+not the fewest FNs — a different column picks a different "best" round),
+and (2) each round trains on only 95712 of 119641 rows (80%, since 20% is
+held out for that round's own test) — strictly less data than a
+full-corpus retrain for no benefit. CV's job (estimating generalization,
+validating a threshold choice) was already done; shipping a fold's
+intermediate weights would throw away data and chase noise.
 
 **Decision: keep the full-corpus-trained weights, raise `abstainThreshold`
 0.7 → 0.76 only** (same "pure inference-time metadata, no retrain needed"

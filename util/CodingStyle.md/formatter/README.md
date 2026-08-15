@@ -905,8 +905,8 @@ here if and when it actually gains a documented gap.
    indirection form:
    ```sh
    #!/usr/bin/env zsh   # skipped: not a bash-compatible interpreter
-   #!/bin/zsh            # skipped: not a bash-compatible interpreter
-   #!/bin/bash           # formatted normally
+   #!/bin/zsh           # skipped: not a bash-compatible interpreter
+   #!/bin/bash          # formatted normally
    ```
    Files with no shebang at all fall through and are formatted as bash, deliberately permissive.
    Residual accepted gap: a shebang-less file using genuine zsh-only syntax (rare — sourced

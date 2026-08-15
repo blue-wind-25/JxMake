@@ -978,19 +978,6 @@ General Scope-Depth Reindentation:
                                                         this real-world case, not just the synthetic
                                                         one-true-brace shapes the other GDR fixtures exercise.
 
-  real_code_regressions_214_inp/out.java             -- apache/ant's `JikesOutputParser.java`
-                                                        (`parseStandardOutput`): a real-world if/else-if/else
-                                                        chain whose final `} else {` is internally-
-                                                        inconsistently over-indented relative to its sibling
-                                                        `if`/`else if` lines in hand-written source, with
-                                                        curly-general-scope-reindent=on AND
-                                                        curly-general-scope-reindent-multipass=on via in-file
-                                                        config -- confirms the already-shipped multipass
-                                                        workaround (RDD_KEY_243) also closes this specific
-                                                        real-corpus non-idempotency: single GDR pass alone
-                                                        (multipass off) is non-idempotent on this shape, both
-                                                        flags together are fully idempotent.
-
   java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
                                                         leading indentation at all), with
                                                         curly-general-scope-reindent=on via in-file config --
@@ -4098,6 +4085,19 @@ Real-code regressions:
                                                         See `STATE_TOOLING.md` for the design and empirical
                                                         validation, and `README.md`'s Bash Known Limitations
                                                         for the user-facing summary.
+                                                        
+  real_code_regressions_214_inp/out.java             -- apache/ant's `JikesOutputParser.java`
+                                                        (`parseStandardOutput`): a real-world if/else-if/else
+                                                        chain whose final `} else {` is internally-
+                                                        inconsistently over-indented relative to its sibling
+                                                        `if`/`else if` lines in hand-written source, with
+                                                        curly-general-scope-reindent=on AND
+                                                        curly-general-scope-reindent-multipass=on via in-file
+                                                        config -- confirms the already-shipped multipass
+                                                        workaround (RDD_KEY_243) also closes this specific
+                                                        real-corpus non-idempotency: single GDR pass alone
+                                                        (multipass off) is non-idempotent on this shape, both
+                                                        flags together are fully idempotent.
 
 How Tests Are Run
 -----------------

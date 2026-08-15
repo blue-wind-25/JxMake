@@ -125,7 +125,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_211_inp/out.sh`
-    to   `real_code_regressions_212_inp/out.kt`
+    to   `real_code_regressions_214_inp/out.java`
+[DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -208,15 +209,16 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
-- [C_CPP_JAVA] `apache/ant`'s `JikesOutputParser.java` non-idempotent if/else reindent
-  (`STATE_C_CPP_JAVA.md`'s Known Gaps — Open, "Non-idempotent ... re-indent on
-  internally-inconsistent generated source" family). Re-confirmed 2026-08-16: the prior
-  "GDR-on doesn't fix it" note only tested the base `curly-general-scope-reindent` flag alone —
-  turning on `curly-general-scope-reindent-multipass=on` too (both flags) DOES close it (round1
-  == round2, byte-identical; `javac`-clean modulo expected missing-sibling-class errors from
-  compiling one file standalone). Same resolution shape as `RDD_KEY_243` (D3's sibling gap): a
-  documentation-only fix pointing at the already-shipped multipass flag, not a source change.
-  LOW risk — no code change anticipated, just verifying/documenting + a fixture.
+Use sub-agent. This can be a substantial work.
+Compact (use one sub-agent) the narration in `test/README.txt`:
+    from `real_code_regressions_211_inp/out.sh`
+    to   `real_code_regressions_214_inp/out.java`
+
+
+
+
+
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -246,27 +248,6 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-real_code_regressions_212_inp/out.kt
-
-
-Update `README.md` `## Known Limitations`. Ensure up-to-date, resort the items as needed.
-
-In `README.md`:
-
-1. **Bash's pipe-spacing rule can't distinguish a real pipe from a zsh extended-glob
-   alternation, e.g. `(|.git)` → `( | .git)`, when zsh-only syntax appears under a `.sh`/`.bash`
-   extension.** This formatter has one fixed bash-grammar transform list, not a zsh dialect
-   detector — a file using zsh-only extensions (extended-glob alternation, `${(kv)...}`,
-   `always {}` blocks) under a bash extension is already invalid `bash -n` input before
-   formatting, so the misfire doesn't turn valid bash into broken bash. Permanent, by-design
-   out-of-scope limitation; zsh-dialect detection is not planned.
-
-Can that limitation be improved a bit by making the formater only format
-
-#!/usr/bin/env zsh
-zstyle
-
-
 - [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
   architecture class as CURLY_GDR above), lower value (XML rarely needs deep reindent vs.
   curly-brace nesting). Worst value/risk ratio in this tier — listed last accordingly.
@@ -279,9 +260,6 @@ zstyle
   disambiguation from. See STATE_JS_TS.md's "JSX/TSX implementation" section.
 
 Use sub-agent. This can be a substantial work.
-
-real_code_regressions_212_inp/out.kt
-Update `README.md` and `STATE_DOGFOOD.md`.
 
 === TIER 9: May not worth pursuing -- [Dogfood] ===
 

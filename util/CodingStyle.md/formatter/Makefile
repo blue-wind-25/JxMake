@@ -496,7 +496,6 @@ INP_FILES += curly_general_scope_reindent_inp.hpp
 INP_FILES += curly_gdr_multipass_inp.java
 INP_FILES += curly_gdr_js_regex_inp.ts
 INP_FILES += curly_gdr_multipass_oneliner_inp.js
-INP_FILES += real_code_regressions_214_inp.java
 INP_FILES += java_flush_left_inp.java
 INP_FILES += html_js_flush_left_inp.html
 
@@ -716,6 +715,7 @@ INP_FILES += real_code_regressions_210_inp.ps1
 INP_FILES += real_code_regressions_211_inp.sh
 INP_FILES += real_code_regressions_212_inp.kt
 INP_FILES += real_code_regressions_213_inp.sh
+INP_FILES += real_code_regressions_214_inp.java
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

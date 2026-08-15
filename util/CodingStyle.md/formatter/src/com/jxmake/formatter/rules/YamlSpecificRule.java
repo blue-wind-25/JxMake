@@ -160,9 +160,7 @@ public final class YamlSpecificRule {
     private static int findMappingColon(final String s)
     {
         return YamlTomlSharedRule.scanQuoteAwareBracket(
-            s, (str, i, ch, depth) -> ch == ':' && depth == 0 && ( i + 1 == str.length() || str.charAt(
-                i + 1
-            ) == ' ' )
+            s, (str, i, ch, depth) -> ch == ':' && depth == 0 && ( i + 1 == str.length() || str.charAt(i + 1) == ' ' )
         ).stopIndex;
     }
 

@@ -620,15 +620,17 @@ public final class PowerShellSpecificRule {
      */
     private String applyBraceIndent(final String content)
     {
-        final PassAResult  passA = runPassA(content);
-        final Lines        lines = new Lines(passA.transformed);
-        final boolean[]    pure  = computeLinePurity(
+        final PassAResult  passA    = runPassA(content);
+        final Lines        lines    = new Lines(passA.transformed);
+        final boolean[]    pure     = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final char[][]     kinds   = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
-        final List<String> out     = new ArrayList<>( lines.lines.size() );
-              int          depth   = 0;
-              boolean      contLine = false; // true when this line is a backtick continuation of the previous one
+        final char[][]     kinds    = lineKinds(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final List<String> out      = new ArrayList<>( lines.lines.size() );
+              int          depth    = 0;
+              boolean      contLine = false;                                                                // True when this line is a backtick continuation of the previous one
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
             final String line    = lines.lines.get(li);
@@ -676,7 +678,7 @@ public final class PowerShellSpecificRule {
      */
     private static boolean lineEndsWithBacktick(final String line, final char[] lk)
     {
-        int n = line.length() - 1;
+        int n     = line.length() - 1;
         int count = 0;
         while( n >= 0 && line.charAt(n) == '`' && n < lk.length && lk[n] == 'C' ) {
             ++count;
@@ -722,10 +724,10 @@ public final class PowerShellSpecificRule {
     }
 
     private static int countCodeChar(
-        final String trimmed,
-        final String line,
-        final char[] lineKind,
-        final char...  targets
+        final String  trimmed,
+        final String  line,
+        final char[]  lineKind,
+        final char... targets
     )
     {
         final int base = leadingWhitespace(line).length();
@@ -735,9 +737,9 @@ public final class PowerShellSpecificRule {
             if( ki < 0 || ki >= lineKind.length || lineKind[ki] != 'C' ) continue;
             final char c = trimmed.charAt(i);
             for(final char t : targets) {
-                if(c == t) { n++; break; }
+                if(c == t) { ++n; break; }
             }
-        }
+        } // for i
 
         return n;
     }

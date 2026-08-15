@@ -1002,15 +1002,11 @@ public final class BashSpecificRule {
      *  {@code minLevels} is the structurally-required floor (from literal brace/case-arm depth) that
      *  the snapped result must never fall below.
      */
-    private String snapIndent(
-        final String rawLine,
-        final String basePrefix,
-        final int    minLevels
-    )
+    private String snapIndent(final String rawLine, final String basePrefix, final int minLevels)
     {
         final int rawLen  = leadingWhitespace(rawLine).length();
         final int relLen  = Math.max( 0, rawLen - basePrefix.length() );
-        final int snapped = ( relLen + indentWidth - 1 ) / indentWidth;
+        final int snapped = (relLen + indentWidth - 1) / indentWidth;
 
         return basePrefix + indent( Math.max( Math.max(0, minLevels), snapped ) );
     }

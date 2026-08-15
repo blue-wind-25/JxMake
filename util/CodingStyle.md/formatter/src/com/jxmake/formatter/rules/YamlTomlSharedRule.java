@@ -35,7 +35,7 @@ final class YamlTomlSharedRule {
         return FormatterSimpleBraced.repeatChar(c, count);
     }
 
-    /** Thin pass-through to {@link FormatterSimpleBraced#indent} -- same 2026-08-16 consolidation. */
+    /** Thin pass-through to {@link FormatterSimpleBraced#indent} -- same 2026-08-16 consolidation */
     static String indent(final int depth, final String indentUnit)
     {
         return FormatterSimpleBraced.indent(depth, indentUnit);
@@ -186,10 +186,10 @@ final class YamlTomlSharedRule {
                 else if(ch == '"')  inDouble = false;
                 continue;
             }
-                 if(ch == '\'')             inSingle = true;
-            else if(ch == '"')              inDouble = true;
-            else {
-                if(ch == '{' || ch == '[') depth++;
+                 if(ch == '\'') inSingle = true;
+            else if(ch == '"')  inDouble = true;
+            else                {
+                     if(ch == '{' || ch == '[') depth++;
                 else if(ch == '}' || ch == ']') depth--;
                 if( stop != null && stop.shouldStopAt(
                     s, i, ch, depth

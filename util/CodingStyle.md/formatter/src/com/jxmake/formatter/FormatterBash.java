@@ -24,10 +24,11 @@ public final class FormatterBash extends FormatterCore {
     // Interpreter basenames this formatter's fixed bash-grammar transform list is safe to run
     // against. Deliberately excludes "zsh" -- see README.md Known Limitations (Bash) and
     // STATE_TOOLING.md for the empirical evaluation behind this gate.
-    private static final Set<String> BASH_COMPATIBLE_INTERPRETERS =
-        new HashSet<>( Arrays.asList( "bash", "sh", "dash", "ksh" ) );
+    private static final Set<String> BASH_COMPATIBLE_INTERPRETERS = new HashSet<>( Arrays.asList(
+        "bash", "sh", "dash", "ksh"
+    ) );
 
-    private static final Pattern SHEBANG_LINE = Pattern.compile( "^#!\\s*(\\S+)(?:\\s+(\\S+))?" );
+    private static final Pattern SHEBANG_LINE = Pattern.compile("^#!\\s*(\\S+)(?:\\s+(\\S+))?");
 
     public FormatterBash(final Lang lang)
     {
@@ -43,7 +44,7 @@ public final class FormatterBash extends FormatterCore {
     )
     {
         if(formatOff) return content;
-        if(!isBashCompatibleShebang(content)) return content;
+        if( !isBashCompatibleShebang(content) ) return content;
 
         final BashSpecificRule rule = new BashSpecificRule(
             config.indentSize(),
@@ -70,13 +71,13 @@ public final class FormatterBash extends FormatterCore {
     private static boolean isBashCompatibleShebang(final String content)
     {
         final Matcher m = SHEBANG_LINE.matcher(content);
-        if(!m.find()) return true;
+        if( !m.find() ) return true;
 
-        final String prog = m.group(1);
-        final String arg  = m.group(2);
+        final String prog       = m.group(1);
+        final String arg        = m.group(2);
         final String interpPath = ( prog.endsWith("env") && arg != null ) ? arg : prog;
         final int    slash      = interpPath.lastIndexOf('/');
-        final String interpName = ( slash >= 0 ) ? interpPath.substring(slash + 1) : interpPath;
+        final String interpName = (slash >= 0) ? interpPath.substring(slash + 1) : interpPath;
 
         return BASH_COMPATIBLE_INTERPRETERS.contains(interpName);
     }

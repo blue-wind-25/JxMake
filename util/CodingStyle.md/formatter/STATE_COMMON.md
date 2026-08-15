@@ -865,3 +865,59 @@ variable-naming feature (`// for` → `// for i`/`// for e`) and some
 sentence-initial comment capitalizations outside Gate 1c-2's narrow scope
 (identifiers not immediately followed by `(`). No real content loss.
 Adopted; `make clean && make test` 276/276, `make test-server` passed.
+
+**2026-08-16: re-ran against real `src/` (explicitly requested, combined
+with a targeted hunt for a user-reported flushed-left/dedented-body-line
+bug shape), adopted.** Fresh `/tmp/fmt_ref` copy (prior copy was stale, 95
+files out of sync — re-copied per step 1). Round1/round2 `diff -rq` empty
+(idempotency clean). Only 6 files differed from committed `src/`:
+`FormatterBash.java`, `FormatterCurly.java`,
+`rules/{BashSpecificRule,PowerShellSpecificRule,YamlSpecificRule,
+YamlTomlSharedRule}.java` — all reviewed by hand, every diff a legitimate
+cosmetic re-style (spacing around parens/`!`, param-list wrap width,
+alignment column width, one comment's trailing period), zero content/token
+loss. Trial JAR built from round1 to `/tmp/output.jar` (never overwrote the
+committed `target/`-built jar); `make _test_serial JAR_FILE=/tmp/output.jar`
+came back 322/323 forward — the single failure (`test/cpp_comments_inp.cpp`)
+was verified pre-existing and unrelated to this pass: a fresh JAR built
+straight from the *unmodified, pre-adopt* committed `src/` (no formatting
+applied at all) hits the exact same failure, confirming it's the same
+GRU-classifier/committed-jar drift already noted in the 2026-08-10 entry
+above, not introduced here. round1b/round2b fixed-point check (reformatting
+the original `/tmp/fmt_ref` again with the trial JAR) came back fully
+empty on all three comparisons: r1b vs r2b, round1 vs r1b, round2 vs r2b —
+confirms a true fixed point. Adopted (round1 copied over `src/`); `make
+clean && make test` came back **323/323 forward + idempotency, fully
+green** (the `cpp_comments` failure that appeared against the isolated
+trial JAR does not reproduce via the Makefile's normal build path, which
+runs `gru-sync-weights` as a dependency of `_test_serial` — resyncs the
+classifier weights the isolated trial JAR skipped). See `CLAUDE.md`'s task
+history / commit log for the flushed-left/dedent bug-hunt outcome (not
+found — see below); no `RDD_KEY` added since no source bug was found or
+fixed this pass, only cosmetic re-style adopted.
+
+**Flushed-left/dedented-body-line bug hunt (2026-08-16, same session):**
+user reported seeing a shape like a correctly-indented `if(...) {` /
+correctly-indented closing `}` with an in-between body statement dedented
+to column 0 (or an otherwise structurally-inconsistent shallow indent).
+Searched for precedent first (`RDD_KEY_228`'s flush-left GDR/HTML
+`<script>` fix, `RDD_KEY_297`'s Bash non-brace-nesting flattening fix —
+both real but different bug classes, already fixed, not a match for a
+plain curly-family `.java` body line). Two-pronged search across `src/`,
+round1, and round2 (all `.java`, ~500 files each): (1) a broad heuristic
+(any line right after an indented `{`-ending line, dedented relative to
+that opener) produced ~110 hits, all confirmed false positives on manual
+review — ordinary "wrapped multi-line signature, body at signature's base
+indent + 1 level" shapes, not bugs; (2) a strict heuristic matching the
+user's exact description (a line's indentation collapsing all the way to
+column 0 immediately after an indented `{`-opening line, excluding
+comments/closing braces) — **zero hits** across `src/` (pre-adopt), round1,
+and round2. **Conclusion: not reproduced.** Either this bug class doesn't
+occur in this codebase's own source under default config (most likely,
+given `curly-general-scope-reindent` — the pass family with prior history
+of exactly this shape, RDD_KEY_228/RDD_KEY_240/RDD_KEY_297 — stays `off` by
+default per `RDD_KEY_244`'s permanently-opt-in decision, so this dogfood
+pass never exercises it), or it needs a real-code corpus/input shape this
+session's own source tree doesn't contain. No fix attempted since no
+concrete repro was found; flagged in the final report for the user rather
+than force a fix against a non-repro.

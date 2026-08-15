@@ -72,7 +72,7 @@ public final class FormatterCurly extends FormatterCore {
 
         for(int i = 0; i < MAX_SETTLE_PASSES; ++i) {
             final String next = formatOnePass(prev, filePath, config, formatOff);
-            if(next.equals(prev)) return prev;
+            if( next.equals(prev) ) return prev;
             prev = next;
         } // for
 

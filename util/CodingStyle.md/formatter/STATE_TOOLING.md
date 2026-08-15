@@ -278,7 +278,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       jobs may be reusable — check before cloning anything new.
       Sourced 2026-08-07 after a `/tmp` walk of existing dogfood checkouts;
       missing repos cloned same day (git 1.8 has no partial-clone/
-      sparse-checkout — large trees used selective raw download of
+      sparse-checkout, so large trees used selective raw download of
       `*.ps1`/`*.psm1` or clone+strip). User aborted the last oversized pull
       (`azure-pipelines-tasks`); rest not fetched. All rows stay
       `NOT STARTED` in `STATE_DOGFOOD.md` until a real dogfood *run*.

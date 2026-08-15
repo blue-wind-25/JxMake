@@ -903,7 +903,14 @@ here if and when it actually gains a documented gap.
    detector — a file using zsh-only extensions (extended-glob alternation, `${(kv)...}`,
    `always {}` blocks) under a bash extension is already invalid `bash -n` input before
    formatting, so the misfire doesn't turn valid bash into broken bash. Permanent, by-design
-   out-of-scope limitation; zsh-dialect detection is not planned.
+   out-of-scope limitation; zsh-dialect detection is not planned. A score-based content-sniffing
+   detector (shebang regex + bash-construct/other-language-indicator regex scoring) was proposed
+   and empirically evaluated as a possible mitigation, then rejected: against a corpus of 280
+   real, previously-validated-clean bash files (`nvm`, `acme.sh`), it misclassified 277 (~99%) as
+   non-bash and would have skipped them from formatting entirely; and even within the corpus the
+   gap is about (`ohmyzsh`, containing the known zsh-dialect files), it missed a genuine zsh file
+   (`plugins/wd/wd.sh`, scored as bash) while also over-skipping other genuine zsh/bash files with
+   no zsh-dialect issue at all. See `STATE_TOOLING.md` for the full writeup.
 
 ### AI-assist (GRU)
 

@@ -608,3 +608,44 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       previously-materialized Bash dogfood corpora (`nvm`, `acme.sh`,
       `ohmyzsh`, `javaparser_gdr`, `jenkins_scope`, `wordpress-develop`) --
       clean, zero regressions. See `RDD_KEY_297` for full narrative.
+- [x] **Bash -- proposed `StrictBashShDetector` zsh-dialect mitigation,
+      EVALUATED AND REJECTED, no source changed (2026-08-16).** User
+      proposed a score-based Java heuristic (`isBashOrSh(String)`: shebang
+      regex bonus/penalty, negative regexes for other-language indicators --
+      Python `def`/`import`/`class`/`print`, JS `console.log`/`const`/`let`/
+      arrow-fn, Perl/Ruby `use strict`/`my \$`/`puts`/`nil`, fish/csh
+      `end`/`setenv` -- positive regexes for bash constructs --
+      `fi`/`done`/`esac`/`local x=`/`export x=`/`2>&1`/`[ ... ]` -- threshold
+      `score > 0`) as a possible gate to stop the known pipe-spacing/
+      extended-glob misfire (see README.md Known Limitations) from touching
+      zsh-dialect files under a `.sh`/`.bash` extension, with instructions
+      to implement it if it tested well. Ported the exact scoring logic to
+      Python and ran it empirically against two corpora before writing any
+      Java: (1) `/tmp/ohmyzsh` (17 files, the corpus the gap is actually
+      about, containing the known zsh-only files) -- the detector missed
+      the target class: `plugins/wd/wd.sh`, a genuine `#!/usr/bin/env zsh`
+      file, scored +3 (BASH, not caught); `tools/upgrade.sh`, the one file
+      with a *confirmed* documented pipe-spacing misfire, scored exactly 0
+      (NOT-BASH, caught only by a zero-margin fluke, not a robust margin);
+      several other genuine zsh/plain-bash files with no zsh-dialect issue
+      at all (`oh-my-zsh.sh`, `emacsclient.sh`, `git-prompt.sh`, `_wd.sh`,
+      `git-completion.bash`, `changelog.sh`, `theme_chooser.sh`) also scored
+      NOT-BASH, i.e. would be wrongly skipped from formatting entirely.
+      (2) `/tmp/nvm` + `/tmp/acme.sh` combined (280 files, previously
+      dogfooded and confirmed fully clean/idempotent, zero zsh-dialect
+      content) -- 277/280 (~99%) scored <=0 and would be misclassified
+      NOT-BASH, scores ranging down to -77; root cause is the detector is a
+      wrong-*language* classifier, not a zsh-*dialect* classifier, and its
+      negative-indicator regex list (especially `\bend\b`, aimed at Ruby's
+      `end` keyword) fires constantly on ordinary English comment/string
+      prose in real bash scripts (many of the false positives are sourced,
+      not executed, `dnsapi/*.sh`/`notify/*.sh`/`deploy/*.sh` helper files
+      with no shebang at all, so the shebang bonus never applies either).
+      Verdict: reject -- the detector does not reliably solve the problem
+      it targets even within the one corpus built to contain that problem,
+      and would additionally disable formatting for the overwhelming
+      majority of genuinely valid bash content it was never meant to flag.
+      No Java source touched; existing accepted-gap wording in
+      `README.md`'s Known Limitations stands, now with this evaluation's
+      concrete numbers appended. `make test` not re-run -- no source
+      changed.

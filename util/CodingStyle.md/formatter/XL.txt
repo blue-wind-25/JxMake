@@ -1,16 +1,9 @@
-Use debug prints and `make test` rather than relying only on static analysis to reduce quota usage
-and prevent regressions on `(PASS)` tests and previous bug fixes.
-
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer
 evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug
 prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis
 as the primary method of bug diagnosis or regression checking. After the fix is verified with
 `make test`, remove all debug prints and then commit the files you have modified (ignore files you
 have not modified). If unsure ask me.
-
-####################################################################################################
-####################################################################################################
-####################################################################################################
 
 Ensure the languange order in the documentations, help strings, etc. is
     c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3,
@@ -77,48 +70,38 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
-Compact all `STATE_*.md` files. Use at most 5 sub-agents in parallel - balance the job between the
-sub-agents based on the file sizes. Be careful not to lose important information, such as the tools/
-compiler used, special formatter config (e.g., `indent-size`, etc.), exception/benchmark/helper
-information, root cause, chain of reason, failed attempt at bug fix, etc. Basically, compact the
-prose but keep the information intact.
+Compact all `STATE_*.md` files (NOT `RDD_LOG.md` -- it's the canonical full-text
+store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
+Use at most 5 sub-agents in parallel - balance the job between the sub-agents based on the
+file sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.
+`STATE_COMMON.md` needs extra care: compact its narrative/history sections only; leave the
+process rule text and the job table word-for-word, not paraphrased. Be careful not to lose important
+information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
+exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
+`RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
 
-Compact all `STATE_*.md` as needed. Use at most 4 sub-agents in parallel - balance the job.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
+Compact all `STATE_*.md` files that were modified today (NOT `RDD_LOG.md` -- it's the canonical
+full-text store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
+Use at most 5 sub-agents in parallel - balance the job between the sub-agents based on the
+file sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.
+`STATE_COMMON.md` needs extra care: compact its narrative/history sections only; leave the
+process rule text and the job table word-for-word, not paraphrased. Be careful not to lose important
+information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
+exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
+`RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
 
-Compact (use one sub-agent) all `STATE_*.md` that were modified today.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
+Compact (use one sub-agent) `STATE_COMMON.md`.
 Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
 Compact (use one sub-agent) `STATE_CPP26.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
 Compact (use one sub-agent) `STATE_KOTLIN.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
 Compact (use one sub-agent) `STATE_DATA_FORMATS.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
 Compact (use one sub-agent) `STATE_JS_TS.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
 Compact (use one sub-agent) `STATE_PYTHON3.md`.
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, etc.
-
-Compact (use one sub-agent) `STATE_COMMON.md`, `STATE_KOTLIN.md`, and `STATE_AI.md`
-Be careful not to lose important information, especially the `**Tools/compiler used**`,
-`indent-size` exception, the active work diagnosis, clustering, etc.
-Then update `STATE_DOGFOOD.md` about the above dogfood state (keep `Note` short enough).
+Compact (use one sub-agent) `STATE_TOOLING.md`.
+Compact (use one sub-agent) `STATE_AI.md`.
+Compact (use one sub-agent) `STATE_CURLY_GDR.md`.
+Compact (use one sub-agent) `STATE_HTML5_TCG.md`.
+Compact (use one sub-agent) `STATE_DOGFOOD.md`.
 
 Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
@@ -209,15 +192,6 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
-Use sub-agent. This can be a substantial work.
-Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_211_inp/out.sh`
-    to   `real_code_regressions_214_inp/out.java`
-
-
-
-
-
 NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
@@ -280,7 +254,9 @@ Use sub-agent. This can be a substantial work.
   `for`/`if`), not just a style miss. See `STATE_PYTHON3.md` §5.
 
 - [AI] Dedicated GRU for non-Latin/mixed-language comments (currently always ABSTAIN via
-  `NonLatinScriptGate`).
+  `NonLatinScriptGate`). Assessed, not planned (2026-08-10): would need its own training corpus
+  (no dogfood corpus for any non-Latin/mixed-language script exists), and the ambiguity problem
+  Step 3 solves mostly doesn't apply to non-Latin text anyway. See `STATE_AI.md`.
 
 - [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping
   (`MiscRuleCore.stripSoleTrailingPeriod`'s `dotCount != 1` case). CLOSED 2026-08-11: the

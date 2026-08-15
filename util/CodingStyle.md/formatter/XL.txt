@@ -124,8 +124,9 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_206_inp/out.java`
-    to   `real_code_regressions_209_inp/out.ts`
+    from `real_code_regressions_210_inp/out.ps1`
+    to   `real_code_regressions_210_inp/out.ps1`
+[DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -167,7 +168,7 @@ expression
    The `expression` lose its indentation. This may indicates formatter bug either in the
    current pass or previous pass.
 
-   Next, apply the formatter to (as dogfood):
+   Next, apply the formatter to:
        `../../JCS/*`
        `../../MDXplorer/*`
        `../../../3rd_party/tools/pcpp_java/*`
@@ -214,7 +215,12 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-NONE FOR NOW
+- [C_CPP_JAVA] Minified/compiled one-liner `if/else`/`for` bodies non-idempotent under a
+  general curly-brace reindent pass — round1 partially reformats, round2 reformats
+  differently again (verified live 2026-08-15, minimal repro: `function foo(a,b){if(a){return
+  b;}else{return a;}}` diverges between rounds). Found via JS/TS job's `ruanyf/react-demos`
+  dogfood (`demo13/app.js`), general curly-family bug not JS/TS-specific. See
+  STATE_JS_TS.md's Open Questions.
 
 Use sub-agent. This can be a substantial work.
 
@@ -261,6 +267,13 @@ NOTE -- [2026-08-10] The 3 former entries here were removed as `README.md` Known
 - [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
   architecture class as CURLY_GDR above), lower value (XML rarely needs deep reindent vs.
   curly-brace nesting). Worst value/risk ratio in this tier — listed last accordingly.
+
+- [JS_TS] JSX full embedding-aware dispatcher (real grammar parsing of children/attribute
+  values, vs. today's opaque-preservation + opening-tag-attribute-wrap approach) — explicitly
+  out of scope of the 2026-08-13 JSX/TSX landing, a distinct larger future job. Blockers:
+  unbounded recursion into `{}` holes, HTML5-tree-construction pass unverified for JSX's
+  HTML-divergent grammar, no grammar-position-aware parser in this codebase to inherit `<`
+  disambiguation from. See STATE_JS_TS.md's "JSX/TSX implementation" section.
 
 Use sub-agent. This can be a substantial work.
 

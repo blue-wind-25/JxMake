@@ -208,7 +208,15 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
-NONE FOR NOW
+- [C_CPP_JAVA] `apache/ant`'s `JikesOutputParser.java` non-idempotent if/else reindent
+  (`STATE_C_CPP_JAVA.md`'s Known Gaps — Open, "Non-idempotent ... re-indent on
+  internally-inconsistent generated source" family). Re-confirmed 2026-08-16: the prior
+  "GDR-on doesn't fix it" note only tested the base `curly-general-scope-reindent` flag alone —
+  turning on `curly-general-scope-reindent-multipass=on` too (both flags) DOES close it (round1
+  == round2, byte-identical; `javac`-clean modulo expected missing-sibling-class errors from
+  compiling one file standalone). Same resolution shape as `RDD_KEY_243` (D3's sibling gap): a
+  documentation-only fix pointing at the already-shipped multipass flag, not a source change.
+  LOW risk — no code change anticipated, just verifying/documenting + a fixture.
 
 Use sub-agent. This can be a substantial work.
 
@@ -271,6 +279,9 @@ zstyle
   disambiguation from. See STATE_JS_TS.md's "JSX/TSX implementation" section.
 
 Use sub-agent. This can be a substantial work.
+
+real_code_regressions_212_inp/out.kt
+Update `README.md` and `STATE_DOGFOOD.md`.
 
 === TIER 9: May not worth pursuing -- [Dogfood] ===
 
@@ -360,3 +371,5 @@ trap 'kill -- -$$ 2>/dev/null; wait' EXIT
 
 echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
+
+####################################################################################################

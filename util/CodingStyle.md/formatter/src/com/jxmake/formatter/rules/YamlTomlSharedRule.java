@@ -20,6 +20,9 @@ import com.jxmake.formatter.FormatterSimpleBraced;
  * improvement, now factored here): `#`-comment same-line splitting, the `#`-prefixed
  * trailing-comment start-case/end-period normalization, and the `=`/`:`-alignment group-padding
  * computation shared by both rules' {@code renderItems}. Pure pull-up -- no behavior change.
+ * {@code repeatChar}/{@code indent} (2026-08-16 cleanup-pass consolidation) are thin pass-throughs
+ * to {@link com.jxmake.formatter.FormatterSimpleBraced}, kept here too so YAML/TOML's own
+ * {@code indent(int)} wrappers have a same-package delegate to call, same as before.
  */
 final class YamlTomlSharedRule {
 
@@ -29,10 +32,13 @@ final class YamlTomlSharedRule {
 
     static String repeatChar(final char c, final int count)
     {
-        final StringBuilder sb = new StringBuilder(count);
-        for(int i = 0; i < count; ++i) sb.append(c);
+        return FormatterSimpleBraced.repeatChar(c, count);
+    }
 
-        return sb.toString();
+    /** Thin pass-through to {@link FormatterSimpleBraced#indent} -- same 2026-08-16 consolidation. */
+    static String indent(final int depth, final String indentUnit)
+    {
+        return FormatterSimpleBraced.indent(depth, indentUnit);
     }
 
     static String rtrim(final String s)

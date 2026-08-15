@@ -102,10 +102,7 @@ public final class TomlSpecificRule {
 
     private String indent(final int depth)
     {
-        final StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < depth; ++i) sb.append(indentUnit);
-
-        return sb.toString();
+        return YamlTomlSharedRule.indent(depth, indentUnit);
     }
 
     /**

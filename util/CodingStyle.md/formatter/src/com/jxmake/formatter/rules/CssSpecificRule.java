@@ -406,18 +406,12 @@ public final class CssSpecificRule {
 
     private static String repeatChar(final char c, final int count)
     {
-        final StringBuilder sb = new StringBuilder(count);
-        for(int i = 0; i < count; ++i) sb.append(c);
-
-        return sb.toString();
+        return FormatterSimpleBraced.repeatChar(c, count);
     }
 
     private String indent(final int depth)
     {
-        final StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < depth; ++i) sb.append(indentUnit);
-
-        return sb.toString();
+        return FormatterSimpleBraced.indent(depth, indentUnit);
     }
 
     private void renderItems(final List<Item> items, final int depth, final StringBuilder out)

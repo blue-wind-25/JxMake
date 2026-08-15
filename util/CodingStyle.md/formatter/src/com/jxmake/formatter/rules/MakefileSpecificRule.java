@@ -240,7 +240,7 @@ public final class MakefileSpecificRule {
 
     private String indent(final int depth)
     {
-        return repeatChar( ' ', Math.max(0, depth) * indentWidth );
+        return ToolingSharedRule.indent(depth, indentWidth);
     }
 
     private static String leadingWhitespace(final String line)
@@ -253,10 +253,7 @@ public final class MakefileSpecificRule {
 
     private static String repeatChar(final char c, final int count)
     {
-        final StringBuilder sb = new StringBuilder( Math.max(0, count) );
-        for(int i = 0; i < count; ++i) sb.append(c);
-
-        return sb.toString();
+        return ToolingSharedRule.repeatChar(c, count);
     }
 
 } // class MakefileSpecificRule

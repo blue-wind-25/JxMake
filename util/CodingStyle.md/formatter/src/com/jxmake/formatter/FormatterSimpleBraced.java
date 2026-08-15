@@ -48,6 +48,36 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
     }
 
     /**
+     * Returns {@code c} repeated {@code count} times -- was independently re-implemented, byte-
+     *  identical, as a private helper in {@link com.jxmake.formatter.rules.JsonSpecificRule},
+     *  {@link com.jxmake.formatter.rules.CssSpecificRule}, and (pre-existing, unchanged here)
+     *  {@code YamlTomlSharedRule} (2026-08-16 cleanup-pass consolidation); promoted here as the one
+     *  shared copy since this class is already the cross-family static-helper home those two
+     *  callers use for {@link #padKeysForColonAlignment}/comment normalization.
+     */
+    public static String repeatChar(final char c, final int count)
+    {
+        final StringBuilder sb = new StringBuilder(count);
+        for(int i = 0; i < count; ++i) sb.append(c);
+
+        return sb.toString();
+    }
+
+    /**
+     * Returns {@code indentUnit} repeated {@code depth} times -- the per-depth indent string used by
+     *  every "SimpleBraced"-shaped recursive-descent renderer (JSON/CSS directly, YAML/TOML via
+     *  their own {@code indent(int)} wrapper) to build a line prefix. Same 2026-08-16 consolidation
+     *  as {@link #repeatChar}.
+     */
+    public static String indent(final int depth, final String indentUnit)
+    {
+        final StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < depth; ++i) sb.append(indentUnit);
+
+        return sb.toString();
+    }
+
+    /**
      * Lightweight `normalize-comment-start-case` for the SimpleBraced family: capitalizes the
      *  first letter of {@code commentText} if -- and only if -- the very first non-whitespace
      *  character after the `//`/`/*` delimiter is a lowercase letter. Unlike the curly family's

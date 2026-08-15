@@ -991,7 +991,7 @@ public final class BashSpecificRule {
 
     private String indent(final int depth)
     {
-        return repeatChar( ' ', Math.max(0, depth) * indentWidth );
+        return ToolingSharedRule.indent(depth, indentWidth);
     }
 
     /**
@@ -1017,10 +1017,7 @@ public final class BashSpecificRule {
 
     private static String repeatChar(final char c, final int count)
     {
-        final StringBuilder sb = new StringBuilder( Math.max(0, count) );
-        for(int i = 0; i < count; ++i) sb.append(c);
-
-        return sb.toString();
+        return ToolingSharedRule.repeatChar(c, count);
     }
 
 } // class BashSpecificRule

@@ -827,7 +827,7 @@ public final class BashSpecificRule {
                 out.add(basePrefix + "}");
                 return idx + 1;
             }
-            out.add( basePrefix + indent( Math.max(printDepth, 0) ) + trimmed );
+            out.add( snapIndent( raw, basePrefix, Math.max(printDepth, 0) ) + trimmed );
 
             for( final char c : trimmed.toCharArray() ) {
                      if(c == '{') ++depth;
@@ -937,7 +937,7 @@ public final class BashSpecificRule {
                     ++idx;
                     continue;
                 } // if
-                out.add(bodyPrefix + trimmed);
+                out.add( snapIndent( lines.get(idx), basePrefix, 1 ) + trimmed );
                 ++idx;
                 continue;
             } // if
@@ -992,6 +992,27 @@ public final class BashSpecificRule {
     private String indent(final int depth)
     {
         return repeatChar( ' ', Math.max(0, depth) * indentWidth );
+    }
+
+    /**
+     * Preserves a body line's own authored indentation (relative to {@code basePrefix}) instead of
+     *  forcing a brace-depth-derived level, snapping up to the next {@code indentWidth} multiple when
+     *  it isn't already one -- avoids flattening non-brace nesting (bash `if`/`then`/`fi`,
+     *  `for`/`do`/`done` have no braces to count) while still normalizing onto the indent grid.
+     *  {@code minLevels} is the structurally-required floor (from literal brace/case-arm depth) that
+     *  the snapped result must never fall below.
+     */
+    private String snapIndent(
+        final String rawLine,
+        final String basePrefix,
+        final int    minLevels
+    )
+    {
+        final int rawLen  = leadingWhitespace(rawLine).length();
+        final int relLen  = Math.max( 0, rawLen - basePrefix.length() );
+        final int snapped = ( relLen + indentWidth - 1 ) / indentWidth;
+
+        return basePrefix + indent( Math.max( Math.max(0, minLevels), snapped ) );
     }
 
     private static String repeatChar(final char c, final int count)

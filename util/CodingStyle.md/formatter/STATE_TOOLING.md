@@ -71,6 +71,7 @@ started (docs-only, no code landed yet).
 | RDD_KEY_267 | `#`-comment chain-grouping (2026-08-08 brief #3, curly/RDD_KEY_265/RDD_KEY_266 parity): consecutive standalone `#` comment lines now normalize as one unit via `ToolingCommentNormalizer.normalizeChain` instead of independently; fixed a latent bug stripping a mid-chain sole `.` not on the chain's last comment |
 | RDD_KEY_272 | Pure refactor: RDD_KEY_267's deferred-placeholder chain mechanism (duplicated in `BashSpecificRule`/`PowerShellSpecificRule`) extracted into shared `ToolingCommentNormalizer.ChainCollector` (both files hold one field instead of separate `ChainEntry`/`resolveChainEntries` copies); Makefile untouched (simple lookahead, no deferred mechanism). Byte-identical output, `make test` 261/261 unchanged |
 | RDD_KEY_296 | PowerShell §3.1 `applyBraceIndent` bug fix (dogfood against `util/JCS/*.ps1`): scope depth generalized from brace-only to also track `(`/`[`/`)`/`]` (fixes `param(...)`-block content flushed to enclosing brace depth); new backtick-continuation-aware indent bump (`lineEndsWithBacktick`) fixes inconsistent reindent of `` ` ``-continued lines. New fixture `real_code_regressions_210` |
+| RDD_KEY_297 | Bash §2.3/§2.4 bug fix: `emitBraceBody`/`emitCaseBodyInner` no longer force every body line to a brace/case-arm-depth-derived indent, which flattened non-brace-nested `if`/`for` blocks (bash has no braces for these). New `snapIndent` helper preserves each line's own authored indentation, snapped UP to the next `indent-size` multiple, floored at the structurally-required depth. PowerShell confirmed unaffected (every block construct there requires literal `{}`). New fixture `real_code_regressions_211` |
 
 ---
 
@@ -580,3 +581,30 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       pre-existing, unrelated tooling-job behaviors (operator/`=` alignment,
       comment normalization) already covered by earlier RDD_KEYs -- not
       touched by this fix. See `RDD_KEY_296` for full narrative.
+- [x] **Bash -- `tools/verifiers/_exec_c_cpp.sh`, DONE, 1 bug found and
+      fixed (RDD_KEY_297, 2026-08-16).** User reported a real committed file
+      lost correct nested `if`/`for` indentation after an earlier
+      self-dogfood adopt pass (`919b9cb`); manually re-indented the file
+      first, then confirmed re-running the formatter reproduced the
+      flattening every time. Root cause: `emitBraceBody` (function bodies)
+      and `emitCaseBodyInner`'s generic fallback (case-arm bodies) both
+      forced every body line's indentation from brace/case-arm depth alone,
+      discarding the line's own authored indentation -- so a non-brace
+      construct (`if`/`then`/`fi`, `for`/`do`/`done`, no braces to count)
+      nested inside a function or case-arm body always flattened to one
+      level. Fixed via a new `BashSpecificRule.snapIndent(rawLine,
+      basePrefix, minLevels)` helper: preserves each line's own leading
+      whitespace relative to the enclosing construct, snapping UP to the
+      next `indent-size` multiple only when not already one, floored at the
+      structurally-required brace/case-arm depth (never dedents below what
+      literal nesting requires) -- user-confirmed round-up-not-multiply
+      design. PowerShell confirmed NOT affected by this bug class: every
+      PowerShell block construct (`if`/`for`/`foreach`/`while`/functions)
+      syntactically requires literal `{}`, so `applyBraceIndent`'s
+      brace-depth count is always accurate there. `make test`: 320/320
+      forward + idempotency (was 319/319, new fixture
+      `test/real_code_regressions_211_{inp,out}.sh`). Re-verified
+      idempotency + `bash -n` error-count parity against all 6
+      previously-materialized Bash dogfood corpora (`nvm`, `acme.sh`,
+      `ohmyzsh`, `javaparser_gdr`, `jenkins_scope`, `wordpress-develop`) --
+      clean, zero regressions. See `RDD_KEY_297` for full narrative.

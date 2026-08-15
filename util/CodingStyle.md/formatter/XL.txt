@@ -124,9 +124,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_210_inp/out.ps1`
-    to   `real_code_regressions_210_inp/out.ps1`
-[DONE]
+    from `real_code_regressions_211_inp/out.sh`
+    to   `...`
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
     from `...`
@@ -238,6 +237,36 @@ NONE FOR NOW
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
+
+Reformat and adopt `tools/verifiers/_exec_c_cpp.sh`.
+
+
+I'd prefer GDR to be default off so that:
+    1. Reduce computation
+    2. Code that on purpose differently indented will not be affected.
+However if it does turned-on, it should work properly.
+
+Therefore let's try to fix:
+
+- [CURLY_GDR] `curly-general-scope-reindent = on` correctness still a "hard, multi-session
+  problem" (continuation-vs-block depth, exclusion zones, ordering). HIGH risk (architectural,
+  prior attempts regressed fixtures), high value (completes an already-shipped-but-default-off
+  feature, also fixes the minified-JS non-idempotency noted in README's Known Limitations).
+  Subsumes two narrower facets already named in `STATE_CURLY_GDR.md`: the
+  `MAX_MULTIPASS_CYCLES = 20` cap's untested adequacy on deeper/wider shapes, and `GdrTokenizer`'s
+  "acceptable at this stage" literal-shape-coverage caveat.
+
+which is related to:
+
+- [C_CPP_JAVA] Retire `SwitchRule.applyNonInlineCaseIndent`/`ScopePipeline.applyDeclarationsPass`
+  in favor of GDR pre-pass's absolute-target model — cleanup/consolidation, not a bug fix; medium
+  risk (touches an already-working pass; regression risk is to correctness, not just style).
+
+If the 1st feature can be fixed properly, then 2nd feature should be automatically works.
+
+Use sub-agent. This can be a substantial work.
+
+
 
 - [CURLY_GDR] `curly-general-scope-reindent = on` correctness still a "hard, multi-session
   problem" (continuation-vs-block depth, exclusion zones, ordering). HIGH risk (architectural,

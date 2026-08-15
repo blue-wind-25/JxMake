@@ -4048,6 +4048,19 @@ Real-code regressions:
                                                         code-kind backtick bumps the next line's indent by one
                                                         level.
 
+  real_code_regressions_211_inp/out.sh               -- `emitBraceBody`/`emitCaseBodyInner` fix: a
+                                                        non-brace-nested `if`/`for` block (bash has no braces
+                                                        for these) inside a function body or case-arm body no
+                                                        longer flattens to one indent level. Both now preserve
+                                                        each body line's own authored indentation via a new
+                                                        `snapIndent` helper, rounding up to the nearest
+                                                        `indent-size` multiple and floored at the
+                                                        structurally-required brace/case-arm depth, instead of
+                                                        forcing a single brace-depth-derived level. Found via
+                                                        a real file (`tools/verifiers/_exec_c_cpp.sh`) that
+                                                        had been correctly nested before an earlier
+                                                        self-dogfood adopt pass silently flattened it.
+
 How Tests Are Run
 -----------------
 

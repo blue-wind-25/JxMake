@@ -17,7 +17,7 @@ state file.
 | Data-format support: JSON/JSON5/YAML/TOML/etc. (JSON/JSON5/CSS/YAML/TOML/XML/HTML5 implemented, including HTML5's `<script>` dispatch) | `STATE_COMMON.md` | `STATE_DATA_FORMATS.md` |
 | JS/TS support (implemented) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
 | Python3 support (implemented) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
-| AI-assist Step 3: GRU comment-classifier abstain resolution (skeleton started — `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
+| AI-assist Step 3: GRU comment-classifier abstain resolution (implemented and shipped — `gru-classifier = on` default since 2026-08-02, `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 | General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
 | HTML5 deep tree-construction gaps (tc gap job; all four levels (1-4) landed and full-suite dogfood re-validated with zero regression, still off by default behind `html5-tc-gap-level = 0`, opt-in cumulative — read `STATE_HTML5_TCG.md` for each level's implementation notes/known limitations before changing) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
 | Build/dev-tooling script formatters: Makefile, Bash, PowerShell (implemented — narrow beautification-only rule lists per `STYLE_TOOLING.md`) | `STATE_COMMON.md` | `STATE_TOOLING.md` |

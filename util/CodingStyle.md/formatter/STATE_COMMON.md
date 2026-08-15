@@ -644,6 +644,71 @@ session (across json/json5/css/yaml/toml/xml/html5/js-ts/python3/tooling
 for near-identical logic); a future pass should pick this up specifically.
 `make test`: 290/290 forward + idempotency, clean.
 
+**2026-08-16 cleanup pass (full 5-area sweep):**
+
+1. **Cross-family `*Curly`/`*Indent`/`*Tags`/`*SimpleBraced` consolidation
+   (primary item, explicitly deferred by 2026-08-12).** Reviewed the
+   `*SpecificRule` files across json/json5/css/yaml/toml/xml/html5/js-ts/
+   python3/tooling plus the curly family for genuinely near-identical
+   `repeatChar`/`indent` token-rendering primitives. Found and safely
+   consolidated two sub-families, mirroring the `YamlTomlSharedRule`
+   (`RDD_KEY_280`) precedent: (a) `FormatterSimpleBraced` gained canonical
+   `repeatChar`/`indent` statics, now the shared home for
+   `JsonSpecificRule`/`CssSpecificRule`/`YamlTomlSharedRule` (and by
+   extension `YamlSpecificRule`/`TomlSpecificRule`); (b) new
+   `ToolingSharedRule.java` (package-private, mirrors `YamlTomlSharedRule`'s
+   shape) became the shared home for `MakefileSpecificRule`/
+   `BashSpecificRule`/`PowerShellSpecificRule`'s negative-clamping
+   `repeatChar`/`indent(depth, indentWidth)` variant — deliberately kept
+   separate from (a) since the two `repeatChar` behaviors diverge on
+   negative counts (throw vs. clamp). See `RDD_KEY_300`. **Deferred as a
+   future-pass candidate, not attempted this pass (higher risk):** the
+   quote-aware bracket-depth scanner shared by `TomlSpecificRule.
+   bracketBalance`/`findAssignmentEquals` and `YamlSpecificRule.
+   findMappingColon` — flagged in `STATE_DATA_FORMATS.md` §6. `make test`
+   323/323 forward + idempotency and `make test-server` both clean before
+   and after.
+2. **Unused boilerplate sweep.** Re-ran the 2026-08-12-style per-file
+   grep-count script across all of `src/`. Zero same-file-reference-count
+   ≤1 hits found beyond the already-known, correctly-ignored
+   `serialVersionUID` case — no removals this pass.
+3. **Known Gaps sweep.** Closed one stale ACCEPTED-not-fixed gap,
+   `ASTParser.java`'s non-idempotency, documentation-only, by recognizing
+   it as the same internally-inconsistent-source-indentation shape already
+   resolved by `curly-general-scope-reindent` +
+   `curly-general-scope-reindent-multipass` (same resolution shape as
+   `RDD_KEY_299`'s `JikesOutputParser.java`); re-verified empirically
+   (round1==round2 with both flags on, `java_syntax_check.sh` clean). See
+   `RDD_KEY_301` and `STATE_C_CPP_JAVA.md`'s "Known Gaps — Fixed" section.
+   No other gap across the swept STATE_*.md files was judged cheap enough
+   to close this pass.
+4. **Stale/contradictory notes sweep.** Found and fixed three: (a)
+   `STATE_CURLY_GDR.md`'s Background section still described
+   `ASTParser.java`/`JSONEncoderLite.java` as "both ACCEPTED-not-fixed" —
+   updated with a status note pointing at their closing RDD_KEY entries
+   (`RDD_KEY_301`, `RDD_KEY_292`); (b) `STATE_CPP26.md`'s `glaze` dogfood
+   checklist item referenced the same two gaps as still-open precedent for
+   its 33-file switch/case drift group — added an equivalent status note
+   (general shape fixed via `RDD_KEY_251`, specific glaze files not
+   independently re-verified this pass since the original checkout is
+   gone); (c) `CLAUDE.md`'s own job table described AI-assist Step 3 as
+   "skeleton started" — it has been fully implemented and shipped
+   (`gru-classifier = on` by default since 2026-08-02, see `STATE_AI.md`)
+   for several sessions; corrected. A broader grep across every STATE_*.md
+   for `TODO`/`not implemented`/`scaffold`/`not yet` turned up no further
+   staleness — all remaining hits are legitimate references to the still-
+   open `STATE_COMMON.md` "General scope-depth reindentation" architectural
+   TODO or historical narrative text.
+5. **Docs check.** `CLAUDE.md` fixed per item 4(c) above. `README.md`,
+   `../README.txt`, `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`
+   all re-checked against current code state (canonical language order,
+   implemented-vs-fallback language lists, GDR/`html5-tc-gap-level`
+   sections) — no staleness found, no changes needed.
+
+`make test`: 323/323 forward + idempotency, clean (final confirmation run,
+same count as the mid-pass consolidation checks — no source changes after
+that point).
+
 ### Formatter self-formatting (dogfood-and-adopt) process
 
 A dedicated procedure for reformatting the formatter's own Java source tree

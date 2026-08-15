@@ -900,25 +900,19 @@ here if and when it actually gains a documented gap.
 1. **Bash's pipe-spacing rule can't distinguish a real pipe from a zsh extended-glob
    alternation, e.g. `(|.git)` → `( | .git)`, when zsh-only syntax appears under a `.sh`/`.bash`
    extension.** This formatter has one fixed bash-grammar transform list, not a general zsh
-   dialect parser. Fixed via a shebang gate (`FormatterBash.isBashCompatibleShebang`): when a
-   file's shebang names an interpreter other than `bash`/`sh`/`dash`/`ksh` (handling `#!/usr/bin/env
-   <interp>` indirection, e.g. a `zsh` shebang), the file is skipped entirely — no rule-based
-   formatting runs, so the pipe-spacing misfire can't reach it. Files with no shebang at all fall
-   through and are formatted as bash, deliberately permissive (see below). An earlier score-based
-   content-sniffing design (shebang regex + bash-construct/other-language-indicator keyword
-   scoring) was evaluated first and rejected: against a corpus of 280 real, previously-validated
-   bash files (`nvm`, `acme.sh`), it misclassified 277 (~99%) as non-bash; and even within the
-   `ohmyzsh` corpus the gap is about, it missed a genuine zsh file (`plugins/wd/wd.sh`, scored as
-   bash) while over-skipping other legitimate files with no zsh-dialect issue at all. The landed
-   shebang-exact-match design instead re-tested clean: all 4 known `ohmyzsh` zsh-shebang files
-   (`plugins/wd/wd.sh`, `tools/changelog.sh`, `tools/theme_chooser.sh`, `tools/upgrade.sh` — the
-   last being the file with the originally-confirmed misfire) are now correctly skipped
-   (zero-length diff), and 0/280 files in the `nvm`+`acme.sh` corpus are misclassified as
-   non-bash. Residual accepted gap: a shebang-less file using genuine zsh-only syntax (rare —
-   sourced helper scripts are typically shebang-less) is still not caught by this method, since
-   the fallback for no-shebang content is deliberately permissive rather than content-sniffed;
-   this is unchanged from before and not planned to be closed, per the content-sniffing
-   evaluation above.
+   dialect parser. To avoid this, a file is skipped entirely (left byte-for-byte unchanged) when
+   its shebang names an interpreter other than `bash`/`sh`/`dash`/`ksh` — including the `env`
+   indirection form:
+   ```sh
+   #!/usr/bin/env zsh   # skipped: not a bash-compatible interpreter
+   #!/bin/zsh            # skipped: not a bash-compatible interpreter
+   #!/bin/bash           # formatted normally
+   ```
+   Files with no shebang at all fall through and are formatted as bash, deliberately permissive.
+   Residual accepted gap: a shebang-less file using genuine zsh-only syntax (rare — sourced
+   helper scripts are typically shebang-less) is still not caught by this method, since the
+   fallback for no-shebang content is deliberately permissive rather than content-sniffed; this
+   is a known, accepted limitation, not planned to be closed.
 
 ### AI-assist (GRU)
 

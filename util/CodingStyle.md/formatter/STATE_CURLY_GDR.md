@@ -233,6 +233,13 @@ Executed — see Checklist's fixture items below.
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_298` — **Fixed** D3 (Kotlin multi-line-call/condition wrap-
+  decision flap), seventh attempt, landed. `FormatterCurly.formatOne`
+  renamed to private `formatOnePass`; new public `formatOne` re-runs it
+  (Kotlin only) up to `MAX_SETTLE_PASSES = 5` times until byte-identical,
+  mirroring `RDD_KEY_241`'s convergence-loop precedent instead of another
+  backward-scan boundary heuristic. `make test` 321/321; 188-file real
+  Kotlin corpus idempotent + syntax-clean. Full text: `RDD_KEY_298`.
 - `RDD_KEY_244` — Considered and rejected making `curly-general-scope-reindent`/
   `-multipass` `on` by default. Rejected on purpose-mismatch grounds (GDR is
   a narrow fix-up tool for badly-indented/machine-generated source, not a
@@ -503,11 +510,11 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       manifested on any tested input, not proof it structurally cannot.
       `make test` throughout: 237/237 (238/238 once the multipass fixture
       was added — see fixture item above).
-- [~] Revisit Kotlin dogfood cluster D3 using the pre-pass's statement-
+- [x] Revisit Kotlin dogfood cluster D3 using the pre-pass's statement-
       boundary/structural-depth infrastructure; land a real fix in
       `MiscRuleCurly`/wherever it ends up living, record a new `RDD_KEY_n`,
-      update `STATE_KOTLIN.md`'s D3 entries. **Still open — six independent
-      attempts across two framings, all reverted, no fix landed.**
+      update `STATE_KOTLIN.md`'s D3 entries. **RESOLVED 2026-08-16 — see
+      below (seventh attempt, landed, `RDD_KEY_298`).**
 
       **2026-08-03, negative result:** tested whether turning on GDR (alone,
       then with multipass) resolves D3 as a side effect — it does not. Both
@@ -576,6 +583,33 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       `README.md`'s Known Limitations already documents this gap for users.
       Genuinely closing D3 still needs one of the two substantial
       directions named above — not something to retry piecemeal.
+
+      **2026-08-16, seventh attempt (landed):** rather than another
+      backward-scan/token-lookup-table variant (explicitly excluded per the
+      six-attempt history above), sidestepped needing a stable statement-
+      boundary measurement entirely. `FormatterCurly`'s ~360-line
+      `formatOne` body renamed (mechanical, no behavior change) to private
+      `formatOnePass`; new public `formatOne` runs it once, then (Kotlin
+      only, via `lang.isKotlin`) re-runs it on its own output up to
+      `MAX_SETTLE_PASSES = 5` times until two consecutive passes are byte-
+      identical, mirroring `GdrPipelineGate.applyAndFormat`'s already-proven
+      convergence-loop precedent (`RDD_KEY_241`) rather than inventing new
+      machinery. Unlike GDR's own loop, does not throw on non-convergence
+      (silently returns the last pass) since this now runs unconditionally
+      for every Kotlin file, not behind an opt-in flag. Root cause
+      reconfirmed precisely via debug prints against the real
+      `EqualityAndComparisonCallsTransformer.kt`: a single over-limit
+      original source line with two call/condition candidates both wrap on
+      a fresh format, but re-tokenizing that output shortens the physical
+      line the second candidate is measured against, un-wrapping it —
+      confirmed non-idempotent under the pre-fix source, confirmed
+      idempotent under the fix. Validated: `make test`/`make test-server`
+      321/321 (new fixture `real_code_regressions_212_inp/out.kt` added);
+      188-file real Kotlin corpus (`JetBrains/kotlin`'s
+      `compiler/ir/backend.js/src`, the repro's own subtree) 188/188
+      idempotent and syntax-clean; `GdrPipelineGate`'s own convergence loop
+      confirmed to compose safely (opaque call to `formatOne`, no
+      correctness interaction). Full writeup: `RDD_KEY_298`.
 - [x] **Adversarial stress-test of the bounded 4-stage multipass loop**
       (2026-08-05, dedicated hardening/validation task, not new
       functionality or a default flip). Goal: hunt for a genuine

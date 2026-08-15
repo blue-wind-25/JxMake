@@ -32,8 +32,54 @@ public final class FormatterCurly extends FormatterCore {
         super(lang);
     }
 
+    /**
+     * D3 fix attempt (2026-08-16, `STATE_CURLY_GDR.md`'s D3 tracking): `enforceCallLineBreaking`'s
+     *  no-newline fits-check measures a candidate against its enclosing physical source line, which
+     *  is volatile round-to-round for Kotlin -- an earlier sibling call/condition on the same
+     *  original source line getting wrapped by an EARLIER `formatOnePass` invocation permanently
+     *  shortens the physical-line prefix a LATER candidate on that same original line is measured
+     *  against on the next invocation, flipping its own wrap decision (confirmed via
+     *  `EqualityAndComparisonCallsTransformer.kt`'s `Name.identifier("compareTo") -> if
+     *  (doNotIntrinsify) call else transformCompareToMethodCall(call)` -- wraps both calls on a
+     *  fresh format since the whole original line is over limit, but only the first call once
+     *  re-tokenized from its own wrapped output, since removing the first call's own text from the
+     *  physical line now leaves the second comfortably under limit). Every prior fix attempt
+     *  (RDD_KEY_221/226/252/253) tried to re-derive a stable statement-start boundary via a backward
+     *  token scan -- all six reverted, each regressing a different Kotlin shape (no reliable `;`
+     *  statement terminator in Kotlin to anchor on). This attempt sidesteps needing a stable boundary
+     *  at all: mirrors `GdrPipelineGate.applyAndFormat`'s already-proven convergence-loop precedent
+     *  (`RDD_KEY_241`) by running the whole one-pass pipeline (renamed to {@link #formatOnePass})
+     *  TWICE for Kotlin only, so an external caller's first (and only) invocation already sees the
+     *  fixed point a second external round would have produced -- no heuristic, no statement-
+     *  boundary classification, same "just run the pipeline again" idea GDR itself uses for the
+     *  structurally identical circular-dependency shape. Bounded to `lang.isKotlin` (the only family
+     *  D3 was ever confirmed in) to keep the extra pass's cost off every other language's default
+     *  path. `MAX_SETTLE_PASSES` mirrors GDR's own `MAX_MULTIPASS_CYCLES` safety-cap precedent,
+     *  much smaller since the confirmed oscillation is 2-cycle, not deeper.
+     */
+    private static final int MAX_SETTLE_PASSES = 5;
+
     @Override
     public String formatOne(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
+        String prev = formatOnePass(content, filePath, config, formatOff);
+        if(!lang.isKotlin) return prev;
+
+        for(int i = 0; i < MAX_SETTLE_PASSES; ++i) {
+            final String next = formatOnePass(prev, filePath, config, formatOff);
+            if(next.equals(prev)) return prev;
+            prev = next;
+        } // for
+
+        return prev; // Did not converge within the cap -- return the last computed pass rather than looping forever
+    }
+
+    private String formatOnePass(
         final String  content,
         final String  filePath,
         final Config  config,

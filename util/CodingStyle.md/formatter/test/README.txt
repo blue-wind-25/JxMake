@@ -4061,6 +4061,19 @@ Real-code regressions:
                                                         had been correctly nested before an earlier
                                                         self-dogfood adopt pass silently flattened it.
 
+  real_code_regressions_212_inp/out.kt               -- D3 (Kotlin multi-line-call/condition wrap-decision
+                                                        flap) fix: `FormatterCurly.formatOne` now runs the
+                                                        whole one-pass pipeline (`formatOnePass`) twice for
+                                                        Kotlin, mirroring GDR-multipass's convergence-loop
+                                                        precedent, so an earlier sibling call/condition on the
+                                                        same original source line getting wrapped no longer
+                                                        leaves a later sibling's own wrap decision unsettled
+                                                        across rounds. Minimal shape extracted from real
+                                                        `EqualityAndComparisonCallsTransformer.kt`
+                                                        (`JetBrains/kotlin`): a `when` arm whose condition and
+                                                        body each contain their own call, both on one original
+                                                        over-limit source line.
+
 How Tests Are Run
 -----------------
 

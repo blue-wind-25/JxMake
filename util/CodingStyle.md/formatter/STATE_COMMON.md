@@ -57,6 +57,15 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/RDD_LOG.md
 - New local fixture pair not from real-code testing: register in both
   `test/README.txt` and the `Makefile`'s `INP_FILES`, **before** the
   `Real-code regressions:` entries.
+- Any checkpoint that fixes a bug, closes a gap, or lands a user-visible
+  behavior change must update `README.md` (it's the user-facing document)
+  in the same commit — normally its `## Known Limitations` section, adding
+  or rewriting the relevant bullet. Every such `README.md` bullet must
+  reference the job's own `STATE_*.md` (and/or `RDD_LOG.md` key) for the
+  implementation notes — never leave `README.md` as the only place a
+  design decision or its evidence lives. Do not skip this because the
+  change feels small; a past session shipped a fix without it and the
+  gap had to be found and backfilled later.
 - Do not commit `code-formatter-1.0.0.jar` unless explicitly asked.
 - **New fixtures are authored directly in `formatter/test/`** — no staging
   step (`../FUTURE_TEST_FIXTURES.md` is historical/empty). For a language

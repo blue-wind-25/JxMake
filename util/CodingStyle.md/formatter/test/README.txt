@@ -4048,56 +4048,44 @@ Real-code regressions:
                                                         code-kind backtick bumps the next line's indent by one
                                                         level.
 
-  real_code_regressions_211_inp/out.sh               -- `emitBraceBody`/`emitCaseBodyInner` fix: a
-                                                        non-brace-nested `if`/`for` block (bash has no braces
-                                                        for these) inside a function body or case-arm body no
-                                                        longer flattens to one indent level. Both now preserve
-                                                        each body line's own authored indentation via a new
-                                                        `snapIndent` helper, rounding up to the nearest
-                                                        `indent-size` multiple and floored at the
-                                                        structurally-required brace/case-arm depth, instead of
-                                                        forcing a single brace-depth-derived level. Found via
-                                                        a real file (`tools/verifiers/_exec_c_cpp.sh`) that
-                                                        had been correctly nested before an earlier
-                                                        self-dogfood adopt pass silently flattened it.
+  real_code_regressions_211_inp/out.sh               -- `emitBraceBody`/`emitCaseBodyInner` fix: bash
+                                                        `if`/`for` bodies (no braces) in a function or
+                                                        case-arm no longer flatten to one indent level -- new
+                                                        `snapIndent` helper preserves each line's authored
+                                                        indent, rounded to `indent-size` and floored at the
+                                                        structural depth. Found via
+                                                        `tools/verifiers/_exec_c_cpp.sh`, flattened by an
+                                                        earlier dogfood pass.
 
-  real_code_regressions_212_inp/out.kt               -- D3 (Kotlin multi-line-call/condition wrap-decision
-                                                        flap) fix: `FormatterCurly.formatOne` now runs the
-                                                        whole one-pass pipeline (`formatOnePass`) twice for
-                                                        Kotlin, mirroring GDR-multipass's convergence-loop
-                                                        precedent, so an earlier sibling call/condition on the
-                                                        same original source line getting wrapped no longer
-                                                        leaves a later sibling's own wrap decision unsettled
-                                                        across rounds. Minimal shape extracted from real
+  real_code_regressions_212_inp/out.kt               -- D3 (Kotlin wrap-decision flap) fix:
+                                                        `FormatterCurly.formatOne` now runs `formatOnePass`
+                                                        twice for Kotlin (mirrors GDR-multipass's convergence
+                                                        loop), so wrapping one sibling call/condition no
+                                                        longer leaves a later sibling's wrap unsettled across
+                                                        rounds. From real
                                                         `EqualityAndComparisonCallsTransformer.kt`
                                                         (`JetBrains/kotlin`): a `when` arm whose condition and
-                                                        body each contain their own call, both on one original
-                                                        over-limit source line.
+                                                        body each hold a call, both on one over-limit source
+                                                        line.
 
   real_code_regressions_213_inp/out.sh               -- Bash zsh-dialect shebang skip-gate:
-                                                        `FormatterBash.formatOne` now detects a
-                                                        `#!/usr/bin/env zsh` (or bare `#!/.../zsh`) shebang
-                                                        and skips formatting entirely rather than applying
-                                                        bash-grammar rules to zsh-only syntax (extended-glob
-                                                        alternation, etc.), which previously misfired on
-                                                        constructs like `(|.git)`. `_inp` and `_out` are
-                                                        byte-identical, proving the file is left untouched.
-                                                        See `STATE_TOOLING.md` for the design and empirical
-                                                        validation, and `README.md`'s Bash Known Limitations
-                                                        for the user-facing summary.
-                                                        
+                                                        `FormatterBash.formatOne` detects a `#!/usr/bin/env
+                                                        zsh` (or bare `#!/.../zsh`) shebang and skips
+                                                        formatting entirely, avoiding bash-grammar misfires on
+                                                        zsh-only syntax like `(|.git)` extended-glob
+                                                        alternation. `_inp`/`_out` are byte-identical. See
+                                                        `STATE_TOOLING.md` and README.md's Bash Known
+                                                        Limitations.
+
   real_code_regressions_214_inp/out.java             -- apache/ant's `JikesOutputParser.java`
-                                                        (`parseStandardOutput`): a real-world if/else-if/else
-                                                        chain whose final `} else {` is internally-
-                                                        inconsistently over-indented relative to its sibling
-                                                        `if`/`else if` lines in hand-written source, with
-                                                        curly-general-scope-reindent=on AND
-                                                        curly-general-scope-reindent-multipass=on via in-file
-                                                        config -- confirms the already-shipped multipass
-                                                        workaround (RDD_KEY_243) also closes this specific
-                                                        real-corpus non-idempotency: single GDR pass alone
-                                                        (multipass off) is non-idempotent on this shape, both
-                                                        flags together are fully idempotent.
+                                                        (`parseStandardOutput`): a real if/else-if/else chain
+                                                        whose final `} else {` is inconsistently over-indented
+                                                        vs. its siblings, tested with
+                                                        `curly-general-scope-reindent` and `-multipass` both
+                                                        on -- confirms the RDD_KEY_243 multipass workaround
+                                                        also fixes this real-corpus non-idempotency: a single
+                                                        GDR pass is non-idempotent here, both flags together
+                                                        are fully idempotent.
 
 How Tests Are Run
 -----------------

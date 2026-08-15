@@ -918,8 +918,8 @@ here if and when it actually gains a documented gap.
    judgment call, which isn't planned given the limited benefit.
 
 3. **The GRU's residual false-positive rate on `NO` cases is accepted, not further reduced.**
-   Lowering the threshold recovers more `YES` resolutions but raises this rate; `0.76` (raised
-   from `0.7` on 2026-08-12) was chosen as the best trade-off found so far (see
+   Lowering the threshold recovers more `YES` resolutions but raises this rate; `0.76` was
+   chosen as the best trade-off found so far (see
    [`DESIGN_NOTES.md`](DESIGN_NOTES.md)). Not planned to change further unless a future corpus
    expansion or held-out measurement moves the curve.
 

@@ -273,19 +273,6 @@ Use sub-agent. This can be a substantial work.
 
 Use sub-agent. This can be a substantial work.
 
-=== TIER Z: Closed, revisit only if new evidence surfaces ===
-
-- [CURLY_GDR] GDR-2 (second multipass cycle) risk of silently mis-scoping deeper/adjacent
-  regions — NOT REPRODUCED across 6 synthetic adversarial shapes (TS switch-in-if, TS
-  ternary-wrap, Kotlin when-in-if, Kotlin ternary-wrap, 2 combined/deep-nesting variants), all
-  survive correctly. Synthetic-only, not exhaustive — see STATE_CURLY_GDR.md. Revisit if a real
-  case surfaces.
-
-- [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" — resolved
-  2026-08-15 (RDD_KEY_295) as a documented limitation, no code change (needs two *simultaneous*
-  misnestings, never observed in any dogfood corpus). Revisit if a future case surfaces. See
-  `STATE_HTML5_TCG.md`'s Open Questions.
-
 === TIER X: Dead ===
 
 - [PYTHON3] §5 f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
@@ -306,6 +293,19 @@ Use sub-agent. This can be a substantial work.
 
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
   NOT FEASIBLE, no tractable grouping-intent heuristic exists at any small model size tested.
+
+=== TIER Z: Closed, revisit only if new evidence surfaces ===
+
+- [CURLY_GDR] GDR-2 (second multipass cycle) risk of silently mis-scoping deeper/adjacent
+  regions — NOT REPRODUCED across 6 synthetic adversarial shapes (TS switch-in-if, TS
+  ternary-wrap, Kotlin when-in-if, Kotlin ternary-wrap, 2 combined/deep-nesting variants), all
+  survive correctly. Synthetic-only, not exhaustive — see STATE_CURLY_GDR.md. Revisit if a real
+  case surfaces.
+
+- [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" — resolved
+  2026-08-15 (RDD_KEY_295) as a documented limitation, no code change (needs two *simultaneous*
+  misnestings, never observed in any dogfood corpus). Revisit if a future case surfaces. See
+  `STATE_HTML5_TCG.md`'s Open Questions.
 
 ####################################################################################################
 ####################################################################################################

@@ -899,18 +899,26 @@ here if and when it actually gains a documented gap.
 
 1. **Bash's pipe-spacing rule can't distinguish a real pipe from a zsh extended-glob
    alternation, e.g. `(|.git)` → `( | .git)`, when zsh-only syntax appears under a `.sh`/`.bash`
-   extension.** This formatter has one fixed bash-grammar transform list, not a zsh dialect
-   detector — a file using zsh-only extensions (extended-glob alternation, `${(kv)...}`,
-   `always {}` blocks) under a bash extension is already invalid `bash -n` input before
-   formatting, so the misfire doesn't turn valid bash into broken bash. Permanent, by-design
-   out-of-scope limitation; zsh-dialect detection is not planned. A score-based content-sniffing
-   detector (shebang regex + bash-construct/other-language-indicator regex scoring) was proposed
-   and empirically evaluated as a possible mitigation, then rejected: against a corpus of 280
-   real, previously-validated-clean bash files (`nvm`, `acme.sh`), it misclassified 277 (~99%) as
-   non-bash and would have skipped them from formatting entirely; and even within the corpus the
-   gap is about (`ohmyzsh`, containing the known zsh-dialect files), it missed a genuine zsh file
-   (`plugins/wd/wd.sh`, scored as bash) while also over-skipping other genuine zsh/bash files with
-   no zsh-dialect issue at all. See `STATE_TOOLING.md` for the full writeup.
+   extension.** This formatter has one fixed bash-grammar transform list, not a general zsh
+   dialect parser. Fixed via a shebang gate (`FormatterBash.isBashCompatibleShebang`): when a
+   file's shebang names an interpreter other than `bash`/`sh`/`dash`/`ksh` (handling `#!/usr/bin/env
+   <interp>` indirection, e.g. a `zsh` shebang), the file is skipped entirely — no rule-based
+   formatting runs, so the pipe-spacing misfire can't reach it. Files with no shebang at all fall
+   through and are formatted as bash, deliberately permissive (see below). An earlier score-based
+   content-sniffing design (shebang regex + bash-construct/other-language-indicator keyword
+   scoring) was evaluated first and rejected: against a corpus of 280 real, previously-validated
+   bash files (`nvm`, `acme.sh`), it misclassified 277 (~99%) as non-bash; and even within the
+   `ohmyzsh` corpus the gap is about, it missed a genuine zsh file (`plugins/wd/wd.sh`, scored as
+   bash) while over-skipping other legitimate files with no zsh-dialect issue at all. The landed
+   shebang-exact-match design instead re-tested clean: all 4 known `ohmyzsh` zsh-shebang files
+   (`plugins/wd/wd.sh`, `tools/changelog.sh`, `tools/theme_chooser.sh`, `tools/upgrade.sh` — the
+   last being the file with the originally-confirmed misfire) are now correctly skipped
+   (zero-length diff), and 0/280 files in the `nvm`+`acme.sh` corpus are misclassified as
+   non-bash. Residual accepted gap: a shebang-less file using genuine zsh-only syntax (rare —
+   sourced helper scripts are typically shebang-less) is still not caught by this method, since
+   the fallback for no-shebang content is deliberately permissive rather than content-sniffed;
+   this is unchanged from before and not planned to be closed, per the content-sniffing
+   evaluation above. See `STATE_TOOLING.md` for the full writeup.
 
 ### AI-assist (GRU)
 

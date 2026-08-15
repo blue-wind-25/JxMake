@@ -609,8 +609,11 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `ohmyzsh`, `javaparser_gdr`, `jenkins_scope`, `wordpress-develop`) --
       clean, zero regressions. See `RDD_KEY_297` for full narrative.
 - [x] **Bash -- proposed `StrictBashShDetector` zsh-dialect mitigation,
-      EVALUATED AND REJECTED, no source changed (2026-08-16).** User
-      proposed a score-based Java heuristic (`isBashOrSh(String)`: shebang
+      EVALUATED AND REJECTED in this exact scored-heuristic shape, no
+      source changed (2026-08-16). SUPERSEDED same day -- see the
+      shebang-exact-match follow-up entry below, which landed a working
+      fix using a different, much narrower design.** User proposed a
+      score-based Java heuristic (`isBashOrSh(String)`: shebang
       regex bonus/penalty, negative regexes for other-language indicators --
       Python `def`/`import`/`class`/`print`, JS `console.log`/`const`/`let`/
       arrow-fn, Perl/Ruby `use strict`/`my \$`/`puts`/`nil`, fish/csh
@@ -649,3 +652,47 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `README.md`'s Known Limitations stands, now with this evaluation's
       concrete numbers appended. `make test` not re-run -- no source
       changed.
+- [x] **Bash -- shebang-exact-match gate for the zsh-dialect pipe-spacing
+      misfire, LANDED (2026-08-16, same day as the rejected entry above).**
+      Follow-up user request refined the rejected proposal into a narrower
+      shape: use the shebang as the *primary* decider (exact interpreter
+      basename against `{bash, sh, dash, ksh}`, correctly resolving
+      `#!/usr/bin/env <interp>` indirection instead of treating `env`
+      itself as the interpreter), gated before any rule-based formatting
+      decides whether to touch the file at all; files with no shebang fall
+      through and are formatted as bash (deliberately permissive -- a
+      shebang-less genuine zsh file is rare and the earlier evaluation
+      already showed keyword-based content sniffing does more harm than
+      good). Re-tested this exact shape in Python against the same two
+      corpora before writing Java, then re-confirmed against the actual
+      landed jar: `/tmp/ohmyzsh` -- all 4 known zsh-shebang files
+      (`plugins/wd/wd.sh`, `tools/changelog.sh`, `tools/theme_chooser.sh`,
+      `tools/upgrade.sh`, the last being the file with the originally
+      confirmed misfire) now correctly skipped (`--diff` against the
+      landed jar: zero-length output for all 4); `/tmp/nvm` +
+      `/tmp/acme.sh` combined (280 files) -- 0/280 misclassified as
+      non-bash (down from 277/280 in the rejected scored design), and
+      spot-checked `nvm/install.sh` and `acme.sh/acme.sh` still produce
+      normal non-empty `--diff` output, confirming the gate doesn't block
+      legitimate bash-shebang content. Implementation: new
+      `FormatterBash.isBashCompatibleShebang(String)` private static
+      helper (parses the first `#!` line via regex, resolves the `env`
+      indirection, compares the resulting basename against a fixed
+      `{bash, sh, dash, ksh}` set), called from `formatOne` immediately
+      after the existing `formatOff` early-return and before constructing
+      `BashSpecificRule` -- returns the content unchanged (skips
+      formatting entirely) when the shebang names an incompatible
+      interpreter. No change to `BashSpecificRule` itself. New fixture
+      `test/real_code_regressions_213_{inp,out}.sh` (`#!/usr/bin/env zsh`
+      content using extended-glob alternation `(|.git)` plus ordinary
+      unformatted bash-like syntax; `_out.sh` is byte-identical to `_inp.sh`,
+      proving the file is left untouched rather than partially formatted).
+      `make test`: 322/322 forward + idempotency, all green, new fixture
+      pair included. Residual accepted gap, unchanged from before: a shebang-less
+      `.sh`/`.bash` file using genuine zsh-only syntax is still not caught
+      -- content-sniffing was tried and rejected above, so this is treated
+      as permanently out of scope, not a follow-up TODO. `README.md`'s
+      Known Limitations Bash bullet updated to describe the landed fix
+      (superseding this file's own rejected-detector wording from earlier
+      the same day, which is left in place above as a record of the
+      design that didn't work and why).

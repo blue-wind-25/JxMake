@@ -528,11 +528,9 @@ on the noted commits/fixtures)
      `if(node instanceof RecordPatternExpr)` as cast (`_57`); Java enum-constant-list merging into
      adjacent field alignment group + drifting indent (`_58`).
 
-     1 gap ACCEPTED not fixed: `ASTParser.java` (JavaCC-generated, ~5500 lines), one switch-case
-     body with internally-inconsistent source indentation causing one non-idempotent re-indent —
-     same root cause as "Known Gaps — Open" (1/1997 files). `javac` compile-check not run (gated
-     on fully-clean idempotency); accepted Finished per user decision — see `README.md`'s "Known
-     Limitations".
+     1 gap, `ASTParser.java` (JavaCC-generated, ~5500 lines) internally-inconsistent-source-
+     indentation non-idempotency — **CLOSED 2026-08-16 (documentation-only, `RDD_KEY_301`, same
+     resolution shape as `RDD_KEY_299`'s `JikesOutputParser.java`).** See "Known Gaps — Fixed".
 (17) HUGE `openrewrite/rewrite` — DONE. Full-tree forward pass (default config): 0 errors.
      Round1/round2 idempotency (original 6-cluster investigation): 34 differing files, 6 clusters,
      all now fixed:
@@ -847,6 +845,17 @@ RDD_KEY_88.
 
 
 ## Known Gaps — Fixed
+
+- **`javaparser/javaparser`'s `ASTParser.java` non-idempotent if/else reindent — CLOSED 2026-08-16
+  (documentation-only, `RDD_KEY_301`).** Same resolution shape as `RDD_KEY_299`/`RDD_KEY_243`: no
+  source change. The item (16) dogfood session's "1 gap ACCEPTED not fixed" was re-tested this
+  cleanup pass with BOTH `curly-general-scope-reindent=on` AND
+  `curly-general-scope-reindent-multipass=on` together (the original acceptance predated a
+  combined-flags recheck, same stale-recheck situation `RDD_KEY_299` found for `apache/ant` in the
+  same session). With both flags: round1 byte-identical to round2 (empty diff); `java_syntax_check.sh`
+  clean on both the original file and round1's output. No fixture added (no source touched, and the
+  existing generic GDR-gap bullet in `README.md`'s Known Limitations already covers this class of
+  gap without naming a specific corpus file).
 
 - **`apache/ant`'s `JikesOutputParser.java` non-idempotent if/else reindent — CLOSED 2026-08-16
   (documentation-only, `RDD_KEY_299`).** Same resolution shape as `RDD_KEY_243`: no source change.

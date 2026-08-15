@@ -54,7 +54,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | C++26 | STATE_CPP26.md | wrocpp/cpp26-reflection-examples | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src minus jxm (vendored 3rd-party) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src/jxm (JxMake's own Java tree) | DONE | |
-| Java | STATE_C_CPP_JAVA.md | apache/ant | DONE - PARTIAL FIX | 1 file (`JikesOutputParser.java`) still hits accepted reindent gap; `PathTest.java` re-checked 2026-08-09, now clean |
+| Java | STATE_C_CPP_JAVA.md | apache/ant | DONE | `PathTest.java` re-checked 2026-08-09, clean; `JikesOutputParser.java`'s reindent gap CLOSED 2026-08-16 -- idempotent/`javac`-clean with `curly-general-scope-reindent=on` AND `curly-general-scope-reindent-multipass=on` together (RDD_KEY_299) |
 | Java | STATE_C_CPP_JAVA.md | ARMCortexMThumbC.java.in (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | google/google-java-format | DONE | |
 | Java | STATE_C_CPP_JAVA.md | javaparser/javaparser | DONE | switch-case reindent bug fixed (RDD_KEY_251, nested-switch-in-switch, `ASTParser.java`); idempotency diff non-converging → 369 lines pre-fix → 7 post-fix, all 7 confirmed pre-existing/unrelated |

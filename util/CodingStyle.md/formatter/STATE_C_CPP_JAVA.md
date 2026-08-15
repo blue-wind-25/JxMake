@@ -162,6 +162,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_284 | Follow-up to RDD_KEY_283: pack-indexing/variadic-template `using` aliases (`template<typename... T> using Name = T...[N];`) are now ALSO aligned, via new `Declaration.aliasRawTypeText`/`templatePrefixRawText` verbatim-raw-text fields instead of bailing -- `enforcePackIndexingSpacing` runs after declaration alignment regardless of which pass emitted the line, so only the aliased type needed this; the `template<...>` prefix has no such downstream fix-up pass, so it's rendered verbatim too rather than regenerated, sidestepping the question. Also fixed: a standalone comment between `template<...>` and `using` has no home in the `Declaration` model and was being silently dropped -- now detected and bailed on (leave untouched); and a same-line trailing-comment spacing bug (single space instead of the codebase's two-space convention). `make test` unchanged at 284/284 (refines the existing `cpp_using_alias`/`cpp26_comments` fixtures, no new fixture). See narrative entry for full detail. |
 | RDD_KEY_289 | Self-hosting dogfood (`JsTsSpecificRule.java`/`TokenizerCurly.java`): 2 bugs, combined fixture `real_code_regressions_205`. (a) `BlockStructureRule.extractSingleIdentifier`'s negated-single-identifier case (`while(!closed)`) dropped the leading `!` when building a same-kind-nested-loop closing-comment label, inverting an existing `} // while !closed` comment's meaning to `} // while closed` -- fixed to preserve the `!`. (b) `alignBracelessElseIfChain`'s chain detection is purely line-text-pattern-based with no check that a matched `if`/`else if` member's body is actually braceless -- a hand-written mixed chain (braceless `if` immediately followed by a genuinely braced `else if(...) { ... }`) got its `if` keyword left-padded by the keyword-length delta anyway, corrupting a correctly flush-aligned pair's indentation every reformat -- fixed by bailing the whole chain untouched, before any mutation, the moment any non-bare-else member's body is braced (bare terminal `else { ... }` remains supported, per `real_code_regressions_172_out.ts`). `make test`: 313/313 -> 314/314, zero regressions. |
 | RDD_KEY_286 | `JXM_CFMT_CFG` directive gained a `--lang` pseudo-key (`//% JXM_CFMT_CFG --lang=cpp`) for a per-file language override, highest-priority (wins over CLI `--lang`/server `lang` param too) -- addresses the `.h`-defaults-to-C Open Question below (an explicit per-file fix, not a change to the default) and templated sources (`.java.in`/`.java.inc`) whose extension can't be inferred at all. `InFileConfig.parse` special-cases the key, validates via `Lang.isRecognized`; `Main.processFile`/`ServerMode.FormatHandler` reordered to read the file/body before deciding language. New fixture `in_file_config_lang_{inp,out}.h`. `make test`/`make test-server`: 285/285 -> 286/286, zero regressions. `README.md` updated (new subsection, precedence list, Known Limitations item 6 broadened from C++26-only to the whole C++ pipeline). |
+| RDD_KEY_299 | Re-confirmed and closed `apache/ant`'s `JikesOutputParser.java` non-idempotent if/else reindent gap (documentation-only, same resolution shape as `RDD_KEY_243`) -- a prior recheck only tested `curly-general-scope-reindent=on` alone; with BOTH that flag AND `curly-general-scope-reindent-multipass=on` on, round1==round2 (idempotent) and round1 compiles clean under `javac`. See "Known Gaps -- Fixed", `test/real_code_regressions_214` fixture, `RDD_KEY_299` in `RDD_LOG.md` for full detail. `make test`: 322/322 -> 323/323 forward + idempotency, zero regressions. |
 
 ---
 
@@ -716,6 +717,20 @@ on the noted commits/fixtures)
      family" item 4; redundant standalone `XL.txt` TIER 9 entry removed. Only these 2 files were
      re-checked (not a full-tree re-clone).
 
+     **CLOSED 2026-08-16 (RDD_KEY_299):** re-verified with BOTH
+     `curly-general-scope-reindent=on` AND `curly-general-scope-reindent-multipass=on` (the earlier
+     2026-08-10 recheck above only tested the base flag alone). Ran the formatter on
+     `JikesOutputParser.java` twice with both flags on: round1 byte-identical to round2 (empty
+     `diff`), confirming idempotency. Compiled round1's output with `javac` against the file's real
+     sibling classes (`org.apache.tools.ant.Task`/`Project`/`taskdefs.ExecuteStreamHandler`, etc.,
+     pulled from the same `apache/ant` checkout) — compiled clean, zero errors. Same disposition as
+     `RDD_KEY_243`: this is the already-shipped `curly-general-scope-reindent-multipass=on`
+     workaround, just not previously re-tested in combination for this specific corpus finding.
+     Minimal repro fixture: `test/real_code_regressions_214_{inp,out}.java` (isolates the exact
+     shape — an internally-inconsistently-indented `} else {` in an if/else-if/else chain — gated
+     behind both flags via in-file config, since GDR remains off by default project-wide). See
+     "Known Gaps — Fixed" for the formal closure entry.
+
 **Not started dogfood / real-code testing**
 (3) `github.com/llvm/llvm-project` — LLVM/Clang monorepo; enormous, likely only a
     partial/targeted subtree run is practical (e.g. `clang/lib/Format/` or
@@ -832,6 +847,15 @@ RDD_KEY_88.
 
 
 ## Known Gaps — Fixed
+
+- **`apache/ant`'s `JikesOutputParser.java` non-idempotent if/else reindent — CLOSED 2026-08-16
+  (documentation-only, `RDD_KEY_299`).** Same resolution shape as `RDD_KEY_243`: no source change.
+  Re-verified with BOTH `curly-general-scope-reindent=on` AND
+  `curly-general-scope-reindent-multipass=on` together (a prior 2026-08-10 recheck had only tested
+  the base flag alone and wrongly concluded GDR "doesn't fix it either"). With both flags: round1
+  byte-identical to round2 (empty diff), and round1 compiles clean under `javac` against the file's
+  real sibling classes. Fixture: `test/real_code_regressions_214_{inp,out}.java`. See the full
+  narrative in item (27)'s dogfood entry above.
 
 - **`openrewrite/rewrite` full-tree re-verification residual gaps, wrapped-call continuation-indent
   shape — FIXED 2026-08-15 (`RDD_KEY_293`).** Repro:

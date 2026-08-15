@@ -60,12 +60,13 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/RDD_LOG.md
 - Any checkpoint that fixes a bug, closes a gap, or lands a user-visible
   behavior change must update `README.md` (it's the user-facing document)
   in the same commit — normally its `## Known Limitations` section, adding
-  or rewriting the relevant bullet. Every such `README.md` bullet must
-  reference the job's own `STATE_*.md` (and/or `RDD_LOG.md` key) for the
-  implementation notes — never leave `README.md` as the only place a
-  design decision or its evidence lives. Do not skip this because the
-  change feels small; a past session shipped a fix without it and the
-  gap had to be found and backfilled later.
+  or rewriting the relevant bullet. `README.md` is user-facing and must
+  **not** reference `STATE_*.md`, `RDD_LOG.md` keys, or any other
+  implementation note — write each bullet so it stands alone for a reader
+  with no access to this directory's internal process files. Do not skip
+  the update because the change feels small; a past session shipped a fix
+  without touching `README.md` and the gap had to be found and backfilled
+  later.
 - Do not commit `code-formatter-1.0.0.jar` unless explicitly asked.
 - **New fixtures are authored directly in `formatter/test/`** — no staging
   step (`../FUTURE_TEST_FIXTURES.md` is historical/empty). For a language

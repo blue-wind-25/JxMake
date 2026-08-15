@@ -799,7 +799,7 @@ here if and when it actually gains a documented gap.
    deeply nested short calls inside very long lines. **Kotlin is no longer affected**: as of
    2026-08-16, `FormatterCurly.formatOne` re-runs itself for Kotlin files specifically (up to
    5 passes) until two consecutive passes produce byte-identical output, converging on a fixed
-   point instead of flapping — see `STATE_CURLY_GDR.md`'s D3 entry.
+   point instead of flapping.
 
 3. **`.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in.** The JSX/TSX
    boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but
@@ -918,8 +918,7 @@ here if and when it actually gains a documented gap.
    sourced helper scripts are typically shebang-less) is still not caught by this method, since
    the fallback for no-shebang content is deliberately permissive rather than content-sniffed;
    this is unchanged from before and not planned to be closed, per the content-sniffing
-   evaluation above. See `STATE_TOOLING.md` for the full writeup, and
-   `test/real_code_regressions_213_inp/out.sh` (byte-identical fixture) for the regression test.
+   evaluation above.
 
 ### AI-assist (GRU)
 

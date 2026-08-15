@@ -15,15 +15,14 @@ sweep: it roughly halves the false-positive rate (wrongly capitalizing a
 comment that was actually a real code reference, e.g. `return x;`) at
 little cost to how many genuinely ambiguous comments get resolved.
 
-Raised to `0.76` on 2026-08-12 after a further sweep (0.68/0.72/0.76)
-prompted by an unexpectedly high 5-round full-corpus CV precision figure:
-against each CV round's own held-out test split, 0.76 monotonically beat
-0.72 and 0.70 on both the false-negative and false-positive rate (no
-threshold in the swept range made either worse). A separate, label-free
-check against a real, unrelated codebase (out-of-distribution comments the
-model never trained on) found 0.68/0.72/0.76 behaved almost identically to
-0.70 — no evidence any of the three regressed decisiveness on unseen text.
-See `STATE_AI.md`'s 2026-08-12 entry for the full numbers.
+Raised to `0.76` after a further sweep (0.68/0.72/0.76) prompted by an
+unexpectedly high 5-round full-corpus CV precision figure: against each CV
+round's own held-out test split, 0.76 monotonically beat 0.72 and 0.70 on
+both the false-negative and false-positive rate (no threshold in the swept
+range made either worse). A separate, label-free check against a real,
+unrelated codebase (out-of-distribution comments the model never trained
+on) found 0.68/0.72/0.76 behaved almost identically to 0.70 — no evidence
+any of the three regressed decisiveness on unseen text.
 
 ## HTML5 tree-construction gap levels: why they're narrow approximations
 

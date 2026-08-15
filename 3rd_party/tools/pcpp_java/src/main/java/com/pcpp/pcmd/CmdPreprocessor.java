@@ -319,9 +319,7 @@ public class CmdPreprocessor extends Preprocessor {
                 } // for
                 List<double[]> sorted = new ArrayList<>();
                 for( Map.Entry<String, double[]> entry : filetimesMap.entrySet() ) {
-                    double[] v = {
-                        entry.getValue()[0], entry.getValue()[1], 0
-                    };
+                    double[] v = { entry.getValue()[0], entry.getValue()[1], 0 };
                     sorted.add(v);
                 }
                 sorted.sort( (a, b) -> Double.compare( b[0], a[0] ) );

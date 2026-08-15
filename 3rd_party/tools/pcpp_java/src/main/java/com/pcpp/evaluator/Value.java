@@ -505,10 +505,10 @@ public final class Value {
                         // Octal \ NNN
                         int end = i + 1;
                         while( end < s.length() && end < i + 4 && s.charAt(
-                        end
-                    ) >= '0' && s.charAt(
-                        end
-                    ) <= '7' ) end++;
+                            end
+                        ) >= '0' && s.charAt(
+                            end
+                        ) <= '7' ) end++;
                         String oct = s.substring(i + 1, end);
                         out.append( (char) Integer.parseInt(oct, 8) );
                         i = end;

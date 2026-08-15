@@ -807,9 +807,7 @@ public class Preprocessor extends PreprocessorHooks {
             };
         }
 
-        final boolean[] partial_expansion = {
-            false
-        };
+        final boolean[] partial_expansion = { false };
 
         // Replace defined(macro) occurrences
         Function<List<LexToken>, List<LexToken> > replace_defined = (toks) -> {
@@ -902,12 +900,8 @@ public class Preprocessor extends PreprocessorHooks {
                 return repl;
             }
         }; // class
-        final boolean[]     evalFunctPartial = {
-            false
-        };
-        final boolean[]     evalVarPartial   = {
-            false
-        };
+        final boolean[] evalFunctPartial = { false };
+        final boolean[] evalVarPartial   = { false };
 
         Map<String, Object> evalvars = new HashMap<String, Object>() {
             @Override
@@ -1036,9 +1030,7 @@ public class Preprocessor extends PreprocessorHooks {
         Deque<IfStackEntry> ifstack                   = new ArrayDeque<>();
         boolean             at_front_of_file          = true;
         boolean             auto_pragma_once_possible = auto_pragma_once_enabled;
-        String[]            include_guard             = {
-            null, null
-        }; // [macro, "0"/"1"]
+        String[]            include_guard             = { null, null };           // [macro, "0"/"1"]
 
         on_potential_include_guard(null);
 

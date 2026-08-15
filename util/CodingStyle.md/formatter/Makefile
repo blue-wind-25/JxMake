@@ -10,7 +10,7 @@ JAVA_VERSION ?= 8
 # Single source of truth for the version number -- propagated into the JAR
 # manifest (Implementation-Version), read at runtime by `Main.java`'s
 # `printUsage()`/`--version`, and picked up by `code-formatter.sh/.cmd` via glob.
-VERSION       = 1.0.0
+VERSION       = 1.0.1
 ARTIFACT      = code-formatter-$(VERSION)
 MAIN_CLASS    = com.jxmake.formatter.Main
 
@@ -365,7 +365,7 @@ gru-cv-corpus: $(JAR_FILE)
 #
 # Override `JAVA` or `JAR_FILE` on the command line if needed:
 #     make test JAVA=/path/to/java
-#     make test JAR_FILE=/path/to/code-formatter-1.0.0.jar
+#     make test JAR_FILE=/path/to/code-formatter-1.0.1.jar
 #
 INP_FILES :=
 

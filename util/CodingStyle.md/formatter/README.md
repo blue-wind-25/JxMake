@@ -22,8 +22,8 @@ cd util/CodingStyle.md/formatter
 make
 ```
 
-Produces `code-formatter-1.0.0.jar` in the `formatter/` directory (version
-number matches `VERSION` in the Makefile — replace `1.0.0` with your built
+Produces `code-formatter-1.0.1.jar` in the `formatter/` directory (version
+number matches `VERSION` in the Makefile — replace `1.0.1` with your built
 version in the commands below).
 
 ---
@@ -33,9 +33,9 @@ version in the commands below).
 ### Single file
 
 ```sh
-java -jar code-formatter-1.0.0.jar File.java
-java -jar code-formatter-1.0.0.jar src/Utils.c
-java -jar code-formatter-1.0.0.jar include/Module.h
+java -jar code-formatter-1.0.1.jar File.java
+java -jar code-formatter-1.0.1.jar src/Utils.c
+java -jar code-formatter-1.0.1.jar include/Module.h
 ```
 
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
@@ -62,8 +62,8 @@ For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension 
 override detection with `--lang`:
 
 ```sh
-java -jar code-formatter-1.0.0.jar --lang java Template.java.in
-java -jar code-formatter-1.0.0.jar --lang cpp Module.inc
+java -jar code-formatter-1.0.1.jar --lang java Template.java.in
+java -jar code-formatter-1.0.1.jar --lang cpp Module.inc
 ```
 
 `--lang` accepts exactly one of `c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`, `yaml`,
@@ -85,11 +85,11 @@ of a per-invocation one (so mixed-language file lists and templated sources like
 ### Output modes
 
 ```sh
-java -jar code-formatter-1.0.0.jar --in-place File.java  # in-place edit (overwrites File.java)
-java -jar code-formatter-1.0.0.jar --diff File.java      # print unified diff, do not edit
-java -jar code-formatter-1.0.0.jar --check File.java     # exit 1 if file would change (CI)
-java -jar code-formatter-1.0.0.jar --out DIR File.java   # write to DIR/File.java instead
-java -jar code-formatter-1.0.0.jar --out DIR \           # write to DIR/sub/File.java, preserving
+java -jar code-formatter-1.0.1.jar --in-place File.java  # in-place edit (overwrites File.java)
+java -jar code-formatter-1.0.1.jar --diff File.java      # print unified diff, do not edit
+java -jar code-formatter-1.0.1.jar --check File.java     # exit 1 if file would change (CI)
+java -jar code-formatter-1.0.1.jar --out DIR File.java   # write to DIR/File.java instead
+java -jar code-formatter-1.0.1.jar --out DIR \           # write to DIR/sub/File.java, preserving
     --preserve-tree --root ROOT sub/File.java            # ROOT-relative subdirectory structure
 
 ```
@@ -110,9 +110,9 @@ input file that doesn't resolve under `--root DIR` is a per-file error. Opt-in o
 ### Server mode (faster for batch)
 
 ```sh
-java -jar code-formatter-1.0.0.jar --server       # start server in background
-java -jar code-formatter-1.0.0.jar File.java      # auto-connects to running server
-java -jar code-formatter-1.0.0.jar --stop         # stop server
+java -jar code-formatter-1.0.1.jar --server       # start server in background
+java -jar code-formatter-1.0.1.jar File.java      # auto-connects to running server
+java -jar code-formatter-1.0.1.jar --stop         # stop server
 ```
 
 The server amortizes JVM startup across a batch of files. If no server is running,
@@ -133,8 +133,8 @@ for the already-near-optimal single-call batch path. Both settings are opt-in an
 independent of each other:
 
 ```sh
-JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=4 java -jar code-formatter-1.0.0.jar --server
-JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=6  java -jar code-formatter-1.0.0.jar file1.java file2.java ...
+JXMAKE_CODE_FORMATTER_SERVER_CONCURRENCY=4 java -jar code-formatter-1.0.1.jar --server
+JXMAKE_CODE_FORMATTER_CLIENT_READ_AHEAD=6  java -jar code-formatter-1.0.1.jar file1.java file2.java ...
 ```
 
 or via a config file:
@@ -191,7 +191,7 @@ To disable formatting for an entire file from the command line (as if `JXM_CFMT_
 were present at the very top), without editing the file itself:
 
 ```sh
-java -jar code-formatter-1.0.0.jar --format-off File.java
+java -jar code-formatter-1.0.1.jar --format-off File.java
 ```
 
 The file stays completely untouched unless it contains its own `JXM_CFMT_ENA` marker,
@@ -300,11 +300,11 @@ globally, so a file can be prepared for GDR ahead of a project-wide flag flip.
 
 ```makefile
 fmt:
-    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.0.jar --server
-    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.0.jar $(SRCS)
+    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar --server
+    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar $(SRCS)
 
 fmt-check:
-    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.0.jar --check $(SRCS)
+    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar --check $(SRCS)
 ```
 
 ---

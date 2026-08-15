@@ -70,7 +70,7 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/RDD_LOG.md
   the update because the change feels small; a past session shipped a fix
   without touching `README.md` and the gap had to be found and backfilled
   later.
-- Do not commit `code-formatter-1.0.0.jar` unless explicitly asked.
+- Do not commit `code-formatter-1.0.1.jar` unless explicitly asked.
 - **New fixtures are authored directly in `formatter/test/`** — no staging
   step (`../FUTURE_TEST_FIXTURES.md` is historical/empty). For a language
   with no real formatter logic yet, register commented-out in `INP_FILES`

@@ -131,14 +131,12 @@ public final class EiniSpecificRule {
 
     private static boolean endsWithContinuation(final String value)
     {
-        return value.endsWith("\\") && !value.endsWith("\\\\");
+        return ToolingSharedRule.endsWithContinuation(value);
     }
 
     private static String stripContinuation(final String value)
     {
-        if( endsWithContinuation(value) ) return value.substring( 0, value.length() - 1 ).trim();
-
-        return value;
+        return ToolingSharedRule.stripContinuation(value);
     }
 
     private static String snapIndentPrefix(final String rawLine, final int indentWidth)

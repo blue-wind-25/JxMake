@@ -40,6 +40,11 @@ stays empty — `eini` was added directly to `Lang.SUPPORTED_LANGUAGES`.
   `ToolingCommentNormalizer.normalizeChain`, not normalized independently
   per line — see RDD_KEY_303. `repeatChar` delegates to the existing
   `rules/ToolingSharedRule.java` (no E-INI-specific change needed there).
+  `endsWithContinuation`/`stripContinuation` also delegate to
+  `ToolingSharedRule` (added there 2026-08-17, see RDD_KEY_305) — these were
+  found to be byte-identical duplicates of `MakefileSpecificRule`'s own
+  private copies; only the E-INI side was changed to delegate (Makefile's
+  own copy is out of scope for the E-INI cleanup pass that found this).
 - `test/eini_combined_{inp,out}.ini` — combined fixture covering all 4
   group-header marker styles (`[]`/`{}`/`<>`/`()`) plus bare/plain headers,
   quoted/unquoted keys+values, `=`/`:` separators, all 4 comment markers +

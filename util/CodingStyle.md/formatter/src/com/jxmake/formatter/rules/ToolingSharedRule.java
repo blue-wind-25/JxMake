@@ -36,4 +36,19 @@ final class ToolingSharedRule {
         return repeatChar( ' ', Math.max(0, depth) * indentWidth );
     }
 
+    // Byte-identical backslash-continuation helpers, promoted 2026-08-17 (RDD_KEY_305) from a
+    // duplicate found in both MakefileSpecificRule and EiniSpecificRule (Bash/PowerShell do not
+    // use this shape, so they are left out of this helper).
+    static boolean endsWithContinuation(final String value)
+    {
+        return value.endsWith("\\") && !value.endsWith("\\\\");
+    }
+
+    static String stripContinuation(final String value)
+    {
+        if( endsWithContinuation(value) ) return value.substring( 0, value.length() - 1 ).trim();
+
+        return value;
+    }
+
 } // class ToolingSharedRule

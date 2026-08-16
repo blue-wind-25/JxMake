@@ -531,7 +531,7 @@ public final class Main {
      * mismatch (someone added/removed a source file under the boundary dir since the last scan)
      * invalidates the entry and triggers a fresh scan.
      */
-    private static String resolveAutoIndentStyle(final Path path) throws IOException
+    static String resolveAutoIndentStyle(final Path path) throws IOException
     {
         final Path fileDir              = path.toAbsolutePath().getParent();
         final Path boundaryDir          = IndentationDetector.findBoundaryDir(fileDir);

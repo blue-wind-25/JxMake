@@ -908,6 +908,19 @@ test-server: $(JAR_FILE) gru-sync-weights
 		if [ "$$code" = "400" ]; then echo "PASS (HTTP $$code, jsx correctly rejected)";                                  \
 		else echo "FAIL (HTTP $$code)"; fail=1; fi;                                                                       \
 		echo "";                                                                                                          \
+		echo "=== Server test: indent-style=auto resolved server-side ===";                                               \
+		mkdir -p $(TEST_SERVER_TMP)/autoindent;                                                                          \
+		touch $(TEST_SERVER_TMP)/autoindent/.jxmake-code-formatter;                                                       \
+		printf 'class Vote {\n\tvoid v() {\n\t\tint y = 1;\n\t}\n}\n' > $(TEST_SERVER_TMP)/autoindent/Vote.java;          \
+		code=$$(curl -s -o $(TEST_SERVER_TMP)/r7 -w '%{http_code}'                                                        \
+			"http://localhost:$(TEST_SERVER_PORT)/format?path=$(TEST_SERVER_TMP)/autoindent/NotOnDisk.java&lang=java&indent-style=auto" \
+			--data-binary @$(TEST_SERVER_TMP)/Sample.java);                                                              \
+		if [ "$$code" = "200" ] && grep -qP '^\t' $(TEST_SERVER_TMP)/r7; then                                             \
+			echo "PASS (HTTP $$code, sibling file voted tabs, server resolved auto -> tabs)";                         \
+		else                                                                                                              \
+			echo "FAIL (HTTP $$code, or server did not resolve indent-style=auto)"; fail=1;                            \
+		fi;                                                                                                               \
+		echo "";                                                                                                          \
 		$(JAVA) -jar $(JAR_FILE) --port $(TEST_SERVER_PORT) --stop > /dev/null 2>&1 || true;                              \
 		if [ $$fail -ne 0 ]; then exit 1; fi;                                                                             \
 		echo "All server tests passed.";                                                                                  \

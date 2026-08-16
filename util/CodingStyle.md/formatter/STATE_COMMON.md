@@ -329,6 +329,12 @@ copy here; it drifts. This section only holds maintainer-facing notes:
   false-positive rate low enough to trust) — see `STATE_AI.md`.
 - `python-import-sort` / `python-import-blank-lines`: wired into
   `Config.java`'s `ALL_KEYS` 2026-08-06 (RDD_KEY_247) — see `STATE_PYTHON3.md`.
+- `indent-style = auto` resolution in server mode: was missing entirely
+  until 2026-08-17 (`ServerMode.FormatHandler` never called the
+  standalone-mode equivalent of `Main.resolveAutoIndentStyle`) — fixed,
+  see `RDD_KEY_304`. Server mode now resolves `auto` against the target
+  file's server-side directory tree, falling back to
+  `Config.DEFAULT_INDENT_STYLE` for a no-path inline-content request.
 - `line-length-with-comment`: added 2026-08-09, default `120`. Scopes the
   "code + comment" width fits-check separately from the code-only
   `line-length` limit. Wired into the curly-brace family only:

@@ -397,6 +397,11 @@ the effective result matches what a fresh standalone run in the client's own env
 have produced, regardless of how long the server has been running or what it originally started
 with.
 
+**Server mode note on `indent-style = auto`:** resolved server-side too, the same way as
+standalone mode (below) — the server samples the *target file's own directory tree* on disk
+(`path` query param), not the client's. A no-path inline-content request has no directory to
+sample and falls back to the default indent style.
+
 ### Config file format
 
 ```properties
@@ -456,6 +461,27 @@ html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumula
 gru-classifier                         = on          # on | off
 gru-weights-path                       =             # empty = derive from program dir (code-formatter-ai-assist-weights.json)
 ```
+
+**`indent-size` / `indent-style` semantics.** `indent-size` means different
+things depending on `indent-style`:
+- `indent-style = spaces`: `indent-size` is the number of space characters
+  per indent level.
+- `indent-style = tabs`: one indent level is always exactly **one tab
+  character**, regardless of `indent-size` — `indent-size` instead sets the
+  tab's *visual width* (columns) used when measuring a line against
+  `line-length`/`line-length-with-comment` or computing alignment-column
+  positions, since a tab's rendered width isn't 1 column.
+- `indent-style = auto`: detects `spaces` vs. `tabs` by sampling up to 10
+  sibling C/C++/Java-family source files (by extension) in the target
+  file's directory tree, walking up to the nearest `.jxmake-code-formatter`/
+  `.git`/`.hg` boundary (or the user's home directory) if none are found
+  locally; each sampled file votes based on its first indented line's
+  leading whitespace character, and the majority vote wins (a tie, or no
+  files found, falls back to the default indent style). `indent-size` plays
+  no role in this detection — it only applies afterward, once a concrete
+  style is chosen. In server mode, this detection runs against the *target
+  file's own path* on the server's filesystem (see "Server mode note on
+  `indent-style = auto`" above), not the client's.
 
 **Per-language `line-length` / `line-length-with-comment` usage.** Not every
 language has a line-length-driven wrap decision, and among the ones that do,

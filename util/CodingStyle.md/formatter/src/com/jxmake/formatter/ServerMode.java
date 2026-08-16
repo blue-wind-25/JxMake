@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -402,9 +403,25 @@ public final class ServerMode {
                 );
 
                 final Path   targetFile = path == null ? null : Paths.get(path);
-                final Config config     = Config.resolve(
+                      Config config     = Config.resolve(
                     targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides
                 );
+                if( "auto".equals( config.indentStyle() ) ) {
+                    String resolvedStyle = Config.DEFAULT_INDENT_STYLE;
+                    if(targetFile != null) {
+                        try {
+                            resolvedStyle = Main.resolveAutoIndentStyle(targetFile);
+                        }
+                        catch(final IOException e) {
+                            resolvedStyle = Config.DEFAULT_INDENT_STYLE;
+                        }
+                    }
+                    final Map<String, String> merged = new LinkedHashMap<String, String>(
+                        inlineConfig.isEmpty() ? java.util.Collections.<String, String>emptyMap() : inlineConfig
+                    );
+                    merged.put("indent-style", resolvedStyle);
+                    config = Config.resolve(targetFile, merged, inFileOverrides);
+                }
                 System.err.println(
                     "jxmake-code-formatter: processing " + (path == null ? "(no path, lang=" + language + ")" : path)
                 );

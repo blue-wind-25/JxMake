@@ -44,6 +44,7 @@ public final class Lang {
     public final boolean isJs;
     public final boolean isTs;
     public final boolean isPython3;
+    public final boolean isEini;
     public final boolean isMakefile;
     public final boolean isBash;
     public final boolean isPowerShell;
@@ -115,6 +116,7 @@ public final class Lang {
         this.isJs           = "js".equals(language);
         this.isTs           = "ts".equals(language);
         this.isPython3      = "python3".equals(language);
+        this.isEini         = "eini".equals(language);
         this.isMakefile     = "makefile".equals(language);
         this.isBash         = "bash".equals(language);
         this.isPowerShell   = "powershell".equals(language);
@@ -145,7 +147,7 @@ public final class Lang {
      *    the `--lang` validation in `Main.run()`
      *    `ServerMode.FormatHandler.handle()`
      */
-    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3, makefile, bash, powershell";
+    public static final String SUPPORTED_LANGUAGES = "c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3, eini, makefile, bash, powershell";
 
     /**
      * Scaffold-only languages: recognized by {@link #infer} and accepted by `--lang`/`lang=`, but
@@ -179,6 +181,8 @@ public final class Lang {
                 || "xml".equals(language) || "html5".equals(language)
                 || "js".equals(language) || "ts".equals(language)
                 || "python3".equals(
+                    language
+                ) || "eini".equals(
                     language
                 ) || "makefile".equals(
                     language
@@ -256,6 +260,7 @@ public final class Lang {
         ) ) return "js";
         if( lower.endsWith(".ts") || lower.endsWith(".tsx") ) return "ts";
         if( lower.endsWith(".py") ) return "python3";
+        if( lower.endsWith(".ini") ) return "eini";
         if( lower.endsWith(".sh") || lower.endsWith(".bash") ) return "bash";
         if( lower.endsWith(".ps1") || lower.endsWith(".psm1") ) return "powershell";
 

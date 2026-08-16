@@ -30,29 +30,29 @@ progress, implementation protocol, and "Resolved Design Decisions" table.
 `STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_AI.md`, `STATE_CURLY_GDR.md`,
 `STATE_HTML5_TCG.md`, and `STATE_TOOLING.md` are each job's own equivalent.
 
-**Current implementation status:** no language this codebase recognizes is
-scaffold-only any more (`Lang.SCAFFOLD_ONLY_LANGUAGES` is now an empty
+**Current implementation status:** no language in this codebase is
+scaffold-only any longer (`Lang.SCAFFOLD_ONLY_LANGUAGES` is now an empty
 string, kept only for documentation/compatibility). Data formats (JSON,
 JSON5, CSS, YAML, TOML, XML, HTML5 incl. `<script>` dispatch via
-`XmlSpecificRule.renderScriptOrStyle`), JS/TS (`JsTsSpecificRule` /
-`JsTsDeclarationAlignmentRule`), Python3 (`FormatterIndent` /
+`XmlSpecificRule.renderScriptOrStyle`), JS/TS (`JsTsSpecificRule`/
+`JsTsDeclarationAlignmentRule`), Python3 (`FormatterIndent`/
 `ScopePipelineIndent` for STYLE_PYTHON3.md §1-9), and the three tooling
 languages — Makefile (`FormatterMakefile`/`MakefileSpecificRule`), Bash
-(`FormatterBash`/`BashSpecificRule`, STYLE_TOOLING.md §2), and PowerShell
-(`FormatterPowerShell`/`PowerShellSpecificRule`, STYLE_TOOLING.md §3) —
-have all landed real logic. C++26 has no separate language identity or
-scaffold entry at all — it's future incremental rule coverage on the
-existing, already-implemented `"cpp"` pipeline (same as C++20 — see
+(`FormatterBash`/`BashSpecificRule`, STYLE_TOOLING.md §2), PowerShell
+(`FormatterPowerShell`/`PowerShellSpecificRule`, STYLE_TOOLING.md §3) — all
+have real logic landed. C++26 has no separate language identity or
+scaffold entry — it's future incremental rule coverage on the existing,
+already-implemented `"cpp"` pipeline (same as C++20 — see
 `STATE_CPP26.md`'s Resolved Design Decisions). `README.md`/`../README.txt`
-should describe every implemented language as implemented — matching
-actual code state. This file and the `STATE_*.md` files track true current
-code state and must NOT be updated to match any doc's aspirational status
-ahead of what's actually landed.
+should describe every implemented language as implemented, matching actual
+code state. This file and the `STATE_*.md` files track true current code
+state — never update them to match a doc's aspirational status ahead of
+what's actually landed.
 
-(The comment-grammar classifier accuracy upgrade, formerly tracked in its
-own `STATE_COMMENT_GRAMMAR.md`, shipped and was folded into
-`STATE_C_CPP_JAVA.md`'s "H" section — see that section and `RDD_LOG.md`'s
-`RDD_KEY_94`–`RDD_KEY_98` for its history.)
+(The comment-grammar classifier accuracy upgrade — formerly tracked in its
+own `STATE_COMMENT_GRAMMAR.md` — shipped, folded into
+`STATE_C_CPP_JAVA.md`'s "H" section; see that section and `RDD_LOG.md`'s
+`RDD_KEY_94`–`RDD_KEY_98` for history.)
 
 After any `/compact` or context summarization, re-read the relevant state
 file in full before continuing — a summary may omit or compress exact

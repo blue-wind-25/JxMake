@@ -7,7 +7,7 @@ have not modified). If unsure ask me.
 
 Ensure the languange order in the documentations, help strings, etc. is
     c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3,
-    makefile, bash, powershell
+    eini, makefile, bash, powershell
 Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js and ts.
 
 I have run `make test` and all test passed.
@@ -327,3 +327,41 @@ echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
+
+Let's implement a simple INI-like (key-value with grouping) formatter/beautifier based on the `Makefile` formatter.
+
+For maximum flexibility, let's extend the support beyond normal INI:
+1. The key-value separator is an independent (outside quotes) operator `=` and `:`.
+2. The key is everything on the left side of the separator, including leading and trailing whitespaces if they are inside quotes:
+```
+valid_key
+valid.key
+' valid key'
+"valid key "
+   valid_key
+```
+   For the last row above, the space is not part of the key. Should multiple whitespaces in the middle be collapsed into one?
+3. The value is everything on the right side of the separator, excluding leading and trailing whitespaces (unless they are inside quotes).
+4. The group name/header, is just like normal INI `[a header]`, but the marker can also be `{}`, `<>`, `()`. Plain sequence of words are also a valid group header (excluding leading and trailing whitespaces, but including whitespaces in the middle). Unless, the whitespaces are inside quotes. Should multiple whitespaces in the middle be collapsed into one?
+5. Comments are started with `#`, `;`, `@`, `//`, etc. Basically all punctuations that are not a separator,  group header marker, `\`, and maybe `%`. Three of the same quotes in sequence also indicate the start of a comment.
+
+Formatting rules, only 3:
+1. Alignment/padding on the separator with the same grouping rule.
+2. Indentation round-up like with Bash.
+3. Line continuation `\` alignment.
+4. Comment normalization (use `Makefile` normalizer).
+
+I think for the `--lang` use `eini` (extended INI). For the detected extension `*.ini` is safe. Other extensions may not be safe to auto detect and thus must use `--lang` via command line option or in-file config. Because `%` is used as a marker for in-file config, is it also allowed to be used as a comment start marker?
+
+What do you think? If there is something else unclear, please ask.
+
+If all is clear, start the implementation:
+1. Add a section about this in `STYLE_TOOLING.md`
+2. Implement the formatter code (use a sub-agent for this one).
+3. Update `README.md`, `../README.txt`, `AI_PREAMBLE_*.md`, etc.
+
+I think one or two test fixtures containing a mix of the above features are enough. Register the test fixture before the `Makefile` test fixture, both in `test/README.txt` and the `Makefile` `INP_FILES`. In this case ensure the languange order in the documentations, help strings, etc. is:
+    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3, eini, makefile, bash, powershell
+Update this list in `STATE_COMMON.md` too.
+
+Do not increase the formatter version number (keep it at 1.0.1), because it has not been released.

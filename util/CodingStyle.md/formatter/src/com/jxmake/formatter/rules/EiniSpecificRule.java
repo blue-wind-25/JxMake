@@ -11,14 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * STYLE_TOOLING.md §4 (eini / Extended INI) rule logic. Line-oriented (no cross-line quoting --
+ * STYLE_TOOLING.md §4 (E-INI / Extended INI) rule logic. Line-oriented (no cross-line quoting --
  * quotes never span a physical line), same narrow beautification-only shape as {@link
  * MakefileSpecificRule}/{@link BashSpecificRule}: a fixed five-rule list, everything else left
  * byte-identical. Recognizes `=`/`:` key-value separators, `[name]`/`{name}`/`&lt;name&gt;`/
  * `(name)`/bare-word group headers, and `#`/`;`/`@`/`//`/triple-quote comments, each only outside
  * quoted spans (`'...'`/`"..."`). Implements: §4.1 separator alignment within a contiguous
  * key-value group (blank/non-matching line breaks the group, same semantics as Makefile §1.1),
- * §4.2 indentation snapped to the nearest {@code indentWidth} multiple (no depth concept -- eini
+ * §4.2 indentation snapped to the nearest {@code indentWidth} multiple (no depth concept -- E-INI
  * has no structural nesting), §4.3 backslash-continuation alignment under the first line's value
  * start column (same mechanism as Makefile §1.2), §4.4 comment normalization (reusing {@link
  * ToolingCommentNormalizer}, capitalizing unconditionally -- no Bash-style tool-name skip list),

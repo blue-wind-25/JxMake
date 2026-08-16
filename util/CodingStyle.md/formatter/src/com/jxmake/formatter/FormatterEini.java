@@ -10,7 +10,7 @@ package com.jxmake.formatter;
 import com.jxmake.formatter.rules.EiniSpecificRule;
 
 /**
- * STYLE_TOOLING.md §4 (eini / Extended INI) dispatch. Not part of any existing family (same
+ * STYLE_TOOLING.md §4 (E-INI / Extended INI) dispatch. Not part of any existing family (same
  * reasoning as {@link FormatterMakefile}/{@link FormatterBash}/{@link FormatterPowerShell} --
  * neither brace-delimited, indentation-significant, nor tag-nested in the sense those families
  * are), so this extends {@link FormatterCore} directly.

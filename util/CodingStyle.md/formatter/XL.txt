@@ -348,7 +348,7 @@ valid.key
 Formatting rules, only 3:
 1. Alignment/padding on the separator with the same grouping rule.
 2. Indentation round-up like with Bash.
-3. Line continuation `\` alignment.
+3. Line continuation operator `\` alignment, because some INI-like file may support this.
 4. Comment normalization (use `Makefile` normalizer).
 
 I think for the `--lang` use `eini` (extended INI). For the detected extension `*.ini` is safe. Other extensions may not be safe to auto detect and thus must use `--lang` via command line option or in-file config. Because `%` is used as a marker for in-file config, is it also allowed to be used as a comment start marker?
@@ -358,7 +358,7 @@ What do you think? If there is something else unclear, please ask.
 If all is clear, start the implementation:
 1. Add a section about this in `STYLE_TOOLING.md`
 2. Implement the formatter code (use a sub-agent for this one).
-3. Update `README.md`, `../README.txt`, `AI_PREAMBLE_*.md`, etc.
+3. Update `README.md`, `../README.txt`, `AI_PREAMBLE_*.md`, `CLAUDE.md`, etc.
 
 I think one or two test fixtures containing a mix of the above features are enough. Register the test fixture before the `Makefile` test fixture, both in `test/README.txt` and the `Makefile` `INP_FILES`. In this case ensure the languange order in the documentations, help strings, etc. is:
     c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3, eini, makefile, bash, powershell

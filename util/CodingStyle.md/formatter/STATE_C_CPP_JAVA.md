@@ -170,24 +170,20 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 
 - **`.h` -> C++26 §5 reflection rules (`^^`/`[: :]`) gap: VERIFIED, not a bug, documented.**
   `Lang.infer` maps `.h` to `"c"` by default, so `FormatterCurly`'s `lang.isCpp`-gated
-  `enforceReflectionOperatorSpacing`/`enforceAttributeAndSpliceBracketPadding` calls never run for
-  a `.h` file under default inference. Project owner's decision: keep the default unchanged
-  (blanket `.h` -> C++ risks misapplying C++-only rules to genuine C headers; content-sniffing
-  heuristics too fragile to trust) — require an explicit `--lang cpp` override instead. Verified
-  for real (2026-08-11): a `.h` fixture containing `^^ int` and `[:refl:]` left `^^` untouched
-  under default inference but correctly tightened to `^^int` under `--lang cpp` (which also flips
-  empty-param-list rendering from C's `foo(void)` to C++'s `foo()`, confirming the whole `cpp`
-  pipeline — not just the reflection rules — engages correctly). `Main.java`'s `--lang` override
-  already takes priority over extension-based `inferLanguage`, no bug found, no source change
-  needed. Documented in `README.md`'s Known Limitations, curly-brace family, item 6. `make test`:
-  278/278 forward + idempotency, unchanged.
+  `enforceReflectionOperatorSpacing`/`enforceAttributeAndSpliceBracketPadding` never run for a
+  `.h` file under default inference. Project owner's decision: keep default unchanged (blanket
+  `.h` -> C++ risks misapplying C++-only rules to genuine C headers; content-sniffing too fragile)
+  — require explicit `--lang cpp` override instead. Verified 2026-08-11: a `.h` fixture with
+  `^^ int`/`[:refl:]` left `^^` untouched under default inference but tightened to `^^int` under
+  `--lang cpp` (also flips empty-param rendering C `foo(void)` -> C++ `foo()`, confirming the whole
+  `cpp` pipeline engages). `Main.java`'s `--lang` already takes priority over `inferLanguage`, no
+  bug, no source change. Documented in `README.md` Known Limitations, curly-brace family, item 6.
+  `make test`: 278/278 unchanged.
 
-  **2026-08-12 follow-up:** a per-file alternative to remembering `--lang cpp` on every invocation
-  now exists — the `JXM_CFMT_CFG` directive's new `--lang` pseudo-key (RDD_KEY_286). Known
-  Limitations item 6 broadened at the same time from "C++26 §5 reflection rules only" to the whole
-  C++-only rule surface (never reflection-specific — every C++-only rule in the `cpp` pipeline was
-  equally affected, item 6's wording just hadn't said so yet). The default `.h` -> `"c"` inference
-  itself is unchanged, still the project owner's decision per this entry's original text above.
+  **2026-08-12 follow-up:** per-file alternative now exists — `JXM_CFMT_CFG`'s new `--lang`
+  pseudo-key (RDD_KEY_286). Item 6 broadened from "C++26 §5 only" to the whole C++-only rule
+  surface (every C++-only rule was equally affected). Default `.h` -> `"c"` inference itself
+  unchanged.
 
 - **range-v3 real-code-testing item 20, bug (a): RESOLVED.** Idempotency divergence in
   `utility/any.hpp`, `iterator/common_iterator.hpp`, `meta.hpp`. Root cause/fix: entry (20) in
@@ -235,26 +231,25 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   method name so only it wraps): round1 == round2 byte-for-byte. Fixture:
   `test/real_code_regressions_193_{inp,out}.java`. `README.md`'s Known Limitations item 5
   (curly-brace family) removed as no longer applicable. Also resolves the
-  `PowerShellSpecificRule.java` self-format trigger (its 2026-08-08 blank-line workaround is no
-  longer required but was left in place).
+  `PowerShellSpecificRule.java` self-format trigger (its 2026-08-08 blank-line workaround no
+  longer required but left in place).
 
   **2026-08-10: workaround removed, confirmed safe.** Blank lines between the `format()` method's
   `s = applyX(s); // comment` chain in `PowerShellSpecificRule.java` deleted; manual round1/round2
   `--out` re-format (`--lang` auto-inferred java) round1 == round2 byte-for-byte (confirms Attempt
-  4's fix holds). `make jar` + `make test`: 275/275 forward + idempotency, clean. Not adopted back
-  over `src/` as a formal dogfood-and-adopt pass — this session only removed the manual workaround.
+  4's fix holds). `make jar` + `make test`: 275/275, clean. Not adopted back over `src/` as a
+  formal dogfood-and-adopt pass — only the manual workaround was removed.
 
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale.** Ran every registered
   `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through `g++ -std=c++20 -fsyntax-only` and
   `clang++ -std=c++23 -fsyntax-only` (tools (2)/(3), incl. `-stdlib=libc++`) — zero mismatches;
-  every gcc-passing fixture also passes clang. The `-stdlib=libc++`-only failures found
-  (standalone header-fragment fixtures missing full context, e.g. `platform.hpp`) are expected
-  snippet noise — none pass gcc either. No other finished-dogfood entry records a clang/gcc
-  discrepancy (item 22 `microsoft/proxy` matched gcc cleanly with `clang++ -std=c++23
-  -stdlib=libc++`). The adjacent item (20) `range-v3` corpus (likely origin of this report) was
-  only ever verified against gcc, never clang, and its `/tmp` checkout is now empty (no filenames
-  recorded). Closed as not reproducible against the current fixture set; re-open with concrete
-  filenames if it resurfaces.
+  every gcc-passing fixture also passes clang. The `-stdlib=libc++`-only failures (standalone
+  header-fragment fixtures missing full context, e.g. `platform.hpp`) are expected snippet noise —
+  none pass gcc either. No other finished-dogfood entry records a clang/gcc discrepancy (item 22
+  `microsoft/proxy` matched gcc cleanly with `clang++ -std=c++23 -stdlib=libc++`). The adjacent
+  item (20) `range-v3` corpus (likely origin of this report) was only ever verified against gcc,
+  never clang, and its `/tmp` checkout is now empty (no filenames recorded). Closed as not
+  reproducible against the current fixture set; re-open with concrete filenames if it resurfaces.
 
 ---
 
@@ -312,15 +307,14 @@ accept `final` there). Applies to all `.java` files under `src/`.
 
 - [x] CLI arg parsing (`--server`, `--stop`, `--standalone`, `--diff`, `--check`,
       `--out DIR`, `--port N`, file paths); unknown flags / bad usage → exit 2 (RDD_KEY_88)
-- [x] `--lang c|cpp|java` (2026-07-06): explicit language override for files whose
-      extension `inferLanguage` can't recognize; one flag per invocation (no per-file
-      override), validated against exactly `c`/`cpp`/`java` (exit 2 otherwise), threaded
-      through `processFile` ahead of the extension-based `inferLanguage` fallback;
-      `--server`/`--stop` reject `--lang`. The `/format` HTTP endpoint already accepted an
-      optional `lang` query param taking priority over its own path-extension guess
-      (`Main.delegateToServer` already sent it), so no protocol change was needed — only
-      server-side validation added (`ServerMode.FormatHandler` now 400s on an unrecognized
-      `lang`). `README.md` updated. `make test` 25/25, no regressions.
+- [x] `--lang c|cpp|java` (2026-07-06): explicit language override for files whose extension
+      `inferLanguage` can't recognize; one flag per invocation (no per-file override), validated
+      against exactly `c`/`cpp`/`java` (exit 2 otherwise), threaded through `processFile` ahead of
+      the extension-based `inferLanguage` fallback; `--server`/`--stop` reject `--lang`. The
+      `/format` HTTP endpoint already accepted an optional `lang` query param taking priority over
+      its own path-extension guess (`Main.delegateToServer` already sent it), so only server-side
+      validation was added (`ServerMode.FormatHandler` now 400s on an unrecognized `lang`).
+      `README.md` updated. `make test` 25/25, no regressions.
 - [x] Four output modes: in-place (default), `--diff` (self-written unified diff,
       single hunk with clamped context), `--check`, `--out DIR` (RDD_KEY_88)
 - [x] Exit codes: 0 = success/no changes, 1 = would-change (`--check`) or formatting
@@ -429,46 +423,37 @@ still available via `git log`/`git show` on the noted commits/fixtures.
 "$JDK/bin/java" java_syntax_check <file.java> [file2.java ...]
 ```
 
-**Dogfood Output Validation — `java_content_diff`.** A content-preservation
-checker for Java, complementing `java_syntax_check` (proves only "still
-parses" — same `css_content_diff.py`/`xml_content_diff.py` precedent from
-`STATE_DATA_FORMATS.md`). Reuses `java_syntax_check`'s `JavacTask.parse()`
-infrastructure (no new dependency) but keeps the `CompilationUnitTree`
-instead of only scanning diagnostics. This formatter *intentionally*
-reorders/transforms some Java content (`java-import-order` sorting,
-declaration-alignment whitespace, `normalize-comment-start-case`), so a naive
-text/token diff would false-positive on all of that — comparison is split by
-content family:
-- **imports** — compared as a multiset (sorted qualified-identifier
-  strings, `static` flag included) since reordering here is legitimate.
-- **package declaration + every top-level type declaration** — compared
-  **in original relative order**, each via javac's own pretty-printer
-  (`Tree.toString()`), whitespace-normalized. The pretty-printer encodes
-  structure/identifiers/literal values but not original whitespace or
-  comments, so pure reindentation/alignment-padding differences canonicalize
-  to identical text while a dropped/added declaration, renamed identifier,
-  or changed literal value still shows up as a text difference.
-- **comments** — extracted separately via a raw-text scan (skips
-  string/char literals so a `//`/`/*` inside a literal is never
-  mistaken for a comment start; the pretty-printer drops comments
-  entirely), compared as a multiset, whitespace-normalized **and**
-  lowercased — a case-only change is expected
-  (`normalize-comment-start-case`) so it must not be flagged, but a
-  dropped or otherwise-corrupted comment still is.
+**Dogfood Output Validation — `java_content_diff`.** Content-preservation checker for Java,
+complementing `java_syntax_check` (proves only "still parses" — same
+`css_content_diff.py`/`xml_content_diff.py` precedent from `STATE_DATA_FORMATS.md`). Reuses
+`java_syntax_check`'s `JavacTask.parse()` infrastructure (no new dependency) but keeps the
+`CompilationUnitTree` instead of only scanning diagnostics. The formatter *intentionally*
+reorders/transforms some Java content (`java-import-order` sorting, declaration-alignment
+whitespace, `normalize-comment-start-case`), so a naive text/token diff would false-positive —
+comparison is split by content family:
+- **imports** — compared as a multiset (sorted qualified-identifier strings, `static` flag
+  included) since reordering here is legitimate.
+- **package declaration + every top-level type declaration** — compared **in original relative
+  order**, each via javac's own pretty-printer (`Tree.toString()`), whitespace-normalized. The
+  pretty-printer encodes structure/identifiers/literal values but not original whitespace or
+  comments, so pure reindentation/alignment-padding differences canonicalize to identical text
+  while a dropped/added declaration, renamed identifier, or changed literal value still shows up.
+- **comments** — extracted separately via a raw-text scan (skips string/char literals so a
+  `//`/`/*` inside a literal is never mistaken for a comment start; the pretty-printer drops
+  comments entirely), compared as a multiset, whitespace-normalized **and** lowercased — a
+  case-only change is expected (`normalize-comment-start-case`) so it must not be flagged, but a
+  dropped or corrupted comment still is.
 
-Exit 0 if content is preserved, 1 with a description of each mismatch
-otherwise, 2 if either file fails to parse. Run (see STATE_COMMON.md's
-"Verifier toolchain paths" for the `$JDK` env setup and build command):
+Exit 0 if content preserved, 1 with a description of each mismatch otherwise, 2 if either file
+fails to parse. Run (see STATE_COMMON.md's "Verifier toolchain paths" for `$JDK` env setup/build):
 ```bash
 "$JDK/bin/java" java_content_diff <original.java> <formatted.java>
 ```
-Verified against a hand-crafted good pair (reindentation + import sort +
-one comment recapitalization — passes clean) and two bad pairs, a dropped
-statement (correctly flagged as "top-level declaration #0 structure/content
-differs") and a corrupted comment (correctly flagged as a comment present in
-one file's set but not the other's) — all three cases caught correctly.
-Test fixtures kept in `/tmp` only (hand-crafted verification pairs, not
-registered as permanent `test/` fixtures).
+Verified against a hand-crafted good pair (reindentation + import sort + one comment
+recapitalization — passes clean) and two bad pairs: a dropped statement (flagged "top-level
+declaration #0 structure/content differs") and a corrupted comment (flagged as present in one
+file's set but not the other's) — all three caught correctly. Fixtures kept in `/tmp` only, not
+registered as permanent `test/` fixtures.
 
 **Finished dogfood / real-code testing** (one line each; full narratives via `git log`/`git show`
 on the noted commits/fixtures)
@@ -519,12 +504,12 @@ on the noted commits/fixtures)
      audit below (no code change); `applyArrowAlignment` joining arrow-case with no
      line-length check (fixture `_7`); `findNameBeforeParen` misparsing `case`/`default` arrow
      arms as one-liner members (fixture `_8`). Verified (4).
-(16) MEDIUM `javaparser/javaparser` (1997 `.java` files, 7 modules) — 6 idempotency bugs found via
-     full-tree round1/round2 + `make test`, all fixed: braceless `if (cond) throw/return ...`
-     misparsed as one-liner getter/setter; comment's sole trailing `.` stripped w/o separating
-     whitespace (`_54`); `else`/`catch`/`finally` force-reindent dropping real blank line before
-     `}` (`_55`); `enforceCallLineBreaking` fits-check before `formatNonInlineSwitches` case-body
-     reindent — ordering fix (`_56`); `isCStyleCastClose` missing control-flow exclusion, misread
+(16) MEDIUM `javaparser/javaparser` (1997 `.java` files, 7 modules) — 6 idempotency bugs, all fixed:
+     braceless `if (cond) throw/return ...` misparsed as one-liner getter/setter; comment's sole
+     trailing `.` stripped w/o separating whitespace (`_54`); `else`/`catch`/`finally`
+     force-reindent dropping real blank line before `}` (`_55`); `enforceCallLineBreaking`
+     fits-check before `formatNonInlineSwitches` case-body reindent — ordering fix (`_56`);
+     `isCStyleCastClose` missing control-flow exclusion, misread
      `if(node instanceof RecordPatternExpr)` as cast (`_57`); Java enum-constant-list merging into
      adjacent field alignment group + drifting indent (`_58`).
 
@@ -533,7 +518,7 @@ on the noted commits/fixtures)
      resolution shape as `RDD_KEY_299`'s `JikesOutputParser.java`).** See "Known Gaps — Fixed".
 (17) HUGE `openrewrite/rewrite` — DONE. Full-tree forward pass (default config): 0 errors.
      Round1/round2 idempotency (original 6-cluster investigation): 34 differing files, 6 clusters,
-     all now fixed:
+     all fixed:
      - Cluster 1 (~20 files, ANTLR-generated, incl. `tree/J.java`) — 2 sub-bugs, same root-cause
        shape (fits-check made before a later width-growing pass ran): (a) `isSingleLineBody`
        measured tab-indent via raw `String.length()` not expanded width, fixed via
@@ -583,14 +568,14 @@ on the noted commits/fixtures)
 
      Baseline (unformatted 3510 files): 3510/3510 OK. Round1 (before fix): **1 new syntax error**
      — `rewrite-java-25/.../ReloadableJava25ParserVisitor.java:764: variable declaration not
-     allowed here`. Root cause: `BlockStructureRule.isSingleStatementBody`'s declaration guard
-     only refused collapse for a `final`/`const`-qualified leading token; an unqualified
-     primitive-type declaration (`int saveCursor = cursor;`) wasn't caught, so
-     `if (...) { int saveCursor = cursor; }` collapsed to illegal braceless `if (...) int
-     saveCursor = cursor;`. Fixed via a new `PRIMITIVE_TYPE_KEYWORDS` set (mirrors
-     `DeclarationAlignmentRuleCurly`'s `TYPE_KEYWORDS_C`/`TYPE_KEYWORDS_JAVA`) and a sibling guard
-     refusing collapse when the leading token is a primitive/built-in type keyword followed by an
-     identifier. Verified: `make test` 264/264 (new fixture `real_code_regressions_187`);
+     allowed here`. Root cause: `BlockStructureRule.isSingleStatementBody`'s declaration guard only
+     refused collapse for a `final`/`const`-qualified leading token; an unqualified primitive-type
+     declaration (`int saveCursor = cursor;`) wasn't caught, so `if (...) { int saveCursor =
+     cursor; }` collapsed to illegal braceless `if (...) int saveCursor = cursor;`. Fixed via a new
+     `PRIMITIVE_TYPE_KEYWORDS` set (mirrors `DeclarationAlignmentRuleCurly`'s
+     `TYPE_KEYWORDS_C`/`TYPE_KEYWORDS_JAVA`) and a sibling guard refusing collapse when the leading
+     token is a primitive/built-in type keyword followed by an identifier. Verified: `make test`
+     264/264 (new fixture `real_code_regressions_187`);
      full-tree re-run — round1 syntax-check 3510/3510 OK, idempotency diff unchanged at the same
      4 residual files (confirms no interaction), crash did not recur.
 
@@ -650,15 +635,15 @@ on the noted commits/fixtures)
      (a) `findArrowCases` brace-depth-0 label scan never skipped past a just-found arrow →
      multi-value arrow labels (`case null, default -> ...`) re-matched/duplicated each round —
      fixed by advancing scan past found arrow. (b) `needsSpaceBetween` only tight-joined Kotlin
-     `@`; Java `@NonNull String id` → `@ NonNull` — fixed by extending to `lang.isJava`.
-     Verified: minimal repros, `make test` 162/162 (up from 161/161); targeted full-tree re-run
-     idempotency diff 20→15 files. Fixture: `real_code_regressions_113`. Remaining 15-file diff
-     architectural: 13 "non-idempotent reindent on internally-inconsistent source", 1
-     (`IdStrategy.java`) `alignCommentSeparators` false-positive, 1 (`PluginManager.java`)
-     low-priority line-wrap instability (both then "Known Gaps — Open"). `javac` not attempted
-     (Jenkins Maven heavy deps); `java_syntax_check` + idempotency load-bearing; `java_content_diff`
-     spot-check clean. **Closed with the remaining 2 gaps explicitly accepted** — user decision to
-     mark DONE; permanent known limitations (`alignCommentSeparators` also in `README.md`).
+     `@`; Java `@NonNull String id` → `@ NonNull` — fixed by extending to `lang.isJava`. Verified:
+     minimal repros, `make test` 162/162 (up from 161/161); targeted full-tree re-run idempotency
+     diff 20→15 files. Fixture: `real_code_regressions_113`. Remaining 15-file diff architectural:
+     13 "non-idempotent reindent on internally-inconsistent source", 1 (`IdStrategy.java`)
+     `alignCommentSeparators` false-positive, 1 (`PluginManager.java`) low-priority line-wrap
+     instability (both then "Known Gaps — Open"). `javac` not attempted (Jenkins Maven heavy deps);
+     `java_syntax_check` + idempotency load-bearing; `java_content_diff` spot-check clean. **Closed
+     with the remaining 2 gaps explicitly accepted** — user decision to mark DONE; permanent known
+     limitations (`alignCommentSeparators` also in `README.md`).
 
 (26) **DONE — no open gaps** (2026-08-09: re-checked, all 3 gaps below already FIXED — stale
      header wording. Full-tree re-run not attempted, ~350kloc not worth re-cloning just to confirm
@@ -785,54 +770,48 @@ RDD_KEY_88.
 ## Known Gaps — Open
 
 - **[Shared with STATE_JS_TS.md] Call-wrap/collapse vs. declaration-alignment/padding fits-check
-  ordering — 2026-08-05 investigation session, no code change landed.** Full write-up lives in
-  `STATE_JS_TS.md`'s Open Questions section (cluster #3 sibling entry) — concrete repro
-  (`microsoft/TypeScript`'s `commandLineParser.ts`) and all debugging happened there; recorded
-  here only as a cross-reference. Root cause is NOT a single method's fits-check but
-  `ScopePipelineCurly.processScope`'s outer-first-then-recurse-into-child-spans architecture
+  ordering — 2026-08-05 investigation session, no code change landed.** Full write-up in
+  `STATE_JS_TS.md`'s Open Questions (cluster #3 sibling entry) — concrete repro
+  (`microsoft/TypeScript`'s `commandLineParser.ts`) and all debugging happened there; cross-ref
+  only here. Root cause is NOT a single method's fits-check but
+  `ScopePipelineCurly.processScope`'s outer-first-then-recurse-into-child-spans architecture,
   running the same declaration/assignment/signature/getter-setter passes twice over overlapping
-  token ranges within one `format()` call — shared infrastructure across every curly-family
-  language (C/C++/Java/Kotlin/JS/TS), hence tracked in both jobs' files. A narrower,
-  verified-safe refinement to `JsTsDeclarationAlignmentRule.spansMultipleLines`'s bail condition
-  was prototyped and reverted (didn't fix the cited bug alone — see `STATE_JS_TS.md`). No attempt
-  made to change `processScope`'s outer/inner double-pass architecture itself — same risk class
-  as `STATE_CURLY_GDR.md`/`RDD_KEY_229`'s pre-pass-vs-post-pass GDR investigation (a genuine
-  circular dependency between an outer pass's decisions and an inner pass's re-derivation of the
-  same span from different intermediate text). Left OPEN.
-  **2026-08-06/2026-08-07 update:** the `commandLineParser.ts` declaration-alignment instance was
-  fixed by `RDD_KEY_248` (`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`, a narrower
-  JS/TS-gated re-run of just the closing-brace + declarations passes, not a `processScope`
-  architecture change). A 2026-08-07 root-cause-only session found a sibling instance in a pass
-  `RDD_KEY_248` does not re-run — `ScopePipelineCurly.applyAssignmentsPass` (bare-assignment
-  alignment, distinct from `applyDeclarationsPass`), repro `microsoft/TypeScript`'s
-  `harness/collectionsImpl.ts`. **FIXED, RDD_KEY_270**: added `applyAssignmentsPass` as a third
-  pass inside `ScopePipelineCurly.processScope`'s existing `closingBraceAndDeclarationsOnly`
-  re-run mode, behind the same gate `RDD_KEY_248` already used; `make test` 259/259 -> 260/260,
-  zero regressions.
+  token ranges within one `format()` call — shared curly-family infrastructure (C/C++/Java/
+  Kotlin/JS/TS), hence tracked in both jobs' files. A narrower, verified-safe refinement to
+  `JsTsDeclarationAlignmentRule.spansMultipleLines`'s bail condition was prototyped and reverted
+  (didn't fix the cited bug alone). No attempt to change `processScope`'s outer/inner double-pass
+  architecture itself — same risk class as `STATE_CURLY_GDR.md`/`RDD_KEY_229`'s pre-pass-vs-
+  post-pass GDR investigation (a genuine circular dependency between an outer pass's decisions and
+  an inner pass's re-derivation of the same span from different intermediate text). Left OPEN.
+  **2026-08-06/2026-08-07 update:** the `commandLineParser.ts` instance fixed by `RDD_KEY_248`
+  (`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`, a narrower JS/TS-gated re-run of
+  just closing-brace + declarations passes, not a `processScope` architecture change). A
+  2026-08-07 session found a sibling instance in a pass `RDD_KEY_248` doesn't re-run —
+  `ScopePipelineCurly.applyAssignmentsPass` (bare-assignment alignment), repro
+  `microsoft/TypeScript`'s `harness/collectionsImpl.ts`. **FIXED, RDD_KEY_270**: added
+  `applyAssignmentsPass` as a third pass inside the existing `closingBraceAndDeclarationsOnly`
+  re-run mode, same gate as `RDD_KEY_248`; `make test` 259/259 -> 260/260, zero regressions.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
-  (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch
-  internally-inconsistent-indentation shape and the nested-switch-in-switch shape (see "Known Gaps
-  — Fixed" below, `RDD_KEY_251`). The disjoint **second occurrence** below (a different root
-  cause entirely — `ScopePipeline.applyDeclarationsPass`, not `SwitchRule` — found on a lone
-  declaration inside a switch body, not a switch-case re-indent) — **CLOSED 2026-08-15, no longer
-  reproduces (RDD_KEY_292).** Original write-up retained for context:
+  (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch and
+  nested-switch-in-switch shapes (see "Known Gaps — Fixed" below, `RDD_KEY_251`). The disjoint
+  **second occurrence** below (different root cause — `ScopePipeline.applyDeclarationsPass`, not
+  `SwitchRule` — a lone declaration inside a switch body, not a case re-indent) — **CLOSED
+  2026-08-15, no longer reproduces (RDD_KEY_292).** Original write-up retained for context:
 
   **Second occurrence** — local `src/jxm` dogfood (candidate 23): `tool/JSONEncoderLite.java` had
-  a lone declaration inside a deeply/inconsistently hand-indented `switch default` block whose
-  indentation was reported to drift by 1 space per round. Root-caused at the time (no committed
-  repro) to the same architectural bug class: `ScopePipeline.applyDeclarationsPass`'s
-  raw-source-derived indent diverging from scope-depth-derived indent when the original source's
-  raw indentation for that line is inconsistent with the block's structural depth — same shape as
-  the (now-fixed) switch-case gap, triggered via the declarations pass instead.
+  a lone declaration inside a deeply/inconsistently hand-indented `switch default` block, drifting
+  1 space/round. Root-caused (no committed repro) to the same bug class:
+  `ScopePipeline.applyDeclarationsPass`'s raw-source-derived indent diverging from
+  scope-depth-derived indent when the source's raw indentation is inconsistent with structural
+  depth — same shape as the (now-fixed) switch-case gap, via the declarations pass instead.
 
-  **2026-08-15 re-check:** a fix attempt against the real `tool/JSONEncoderLite.java` file (default
-  config and `indent-size = 2`/`3`) and several hand-built synthetic repros matching the
-  description all converged idempotently — no drift reproduces any more. Most likely incidentally
-  fixed by unrelated `applyDeclarationsPass`/indent-normalization work landed since (e.g.
-  RDD_KEY_231), though not proven since the original repro was never committed. Closed as
-  no-longer-reproducing rather than fixed by a code change; reopen if a fresh instance surfaces.
-  No fixture (none ever existed for this occurrence).
+  **2026-08-15 re-check:** a fix attempt against the real file (default config, `indent-size =
+  2`/`3`) plus several synthetic repros matching the description all converged idempotently — no
+  drift reproduces any more. Likely incidentally fixed by unrelated `applyDeclarationsPass`/
+  indent-normalization work since (e.g. RDD_KEY_231), not proven since the original repro was
+  never committed. Closed as no-longer-reproducing; reopen if a fresh instance surfaces. No
+  fixture (none ever existed for this occurrence).
 
 - **`openrewrite/rewrite` full-tree re-verification (2026-08-09), 4 residual idempotency diffs —
   1 remains ACCEPTED, not fixed; 3 FIXED (2026-08-15, see "Known Gaps — Fixed",
@@ -888,43 +867,31 @@ RDD_KEY_88.
   Fixed by narrowing the bail to only fire when the sole argument's own content genuinely spans
   multiple physical lines (new `containsInternalNewline` helper check), letting a
   single-physical-line argument's wrap be safely re-derived from its current physical-line indent
-  on every pass — for C/C++/Java only. Kotlin/JS/TS keep the ORIGINAL blanket
-  `topLevelArgs.size() <= 1` bail unconditionally: widening the narrowed check to those languages
-  regressed `real_code_regressions_43.kt` (a genuine `topLevelArgs.size() == 2` candidate elsewhere
-  in the same pipeline run whose rendering shape turned out to depend on this bail's exact scope,
-  for a reason not fully traced) and `curly_gdr_multipass_oneliner.js` (a genuine architectural
-  conflict with the `curly-general-scope-reindent-multipass` pre-pass system's deliberately deeper
-  logical-depth indentation for one-liner bodies — see `STATE_CURLY_GDR.md`, out of scope to touch
-  here). Two prior fix attempts rejected: (1) the unscoped `containsInternalNewline`-only narrowing
-  (no language gate) regressed those same 2 fixtures; (2) a flat
-  `lang.isKotlin || lang.isJs || lang.isTs || ...` top-level OR condition was WRONG — it
-  unconditionally bailed for those languages regardless of `topLevelArgs.size()`, silently changing
-  behavior for size-`>1` candidates that previously fell through unaffected (4 regressions instead
-  of 2, including 2 new TS failures). The landed version nests the language gate strictly inside the
-  existing `topLevelArgs.size() <= 1` branch, preserving the original size-`>1` fallthrough for
-  every language unchanged.
+  on every pass — C/C++/Java only. Kotlin/JS/TS keep the ORIGINAL blanket `topLevelArgs.size() <= 1`
+  bail unconditionally: widening the narrowed check to those languages regressed
+  `real_code_regressions_43.kt` (a genuine `topLevelArgs.size() == 2` candidate whose rendering
+  shape turned out to depend on this bail's exact scope, reason not fully traced) and
+  `curly_gdr_multipass_oneliner.js` (architectural conflict with
+  `curly-general-scope-reindent-multipass`'s deliberately deeper one-liner-body indentation — see
+  `STATE_CURLY_GDR.md`, out of scope here). Two prior attempts rejected: (1) unscoped
+  `containsInternalNewline`-only narrowing (no language gate) regressed those same 2 fixtures; (2) a
+  flat `lang.isKotlin || lang.isJs || lang.isTs || ...` top-level OR was WRONG — unconditionally
+  bailed regardless of `topLevelArgs.size()`, silently changing size-`>1` behavior (4 regressions
+  instead of 2, incl. 2 new TS failures). Landed version nests the language gate strictly inside the
+  existing `topLevelArgs.size() <= 1` branch, size-`>1` fallthrough unchanged for every language.
 
-  Verified via a minimal isolated repro (nested `if`/switch/case chain with a braceless-`else`
-  branch containing a wrapped single-argument call, matching the real files' shape) —
-  non-idempotent before the fix, byte-identical round1/round2 after. New fixture
-  `test/real_code_regressions_208_{inp,out}.java`. Re-verified against both real triggering files
-  (pre-existing local `/tmp/rewrite` corpus copy): round1/round2 now byte-identical for both.
-  `make test`: 316/316 forward + idempotency, zero regressions. Both corpus files themselves left
-  unreformatted — bulk-adopting a corpus reformat is out of scope for this fix.
+  Verified via minimal isolated repro (nested if/switch/case chain, braceless-`else` branch with a
+  wrapped single-argument call) — non-idempotent before, byte-identical round1/round2 after. New
+  fixture `test/real_code_regressions_208_{inp,out}.java`. Both real triggering files
+  (`/tmp/rewrite` corpus copy) also now byte-identical round1/round2. `make test`: 316/316, zero
+  regressions. Corpus files left unreformatted — bulk-adopting a corpus reformat out of scope.
 
 - **Self-hosting dogfood (`src/**/*.java` formatted with itself), 2 bugs found comparing `src/`
-  against a fresh format of `src/` — FIXED, see RDD_KEY_289 (index above) for full detail.**
-  (a) `JsTsSpecificRule.java`'s hand-written `} // while !closed` closing comment (inside
-  `renderTemplateHoleInterior`'s nested `while(!closed)`) got its `!` silently dropped on
-  reformat (`BlockStructureRule.extractSingleIdentifier`'s negated-single-identifier case).
-  (b) `TokenizerCurly.java`'s `skipBalancedBraceHole` — a correctly flush-aligned
-  `if( ... ) ++braceDepth; else if( ... ) { ... }` pair (only reachable after its own method
-  signature wraps to multi-line, which is what surfaced it, though the root cause is unrelated
-  to signature-wrapping) had its `if` over-indented by 5 columns every reformat
-  (`alignBracelessElseIfChain` misrecognizing a mixed braceless/braced chain as fully
-  braceless). `make test`: 313/313 -> 314/314 forward + idempotency, zero regressions. New
-  fixture `test/real_code_regressions_205_{inp,out}.java` (combines both bugs). `src/`'s two
-  affected files left untouched (per this session's scope — no bulk-reformat/adopt performed).
+  against a fresh format of `src/` — FIXED, see `RDD_KEY_289` index row above for the (a)/(b) bug
+  detail.** Bug (b) only reachable after its own method signature wraps to multi-line (that's what
+  surfaced it), though the root cause is unrelated to signature-wrapping. `make test`: 313/313 ->
+  314/314, zero regressions. New fixture `test/real_code_regressions_205_{inp,out}.java` (combines
+  both bugs). `src/`'s two affected files left untouched (no bulk-reformat/adopt performed).
 
 - **`openrewrite/rewrite` full-tree re-verification residual gaps, Cluster 2 shape (switch-arrow
   braceless if/else closing-brace instability) — FIXED 2026-08-15 (`RDD_KEY_290`).** Repro:
@@ -938,14 +905,13 @@ RDD_KEY_88.
   round1 (body still one physical line when `ScopePipelineCurly` runs) left the `}` attached;
   round2 (body already split by round1) force-reindented it onto its own line. Fixed by adding a
   new `else if` branch in `BlockStructureRule`'s bare-`else` handling: when a braceless `else`
-  body's own statement end is immediately followed, on the same physical line with nothing frozen
-  in between, by a `}`, force that `}` onto its own new line at the `else`'s resolved indent —
-  matching what round2 would otherwise have produced, so both rounds converge. Verified via
-  minimal repro (non-idempotent before, byte-identical round1/round2 after) and against the real
-  `ModerneWebsiteExampleTest.java` (from a local `/tmp/rewrite` corpus copy — round1/round2 now
-  byte-identical). New fixture `test/real_code_regressions_206_{inp,out}.java`. `make test`:
-  314/314 -> 316/316 forward + idempotency (fixtures 206 and 207 registered together), zero
-  regressions. See `RDD_KEY_290` in `RDD_LOG.md` for full detail.
+  body's statement end is immediately followed, same physical line, nothing frozen in between, by a
+  `}`, force that `}` onto its own new line at the `else`'s resolved indent — matching what round2
+  would otherwise have produced, so both rounds converge. Verified via minimal repro and the real
+  `ModerneWebsiteExampleTest.java` (`/tmp/rewrite` corpus copy) — non-idempotent before,
+  byte-identical round1/round2 after both. New fixture
+  `test/real_code_regressions_206_{inp,out}.java`. `make test`: 314/314 -> 316/316 (fixtures 206 and
+  207 registered together), zero regressions. See `RDD_KEY_290` in `RDD_LOG.md` for full detail.
 
 - **`openrewrite/rewrite` full-tree re-verification residual gaps, Cluster 5 shape (alignment
   padding collapse) — FIXED 2026-08-15 (`RDD_KEY_291`).** Repro:
@@ -957,21 +923,19 @@ RDD_KEY_88.
   brace pair, at any nesting depth — over-broad, since it also caught a SAFE shape: a flat,
   comma-separated array-literal argument list (no embedded statement) that only became multi-line
   because round1's own `enforceCallLineBreaking` wrapped it one-argument-per-line. `urlSpecs`
-  joined its alignment group on round1 (still all on short lines at that point) but dropped out on
-  round2 (now sees round1's own multi-line wrapping and bails), narrowing the group and collapsing
+  joined its alignment group on round1 (still all on short lines) but dropped out on round2 (now
+  sees round1's own multi-line wrapping and bails), narrowing the group and collapsing
   `markers`/`whitespaces`' shared padding from 3 spaces to 1. Fixed by narrowing
   `containsMultilineBraceBody` to only bail when a multi-line brace pair's interior ALSO contains a
   top-level `;` (a genuine multi-statement lambda/anonymous-class body, the original `RDD_KEY_225`
-  concern) — implemented via two parallel per-open-brace-level flag stacks (`sawNewline`/
-  `sawSemi`), mirroring the `;`-presence check `isFlatAggregateInit` already uses for the same
-  distinction. A flat array-literal list has no `;` inside its braces, so it no longer bails
-  regardless of how many lines a later pass wraps it onto. Verified via a minimal repro extracted
-  verbatim from the real declarations (non-idempotent before, byte-identical round1/round2 after)
-  and against the real `Pep508RequirementTest.java` (from the same local `/tmp/rewrite` corpus
-  copy — round1/round2 now byte-identical). New fixture
-  `test/real_code_regressions_207_{inp,out}.java`. `make test`: 314/314 -> 316/316 forward +
-  idempotency (fixtures 206 and 207 registered together), zero regressions. See `RDD_KEY_291` in
-  `RDD_LOG.md` for full detail.
+  concern) — via two parallel per-open-brace-level flag stacks (`sawNewline`/`sawSemi`), mirroring
+  the `;`-presence check `isFlatAggregateInit` already uses for the same distinction. A flat
+  array-literal list has no `;` inside its braces, so it no longer bails regardless of how many
+  lines a later pass wraps it onto. Verified via a minimal repro extracted verbatim from the real
+  declarations and against the real `Pep508RequirementTest.java` (same `/tmp/rewrite` corpus copy)
+  — non-idempotent before, byte-identical round1/round2 after both. New fixture
+  `test/real_code_regressions_207_{inp,out}.java`. `make test`: 314/314 -> 316/316 (fixtures 206 and
+  207 registered together), zero regressions. See `RDD_KEY_291` in `RDD_LOG.md` for full detail.
 
 - **[Shared with STATE_JS_TS.md] `formatNonInlineSwitches` vs. `alignInlineSwitches`/call-wrap
   ordering gap (switch-case fallthrough non-idempotency) — FIXED 2026-08-07 (RDD_KEY_263).**
@@ -992,16 +956,15 @@ before/after detail available via `git log`/`git show`.
 
 - **Non-idempotent switch-case re-indent, both the single-switch internally-inconsistent-source
   shape and the nested-switch-in-switch shape** (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED
-  2026-08-07, seventh session on this gap. See the `RDD_KEY_251` index row above for the landed
-  fix summary (`applyDepthDerivedBodyIndent`, boundary + paren/bracket-continuation guards,
-  nested-switch-opaque approach (a) chosen over the rejected shared-accumulator approach (b)).
-  Full two-approach writeup, including the rejected approach's exact failure mode, lives in
-  `RDD_KEY_251` in `RDD_LOG.md`. Verified against the originally-cited production file
+  2026-08-07, seventh session on this gap (`applyDepthDerivedBodyIndent`, boundary +
+  paren/bracket-continuation guards, nested-switch-opaque approach chosen over a rejected
+  shared-accumulator approach — full two-approach writeup incl. rejected approach's failure mode
+  in `RDD_KEY_251`, `RDD_LOG.md`). Verified against the originally-cited production file
   (`javaparser/javaparser`'s `ASTParser.java`, ~5500 lines): previously a confirmed non-converging
   2-cycle, now terminates with idempotency diff dropped from 369 lines to 7 (all 7 pre-existing,
-  unrelated to switch-case). `make test`: 247/247 → 248/248 forward + idempotency, zero
-  regressions. New fixture: `test/real_code_regressions_181_{inp,out}.java`. `README.md`'s "Known
-  Limitations" bullet for this gap removed.
+  unrelated). `make test`: 247/247 → 248/248, zero regressions. New fixture:
+  `test/real_code_regressions_181_{inp,out}.java`. `README.md`'s "Known Limitations" bullet
+  removed.
 
 - **Self-hosting dogfood bug: Java `&&`/`&` lost their leading space at a declaration-
   initializer/expression tight join** — FIXED, see `RDD_KEY_238` (index above) for full detail.
@@ -1035,38 +998,21 @@ before/after detail available via `git log`/`git show`.
   `PREPROCESSOR`/`MACRO_DEF` tokens, so a directive mid-group never forced a group boundary
   and got silently discarded by `render(group)`. Fixed by adding those token types to the same
   guard.
-- **`using` alias declarations not aligned** — FIXED (RDD_KEY_283), C++-only. The generic
-  `parseDeclaration` path rejected `using Name = Type;` since `typeKeywords.contains(...)` never
-  accepts `using` (a KEYWORD, not a type) — inverted grammar doesn't fit the forward `Type name =
-  init;` model. Added `Declaration.isUsingAlias`/10-arg constructor plus a new `parseUsingAlias`
-  branch (guarded by `lang.isCpp`) storing the alias name in `Declaration.name`, the aliased type
-  in `initTokens`, and a dummy singleton `typeTokens` so `ScopePipelineCurly`'s splice-back anchor
-  lookup has a real token. `groupDeclarations` breaks a group on any `isUsingAlias` change;
-  rendering dispatches to a new `renderUsingAliasGroup` (3-column `ColumnGrid`: `using` / name /
-  `= Type;`) aligning the `=` column. Collided with pre-existing C++26 pack-indexing/variadic-
-  template fixtures (`template<typename... T> using Name = T...[...]`) because the generic
-  re-render bypassed `CppSpecificRule.enforcePackIndexingSpacing`'s tight-join rule — fixed with a
-  bail-out in `parseUsingAlias` (leave untouched) whenever `...` appears in `templatePrefix` or the
-  aliased-type tokens. Verified: `make test` 283/283 -> 284/284 forward + idempotency, zero
-  regressions. New fixture: `test/cpp_using_alias_{inp,out}.cpp`. See RDD_KEY_283 in RDD_LOG.md for
-  full detail.
+- **`using` alias declarations not aligned** — FIXED (RDD_KEY_283), C++-only. Generic
+  `parseDeclaration` rejected `using Name = Type;` (inverted grammar doesn't fit the forward `Type
+  name = init;` model) — added isolated `Declaration.isUsingAlias` + `parseUsingAlias` path and a
+  dedicated `renderUsingAliasGroup` (3-column grid aligning `=`), bailing out untouched on any
+  `...` token to avoid colliding with C++26 pack-indexing/variadic-template spacing. `make test`
+  283/283 -> 284/284, zero regressions. Fixture: `test/cpp_using_alias_{inp,out}.cpp`. Full
+  root-cause/fix detail in RDD_LOG.md's `RDD_KEY_283`.
 - **Pack-indexing/variadic-template `using` aliases still left unaligned** — FIXED (RDD_KEY_284,
-  follow-up to RDD_KEY_283), C++-only. RDD_KEY_283's `...`-token bail-out was broader than
-  necessary — `enforcePackIndexingSpacing` runs strictly after declaration alignment, re-tokenizing
-  whatever text alignment produced regardless of which pass emitted it, so the aliased-type half of
-  the bail was overly conservative. Added `Declaration.aliasRawTypeText`/`templatePrefixRawText`
-  (nullable, set only when the span contains `...`): `renderUsingAliasGroup` emits these verbatim
-  instead of regenerating — safe since Phase 4 fixes the aliased type's spacing anyway, and safe
-  for the `template<...>` prefix precisely because nothing is regenerated. Two more real bugs found
-  via `make test` against `cpp26_comments`: (1) a standalone comment between a `template<...>`
-  prefix and `using` had nowhere to live in the `Declaration` model, silently dropped — fixed by
-  scanning the raw gap for a `COMMENT_LINE`/`COMMENT_BLOCK` token and bailing if found; (2)
-  `renderUsingAliasGroup`'s trailing same-line-comment append used a single space instead of the
-  codebase's two-space convention — only visible on a singleton alias group with no sibling to mask
-  it via grid padding. Verified: `make test` unchanged at 284/284 forward + idempotency;
-  `test/cpp26_comments_{inp,out}.cpp`'s expected output updated in place (`Selected`/`Skipped` now
-  align on `=`; `Nth`, preceded by a standalone comment, stays unaligned as its own singleton),
-  byte-identical to actual output. See RDD_KEY_284 in RDD_LOG.md for full detail.
+  follow-up), C++-only. RDD_KEY_283's `...`-bail-out was broader than necessary; narrowed via new
+  `Declaration.aliasRawTypeText`/`templatePrefixRawText` verbatim fields so only the truly
+  unsafe prefix half stays unregenerated. Two more real bugs found via `make test` against
+  `cpp26_comments`: a standalone comment between `template<...>` and `using` was silently dropped
+  (now detected and bailed), and a trailing-comment spacing bug (one space instead of the
+  codebase's two-space convention). `make test` unchanged at 284/284; `cpp26_comments` fixture
+  updated in place. Full root-cause/fix detail in RDD_LOG.md's `RDD_KEY_284`.
 - **Preprocessor directive glued onto a following Java method definition** — FIXED,
   genuinely Java-specific (C++'s `applySignaturePass` branch incidentally routes around it via
   a separate line-rescan). `leadStart`/`sigLeadStart` landed directly on a leading

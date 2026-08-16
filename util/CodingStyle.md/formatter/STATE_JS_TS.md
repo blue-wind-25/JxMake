@@ -202,9 +202,9 @@ JS/TS fixtures are active in the Makefile and passing.
   general curly-brace-family reindent pass re-breaks an already-reformatted
   one-liner differently on a second pass. **2026-08-15 XL.txt sweep
   verification:** confirmed live with a minimal repro
-  (`function foo(a,b){if(a){return b;}else{return a;}}`); also confirmed the
-  same repro IS idempotent with `curly-general-scope-reindent`/`-multipass =
-  on`. Not a separate bug — just another instance of the already-tracked
+  (`function foo(a,b){if(a){return b;}else{return a;}}`); same repro IS
+  idempotent with `curly-general-scope-reindent`/`-multipass = on`. Not a
+  separate bug — just another instance of the already-tracked
   `curly-general-scope-reindent` default-off gap (`STATE_CURLY_GDR.md`,
   XL.txt TIER 9 Feature). No new tracker item added; noted as extra
   confirming evidence on the existing CURLY_GDR entry instead.
@@ -216,75 +216,74 @@ JS/TS fixtures are active in the Makefile and passing.
 **Rejected alternative design (2026-08-07 discussion, no code/RDD key).** A
 user-proposed 3-step approach (tokenizer marks a whole JSX tree as one plain
 `IDENTIFIER`; `{...}` holes become `__JSn__` placeholders handed to the HTML
-formatter; each placeholder's content re-sent through the JS/TS formatter)
-was **not adopted**: Step 1 discards structure needed by width/alignment
-passes (same fragility class as RDD_KEY_248/249/250) without a dedicated
-opaque/frozen token; Step 2's HTML-formatter reuse is sound for splice
-mechanics but JSX diverges from real HTML5 (self-closing tags, case-sensitive
-component names, fragments, `onClick={handler}`-style attribute-valued
-embeds) in ways the HTML5 tree-construction pass isn't verified to tolerate;
-Step 3 is unbounded-depth recursion (`items.map(x => <li>{x}</li>)`), not the
-flat step described. Real JSX parsers resolve the `<` ambiguity via
-grammar-position lexer modes, which this codebase's flat-tokenizer
-architecture has no equivalent of — the portable idea extracted instead: a
-dedicated pre-pass testing `<` at a short enumerable list of expression-start
-token-adjacency contexts, recursing into `{}` holes, without needing a real
-AST. `@babel/parser` was considered and rejected for a JSX-aware
-`js_ts_content_diff.js` (avoid a second parser dependency/npm-pin gotcha) —
-stick with `ts.createSourceFile`'s `TSX`/`JSX` `ScriptKind`s if that checker
-is ever extended.
+formatter; each placeholder re-sent through the JS/TS formatter) was **not
+adopted**: Step 1 discards structure needed by width/alignment passes (same
+fragility class as RDD_KEY_248/249/250) without a dedicated opaque/frozen
+token; Step 2's HTML-formatter reuse is sound for splice mechanics but JSX
+diverges from real HTML5 (self-closing tags, case-sensitive component names,
+fragments, `onClick={handler}`-style attribute-valued embeds) in ways the
+HTML5 tree-construction pass isn't verified to tolerate; Step 3 is
+unbounded-depth recursion (`items.map(x => <li>{x}</li>)`), not the flat step
+described. Real JSX parsers resolve the `<` ambiguity via grammar-position
+lexer modes, which this codebase's flat-tokenizer architecture has no
+equivalent of — portable idea extracted instead: a dedicated pre-pass testing
+`<` at a short enumerable list of expression-start token-adjacency contexts,
+recursing into `{}` holes, without needing a real AST. `@babel/parser` was
+considered and rejected for a JSX-aware `js_ts_content_diff.js` (avoid a
+second parser dependency/npm-pin gotcha) — stick with
+`ts.createSourceFile`'s `TSX`/`JSX` `ScriptKind`s if that checker is ever
+extended.
 
-**Design session (2026-08-12, no code, no RDD key).** Fleshed out the
-portable idea into a concrete design, later implemented essentially as
-written:
+**Design session (2026-08-12, no code, no RDD key).** Fleshed the portable
+idea into a concrete design, later implemented essentially as written:
 - **Enumerable expression-start context list** (11 items): after `return`;
   after `=>`; after ternary `?`/`:` (both branches); call-argument start
-  (`(`/top-level `,`); array-element start (`[`/top-level `,`); assignment-
-  RHS (`=` and compound assignment ops); logical/nullish RHS (`&&`/`||`/
-  `??`); grouping-paren start (a `(` that is NOT a call-open); recursively
-  inside a JSX `{...}` hole; recursively inside a template-literal `${}`
-  hole; after `...` (spread). Explicitly NOT a context: after IDENTIFIER/`)`/
-  `]`/NUMBER/STRING — those are exactly the shapes `reclassifyAngleBrackets`
-  already claims as generic-safe, never JSX-open.
+  (`(`/top-level `,`); array-element start (`[`/top-level `,`);
+  assignment-RHS (`=` and compound assignment ops); logical/nullish RHS
+  (`&&`/`||`/`??`); grouping-paren start (a `(` that is NOT a call-open);
+  recursively inside a JSX `{...}` hole; recursively inside a
+  template-literal `${}` hole; after `...` (spread). Explicitly NOT a
+  context: after IDENTIFIER/`)`/`]`/NUMBER/STRING — exactly the shapes
+  `reclassifyAngleBrackets` already claims as generic-safe, never JSX-open.
 - **Token representation**: new `TokenType.JSX_SPAN`, raw `text` (incl.
   embedded newlines) from opening `<` through the matching close/self-close,
   `frozen = true` unconditionally, no new position/width field (follows the
   existing convention for other multi-line-text tokens like `COMMENT_BLOCK`
-  — line-length passes just need a `\n`-containing-token guard, same as they
-  already need for those). No depth field either — nesting is internal to
-  the pre-pass's own recursive walk, never externally visible once a span
-  token is emitted (exactly one `JSX_SPAN` per top-level JSX tree).
+  — line-length passes just need a `\n`-containing-token guard). No depth
+  field either — nesting is internal to the pre-pass's own recursive walk,
+  never externally visible once a span token is emitted (exactly one
+  `JSX_SPAN` per top-level JSX tree).
 - **Ordering**: the JSX pre-pass must run BEFORE `reclassifyAngleBrackets`
   (generics disambiguation), so generics-disambiguation never sees an
   already-consumed JSX span's interior `<`/`>`.
 - **The genuine `<Type>expr`-cast-vs-JSX ambiguity**: both start identically
   (`=`, `<`, IDENTIFIER, `>`) and land in the same expression-start context
-  — resolved the same way real tooling resolves it, by file-extension-scoped
-  dispatch (`.tsx`/`.jsx` files always treat expression-start `<` as a
-  JSX-open candidate first, falling back to plain relational-`<` if no
-  matching close is found; plain `.ts`/`.js` files' pre-pass doesn't run at
-  all under this design — later widened, see below).
-- One flagged gap not resolved by this session: the context list was
-  assembled from static reasoning, not yet validated against a real JSX
-  corpus — flagged as required validation before trusting it complete (later
-  done via the Step-2-Increment-5 6-corpus dogfood pass, see below).
+  — resolved as real tooling resolves it, by file-extension-scoped dispatch
+  (`.tsx`/`.jsx` files always treat expression-start `<` as a JSX-open
+  candidate first, falling back to plain relational-`<` if no matching close
+  is found; plain `.ts`/`.js` files' pre-pass doesn't run at all under this
+  design — later widened, see below).
+- One flagged gap: the context list was assembled from static reasoning, not
+  yet validated against a real JSX corpus — flagged as required before
+  trusting it complete (later done via the Step-2-Increment-5 6-corpus
+  dogfood pass, see below).
 
 **Step 1 implementation (Increments 1-6, 2026-08-12 → 2026-08-13, all
 LANDED).** Each increment added one or two contexts to
-`TokenizerCurly.findJsxSpans`'s `isJsxContext`, each independently fixture-
-verified and `make test`-clean with zero regressions on non-JSX fixtures
-(confirming the `.jsx`/`.tsx`-only gate is a true no-op elsewhere), each
-relying on the same self-correcting safety net: `findJsxSpanEnd`/
-`parseJsxTag` return -1 on anything that doesn't parse as a balanced JSX
-tree, leaving tokens untouched.
+`TokenizerCurly.findJsxSpans`'s `isJsxContext`, each fixture-verified and
+`make test`-clean with zero regressions on non-JSX fixtures (confirming the
+`.jsx`/`.tsx`-only gate is a true no-op elsewhere), each relying on the same
+self-correcting safety net: `findJsxSpanEnd`/`parseJsxTag` return -1 on
+anything that doesn't parse as a balanced JSX tree, leaving tokens
+untouched.
 - **Increment 1** (`return` context): added `Lang.isJsxSyntax` (new
   `Lang(language, filePath)` overload, true only for `.jsx`/`.tsx`) and
-  `FormatterCore.forLanguage`'s matching overload. **Real bug found and
-  fixed as a prerequisite**: `isRegexLiteralAllowedHere`'s character-level
-  lexer misread the `/` of a JSX closing tag (`</Foo>`, preceded by `<`) as
-  regex-literal start, corrupting tokenization before the post-tokenize JSX
-  pass could even run. Fixed with a narrow `lang.isJsxSyntax`-gated special
-  case (`OP "<"` immediately before `/` disallows regex-start). Fixture
+  `FormatterCore.forLanguage`'s matching overload. **Real bug found+fixed as
+  a prerequisite**: `isRegexLiteralAllowedHere`'s character-level lexer
+  misread the `/` of a JSX closing tag (`</Foo>`, preceded by `<`) as
+  regex-literal start, corrupting tokenization before the JSX pass could
+  even run. Fixed with a narrow `lang.isJsxSyntax`-gated special case (`OP
+  "<"` immediately before `/` disallows regex-start). Fixture
   `jsx_tsx_return_context`.
 - **Increment 2** (`=>`, ternary `?`/`:`): plain single-token-lookback
   checks; `?.`/`??`/`?:` multi-char ops already consumed earlier in the
@@ -297,62 +296,61 @@ tree, leaving tokens untouched.
   Fixture `jsx_tsx_call_array_context`.
 - **Increment 4** (assignment-RHS incl. compound, logical/nullish-RHS): new
   local `JSX_ASSIGNMENT_OPS`/`JSX_LOGICAL_OPS` sets (kept tokenizer-local
-  rather than reusing `MiscRuleCore.ASSIGNMENT_OPS`, which is
-  cross-package-`protected` and missing `&&=`/`||=`/`??=`/`<<=`/`>>>=`).
-  Attribute-`=`-vs-context-`=` ambiguity checked and confirmed a non-issue
-  (bare-JSX attribute values aren't valid JSX syntax). Fixtures
+  rather than reusing `MiscRuleCore.ASSIGNMENT_OPS`, cross-package-
+  `protected` and missing `&&=`/`||=`/`??=`/`<<=`/`>>>=`). Attribute-`=`-vs-
+  context-`=` ambiguity checked and confirmed a non-issue (bare-JSX
+  attribute values aren't valid JSX syntax). Fixtures
   `jsx_tsx_assign_logical_context`, `jsx_tsx_assign_logical_sanity`.
 - **Increment 5** (grouping-paren start): new `isGroupingParenStart` (mirror
   of `isCallOpenParen`). Wider blast radius than prior increments (fires on
   every control-flow `(` too, e.g. `if (...)`) but the same -1 fallback
   covers it; flagged as worth watching at real-corpus scale (no issue
-  actually found). Fixture `jsx_tsx_grouping_paren_context`.
+  found). Fixture `jsx_tsx_grouping_paren_context`.
 - **Increment 6** (bare `{`-hole start; spread): item 9 re-scoped from its
-  literal "recurse into every hole" wording — traced that `findJsxSpans`'s
-  outer loop already scans every significant token regardless of nesting
-  depth, so the only genuine gap was a `<` immediately after a bare `{`
-  (`{<Bar/>}`); added as a plain `isPunct(prev, "{")` check, no recursive
-  machinery needed. New `isSpreadContext` for item 11 (`...` then the same
-  shape `isCallArgumentOrArrayElementStart` already tests). **Item 10
+  literal "recurse into every hole" wording — `findJsxSpans`'s outer loop
+  already scans every significant token regardless of nesting depth, so the
+  only genuine gap was a `<` immediately after a bare `{` (`{<Bar/>}`);
+  added as a plain `isPunct(prev, "{")` check, no recursive machinery
+  needed. New `isSpreadContext` for item 11 (`...` then the same shape
+  `isCallArgumentOrArrayElementStart` already tests). **Item 10
   (template-literal `${}` holes) found structurally unreachable at this
   pass's level, not merely unimplemented** — a whole template literal is
   already swallowed into one opaque STRING token by the character-level
   lexer before `findJsxSpans` (a post-tokenize pass) ever runs; needs a
-  tokenizer-level change, tracked separately (see below). Fixture
+  tokenizer-level change, tracked separately below. Fixture
   `jsx_tsx_hole_spread_context`.
 
 **Item 10 scoping session (2026-08-13, no code, no RDD key).** Broke the
 tokenizer-level change into sub-contexts, since — unlike Increments 1-6 —
 `emitTemplateLiteral`/`skipTemplateInterpolation` run for every JS/TS file
-regardless of extension (template literals aren't JSX-only syntax), so this
-can't be scoped as narrowly by construction.
+regardless of extension (template literals aren't JSX-only), so this can't
+be scoped as narrowly by construction.
 - **Sub-context 0**: decide the opaque-vs-transparent boundary —
   `skipTemplateInterpolation` must tokenize (not just skip) each `${...}`
   interior; `emitTemplateLiteral`'s one-`Token` return becomes a sequence of
   tokens spliced into the stream.
-- **Sub-context 1**: new `TokenType`s for the hole boundary — two options
-  considered, (a) reuse plain `PUNCT` tokens for `${`/`}` (cheaper) vs. (b) a
-  dedicated `TEMPLATE_HOLE_OPEN`/`CLOSE` pair (safer, more invasive).
-  Recommended starting with (a).
-- **Sub-context 2**: nested template literals inside a hole — traced that
-  the existing recursive skip-structure already handles arbitrary nesting;
-  the re-entry point must route back through `emitTemplateLiteral` itself
-  (not a simplified path) to preserve that.
-- **Sub-context 3**: scope decision — strongly recommended gating the new
-  behavior on `lang.isJsxSyntax` (narrow, mirrors Increment 1's regex-lexer
-  carve-out) rather than changing template-literal tokenization
-  unconditionally for every JS/TS file (categorically larger regression
-  surface — template literals are ubiquitous, unlike any JSX-only context).
+- **Sub-context 1**: new `TokenType`s for the hole boundary — (a) reuse
+  plain `PUNCT` tokens for `${`/`}` (cheaper) vs. (b) a dedicated
+  `TEMPLATE_HOLE_OPEN`/`CLOSE` pair (safer, more invasive). Recommended
+  starting with (a).
+- **Sub-context 2**: nested template literals inside a hole — the existing
+  recursive skip-structure already handles arbitrary nesting; the re-entry
+  point must route back through `emitTemplateLiteral` itself (not a
+  simplified path) to preserve that.
+- **Sub-context 3**: strongly recommended gating the new behavior on
+  `lang.isJsxSyntax` (narrow, mirrors Increment 1's regex-lexer carve-out)
+  rather than changing template-literal tokenization unconditionally for
+  every JS/TS file (categorically larger regression surface — template
+  literals are ubiquitous, unlike any JSX-only context).
 - **Sub-context 4**: regression-test plan sized to the risk — every existing
   fixture with a backtick needs byte-identical re-verification, plus new
-  fixtures for a bare JSX-in-hole case, a non-JSX-interpolation case (the
-  single most likely regression class), the nested-template case, and an
-  `if (x < 1)` safety-net case.
-- Suggested 5-step increment breakdown recorded for implementers (structural
-  refactor first with no new tokenization; then real re-entry tokenization,
-  verified against non-JSX holes first; then JSX-detection wiring; then
-  nested-template fixture; then real-corpus validation) — followed as
-  written when implemented (below).
+  fixtures for a bare JSX-in-hole case, a non-JSX-interpolation case (most
+  likely regression class), the nested-template case, and an `if (x < 1)`
+  safety-net case.
+- Suggested 5-step increment breakdown (structural refactor first with no
+  new tokenization; then real re-entry tokenization, verified against
+  non-JSX holes first; then JSX-detection wiring; then nested-template
+  fixture; then real-corpus validation) — followed as written (below).
 
 **Item 10 (sub-contexts 0-3) implementation — LANDED 2026-08-13.**
 Implemented as one combined change (narrow `.jsx`/`.tsx`-only gate applied
@@ -376,9 +374,9 @@ from the first line, not bolted on after).
   nested `{`/`}` inside the hole still participates in `braceDepth`
   normally. `findJsxSpans.isJsxContext` gained a disjunct: JSX may start
   right after `TEMPLATE_HOLE_OPEN`. **Discovered along the way**: the
-  pre-existing `enforceTemplateLiteralInterpolationSpacing` is text-based
-  and only matches one opaque backtick-STRING token — silently stopped
-  firing for `.tsx` once templates became segmented there. Fixed with a
+  pre-existing `enforceTemplateLiteralInterpolationSpacing` is text-based,
+  matches only one opaque backtick-STRING token — silently stopped firing
+  for `.tsx` once templates became segmented there. Fixed with a
   token-based parallel path (`findMatchingTemplateHoleClose`/
   `renderTemplateHoleInterior` in `JsTsSpecificRule`). Fixture
   `jsx_tsx_template_hole_context`.
@@ -425,8 +423,8 @@ detection context caught it.
   width-measuring helpers, not `renderCallCandidate`/`parseSignature`
   itself.
 - **Sub-context 4**: a `JSX_SPAN` inside a template-literal hole needs no
-  special-casing — it's just one more token to `renderTemplateHoleInterior`,
-  same as every other Step-1 context.
+  special-casing — just one more token to `renderTemplateHoleInterior`, same
+  as every other Step-1 context.
 - **Sub-context 5**: no separate scope gate needed — `JSX_SPAN` only ever
   exists under `lang.isJsxSyntax`, so Step 2 inherits Step 1's scope by
   construction.
@@ -436,7 +434,7 @@ detection context caught it.
   fixture with children.
 - Suggested 5-increment breakdown (structure-only first; self-closing-tag
   wrap only; extend to children-bearing tags; attribute-kind fixtures;
-  real-corpus validation) — followed as written (below).
+  real-corpus validation) — followed as written below.
 
 **Step 2 implementation (Increments 1-5, 2026-08-13/14, all LANDED — Step 2
 complete).**
@@ -447,11 +445,11 @@ complete).**
   test/debug scaffolding, never mutates output) wired into
   `FormatterCurly.formatOne`, gated on `lang.isJsxSyntax`. Documented
   approximation: measures only the opening tag's own raw width, not its
-  rendered column position (indentation/preceding tokens) — real
-  column-aware measurement deferred to the actual wrap increment. Verified
-  via a scratch `Verify.java` harness (no JUnit in this repo) — exact
-  expected measured/over-width counts on a 2-tag fixture. Fixture
-  `jsx_tsx_wrap_detect_context`. No behavior change — output byte-identical.
+  rendered column position — real column-aware measurement deferred to the
+  actual wrap increment. Verified via a scratch `Verify.java` harness (no
+  JUnit in this repo) — exact expected measured/over-width counts on a
+  2-tag fixture. Fixture `jsx_tsx_wrap_detect_context`. No behavior change —
+  output byte-identical.
 - **Increment 2 (real wrap, self-closing tags only)**: new
   `JsTsSpecificRule.enforceJsxSelfClosingAttributeWrap` (+
   `renderJsxSelfClosingWrapCandidate`), mirroring
@@ -459,7 +457,7 @@ complete).**
   comma-split/typed-signature machinery. A span is "self-closing, no
   children" purely via `jsxOpeningTagEndOffset == text.length()`. Wired
   into `FormatterCurly.format` Phase 4, after `formatNonInlineSwitches`.
-  **Real bug found and fixed as a prerequisite**: `attrRawTokenIndices`
+  **Real bug found+fixed as a prerequisite**: `attrRawTokenIndices`
   recorded a `{` at `localBrace == 0` as a fresh attribute boundary
   unconditionally — correct for spread (`{...props}`) but wrong for an
   ordinary `name={value}` attribute's own value-hole open brace (same
@@ -472,25 +470,25 @@ complete).**
   non-empty `jsxAttrBoundaries` (tokenizer already populated both fields for
   open tags too — only the render method's gate was narrow). **Width-
   measurement fix found while designing this increment** (not a
-  regression): Increment 2's check measured the *entire* span's raw text
+  regression): Increment 2's check measured the entire span's raw text
   length, harmless for self-closing (no child text) but wrong for
   children-bearing tags (a short opening tag with huge children would
   spuriously "overflow"); fixed to measure `jsxOpeningTagEndOffset` alone,
-  matching `JsxWrapDiagnostics`'s own established approximation. Splice
-  mechanism: `text` split at `jsxOpeningTagEndOffset` into a rewritten
-  opening-tag segment and an untouched `tail` (children + closing tag) —
-  `tail` is appended completely unmodified, no re-tokenizing/trimming —
-  this IS the byte-identical-children guarantee, enforced structurally.
-  Fixture `jsx_tsx_self_closing_wrap` extended (3 new cases incl. a
+  matching `JsxWrapDiagnostics`'s own approximation. Splice mechanism:
+  `text` split at `jsxOpeningTagEndOffset` into a rewritten opening-tag
+  segment and an untouched `tail` (children + closing tag) — `tail` is
+  appended completely unmodified, no re-tokenizing/trimming — this IS the
+  byte-identical-children guarantee, enforced structurally. Fixture
+  `jsx_tsx_self_closing_wrap` extended (3 new cases incl. a
   multi-line-children case verified byte-identical via `--diff`).
 - **Increment 4 (attribute-kind fixtures)**: no source changes — confirmed
   the existing brace-only balance tracking in `parseJsxTag` already
-  generically handles spread, bare boolean, and expression-valued
-  (incl. nested `()`/`.`) attributes with no JSX-grammar-specific logic
-  needed. Fixture `jsx_tsx_attr_kinds_wrap` (4 cases).
+  generically handles spread, bare boolean, and expression-valued (incl.
+  nested `()`/`.`) attributes with no JSX-grammar-specific logic needed.
+  Fixture `jsx_tsx_attr_kinds_wrap` (4 cases).
 - **Increment 5 (real-corpus validation, all 6 corpora, Step 2 complete)**:
   - `taniarascia/react-tutorial` (JSX, re-run), `microsoft/
-    TypeScript-React-Starter` (TSX, re-run): idempotent, syntax-clean, no
+    TypeScript-React-Starter` (TSX, re-run): idempotent, syntax-clean; no
     line naturally triggers the wrap in either corpus (still validates no
     regression on non-triggering real code).
   - `ruanyf/react-demos` (JSX): real JSX here lives almost entirely inside
@@ -501,33 +499,32 @@ complete).**
     under Open Questions above (filed, not fixed — out of scope).
   - `Lemoncode/react-typescript-samples` (TSX, 329 files, sampled 15): all
     idempotent/clean; 2 files' pre-existing multi-line attribute formatting
-    confirmed author's own style, not wrap-logic output (no line naturally
-    overflows in the sample).
+    confirmed author's own style, not wrap-logic output.
   - `reactstrap/reactstrap` (JSX, full 108-file set): **found a real,
     reproducible content-corruption bug** (a Step 1 detection gap, not
     wrap-logic): `parseJsxTag` required a tag-name `IDENTIFIER`
     unconditionally, so JSX fragment shorthand (`<>...</>`) was never
-    recognized as JSX at all — its `{...}` content fell through to ordinary
-    JS statement formatting, which wrongly inserted a `;` *inside* the
-    expression hole (`DropdownToggle.js`: `{returnFunction(...)}` →
+    recognized as JSX — its `{...}` content fell through to ordinary JS
+    statement formatting, wrongly inserting a `;` *inside* the expression
+    hole (`DropdownToggle.js`: `{returnFunction(...)}` →
     `{returnFunction(...);}`). **Fixed**: when the token after `<`/`</` is
     `>` (not an IDENTIFIER), treat it as a fragment with an empty-string
     tag-name sentinel — the existing name-match check in `findJsxSpanEnd`
     then pairs `<>`...`</>` correctly with no other changes (fragments never
-    have attributes, so the wrap logic never engages on one). Fixture
+    have attributes, so the wrap logic never engages). Fixture
     `jsx_tsx_fragment_shorthand`. Full 108-file re-sweep post-fix: clean.
   - `excalidraw/excalidraw` (TSX, sampled 17 incl. all 7 real wrap-trigger
     candidates): idempotent, zero formatter errors. **Found a second real,
     reproducible content-corruption bug**, unrelated to JSX detection or
     wrapping: `enforceSemicolonInsertion`'s depth counter tracked `(`/`[`/
     expression-`{` but never `TEMPLATE_HOLE_OPEN`/`CLOSE` — a `NEWLINE`
-    immediately after `${` inside a multi-line hole (e.g. a wrapped
-    ternary) was evaluated at depth 0 as a real statement boundary, so a
-    stray `;` got appended directly onto the `${` token
-    (`SearchMenu.tsx`: `` `${searchMatches.items.length} ${\n cond\n ? a\n : b\n}` ``
-    → `` `${...} ${;\n...` ``, parse-breaking). **Fixed**: `TEMPLATE_HOLE_OPEN`/
-    `CLOSE` now push/pop the depth counter exactly like `(`/`)`;
-    `needsSemicolonAfter` also explicitly returns `false` for
+    immediately after `${` inside a multi-line hole (e.g. a wrapped ternary)
+    was evaluated at depth 0 as a real statement boundary, so a stray `;`
+    got appended directly onto the `${` token (`SearchMenu.tsx`:
+    `` `${searchMatches.items.length} ${\n cond\n ? a\n : b\n}` `` →
+    `` `${...} ${;\n...` ``, parse-breaking). **Fixed**:
+    `TEMPLATE_HOLE_OPEN`/`CLOSE` now push/pop the depth counter exactly like
+    `(`/`)`; `needsSemicolonAfter` also explicitly returns `false` for
     `TEMPLATE_HOLE_OPEN` as a defensive belt-and-suspenders. Fixture
     `jsx_tsx_template_hole_wrap`. Full 17-file re-sample post-fix: clean.
   - **Step 2 verdict**: all 5 increments landed; validated idempotent and
@@ -565,55 +562,55 @@ complete).**
 JSX-in-`.js`/`.ts` detection, informing the widening below.** Babel/
 `@babel/parser` requires an explicit `jsx` plugin opt-in at the
 parser-options level (no extension-sniffing in the bare parser); Prettier's
-default parser for the whole `.js`/`.mjs`/`.cjs`/`.jsx` family always enables
-JSX, but for `.ts` uses a separate TS-scanner-based parser with JSX off,
-only enabling it for `.tsx` — TS and Prettier both treat `.ts`/`.tsx` as
-fundamentally different because of the real `<Type>value`-cast-vs-JSX-open-
-tag ambiguity (a well-known, deliberate TS restriction — `<Type>` casts are
-disallowed in `.tsx`, `as Type` required instead). ESLint/
-`@babel/eslint-parser` require explicit project-config opt-in, not per-file
-sniffing. No mainstream tool content-sniffs (e.g. for `import React`) to
-decide JSX-ness — confirmed unreliable independently: the "automatic" JSX
-runtime (React 17+) doesn't require importing React at all, so an
-import-based heuristic would miss exactly the modern case while
-over-triggering on hooks-only non-JSX files that happen to import React.
+default parser for `.js`/`.mjs`/`.cjs`/`.jsx` always enables JSX, but for
+`.ts` uses a separate TS-scanner-based parser with JSX off, only enabling it
+for `.tsx` — TS and Prettier both treat `.ts`/`.tsx` as fundamentally
+different because of the real `<Type>value`-cast-vs-JSX-open-tag ambiguity
+(a well-known, deliberate TS restriction — `<Type>` casts are disallowed in
+`.tsx`, `as Type` required instead). ESLint/`@babel/eslint-parser` require
+explicit project-config opt-in, not per-file sniffing. No mainstream tool
+content-sniffs (e.g. for `import React`) to decide JSX-ness — confirmed
+unreliable independently: the "automatic" JSX runtime (React 17+) doesn't
+require importing React at all, so an import-based heuristic would miss
+exactly the modern case while over-triggering on hooks-only non-JSX files
+that happen to import React.
 
 Re-reading this codebase's own `isJsxContext`'s 11 `||`-clauses confirmed
 every one requires `<` to be the first token of a brand-new expression — an
 ordinary comparison's `<` is never in that position (the left operand always
 precedes it), so comparisons are structurally excluded by construction, not
 merely caught by the -1 fallback. The one real residual ambiguity is the
-`<Type>expr` legacy cast, rare-to-nonexistent in true `.js` (that syntax
-isn't even valid JS) but real in `.ts`. A second, genuine,
-previously-unguarded gap was found in the same re-read: tag matching only
-tracked nesting *depth*, not tag *name* — `<a>...</b>` would balance as if
-valid — flagged as worth hardening regardless, and load-bearing once
-detection widens past `.jsx`/`.tsx` (closes off the residual cast-collision
-risk for `.js`/`.ts`).
+`<Type>expr` legacy cast, rare-to-nonexistent in true `.js` (not even valid
+JS syntax) but real in `.ts`. A second, genuine, previously-unguarded gap
+found in the same re-read: tag matching only tracked nesting *depth*, not
+tag *name* — `<a>...</b>` would balance as if valid — flagged as worth
+hardening regardless, and load-bearing once detection widens past
+`.jsx`/`.tsx` (closes off the residual cast-collision risk for `.js`/`.ts`).
 
 **Recommendation (implemented as written): hybrid.** Extend detection
 unconditionally to `.js`/`.mjs`/`.cjs` (mirrors Babel/Prettier, justified by
 the structural-exclusion finding above). Do NOT extend to plain `.ts` by
-default (mirrors tsc/Prettier's own deliberate split) — instead expose a
-`.ts`-scoped opt-in. Land the tag-name-identity hardening either way.
+default (mirrors tsc/Prettier's own deliberate split) — expose a
+`.ts`-scoped opt-in instead. Land the tag-name-identity hardening either
+way.
 
 **Implementation — LANDED 2026-08-13.**
 1. `Lang.isJsxSyntaxPath` widened unconditionally to `.js`/`.mjs`/`.cjs` (in
    addition to pre-existing `.jsx`/`.tsx`, unchanged).
 2. `.ts` stays gated off by default.
 3. **Design decision**: a plain new boolean `Config` key rather than a
-   bespoke CLI-only flag — checked that `InFileConfig.isEligible` admits any
-   ordinary known `Config` key automatically (CLI/env/file/server/
-   `JXM_CFMT_CFG` all work for free), unlike `--lang` (RDD_KEY_286) which
-   needed hand-written special-casing for a real reason (not an ordinary
-   `Config` key) that doesn't apply here. Landed as `Config.ALL_KEYS`/
-   `GROUPS` (`"JS/TS"`)/`describeOne`/`fromRawMap` entries, a `jsxInTs`
-   field, threaded through `FormatterCore`'s new 3-arg `forLanguage`
-   overload and `GdrPipelineGate.applyAndFormat` (the single real call
-   site). **Renamed `jsx-in-js` → `jsx-in-ts`** same day, on user review of
-   README.md (the original name misleadingly read as ".js files" though it
-   only ever affects `.ts`) — pure rename across `Config`/`Lang`/
-   `FormatterCore`/`GdrPipelineGate`/the fixture/docs, no behavior change.
+   bespoke CLI-only flag — `InFileConfig.isEligible` admits any ordinary
+   known `Config` key automatically (CLI/env/file/server/`JXM_CFMT_CFG` all
+   work for free), unlike `--lang` (RDD_KEY_286) which needed hand-written
+   special-casing for a real reason that doesn't apply here. Landed as
+   `Config.ALL_KEYS`/`GROUPS` (`"JS/TS"`)/`describeOne`/`fromRawMap`
+   entries, a `jsxInTs` field, threaded through `FormatterCore`'s new 3-arg
+   `forLanguage` overload and `GdrPipelineGate.applyAndFormat` (the single
+   real call site). **Renamed `jsx-in-js` → `jsx-in-ts`** same day, on user
+   review of README.md (the original name misleadingly read as ".js files"
+   though it only ever affects `.ts`) — pure rename across
+   `Config`/`Lang`/`FormatterCore`/`GdrPipelineGate`/the fixture/docs, no
+   behavior change.
 4. `parseJsxTag` returns a small `JsxTagResult` (incl. `tagName`) instead of
    a bare `int[]`; `findJsxSpanEnd` tracks a `Deque<String>` of open tag
    names instead of an integer depth — a closing tag only reduces depth on
@@ -673,8 +670,8 @@ index, not re-derived from scratch by future investigations:
   embedded-NEWLINE state) but both fix attempts regressed other fixtures —
   reverted. Lesson carried into RDD_KEY_248: an unconditional full
   `processScope` re-run is unsafe; the eventual fix re-ran only two of the
-  five passes. (General pitfall noted: redirect long `make test` runs to a
-  log and `grep -n "^FAIL"` — live terminal capture can silently truncate.)
+  five passes. (Pitfall noted: redirect long `make test` runs to a log and
+  `grep -n "^FAIL"` — live terminal capture can silently truncate.)
 - **RDD_KEY_248 (FIXED)**: the untried narrow middle ground — re-run just
   `applyOversizedAggregateInitClosingBracePass` + `applyDeclarationsPass` a
   second time, skipping the shared trailing-gap force-reindent step on the
@@ -840,13 +837,12 @@ corruption, a universal curly-family bug in `reformatMultiLineBlockComment`
 in Java/Kotlin); (2) dot+space corruption in `renderCallCandidate`'s
 `sigForRender` for multi-arg calls whose every arg is a bare dotted
 member-access (fixed: force `sigForRender` to `null` for JS/TS, fixture
-`_81`); (3) content duplication in `enforceClassFieldAlignmentGrid` on
-nested `class` braces (fixed: only grid the outermost brace per nesting
-level, fixture `_82`); (4) comment-continuation-indent drift on an
-object-shaped intersection alias (fixed: only reindent at depth 0, fixture
-`_84`); (5) `join(...)` call-wrap/collapse non-idempotency at exactly
-`lineLengthLimit` (fixed: fits-check on the multi-line-source branch,
-fixture `_93`).
+`_81`); (3) content duplication in `enforceClassFieldAlignmentGrid` on nested
+`class` braces (fixed: only grid the outermost brace per nesting level,
+fixture `_82`); (4) comment-continuation-indent drift on an object-shaped
+intersection alias (fixed: only reindent at depth 0, fixture `_84`); (5)
+`join(...)` call-wrap/collapse non-idempotency at exactly `lineLengthLimit`
+(fixed: fits-check on the multi-line-source branch, fixture `_93`).
 
 ### `vuejs/core` dogfood — DONE
 
@@ -921,18 +917,18 @@ finish adjusting column widths, flip-flopping every round.
   escape hatch there, not the bug). **First attempt reverted**: refusing
   collapse whenever the joined one-liner exceeds `lineLengthLimit` — do NOT
   retry, it wrongly re-braced every wrappable-call-body braceless if/else
-  (broke 5 fixtures incl. `java_combined`). **Real fix (landed
-  2026-07-31)**: `BlockStructureRule.refuseUnrescuableCollapse` — refuse
-  collapse only when over-limit AND `hasBreakableCall` finds no rescuable
-  call (a `name(args)`-with-nonempty-args span), a cheap-heuristic
-  precedent shared with `JavaSpecificRule.isSingleLineBody`. Called from 3
-  sites incl. a previously-ungated bare-terminal `else{...}` chain-collapse
-  path found while building the fixture. Scans the *whole* candidate
-  (condition + body), not body-only (a body-only scan broke
-  `real_code_regressions_141`, whose rescuable call is in the condition).
-  Fixture `real_code_regressions_172`. `make test`: 221/221. Full
-  `packages/` re-scan (3900 files): 12 differ (down from ~23; 3 are the
-  separate cluster 5 gap, 9 not fixed this session — see below).
+  (broke 5 fixtures incl. `java_combined`). **Real fix (landed 2026-07-31)**:
+  `BlockStructureRule.refuseUnrescuableCollapse` — refuse collapse only when
+  over-limit AND `hasBreakableCall` finds no rescuable call (a
+  `name(args)`-with-nonempty-args span), a cheap-heuristic precedent shared
+  with `JavaSpecificRule.isSingleLineBody`. Called from 3 sites incl. a
+  previously-ungated bare-terminal `else{...}` chain-collapse path found
+  while building the fixture. Scans the whole candidate (condition + body),
+  not body-only (a body-only scan broke `real_code_regressions_141`, whose
+  rescuable call is in the condition). Fixture `real_code_regressions_172`.
+  `make test`: 221/221. Full `packages/` re-scan (3900 files): 12 differ
+  (down from ~23; 3 are the separate cluster 5 gap, 9 not fixed this
+  session — see below).
 - **Root cause #4 [FIXED]** (trailing same-line comment inconsistently
   counted in the collapse fits-check, `location_shim.ts:461`): fresh format
   counts the comment's width (over-limit once alignment padding widens the
@@ -1007,11 +1003,10 @@ by RDD_KEY_248 (reconfirmed empty diff, plain and at `indent-size=2`).
 `harness/collectionsImpl.ts` was the `applyAssignmentsPass` sibling bug,
 fixed as RDD_KEY_270.
 
-**Ranked bug-hunt summary (most-valuable-first)**: (1) `||=`/`&&=`
+**Ranked bug-hunt summary (most-valuable-first, all FIXED)**: (1) `||=`/`&&=`
 tokenizer gap; (2) union-type-before-`=>` spurious wrap; (3) call-wrap vs.
 alignment-padding ordering (substantially fixed, residue under "Active
-work"); (4) backslash-newline CRLF string corruption (narrow, 2 files). All
-FIXED.
+work"); (4) backslash-newline CRLF string corruption (narrow, 2 files).
 
 ### Other real-code-found bugs (fixed)
 

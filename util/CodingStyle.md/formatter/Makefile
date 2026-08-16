@@ -488,6 +488,8 @@ INP_FILES += py_control_flow_blank_line_gaps_inp.py
 INP_FILES += py_decorator_overflow_inp.py
 INP_FILES += py_signature_wrap_inp.py
 
+INP_FILES += eini_combined_inp.ini
+
 INP_FILES += makefile_combined_inp.mk
 INP_FILES += bash_combined_inp.sh
 INP_FILES += powershell_combined_inp.ps1

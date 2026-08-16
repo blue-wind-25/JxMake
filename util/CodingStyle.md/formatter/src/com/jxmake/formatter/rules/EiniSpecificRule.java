@@ -199,16 +199,37 @@ public final class EiniSpecificRule {
             final String prefix = snapIndentPrefix(line, indentWidth);
 
             if( rawContent.trim().isEmpty() ) {
-                // Comment-only line (nothing but whitespace precedes the marker).
+                // Comment-only line (nothing but whitespace precedes the marker) -- chain-group with
+                //  any immediately-following comment-only lines (no blank line between), same
+                //  semantics as MakefileSpecificRule's comment handling, so a multi-line comment
+                //  block (e.g. a copyright header) is normalized as one logical unit rather than
+                //  each line independently (a per-line-only pass would wrongly strip a sole trailing
+                //  `.` on an earlier line of the block).
                 flushGroup(out, group);
-                final String body       = line.substring(scan.commentIdx + scan.markerLen);
-                final String normalized = ToolingCommentNormalizer.normalize(
-                    body, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+                final List<String> commentRawLines = new ArrayList<>();
+                final List<String> markers          = new ArrayList<>();
+                final List<String> bodies           = new ArrayList<>();
+                final List<String> prefixes         = new ArrayList<>();
+                while( idx < lines.size() ) {
+                    final String   l = lines.get(idx);
+                    final LineScan s = scanLine(l);
+                    final int      e = (s.commentIdx >= 0) ? s.commentIdx : l.length();
+                    if( s.commentIdx < 0 || !l.substring(0, e).trim().isEmpty() ) break;
+                    commentRawLines.add(l);
+                    markers.add( l.substring( s.commentIdx, s.commentIdx + s.markerLen ) );
+                    bodies.add( l.substring(s.commentIdx + s.markerLen) );
+                    prefixes.add( snapIndentPrefix(l, indentWidth) );
+                    ++idx;
+                } // while
+                final List<Boolean> blanks = new ArrayList<>();
+                for( int k = 0; k < bodies.size(); ++k ) blanks.add(false);
+                final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
+                    bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
                     normalizeCommentMultiSentenceCase
                 );
-                final String marker = line.substring( scan.commentIdx, scan.commentIdx + scan.markerLen );
-                out.add(prefix + marker + normalized);
-                ++idx;
+                for( int k = 0; k < normalized.size(); ++k ) out.add(
+                    prefixes.get(k) + markers.get(k) + normalized.get(k)
+                );
                 continue;
             }
 

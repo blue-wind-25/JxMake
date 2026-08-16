@@ -1,7 +1,7 @@
 # jxmake-code-formatter — Code Formatter
 
 A deterministic code formatter for C, C++, Java, Kotlin, JSON/JSON5, CSS,
-YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, eini (Extended
+YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, E-INI (Extended
 INI), Makefile, Bash, and PowerShell, implementing the
 [CodingStyle.md](../STYLE.md) style guide (tooling languages follow
 [`STYLE_TOOLING.md`](../STYLE_TOOLING.md)). No AI, no AST — tokenizer plus
@@ -43,7 +43,7 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 `.java` → Java, `.kt`/`.kts` → Kotlin, `.json`/`.json5` → JSON/JSON5, `.css` → CSS,
 `.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
 `.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3,
-`.ini` → eini (Extended INI),
+`.ini` → E-INI (Extended INI),
 `Makefile`/`GNUmakefile`/`.mk` → Makefile, `.sh`/`.bash` → Bash, `.ps1`/`.psm1` → PowerShell).
 `.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts`. A boundary-finding
 pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
@@ -311,9 +311,9 @@ fmt-check:
 
 ---
 
-## eini (Extended INI)
+## E-INI (Extended INI)
 
-`eini` is a simple INI-like key-value config format with grouping, detected from
+E-INI (`--lang eini`) is a simple INI-like key-value config format with grouping, detected from
 the `.ini` extension (any other extension needs an explicit `--lang eini` or the
 in-file `--lang=eini` directive). It is a narrow, beautification-only pipeline
 (see [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) §4) — anything not covered by
@@ -344,7 +344,7 @@ Formatting applied:
    non-key-value line breaks the group, and the next group starts a fresh
    column.
 2. **Indentation snapping** — each line's leading indentation is rounded up to
-   the nearest `indent-size` multiple (eini has no braces/nesting of its own
+   the nearest `indent-size` multiple (E-INI has no braces/nesting of its own
    to derive a depth from).
 3. **Line-continuation alignment** — a `\`-continued value's wrapped lines
    align under the first line's value-start column (same mechanism as
@@ -472,10 +472,10 @@ trailing same-line comment's width, so only that family reads
 | YAML | used (flow-vs-block conversion) | not used -- the flow-fit check only ever measures a node's own flow-tight rendering, never a trailing comment |
 | CSS | not used -- `STYLE_DATA_FORMATS.md` §3 defines no line-length-driven wrap rule for CSS at all | not used |
 | TOML | not used -- `STYLE_DATA_FORMATS.md` §6.3/§6.4 define array/inline-table (un)wrapping by content type and grammar constraint, not by length | not used |
-| eini, Makefile, Bash, PowerShell | not used -- `STYLE_TOOLING.md` scopes these four to a fixed, narrow beautification list with "no general reindentation/re-wrapping fallback" of any kind | not used |
+| E-INI, Makefile, Bash, PowerShell | not used -- `STYLE_TOOLING.md` scopes these four to a fixed, narrow beautification list with "no general reindentation/re-wrapping fallback" of any kind | not used |
 
 This reflects genuinely different architectures per language, not gaps to be
-filled in: CSS/TOML/eini/Makefile/Bash/PowerShell have no line-length-driven wrap
+filled in: CSS/TOML/E-INI/Makefile/Bash/PowerShell have no line-length-driven wrap
 rule specified at all, and Python3/JSON5/XML/HTML5/YAML each structurally
 exclude a trailing comment from their own wrap decision (skip the decision
 entirely, or measure before the comment is appended) rather than folding it
@@ -759,7 +759,7 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (implemented;
   JSX/TSX tag trees are preserved byte-for-byte, not JSX-aware-reformatted, see Usage above)
 - [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3
-- [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — eini, Makefile, Bash, and
+- [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — E-INI, Makefile, Bash, and
   PowerShell (implemented; narrow beautification-only rule lists — recipe
   lines, quoting/heredocs/here-strings/comments are left byte-identical
   outside each language's fixed transforms)
@@ -955,10 +955,10 @@ here if and when it actually gains a documented gap.
    of this actually mattering — nested format-spec fields are almost always bare identifiers with
    no internal whitespace to normalize. Not planned unless a real corpus turns up a concrete case.
 
-### eini (Extended INI)
+### E-INI (Extended INI)
 
 No known limitations beyond the fixed five-rule scope itself: any construct
-not one of the five formatting rules (see the [eini](#eini-extended-ini)
+not one of the five formatting rules (see the [E-INI](#e-ini-extended-ini)
 section above) is left byte-identical by design, not as a gap.
 
 ### Build/dev-tooling scripts (Makefile/Bash/PowerShell)

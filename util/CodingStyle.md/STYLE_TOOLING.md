@@ -1,6 +1,6 @@
-# STYLE_TOOLING.md — Build/Dev-Tooling Script Rules (eini, Makefile, Bash, PowerShell)
+# STYLE_TOOLING.md — Build/Dev-Tooling Script Rules (E-INI, Makefile, Bash, PowerShell)
 
-This file defines formatting rules for build-and-glue scripting/config: eini,
+This file defines formatting rules for build-and-glue scripting/config: E-INI,
 Makefile, Bash, and PowerShell. Unlike the full-language jobs (C/C++/Java,
 Kotlin, JS/TS, Python3, the data formats), each of these four is **narrow,
 beautification-only scope**: a short fixed list of specific transforms.
@@ -17,7 +17,7 @@ not curly-brace-family languages in the same sense C/C++/Java/Kotlin are).
 ## 0. Comments (shared across all four)
 
 Makefile/Bash/PowerShell use `#` line comments (PowerShell also has
-`<# ... #>` block comments, left untouched — out of scope); eini uses `#`,
+`<# ... #>` block comments, left untouched — out of scope); E-INI uses `#`,
 `;`, `@`, `//`, and a triple-same-quote (`'''`/`"""`) marker — see §4.
 Comment normalization is **not** part of the fixed rule lists in §1–§4; it
 is a separate, optional pass applied to line comments only: first-letter
@@ -25,12 +25,12 @@ capitalization of the comment body, and stripping a sole trailing `.` (the
 same ad hoc pattern used for TOML and other non-curly languages) — not the
 curly-brace-family comment-classifier pipeline. Bash additionally skips
 capitalization when the comment opens with a common Unix tool name (e.g.
-`grep`, `awk`, `sed`) — Makefile, PowerShell, and eini capitalize
+`grep`, `awk`, `sed`) — Makefile, PowerShell, and E-INI capitalize
 unconditionally.
 
 **`%` is never a comment marker for any of these four languages** —
 reserved for this codebase's own `JXM_CFMT_CFG` in-file directive (e.g.
-`#% JXM_CFMT_CFG ...`). eini's spec explicitly calls this out since its
+`#% JXM_CFMT_CFG ...`). E-INI's spec explicitly calls this out since its
 comment-marker list is otherwise fairly permissive (four punctuation-based
 markers plus triple-quote); the other three simply never use `%` for
 anything else either.
@@ -299,7 +299,7 @@ braces (if/function/switch/hashtable) covered by 3.1's brace-depth indent.
 
 ---
 
-## 4. eini (Extended INI)
+## 4. E-INI (Extended INI)
 
 A simple INI-like key-value config format with grouping. Scope: separator
 alignment, indentation snapping, line-continuation alignment, and comment
@@ -350,7 +350,7 @@ name = 'John Doe'
 
 ### 4.2 Indentation (Round Up to Nearest Multiple)
 
-eini has no braces/structural nesting to derive a depth from, so every
+E-INI has no braces/structural nesting to derive a depth from, so every
 line's leading indentation is independently snapped to the nearest
 `indent-size` multiple (rounding up):
 

@@ -36,14 +36,13 @@ Each language has its own `STYLE_TOOLING.md` section (§1 Makefile, §2 Bash,
 a short **fixed list** of specific transforms plus an explicit "leave
 everything else byte-identical" rule — no general-purpose
 reindentation/re-wrapping fallback like curly-brace or data-format languages
-have. The main risk is getting that "don't touch anything else" boundary
-right via a real tokenizer per language, not naive text substitution.
-Relative difficulty: Makefile is easiest (line-oriented, only needs to
-distinguish tab-prefixed recipe lines from everything else, no tokenizer
-needed); Bash and PowerShell are comparable, each needing a small real
-tokenizer (quoting, heredocs/here-strings, comments) so fixed-rule passes
-never fire inside a string/comment/heredoc — bounded scope, not a full
-grammar.
+have. Main risk: getting that "don't touch anything else" boundary right
+via a real tokenizer per language, not naive text substitution. Relative
+difficulty: Makefile is easiest (line-oriented, only needs to distinguish
+tab-prefixed recipe lines from everything else, no tokenizer needed); Bash
+and PowerShell are comparable, each needing a small real tokenizer
+(quoting, heredocs/here-strings, comments) so fixed-rule passes never fire
+inside a string/comment/heredoc — bounded scope, not a full grammar.
 
 Several `STYLE_TOOLING.md` open questions (marked inline, "resolve via RDD
 before implementing") must be resolved before implementing the affected
@@ -160,7 +159,7 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `FormatterMakefile`-style), and `BashSpecificRule`: two-pass design —
       pass A is a character-level state-machine tokenizer (quotes, `$'...'`,
       backticks, `$(...)`, `$((...))`, `#` comments, `<<`/`<<-` heredocs incl.
-      quoted/bareword delimiters) that also applies the two token-level rules
+      quoted/bareword delimiters), also applying the two token-level rules
       (§2.2, §2.5) inline via a `RunBuffer` flushing on every kind change;
       pass B is line-oriented (§2.1/§2.3/§2.4), guarded by a per-line purity
       flag (first non-whitespace char is code). Arithmetic nested inside a
@@ -189,13 +188,13 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       classifies every character 'C'/'O' and re-emits identity via a
       Bash-style `RunBuffer` (token-level §3.x transforms plug in on 'C'
       flushes later); `computeLinePurity` mirrors Bash so structural rules
-      can refuse here-string-body / full-comment lines. Smoke-tested:
-      kind map for all construct types, purity, multi-construct identity,
+      can refuse here-string-body/full-comment lines. Smoke-tested: kind
+      map for all construct types, purity, multi-construct identity,
       `--lang powershell` + extension infer, idempotent. `make test` clean:
       248/248 forward, 248/248 idempotency — purely additive. **STALE,
       2026-08-10**: "no local fixture pair yet" — done
-      (`powershell_combined_{inp,out}.ps1`, `[x]` below).
-      §3.1–§3.6 transforms landed in subsequent checklist items.
+      (`powershell_combined_{inp,out}.ps1`, `[x]` below). §3.1–§3.6
+      transforms landed in subsequent checklist items.
 - [x] Implement PowerShell §3.1 brace-depth indentation.
       Naive brace-depth reindent over code-kind `{`/`}` only (opaque
       strings/here-strings/comments never contribute). Pure-code lines are
@@ -308,133 +307,127 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
 - [x] Run a real-code dogfood pass, one language at a time (Makefile, then
       Bash, then PowerShell).
       **Bash — DONE, 4 bugs found and fixed (3 idempotency, 1 syntax
-      corruption).** Batched 5 corpora already materialized from prior
-      sessions through round1/round2: `javaparser/javaparser`
-      (`/tmp/javaparser_gdr`, 7 `.sh`), `jenkinsci/jenkins`
-      (`/tmp/jenkins_scope`, 3 `.sh`), `wordpress/wordpress-develop`
-      (`/tmp/wordpress-develop`, 3 `.sh`), `acmesh-official/acme.sh`
-      (`/tmp/acme.sh`, full shallow clone, 276 `.sh`), `ohmyzsh/ohmyzsh`
-      (`/tmp/ohmyzsh`, stripped to 17 `.sh`/`.bash`). First four came back
-      clean (idempotent, `bash -n` matching originals); `ohmyzsh` had a
-      non-empty round1/round2 diff, bisected to a minimal repro
-      (evidence-over-reasoning). Four independent root causes, all in
-      `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
-      (1) `emitCaseBody`'s case-arm boundary regex (`CASE_ARM`) found the
-      pattern's terminating `)` via first-match with no backslash-escape
-      awareness, so an escaped paren pair like `\(\))` had its *escaped* `)`
-      mistaken for the real terminator, splitting the arm mid-pattern —
-      fixed with a char-by-char `matchCaseArm` scan that skips
-      `\`-escaped characters.
+      corruption).** Batched 5 already-materialized corpora through
+      round1/round2: `javaparser/javaparser` (`/tmp/javaparser_gdr`, 7
+      `.sh`), `jenkinsci/jenkins` (`/tmp/jenkins_scope`, 3 `.sh`),
+      `wordpress/wordpress-develop` (`/tmp/wordpress-develop`, 3 `.sh`),
+      `acmesh-official/acme.sh` (`/tmp/acme.sh`, full shallow clone, 276
+      `.sh`), `ohmyzsh/ohmyzsh` (`/tmp/ohmyzsh`, stripped to 17
+      `.sh`/`.bash`). First four came back clean; `ohmyzsh` had a
+      non-empty round1/round2 diff, bisected to a minimal repro. Four root
+      causes, all in `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
+      (1) `emitCaseBody`'s `CASE_ARM` boundary regex found the terminating
+      `)` via first-match with no backslash-escape awareness, so an escaped
+      paren pair like `\(\))` had its *escaped* `)` mistaken for the real
+      terminator, splitting the arm mid-pattern — fixed with a char-by-char
+      `matchCaseArm` scan that skips `\`-escaped characters.
       (2) `runPassA`'s root/code-mode tokenizer had no backslash-escape
       handling, so a `\'` case-arm pattern (e.g. `\'*)`) fell through to the
       plain `'` branch, opening a real single-quote string frame that stayed
       open until an unrelated later `'` closed it, corrupting brace-depth
-      indentation downstream (visible only as a round1/round2 shape
-      difference) — fixed by adding a root-context `c == '\\'` branch
-      (mirrors existing escape handling in the `D`/`Q`/`B` frame types) that
-      consumes the backslash and next character as plain code before any
-      quote-opening check runs.
+      indentation downstream — fixed by adding a root-context `c == '\\'`
+      branch (mirrors existing escape handling in the `D`/`Q`/`B` frame
+      types) that consumes the backslash and next character as plain code
+      before any quote-opening check runs.
       (3) `emitCaseBody` had no concept of a nested `case ... in` as an
-      outer arm's body — a nested case's own terminating `esac` was only
-      recognized as exactly `esac`, so a combined `esac ;;` line (closing
-      both the nested case and the enclosing arm) fell through to the
-      generic body-line fallback, corrupting indentation from there on —
-      fixed by splitting `emitCaseBody` into a wrapper plus recursive
-      `emitCaseBodyInner` (new `CaseBodyEnd` result tracking next index +
-      whether the terminator closed an enclosing arm); terminator check now
-      accepts `esac`, `esac ;;`, or `esac;;`.
+      outer arm's body — its terminating `esac` was only recognized as
+      exactly `esac`, so a combined `esac ;;` line (closing both the nested
+      case and the enclosing arm) fell through to the generic body-line
+      fallback, corrupting indentation from there on — fixed by splitting
+      `emitCaseBody` into a wrapper plus recursive `emitCaseBodyInner` (new
+      `CaseBodyEnd` result tracking next index + whether the terminator
+      closed an enclosing arm); terminator check now accepts `esac`,
+      `esac ;;`, or `esac;;`.
       (4) Surfaced via `tools/verifiers/bash_syntax_check.sh` after fixes
-      1-2 (not idempotency — `plugins/wd/wd.sh` parsed clean originally but
-      its round1 output did not): `pipeSpacing`'s (§2.2) lone-`|` detector
-      excluded `||`/`|&` but not the noclobber-override redirect `>|`
-      (`cmd >| file`), splitting it into `> |`, a genuine `bash -n` syntax
-      error — fixed by also excluding a `|` immediately preceded by `>`.
-      After all four fixes: round1/round2 diff empty across all 5 corpora;
-      `bash -n` on `ohmyzsh` shows the same 10 pre-existing error lines on
-      both original and round1 (5 files use zsh-only syntax under a
-      `.sh`/`.bash` extension — extended-glob alternation, `${(kv)...}`,
-      `always {}` blocks — already invalid bash before formatting, out of
-      scope). **Known accepted gap, not fixed:** one of those already-
-      invalid-under-bash files (`tools/upgrade.sh`) also has `pipeSpacing`
-      insert a space inside a zsh extended-glob alternation indistinguishable
-      from a real pipe (`(|.git)` -> `( | .git)`) — not a new breakage class,
-      since the file already failed `bash -n` before formatting;
-      dialect-detecting `.sh`-extension-but-actually-zsh content is out of
-      scope (same "no general grammar, fixed transform list" boundary as
-      every other accepted gap here). **Disposition (2026-08-10):** documented
-      in `README.md`'s Known Limitations → new "Build/dev-tooling scripts
-      (Makefile/Bash/PowerShell)" family section, removed from `XL.txt`
-      TIER 9 (permanent, not a live TODO). `make test`: 267/267 forward +
+      1-2: `pipeSpacing`'s (§2.2) lone-`|` detector excluded `||`/`|&` but
+      not the noclobber-override redirect `>|` (`cmd >| file`), splitting
+      it into `> |`, a genuine `bash -n` syntax error — fixed by also
+      excluding a `|` immediately preceded by `>`. After all four fixes:
+      round1/round2 diff empty across all 5 corpora; `bash -n` on `ohmyzsh`
+      shows the same 10 pre-existing error lines on both original and
+      round1 (5 files use zsh-only syntax under a `.sh`/`.bash` extension —
+      extended-glob alternation, `${(kv)...}`, `always {}` blocks — already
+      invalid bash before formatting, out of scope). **Accepted gap, not
+      fixed:** `tools/upgrade.sh` also has `pipeSpacing` insert a space
+      inside a zsh extended-glob alternation indistinguishable from a real
+      pipe (`(|.git)` -> `( | .git)`) — not a new breakage class since the
+      file already failed `bash -n`; dialect-detecting zsh-under-`.sh`
+      content is out of scope (same "no general grammar" boundary as every
+      other accepted gap here). **Disposition (2026-08-10):** documented in
+      `README.md`'s Known Limitations → new "Build/dev-tooling scripts
+      (Makefile/Bash/PowerShell)" section, removed from `XL.txt` TIER 9
+      (permanent, not a live TODO). `make test`: 267/267 forward +
       idempotency (was 264/264 -- 3 new fixtures: `real_code_regressions_188`-
       `190`). See `STATE_DOGFOOD.md` for per-repo rows.
       **PowerShell — DONE, 1 bug found and fixed.** User ran round1/round2
       manually (`--preserve-tree`) on `PowerShell/PowerShell`
       (`/tmp/PowerShell`, 505 `*.ps1`/`*.psm1`) and `actions/runner-images`
-      (`/tmp/runner-images`, 247 `*.ps1`/`*.psm1`) 2026-08-09.
-      `runner-images` came back with an empty `diff -r`. `PowerShell/
-      PowerShell` had one non-empty diff: round1 had `("a").ForEach( { $_ })`,
-      round2 turned it into `("a").ForEach ( { $_ })` (spurious space before
-      `(`). Root cause: `PowerShellSpecificRule.KEYWORD_PAREN`'s
-      case-insensitive `foreach` match used a negative lookbehind that only
-      excluded preceding word chars (`(?<![A-Za-z0-9_])`), so `.ForEach(`
-      (preceded by `.`) was misdetected as the `foreach` keyword. Fixed by
-      adding `.` to the lookbehind's exclusion set. Fixture
-      `real_code_regressions_191` (nested `.ForEach( { ... })` inside a
-      pipeline) confirms both the no-space-inserted output and
-      round1/round2 idempotency. `make test`: 268/268 forward +
-      idempotency (was 267/267). See `STATE_DOGFOOD.md` for per-repo rows.
-      **PowerShell — `microsoft/azure-pipelines-tasks`, DONE - FIXED (2026-08-09,
-      follow-up session).** Root cause: `runPassA`'s returned `PassAResult.kind`
-      array was sized/indexed to the *original* `content` string's positions,
-      but every consumer (`applyBraceIndent`, `applyOperatorSpacing`,
-      `applyPipelineSplit`, `applyAssignAlignment`, `applySwitchArmAlignment`,
-      `applyKeywordParenSpacing`/`KEYWORD_PAREN`, `applyBraceSpacing` — all
-      seven, confirmed via `grep passA.kind`) reads it against
-      `passA.transformed`, which diverges in length from `content` once a
-      standalone `#` comment's `ChainCollector.defer()` placeholder is
-      substituted for a different-length final comment text. Fixed by having
-      `RunBuffer` accumulate a parallel `kindOut` string in lockstep with its
-      own `out` (new `kindResult()`, appended per real output character on
-      every `flush()`), so `kind` is built aligned to `RunBuffer`'s actual
-      emitted output, not re-derived from `content` positions. Remaining gap:
-      the placeholder-substitution step. `ChainCollector.resolve()`'s
-      textual `String.replace(placeholder, finalText)` on `transformed`
-      can't be reused for the kind string (all `'C'`/`'O'` characters, never
-      literally containing the placeholder marker text), so a companion
-      `ChainCollector.resolveKind(preResolveTransformed, preResolveKind)`
-      locates each placeholder's position in the pre-substitution
-      `transformed` string via `indexOf`, then splices a run of `'O'` of the
-      same length as that entry's resolved final text (`resolve()` now
-      records `resolvedLength` per entry) into the kind string at the
-      matching offset, keeping `kind` aligned with `resolve()`'s return
-      value; `resolveKind()` must run after `resolve()`. Verified via a
-      minimal repro (standalone `#` comment followed by `if($x -eq $null)`),
-      the original `Tasks/Common/VstsAzureHelpers_/Utility.ps1` (diff now
-      empty), and the full corpus (all 1123 `.ps1` files under
-      `/tmp/azure-pipelines-tasks`, diff empty, zero formatter errors). New
-      permanent fixture `test/real_code_regressions_192_{inp,out}.ps1`
-      (registered in `Makefile` `INP_FILES` and `test/README.txt`). `make
-      test`: 269/269 forward + idempotency (was 268/268 before this fix).
-      **Accepted loose end:** the original content-indexed `char[] kind`
-      local inside `runPassA` is now dead write-only code (every
-      `kind[i] = ...` assignment is never read after this fix) — left in
-      place rather than stripped (~50 scattered dead-store lines judged
-      higher-risk to remove than to leave); a future cleanup pass may strip
-      it. See `STATE_DOGFOOD.md`'s `microsoft/azure-pipelines-tasks` row
-      (updated from "OPEN Q" to fixed).
-      **Resolved, 2026-08-11 (Tier1 cleanup):** the dead-write-only
+      (`/tmp/runner-images`, 247 `*.ps1`/`*.psm1`) 2026-08-09. `runner-images`
+      came back with an empty `diff -r`. `PowerShell/PowerShell` had one
+      non-empty diff: round1 had `("a").ForEach( { $_ })`, round2 turned it
+      into `("a").ForEach ( { $_ })` (spurious space before `(`). Root cause:
+      `PowerShellSpecificRule.KEYWORD_PAREN`'s case-insensitive `foreach`
+      match used a negative lookbehind excluding only preceding word chars
+      (`(?<![A-Za-z0-9_])`), so `.ForEach(` (preceded by `.`) was misdetected
+      as the `foreach` keyword. Fixed by adding `.` to the lookbehind's
+      exclusion set. Fixture `real_code_regressions_191` (nested
+      `.ForEach( { ... })` inside a pipeline) confirms both the
+      no-space-inserted output and round1/round2 idempotency. `make test`:
+      268/268 forward + idempotency (was 267/267). See `STATE_DOGFOOD.md`
+      for per-repo rows.
+      **PowerShell — `microsoft/azure-pipelines-tasks`, DONE - FIXED
+      (2026-08-09, follow-up session).** Root cause: `runPassA`'s returned
+      `PassAResult.kind` array was sized/indexed to the *original* `content`
+      string's positions, but every consumer (`applyBraceIndent`,
+      `applyOperatorSpacing`, `applyPipelineSplit`, `applyAssignAlignment`,
+      `applySwitchArmAlignment`, `applyKeywordParenSpacing`/`KEYWORD_PAREN`,
+      `applyBraceSpacing` — all seven, confirmed via `grep passA.kind`)
+      reads it against `passA.transformed`, which diverges in length from
+      `content` once a standalone `#` comment's `ChainCollector.defer()`
+      placeholder is substituted for a different-length final comment text.
+      Fixed by having `RunBuffer` accumulate a parallel `kindOut` string in
+      lockstep with its own `out` (new `kindResult()`, appended per real
+      output character on every `flush()`), so `kind` is built aligned to
+      `RunBuffer`'s actual emitted output, not re-derived from `content`
+      positions. Remaining gap, the placeholder-substitution step:
+      `ChainCollector.resolve()`'s textual `String.replace(placeholder,
+      finalText)` on `transformed` can't be reused for the kind string (all
+      `'C'`/`'O'` characters, never literally containing the placeholder
+      marker text), so a companion `ChainCollector.resolveKind
+      (preResolveTransformed, preResolveKind)` locates each placeholder's
+      position in the pre-substitution `transformed` string via `indexOf`,
+      then splices a run of `'O'` of the same length as that entry's
+      resolved final text (`resolve()` now records `resolvedLength` per
+      entry) into the kind string at the matching offset, keeping `kind`
+      aligned with `resolve()`'s return value; `resolveKind()` must run
+      after `resolve()`. Verified via a minimal repro (standalone `#`
+      comment followed by `if($x -eq $null)`), the original
+      `Tasks/Common/VstsAzureHelpers_/Utility.ps1` (diff now empty), and the
+      full corpus (all 1123 `.ps1` files under `/tmp/azure-pipelines-tasks`,
+      diff empty, zero formatter errors). New permanent fixture
+      `test/real_code_regressions_192_{inp,out}.ps1` (registered in
+      `Makefile` `INP_FILES` and `test/README.txt`). `make test`: 269/269
+      forward + idempotency (was 268/268). **Accepted loose end:** the
+      original content-indexed `char[] kind` local inside `runPassA` is now
+      dead write-only code (every `kind[i] = ...` assignment unread after
+      this fix) — left in place rather than stripped (~50 scattered
+      dead-store lines judged higher-risk to remove than leave); a future
+      cleanup pass may strip it. See `STATE_DOGFOOD.md`'s
+      `microsoft/azure-pipelines-tasks` row (updated from "OPEN Q" to
+      fixed). **Resolved, 2026-08-11 (Tier1 cleanup):** the dead-write-only
       `char[] kind` local was removed from `runPassA` entirely — the
-      declaration plus all ~32 now-unread `kind[i] = ...`/
-      `kind[i] = kind[i + 1] = ...` assignments (verified via `grep -n
-      "kind\["` that every one fell inside `runPassA`'s own body, and that
-      `PassAResult.kind` is built solely from `chainCollector.resolveKind(...)`,
-      never from this local — every write was genuinely unread). Every other
-      `kind[...]` reference in the file (`computeLinePurity`,
-      `applyOperatorSpacing`, `applyPipelineSplit`, etc.) reads a *different*
-      `kind`/`char[]` — either a method parameter or `passA.kind` — and was
-      left untouched. Pure deletion, no behavior change: `make test`
-      278/278 forward + idempotency (unchanged pass count); `powershell_combined_{inp,out}.ps1`
-      and `real_code_regressions_{182,191,192}_out.ps1` all reformat
+      declaration plus all ~32 now-unread `kind[i] = ...`/`kind[i] =
+      kind[i + 1] = ...` assignments (verified via `grep -n "kind\["` that
+      every one fell inside `runPassA`'s own body, and that
+      `PassAResult.kind` is built solely from
+      `chainCollector.resolveKind(...)`, never from this local). Every
+      other `kind[...]` reference in the file (`computeLinePurity`,
+      `applyOperatorSpacing`, `applyPipelineSplit`, etc.) reads a
+      *different* `kind`/`char[]` (a method parameter or `passA.kind`) and
+      was left untouched. Pure deletion, no behavior change: `make test`
+      278/278 forward + idempotency (unchanged pass count);
+      `powershell_combined_{inp,out}.ps1` and
+      `real_code_regressions_{182,191,192}_out.ps1` all reformat
       byte-identical to their committed `_out` fixtures before and after.
       **Makefile — DONE.** Batched `/tmp/PEGTL/Makefile`,
       `/tmp/frozen/tests/Makefile`, `/tmp/frozen/benchmarks/Makefile`, and
@@ -442,19 +435,19 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `diff -ru` empty (idempotent). Spot-checked round1 with
       `make -n -f <file>`; exit codes differed from originals only because
       this run copies just the `Makefile`/`*.mk` (not its sibling source
-      tree) into a different relative path — the failures are "No such
+      tree) into a different relative path — failures are "No such
       file"/"no rule" for sibling sources and `-std=c++20` rejected by this
-      sandbox's old g++, same failure class as the unmodified originals run
-      from their real location. No formatter-induced breakage; content diff
+      sandbox's old g++, same failure class as unmodified originals run from
+      their real location. No formatter-induced breakage; content diff
       showed only the intended §1.1-§1.4 + RDD_KEY_261 transforms; no bug
       found. See `STATE_DOGFOOD.md` for per-repo rows.
       **Makefile — `ericniebler/range-v3` + `python/cpython`, DONE (2026-08-09,
       fresh re-clones after the 2026-08-07 checkouts were found
       broken/incomplete).** `range-v3` genuinely has zero `Makefile`/
-      `makefile`/`*.mk` files anywhere in the tree (header-only, CMake-built) —
-      confirmed via `find`; closed as DONE (nothing to dogfood) rather than
-      left NOT STARTED. `cpython` does have real Make files; round1/round2
-      `diff -r` empty (idempotent), no bug found.
+      `makefile`/`*.mk` files anywhere in the tree (header-only, CMake-built)
+      — confirmed via `find`; closed as DONE (nothing to dogfood) rather
+      than left NOT STARTED. `cpython` does have real Make files;
+      round1/round2 `diff -r` empty (idempotent), no bug found.
       **Bash — DONE.** Ran `nvm-sh/nvm`'s 5 `.sh` files (5766 lines:
       `nvm.sh`, `install.sh`, `test/common.sh`, `rename_test.sh`,
       `update_test_mocks.sh`) through round1/round2: `diff -ru` empty
@@ -536,34 +529,33 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       approach since they normalize+emit inline with no lookahead: a new
       `Frame.standalone`/`lineNo` pair (set when a `#` frame is pushed)
       stores a standalone comment's raw body in a `ChainEntry` list behind a
-      unique placeholder marker emitted in its place; a trailing
-      (non-standalone) comment still normalizes immediately, never deferred.
-      After the pass-A scan, `resolveChainEntries` groups entries into
-      chains wherever `lineNo` is strictly consecutive (any gap — blank
-      line, code line, or an intervening trailing comment — breaks the
-      chain), normalizes each chain, and substitutes placeholders for final
-      text. Found and fixed a real latent bug in RDD_KEY_261's original
-      per-comment-only logic: existing fixtures' `# Copyright (C) 2024
-      Example Corp.` line (part of a 4-line standalone block also
-      containing a period-free SPDX line and two blank `#` lines) had its
-      trailing `.` wrongly stripped because each line's own period count
-      was checked in isolation; chain-grouped, the strip step only touches
-      the chain's *last* comment (the trailing blank line, which has no `.`
-      to strip), so the mid-chain period now correctly survives — exactly
-      curly's own semantics. `makefile_combined_out.mk`,
+      unique placeholder marker; a trailing (non-standalone) comment still
+      normalizes immediately, never deferred. After the pass-A scan,
+      `resolveChainEntries` groups entries into chains wherever `lineNo` is
+      strictly consecutive (any gap — blank line, code line, or an
+      intervening trailing comment — breaks the chain), normalizes each
+      chain, and substitutes placeholders for final text. Found and fixed a
+      real latent bug in RDD_KEY_261's original per-comment-only logic:
+      existing fixtures' `# Copyright (C) 2024 Example Corp.` line (part of
+      a 4-line standalone block also containing a period-free SPDX line and
+      two blank `#` lines) had its trailing `.` wrongly stripped because
+      each line's period count was checked in isolation; chain-grouped, the
+      strip step only touches the chain's *last* comment (the trailing
+      blank line, no `.` to strip), so the mid-chain period now correctly
+      survives — exactly curly's own semantics. `makefile_combined_out.mk`,
       `bash_combined_out.sh`, `powershell_combined_out.ps1`,
       `real_code_regressions_182_out.ps1` regenerated from the live JAR
       (user regenerated/verified). `make test`: 257/257 forward +
       idempotency, zero regressions (no new fixtures needed). Closes
       decision #3 of the 2026-08-08 brief.
 - [x] **PowerShell -- `util/JCS/*.ps1` (6 files), DONE, 1 bug found and
-      fixed (RDD_KEY_296, 2026-08-15).** A prior dogfood pass over
-      `util/JCS/*.ps1` flagged all 6 files with formatting diffs suggesting
-      a real bug (`param(...)` block contents flushed to column 0; backtick
-      line-continuations re-indented inconsistently) but left
-      unfixed/unadopted (no content-diff verifier for PowerShell, round1
-      discarded). Repro'd with a synthetic `.ps1` (indented `param(...)` + a
-      backtick-continued statement) before touching code. Root cause:
+      fixed (RDD_KEY_296, 2026-08-15).** A prior dogfood pass had flagged
+      all 6 files with formatting diffs suggesting a real bug (`param(...)`
+      block contents flushed to column 0; backtick line-continuations
+      re-indented inconsistently) but left unfixed/unadopted (no
+      content-diff verifier for PowerShell, round1 discarded). Repro'd with
+      a synthetic `.ps1` (indented `param(...)` + a backtick-continued
+      statement) before touching code. Root cause:
       `PowerShellSpecificRule.applyBraceIndent` tracked scope depth via
       `{`/`}` only, so a multi-line paren/bracket-delimited construct (a
       `param(...)` list) had its interior flattened to the enclosing brace
@@ -575,21 +567,21 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       blank or non-continuation line. New fixture
       `test/real_code_regressions_210_{inp,out}.ps1` (combined param-block +
       backtick-continuation repro). `make test`: 319/319 forward +
-      idempotency (was 318/318). Verified against the real trigger files:
-      all 6 `util/JCS/*.ps1` files reformatted, `param(...)` blocks and
-      backtick continuations both confirmed correct, round1/round2 diff
-      empty (idempotent) across all 6. Remaining diffs against originals are
-      pre-existing, unrelated tooling-job behaviors (operator/`=` alignment,
-      comment normalization) already covered by earlier RDD_KEYs -- not
-      touched by this fix. See `RDD_KEY_296` for full narrative.
+      idempotency (was 318/318). Verified against all 6 real trigger files:
+      `param(...)` blocks and backtick continuations both correct,
+      round1/round2 diff empty across all 6. Remaining diffs against
+      originals are pre-existing, unrelated tooling-job behaviors
+      (operator/`=` alignment, comment normalization) already covered by
+      earlier RDD_KEYs -- not touched by this fix. See `RDD_KEY_296` for
+      full narrative.
 - [x] **Bash -- `tools/verifiers/_exec_c_cpp.sh`, DONE, 1 bug found and
       fixed (RDD_KEY_297, 2026-08-16).** User reported a real committed file
       lost correct nested `if`/`for` indentation after an earlier
-      self-dogfood adopt pass (`919b9cb`); manually re-indented the file
-      first, then confirmed re-running the formatter reproduced the
-      flattening every time. Root cause: `emitBraceBody` (function bodies)
-      and `emitCaseBodyInner`'s generic fallback (case-arm bodies) both
-      forced every body line's indentation from brace/case-arm depth alone,
+      self-dogfood adopt pass (`919b9cb`); manually re-indented it, then
+      confirmed re-running the formatter reproduced the flattening every
+      time. Root cause: `emitBraceBody` (function bodies) and
+      `emitCaseBodyInner`'s generic fallback (case-arm bodies) both forced
+      every body line's indentation from brace/case-arm depth alone,
       discarding the line's own authored indentation -- so a non-brace
       construct (`if`/`then`/`fi`, `for`/`do`/`done`, no braces to count)
       nested inside a function or case-arm body always flattened to one
@@ -599,13 +591,12 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       next `indent-size` multiple only when not already one, floored at the
       structurally-required brace/case-arm depth (never dedents below what
       literal nesting requires) -- user-confirmed round-up-not-multiply
-      design. PowerShell confirmed NOT affected by this bug class: every
-      PowerShell block construct (`if`/`for`/`foreach`/`while`/functions)
-      syntactically requires literal `{}`, so `applyBraceIndent`'s
-      brace-depth count is always accurate there. `make test`: 320/320
-      forward + idempotency (was 319/319, new fixture
-      `test/real_code_regressions_211_{inp,out}.sh`). Re-verified
-      idempotency + `bash -n` error-count parity against all 6
+      design. PowerShell confirmed NOT affected: every PowerShell block
+      construct (`if`/`for`/`foreach`/`while`/functions) syntactically
+      requires literal `{}`, so `applyBraceIndent`'s brace-depth count is
+      always accurate there. `make test`: 320/320 forward + idempotency
+      (was 319/319, new fixture `test/real_code_regressions_211_{inp,out}.sh`).
+      Re-verified idempotency + `bash -n` error-count parity against all 6
       previously-materialized Bash dogfood corpora (`nvm`, `acme.sh`,
       `ohmyzsh`, `javaparser_gdr`, `jenkins_scope`, `wordpress-develop`) --
       clean, zero regressions. See `RDD_KEY_297` for full narrative.
@@ -614,48 +605,47 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       source changed (2026-08-16). SUPERSEDED same day -- see the
       shebang-exact-match follow-up entry below, which landed a working
       fix using a different, much narrower design.** User proposed a
-      score-based Java heuristic (`isBashOrSh(String)`: shebang
-      regex bonus/penalty, negative regexes for other-language indicators --
+      score-based Java heuristic (`isBashOrSh(String)`: shebang regex
+      bonus/penalty; negative regexes for other-language indicators --
       Python `def`/`import`/`class`/`print`, JS `console.log`/`const`/`let`/
       arrow-fn, Perl/Ruby `use strict`/`my \$`/`puts`/`nil`, fish/csh
-      `end`/`setenv` -- positive regexes for bash constructs --
-      `fi`/`done`/`esac`/`local x=`/`export x=`/`2>&1`/`[ ... ]` -- threshold
-      `score > 0`) as a possible gate to stop the known pipe-spacing/
-      extended-glob misfire (see README.md Known Limitations) from touching
-      zsh-dialect files under a `.sh`/`.bash` extension, with instructions
-      to implement it if it tested well. Ported the exact scoring logic to
-      Python and ran it empirically against two corpora before writing any
-      Java: (1) `/tmp/ohmyzsh` (17 files, the corpus the gap is actually
-      about, containing the known zsh-only files) -- the detector missed
-      the target class: `plugins/wd/wd.sh`, a genuine `#!/usr/bin/env zsh`
-      file, scored +3 (BASH, not caught); `tools/upgrade.sh`, the one file
-      with a *confirmed* documented pipe-spacing misfire, scored exactly 0
-      (NOT-BASH, caught only by a zero-margin fluke, not a robust margin);
-      several other genuine zsh/plain-bash files with no zsh-dialect issue
-      at all (`oh-my-zsh.sh`, `emacsclient.sh`, `git-prompt.sh`, `_wd.sh`,
+      `end`/`setenv`; positive regexes for bash constructs --
+      `fi`/`done`/`esac`/`local x=`/`export x=`/`2>&1`/`[ ... ]`; threshold
+      `score > 0`) as a gate to stop the known pipe-spacing/extended-glob
+      misfire (see README.md Known Limitations) from touching zsh-dialect
+      files under a `.sh`/`.bash` extension, with instructions to implement
+      it if it tested well. Ported the scoring logic to Python and ran it
+      empirically against two corpora before writing any Java: (1)
+      `/tmp/ohmyzsh` (17 files, the corpus the gap is about, containing the
+      known zsh-only files) -- the detector missed the target class:
+      `plugins/wd/wd.sh`, a genuine `#!/usr/bin/env zsh` file, scored +3
+      (BASH, not caught); `tools/upgrade.sh`, the one file with a
+      *confirmed* pipe-spacing misfire, scored exactly 0 (NOT-BASH, caught
+      only by a zero-margin fluke, not a robust margin); several other
+      genuine zsh/plain-bash files with no zsh-dialect issue at all
+      (`oh-my-zsh.sh`, `emacsclient.sh`, `git-prompt.sh`, `_wd.sh`,
       `git-completion.bash`, `changelog.sh`, `theme_chooser.sh`) also scored
-      NOT-BASH, i.e. would be wrongly skipped from formatting entirely.
-      (2) `/tmp/nvm` + `/tmp/acme.sh` combined (280 files, previously
-      dogfooded and confirmed fully clean/idempotent, zero zsh-dialect
-      content) -- 277/280 (~99%) scored <=0 and would be misclassified
-      NOT-BASH, scores ranging down to -77; root cause is the detector is a
-      wrong-*language* classifier, not a zsh-*dialect* classifier, and its
-      negative-indicator regex list (especially `\bend\b`, aimed at Ruby's
-      `end` keyword) fires constantly on ordinary English comment/string
-      prose in real bash scripts (many of the false positives are sourced,
-      not executed, `dnsapi/*.sh`/`notify/*.sh`/`deploy/*.sh` helper files
-      with no shebang at all, so the shebang bonus never applies either).
-      Verdict: reject -- the detector does not reliably solve the problem
-      it targets even within the one corpus built to contain that problem,
-      and would additionally disable formatting for the overwhelming
-      majority of genuinely valid bash content it was never meant to flag.
-      No Java source touched; existing accepted-gap wording in
-      `README.md`'s Known Limitations stands, now with this evaluation's
+      NOT-BASH, i.e. would be wrongly skipped from formatting entirely. (2)
+      `/tmp/nvm` + `/tmp/acme.sh` combined (280 files, previously dogfooded,
+      confirmed fully clean/idempotent, zero zsh-dialect content) --
+      277/280 (~99%) scored <=0 and would be misclassified NOT-BASH, scores
+      down to -77; root cause is the detector is a wrong-*language*
+      classifier, not a zsh-*dialect* classifier, and its negative-indicator
+      regex list (especially `\bend\b`, aimed at Ruby's `end` keyword) fires
+      constantly on ordinary English comment/string prose in real bash
+      scripts (many false positives are sourced-not-executed
+      `dnsapi/*.sh`/`notify/*.sh`/`deploy/*.sh` helper files with no shebang
+      at all, so the shebang bonus never applies either). Verdict: reject
+      -- the detector doesn't reliably solve the problem it targets even
+      within the one corpus built to contain it, and would additionally
+      disable formatting for most genuinely valid bash content it was never
+      meant to flag. No Java source touched; existing accepted-gap wording
+      in `README.md`'s Known Limitations stands, now with this evaluation's
       concrete numbers appended. `make test` not re-run -- no source
       changed.
 - [x] **Bash -- shebang-exact-match gate for the zsh-dialect pipe-spacing
       misfire, LANDED (2026-08-16, same day as the rejected entry above).**
-      Follow-up user request refined the rejected proposal into a narrower
+      Follow-up request refined the rejected proposal into a narrower
       shape: use the shebang as the *primary* decider (exact interpreter
       basename against `{bash, sh, dash, ksh}`, correctly resolving
       `#!/usr/bin/env <interp>` indirection instead of treating `env`
@@ -664,36 +654,35 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       through and are formatted as bash (deliberately permissive -- a
       shebang-less genuine zsh file is rare and the earlier evaluation
       already showed keyword-based content sniffing does more harm than
-      good). Re-tested this exact shape in Python against the same two
-      corpora before writing Java, then re-confirmed against the actual
-      landed jar: `/tmp/ohmyzsh` -- all 4 known zsh-shebang files
-      (`plugins/wd/wd.sh`, `tools/changelog.sh`, `tools/theme_chooser.sh`,
-      `tools/upgrade.sh`, the last being the file with the originally
-      confirmed misfire) now correctly skipped (`--diff` against the
-      landed jar: zero-length output for all 4); `/tmp/nvm` +
-      `/tmp/acme.sh` combined (280 files) -- 0/280 misclassified as
-      non-bash (down from 277/280 in the rejected scored design), and
-      spot-checked `nvm/install.sh` and `acme.sh/acme.sh` still produce
-      normal non-empty `--diff` output, confirming the gate doesn't block
-      legitimate bash-shebang content. Implementation: new
-      `FormatterBash.isBashCompatibleShebang(String)` private static
-      helper (parses the first `#!` line via regex, resolves the `env`
-      indirection, compares the resulting basename against a fixed
-      `{bash, sh, dash, ksh}` set), called from `formatOne` immediately
-      after the existing `formatOff` early-return and before constructing
-      `BashSpecificRule` -- returns the content unchanged (skips
-      formatting entirely) when the shebang names an incompatible
-      interpreter. No change to `BashSpecificRule` itself. New fixture
+      good). Re-tested this shape in Python against the same two corpora
+      before writing Java, then re-confirmed against the landed jar:
+      `/tmp/ohmyzsh` -- all 4 known zsh-shebang files (`plugins/wd/wd.sh`,
+      `tools/changelog.sh`, `tools/theme_chooser.sh`, `tools/upgrade.sh`,
+      the last being the file with the originally confirmed misfire) now
+      correctly skipped (`--diff` against the landed jar: zero-length
+      output for all 4); `/tmp/nvm` + `/tmp/acme.sh` combined (280 files) --
+      0/280 misclassified as non-bash (down from 277/280 in the rejected
+      scored design), and spot-checked `nvm/install.sh` and `acme.sh/acme.sh`
+      still produce normal non-empty `--diff` output, confirming the gate
+      doesn't block legitimate bash-shebang content. Implementation: new
+      `FormatterBash.isBashCompatibleShebang(String)` private static helper
+      (parses the first `#!` line via regex, resolves the `env` indirection,
+      compares the resulting basename against a fixed `{bash, sh, dash,
+      ksh}` set), called from `formatOne` immediately after the existing
+      `formatOff` early-return and before constructing `BashSpecificRule`
+      -- returns the content unchanged (skips formatting entirely) when the
+      shebang names an incompatible interpreter. No change to
+      `BashSpecificRule` itself. New fixture
       `test/real_code_regressions_213_{inp,out}.sh` (`#!/usr/bin/env zsh`
       content using extended-glob alternation `(|.git)` plus ordinary
-      unformatted bash-like syntax; `_out.sh` is byte-identical to `_inp.sh`,
-      proving the file is left untouched rather than partially formatted).
-      `make test`: 322/322 forward + idempotency, all green, new fixture
-      pair included. Residual accepted gap, unchanged from before: a shebang-less
-      `.sh`/`.bash` file using genuine zsh-only syntax is still not caught
-      -- content-sniffing was tried and rejected above, so this is treated
-      as permanently out of scope, not a follow-up TODO. `README.md`'s
-      Known Limitations Bash bullet updated to describe the landed fix
-      (superseding this file's own rejected-detector wording from earlier
-      the same day, which is left in place above as a record of the
+      unformatted bash-like syntax; `_out.sh` byte-identical to `_inp.sh`,
+      proving the file is left untouched, not partially formatted). `make
+      test`: 322/322 forward + idempotency, all green, new fixture pair
+      included. Residual accepted gap, unchanged from before: a
+      shebang-less `.sh`/`.bash` file using genuine zsh-only syntax is
+      still not caught -- content-sniffing was tried and rejected above,
+      so this is permanently out of scope, not a follow-up TODO.
+      `README.md`'s Known Limitations Bash bullet updated to describe the
+      landed fix (superseding this file's own rejected-detector wording
+      from earlier the same day, left in place above as a record of the
       design that didn't work and why).

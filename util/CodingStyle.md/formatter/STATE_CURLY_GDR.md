@@ -35,16 +35,16 @@ whitespace is preserved except for specific recognized rewrites. Only
 brace-nesting depth. `STATE_C_CPP_JAVA.md`'s "Known Gaps" originally
 documented two real bugs from this shape (`ASTParser.java` in
 `javaparser/javaparser`; local `tool/JSONEncoderLite.java`) — non-idempotent
-reindentation on internally-inconsistent source, both then ACCEPTED-not-
-fixed: the real fix (absolute target from structural depth) is nontrivial,
-with real regression risk for a narrow shape. **Status update (both now
-closed, kept for historical context on why this job exists):**
-`tool/JSONEncoderLite.java`'s instance stopped reproducing and was closed
-2026-08-15 (`RDD_KEY_292`); `ASTParser.java`'s instance was closed
-2026-08-16 (`RDD_KEY_301`, documentation-only — round-trips cleanly once
-both `curly-general-scope-reindent` and `curly-general-scope-reindent-
-multipass` are turned on, i.e. exactly the general pass this job built).
-See `STATE_C_CPP_JAVA.md`'s "Known Gaps — Fixed" for both.
+reindentation on internally-inconsistent source, both ACCEPTED-not-fixed:
+the real fix (absolute target from structural depth) is nontrivial, with
+real regression risk for a narrow shape. **Status update (both now closed,
+kept for historical context on why this job exists):**
+`tool/JSONEncoderLite.java`'s instance stopped reproducing, closed
+2026-08-15 (`RDD_KEY_292`); `ASTParser.java`'s instance closed 2026-08-16
+(`RDD_KEY_301`, documentation-only — round-trips cleanly once both
+`curly-general-scope-reindent` and `curly-general-scope-reindent-multipass`
+are on, i.e. exactly the general pass this job built). See
+`STATE_C_CPP_JAVA.md`'s "Known Gaps — Fixed" for both.
 
 **Why a *general* version is much harder/riskier than those two narrow
 passes:**
@@ -453,28 +453,27 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       for the session-by-session numbers, and `RDD_KEY_229`/`RDD_KEY_243`
       for the full root-cause/resolution writeup.**
 
-      First real-code test (2026-08-02) ran against `angular/angular`'s TS
+First real-code test (2026-08-02) ran against `angular/angular`'s TS
       dogfood cluster-5 accepted-gap files instead (scope had just expanded
       to JS/TS per `RDD_KEY_228`): 1/3 (`emit.ts`) fixed cleanly; 2/3
       (`user_metric_spec.ts`, `i18n_parse.ts`) exposed the pass-ordering bug
-      — GDR's pre-pass computes indent depth before brace-placement runs,
-      so a joined one-true-brace `} else if (...) {` gets a wrong/non-
-      idempotent indent once brace-placement later splits it into `}` /
-      `else if (...) {` (Allman style) — the split-out line never gets its
-      own GDR target. A post-pass ordering (GDR after the pipeline) was
-      tried as a candidate fix and resolved this case but introduced a
-      different non-idempotency (GDR's indentation change alters line
-      width, flipping the pipeline's own wrap fits-check on the next round
-      — a genuine circular dependency). User explicitly judged both
-      remediation paths too risky to attempt that session — no code
-      changed. `README.md`'s Known Limitations documented the gap.
+      — GDR's pre-pass computes indent depth before brace-placement runs, so
+      a joined one-true-brace `} else if (...) {` gets a wrong/non-idempotent
+      indent once brace-placement later splits it into `}` / `else if (...)
+      {` (Allman style) — the split-out line never gets its own GDR target.
+      A post-pass ordering (GDR after the pipeline) was tried as a candidate
+      fix and resolved this case but introduced a different non-idempotency
+      (GDR's indentation change alters line width, flipping the pipeline's
+      own wrap fits-check on the next round — a genuine circular
+      dependency). Both remediation paths judged too risky that session —
+      no code changed. `README.md`'s Known Limitations documented the gap.
 
-      Then against `javaparser/javaparser` (`javaparser-core-generators`,
-      43 files): 13/43 non-idempotent, all traced to the same
-      `RDD_KEY_229` root cause (e.g. `GrammarLetterGenerator.java`'s
-      `else {` block closer) — confirmed not TS-specific, the dominant
-      failure mode across ordinary curly-family code. No independently-
-      fixable bug found; no source changed.
+      Then against `javaparser/javaparser` (`javaparser-core-generators`, 43
+      files): 13/43 non-idempotent, all traced to the same `RDD_KEY_229`
+      root cause (e.g. `GrammarLetterGenerator.java`'s `else {` block
+      closer) — confirmed not TS-specific, the dominant failure mode across
+      ordinary curly-family code. No independently-fixable bug found; no
+      source changed.
 
       **Prototype bounded multipass remediation** (user go-ahead
       2026-08-03): resolved naming (`RDD_KEY_233`) and multipass-on/base-
@@ -523,16 +522,16 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       update `STATE_KOTLIN.md`'s D3 entries. **RESOLVED 2026-08-16 — see
       below (seventh attempt, landed, `RDD_KEY_298`).**
 
-      **2026-08-03, negative result:** tested whether turning on GDR (alone,
-      then with multipass) resolves D3 as a side effect — it does not. Both
+      **2026-08-03, negative result:** turning on GDR (alone, then with
+      multipass) does not resolve D3 as a side effect. Both
       `/tmp/d3_test.kt` (grounded repro) and the real
       `EqualityAndComparisonCallsTransformer.kt` stay non-idempotent under
-      all three configurations. GDR only runs *between* whole pipeline
-      passes and can't see `renderCallCandidate`'s mid-pass sibling-
-      candidate volatility (`RDD_KEY_221`). Confirms the D3-fold conclusion
-      still holds — a real fix needs a direct change to
-      `renderCallCandidate`'s own fits-check. Full writeup: `RDD_KEY_235`.
-      No source changed; `make test` unaffected (237/237).
+      all three configurations — GDR only runs *between* whole pipeline
+      passes and can't see `renderCallCandidate`'s mid-pass sibling-candidate
+      volatility (`RDD_KEY_221`). Confirms the D3-fold conclusion still
+      holds — a real fix needs a direct change to `renderCallCandidate`'s
+      own fits-check. Full writeup: `RDD_KEY_235`. No source changed;
+      `make test` unaffected (237/237).
 
       **2026-08-07, third attempt (two sub-attempts, both reverted):** a
       Kotlin-gated `kotlinStatementStartIndex` backward token scan to
@@ -554,69 +553,59 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       boundary-token scan. Sub-attempt 1 ("frame stack", every `{` opens a
       fresh nested statement frame) failed immediately — a lambda argument's
       short body needs its *enclosing* statement's prefix (9 regressed
-      fixtures, matching RDD_KEY_252 sub-attempt 1's exact list). Sub-
-      attempt 2 (`kotlinStatementStart`, narrower backward continuation-
-      newline walk with `KOTLIN_CONTINUATION_OPS`/`KOTLIN_CONTINUATION_
-      KEYWORDS`) reduced failures 9→7, then (removing `->` as an
-      uncommitted experiment) 7→4 — but each reduction traded one
-      false-positive class for another (trailing `->` misclassified as
-      continuation rather than new-statement start; `is` in a `when`-branch
-      pattern-match misclassified via the mid-expression type-check
-      reading; `_44` showed a genuinely ambiguous `=`-continuation into an
-      intentionally multi-line `if`/`else` expression body). **Assessment:
-      the framing did not hold up** — nearly every candidate token is
-      genuinely ambiguous in Kotlin without production-level context; an
-      enumerable token list can't carry the positional grammar-production
-      information the framing needed. Both sub-attempts fully reverted;
-      `make test` reconfirmed clean, zero net change. Full writeup:
-      `RDD_KEY_253`. **Recommendation: do not attempt another "backward
-      scan + token lookup table" variant under either framing — both
-      exhausted.** Two concretely viable directions remain: a real
+      fixtures, matching RDD_KEY_252 sub-attempt 1's exact list). Sub-attempt
+      2 (`kotlinStatementStart`, narrower backward continuation-newline walk
+      with `KOTLIN_CONTINUATION_OPS`/`KOTLIN_CONTINUATION_KEYWORDS`) reduced
+      failures 9→7, then (removing `->` as an uncommitted experiment) 7→4 —
+      but each reduction traded one false-positive class for another
+      (trailing `->` misclassified as continuation rather than new-statement
+      start; `is` in a `when`-branch pattern-match misclassified via
+      mid-expression type-check reading; `_44` showed a genuinely ambiguous
+      `=`-continuation into an intentionally multi-line `if`/`else`
+      expression body). **Assessment: the framing did not hold up** — nearly
+      every candidate token is genuinely ambiguous in Kotlin without
+      production-level context; an enumerable token list can't carry the
+      positional grammar-production information the framing needed. Both
+      sub-attempts fully reverted; `make test` reconfirmed clean, zero net
+      change. Full writeup: `RDD_KEY_253`. **Recommendation: do not attempt
+      another "backward scan + token lookup table" variant under either
+      framing — both exhausted.** Two viable directions remain: a real
       lightweight statement/expression-boundary parser, or new GDR-adjacent
       infrastructure with sibling-candidate visibility (`RDD_KEY_235`).
 
       **2026-08-09, requested "one or two more tries," concluded without a
-      new code attempt:** re-read the full six-attempt history before
-      writing any code. Considered anchoring off GDR's existing
-      `GdrLineBraceDepth`/`GdrParenBracketDepthCounter` data instead of a
-      fresh backward scan, but rejected by inspection — GDR's counters
-      record brace-*nesting depth*, not brace-*kind* (lambda-body open vs.
-      control-flow/declaration-block open vs. plain grouping), and kind
-      classification is the actual ambiguity every prior attempt tripped
-      on; reusing the counters would not supply construct-kind awareness.
-      No source touched; `make test` reconfirmed at 263/263. Per
-      `STATE_COMMON.md`'s evidence-over-reasoning guidance, treats the
-      six-attempt record as already answering "try once or twice more" —
-      `README.md`'s Known Limitations already documents this gap for users.
-      Genuinely closing D3 still needs one of the two substantial
-      directions named above — not something to retry piecemeal.
+      new code attempt:** re-read the full six-attempt history first.
+      Considered anchoring off GDR's existing `GdrLineBraceDepth`/
+      `GdrParenBracketDepthCounter` data instead of a fresh backward scan,
+      but rejected by inspection — GDR's counters record brace-*nesting
+      depth*, not brace-*kind* (lambda-body open vs. control-flow/
+      declaration-block open vs. plain grouping), and kind classification is
+      the actual ambiguity every prior attempt tripped on; reusing the
+      counters would not supply construct-kind awareness. No source
+      touched; `make test` reconfirmed at 263/263. Per `STATE_COMMON.md`'s
+      evidence-over-reasoning guidance, treats the six-attempt record as
+      already answering "try once or twice more" — `README.md`'s Known
+      Limitations already documents this gap. Genuinely closing D3 still
+      needs one of the two directions named above, not piecemeal retries.
 
-      **2026-08-16, seventh attempt (landed):** rather than another
-      backward-scan/token-lookup-table variant (explicitly excluded per the
-      six-attempt history above), sidestepped needing a stable statement-
-      boundary measurement entirely. `FormatterCurly`'s ~360-line
-      `formatOne` body renamed (mechanical, no behavior change) to private
-      `formatOnePass`; new public `formatOne` runs it once, then (Kotlin
-      only, via `lang.isKotlin`) re-runs it on its own output up to
-      `MAX_SETTLE_PASSES = 5` times until two consecutive passes are byte-
-      identical, mirroring `GdrPipelineGate.applyAndFormat`'s already-proven
-      convergence-loop precedent (`RDD_KEY_241`) rather than inventing new
-      machinery. Unlike GDR's own loop, does not throw on non-convergence
-      (silently returns the last pass) since this now runs unconditionally
-      for every Kotlin file, not behind an opt-in flag. Root cause
-      reconfirmed precisely via debug prints against the real
-      `EqualityAndComparisonCallsTransformer.kt`: a single over-limit
-      original source line with two call/condition candidates both wrap on
-      a fresh format, but re-tokenizing that output shortens the physical
-      line the second candidate is measured against, un-wrapping it —
-      confirmed non-idempotent under the pre-fix source, confirmed
-      idempotent under the fix. Validated: `make test`/`make test-server`
-      321/321 (new fixture `real_code_regressions_212_inp/out.kt` added);
-      188-file real Kotlin corpus (`JetBrains/kotlin`'s
-      `compiler/ir/backend.js/src`, the repro's own subtree) 188/188
-      idempotent and syntax-clean; `GdrPipelineGate`'s own convergence loop
-      confirmed to compose safely (opaque call to `formatOne`, no
-      correctness interaction). Full writeup: `RDD_KEY_298`.
+      **2026-08-16, seventh attempt (landed, RDD_KEY_298)** — mechanism/
+      validation numbers: see RDD_KEY_298 in Resolved Design Decisions
+      above. Sidestepped needing a stable statement-boundary measurement
+      entirely (rather than another backward-scan/token-lookup-table
+      variant, explicitly excluded above); unlike GDR's own convergence
+      loop, does not throw on non-convergence (silently returns the last
+      pass) since this now runs unconditionally for every Kotlin file, not
+      behind an opt-in flag. Root cause reconfirmed precisely via debug
+      prints against the real `EqualityAndComparisonCallsTransformer.kt`: a
+      single over-limit original source line with two call/condition
+      candidates both wrap on a fresh format, but re-tokenizing that output
+      shortens the physical line the second candidate is measured against,
+      un-wrapping it — confirmed non-idempotent pre-fix, idempotent
+      post-fix. Also validated on the 188-file real Kotlin corpus
+      (`JetBrains/kotlin`'s `compiler/ir/backend.js/src`, the repro's own
+      subtree), 188/188 idempotent and syntax-clean; `GdrPipelineGate`'s own
+      convergence loop confirmed to compose safely (opaque call to
+      `formatOne`, no correctness interaction).
 - [x] **Adversarial stress-test of the bounded 4-stage multipass loop**
       (2026-08-05, dedicated hardening/validation task, not new
       functionality or a default flip). Goal: hunt for a genuine
@@ -652,17 +641,17 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       **But a genuine, minimal counterexample WAS found in TS/JS/Kotlin —
       see `RDD_KEY_240`:** a single-level TS/JS `if (...) {
       arr.filter(x => x > 0).map(x => x*2).forEach(x => {...}); } else if
-      (...) { ... }` (depth 1) with multipass on: round1 differs from
-      round2 on the wrapped `.map(...)` continuation's indent column, but
-      round2 == round3 == round4 == round5 — a true fixed point exists but
-      needs a second full formatter invocation to reach, not the one
-      bounded-4-stage invocation the design assumed. This **falsifies**
-      this file's earlier claim that "a second full 4-stage application
-      should be a no-op end to end." Root cause: the same circular
-      dependency `RDD_KEY_229` diagnosed, manifesting one level deeper than
-      the 4-stage bound accounts for. Reproduces in plain JS/TS at depth 1
-      and in Kotlin at much deeper nesting (30 levels); did not reproduce in
-      the equivalent Java shape at any depth.
+      (...) { ... }` (depth 1) with multipass on: round1 differs from round2
+      on the wrapped `.map(...)` continuation's indent column, but round2 ==
+      round3 == round4 == round5 — a true fixed point exists but needs a
+      second full formatter invocation, not the one bounded-4-stage
+      invocation the design assumed. This **falsifies** this file's earlier
+      claim that "a second full 4-stage application should be a no-op end
+      to end." Root cause: the same circular dependency `RDD_KEY_229`
+      diagnosed, one level deeper than the 4-stage bound accounts for.
+      Reproduces in plain JS/TS at depth 1 and in Kotlin at much deeper
+      nesting (30 levels); did not reproduce in the equivalent Java shape at
+      any depth.
 
       **No source code changed this session** — fixing the bounded-loop
       architecture itself is a real, separate follow-on (landed next, see
@@ -689,8 +678,8 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       (investigation only, no source touched; corresponds to `XL.txt` TIER
       9's `GDR-2` bug entry: "GDR-2 (second multipass cycle) may silently
       overwrite already-STYLE.md-compliant indentation from the pipeline's
-      own relative-delta reindenters"). Built synthetic repros in `/tmp`
-      via `JXM_CFMT_CFG curly-general-scope-reindent=on;curly-general-
+      own relative-delta reindenters"). Built synthetic repros in `/tmp` via
+      `JXM_CFMT_CFG curly-general-scope-reindent=on;curly-general-
       scope-reindent-multipass=on`, formatted with `code-formatter.sh`, and
       — critically — compared each against the same input with
       `multipass=off` to isolate exactly what GDR-2 (the second GDR
@@ -705,60 +694,49 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       changed *only* a pre-existing `RDD_KEY_229`-shape else-brace mis-indent,
       leaving the case/ternary/when/wrap region byte-for-byte identical to
       the multipass-off baseline. **All four PASS.** Two harder
-      combined/deep-nesting variants built to push past those shapes — a
+      combined/deep-nesting variants built to push further — a
       15-level-deep nested Kotlin `if`/`else` with a `when`-in-`if` plus a
       nested `if`-expression wrap at the bottom, and a TS `switch`-in-`if`
       whose `case` body contains both a wrapped fluent chain
       (`.filter().map().forEach()` — the exact shape `RDD_KEY_240`
       exploited) and a nested ternary in a sibling `case` — were also fully
-      idempotent and showed the same pattern. **Both PASS.**
+      idempotent, same pattern. **Both PASS.**
 
       **Disposition: NOT REPRODUCED.** Across all four originally-named
       untried shapes plus the two harder combined/deep-nesting variants
-      deliberately built to stress the same `RDD_KEY_240`-family
-      fluent-chain/deep-nesting triggers, GDR-2 never touched a line inside
-      a `SwitchRule.applyNonInlineCaseIndent`/`when`-arm/STYLE.md §8
+      built to stress the same `RDD_KEY_240`-family fluent-chain/
+      deep-nesting triggers, GDR-2 never touched a line inside a
+      `SwitchRule.applyNonInlineCaseIndent`/`when`-arm/STYLE.md §8
       ternary-continuation region — it only ever corrected the already-
       documented `RDD_KEY_229`-shape closing-brace mis-indent that
-      GDR-1-only leaves behind. No evidence found that GDR-2 clobbers the
-      pipeline's own relative-delta reindent decisions, for any shape
-      tried. **Not an exhaustive proof** (synthetic repros only, no
-      dedicated real-code TS/Kotlin corpus pull for this specific question
-      — judged out of scope for a single investigation task given six
-      shapes already cleared cleanly and every real-code corpus this job
-      has separately tested under multipass — `javaparser-core(-
-      generators)`, `angular` TS cluster-5, `serge-sans-paille/frozen` —
-      already showing zero non-idempotency). No fixture added — this
-      session was scoped to `STATE_CURLY_GDR.md`/`XL.txt` edits only (ran
-      concurrently alongside another session's unrelated work elsewhere in
-      the repo), so all testing was `/tmp`-only, no `test/` writes. `XL.txt`
-      TIER 9's `GDR-2` bullet updated to reflect this result.
+      GDR-1-only leaves behind. No evidence GDR-2 clobbers the pipeline's
+      own relative-delta reindent decisions, for any shape tried. **Not an
+      exhaustive proof** (synthetic repros only, no dedicated real-code
+      TS/Kotlin corpus pull — judged out of scope given six shapes already
+      cleared cleanly and every real-code corpus this job has separately
+      tested under multipass — `javaparser-core(-generators)`, `angular` TS
+      cluster-5, `serge-sans-paille/frozen` — already showing zero
+      non-idempotency). No fixture added — session scoped to
+      `STATE_CURLY_GDR.md`/`XL.txt` edits only (ran concurrently alongside
+      another session's unrelated work elsewhere in the repo), all testing
+      `/tmp`-only, no `test/` writes. `XL.txt` TIER 9's `GDR-2` bullet
+      updated to reflect this result.
 - [x] **Fix `RDD_KEY_240`'s confirmed second-order-oscillation
       counterexample** (2026-08-05, follow-on to the stress-test item
-      above). `GdrPipelineGate.applyAndFormat`'s hardcoded, unconditional
-      4-call sequence replaced with a real convergence loop: repeats the
-      GDR-pass + `formatOne` cycle, comparing each new cycle's output
-      against the immediately preceding cycle's, stopping as soon as two
-      consecutive cycles are byte-identical. New `MAX_MULTIPASS_CYCLES = 20`
-      safety cap (~5x the ~4 cycles the confirmed counterexample needed)
-      throws `IllegalStateException` (file path + pointer to `RDD_KEY_241`)
-      if reached without convergence, rather than silently returning a
-      possibly-still-oscillating result. Base single-pre-pass path
-      byte-for-byte unchanged. `make test`: 244/244, unaffected (no fixture
-      — matches how `RDD_KEY_229`/`RDD_KEY_240` were documented). Re-ran
-      the exact minimal `RDD_KEY_240` TS/JS repro: confirmed fixed —
-      round1 == round2 (byte-identical), previously round1 != round2.
-      Defaults remain `off`. Full text: `RDD_KEY_241`.
+      above; mechanism/details: see RDD_KEY_241 in Resolved Design
+      Decisions above). Safety cap `MAX_MULTIPASS_CYCLES = 20` is ~5x the
+      ~4 cycles the confirmed counterexample needed. `make test`: 244/244,
+      unaffected (no fixture — matches how `RDD_KEY_229`/`RDD_KEY_240` were
+      documented). Re-ran the exact minimal `RDD_KEY_240` TS/JS repro:
+      confirmed fixed — round1 == round2 (byte-identical), previously
+      round1 != round2.
 
       **Separately investigated, unrelated pre-existing bug, fixed —
-      `RDD_KEY_242`:** while constructing a deep-nesting Kotlin adversarial
-      repro, `GdrRewriter.rewrite`/`GdrRewriter.spaces` threw
-      `NegativeArraySizeException` on certain malformed (bracket-
-      unbalanced) one-true-brace `} else if (...) {` Kotlin input combined
-      with a trailing-lambda fluent chain, reproducing identically under
-      GDR alone (multipass off) — confirmed via a side-by-side build of the
-      pre-`RDD_KEY_241` source, so this crash predates and was unaffected
-      by the convergence-loop change. Fixed, see `RDD_KEY_242` above.
+      `RDD_KEY_242`** (see RDD_KEY_242 in Resolved Design Decisions above):
+      found while constructing a deep-nesting Kotlin adversarial repro,
+      reproducing identically under GDR alone (multipass off) — confirmed
+      via a side-by-side build of the pre-`RDD_KEY_241` source, so this
+      crash predates and was unaffected by the convergence-loop change.
 - [x] **Add a real-world-derived multipass regression fixture** (2026-08-14,
       follow-on from `STATE_JS_TS.md`'s Step 2 Increment 5 real-corpus
       sweep). That sweep's `ruanyf/react-demos` dogfood pass found
@@ -768,43 +746,40 @@ every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
       TypeError(...); }` reindent differently on a second pass. Verified
       directly: GDR off (default), round1 != round2 (reproducing the
       original finding); with `curly-general-scope-reindent=on;
-      curly-general-scope-reindent-multipass=on`, round1 == round2, byte-
-      identical, `js_ts_syntax_check.sh` clean — the shipped multipass
+      curly-general-scope-reindent-multipass=on`, round1 == round2,
+      byte-identical, `js_ts_syntax_check.sh` clean — the shipped multipass
       workaround also resolves this real-world shape, not just the
       synthetic shapes the existing fixtures cover. Added
       `test/curly_gdr_multipass_oneliner_{inp,out}.js`: the real
       `_createClass`/`_classCallCheck`/`_possibleConstructorReturn`/
       `_inherits` Babel-helper one-liners from `demo13/app.js`, with
       `/*% JXM_CFMT_CFG curly-general-scope-reindent=on;curly-general-
-      scope-reindent-multipass=on */` via in-file config. Confirmed the
-      fixture genuinely isolates the fix: same input with multipass=off
-      substituted in is non-idempotent (`--standalone --check` exits 1);
-      with multipass on, idempotent (`--check` exits 0). Registered in
-      `Makefile`'s `INP_FILES` right after `curly_gdr_js_regex_inp.ts`
-      (before `java_flush_left_inp.java`) and in `test/README.txt`
-      immediately after the `curly_gdr_js_regex_inp/out.ts` entry. `make
-      test`: 311/311 → 312/312, zero regressions. This fixture lives
-      entirely in this job per the project's job-isolation convention —
-      `STATE_JS_TS.md`'s own finding text untouched, cross-referenced only
-      in this entry's prose.
+      scope-reindent-multipass=on */` via in-file config. Fixture verified
+      to isolate the fix: same input with multipass=off is non-idempotent
+      (`--standalone --check` exits 1); with multipass on, idempotent
+      (`--check` exits 0). Registered in `Makefile`'s `INP_FILES` right
+      after `curly_gdr_js_regex_inp.ts` (before `java_flush_left_inp.java`)
+      and in `test/README.txt` immediately after the
+      `curly_gdr_js_regex_inp/out.ts` entry. `make test`: 311/311 →
+      312/312, zero regressions. Lives entirely in this job per the
+      project's job-isolation convention — `STATE_JS_TS.md`'s own finding
+      text untouched, cross-referenced only here.
 - [x] **Fix the base single-pass `curly-general-scope-reindent` ordering
       bug** (`RDD_KEY_229`) directly, independent of the opt-in multipass
       workaround. Investigated 2026-08-05: unambiguously `RDD_KEY_229` —
-      GDR's pre-pass computes each line's target from the source's brace/
-      paren nesting *before* the pipeline's brace-placement pass runs, so a
-      joined one-true-brace line the pipeline later splits never gets a
-      correct target for the split-out line — confirmed non-idempotent on
-      13/43 `javaparser-core-generators`, 93/576 `javaparser-core`, 7/20
-      `serge-sans-paille/frozen`, 2/3 `angular` TS cluster-5 files
-      (multipass is layered on top, not a fix to this base path — with
-      multipass off, the base path still has this exact bug). **Resolved
-      2026-08-06 as a documentation-only fix (`RDD_KEY_243`, coordinator
-      go-ahead):** rather than either of `RDD_KEY_229`'s two named
-      remediation options, the resolution is to document that the already-
-      shipped, already-validated `curly-general-scope-reindent-multipass =
-      on` is the fix for this gap — no source code changed. See
-      `RDD_KEY_243` above and `README.md`'s "General scope-depth
-      reindentation (GDR)" subsection.
+      GDR's pre-pass computes each line's target from the source's
+      brace/paren nesting *before* the pipeline's brace-placement pass
+      runs, so a joined one-true-brace line the pipeline later splits never
+      gets a correct target for the split-out line (per-corpus non-
+      idempotency counts: see the "Validation" entry above; multipass is
+      layered on top, not a fix to this base path — with multipass off,
+      the base path still has this exact bug). **Resolved 2026-08-06 as a
+      documentation-only fix (`RDD_KEY_243`, coordinator go-ahead):** rather
+      than either of `RDD_KEY_229`'s two named remediation options, the
+      resolution is to document that the already-shipped, already-validated
+      `curly-general-scope-reindent-multipass = on` is the fix for this
+      gap — no source code changed. See `RDD_KEY_243` above and
+      `README.md`'s "General scope-depth reindentation (GDR)" subsection.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

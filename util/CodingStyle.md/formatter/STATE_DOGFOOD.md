@@ -142,16 +142,16 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java/Python3/JS | STATE_COMMON.md | recurring self-format pass (tools/verifiers/* + formatter's own src/**, 2026-08-14) | DONE - BUG FOUND, FIXED | round1/round2 idempotent on all files after fixes; content-diff MISMATCHes manually reviewed as legitimate re-styling (brace-presence/AST-order changes: one-lining, import sort, alignment-group recomputation), no real corruption. Found+fixed 3 real bugs: (1) `BlockStructureRule.extractSingleIdentifier` dropped a leading `!` on negated conditions, corrupting hand-written trailing comments (RDD_KEY_289); (2) `BlockStructureRule.alignBracelessElseIfChain` misaligned a mixed braceless-if/braced-else-if chain via pure text-prefix matching with no braceless-body check (RDD_KEY_289); (3) `ScopePipelineIndent.applySingleStatementBody`'s "already compact" branch measured raw/padded text instead of normalized form, causing non-idempotent one-liner if/elif/else chains (RDD_KEY_288). Fixtures: real_code_regressions_204 (Python), real_code_regressions_205 (Java). Round1 adopted over both `tools/verifiers/*` and `src/**/*.java`; make test 314/314 forward+idempotency (up from 312/312 baseline) |
 | Java/Python3/JS/Bash | STATE_COMMON.md | recurring self-format pass (tools/*, XL.txt TIER 0 item 2, 2026-08-12) | DONE - BUG FOUND, FIXED | 69 files (.java/.py/.js/.sh); round1/round2 idempotent; content-diff clean on all 6 files with actual changes; syntax-checked clean. Surfaced a real formatter bug in `tools/gru/FilterAbstain.java`'s output (flush-left `catch`, see src/** row below); after fix, re-ran and re-adopted that one file. Round1 adopted over real `tools/*` |
 
-**Note on `microsoft/TypeScript`'s status**: cluster #3's shared braceless-
-collapse root cause (same as `angular/angular` cluster 4) is fixed, as is the
-`applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering issue that was
-the residual cause here — shared-curly-pipeline scope, not JS/TS-specific
-(see STATE_C_CPP_JAVA.md Open Questions,
+**Note on `microsoft/TypeScript`'s status**: cluster #3's shared
+braceless-collapse root cause (same as `angular/angular` cluster 4) is
+fixed, as is the `applyAssignmentsPass` vs. `enforceCallLineBreaking`
+ordering issue that was the residual cause here — shared-curly-pipeline
+scope, not JS/TS-specific (see STATE_C_CPP_JAVA.md Open Questions,
 `ScopePipelineCurly.reapplyAssignmentsPassOnly`). The 2026-08-09
 reconfirmation found 5 residual shapes, all now fixed: `watchPublic.ts`'s
-nested-array-literal corruption plus the 4 Tier-3 shapes (RDD_KEY_273-276) —
-see the table row above and `STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript"
-section for per-shape detail.
+nested-array-literal corruption plus the 4 Tier-3 shapes (RDD_KEY_273-276)
+— see the table row above and `STATE_JS_TS.md`'s "Dogfood:
+microsoft/TypeScript" section for per-shape detail.
 
 Corpus scope: `src/` only (601 real `.ts` files, 379045 lines) — excluded
 `tests/cases/**` (20089 hand-authored compiler fixtures, incl.

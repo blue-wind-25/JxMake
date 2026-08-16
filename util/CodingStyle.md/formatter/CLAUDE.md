@@ -20,6 +20,7 @@ state file.
 | AI-assist Step 3: GRU comment-classifier abstain resolution (implemented and shipped — `gru-classifier = on` default since 2026-08-02, `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
 | General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
 | HTML5 deep tree-construction gaps (tc gap job; all four levels (1-4) landed and full-suite dogfood re-validated with zero regression, still off by default behind `html5-tc-gap-level = 0`, opt-in cumulative — read `STATE_HTML5_TCG.md` for each level's implementation notes/known limitations before changing) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
+| INI-like key-value config formatter (eini, Extended INI; implemented — narrow beautification-only rule list per `STYLE_TOOLING.md` §4) | `STATE_COMMON.md` | `STATE_EINI.md` |
 | Build/dev-tooling script formatters: Makefile, Bash, PowerShell (implemented — narrow beautification-only rule lists per `STYLE_TOOLING.md`) | `STATE_COMMON.md` | `STATE_TOOLING.md` |
 
 `STATE_COMMON.md` holds the shared commit workflow, ambiguity-handling
@@ -28,7 +29,8 @@ every job. `STATE_C_CPP_JAVA.md` is authoritative for the C/C++/Java job's
 progress, implementation protocol, and "Resolved Design Decisions" table.
 `STATE_KOTLIN.md`, `STATE_CPP26.md`, `STATE_DATA_FORMATS.md`,
 `STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_AI.md`, `STATE_CURLY_GDR.md`,
-`STATE_HTML5_TCG.md`, and `STATE_TOOLING.md` are each job's own equivalent.
+`STATE_HTML5_TCG.md`, `STATE_EINI.md`, and `STATE_TOOLING.md` are each
+job's own equivalent.
 
 **Current implementation status:** no language in this codebase is
 scaffold-only any longer (`Lang.SCAFFOLD_ONLY_LANGUAGES` is now an empty
@@ -36,9 +38,10 @@ string, kept only for documentation/compatibility). Data formats (JSON,
 JSON5, CSS, YAML, TOML, XML, HTML5 incl. `<script>` dispatch via
 `XmlSpecificRule.renderScriptOrStyle`), JS/TS (`JsTsSpecificRule`/
 `JsTsDeclarationAlignmentRule`), Python3 (`FormatterIndent`/
-`ScopePipelineIndent` for STYLE_PYTHON3.md §1-9), and the three tooling
-languages — Makefile (`FormatterMakefile`/`MakefileSpecificRule`), Bash
-(`FormatterBash`/`BashSpecificRule`, STYLE_TOOLING.md §2), PowerShell
+`ScopePipelineIndent` for STYLE_PYTHON3.md §1-9), eini
+(`FormatterEini`/`EiniSpecificRule`, STYLE_TOOLING.md §4), and the three
+tooling languages — Makefile (`FormatterMakefile`/`MakefileSpecificRule`),
+Bash (`FormatterBash`/`BashSpecificRule`, STYLE_TOOLING.md §2), PowerShell
 (`FormatterPowerShell`/`PowerShellSpecificRule`, STYLE_TOOLING.md §3) — all
 have real logic landed. C++26 has no separate language identity or
 scaffold entry — it's future incremental rule coverage on the existing,
@@ -64,13 +67,13 @@ enumerations, etc.), for this and every future session:**
 
 ```
 c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts,
-python3, makefile, bash, powershell
+python3, eini, makefile, bash, powershell
 ```
 
 Apply this order whenever authoring or editing a language list anywhere in
-this directory or its docs. `makefile`/`bash`/`powershell` are fully
-implemented (see `STATE_TOOLING.md` / `STYLE_TOOLING.md`) and belong in
-every list that asserts *current* capability (`README.md`'s `--lang`
-accepted-values list, its `.ext →` / basename language mapping,
+this directory or its docs. `eini`/`makefile`/`bash`/`powershell` are fully
+implemented (see `STATE_EINI.md`/`STATE_TOOLING.md` / `STYLE_TOOLING.md`)
+and belong in every list that asserts *current* capability (`README.md`'s
+`--lang` accepted-values list, its `.ext →` / basename language mapping,
 `../README.txt`'s JAR-implemented-languages list, server `lang=` enums,
 etc.), matching actual code state.

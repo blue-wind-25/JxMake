@@ -1,10 +1,11 @@
 # jxmake-code-formatter — Code Formatter
 
 A deterministic code formatter for C, C++, Java, Kotlin, JSON/JSON5, CSS,
-YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, Makefile, Bash,
-and PowerShell, implementing the [CodingStyle.md](../STYLE.md) style guide
-(tooling languages follow [`STYLE_TOOLING.md`](../STYLE_TOOLING.md)). No AI,
-no AST — tokenizer plus recursive descent on bounded token slices.
+YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, eini (Extended
+INI), Makefile, Bash, and PowerShell, implementing the
+[CodingStyle.md](../STYLE.md) style guide (tooling languages follow
+[`STYLE_TOOLING.md`](../STYLE_TOOLING.md)). No AI, no AST — tokenizer plus
+recursive descent on bounded token slices.
 
 ---
 
@@ -42,6 +43,7 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 `.java` → Java, `.kt`/`.kts` → Kotlin, `.json`/`.json5` → JSON/JSON5, `.css` → CSS,
 `.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
 `.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3,
+`.ini` → eini (Extended INI),
 `Makefile`/`GNUmakefile`/`.mk` → Makefile, `.sh`/`.bash` → Bash, `.ps1`/`.psm1` → PowerShell).
 `.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts`. A boundary-finding
 pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
@@ -67,7 +69,7 @@ java -jar code-formatter-1.0.1.jar --lang cpp Module.inc
 ```
 
 `--lang` accepts exactly one of `c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`, `yaml`,
-`toml`, `xml`, `html5`, `js`, `ts`, `python3`, `makefile`, `bash`, `powershell`, and applies to
+`toml`, `xml`, `html5`, `js`, `ts`, `python3`, `eini`, `makefile`, `bash`, `powershell`, and applies to
 every file given on that command line (mixing file types with a single forced `--lang` in one
 invocation isn't supported — run the formatter once per language instead).
 Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
@@ -240,7 +242,7 @@ error (nonzero exit, no output), not a "last one wins" merge.
 **Language override (`--lang`):** alongside ordinary `key=value` config entries, the
 directive also accepts a `--lang` pseudo-key, matching the CLI flag of the same name
 and accepting the same values (`c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`,
-`yaml`, `toml`, `xml`, `html5`, `js`, `ts`, `python3`, `makefile`, `bash`, `powershell`):
+`yaml`, `toml`, `xml`, `html5`, `js`, `ts`, `python3`, `eini`, `makefile`, `bash`, `powershell`):
 
 ```java
 //% JXM_CFMT_CFG --lang=cpp
@@ -305,6 +307,64 @@ fmt:
 
 fmt-check:
     java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar --check $(SRCS)
+```
+
+---
+
+## eini (Extended INI)
+
+`eini` is a simple INI-like key-value config format with grouping, detected from
+the `.ini` extension (any other extension needs an explicit `--lang eini` or the
+in-file `--lang=eini` directive). It is a narrow, beautification-only pipeline
+(see [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) §4) — anything not covered by
+the five rules below is left byte-identical, with no general reindent/rewrap
+fallback.
+
+Recognized syntax:
+
+- **Key-value lines**: `key = value` or `key: value` — whichever separator
+  (`=` or `:`) appears first outside quotes on the line. An unquoted key has its
+  leading/trailing whitespace stripped and internal whitespace runs collapsed to
+  a single space; a quoted key (`'...'`/`"..."`) keeps its interior whitespace
+  exactly as written. A value has leading/trailing whitespace stripped unless
+  quoted, in which case its interior is preserved verbatim (never collapsed).
+- **Group headers**: `[name]`, `{name}`, `<name>`, `(name)`, or a bare/plain
+  line with no wrapping marker at all (any non-comment line with no key-value
+  separator). Same trim/collapse-outside-quotes rule as an unquoted key.
+- **Comments**: a line (or trailing portion of a line) starting with `#`, `;`,
+  `@`, or `//` outside any quotes, or three of the same quote character in a
+  row (`'''`/`"""`) outside any quoting context. `%` is reserved for this
+  formatter's own `JXM_CFMT_CFG` in-file directive and is never treated as a
+  comment marker.
+
+Formatting applied:
+
+1. **Separator alignment** — a contiguous run of key-value lines has its
+   `=`/`:` separators padded into one column; a blank line or any
+   non-key-value line breaks the group, and the next group starts a fresh
+   column.
+2. **Indentation snapping** — each line's leading indentation is rounded up to
+   the nearest `indent-size` multiple (eini has no braces/nesting of its own
+   to derive a depth from).
+3. **Line-continuation alignment** — a `\`-continued value's wrapped lines
+   align under the first line's value-start column (same mechanism as
+   Makefile's continuation-line alignment).
+4. **Comment normalization** — first-letter capitalization and stripping a
+   sole trailing `.`, applied unconditionally (no tool-name skip list).
+5. **No long-line breaking** — values/headers/comments always stay on one
+   line, regardless of length.
+
+Example:
+
+```ini
+[Server Config]
+host = localhost
+port : 8080
+name = 'John Doe'
+
+; comment about the timeout
+timeout   = 30
+retries   = 3
 ```
 
 ---
@@ -412,10 +472,10 @@ trailing same-line comment's width, so only that family reads
 | YAML | used (flow-vs-block conversion) | not used -- the flow-fit check only ever measures a node's own flow-tight rendering, never a trailing comment |
 | CSS | not used -- `STYLE_DATA_FORMATS.md` §3 defines no line-length-driven wrap rule for CSS at all | not used |
 | TOML | not used -- `STYLE_DATA_FORMATS.md` §6.3/§6.4 define array/inline-table (un)wrapping by content type and grammar constraint, not by length | not used |
-| Makefile, Bash, PowerShell | not used -- `STYLE_TOOLING.md` scopes these three to a fixed, narrow beautification list with "no general reindentation/re-wrapping fallback" of any kind | not used |
+| eini, Makefile, Bash, PowerShell | not used -- `STYLE_TOOLING.md` scopes these four to a fixed, narrow beautification list with "no general reindentation/re-wrapping fallback" of any kind | not used |
 
 This reflects genuinely different architectures per language, not gaps to be
-filled in: CSS/TOML/Makefile/Bash/PowerShell have no line-length-driven wrap
+filled in: CSS/TOML/eini/Makefile/Bash/PowerShell have no line-length-driven wrap
 rule specified at all, and Python3/JSON5/XML/HTML5/YAML each structurally
 exclude a trailing comment from their own wrap decision (skip the decision
 entirely, or measure before the comment is appended) rather than folding it
@@ -699,10 +759,10 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (implemented;
   JSX/TSX tag trees are preserved byte-for-byte, not JSX-aware-reformatted, see Usage above)
 - [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3
-- [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — Makefile, Bash, and PowerShell
-  (implemented; narrow beautification-only rule lists — recipe lines, quoting/
-  heredocs/here-strings/comments are left byte-identical outside each language's
-  fixed transforms)
+- [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — eini, Makefile, Bash, and
+  PowerShell (implemented; narrow beautification-only rule lists — recipe
+  lines, quoting/heredocs/here-strings/comments are left byte-identical
+  outside each language's fixed transforms)
 
 ---
 
@@ -711,7 +771,7 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (default
 `17173`, override with `--port N` / `server-port` config key):
 
-- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3|makefile|bash|powershell>[&format-off=true][&<config-key>=<value>...]`
+- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3|eini|makefile|bash|powershell>[&format-off=true][&<config-key>=<value>...]`
   — request body is the file's raw content (UTF-8); response body is the formatted content
   (UTF-8), HTTP 200. The `lang` parameter is required by the client and always takes priority
   over any extension-based guess the server could make from `path` — this is how `--lang`
@@ -894,6 +954,12 @@ here if and when it actually gains a documented gap.
    `Lib/test/test_fstring.py`, which specifically exercises this shape) found zero real instances
    of this actually mattering — nested format-spec fields are almost always bare identifiers with
    no internal whitespace to normalize. Not planned unless a real corpus turns up a concrete case.
+
+### eini (Extended INI)
+
+No known limitations beyond the fixed five-rule scope itself: any construct
+not one of the five formatting rules (see the [eini](#eini-extended-ini)
+section above) is left byte-identical by design, not as a gap.
 
 ### Build/dev-tooling scripts (Makefile/Bash/PowerShell)
 

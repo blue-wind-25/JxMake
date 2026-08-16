@@ -1,30 +1,39 @@
-# STYLE_TOOLING.md — Build/Dev-Tooling Script Rules (Makefile, Bash, PowerShell)
+# STYLE_TOOLING.md — Build/Dev-Tooling Script Rules (eini, Makefile, Bash, PowerShell)
 
-This file defines formatting rules for build-and-glue scripting: Makefile,
-Bash, and PowerShell. Unlike the full-language jobs (C/C++/Java, Kotlin,
-JS/TS, Python3, the data formats), each of these three is **narrow,
+This file defines formatting rules for build-and-glue scripting/config: eini,
+Makefile, Bash, and PowerShell. Unlike the full-language jobs (C/C++/Java,
+Kotlin, JS/TS, Python3, the data formats), each of these four is **narrow,
 beautification-only scope**: a short fixed list of specific transforms.
 Any construct not explicitly covered below must be left byte-identical to
 the source — there is no general reindentation/re-wrapping fallback for
 anything outside these rules.
 
 Read together with `STYLE.md` only where a section below explicitly says
-so; otherwise `STYLE.md`'s general rules do not apply here (these three are
+so; otherwise `STYLE.md`'s general rules do not apply here (these four are
 not curly-brace-family languages in the same sense C/C++/Java/Kotlin are).
 
 ---
 
-## 0. Comments (shared across all three)
+## 0. Comments (shared across all four)
 
-All three languages use `#` line comments (PowerShell also has `<# ... #>`
-block comments, left untouched — out of scope). Comment normalization is
-**not** part of the fixed rule lists in §1–§3; it is a separate, optional
-pass applied to `#` line comments only: first-letter capitalization of the
-comment body, and stripping a sole trailing `.` (the same ad hoc pattern
-used for TOML and other non-curly languages) — not the curly-brace-family
-comment-classifier pipeline. Bash additionally skips capitalization when the
-comment opens with a common Unix tool name (e.g. `grep`, `awk`, `sed`) —
-Makefile and PowerShell capitalize unconditionally.
+Makefile/Bash/PowerShell use `#` line comments (PowerShell also has
+`<# ... #>` block comments, left untouched — out of scope); eini uses `#`,
+`;`, `@`, `//`, and a triple-same-quote (`'''`/`"""`) marker — see §4.
+Comment normalization is **not** part of the fixed rule lists in §1–§4; it
+is a separate, optional pass applied to line comments only: first-letter
+capitalization of the comment body, and stripping a sole trailing `.` (the
+same ad hoc pattern used for TOML and other non-curly languages) — not the
+curly-brace-family comment-classifier pipeline. Bash additionally skips
+capitalization when the comment opens with a common Unix tool name (e.g.
+`grep`, `awk`, `sed`) — Makefile, PowerShell, and eini capitalize
+unconditionally.
+
+**`%` is never a comment marker for any of these four languages** —
+reserved for this codebase's own `JXM_CFMT_CFG` in-file directive (e.g.
+`#% JXM_CFMT_CFG ...`). eini's spec explicitly calls this out since its
+comment-marker list is otherwise fairly permissive (four punctuation-based
+markers plus triple-quote); the other three simply never use `%` for
+anything else either.
 
 ---
 
@@ -290,8 +299,111 @@ braces (if/function/switch/hashtable) covered by 3.1's brace-depth indent.
 
 ---
 
+## 4. eini (Extended INI)
+
+A simple INI-like key-value config format with grouping. Scope: separator
+alignment, indentation snapping, line-continuation alignment, and comment
+normalization — a fixed four formatting rules (plus "no long-line
+breaking" as an explicit fifth non-rule). No braces/indentation-significant
+structure of its own; a "group" here means a contiguous run of alignable
+key-value lines, distinct from an INI `[section]` group header.
+
+**Recognized syntax** (requires a real per-line scanner: single/double
+quotes `'...'`/`"..."` never span a physical line, so none of the rules
+below may fire on a construct inside a quoted span):
+
+- **Key-value separator**: `=` or `:`, whichever appears first outside
+  quotes on the line (an independent operator each time — not `:=` or any
+  other compound form).
+- **Key**: everything left of the separator. Quoted (`'...'`/`"..."`)
+  keeps its interior whitespace verbatim; unquoted has outer whitespace
+  stripped and internal whitespace runs collapsed to one space.
+- **Value**: everything right of the separator, outer whitespace stripped
+  unless quoted (quoted interior preserved verbatim, never collapsed).
+- **Group header**: `[name]`, `{name}`, `<name>`, `(name)`, or a bare/plain
+  line with no wrapping marker at all (any non-comment line with no
+  key-value separator). Same trim/collapse rule as an unquoted key; a
+  quoted portion inside a header preserves its interior verbatim.
+- **Comments**: `#`, `;`, `@`, `//`, each recognized only outside quotes —
+  an exact allow-list, not an open-ended "any punctuation" rule. Also,
+  three of the same quote character in a row (`'''`/`"""`) outside any
+  other quoting context starts a comment to end of line. `%` is never a
+  comment marker (see §0).
+
+### 4.1 Separator Alignment
+
+Contiguous key-value lines are aligned into one column group; a blank line
+or any non-matching line breaks the group (same semantics as Makefile
+§1.1):
+
+```
+host = localhost
+port : 8080
+name = 'John Doe'
+```
+->
+```
+host = localhost
+port : 8080
+name = 'John Doe'
+```
+
+### 4.2 Indentation (Round Up to Nearest Multiple)
+
+eini has no braces/structural nesting to derive a depth from, so every
+line's leading indentation is independently snapped to the nearest
+`indent-size` multiple (rounding up):
+
+```
+[section]
+  key = value
+     other = value
+```
+->
+```
+[section]
+    key   = value
+    other = value
+```
+
+### 4.3 Line Continuation Alignment
+
+A `\`-continued value's wrapped lines align under the first line's value
+start column (same mechanism as Makefile §1.2):
+
+```
+long_key = first part \
+    second part
+```
+->
+```
+long_key = first part \
+           second part
+```
+
+### 4.4 Comment Normalization
+
+Reuses the Makefile §0 normalizer: first-letter capitalization of the
+comment body, and stripping a sole trailing `.` — capitalized
+unconditionally, no tool-name skip list:
+
+```
+; comment about the timeout
+```
+->
+```
+; Comment about the timeout
+```
+
+### 4.5 No Long-Line Breaking
+
+Values, headers, and comments always stay on one line regardless of
+length — there is no wrapping fallback, unlike the full-language jobs.
+
+---
+
 ## Config
 
-No config keys are defined for the three languages in this file. Revisit
+No config keys are defined for the four languages in this file. Revisit
 when a language needs an enable/disable gate or other user-facing option
 (mirrors `STYLE_CPP26.md` §5's provisional-status precedent).

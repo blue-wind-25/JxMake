@@ -345,11 +345,12 @@ valid.key
 4. The group name/header, is just like normal INI `[a header]`, but the marker can also be `{}`, `<>`, `()`. Plain sequence of words are also a valid group header (excluding leading and trailing whitespaces, but including whitespaces in the middle). Unless, the whitespaces are inside quotes. Should multiple whitespaces in the middle be collapsed into one?
 5. Comments are started with `#`, `;`, `@`, `//`, etc. Basically all punctuations that are not a separator,  group header marker, `\`, and maybe `%`. Three of the same quotes in sequence also indicate the start of a comment.
 
-Formatting rules, only 3:
+Formatting rules, only five:
 1. Alignment/padding on the separator with the same grouping rule.
 2. Indentation round-up like with Bash.
 3. Line continuation operator `\` alignment, because some INI-like file may support this.
 4. Comment normalization (use `Makefile` normalizer).
+5. No long line breaking. What do you think about this one?
 
 I think for the `--lang` use `eini` (extended INI). For the detected extension `*.ini` is safe. Other extensions may not be safe to auto detect and thus must use `--lang` via command line option or in-file config. Because `%` is used as a marker for in-file config, is it also allowed to be used as a comment start marker?
 

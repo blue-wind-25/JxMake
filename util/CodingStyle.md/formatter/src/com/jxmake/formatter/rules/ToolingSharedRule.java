@@ -38,7 +38,7 @@ final class ToolingSharedRule {
 
     // Byte-identical backslash-continuation helpers, promoted 2026-08-17 (RDD_KEY_305) from a
     // duplicate found in both MakefileSpecificRule and EiniSpecificRule (Bash/PowerShell do not
-    // use this shape, so they are left out of this helper).
+    // use this shape, so they are left out of this helper)
     static boolean endsWithContinuation(final String value)
     {
         return value.endsWith("\\") && !value.endsWith("\\\\");

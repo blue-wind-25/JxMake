@@ -404,8 +404,8 @@ public final class ServerMode {
 
                 final Path   targetFile = path == null ? null : Paths.get(path);
                       Config config     = Config.resolve(
-                    targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides
-                );
+                          targetFile, inlineConfig.isEmpty() ? null : inlineConfig, inFileOverrides
+                      );
                 if( "auto".equals( config.indentStyle() ) ) {
                     String resolvedStyle = Config.DEFAULT_INDENT_STYLE;
                     if(targetFile != null) {
@@ -415,13 +415,11 @@ public final class ServerMode {
                         catch(final IOException e) {
                             resolvedStyle = Config.DEFAULT_INDENT_STYLE;
                         }
-                    }
-                    final Map<String, String> merged = new LinkedHashMap<String, String>(
-                        inlineConfig.isEmpty() ? java.util.Collections.<String, String>emptyMap() : inlineConfig
-                    );
+                    } // if
+                    final Map<String, String> merged = new LinkedHashMap<String, String>( inlineConfig.isEmpty() ? java.util.Collections.< String, String > emptyMap() : inlineConfig );
                     merged.put("indent-style", resolvedStyle);
                     config = Config.resolve(targetFile, merged, inFileOverrides);
-                }
+                } // if
                 System.err.println(
                     "jxmake-code-formatter: processing " + (path == null ? "(no path, lang=" + language + ")" : path)
                 );

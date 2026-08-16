@@ -33,16 +33,19 @@ public final class InFileConfig {
     // inside the interior of a larger block comment (nested `<!--`/`/*` sequences the plain
     // fallback already swallowed on the way to ITS first close) is never independently visited
     // and can never be mistaken for the comment's own opening delimiter (RDD_KEY_167).
+    // ";%"/"@%" (groups 5/6) only ever occur at top-of-file in E-INI source (no other supported
+    // language uses ";" or "@" as a comment marker), so adding them here is effectively E-INI-only
+    // in practice without needing to gate on the not-yet-known language at this scan point.
     private static final Pattern DIRECTIVE = Pattern.compile(
-        "^[ \\t]*//%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+(.*?)\\s*\\*/" + "|^[ \\t]*#%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+(.*?)\\s*-->" + "|^[ \\t]*//[^\\r\\n]*|^[ \\t]*/\\*.*?\\*/|^[ \\t]*#[^\\r\\n]*|^[ \\t]*<!--.*?-->",
+        "^[ \\t]*//%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)|^[ \\t]*/\\*%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+(.*?)\\s*\\*/" + "|^[ \\t]*#%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)|^[ \\t]*<!--%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+(.*?)\\s*-->" + "|^[ \\t]*;%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)|^[ \\t]*@%\\s*" + TokenizerCore.JXM_CFMT_CFG + "\\s+([^\\r\\n]*)" + "|^[ \\t]*//[^\\r\\n]*|^[ \\t]*/\\*.*?\\*/|^[ \\t]*#[^\\r\\n]*|^[ \\t]*<!--.*?-->|^[ \\t]*;[^\\r\\n]*|^[ \\t]*@[^\\r\\n]*",
         Pattern.DOTALL | Pattern.MULTILINE
     );
 
-    // Consumes a run of leading blank lines and whole comments (//, /* */, YAML/TOML's #, or XML's
-    // <!-- -->) from the start of a file -- the "top-of-file preamble" a JXM_CFMT_CFG directive is
-    // allowed to live in
+    // Consumes a run of leading blank lines and whole comments (//, /* */, YAML/TOML's #, XML's
+    // <!-- -->, or E-INI's ;/@) from the start of a file -- the "top-of-file preamble" a
+    // JXM_CFMT_CFG directive is allowed to live in
     private static final Pattern PREAMBLE_PIECE = Pattern.compile(
-        "\\G(?:[ \\t]*\\r?\\n|[ \\t]*//[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*/\\*.*?\\*/[ \\t]*" + "|[ \\t]*#[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*<!--.*?-->[ \\t]*)",
+        "\\G(?:[ \\t]*\\r?\\n|[ \\t]*//[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*/\\*.*?\\*/[ \\t]*" + "|[ \\t]*#[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*<!--.*?-->[ \\t]*" + "|[ \\t]*;[^\\r\\n]*(?:\\r?\\n|$)|[ \\t]*@[^\\r\\n]*(?:\\r?\\n|$))",
         Pattern.DOTALL
     );
 
@@ -84,9 +87,17 @@ public final class InFileConfig {
                 3
             ) != null ? m.group(
                 3
-            ) : m.group(
+            ) : ( m.group(
                 4
-            ) ) );
+            ) != null ? m.group(
+                4
+            ) : ( m.group(
+                5
+            ) != null ? m.group(
+                5
+            ) : m.group(
+                6
+            ) ) ) ) );
             if(directiveBody == null) continue; // Plain-comment fallback -- not a directive
             ++count;
             if(count == 1) {

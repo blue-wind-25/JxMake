@@ -54,18 +54,18 @@ public final class EiniSpecificRule {
 
     private static final class LineScan {
 
-        int    sepIdx    = -1;
-        char   sepChar;
-        int    commentIdx = -1;
-        int    markerLen;
+        int  sepIdx     = -1;
+        char sepChar;
+        int  commentIdx = -1;
+        int  markerLen;
 
     } // class LineScan
 
     private static LineScan scanLine(final String line)
     {
         final LineScan scan  = new LineScan();
-              char      quote = 0;
-              int       i     = 0;
+              char     quote = 0;
+              int      i     = 0;
         while( i < line.length() ) {
             final char c = line.charAt(i);
 
@@ -105,10 +105,10 @@ public final class EiniSpecificRule {
     /** Collapses unquoted whitespace runs to a single space; preserves interior of quoted spans verbatim (§4 key/header rule) */
     private static String collapseOutsideQuotes(final String raw)
     {
-        final String        s   = raw.trim();
-        final StringBuilder out = new StringBuilder();
-              char           quote      = 0;
-              boolean        lastSpace  = false;
+        final String        s         = raw.trim();
+        final StringBuilder out       = new StringBuilder();
+              char          quote     = 0;
+              boolean       lastSpace = false;
         for( int i = 0; i < s.length(); ++i ) {
             final char c = s.charAt(i);
             if(quote != 0) {
@@ -142,8 +142,12 @@ public final class EiniSpecificRule {
     private static String snapIndentPrefix(final String rawLine, final int indentWidth)
     {
         int i = 0;
-        while( i < rawLine.length() && ( rawLine.charAt(i) == ' ' || rawLine.charAt(i) == '\t' ) ) ++i;
-        final int snapped = (i == 0) ? 0 : ( (i + indentWidth - 1) / indentWidth ) * indentWidth;
+        while( i < rawLine.length() && ( rawLine.charAt(
+            i
+        ) == ' ' || rawLine.charAt(
+            i
+        ) == '\t' ) ) ++i;
+        final int snapped = (i == 0) ? 0 : ( (i + indentWidth - 1) / indentWidth )* indentWidth;
 
         return repeatChar(' ', snapped);
     }
@@ -175,9 +179,9 @@ public final class EiniSpecificRule {
         final List<String> lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
         if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
 
-        final List<String>  out   = new ArrayList<>();
-        final List<KvItem>  group = new ArrayList<>();
-              int            idx  = 0;
+        final List<String> out   = new ArrayList<>();
+        final List<KvItem> group = new ArrayList<>();
+              int          idx   = 0;
 
         while( idx < lines.size() ) {
             final String   line = lines.get(idx);
@@ -187,12 +191,12 @@ public final class EiniSpecificRule {
             final String rawContent = line.substring(0, contentEnd);
 
             if( scan.commentIdx < 0 && rawContent.trim().isEmpty() ) {
-                // Blank line -- breaks any active alignment group.
+                // Blank line -- breaks any active alignment group
                 flushGroup(out, group);
                 out.add("");
                 ++idx;
                 continue;
-            }
+            } // if
 
             final String prefix = snapIndentPrefix(line, indentWidth);
 
@@ -205,16 +209,16 @@ public final class EiniSpecificRule {
                 //  `.` on an earlier line of the block).
                 flushGroup(out, group);
                 final List<String> commentRawLines = new ArrayList<>();
-                final List<String> markers          = new ArrayList<>();
-                final List<String> bodies           = new ArrayList<>();
-                final List<String> prefixes         = new ArrayList<>();
+                final List<String> markers         = new ArrayList<>();
+                final List<String> bodies          = new ArrayList<>();
+                final List<String> prefixes        = new ArrayList<>();
                 while( idx < lines.size() ) {
                     final String   l = lines.get(idx);
                     final LineScan s = scanLine(l);
                     final int      e = (s.commentIdx >= 0) ? s.commentIdx : l.length();
                     if( s.commentIdx < 0 || !l.substring(0, e).trim().isEmpty() ) break;
                     commentRawLines.add(l);
-                    markers.add( l.substring( s.commentIdx, s.commentIdx + s.markerLen ) );
+                    markers.add( l.substring(s.commentIdx, s.commentIdx + s.markerLen) );
                     bodies.add( l.substring(s.commentIdx + s.markerLen) );
                     prefixes.add( snapIndentPrefix(l, indentWidth) );
                     ++idx;
@@ -222,28 +226,37 @@ public final class EiniSpecificRule {
                 final List<Boolean> blanks = new ArrayList<>();
                 for( int k = 0; k < bodies.size(); ++k ) blanks.add(false);
                 final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
-                    bodies, blanks, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+                    bodies,
+                    blanks,
+                    normalizeCommentStartCase,
+                    normalizeCommentEndPeriod,
+                    null,
                     normalizeCommentMultiSentenceCase
                 );
                 for( int k = 0; k < normalized.size(); ++k ) out.add(
                     prefixes.get(k) + markers.get(k) + normalized.get(k)
                 );
                 continue;
-            }
+            } // if
 
             String commentText = null;
             if(scan.commentIdx >= 0) {
                 final String body       = line.substring(scan.commentIdx + scan.markerLen);
                 final String normalized = ToolingCommentNormalizer.normalize(
-                    body, normalizeCommentStartCase, normalizeCommentEndPeriod, null,
+                    body,
+                    normalizeCommentStartCase,
+                    normalizeCommentEndPeriod,
+                    null,
                     normalizeCommentMultiSentenceCase
                 );
-                final String marker = line.substring( scan.commentIdx, scan.commentIdx + scan.markerLen );
+                final String marker     = line.substring(
+                    scan.commentIdx, scan.commentIdx + scan.markerLen
+                );
                 commentText = " " + marker + normalized;
             } // if
 
             if(scan.sepIdx >= 0) {
-                // Key-value line.
+                // Key-value line
                 final String keyRaw   = line.substring(0, scan.sepIdx);
                 final String valueRaw = line.substring(scan.sepIdx + 1, contentEnd);
 
@@ -269,14 +282,14 @@ public final class EiniSpecificRule {
                 continue;
             } // if
 
-            // Header line (bracket-wrapped or bare word sequence).
+            // Header line (bracket-wrapped or bare word sequence)
             flushGroup(out, group);
             final String trimmed = rawContent.trim();
-            String       rendered;
+                  String rendered;
             if( trimmed.length() >= 2 && closingFor( trimmed.charAt(0) ) != 0
                     && trimmed.charAt( trimmed.length() - 1 ) == closingFor( trimmed.charAt(0) ) ) {
-                final char open  = trimmed.charAt(0);
-                final char close = closingFor(open);
+                final char   open  = trimmed.charAt(0);
+                final char   close = closingFor(open);
                 final String inner = trimmed.substring( 1, trimmed.length() - 1 );
                 rendered = open + collapseOutsideQuotes(inner) + close;
             }
@@ -307,15 +320,23 @@ public final class EiniSpecificRule {
             final int     pad      = keyWidth - item.key.length();
             final String  firstVal = item.valueParts.get(0);
             final boolean multi    = item.valueParts.size() > 1;
+                  int     valWidth = 0;
+            if(multi) for(final String part : item.valueParts) valWidth = Math.max(
+                valWidth, part.length()
+            );
             out.add(
                 item.prefix + item.key + repeatChar(' ', pad) + " " + item.sepChar + " " + firstVal
-                        + (multi ? " \\" : "") + (item.commentText == null ? "" : item.commentText)
+                        + ( multi ? repeatChar( ' ', valWidth - firstVal.length() ) + " \\" : "" )
+                        + (item.commentText == null ? "" : item.commentText)
             );
             final String contPrefix = item.prefix + repeatChar(' ', keyWidth + 3);
             for( int i = 1; i < item.valueParts.size(); ++i ) {
                 final boolean last = i == item.valueParts.size() - 1;
-                out.add( contPrefix + item.valueParts.get(i) + (last ? "" : " \\") );
-            }
+                final String  part = item.valueParts.get(i);
+                out.add(
+                    contPrefix + part + ( last ? "" : repeatChar( ' ', valWidth - part.length() ) + " \\" )
+                );
+            } // for i
         } // for item
         group.clear();
     }

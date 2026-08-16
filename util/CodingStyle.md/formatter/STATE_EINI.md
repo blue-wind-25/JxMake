@@ -48,9 +48,13 @@ stays empty — `eini` was added directly to `Lang.SUPPORTED_LANGUAGES`.
 - `test/eini_combined_{inp,out}.ini` — combined fixture covering all 4
   group-header marker styles (`[]`/`{}`/`<>`/`()`) plus bare/plain headers,
   quoted/unquoted keys+values, `=`/`:` separators, all 4 comment markers +
-  triple-quote, a `\`-continuation, and separator alignment. Registered in
-  `Makefile`'s `INP_FILES` (immediately before `makefile_combined_inp.mk`)
-  and `test/README.txt`. No dogfood/external corpus — E-INI is a
+  triple-quote (both quoted, non-triggering, and unquoted, triggering,
+  cases), a `;%`-marker `JXM_CFMT_CFG` directive, multi-line `\`-continuation
+  with column-aligned backslashes, separator alignment, and an "Escape And
+  Unicode" group proving quoted backslash escapes/real Unicode pass through
+  verbatim (RDD_KEY_306). Registered in `Makefile`'s `INP_FILES`
+  (immediately before `makefile_combined_inp.mk`) and `test/README.txt`. No
+  dogfood/external corpus — E-INI is a
   codebase-local format with no widely-used real-world referent, so local
   fixture coverage (plus round1/round2 idempotency) is the accepted bar,
   same as the rest of the tooling family absent a corpus. No external
@@ -75,6 +79,7 @@ Full text lives in `RDD_LOG.md` (shared sequence across all jobs — see
 | Key | Topic |
 |---|---|
 | RDD_KEY_303 | E-INI implementation, four minor non-blocking judgment calls within the already-resolved spec: (1) comment-only lines must chain-group via `ToolingCommentNormalizer.normalizeChain()`, not normalize per-line (a real bug — the copyright-header fixture's trailing period was wrongly stripped by naive per-line normalization — caught and fixed during smoke-testing); (2) indentation snapping (rule 2) applies per physical line independently, since E-INI has no nesting/depth concept to anchor a group-relative round against; (3) continuation-line column offset is `keyWidth + 3` (vs. Makefile's `width + 1`), since E-INI's separator is always exactly one character; (4) group-header bracket-vs-bare detection checks the four wrapper pairs first, falling through to the bare-word-sequence path only if none match. |
+| RDD_KEY_306 | Two real bugs found via user dogfooding, both fixed: (1) `InFileConfig`'s `JXM_CFMT_CFG` directive scanner had no `;%`/`@%` forms (only `//%`/`/*%`/`#%`/`<!--%`), so two of E-INI's four comment markers couldn't carry the directive — added, safe unconditionally since no other language uses `;`/`@` as a comment marker; (2) backslash-continuation lines weren't column-aligned (`flushGroup` just appended a fixed `" \\"`) despite §4.3 saying "aligned under the first line's value start column" — fixed by padding every continuation-carrying part to the group's max `valueParts` width. Fixture extended with an `[Escape And Unicode]` group (backslash escapes, real Unicode, both pass through verbatim) and quoted-vs-unquoted `'''` cases. Confirmed separately (no code/fixture change needed) that Python's own triple-quoted strings are unrelated and already handled correctly as opaque string literals, not comments. |
 
 ---
 

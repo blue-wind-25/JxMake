@@ -906,19 +906,24 @@ Python3:
                                                         "comment disqualifies the candidate" posture as the
                                                         C-family's `enforceCallLineBreaking`).
 
-eini:
+E-INI:
   eini_combined_inp/out.ini                          -- STYLE_TOOLING.md §4 combined: `[name]`/`{name}`/
                                                         `<name>`/`(name)`/bare-word group headers, `=`/`:`
                                                         key-value separators with quoted (interior-preserved)
                                                         and unquoted (whitespace-collapsed) keys/values,
                                                         separator alignment within a contiguous key-value
-                                                        group, backslash continuation-line alignment under
-                                                        the value start column, indentation snapped to the
-                                                        nearest indent-width multiple, all four `#`/`;`/`@`/
-                                                        `//` comment markers plus a `'''` triple-quote
-                                                        comment, a trailing same-line comment after a
-                                                        key-value pair, and a multi-line comment-chain
-                                                        (copyright header) normalized as one logical unit.
+                                                        group, backslash continuation-lines aligned to a
+                                                        common column across the whole wrapped value
+                                                        (RDD_KEY_306), indentation snapped to the nearest
+                                                        indent-width multiple, all four `#`/`;`/`@`/`//`
+                                                        comment markers plus a `'''` triple-quote comment
+                                                        (quoted vs. unquoted, RDD_KEY_306), a trailing
+                                                        same-line comment after a key-value pair, a
+                                                        multi-line comment-chain (copyright header)
+                                                        normalized as one logical unit, a `;%`-marker
+                                                        `JXM_CFMT_CFG` directive (RDD_KEY_306), and an
+                                                        "Escape And Unicode" group proving quoted backslash
+                                                        escapes and Unicode content pass through verbatim.
 
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment

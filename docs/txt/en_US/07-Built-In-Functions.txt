@@ -142,6 +142,9 @@ Available built-in functions:
     <output_value> $srfile_rec        ( <path_dir>, <regexp_value>, [max_depth]    )               # Recursively search for files       using regular expression; the default [max_depth] is 2147483647
     <output_value> $srdir_rec         ( <path_dir>, <regexp_value>, [max_depth]    )               # Recursively search for directories using regular expression; the default [max_depth] is 2147483647
 
+    <error_msg>    $tzstdir_rec       ( <tarzst_file_name>, <src_path>, [add_pdirname], [xerr] )   # Recursively compress the directory tree to a '.tar.zst' file ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $untzst_rec        ( <tarzst_file_name>, <dst_path>                , [xerr] )   # Extract the '.tar.zst' file to the given path                ; the default [xerr] is 'true' (exit on error)
+
     <error_msg>    $txzdir_rec        ( < tarxz_file_name>, <src_path>, [add_pdirname], [xerr] )   # Recursively compress the directory tree to a '.tar.xz' file ; the default [xerr] is 'true' (exit on error)
     <error_msg>    $untxz_rec         ( < tarxz_file_name>, <dst_path>                , [xerr] )   # Extract the '.tar.xz' file to the given path                ; the default [xerr] is 'true' (exit on error)
 
@@ -156,6 +159,9 @@ Available built-in functions:
 
     <error_msg>    $untar_rec         ( <   tar_file_name>, <dst_path>                , [xerr] )   # Extract the     '.tar' file to the given path (creating a plain   '.tar' file is not supported) ; the default [xerr] is 'true' (exit on error)
     <error_msg>    $unzip_rec         ( <   zip_file_name>, <dst_path>                , [xerr] )   # Extract the     '.zip' file to the given path (creating a regular '.zip' file is not supported) ; the default [xerr] is 'true' (exit on error)
+
+    <error_msg>    $zst               ( < input_file_name>, <output_file_name>        , [xerr] )   # Compress   the <input_file_name> to <output_file_name> using ZStd  format ; the default [xerr] is 'true' (exit on error)
+    <error_msg>    $unzst             ( < input_file_name>, <output_file_name>        , [xerr] )   # Uncompress the <input_file_name> to <output_file_name> using ZStd  format ; the default [xerr] is 'true' (exit on error)
 
     <error_msg>    $xz                ( < input_file_name>, <output_file_name>        , [xerr] )   # Compress   the <input_file_name> to <output_file_name> using XZ    format ; the default [xerr] is 'true' (exit on error)
     <error_msg>    $unxz              ( < input_file_name>, <output_file_name>        , [xerr] )   # Uncompress the <input_file_name> to <output_file_name> using XZ    format ; the default [xerr] is 'true' (exit on error)

@@ -32,8 +32,9 @@ if <condition1> : ...
 
     The right hand side of a one-line if statement can contain a single statement from the
     following:
-        assignment, arithmetic (inc, dec, add, sub, etc.), eval, echo, echoln,
-        a function call ($func(...)), return, break, continue, jxmake, or unset.
+        assignment (direct or indirect, e.g. '^var := ...'), arithmetic (inc, dec, add, sub, etc.),
+        eval, echo, echoln, a function call ($func(...)), return, break, continue,
+        jxmake / +jxmake / jxwait, or unset.
 
     Compound/block constructs (another if, elif, else, endif, loop blocks, function definitions,
     target definitions) are NOT permitted on the right hand side.

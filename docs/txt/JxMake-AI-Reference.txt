@@ -26,14 +26,14 @@ SOURCE INVENTORY  (line count / byte size at time of last sync with this referen
     docs/txt/en_US/07-Built-In-Functions.txt                                    941 lines   83098 bytes
     docs/txt/en_US/08-User-Defined-Function.txt                                 140 lines    8018 bytes
     docs/txt/en_US/09-Targets.txt                                               165 lines    5425 bytes
-    docs/txt/en_US/10-Flow-Control.txt                                          101 lines    3094 bytes
+    docs/txt/en_US/10-Flow-Control.txt                                          102 lines    3162 bytes
     docs/txt/en_US/11-Loop.txt                                                   97 lines    2982 bytes
     docs/txt/en_US/12-Numerical-Operations.txt                                  107 lines    5383 bytes
     docs/txt/en_US/13-Loadable-Libraries.txt                                    475 lines   22041 bytes
     docs/txt/en_US/14-Simple-Programmer-Hardware.txt                            334 lines   21719 bytes
     docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt              1424 lines   63470 bytes
                                                                           -------------  --------------
-    TOTAL (16 files)                                                          5886 lines  317021 bytes
+    TOTAL (16 files)                                                          5887 lines  317089 bytes
 
     EXCLUDED (not covered by this reference, on purpose):
     docs/txt/en_US/00-System-Configuration.txt          (font/env-setup instructions, not grammar-relevant)
@@ -830,6 +830,11 @@ Running other targets: `jxmake t1 t2 t3` (sequential; same as three separate `jx
 queued `+jxmake` targets finish). Omitting `jxwait` after `+jxmake` calls risks undefined
 results/errors from subsequent non-'+' `jxmake` calls, and the program may terminate before the
 parallel targets fully finish.
+TESTED: '+jxmake' completion order is NOT guaranteed to match queuing order (genuinely parallel, a
+race). Given `+jxmake b` queued before `+jxmake c`, then `jxwait`, real output was 'Target A' (the
+queuing target's own body, runs first/synchronously) then 'Target C' then 'Target B' -- c finished
+before b despite being queued second. Never rely on '+jxmake' completion order; use `jxwait` and
+treat all queued parallel targets as unordered relative to each other.
 
 Target/prereq names commonly use the flattening operator to interpolate variables safely:
     EXE_EXT=elf ; PROG_NAME=:"main.${EXE_EXT}"
@@ -840,16 +845,16 @@ Target/prereq names commonly use the flattening operator to interpolate variable
 2.9  Flow Control  (10-Flow-Control.txt)  -- grammar: PART 1 Sec 11.1, 11.3 (fully covers this topic)
 ----------------------------------------------------------------------------------------------------
 
-NOTE: 10-Flow-Control.txt's own prose list of one-liner-if statement forms only mentions "jxmake",
-not '+jxmake'/'jxwait' (both part of run-target-stmt, which the grammar DOES allow one-liner-wide,
-PART 1 Sec 11.1). Tested and confirmed working -- '+jxmake' and 'jxwait' ARE valid one-liner-if RHS:
+One-liner-if RHS accepts the FULL run-target-stmt ('jxmake' / '+jxmake' / 'jxwait'), not just plain
+'jxmake' -- tested and confirmed against real output:
     target a
         local X := 0
         if ${X} == 0 : +jxmake b
         if ${X} == 0 : +jxmake c
         if ${X} == 0 :  jxwait
     endtarget
-Trust PART 1 Sec 11.1's fuller oneliner-stmt list over 10-Flow-Control.txt's narrower prose summary.
+    # actual output: 'Target A' then 'Target C' then 'Target B' -- see PART 2 Sec 2.8 for what this
+    # reveals about '+jxmake' completion order.
 
 ----------------------------------------------------------------------------------------------------
 2.10  Loop  (11-Loop.txt)  -- grammar: PART 1 Sec 11.2

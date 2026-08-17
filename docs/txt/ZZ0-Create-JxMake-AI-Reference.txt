@@ -94,3 +94,27 @@ Hard requirements:
 8. Do not fabricate or infer any function/parameter not present in the
    source files. This is a reference artifact, not prose documentation —
    no added commentary or opinion.
+
+9. Minimize context usage. This file is read directly by an AI, not rendered
+   for humans — every byte costs context window on every read, so treat size
+   as a first-class constraint, not an afterthought:
+   - No decorative section-border lines (no `====...====` / `----...----`
+     bars around headers). Use a single compact header line instead (e.g.
+     "## SEC 1 -- TITLE"); the numbering/title text already conveys
+     hierarchy, a border line adds nothing.
+   - No padded/column-aligned tables (e.g. right-aligned "lines"/"bytes"
+     columns). Use flat, single-line entries instead, e.g.
+     "docs/txt/JxMake-Grammar.txt 1189L/62933B".
+   - Cap indentation: once structure is carried by markers like "|", "#",
+     "--", or numbering, leading whitespace beyond ~2 spaces is pure
+     alignment padding — don't use deep nested indentation.
+   - Do NOT use Markdown decoration (fenced code blocks, tables,
+     backtick-wrapped identifiers, bold/italic emphasis). Markdown syntax
+     is for human-rendered display; an AI reading raw text gets no parsing
+     benefit from it, and it adds bytes on every occurrence (e.g.
+     backtick-wrapping ~300+ function names would add real size for zero
+     semantic gain). Keep this a plain, dense .txt file.
+   - When two phrasings are equally informative, prefer the shorter one —
+     this file is judged on tokens-per-fact, not prose polish. This rule
+     never overrides rule 1 (zero semantic loss); compact the wording, not
+     the information.

@@ -23,7 +23,7 @@ SOURCE INVENTORY  (line count / byte size at time of last sync with this referen
     docs/txt/en_US/04-Defining-Variables.txt                                    234 lines    9231 bytes
     docs/txt/en_US/05-Special-Variables.txt                                     175 lines   10308 bytes
     docs/txt/en_US/06-Regular-Expression-In-Variable.txt                         56 lines    2176 bytes
-    docs/txt/en_US/07-Built-In-Functions.txt                                    935 lines   82234 bytes
+    docs/txt/en_US/07-Built-In-Functions.txt                                    941 lines   83098 bytes
     docs/txt/en_US/08-User-Defined-Function.txt                                 140 lines    8018 bytes
     docs/txt/en_US/09-Targets.txt                                               165 lines    5425 bytes
     docs/txt/en_US/10-Flow-Control.txt                                          101 lines    3094 bytes
@@ -33,7 +33,7 @@ SOURCE INVENTORY  (line count / byte size at time of last sync with this referen
     docs/txt/en_US/14-Simple-Programmer-Hardware.txt                            334 lines   21719 bytes
     docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt              1424 lines   63470 bytes
                                                                           -------------  --------------
-    TOTAL (16 files)                                                          5880 lines  316157 bytes
+    TOTAL (16 files)                                                          5886 lines  317021 bytes
 
     EXCLUDED (not covered by this reference, on purpose):
     docs/txt/en_US/00-System-Configuration.txt          (font/env-setup instructions, not grammar-relevant)
@@ -348,9 +348,38 @@ SEC 9 -- SHORTCUT / SUGAR OPERATORS  (currently sugar; may become first-class in
 ----------------------------------------------------------------------------------------------------
 
 9.1  combining-string  ::= '.' double-string    [WS-NONE '.'-'"']
-     -- SUGAR: "..." whose set members are COMBINED (no separator) to ONE member. ALWAYS LAZY
-        regardless of '='/':=': re-evaluated every read. Use when you need a single-member lazy string.
-        C = ."${A} ${B}" tracks later reassignment of A/B on every read.
+     -- SUGAR: "..." whose set members are COMBINED (no separator) to ONE member. CORRECTION (tested
+        against actual runtime behavior; the grammar file's own prose claims this is "ALWAYS LAZY,
+        regardless of '='/':='" -- that claim is FALSE, confirmed by direct testing): the combining
+        effect (and its lazy re-evaluate-on-every-read tracking) ONLY takes effect through LAZY ('=')
+        evaluation, or when the term is evaluated inline (e.g. as a bare function-call argument, with
+        no assignment at all). Under DIRECT (':=') assignment, '.' has NO EFFECT WHATSOEVER: the term
+        is evaluated exactly once, exactly as if the '.' prefix were absent (produces the SAME
+        multi-member, non-combined result a plain "..." would, frozen at assignment time, no tracking).
+        Tested proof (docs/txt/en_US/04-Defining-Variables.txt):
+            D='d';E='e';F='f'
+            Q  = ."${D}|${E}|${F}"   ; X := ."${D}|${E}|${F}"   ; Y := :"${D}|${E}|${F}"
+            echoln ${Q}  # 'd|e|f'   echoln ${X}  # 'd|e|f'   echoln ${Y}  # 'd|e|f'
+            D='D';E='E';F='F'
+            echoln ${Q}  # 'D|E|F'  <- lazy '=', combines AND tracks
+            echoln ${X}  # 'd|e|f'  <- ':=' defeats the '.' entirely; frozen, same as plain "..." would be
+            echoln ${Y}  # 'd|e|f'  <- ':=' + flattening: frozen (flattening is always-direct anyway)
+        Tested proof (docs/txt/en_US/02-Defining-Strings.txt), member counts, all three CONFIRMED CORRECT:
+            Val:=10; Val:="There are ${Val} large rocks."  ; $part_count(${Val}) -> 3 (plain, 3 members)
+            Val:=10; Val:=."There are ${Val} large rocks." ; $part_count(${Val}) -> 3 (SAME as plain --
+                                                               ':=' defeated the '.', no combining occurred)
+            Val:=10; Val:=:"There are ${Val} large rocks." ; $part_count(${Val}) -> 1 (flattening: always
+                                                               collapses to 1 member regardless of '='/':=')
+        PRACTICAL RULE: use ."..." only (a) directly as a bare term/function argument (to collapse a
+        multi-member "..." into one argument and avoid the "non-flattened string" compile error -- see
+        $printf example below), or (b) assigned via lazy '=' when you want live tracking. Assigning a
+        ."..." term via ':=' is USELESS -- it behaves identically to a plain "..." assigned via ':='
+        (same member count, same frozen-at-assignment-time value). If you want a one-time frozen single
+        member, use the flattening operator :"..." instead (works correctly under both '=' and ':=').
+        Example showing the correct usage as a function argument (why the operator exists at all):
+            D=10; S=20; X=A; Z=B
+            $printf( ."#%${D}d '%${S}s'\n", 123, ."${X}${Z}" )   # works
+            #$printf(  "#%${D}d '%${S}s'\n", 123,  "${X}${Z}" )  # compile error (multi-member arg)
 
 9.2  flattening-string ::= ':' double-string    [WS-NONE ':'-'"']
      -- SUGAR: "..." whose set members are FLATTENED (no separator) to ONE member. ALWAYS DIRECT
@@ -635,10 +664,14 @@ Examples of set member counts (lazy '=' unless noted):
     MyVar1 :+= ' 456'                -- direct concat, stacks a member
     MyVar1 ?= 123                    -- assigns only if not yet set
 
-Combining (."...") vs flattening (:"..."):  both collapse a "..." result to ONE member, but combining
-is ALWAYS LAZY (re-evaluates -> tracks later reassignment of referenced vars on each read) while
-flattening is ALWAYS DIRECT (evaluates once, frozen at assignment time), regardless of '='/':=' used
-around it. Once frozen (flattening) or re-evaluated (combining), later `+=` onto the result var
+Combining (."...") vs flattening (:"..."): flattening ALWAYS collapses a "..." result to ONE member,
+frozen at evaluation time, regardless of '='/':=' -- consistent either way. Combining is DIFFERENT
+FROM WHAT THE GRAMMAR FILE CLAIMS (tested, see PART 1 Sec 9.1 for full proof): it only collapses to
+ONE member and re-evaluates/tracks on each read when reached via LAZY ('=') assignment or used
+inline as a bare term (e.g. a function argument). Under DIRECT (':=') assignment, ."..." has NO
+EFFECT AT ALL -- it evaluates once and yields the SAME multi-member, frozen result a plain "..."
+would under ':='. Do not use ."..." with ':='; use :"..." instead if you want a one-time frozen
+single member. Once frozen (flattening) or tracked (lazy combining), later `+=` onto the result var
 appends members normally either way.
 
 Local variable value NOT cleared on 'local' declaration: marking a variable 'local' inside a loop
@@ -807,7 +840,16 @@ Target/prereq names commonly use the flattening operator to interpolate variable
 2.9  Flow Control  (10-Flow-Control.txt)  -- grammar: PART 1 Sec 11.1, 11.3 (fully covers this topic)
 ----------------------------------------------------------------------------------------------------
 
-(No additional semantics beyond PART 1 Sec 11.1/11.3.)
+NOTE: 10-Flow-Control.txt's own prose list of one-liner-if statement forms only mentions "jxmake",
+not '+jxmake'/'jxwait' (both part of run-target-stmt, which the grammar DOES allow one-liner-wide,
+PART 1 Sec 11.1). Tested and confirmed working -- '+jxmake' and 'jxwait' ARE valid one-liner-if RHS:
+    target a
+        local X := 0
+        if ${X} == 0 : +jxmake b
+        if ${X} == 0 : +jxmake c
+        if ${X} == 0 :  jxwait
+    endtarget
+Trust PART 1 Sec 11.1's fuller oneliner-stmt list over 10-Flow-Control.txt's narrower prose summary.
 
 ----------------------------------------------------------------------------------------------------
 2.10  Loop  (11-Loop.txt)  -- grammar: PART 1 Sec 11.2
@@ -1157,6 +1199,10 @@ $srdir_rec(path_dir:path, regexp_value:str, [max_depth:int=2147483647]) -> outpu
     # recursively search for directories matching regex
 
 ---- archive: compress/decompress (tar-family, xerr default true = exit-on-error) ----
+$tzstdir_rec(tarzst_file_name:path, src_path:path, [add_pdirname:bool], [xerr:bool=true]) -> error_msg
+    # recursively compress a directory tree to '.tar.zst'; (flatten: all args; bool-word: [xerr])
+$untzst_rec(tarzst_file_name:path, dst_path:path, [xerr:bool=true]) -> error_msg
+    # extract '.tar.zst' to dst_path; (flatten: all args; bool-word: [xerr])
 $txzdir_rec(tarxz_file_name:path, src_path:path, [add_pdirname:bool], [xerr:bool=true]) -> error_msg
     # recursively compress a directory tree to '.tar.xz'; (flatten: all args; bool-word: [xerr])
 $untxz_rec(tarxz_file_name:path, dst_path:path, [xerr:bool=true]) -> error_msg
@@ -1177,6 +1223,10 @@ $untar_rec(tar_file_name:path, dst_path:path, [xerr:bool=true]) -> error_msg
     # extract '.tar' (creating a plain '.tar' is NOT supported, extract only); (flatten: all args; bool-word: [xerr])
 $unzip_rec(zip_file_name:path, dst_path:path, [xerr:bool=true]) -> error_msg
     # extract '.zip' (creating a plain '.zip' is NOT supported, extract only); (flatten: all args; bool-word: [xerr])
+$zst(input_file_name:path, output_file_name:path, [xerr:bool=true]) -> error_msg
+    # compress single file to Zstandard (ZStd); (flatten: all args; bool-word: [xerr])
+$unzst(input_file_name:path, output_file_name:path, [xerr:bool=true]) -> error_msg
+    # decompress Zstandard (ZStd); (flatten: all args; bool-word: [xerr])
 $xz(input_file_name:path, output_file_name:path, [xerr:bool=true]) -> error_msg
     # compress single file to XZ; (flatten: all args; bool-word: [xerr])
 $unxz(input_file_name:path, output_file_name:path, [xerr:bool=true]) -> error_msg
@@ -1189,13 +1239,6 @@ $gzip(input_file_name:path, output_file_name:path, [xerr:bool=true]) -> error_ms
     # compress single file to GZIP; (flatten: all args; bool-word: [xerr])
 $gunzip(input_file_name:path, output_file_name:path, [xerr:bool=true]) -> error_msg
     # decompress GZIP; (flatten: all args; bool-word: [xerr])
-    # NOTE (source inconsistency, preserved as-is): the cross-reference footnote tables in
-    # 07-Built-In-Functions.txt also list $tzstdir_rec(tarzst_file_name,src_path,[add_pdirname],[xerr]),
-    # $untzst_rec(tarzst_file_name,dst_path,[xerr]), and $zst/$unzst(...,[xerr]) as flatten/bool-word
-    # entries (Zstandard '.tar.zst'/'.zst' analogues of the tgz/gzip family above), but NONE of these
-    # three are documented with a full signature/description in the main function catalog of that
-    # source file. Their existence and flatten/[xerr] bool-word behavior is confirmed only via those
-    # footnote tables; full parameter list is not given in source.
 
 ---- put/get text file ----
 $put_file(path:path, input_value:set) -> actual_path

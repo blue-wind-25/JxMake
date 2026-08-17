@@ -15,6 +15,7 @@ Files in this directory
   STYLE_JS_TS.md            JavaScript/TypeScript rules (derives from STYLE_JAVA.md/STYLE_KOTLIN.md)
   STYLE_PYTHON3.md          Python 3 rules
   STYLE_TOOLING.md          E-INI, Makefile, Bash, and PowerShell rules (narrow beautification-only)
+  STYLE_JXMAKE.md           JxMakeFile rules (narrow beautification-only)
   AI_PREAMBLE_FULL.md       Preamble for full-file pass (un-JAR-processed files)
   AI_PREAMBLE_AESTHETIC.md  Preamble for layout judgment pass (post-JAR files)
   README.txt                This file
@@ -22,10 +23,10 @@ Files in this directory
   The deterministic JAR formatter (formatter/code-formatter-1.0.1.jar, replace
   1.0.1 with your built version) handles all Tier-1 and Tier-2 rules
   mechanically for C, C++, Java, Kotlin, JSON/JSON5, CSS, YAML, TOML, XML,
-  HTML5, JavaScript, TypeScript, Python 3, E-INI, Makefile, Bash, and PowerShell.
+  HTML5, JavaScript, TypeScript, Python 3, E-INI, JxMakeFile, Makefile, Bash, and PowerShell.
   Run it first for those languages. The AI workflows described here cover the
   remaining Tier-3 aesthetic decisions the JAR intentionally leaves untouched
-  (data formats and the four tooling languages have no equivalent
+  (data formats and the five tooling languages have no equivalent
   layout-judgment gap, see the Layout Judgment Pass note below; applies to
   every other language — C, C++, Java, Kotlin, JavaScript, TypeScript,
   Python 3):

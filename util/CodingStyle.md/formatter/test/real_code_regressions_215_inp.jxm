@@ -1,0 +1,13 @@
+#
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+#
+
+function computeAlign(halign)
+      if ${halign} &== 'l' ; halign := 2
+    elif ${halign} &== 'r' ; halign := 4
+    elif ${halign} &== 'c' ; halign := 0
+    else                   ; halign := ''
+    endif
+    return halign
+endfunction

@@ -1,0 +1,80 @@
+#
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+#
+
+  # Set up compiler flags
+    # keep them tidy
+local CC     = 'gcc'
+local CFLAGS = '-O2 -Wall'
+
+LDFLAGS += '-lm'
+^RefA   := 20
+
+local       AA  = 'aa'
+local const BB  = 'bb'
+      const CC2 = 'cc2'
+
+function build(target, opts)
+    if target == 'release'
+        CC = 'gcc'
+    elif target == 'debug'
+        CC = 'gcc-dbg'
+    else
+        CC = 'cc'
+    endif
+    if target == 'quick' : echo 'fast'
+    for local i := 1 to 10 step 1
+        echo i
+    endfor
+endfunction
+
+target all : build
+    (*
+     * Explanation of this target.
+     * Second line.
+     *)
+    @echo building
+    -@echo quiet
+    x = 1 ; y = 2
+
+    foreach local f in files
+        echo f
+    endforeach
+
+      if halign &== 'l' ; halign := 2
+    elif halign &== 'r' ; halign := 4
+    else                ; halign := 0
+    endif
+
+    while cond
+        do
+            echo 'loop body'
+        whilst cond2
+    endwhile
+
+    repeat
+        echo 'repeat body'
+    until done
+
+    loop
+        echo 'inf'
+    endloop
+
+    .macro helper
+        echo 'in macro'
+    .endmacro
+
+    SRC_FILES = a.jxm \
+                b.jxm \
+                c.jxm
+
+    echo 'a' \
+        'b' \
+        'c'
+
+    DESC = [["
+this is verbatim
+    still verbatim
+"]]
+endtarget

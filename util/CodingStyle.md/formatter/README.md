@@ -43,7 +43,7 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 `.java` → Java, `.kt`/`.kts` → Kotlin, `.json`/`.json5` → JSON/JSON5, `.css` → CSS,
 `.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
 `.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3,
-`.ini` → E-INI (Extended INI),
+`.ini` → E-INI (Extended INI), `JxMakeFile`/`.jxm` → JxMakeFile,
 `Makefile`/`GNUmakefile`/`.mk` → Makefile, `.sh`/`.bash` → Bash, `.ps1`/`.psm1` → PowerShell).
 `.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts`. A boundary-finding
 pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
@@ -69,7 +69,7 @@ java -jar code-formatter-1.0.1.jar --lang cpp Module.inc
 ```
 
 `--lang` accepts exactly one of `c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`, `yaml`,
-`toml`, `xml`, `html5`, `js`, `ts`, `python3`, `eini`, `makefile`, `bash`, `powershell`, and applies to
+`toml`, `xml`, `html5`, `js`, `ts`, `python3`, `eini`, `jxmake`, `makefile`, `bash`, `powershell`, and applies to
 every file given on that command line (mixing file types with a single forced `--lang` in one
 invocation isn't supported — run the formatter once per language instead).
 Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
@@ -365,6 +365,67 @@ name = 'John Doe'
 ; comment about the timeout
 timeout   = 30
 retries   = 3
+```
+
+---
+
+## JxMakeFile
+
+JxMakeFile (`--lang jxmake`) is JxMake's own build-scripting language, detected from
+the literal basename `JxMakeFile` or the `.jxm` extension. It is a narrow,
+beautification-only pipeline (see [`../STYLE_JXMAKE.md`](../STYLE_JXMAKE.md)) —
+anything not covered by the four rules below is left byte-identical, with no
+general reindent/rewrap fallback: multiline strings (`[[" ... "]]`), raw/single/
+double-quoted string interiors, `@`-shell-exec command text, compiler directives
+(`:::...`), and macro-use (`.$name`) all pass through untouched.
+
+Formatting applied:
+
+1. **Line-comment normalization** — `#...` line comments are chain-grouped and
+   normalized via the same first-letter-capitalization / sole-trailing-period
+   rules as every other language (standalone comment lines keep their original
+   leading whitespace, not reindented). Block comments (`(* ... *)`) are not
+   normalized — their interior is byte-identical — but shift as one unit by the
+   opening `(*` line's indent delta, preserving any hand-alignment inside.
+2. **Forced reindentation** by block-keyword nesting depth: `function`/
+   `endfunction`, `target`/`endtarget`, `if`/`endif` (block form only — a
+   one-liner `if condition : stmt` is a single leaf statement, not a nesting
+   level), `for`/`endfor`, `foreach`/`endforeach`, `while`/`endwhile`,
+   `do`/`whilst`, `repeat`/`until`, `loop`/`endloop`, `.macro`/`.endmacro`.
+   `elif`/`else` render at the same depth as their owning `if`. Within one
+   `if`-`elif`-...-`else` chain, if (and only if) every branch inlines its body
+   on the same physical line via a trailing `;` (a normal pattern in this
+   codebase's own `.jxm` library files), the `if`/`elif`/`else` keyword itself
+   is right-justified to the widest keyword used in the chain, added on top of
+   the normal depth indent, so the condition/body lines up on every branch — if
+   even one branch instead puts its body on separate following lines, the whole
+   chain stays at plain depth indent. A `;`-separated multi-statement line
+   reindents as a whole to the depth of its first statement only.
+3. **Backslash continuation-line alignment** — for assignment statements, a
+   `\`-continued value's wrapped lines align under the value's start column
+   (same mechanism as Makefile/E-INI continuation alignment); for anything
+   else, `(depth + 1) * indent-size`.
+4. **Assignment-operator alignment** — a contiguous run of same-depth,
+   single-statement assignment lines (direct `[local] [const] var-name
+   assign-op term+`, or indirect `^var-name assign-op term+`) has its
+   `local`/`const`/var-name fields each padded to the group's widest
+   occurrence of that field (the operator and value are never padded). A group
+   breaks on a blank line, a depth change, a comment line, or any line
+   containing `;`.
+
+Example:
+
+```
+local CC     = 'gcc'
+local CFLAGS = '-O2 -Wall'
+
+function build(target)
+    if target == 'release'
+        CC = 'gcc'
+    else
+        CC = 'cc'
+    endif
+endfunction
 ```
 
 ---
@@ -797,7 +858,7 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (default
 `17173`, override with `--port N` / `server-port` config key):
 
-- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3|eini|makefile|bash|powershell>[&format-off=true][&<config-key>=<value>...]`
+- `POST /format?path=<abs-path>&lang=<c|cpp|java|kotlin|json|json5|css|yaml|toml|xml|html5|js|ts|python3|eini|jxmake|makefile|bash|powershell>[&format-off=true][&<config-key>=<value>...]`
   — request body is the file's raw content (UTF-8); response body is the formatted content
   (UTF-8), HTTP 200. The `lang` parameter is required by the client and always takes priority
   over any extension-based guess the server could make from `path` — this is how `--lang`
@@ -985,6 +1046,12 @@ here if and when it actually gains a documented gap.
 
 No known limitations beyond the fixed five-rule scope itself: any construct
 not one of the five formatting rules (see the [E-INI](#e-ini-extended-ini)
+section above) is left byte-identical by design, not as a gap.
+
+### JxMakeFile
+
+No known limitations beyond the fixed four-rule scope itself: any construct
+not one of the four formatting rules (see the [JxMakeFile](#jxmakefile)
 section above) is left byte-identical by design, not as a gap.
 
 ### Build/dev-tooling scripts (Makefile/Bash/PowerShell)

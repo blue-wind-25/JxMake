@@ -107,8 +107,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_211_inp/out.sh`
-    to   `real_code_regressions_214_inp/out.java`
+    from `real_code_regressions_215_inp/out.jxm`
+    to   `real_code_regressions_215_inp/out.jxm`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -311,7 +311,7 @@ export PATH=/opt/node-v24.14.0-linux-x64/bin:$PATH
 
 npm config set prefix ~/mynpm
 
-export NODE_OPTIONS="--max-old-space-size=2048"
+export NODE_OPTIONS="--max-old-space-size=2048"Rewriting
 
 CG=/sys/fs/cgroup/claude_limit
 if [ ! -d "$CG" ]; then
@@ -328,26 +328,20 @@ exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
 
-Let's implement a formatter/beautifier for JxMakeFile scripting language (file name: literal `JxMakeFile` and `*.jxm`), based on the current `Makefile` and other in `STATE_TOOLING.md` and `STATE_EINI.md`.
+You can use ` ../../../dist_build/jxmake --__compile__ -f <filename>.jxm` for syntax checking. If in the furture,
+this directory is missing, ask me to rebuilt it. It maybe worth to write this in the state file.
 
-The grammar is in `../../../docs/txt/JxMake-Grammar.txt`. The more detailed docs are `../../../docs/en_US/01-*.txt` to `../../../docs/en_US/12-*.txt`.
+You can search `~/Projects/JxMake/`for other `JxMakeFile` and `*.jxm` for more dogfood.
+NOTE : a few of them will syntax error when compiled because some of those are used for syntax-highlighter test only.
 
-Only a few things need to be formatted:
-1. Indentation with tracking, for `function ... endfunction`, `if ... endif`, and all other block constructs including macro body definition.
-2. Alignment/padding of `=`, `:=`, `+:=`, etc.
-3. Alignment of line continuation operator `\`.
-4. Comment normalization (use the same normalizer from the `Makefile` formatter.
-5. Other things, including multi-line string should be kept as is because JxMake script is partially context-dependent.
 
-If there is something unclear, us Q/A session. Then start implementing:
-1. Write `STYLE_JXMAKE.md` first.
-2. Implement the formatter (use a sub-agent for this).
-3. Update `README.md`, '../README.txt`, `CLAUDE.md`, etc.
 
-The state file should be `STATE_JXMAKE.md`.
+Perform "project refactoring/cleanup" sweep — unused boilerplate, duplicated
+`*Curly`/`*Indent`/`*Tags/*SimpleBraced` helper logic, etc. on the formatter source
+codes touched by the JxMake formatter jobs.
 
-Ensure the languange order in the documentations, help strings, `CLAUDE.md`, etc. is:
-    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3,
-    eini, jxmake, makefile, bash, powershell
+Then apply the formatter (ONLY the one modified by the JxMake formatter jobs). Output the
+result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform idempotency check and content-diff check.
+If all OK, copy back the formatted round1 to the formatter's `src/**/` subdirectories.
 
-The test fixture should be registered before the one for `Makefile` both in `test/README.txt` and in `INP_FILES`. Try to generate several text fixtures mixing the languange features. You can search `../../../src/0-JxMake/lib/*.jxm` for examples.
+Compact `STATE_JXMAKE.md`.

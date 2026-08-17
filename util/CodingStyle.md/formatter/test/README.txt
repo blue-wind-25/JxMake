@@ -925,6 +925,35 @@ E-INI:
                                                         "Escape And Unicode" group proving quoted backslash
                                                         escapes and Unicode content pass through verbatim.
 
+JxMakeFile:
+  jxmake_combined_inp/out.jxm                        -- STYLE_JXMAKE.md §1-4 combined: chain-grouped `#`
+                                                        line-comment normalization (standalone comment
+                                                        lines keep their original leading whitespace, not
+                                                        reindented), a `(* ... *)` block comment shifted as
+                                                        a unit by indent delta with interior byte-identical,
+                                                        forced reindent by block-keyword nesting depth
+                                                        (`function`/`if`/`elif`/`else`/`endif`/`for`/
+                                                        `foreach`/`while`/`do`/`whilst`/`repeat`/`until`/
+                                                        `loop`/`.macro`/target), a one-liner `if ... : stmt`
+                                                        left un-nested, an ordinary block-form `if`/`elif`/
+                                                        `else`/`endif` left at plain depth indent (not
+                                                        keyword-right-aligned, since its branches don't
+                                                        uniformly inline their bodies) alongside a second
+                                                        `if`/`elif`/`else`/`endif` chain where every branch
+                                                        inlines its body via `;`, which *does* get its
+                                                        `if`/`elif`/`else` keywords right-justified to the
+                                                        chain's widest keyword, a `;`-separated multi-statement
+                                                        line reindented as a whole only, `@`/`-@` shell-exec lines
+                                                        left opaque after the marker, backslash continuation
+                                                        alignment under an assignment's value column and
+                                                        under `(depth+1)*indent-size` for a non-assignment
+                                                        continuation, a `[[" ... "]]` multiline string left
+                                                        100% verbatim, and rule-4 field-table assignment
+                                                        alignment (`local`/`const`/var-name fields each
+                                                        padded to the group's widest occurrence, operator
+                                                        and value left unaligned) for direct and indirect
+                                                        (`^name`) assignment groups.
+
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
                                                         group (`=`/`:=`/`+=`), backslash continuation-line
@@ -4105,6 +4134,17 @@ Real-code regressions:
                                                         also fixes this real-corpus non-idempotency: a single
                                                         GDR pass is non-idempotent here, both flags together
                                                         are fully idempotent.
+
+  real_code_regressions_215_inp/out.jxm              -- JxMakeFile dogfood corpus (`XMLFrame.jxm`) fix:
+                                                        `isOneLinerIf` mistook the `:` inside a `;`-inlined
+                                                        branch's `:=` assign-op for the Section 11.1
+                                                        one-liner marker, so the block `if` never opened a
+                                                        nesting level and its `elif`/`elif`/`else`/`endif`
+                                                        collapsed to column 0. Fixed by stopping the scan at
+                                                        the first top-level `;` and excluding `:` followed by
+                                                        `=`/`+`/`?`. Also doubles as a real-corpus proof of
+                                                        the `if`/`elif`/`else` keyword right-alignment
+                                                        sub-rule, since every branch inlines its body via `;`.
 
 How Tests Are Run
 -----------------

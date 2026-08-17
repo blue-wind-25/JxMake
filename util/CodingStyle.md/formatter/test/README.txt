@@ -4146,6 +4146,12 @@ Real-code regressions:
                                                         the `if`/`elif`/`else` keyword right-alignment
                                                         sub-rule, since every branch inlines its body via `;`.
 
+  real_code_regressions_216_inp/out.jxm              -- standalone `#` comment chain directly above a
+                                                        `function` block that changes depth due to an
+                                                        enclosing `if`: the chain now takes the depth of the
+                                                        next code line (the `function` opener) instead of
+                                                        keeping its own original leading whitespace unchanged.
+
 How Tests Are Run
 -----------------
 

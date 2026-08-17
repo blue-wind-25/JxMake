@@ -121,6 +121,7 @@ Full text lives in `RDD_LOG.md` (shared sequence across all jobs — see
 | RDD_KEY_307 | Rule-4 (assignment-operator alignment) field-table implementation: `local`/`const`/var-name are three independently-aligned columns, each padded to the widest occurrence of that field in the group, not one combined key column. Verified against two of STYLE_JXMAKE.md's own worked examples by hand-deriving the padding formula; a third example's internally-inconsistent spacing (between its own two identical-prefix rows) was judged a hand-typed illustrative slip, not a literal byte-exact target. |
 | RDD_KEY_308 | Real bug found via dogfooding `XMLFrame.jxm`: `isOneLinerIf` mistook a `;`-inlined branch's `:=` assign-op colon for the one-liner marker, collapsing a block `if`'s `elif`/`elif`/`else`/`endif` to column 0. Fixed by stopping the scan at the first top-level `;` and excluding `:` followed by `=`/`+`/`?`. |
 | RDD_KEY_309 | `if`/`elif`/`else` keyword right-alignment sub-rule implementation: a `Deque<IfChain>`-based second pass, applied only when every branch in the chain inlines its body via `;` (`IfChain.uniformOneLiner`). Verified against both real-code reference shapes named in the correction (`XMLFrame.jxm`, `BasicPlatformUtil.jxm`). |
+| RDD_KEY_310 | User-reported bug: a standalone `#` comment chain directly above a block-opening statement (e.g. `function`) kept its own stale original indent instead of following the block's new depth. Fixed: a chain now takes the depth of the next non-blank, non-comment code line (`nextCodeLineDepth` helper), falling back to the chain's own current-context depth when separated from that line by a blank line or at end of file/block. STYLE_JXMAKE.md rule 1 gained a new "Indentation of standalone `#` comment chains" paragraph; rule 2's preamble no longer blanket-excludes comment lines. |
 
 ---
 
@@ -203,3 +204,13 @@ a stop.
       language-enumeration lists there).
 - [x] Add `RDD_KEY_307`/`RDD_KEY_308`/`RDD_KEY_309` to `RDD_LOG.md`, index
       them above; create this file.
+- [x] **2026-08-17 (later) user-reported bug fix**: standalone `#` comment
+      chain indentation (RDD_KEY_310, see index above). Added
+      `test/real_code_regressions_216_{inp,out}.jxm`, updated
+      `test/jxmake_combined_out.jxm` (its pre-existing hand-indented comment
+      pair now correctly renders at depth 0, a genuine expected-output
+      change), registered both in `Makefile`/`test/README.txt`. `make test`
+      327/327 forward + idempotency. Re-ran round1/round2 idempotency across
+      the full 130-file previously-dogfooded corpus — empty diff, confirming
+      no bad interaction with block-comment shifting or comment-chain
+      grouping elsewhere.

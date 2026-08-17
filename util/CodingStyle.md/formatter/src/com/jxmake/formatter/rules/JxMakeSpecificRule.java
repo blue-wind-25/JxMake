@@ -369,20 +369,18 @@ public final class JxMakeSpecificRule {
                 continue;
             } // if
 
-            // ---- Standalone `#` comment-line chain (untouched indentation) -----------------
+            // ---- Standalone `#` comment-line chain (indent follows the next code line) -----
             if( trimmed.startsWith("#") ) {
                 flushGroup(out, group, groupDepth, indentWidth);
                 group.clear();
                 groupDepth = -1;
 
-                final List<String> prefixes = new ArrayList<>();
-                final List<String> bodies   = new ArrayList<>();
+                final List<String> bodies = new ArrayList<>();
                 while( idx < lines.size() ) {
                     final String l  = lines.get(idx);
                     final String lt = l.trim();
                     if( !lt.startsWith("#") ) break;
                     final int lead = firstNonWs(l);
-                    prefixes.add( l.substring(0, lead) );
                     bodies.add( l.substring(lead + 1) );
                     ++idx;
                 } // while
@@ -396,9 +394,8 @@ public final class JxMakeSpecificRule {
                     null,
                     normalizeCommentMultiSentenceCase
                 );
-                for( int k = 0; k < normalized.size(); ++k ) out.add(
-                    prefixes.get(k) + "#" + normalized.get(k)
-                );
+                final String chainLeading = indent( nextCodeLineDepth(lines, idx, depth), indentWidth );
+                for(final String body : normalized) out.add( chainLeading + "#" + body );
                 continue;
             } // if
 
@@ -633,6 +630,30 @@ public final class JxMakeSpecificRule {
             out.add( sb.toString() );
         } // for
         group.clear();
+    }
+
+    /**
+     * Depth a standalone `#` comment chain ending just before {@code idx} should render at
+     * (STYLE_JXMAKE.md rule 1's "Indentation of standalone `#` comment chains"): the depth the
+     * next non-blank code line at {@code lines.get(idx)} will render at, or {@code currentDepth}
+     * (the chain's own fallback context depth) when that line is blank or doesn't exist -- a
+     * blank line breaks the "comment attaches to what follows" association, same as it already
+     * breaks the comment chain itself. Every render-depth outcome in the main loop is
+     * {@code currentDepth} except a CLOSERS/ELIF_ELSE line, which renders one level shallower
+     * (mirrors the main loop's own `renderDepth` computation for those two branches).
+     */
+    private static int nextCodeLineDepth(final List<String> lines, final int idx, final int currentDepth)
+    {
+        if( idx >= lines.size() ) return currentDepth;
+        final String nextTrimmed = lines.get(idx).trim();
+        if( nextTrimmed.isEmpty() ) return currentDepth;
+
+        final int    commentIdx = scanForComment( lines.get(idx) );
+        final String codeOnly   = commentIdx < 0 ? lines.get(idx) : lines.get(idx).substring(0, commentIdx);
+        final String token      = firstToken( codeOnly.trim() );
+        if( CLOSERS.contains(token) || ELIF_ELSE.contains(token) ) return Math.max(0, currentDepth - 1);
+
+        return currentDepth;
     }
 
     /**

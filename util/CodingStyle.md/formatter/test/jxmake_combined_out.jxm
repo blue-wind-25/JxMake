@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 #
 
-  # Set up compiler flags
-    # keep them tidy
+# Set up compiler flags
+# keep them tidy
 local CC     = 'gcc'
 local CFLAGS = '-O2 -Wall'
 

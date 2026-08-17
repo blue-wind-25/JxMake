@@ -1,0 +1,15 @@
+#
+# Copyright (C) 2024 Example Corp.
+# SPDX-License-Identifier: MIT
+#
+
+(***** Only include this part of the script where necessary *****)
+if $or(${__ForceGCC__}, __os_posix__, __os_posix_compat__)
+
+
+    ##### Function to define macros
+    function def_macro(name, ?value)
+        value ?:= 1
+        return :"-D${name}=${value}"
+    endfunction
+endif

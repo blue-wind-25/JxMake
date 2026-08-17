@@ -48,6 +48,17 @@ not normalized independently per line.
 # Fix the build path
 ```
 
+**Indentation of standalone `#` comment chains.** A standalone `#` line
+comment (or contiguous chain of them) takes the indent depth of the next
+non-blank, non-comment code line that follows it — the comment attaches
+to what it comments on, so it always tracks that line's depth under rule
+2's forced reindent, even when the comment's own line didn't itself
+change block nesting. If the comment is separated from the next code line
+by a blank line, or is the last line of a file/block with no following
+code line at all, it falls back to the depth rule 2 would already assign
+a code line at that same position (i.e. the current depth at the point
+the comment appears), rather than searching further ahead.
+
 **Block comments** (`(* ... *)`, may span many lines) are **not**
 normalized — their interior text is always left byte-identical. They are,
 however, subject to rule 2's indentation tracking as a single unit: the
@@ -77,12 +88,17 @@ own `JXM_CFMT_CFG` in-file directive, e.g. `#% JXM_CFMT_CFG ...`).
 
 ## 2. Indentation (Block-Keyword Nesting Depth)
 
-Every non-comment, non-string-literal-interior physical line is
-reindented to `depth * indent-size` spaces of leading whitespace, where
-`depth` is the current block-nesting depth computed purely from the fixed
-list of block-delimiting keywords below (reuses the shared global
-`indent-size` config key, default 4 — same key the curly/indent-based
-language families already use). This is a **full forced reindent** of
+Every non-string-literal-interior physical line is reindented to `depth *
+indent-size` spaces of leading whitespace, where `depth` is the current
+block-nesting depth computed purely from the fixed list of block-
+delimiting keywords below (reuses the shared global `indent-size` config
+key, default 4 — same key the curly/indent-based language families
+already use). Standalone `#` line comments are covered too, but take
+their depth from the next code line per rule 1's "Indentation of
+standalone `#` comment chains" above rather than from their own line's
+keyword classification (they have none); block `(* ... *)` comments are
+covered by rule 1's own uniform-shift-by-delta rule instead. This is a
+**full forced reindent** of
 every statement line (not a "preserve author's own indent, only snap"
 rule like Bash's `snapIndent`) — safe here because every JxMake block
 construct is unambiguously keyword-delimited (unlike Bash's braceless

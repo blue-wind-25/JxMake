@@ -1,0 +1,17 @@
+docs/txt/en_US/<NN-Xxxx.txt[, NN-Yyyy.txt, ...]> has been updated in the
+JxMake repo. Please update docs/txt/JxMake-AI-Reference.txt to reflect the
+changes, following the UPDATE PROCEDURE and SOURCE INVENTORY documented in
+that file's own header.
+
+- Re-read the changed source file(s) in full.
+- Diff their current content against what the reference currently reflects.
+- Add/update/remove only the entries affected by the change — do not touch
+  or reformat unrelated sections.
+- Keep the same compact notation/template already used in the file.
+- If a changed source file is one of the excluded ones (00-System-
+  Configuration.txt, 99-Appendix-A/B/C), skip it — it's intentionally not
+  covered by this reference.
+- Update the SOURCE INVENTORY table entries (line count, byte size) for
+  every file you actually re-synced.
+- Report a short summary of what was added/changed/removed, plus the new
+  vs. old file size of the reference.

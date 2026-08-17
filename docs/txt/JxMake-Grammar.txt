@@ -475,7 +475,7 @@ SECTION 7 -- BUILT-IN FUNCTIONS REFERENCED BY SUGAR EXPANSIONS
     (* This section lists only the built-in functions directly referenced in sugar expansion
        rules elsewhere in this grammar (Sections 9.3, 9.4, 9.6).
        Full function signatures and the complete catalogue are in the manual files
-       07-Built-In-Functions.txt and Appendix X.
+       07-Built-In-Functions.txt and 99-Appendix-X_Built-In-Function-Parameters.txt.
        All function calls: '$func_name( [arg, ...] )'  [WS-OPT inside parens] *)
 
 ----------------------------------------------------------------------------------------------------

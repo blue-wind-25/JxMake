@@ -328,20 +328,12 @@ exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
 
-You can use ` ../../../dist_build/jxmake --__compile__ -f <filename>.jxm` for syntax checking. If in the furture,
-this directory is missing, ask me to rebuilt it. It maybe worth to write this in the state file.
-
-You can search `~/Projects/JxMake/`for other `JxMakeFile` and `*.jxm` for more dogfood.
-NOTE : a few of them will syntax error when compiled because some of those are used for syntax-highlighter test only.
-
-
-
 Perform "project refactoring/cleanup" sweep — unused boilerplate, duplicated
 `*Curly`/`*Indent`/`*Tags/*SimpleBraced` helper logic, etc. on the formatter source
-codes touched by the JxMake formatter jobs.
+codes touched by the previous JxMake formatter jobs.
 
-Then apply the formatter (ONLY the one modified by the JxMake formatter jobs). Output the
+Then apply the formatter (ONLY the files modified by the previous JxMake formatter jobs). Output the
 result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform idempotency check and content-diff check.
 If all OK, copy back the formatted round1 to the formatter's `src/**/` subdirectories.
 
-Compact `STATE_JXMAKE.md`.
+Finally, compact `STATE_JXMAKE.md` and `STATE_DOGFOOD.md`.

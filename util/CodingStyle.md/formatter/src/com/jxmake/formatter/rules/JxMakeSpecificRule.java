@@ -386,7 +386,7 @@ public final class JxMakeSpecificRule {
                 } // while
                 final List<Boolean> blanks = new ArrayList<>();
                 for( int k = 0; k < bodies.size(); ++k ) blanks.add(false);
-                final List<String> normalized = ToolingCommentNormalizer.normalizeChain(
+                final List<String> normalized   = ToolingCommentNormalizer.normalizeChain(
                     bodies,
                     blanks,
                     normalizeCommentStartCase,
@@ -394,8 +394,10 @@ public final class JxMakeSpecificRule {
                     null,
                     normalizeCommentMultiSentenceCase
                 );
-                final String chainLeading = indent( nextCodeLineDepth(lines, idx, depth), indentWidth );
-                for(final String body : normalized) out.add( chainLeading + "#" + body );
+                final String       chainLeading = indent(
+                    nextCodeLineDepth(lines, idx, depth), indentWidth
+                );
+                for(final String body : normalized) out.add(chainLeading + "#" + body);
                 continue;
             } // if
 
@@ -642,16 +644,32 @@ public final class JxMakeSpecificRule {
      * {@code currentDepth} except a CLOSERS/ELIF_ELSE line, which renders one level shallower
      * (mirrors the main loop's own `renderDepth` computation for those two branches).
      */
-    private static int nextCodeLineDepth(final List<String> lines, final int idx, final int currentDepth)
+    private static int nextCodeLineDepth(
+        final List<String> lines,
+        final int          idx,
+        final int          currentDepth
+    )
     {
         if( idx >= lines.size() ) return currentDepth;
         final String nextTrimmed = lines.get(idx).trim();
         if( nextTrimmed.isEmpty() ) return currentDepth;
 
         final int    commentIdx = scanForComment( lines.get(idx) );
-        final String codeOnly   = commentIdx < 0 ? lines.get(idx) : lines.get(idx).substring(0, commentIdx);
+        final String codeOnly   = commentIdx < 0 ? lines.get(
+            idx
+        ) : lines.get(
+            idx
+        ).substring(
+            0, commentIdx
+        );
         final String token      = firstToken( codeOnly.trim() );
-        if( CLOSERS.contains(token) || ELIF_ELSE.contains(token) ) return Math.max(0, currentDepth - 1);
+        if( CLOSERS.contains(
+            token
+        ) || ELIF_ELSE.contains(
+            token
+        ) ) return Math.max(
+            0, currentDepth - 1
+        );
 
         return currentDepth;
     }

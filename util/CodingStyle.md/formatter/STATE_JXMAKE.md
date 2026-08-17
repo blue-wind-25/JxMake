@@ -7,7 +7,14 @@ status: real `.jxm` library files under
 project) — round1/round2 idempotent across the whole corpus, syntax-checked
 via `dist_build/jxmake --__compile__` (the 5 files that fail also fail
 identically on the unformatted originals — pre-existing standalone-compile
-limitations unrelated to this formatter).
+limitations unrelated to this formatter). **Extended 2026-08-17**: also
+covers `test/*.jxm`, `test/src/*/JxMakeFile`,
+`test/src/cpp_atmega/JxMake-{Extra,Console}.jxm`,
+`util/STM32Spec/*.jxm`, and two hardware-project `JxMakeFile`s (80 files) —
+see the Checklist entry below for the full breakdown, including which
+`JxMakeScriptEditor_Test_*`/`JxMakeTokenMaker_Test`/`SHFTest`/`DeprTest`
+files are confirmed pre-existing/intentional non-clean cases vs. normal
+testable files.
 
 ---
 
@@ -117,6 +124,20 @@ Full text lives in `RDD_LOG.md` (shared sequence across all jobs — see
 
 ---
 
+## Tools/compiler used
+
+Syntax-check command for this job (mirrors `STATE_TOOLING.md`'s own
+"Tools/compiler used" section):
+
+```
+/home/aloysius/Projects/JxMake/dist_build/jxmake --__compile__ -f <filename>.jxm
+```
+
+**If `dist_build/` is missing in a future session, ask the user to rebuild
+it — do not attempt to rebuild it yourself** (explicit user instruction).
+
+---
+
 ## Open Questions
 
 None. All syntax/rule details (including two mid-implementation
@@ -156,6 +177,48 @@ a stop.
       the uniform-one-liner-chain case; re-verified all fixtures + dogfood
       corpus after each correction.
 - [x] `make test` green: 326/326 forward + idempotency.
+- [x] **2026-08-17 extended dogfood pass** against the wider
+      `~/Projects/JxMake/` tree beyond `src/0-JxMake/lib/*.jxm` (80 files):
+      `test/*.jxm` (~45 unit/feature test scripts), `test/src/*/JxMakeFile`
+      (~25 per-target build configs, incl. `test/src/cpp/JxMakeFile` and
+      `test/src/cpp_rp2040/JxMakeFile` which use real `extradep`),
+      `test/src/cpp_atmega/JxMake-Extra.jxm`/`JxMake-Console.jxm`,
+      `util/STM32Spec/STM32LinkerScript.jxm`/`STM32ChipSpec.jxm`,
+      `hardware/Experiment/Firmware/AVR32DU28_CDC-ACM/JxMakeFile`,
+      `hardware/Tools/Firmware/USB_Serial_Hub_GLST/JxMakeFile`. Round1/round2
+      `diff -rq` fully empty (idempotent across all 80 files) — no bug
+      found, no fixture needed. Syntax-checked every file (original and
+      round1) via `dist_build/jxmake --__compile__ -f <abs-path>.jxm` (note:
+      the tool resolves `-f <path>` relative to its own binary's directory,
+      not the caller's cwd — must pass an absolute path); original-vs-round1
+      output (RC + non-blank output-line count) is **byte-identical for
+      every one of the 80 files**, confirming zero formatter-induced syntax
+      regressions. Real `target ... : prereqs` / `extradep` construct
+      shapes (different in kind from the library-style `src/0-JxMake/lib/`
+      corpus) exercised cleanly, no new bug surfaced.
+      **Confirmed pre-existing (not formatter-related), reproduce
+      identically on both original and formatted output:**
+      - `test/JxMakeScriptEditor_Test.jxm`, `_B.jxm`, `_B1.jxm` — crash with
+        `java.awt.AWTError: Can't connect to X11 window server` (RC=1): the
+        script invokes GUI/editor code, fails in this headless sandbox
+        regardless of formatting — not a syntax error, not a formatter bug.
+      - `test/JxMakeTokenMaker_Test.jxm` — genuine compile error
+        (`premature end of line` at line 19:10), confirmed via the
+        `--__compile__` check on the *original* file before excluding it —
+        this is one of the syntax-highlighter test fixtures the user warned
+        about (name matches `JxMakeTokenMaker_Test`).
+      - `test/SHFTest.jxm` — `FileNotFoundException` for an intentionally
+        missing include (`test/abc/def/file1.jxm`), a deliberate
+        file-not-found test scenario, unrelated to syntax/formatting.
+      - `test/DeprTest.jxm` — emits 6 deprecation *warnings* (RC=0, no
+        error) by design (tests the deprecated-symbol warning path) — not a
+        failure, listed for completeness only.
+      - The other 7 `JxMakeScriptEditor_Test_*` files (`_A`, `_B2`, `_B21`,
+        `_B22`, `_B3`, `_C`, `_X`) all compile cleanly (RC=0) both before
+        and after formatting — not GUI-invoking, safely treated as normal
+        testable files, not fixtures.
+      No genuine formatter bug found this pass; `make test` unaffected
+      (326/326, no source changes).
 - [x] Update docs: `README.md` (new "JxMakeFile" section, extension/basename
       mapping, `--lang`/`lang=` enumerations, Known Limitations entry),
       `../README.txt` (file list, JAR-implemented-languages list, "five

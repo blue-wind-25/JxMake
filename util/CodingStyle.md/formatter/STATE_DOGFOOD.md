@@ -54,6 +54,8 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | C++26 | STATE_CPP26.md | wrocpp/cpp26-reflection-examples | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src minus jxm (vendored 3rd-party) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | ../../../src/jxm (JxMake's own Java tree) | DONE | |
+| JxMakeFile | STATE_JXMAKE.md | ../../../src/0-JxMake/lib/*.jxm | DONE | idempotent whole-corpus; 5 pre-existing standalone-compile failures reproduce identically unformatted |
+| JxMakeFile | STATE_JXMAKE.md | ../../../{test,util/STM32Spec,hardware/**/Firmware/*}/{*.jxm,JxMakeFile} (2026-08-17, 80 files) | DONE | idempotent whole-corpus; original-vs-round1 `--__compile__` output byte-identical on all 80 files; several confirmed pre-existing/intentional non-clean files (GUI/X11-dependent, syntax-highlighter fixture, missing-include fixture, deprecation-warning fixture) — see STATE_JXMAKE.md Checklist for the breakdown |
 | Java | STATE_C_CPP_JAVA.md | apache/ant | DONE | `PathTest.java` re-checked 2026-08-09, clean; `JikesOutputParser.java`'s reindent gap CLOSED 2026-08-16 -- idempotent/`javac`-clean with `curly-general-scope-reindent=on` AND `curly-general-scope-reindent-multipass=on` together (RDD_KEY_299) |
 | Java | STATE_C_CPP_JAVA.md | ARMCortexMThumbC.java.in (local) | DONE | |
 | Java | STATE_C_CPP_JAVA.md | google/google-java-format | DONE | |

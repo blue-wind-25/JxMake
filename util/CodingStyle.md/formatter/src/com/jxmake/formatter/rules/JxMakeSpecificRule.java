@@ -31,7 +31,7 @@ public final class JxMakeSpecificRule {
     private final int     indentWidth;
     private final boolean normalizeCommentStartCase;
     private final boolean normalizeCommentEndPeriod;
-    private boolean normalizeCommentMultiSentenceCase = false;
+    private       boolean normalizeCommentMultiSentenceCase = false;
 
     public JxMakeSpecificRule(
         final int     indentWidth,
@@ -51,22 +51,28 @@ public final class JxMakeSpecificRule {
 
     // ---- Keyword tables (STYLE_JXMAKE.md §2) -------------------------------------------------
 
-    private static final Set<String> OPENERS = new HashSet<>(
-        Arrays.asList("function", "target", "for", "foreach", "while", "do", "repeat", "loop", ".macro")
-    );
-    private static final Set<String> CLOSERS = new HashSet<>(
-        Arrays.asList(
-            "endfunction", "endtarget", "endif", "endfor", "endforeach",
-            "endwhile", "whilst", "until", "endloop", ".endmacro"
-        )
-    );
-    private static final Set<String> ELIF_ELSE   = new HashSet<>( Arrays.asList("elif", "else") );
-    private static final String[]    ASSIGN_OPS  = {":+=", "+:=", ":?=", "?:=", ":=", "+=", "?=", "="};
-    private static final String[]    EXEC_MARKERS = {"-+@", "-@", "+@", "?@", "@"};
+    private static final Set<String> OPENERS      = new HashSet<>( Arrays.asList(
+        "function", "target", "for", "foreach", "while", "do", "repeat", "loop", ".macro"
+    ) );
+    private static final Set<String> CLOSERS      = new HashSet<>( Arrays.asList(
+        "endfunction",
+        "endtarget",
+        "endif",
+        "endfor",
+        "endforeach",
+        "endwhile",
+        "whilst",
+        "until",
+        "endloop",
+        ".endmacro"
+    ) );
+    private static final Set<String> ELIF_ELSE    = new HashSet<>( Arrays.asList("elif", "else") );
+    private static final String[]    ASSIGN_OPS   = { ":+=", "+:=", ":?=", "?:=", ":=", "+=", "?=", "=" };
+    private static final String[]    EXEC_MARKERS = { "-+@", "-@", "+@", "?@", "@" };
 
     // ---- Char-level scanning helpers ---------------------------------------------------------
 
-    /** Index of the first unquoted `#` (line-comment start) on {@code line}, or -1 if none. */
+    /** Index of the first unquoted `#` (line-comment start) on {@code line}, or -1 if none */
     private static int scanForComment(final String line)
     {
         char quote = 0;
@@ -83,7 +89,7 @@ public final class JxMakeSpecificRule {
                 if(c == quote) quote = 0;
                 ++i;
                 continue;
-            }
+            } // if
             if(c == '`' || c == '\'' || c == '"') { quote = c; ++i; continue; }
             if(c == '#') return i;
             ++i;
@@ -92,7 +98,7 @@ public final class JxMakeSpecificRule {
         return -1;
     }
 
-    /** Replaces every quoted/raw-string span's interior (quotes kept) with spaces, same length as {@code code}. */
+    /** Replaces every quoted/raw-string span's interior (quotes kept) with spaces, same length as {@code code} */
     private static String maskStringsOnly(final String code)
     {
         final StringBuilder out   = new StringBuilder( code.length() );
@@ -112,7 +118,7 @@ public final class JxMakeSpecificRule {
                 out.append(' ');
                 ++i;
                 continue;
-            }
+            } // if
             if(c == '`' || c == '\'' || c == '"') { quote = c; out.append(c); ++i; continue; }
             out.append(c);
             ++i;
@@ -121,15 +127,17 @@ public final class JxMakeSpecificRule {
         return out.toString();
     }
 
-    /** Leftmost, whitespace-bounded occurrence of an assign-op in {@code masked}; {start,end} or null. */
+    /** Leftmost, whitespace-bounded occurrence of an assign-op in {@code masked}; {start,end} or null */
     private static int[] findAssignOp(final String masked)
     {
         for( int i = 0; i < masked.length(); ++i ) {
             for(final String op : ASSIGN_OPS) {
-                if( masked.regionMatches(i, op, 0, op.length()) ) {
-                    final boolean leftOk = (i == 0) || Character.isWhitespace( masked.charAt(i - 1) );
-                    final int     end    = i + op.length();
-                    final boolean rightOk = (end >= masked.length()) || Character.isWhitespace(
+                if( masked.regionMatches( i, op, 0, op.length() ) ) {
+                    final boolean leftOk  = (i == 0) || Character.isWhitespace(
+                        masked.charAt(i - 1)
+                    );
+                    final int     end     = i + op.length();
+                    final boolean rightOk = ( end >= masked.length() ) || Character.isWhitespace(
                         masked.charAt(end)
                     );
                     if(leftOk && rightOk) return new int[] {i, end};
@@ -190,14 +198,19 @@ public final class JxMakeSpecificRule {
      */
     private static final class IfChain {
 
-        final List<int[]> entries = new ArrayList<>(); // { outIndex, keywordLen, baseIndentLen }
-        int     maxKeywordLen = 0;
-        boolean uniformOneLiner = true; // false once any branch lacks an inline "; body"/body
+        final List<int[]> entries         = new ArrayList<>(); // { outIndex, keywordLen, baseIndentLen }
+              int         maxKeywordLen   = 0;
+              boolean     uniformOneLiner = true;              // False once any branch lacks an inline "; body"/body
 
-        void add(final int outIndex, final int keywordLen, final int baseIndentLen, final boolean hasInlineBody)
+        void add(
+            final int     outIndex,
+            final int     keywordLen,
+            final int     baseIndentLen,
+            final boolean hasInlineBody
+        )
         {
             entries.add( new int[] { outIndex, keywordLen, baseIndentLen } );
-            maxKeywordLen = Math.max( maxKeywordLen, keywordLen );
+            maxKeywordLen = Math.max(maxKeywordLen, keywordLen);
             if(!hasInlineBody) uniformOneLiner = false;
         }
 
@@ -213,7 +226,7 @@ public final class JxMakeSpecificRule {
     private static void applyIfChainAlignment(final List<String> out, final IfChain chain)
     {
         if(!chain.uniformOneLiner) return;
-        for(final int[] entry : chain.entries) {
+        for( final int[] entry : chain.entries ) {
             final int outIndex      = entry[0];
             final int keywordLen    = entry[1];
             final int baseIndentLen = entry[2];
@@ -222,7 +235,7 @@ public final class JxMakeSpecificRule {
             final String line = out.get(outIndex);
             out.set(
                 outIndex,
-                repeatChar( ' ', baseIndentLen + pad ) + line.substring(baseIndentLen)
+                repeatChar(' ', baseIndentLen + pad) + line.substring(baseIndentLen)
             );
         } // for
     }
@@ -231,10 +244,10 @@ public final class JxMakeSpecificRule {
 
         String localTok; // "local" or null
         String constTok; // "const" or null
-        String varTok;   // var-name field (e.g. "CC" or "^RefA"), never null
+        String varTok;   // Var-name field (e.g. "CC" or "^RefA"), never null
         String op;
         String value;
-        String comment; // null if none (already normalized, no leading '#')
+        String comment;  // Null if none (already normalized, no leading '#')
 
     } // class AsgnItem
 
@@ -253,16 +266,16 @@ public final class JxMakeSpecificRule {
         } // if
 
         final String[] toks = prefixCollapsed.split(" ");
-        if( toks.length == 3 && "local".equals(toks[0]) && "const".equals(toks[1]) ) {
+        if( toks.length == 3 && "local".equals( toks[0] ) && "const".equals( toks[1] ) ) {
             item.localTok = toks[0];
             item.constTok = toks[1];
             item.varTok   = toks[2];
         }
-        else if( toks.length == 2 && "local".equals(toks[0]) ) {
+        else if( toks.length == 2 && "local".equals( toks[0] ) ) {
             item.localTok = toks[0];
             item.varTok   = toks[1];
         }
-        else if( toks.length == 2 && "const".equals(toks[0]) ) {
+        else if( toks.length == 2 && "const".equals( toks[0] ) ) {
             item.constTok = toks[0];
             item.varTok   = toks[1];
         }
@@ -282,19 +295,19 @@ public final class JxMakeSpecificRule {
         final List<String> lines           = new ArrayList<>( Arrays.asList(rawArr) );
         if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
 
-        final List<String>    out       = new ArrayList<>();
-        final List<AsgnItem>  group     = new ArrayList<>();
-              int             groupDepth = -1;
+        final List<String>   out        = new ArrayList<>();
+        final List<AsgnItem> group      = new ArrayList<>();
+              int            groupDepth = -1;
 
-              int     idx      = 0;
-              int     depth    = 0;
-              boolean inMlString    = false;
-              boolean inBlockComment = false;
-              int     blockCommentDelta = 0;
-              boolean pendingContinuation = false;
-              boolean contIsAssignment   = false;
-              int     contValueCol       = 0;
-              int     contFallbackDepth  = 0;
+                int     idx                 = 0;
+                int     depth               = 0;
+                boolean inMlString          = false;
+                boolean inBlockComment      = false;
+                int     blockCommentDelta   = 0;
+                boolean pendingContinuation = false;
+                boolean contIsAssignment    = false;
+                int     contValueCol        = 0;
+                int     contFallbackDepth   = 0;
 
         final Deque<IfChain> ifChainStack = new ArrayDeque<>();
 
@@ -312,8 +325,11 @@ public final class JxMakeSpecificRule {
             // ---- Block-comment uniform-shift carry ---------------------------------------
             if(inBlockComment) {
                 final int    oldLead = firstNonWs(line);
-                final String shifted = repeatChar( ' ', Math.max( 0, oldLead + blockCommentDelta ) )
-                        + line.substring(oldLead);
+                final String shifted = repeatChar(
+                    ' ', Math.max(0, oldLead + blockCommentDelta)
+                ) + line.substring(
+                    oldLead
+                );
                 out.add(shifted);
                 if( line.contains("*)") ) inBlockComment = false;
                 ++idx;
@@ -329,17 +345,19 @@ public final class JxMakeSpecificRule {
                     ++idx;
                     continue;
                 } // if
-                final String newLeading = contIsAssignment
-                        ? repeatChar(' ', contValueCol)
-                        : indent(contFallbackDepth + 1, indentWidth);
+                final String newLeading = contIsAssignment ? repeatChar(
+                    ' ', contValueCol
+                ) : indent(
+                    contFallbackDepth + 1, indentWidth
+                );
                 out.add(newLeading + trimmed);
                 pendingContinuation = endsWithContinuation(line);
                 ++idx;
                 continue;
             } // if
 
-            final String trimmed     = line.trim();
-            final int    oldLeadEnd  = firstNonWs(line);
+            final String trimmed    = line.trim();
+            final int    oldLeadEnd = firstNonWs(line);
 
             // ---- Blank line ----------------------------------------------------------------
             if( trimmed.isEmpty() ) {
@@ -403,7 +421,9 @@ public final class JxMakeSpecificRule {
 
             // ---- Shell-exec marker line (opaque command text) ------------------------------
             String execMarker = null;
-            for(final String m : EXEC_MARKERS) if( trimmed.startsWith(m) ) { execMarker = m; break; }
+            for(final String m : EXEC_MARKERS) if( trimmed.startsWith(
+                m
+            ) ) { execMarker = m; break; }
             if(execMarker != null) {
                 flushGroup(out, group, groupDepth, indentWidth);
                 group.clear();
@@ -415,9 +435,9 @@ public final class JxMakeSpecificRule {
             } // if
 
             // ---- Ordinary statement line ----------------------------------------------------
-            final int    commentIdx = scanForComment(line);
-            final String codeOnly   = commentIdx < 0 ? line : line.substring(0, commentIdx);
-            final String masked     = maskStringsOnly(codeOnly);
+            final int     commentIdx   = scanForComment(line);
+            final String  codeOnly     = commentIdx < 0 ? line : line.substring(0, commentIdx);
+            final String  masked       = maskStringsOnly(codeOnly);
             final boolean hasSemicolon = masked.contains(";");
             final String  codeTrimmed  = codeOnly.trim();
             final String  token        = firstToken(codeTrimmed);
@@ -444,11 +464,13 @@ public final class JxMakeSpecificRule {
             else {
                 renderDepth = depth;
             }
-            final String newLeading = indent(renderDepth, indentWidth);
+            final String  newLeading    = indent(renderDepth, indentWidth);
             final boolean thisContinues = endsWithContinuation(line);
 
             // -- Multiline-string opener (`[["` alone at end of line) --
-            final boolean opensMlString = codeTrimmed.endsWith("[[\"") && !hasSemicolon && !thisContinues;
+            final boolean opensMlString = codeTrimmed.endsWith(
+                "[[\""
+            ) && !hasSemicolon && !thisContinues;
 
             if(opensMlString) {
                 flushGroup(out, group, groupDepth, indentWidth);
@@ -463,15 +485,22 @@ public final class JxMakeSpecificRule {
 
             // -- Assignment detection (only single-statement, non-multi-statement lines) --
             int[] opRange = null;
-            if( !hasSemicolon && !CLOSERS.contains(token) && !ELIF_ELSE.contains(token)
-                    && !"if".equals(token) && !OPENERS.contains(token) ) {
-                opRange = findAssignOp(masked);
-            } // if
+            if( !hasSemicolon && !CLOSERS.contains(
+                token
+            ) && !ELIF_ELSE.contains(
+                token
+            ) && !"if".equals(
+                token
+            ) && !OPENERS.contains(
+                token
+            ) ) opRange = findAssignOp(
+                masked
+            ); // If
 
             if(opRange != null) {
-                final String prefixRaw = codeOnly.substring(0, opRange[0]).trim();
-                final String opText    = codeOnly.substring( opRange[0], opRange[1] );
-                int valueStart = opRange[1];
+                final String prefixRaw  = codeOnly.substring( 0, opRange[0] ).trim();
+                final String opText     = codeOnly.substring( opRange[0], opRange[1] );
+                      int    valueStart = opRange[1];
                 while( valueStart < codeOnly.length()
                         && Character.isWhitespace( codeOnly.charAt(valueStart) ) ) ++valueStart;
 
@@ -488,7 +517,7 @@ public final class JxMakeSpecificRule {
                 } // if
 
                 if( !prefixRaw.isEmpty() ) {
-                    if( groupDepth != -1 && groupDepth != renderDepth ) {
+                    if(groupDepth != -1 && groupDepth != renderDepth) {
                         flushGroup(out, group, groupDepth, indentWidth);
                         group.clear();
                     } // if
@@ -533,10 +562,14 @@ public final class JxMakeSpecificRule {
                 ifChainStack.push(chain);
             }
             else if( ELIF_ELSE.contains(token) && !ifChainStack.isEmpty() ) {
-                final boolean hasInlineBody = "else".equals(token)
-                        ? !codeTrimmed.substring(4).trim().isEmpty()
-                        : hasSemicolon;
-                ifChainStack.peek().add( renderedIndex, token.length(), newLeading.length(), hasInlineBody );
+                final boolean hasInlineBody = "else".equals(
+                    token
+                ) ? !codeTrimmed.substring(
+                    4
+                ).trim().isEmpty() : hasSemicolon;
+                ifChainStack.peek().add(
+                    renderedIndex, token.length(), newLeading.length(), hasInlineBody
+                );
             }
             else if( "endif".equals(token) && !ifChainStack.isEmpty() ) {
                 applyIfChainAlignment( out, ifChainStack.pop() );
@@ -594,7 +627,7 @@ public final class JxMakeSpecificRule {
                 final String tok = item.constTok == null ? "" : item.constTok;
                 sb.append(tok).append( repeatChar( ' ', constWidth - tok.length() ) ).append(' ');
             } // if
-            sb.append( item.varTok ).append( repeatChar( ' ', varWidth - item.varTok.length() ) );
+            sb.append(item.varTok).append( repeatChar( ' ', varWidth - item.varTok.length() ) );
             sb.append(' ').append(item.op).append(' ').append(item.value);
             if(item.comment != null) sb.append(" #").append(item.comment);
             out.add( sb.toString() );
@@ -622,11 +655,11 @@ public final class JxMakeSpecificRule {
                 else if(ch == ')' || ch == ']' || ch == '}') --depth;
                 else if(ch == ';') return false; // ';' starts a new statement -- stop scanning
                 else if(ch == ':' && depth <= 0) {
-                    // Exclude ':=' / ':+=' / ':?=' assign-op colons -- not the one-liner separator.
-                    final char next = (c + 1 < masked.length()) ? masked.charAt(c + 1) : '\0';
-                    if( next != '=' && next != '+' && next != '?' ) return true;
+                    // Exclude ':=' / ':+=' / ':?=' assign-op colons -- not the one-liner separator
+                    final char next = ( c + 1 < masked.length() ) ? masked.charAt(c + 1) : '\0';
+                    if(next != '=' && next != '+' && next != '?') return true;
                 } // else if
-            } // for c
+            } // for
             if( !endsWithContinuation(raw) ) break;
             ++i;
         } // while

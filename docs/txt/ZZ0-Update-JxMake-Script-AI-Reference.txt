@@ -1,5 +1,5 @@
 docs/txt/en_US/<NN-Xxxx.txt[, NN-Yyyy.txt, ...]> has been updated in the
-JxMake repo. Please update docs/txt/JxMake-AI-Reference.txt to reflect the
+JxMake repo. Please update docs/txt/JxMake-Script-AI-Reference.txt to reflect the
 changes, following the UPDATE PROCEDURE and SOURCE INVENTORY documented in
 that file's own header.
 

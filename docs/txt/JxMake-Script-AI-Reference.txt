@@ -9,6 +9,10 @@ a pointer into 99-Appendix-X.
 
 ## SOURCE INVENTORY  (line count / byte size at time of last sync with this reference)
 
+These source files are listed for provenance/sync-tracking only. Do NOT read them during normal
+use of this reference -- this file is meant to be sufficient on its own. Only open a source file
+when explicitly told a file changed and to run the UPDATE PROCEDURE below.
+
 docs/txt/JxMake-Grammar.txt 1189L/62933B
 docs/txt/en_US/01-Introduction.txt 268L/9063B
 docs/txt/en_US/02-Defining-Strings.txt 123L/5019B
@@ -23,12 +27,12 @@ docs/txt/en_US/10-Flow-Control.txt 102L/3162B
 docs/txt/en_US/11-Loop.txt 97L/2982B
 docs/txt/en_US/12-Numerical-Operations.txt 107L/5383B
 docs/txt/en_US/13-Loadable-Libraries.txt 475L/22041B
-docs/txt/en_US/14-Simple-Programmer-Hardware.txt 334L/21719B
 docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt 1424L/63470B
-TOTAL(16 files): 5887L/317089B
+TOTAL(15 files): 5553L/295370B
 
 EXCLUDED (not covered, on purpose): 00-System-Configuration.txt (font/env-setup, not grammar-relevant);
-99-Appendix-A/B/C_*.txt (hardware pinout ASCII diagrams).
+14-Simple-Programmer-Hardware.txt (simple programmer hardware ASCII diagrams); 99-Appendix-A/B/C_*.txt
+(hardware pinout ASCII diagrams).
 
 ## UPDATE PROCEDURE  (addressed to a future AI session)
 
@@ -817,146 +821,10 @@ For build systems limiting warning/error counts before terminating: env var
 NOTE: because JxMake core development is more focused on `jxm.jar` itself, these loadable libraries
 may lag behind newer compilers/linkers/SDKs/MCU variants.
 
-Library catalog (name -- description; env vars used; library dependencies):
-  Null                    -- empty library, for load-testing only.
-  BasicPlatformUtil       -- basic platform utility lib; primarily included BY other libs below,
-  though directly usable. Reads JXMAKELIB_DOWNLOAD_CHK_INTERVAL_SECONDS
-  (default 432000s/5 days; also used by all libs that download tools).
-  GitHubTool              -- GitHub REST API tools. Reads GITHUB_TOKEN. Reads GITHUB_2022 (default 0;
-  non-zero => use old 2022-11-28 REST API, else new 2026-03-10 REST API).
-  SourceForgeTool         -- SourceForge related tools.
-  OpenSSLUtil             -- find/check OpenSSL commands and versions.
-  PythonUtil               -- find/check Python commands/versions. Reads JXMAKELIB_PYTHON2_MAX_VERSION,
-  JXMAKELIB_PYTHON3_MAX_VERSION.
-
-  -- Download-helper libraries (each stores downloads in the JxMake user data dir; each reads
-  JXMAKELIB_DOWNLOAD_ONLY_IF_NOT_EXIST if the function's `?onlyIfNotExist` arg is unspecified) --
-  DownloadIntelHex        -- downloads Python IntelHex lib. Reads JXMAKELIB_DOWNLOAD_INTELHEX_FORCE_TAG
-  (used if `?dlExactTag` unspecified).
-  DownloadPySerial        -- downloads Python pySerial lib. Reads JXMAKELIB_DOWNLOAD_PYSERIAL_FORCE_TAG
-  (used if `?dlExactTag` unspecified).
-  DownloadESPTool         -- downloads official ESP32 flashing utility (ESPTool, C, no-dep static
-  binary). Reads JXMAKELIB_DOWNLOAD_ESPTOOL_FORCE_TAG (`?dlExactVersion`).
-  DownloadESPUtil         -- downloads alternative ESP32 flashing utility (ESPUtil, C, static
-  binary). Reads JXMAKELIB_DOWNLOAD_ESPUTIL_FORCE_TAG (`?dlExactVersion`).
-  DownloadBOSSA           -- downloads BOSSA. Reads JXMAKELIB_DOWNLOAD_BOSSA_FORCE_TAG (`?dlExactVersion`).
-  DownloadDFUProgrammer   -- downloads DFU-Programmer. Reads JXMAKELIB_DOWNLOAD_DFU_PROG_FORCE_TAG
-  (`?dlExactVersion`).
-  DownloadDFUUtil         -- downloads DFU-Util. Reads JXMAKELIB_DOWNLOAD_DFU_UTIL_FORCE_VERSION
-  (`?dlExactVersion`).
-  DownloadRP2040Tools     -- downloads other RP2040 tools. Reads JXMAKELIB_DOWNLOAD_RP2040_TOOLS_FORCE_TAG
-  (`?dlExactTagRP2040`) and JXMAKELIB_DOWNLOAD_UF2CONV_FORCE_TAG
-  (`?dlExactTagUF2Conv`). Uses DownloadPySerial (inherits its env vars).
-  DownloadRP2040OpenOCD   -- downloads RP2040 OpenOCD. Reads JXMAKELIB_DOWNLOAD_RP2040_OPENOCD_FORCE_TAG
-  (`?dlExactTag`).
-  DownloadXPackOpenOCD    -- downloads xPack OpenOCD. Reads JXMAKELIB_DOWNLOAD_XPACK_OPENOCD_FORCE_TAG
-  (`?dlExactTag`).
-
-  -- Build-tool libraries --
-  JavaBuildTool           -- primary Java build tool. Built-in target `btlib_help`.
-  C++BuildTool            -- primary C/C++ build tool (GCC/Clang/MSVC). Built-in target `btlib_help`.
-  ArduinoXBuildTool       -- primary Arduino build tool (via arduino-cli). Built-in target
-  `btlib_help`. Reads ARDUINO_CLI_PATH.
-  C++XBuildTool_ArduinoUtil -- Arduino-related tools; primarily included BY other libs below, though
-  directly usable.
-  C++XBuildTool_GCC_ARM    -- generic/basic C/C++ build for ARM GCC (prefer target-specific libs
-  below if available). Reads ARM_TOOLCHAIN_PATH (if used directly).
-  C++XBuildTool_GCC_RISCV  -- generic/basic C/C++ build for RISC-V GCC. Reads RISCV_TOOLCHAIN_PATH
-  (if used directly).
-  C++XBuildTool_GCC_Xtensa -- generic/basic C/C++ build for Xtensa GCC. Reads XTENSA_TOOLCHAIN_PATH
-  (if used directly).
-  C++XBuildTool_BM_ESP8266 -- bare-metal ESP8266 (Xtensa GCC, native or Arduino install). Adds
-  `?dlOnlyIfNotExist` param to `init_project` (passed to `?onlyIfNotExist`
-  of the `download_latest_*` functions it calls). Uses DownloadESPTool.
-  C++XBuildTool_BM_ESP32   -- bare-metal ESP32 (Xtensa GCC). Same `?dlOnlyIfNotExist` pattern. Uses
-  DownloadESPTool.
-  C++XBuildTool_BM_ESP32C3 -- bare-metal ESP32-C3 (RISC-V GCC). Same `?dlOnlyIfNotExist` pattern.
-  Uses DownloadESPUtil.
-  C++XBuildTool_BM_ATSAMD21 -- bare-metal ATSAMD21 (ARM GCC). Same `?dlOnlyIfNotExist` pattern. Uses
-  DownloadBOSSA + DownloadXPackOpenOCD.
-  C++XBuildTool_BM_ATSAM3X -- bare-metal ATSAM3X (ARM GCC). Same `?dlOnlyIfNotExist` pattern. Uses
-  DownloadBOSSA + DownloadXPackOpenOCD.
-  C++XBuildTool_BM_NRF51   -- bare-metal nRF51 (ARM GCC). Same `?dlOnlyIfNotExist` pattern. Uses
-  DownloadXPackOpenOCD.
-  C++XBuildTool_BM_NRF52   -- bare-metal nRF52 (ARM GCC). Same `?dlOnlyIfNotExist` pattern. Uses
-  DownloadXPackOpenOCD.
-  C++XBuildTool_AVR_Native -- AVR, native AVR GCC only (no Arduino SDK support). Reads
-  JXMAKELIB_EXCLUDE_AVR_GCC_CUSTOM_DIRS; on Windows also reads
-  ProgramFiles. Uses AVRDUDE bundled with Arduino if present. Built-in
-  target `btlib_help`. Uses DownloadDFUProgrammer.
-  C++XBuildTool_ESP8266_Arduino -- ESP8266, Arduino SDK only (no native SDK support; Xtensa LX106
-  GCC native or Arduino install). Reads
-  JXMAKELIB_EXCLUDE_XTENSA_GCC_CUSTOM_DIRS. Built-in target `btlib_help`.
-  C++XBuildTool_RP2040_Pico -- RP2040 Pico, native SDK only (native ARM GCC only, no Arduino). Same
-  `?dlOnlyIfNotExist` pattern on `init_project`. Built-in target
-  `btlib_help`. Reads PICO_SDK_PATH, PICO_TOOLCHAIN_PATH,
-  OPENOCD_GDB_PORT, OPENOCD_TCL_PORT, OPENOCD_TELNET_PORT. Uses
-  DownloadRP2040OpenOCD + DownloadRP2040Tools.
-  C++XBuildTool_STM32_Cube -- STM32, native STM32Cube SDK only (native ARM GCC only, no Arduino).
-  Same `?dlOnlyIfNotExist` pattern. Built-in target `btlib_help`. Reads
-  STM32_SDK_PATH, STM32_TOOLCHAIN_PATH, OPENOCD_GDB_PORT,
-  OPENOCD_TCL_PORT, OPENOCD_TELNET_PORT. Uses DownloadDFUUtil +
-  DownloadXPackOpenOCD.
-  C++XBuildTool_STM8_SPL   -- STM8, native STM8 SPL SDK only (native SDCC only, no Arduino). Same
-  `?dlOnlyIfNotExist` pattern. Built-in target `btlib_help`. Reads
-  STM8_SDK_PATH, STM8_TOOLCHAIN_PATH. Uses DownloadXPackOpenOCD.
-  C++XBuildTool_MCS51_Native -- MCS51, native SDCC only (no Arduino). On Windows reads
-  ProgramFiles. Uses bundled Arduino AVRDUDE if present. Built-in target
-  `btlib_help`. Reads MCS51_TOOLCHAIN_PATH.
-
-  XMLFrame                -- primary XML-based simple GUI library. Built-in target `xflib_help`.
-
-## 2.13  Simple Programmer Hardware  (14-Simple-Programmer-Hardware.txt)
-
-Wiring/connection reference for simple in-circuit programmers built from a USB-serial/USB-ISS/
-USB-GPIO adapter. Format below: `<host_pin> --[series resistor]--> <target_pin>` per programming
-protocol; VCC/GND connect directly unless noted. Max load noted per adapter.
-
-USB-ISS adapter (~30mA max load):
-  -> ISP:  IO4--220R-->MISO, IO3--220R-->SCK, IO2--220R-->MOSI, IO1--220R-->nRST, VCC->VCC, GND->GND
-  -> TPI:  IO4--220R-->DATA (shared node w/ CLK path), IO3--220R-->CLK (same node as DATA via IO4),
-  IO2--2.2k-->EN_JUMPER-->DATA node, IO1--220R-->nRST, VCC->VCC, GND->GND
-  (IO4 and IO3 220R resistors join at a common node that is both the DATA and CLK line
-  into the EN_JUMPER-gated 2.2k from IO2; see source ASCII diagram for exact topology)
-
-JxMake DASA adapter (USB-Serial; ~300mA max load):
-  -> ISP:  CTS--220R-->MISO, DTR--220R-->SCK, RTS--220R-->MOSI, TXD--220R-->nRST, VCC->VCC, GND->GND
-  -> TPI:  CTS--220R-->DATA node (shared w/ CLK), DTR--220R-->CLK node, RTS--2.2k-->EN_JUMPER-->DATA
-  node, TXD--220R-->nRST, VCC->VCC, GND->GND
-  -> UPDI: RXD--470R-->UPDI, TXD--[Schottky diode]--EN_JUMPER--> same UPDI node, VCC->VCC, GND->GND
-
-JxMake USB-GPIO Module (~300mA max load):
-  -> ISP:  MISO--330R-->MISO, SCK--330R-->SCK, MOSI--330R-->MOSI, SS--330R-->nRST, VCC->VCC, GND->GND
-  -> TPI:  MISO--330R-->DATA node (shared w/ CLK), SCK--330R-->CLK node, MOSI--1.0k-->EN_JUMPER-->
-  DATA node, SS--330R-->nRST, VCC->VCC, GND->GND
-  -> UPDI: RXD--470R-->UPDI, TXD--[Schottky]--EN_JUMPER--> same UPDI node, VCC->VCC, GND->GND
-  -> PDI:  VCC through 3V3 regulator -> target VCC. RXD--820R--(node A, w/ Zener 3V6 0.25/0.5W to
-  GND)--220R-->DATA; TXD--EN_JUMPER--820R-->(node A)--220R-->DATA (RXD/TXD share the DATA
-  line through this network); XCK--820R--(node B, w/ Zener 3V6 0.25/0.5W to GND)-->CLK.
-  -> SWD/SWIM/LGT8-SWD: VCC via 3V3 regulator. MISO--330R--[74LVC541 buffer, +3V3, 4k7 pull]-->
-  (fans out to) SWDIO/SWIM/LGT8-SWD AND (via EN_JUMPER + 470R) same node. MOSI--330R--
-  [74LVC541]--100R-->nRST. SCK--330R--[74LVC541]--100R-->SWCLK/LGT8-SWC.
-  NOTE: tie 74LVC541 OE1/OE2 to GND; unused buffer inputs to GND/+3V3 via 4k7. For 5V
-  targets: use 74HC541 + 680R instead of 74LVC541 + 470R, and drop the 3V3 regulator.
-  Other compatible 74XX buffer ICs may be substituted.
-  -> PIC ICSP 3.3V: VCC via 3V3 regulator. MISO--220R--[74LVC541,+3V3,4k7]-->PGD (w/ EN_JUMPER+680R
-  tap). MOSI--220R--[74LVC541]--150R-->nMCLR. SCK--220R--[74LVC541]--150R-->PGC.
-  TX--220R--[74LVC541]--150R-->PGM. Same 74LVC541 OE/pull-up notes as above.
-  -> PIC ICSP 5V: no regulator (direct VCC). MISO--220R--[74HC541,+5V,4k7]-->PGD (EN_JUMPER+1k tap).
-  MOSI--220R--[74HC541]--220R-->nMCLR. SCK--220R--[74HC541]--220R-->PGC.
-  TX--220R--[74HC541]--220R-->PGM. Same OE/pull-up notes (74HC541, +5V). Since both sides
-  are 5V, the buffer IC and left-side resistors can be omitted entirely.
-
-PIC High-Voltage Add-On (from programmer's +5V/+VPP rails to target nMCLR/VPP): nMCLR through 1k to a
-BC547 transistor base network (with 1N4148 diode from +VPP through 22k/4k7 divider, optional 5pF cap
-and optional left-side Schottky) driving the target's nMCLR/VPP pin through a right-side Schottky
-diode, 0M1 (100k) resistor, and a RESET push-button/10uF cap network to GND. VPP can range ~8-13V
-depending on target PIC; a common approach is +13V5 as VPP plus a correctly-rated Zener across the
-100k resistor, or substitute a smaller resistor for the 100k to form a divider with the 4k7 that
-reduces VPP further. The LEFT-side Schottky is ALWAYS REQUIRED for the "JxMake Versatile MCU
-Programmer" (USB-GPIO Module II + Logic Level Translator). Other compatible parts may be substituted.
-  WARNING: most PIC MCUs that only support 3V3-and-lower supply voltages do NOT support high
-  voltage programming -- do not attempt this add-on with such parts.
+Full library catalog (names, descriptions, env vars, inter-library dependencies) is inventory data,
+not language behavior, and is intentionally NOT duplicated here. Do NOT read 13-Loadable-Libraries.txt
+to recover it -- it is out of scope for normal usage of this reference; only consult it if the user's
+task explicitly requires enumerating/choosing a specific loadable library.
 
 ## PART 3 -- BUILT-IN FUNCTIONS  (from 07-Built-In-Functions.txt + 99-Appendix-X schemas)
 

@@ -15,17 +15,18 @@ scripting language by combining and compacting the following source files:
 - docs/txt/en_US/11-Loop.txt
 - docs/txt/en_US/12-Numerical-Operations.txt
 - docs/txt/en_US/13-Loadable-Libraries.txt
-- docs/txt/en_US/14-Simple-Programmer-Hardware.txt
 - docs/txt/en_US/99-Appendix-X_Built-In-Function-Parameters.txt (parameter
   schemas only — see rule 2 below)
 
 Explicitly EXCLUDE:
 - docs/txt/en_US/00-System-Configuration.txt (font/env-setup instructions,
   not grammar-relevant)
+- docs/txt/en_US/14-Simple-Programmer-Hardware.txt (simple programmer wiring/
+  hardware ASCII diagrams — not grammar or function-parameter content)
 - docs/txt/en_US/99-Appendix-A_*, 99-Appendix-B_*, 99-Appendix-C_* (hardware
   pinout ASCII diagrams — not grammar or function-parameter content)
 
-Output file: docs/txt/JxMake-AI-Reference.txt
+Output file: docs/txt/JxMake-Script-AI-Reference.txt
 
 Goal: after reading ONLY this one output file, an LLM should be able to
 correctly write and reason about JxMake scripts, including calling every

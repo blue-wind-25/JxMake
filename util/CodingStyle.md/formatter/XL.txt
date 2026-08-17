@@ -7,7 +7,7 @@ have not modified). If unsure ask me.
 
 Ensure the languange order in the documentations, help strings, etc. is
     c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3,
-    eini, makefile, bash, powershell
+    eini, jxmake, makefile, bash, powershell
 Adjust active vs scaffold-only as needed. Also ensure jsx and tsx are after js and ts.
 
 I have run `make test` and all test passed.
@@ -327,3 +327,27 @@ echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
+
+Let's implement a formatter/beautifier for JxMakeFile scripting language (file name: literal `JxMakeFile` and `*.jxm`), based on the current `Makefile` and other in `STATE_TOOLING.md` and `STATE_EINI.md`.
+
+The grammar is in `../../../docs/txt/JxMake-Grammar.txt`. The more detailed docs are `../../../docs/en_US/01-*.txt` to `../../../docs/en_US/12-*.txt`.
+
+Only a few things need to be formatted:
+1. Indentation with tracking, for `function ... endfunction`, `if ... endif`, and all other block constructs including macro body definition.
+2. Alignment/padding of `=`, `:=`, `+:=`, etc.
+3. Alignment of line continuation operator `\`.
+4. Comment normalization (use the same normalizer from the `Makefile` formatter.
+5. Other things, including multi-line string should be kept as is because JxMake script is partially context-dependent.
+
+If there is something unclear, us Q/A session. Then start implementing:
+1. Write `STYLE_JXMAKE.md` first.
+2. Implement the formatter (use a sub-agent for this).
+3. Update `README.md`, '../README.txt`, `CLAUDE.md`, etc.
+
+The state file should be `STATE_JXMAKE.md`.
+
+Ensure the languange order in the documentations, help strings, `CLAUDE.md`, etc. is:
+    c, cpp, java, kotlin, json, json5, css, yaml, toml, xml, html5, js, ts, python3,
+    eini, jxmake, makefile, bash, powershell
+
+The test fixture should be registered before the one for `Makefile` both in `test/README.txt` and in `INP_FILES`. Try to generate several text fixtures mixing the languange features. You can search `../../../src/0-JxMake/lib/*.jxm` for examples.

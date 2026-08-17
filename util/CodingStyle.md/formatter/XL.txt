@@ -108,7 +108,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_215_inp/out.jxm`
-    to   `real_code_regressions_215_inp/out.jxm`
+    to   `real_code_regressions_216_inp/out.jxm`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -327,13 +327,3 @@ echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
-
-Perform "project refactoring/cleanup" sweep — unused boilerplate, duplicated
-`*Curly`/`*Indent`/`*Tags/*SimpleBraced` helper logic, etc. on the formatter source
-codes touched by the previous JxMake formatter jobs.
-
-Then apply the formatter (ONLY the files modified by the previous JxMake formatter jobs). Output the
-result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform idempotency check and content-diff check.
-If all OK, copy back the formatted round1 to the formatter's `src/**/` subdirectories.
-
-Finally, compact `STATE_JXMAKE.md` and `STATE_DOGFOOD.md`.

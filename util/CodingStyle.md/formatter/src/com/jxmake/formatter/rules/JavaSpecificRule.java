@@ -177,7 +177,7 @@ public class JavaSpecificRule {
                 if( throwsCloseParen >= 0 && !hasNewlineOrCommentBetween(tokens, prevIdx, i)
                         && isMethodDefinitionCloseParen(tokens, throwsCloseParen)
                         && !isEnumConstantBody(tokens, i)
-                        && !anyFrozen(tokens, throwsCloseParen, i + 1) ) {
+                        && !MiscRuleCore.anyFrozen(tokens, throwsCloseParen, i + 1) ) {
                     final int closeBraceIdx = matchBraceForward(tokens, i);
                     if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) {
                         final int openParenIdx = matchParenBackward(tokens, throwsCloseParen);
@@ -193,7 +193,7 @@ public class JavaSpecificRule {
                 } // if
                 else if( isCompactConstructorBrace(tokens, prevIdx, i)
                         && !hasNewlineOrCommentBetween(tokens, prevIdx, i)
-                        && !anyFrozen(tokens, prevIdx, i + 1) ) {
+                        && !MiscRuleCore.anyFrozen(tokens, prevIdx, i + 1) ) {
                     gapToBrace.put(prevIdx + 1, i);
                 }
                 continue;
@@ -202,7 +202,7 @@ public class JavaSpecificRule {
             if( !isMethodDefinitionCloseParen(tokens, closeParenIdx) ) continue;
             if( hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
             if( isEnumConstantBody(tokens, i) ) continue;
-            if( anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) {
                 final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
@@ -563,7 +563,7 @@ public class JavaSpecificRule {
                 }
                 else if( depth == 0 && isPunct(t, ";") ) {
                     final int next = nextSignificantIndex(tokens, p + 1);
-                    if( next >= 0 && next < closeBraceIdx && !anyFrozen(
+                    if( next >= 0 && next < closeBraceIdx && !MiscRuleCore.anyFrozen(
                         tokens, firstMember, closeBraceIdx
                     ) ) result.put(
                         p, indent
@@ -694,7 +694,7 @@ public class JavaSpecificRule {
                     blocked = true;
                     break;
                 }
-                if( anyFrozen(tokens, i, parsed.semicolonIdx + 1) ) {
+                if( MiscRuleCore.anyFrozen(tokens, i, parsed.semicolonIdx + 1) ) {
                     blocked = true;
                     break;
                 }
@@ -707,7 +707,7 @@ public class JavaSpecificRule {
             ++i;
         } // while
 
-        if( blocked || imports.isEmpty() ) return joinVerbatim(tokens);
+        if( blocked || imports.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final Map<String, List<ParsedImport>> buckets = new HashMap<>();
         for(final String key : IMPORT_GROUP_KEYS) buckets.put( key, new ArrayList<>() );
@@ -921,7 +921,7 @@ public class JavaSpecificRule {
             if(prevSigIdx < 0) continue;
             final List<String> types = parsePermittedTypes(tokens, i + 1, openBraceIdx);
             if(types == null) continue;
-            if( anyFrozen(tokens, declStart, openBraceIdx + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, declStart, openBraceIdx + 1) ) continue;
 
             final String baseIndent    = lineIndent(tokens, declStart);
             final String collapsedFull = baseIndent + collapseToOneLine(
@@ -937,7 +937,7 @@ public class JavaSpecificRule {
             renders.add(rendered);
         } // for
 
-        if( spans.isEmpty() ) return joinVerbatim(tokens);
+        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final StringBuilder out    = new StringBuilder();
               int           cursor = 0;
@@ -1148,7 +1148,7 @@ public class JavaSpecificRule {
                     break;
                 }
             }
-            if( !anyBlockBody && !anyFrozen(
+            if( !anyBlockBody && !MiscRuleCore.anyFrozen(
                 tokens, openBraceIdx, closeBraceIdx + 1
             ) ) applyArrowAlignment(
                 tokens, cases, closeBraceIdx, overrides
@@ -1390,14 +1390,6 @@ public class JavaSpecificRule {
         for(int i = fromInclusive; i < toExclusive; ++i) out.append( tokens.get(i).text );
     }
 
-    private String joinVerbatim(final List<Token> tokens)
-    {
-        final StringBuilder out = new StringBuilder();
-        for(final Token t : tokens) out.append(t.text);
-
-        return out.toString();
-    }
-
     /**
      * True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
      *  `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.* ` multi-char
@@ -1499,19 +1491,6 @@ public class JavaSpecificRule {
         }
 
         return -1;
-    }
-
-    private boolean anyFrozen(
-        final List<Token> tokens,
-        final int         fromInclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromInclusive; i < toExclusive; ++i) {
-            if( tokens.get(i).frozen ) return true;
-        }
-
-        return false;
     }
 
 } // class JavaSpecificRule

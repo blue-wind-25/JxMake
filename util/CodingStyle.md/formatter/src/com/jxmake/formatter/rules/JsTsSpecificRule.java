@@ -1194,7 +1194,7 @@ public final class JsTsSpecificRule {
             final int nameIdx = beforeParenIdx;
             if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
             if( hasNewlineOrCommentBetween(tokens, lastHeaderTokenIdx, i) ) continue;
-            if( anyFrozen(tokens, nameIdx, i + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, nameIdx, i + 1) ) continue;
             final Integer closeBraceIdx = braceOpenToClose.get(i);
             if(closeBraceIdx == null) continue;
             if( isEmptyBody(
@@ -1318,19 +1318,6 @@ public final class JsTsSpecificRule {
         for(int i = fromExclusive + 1; i < toExclusive; ++i) {
             final TokenType type = tokens.get(i).type;
             if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
-        }
-
-        return false;
-    }
-
-    private boolean anyFrozen(
-        final List<Token> tokens,
-        final int         fromInclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromInclusive; i < toExclusive; ++i) {
-            if( tokens.get(i).frozen ) return true;
         }
 
         return false;
@@ -2034,7 +2021,7 @@ public final class JsTsSpecificRule {
         for( final int[] body : enumBodies ) {
             final int openIdx  = body[0];
             final int closeIdx = body[1];
-            if( anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
             final String rewritten = rewriteEnumBody(tokens, openIdx, closeIdx);
             if(rewritten == null) continue;
             for(int i = cursor; i <= openIdx; ++i) out.append( tokens.get(i).text );
@@ -2275,7 +2262,7 @@ public final class JsTsSpecificRule {
               int           cursor = 0;
         for(final int openIdx : classOpens) {
             final int closeIdx = braces.get(openIdx);
-            if( anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
             final String rewritten = rewriteClassFieldGroups(tokens, openIdx, closeIdx);
             if(rewritten == null) continue;
             for(int i = cursor; i <= openIdx; ++i) out.append( tokens.get(i).text );
@@ -3290,7 +3277,7 @@ public final class JsTsSpecificRule {
         for( final int[] body : bodies ) {
             final int openIdx  = body[0];
             final int closeIdx = body[1];
-            if( anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, openIdx, closeIdx + 1) ) continue;
             final String rewritten = rewriteInterfaceBody(tokens, openIdx, closeIdx);
             if(rewritten == null) continue;
             for(int i = cursor; i <= openIdx; ++i) out.append( tokens.get(i).text );
@@ -3637,7 +3624,7 @@ public final class JsTsSpecificRule {
                 final boolean alreadyOwnLine = nextSig >= 0 && hasNewlineBetween(
                     tokens, decoratorEnd + 1, nextSig
                 );
-                if( decoratorEnd >= 0 && nextSig >= 0 && !alreadyOwnLine && !anyFrozen(
+                if( decoratorEnd >= 0 && nextSig >= 0 && !alreadyOwnLine && !MiscRuleCore.anyFrozen(
                     tokens, i, decoratorEnd + 1
                 ) ) {
                     final String indent    = lineIndent(tokens, i);
@@ -3943,7 +3930,7 @@ public final class JsTsSpecificRule {
                     break;
                 }
                 final int endIdx = extendPastTrailingComment(tokens, parsed.semicolonIdx + 1);
-                if( anyFrozen(tokens, i, endIdx) ) {
+                if( MiscRuleCore.anyFrozen(tokens, i, endIdx) ) {
                     blocked = true;
                     break;
                 }

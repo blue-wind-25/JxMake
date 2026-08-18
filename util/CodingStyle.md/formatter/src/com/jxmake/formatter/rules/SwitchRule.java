@@ -277,7 +277,7 @@ public class SwitchRule {
                 tokens, sw
             ) || !needsWork(
                 tokens, sw
-            ) || anyFrozen(
+            ) || MiscRuleCore.anyFrozen(
                 tokens, sw.openBrace, sw.closeBrace + 1
             ) ) continue;
             if( best == null || (sw.closeBrace - sw.openBrace) < (best.closeBrace - best.openBrace) ) best = sw;
@@ -662,7 +662,7 @@ public class SwitchRule {
         for(final SwitchBlock sw : switches) {
             if( sw.cases.isEmpty() || isNonInline(
                 tokens, sw
-            ) || anyFrozen(
+            ) || MiscRuleCore.anyFrozen(
                 tokens, sw.openBrace, sw.closeBrace + 1
             ) ) continue;
             final List<CaseRow> rows = classifyAll(tokens, sw);
@@ -1035,19 +1035,6 @@ public class SwitchRule {
         while( i < n && isGapToken( tokens.get(i) ) ) i++;
 
         return i;
-    }
-
-    private boolean anyFrozen(
-        final List<Token> tokens,
-        final int         fromInclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromInclusive; i < toExclusive; ++i) {
-            if( tokens.get(i).frozen ) return true;
-        }
-
-        return false;
     }
 
 } // class SwitchRule

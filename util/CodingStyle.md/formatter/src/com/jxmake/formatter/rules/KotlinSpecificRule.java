@@ -145,7 +145,7 @@ public class KotlinSpecificRule {
             if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;
             final int openBrace  = j;
             final int closeBrace = matchBraceForward(tokens, openBrace);
-            if( closeBrace < 0 || anyFrozen(tokens, openBrace, closeBrace + 1) ) continue;
+            if( closeBrace < 0 || MiscRuleCore.anyFrozen(tokens, openBrace, closeBrace + 1) ) continue;
 
             final List<WhenBranch> branches = findWhenBranches(tokens, openBrace, closeBrace);
             if( branches == null || branches.isEmpty() ) continue;
@@ -432,19 +432,6 @@ public class KotlinSpecificRule {
         }
 
         return depth == 0 ? i - 1 : -1;
-    }
-
-    private boolean anyFrozen(
-        final List<Token> tokens,
-        final int         fromInclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromInclusive; i < toExclusive; ++i) {
-            if( tokens.get(i).frozen ) return true;
-        }
-
-        return false;
     }
 
     private String render(
@@ -995,7 +982,7 @@ public class KotlinSpecificRule {
             if( t.type != TokenType.KEYWORD || !"where".equals(t.text) ) continue;
             final int clauseEndIdx = findWhereClauseEnd(tokens, i);
             if(clauseEndIdx < 0 || clauseEndIdx <= i + 1) continue;
-            if( anyFrozen(tokens, i, clauseEndIdx) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, i, clauseEndIdx) ) continue;
 
             final List<WhereBound> bounds = splitWhereBounds(tokens, i + 1, clauseEndIdx);
             if( bounds.isEmpty() || hasCommentBetween(tokens, i, clauseEndIdx) ) continue;
@@ -1464,7 +1451,7 @@ public class KotlinSpecificRule {
                 }
                 else if( depth == 0 && isPunct(t, ";") ) {
                     final int next = nextSignificantIndex(tokens, p + 1);
-                    if( next >= 0 && next < closeBraceIdx && !anyFrozen(
+                    if( next >= 0 && next < closeBraceIdx && !MiscRuleCore.anyFrozen(
                         tokens, firstMember, closeBraceIdx
                     ) ) result.put(
                         p, indent
@@ -1555,7 +1542,7 @@ public class KotlinSpecificRule {
                 tokens, closeParenIdx
             ) ) continue;
             if( hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
-            if( anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) continue;
             gapToBrace.put(lastBeforeBrace + 1, i);
@@ -1826,7 +1813,7 @@ public class KotlinSpecificRule {
         final Set<Integer>         skip            = new HashSet<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             if( !isPunct( tokens.get(i), ";" ) || enumTerminators.containsKey(i) ) continue;
-            if( anyFrozen(tokens, i, i + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, i, i + 1) ) continue;
             if( !isTrailingSemicolon(tokens, i) ) continue;
             skip.add(i);
             int w = i - 1;
@@ -1962,7 +1949,7 @@ public class KotlinSpecificRule {
                     blocked = true;
                     break;
                 }
-                if( anyFrozen(tokens, i, parsed.endIdx + 1) ) {
+                if( MiscRuleCore.anyFrozen(tokens, i, parsed.endIdx + 1) ) {
                     blocked = true;
                     break;
                 }
@@ -1975,7 +1962,7 @@ public class KotlinSpecificRule {
             ++i;
         } // while
 
-        if( blocked || imports.isEmpty() ) return joinVerbatim(tokens);
+        if( blocked || imports.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final Map<String, List<ParsedKotlinImport>> buckets = new HashMap<>();
         for(final String key : KOTLIN_IMPORT_GROUP_KEYS) buckets.put( key, new ArrayList<>() );
@@ -2183,14 +2170,6 @@ public class KotlinSpecificRule {
     )
     {
         for(int i = fromInclusive; i < toExclusive; ++i) out.append( tokens.get(i).text );
-    }
-
-    private String joinVerbatim(final List<Token> tokens)
-    {
-        final StringBuilder out = new StringBuilder();
-        for(final Token t : tokens) out.append(t.text);
-
-        return out.toString();
     }
 
     // AlignBracelessElseIfChain moved to BlockStructureRule (now shared across all languages,

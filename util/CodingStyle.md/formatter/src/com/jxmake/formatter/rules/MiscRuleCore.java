@@ -1038,7 +1038,7 @@ public static final class Assignment {
     {
         return operator.text.substring( 0, operator.text.length() - 1 );
     }
-    protected String joinVerbatim(final List<Token> tokens)
+    protected static String joinVerbatim(final List<Token> tokens)
     {
         final StringBuilder sb = new StringBuilder();
         for(final Token t : tokens) sb.append(t.text);
@@ -2759,7 +2759,7 @@ public static final class Assignment {
      *  §A) -- used by structural/span-level passes to skip a whole candidate unit rather than try
      *  to partially rewrite it
      */
-    protected boolean anyFrozen(
+    protected static boolean anyFrozen(
         final List<Token> tokens,
         final int         fromInclusive,
         final int         toExclusive

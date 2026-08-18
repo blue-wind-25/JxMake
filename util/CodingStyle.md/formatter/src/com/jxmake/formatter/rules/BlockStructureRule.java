@@ -264,7 +264,7 @@ public class BlockStructureRule {
                 if(block != null && block.openBraceIndex >= 0) {
                     if( !isPartOfElseChain(
                         tokens, i, block, n
-                    ) && !anyFrozen(
+                    ) && !MiscRuleCore.anyFrozen(
                         tokens, i, block.closeBraceIndex + 1
                     ) ) {
                         final String collapsed = tryCollapse(tokens, i, block);
@@ -290,7 +290,7 @@ public class BlockStructureRule {
                     // (`if(x) return y;`) show the collapsed form as the target either way, so a
                     // braceless multi-line body still needs joining onto one line here.
                     if( !isPartOfElseChainBraceless(tokens, i, block, n)
-                            && !anyFrozen(tokens, i, block.closeParenIndex + 1) ) {
+                            && !MiscRuleCore.anyFrozen(tokens, i, block.closeParenIndex + 1) ) {
                         final int[]  bodyEnd   = new int[1];
                         final String collapsed = tryCollapseBraceless(tokens, i, block, bodyEnd);
                         if(collapsed != null) {
@@ -324,11 +324,11 @@ public class BlockStructureRule {
                     // the already-formatted body's own text untouched (verbatim, not re-rendered
                     // via `renderInline`, since it is already exactly one line with no interior
                     // newlines to flatten), but still force the newline before a following `else`.
-                    if( !anyFrozen(tokens, i, block.closeParenIndex + 1) ) {
+                    if( !MiscRuleCore.anyFrozen(tokens, i, block.closeParenIndex + 1) ) {
                         final int bodyEnd = findBracelessStatementEnd(
                             tokens, block.closeParenIndex + 1, n
                         );
-                        if( bodyEnd >= 0 && !anyFrozen(
+                        if( bodyEnd >= 0 && !MiscRuleCore.anyFrozen(
                             tokens, block.closeParenIndex + 1, bodyEnd
                         ) ) {
                             for( final Token bt : tokens.subList(i, bodyEnd) ) out.append(bt.text);
@@ -385,7 +385,7 @@ public class BlockStructureRule {
                 // gui_frontend_android's Optimizer.kt: an `else -> { var x = ...; for(...) {...};
                 // x }` block-bodied arm got flattened to one line, a Kotlin parse error).
                 final boolean isWhenArrow = next < n && isOp( tokens.get(next), "->" );
-                if( !isElseIf && !isBraced && !isWhenArrow && !anyFrozen(tokens, i, i + 1) ) {
+                if( !isElseIf && !isBraced && !isWhenArrow && !MiscRuleCore.anyFrozen(tokens, i, i + 1) ) {
                     final int[]  bodyEnd   = new int[1];
                     final String collapsed = collapseBracelessBody(
                         tokens, i, i + 1, "else", bodyEnd
@@ -411,7 +411,7 @@ public class BlockStructureRule {
                     tokens.get(next).text
                 );
                 if( !isElseIf && next < n && isPunct( tokens.get(next), "{" )
-                        && !anyFrozen(tokens, i, next + 1) ) {
+                        && !MiscRuleCore.anyFrozen(tokens, i, next + 1) ) {
                     final int chainStart = findChainStart(tokens, i);
                     if( chainStart >= 0 && chainAllBranchesCollapsible(tokens, chainStart, n) ) {
                         int depth = 1;
@@ -424,7 +424,7 @@ public class BlockStructureRule {
                         }
                         if(depth == 0) {
                             final List<Token> contents = tokens.subList(next + 1, j - 1);
-                            if( isSingleStatementBody(contents) && !anyFrozen(tokens, i, j) ) {
+                            if( isSingleStatementBody(contents) && !MiscRuleCore.anyFrozen(tokens, i, j) ) {
                                 final String candidate = "else " + renderInline(contents);
                                 // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/
                                 // scoping pass") -- same gate as `tryCollapse`/
@@ -444,7 +444,7 @@ public class BlockStructureRule {
                     } // if
                 } // if
                 else if( !isElseIf && next < n && !isPunct( tokens.get(next), "{" )
-                        && !anyFrozen(tokens, i, next) ) {
+                        && !MiscRuleCore.anyFrozen(tokens, i, next) ) {
                     // Braceless bare-`else` body (the symmetric C/C++/Java sibling of the
                     // already-braceless `if` handling further above): when this else's own
                     // single-statement body's terminating `;` is immediately followed, on the
@@ -467,10 +467,10 @@ public class BlockStructureRule {
                     // present" makes this a no-op (and idempotent) once either this fix or
                     // ScopePipeline's own later pass has already split it.
                     final int bodyEnd = findBracelessStatementEnd(tokens, next, n);
-                    if( bodyEnd >= 0 && !anyFrozen(tokens, next, bodyEnd) ) {
+                    if( bodyEnd >= 0 && !MiscRuleCore.anyFrozen(tokens, next, bodyEnd) ) {
                         final int afterBody = skipWhitespaceOnly(tokens, bodyEnd);
                         if( afterBody < n && isPunct( tokens.get(afterBody), "}" )
-                                && !anyFrozen(tokens, bodyEnd, afterBody + 1) ) {
+                                && !MiscRuleCore.anyFrozen(tokens, bodyEnd, afterBody + 1) ) {
                             boolean hasNewlineAlready = false;
                             for(int g = bodyEnd; g < afterBody; ++g) {
                                 if( tokens.get(g).type == TokenType.NEWLINE ) {
@@ -1920,9 +1920,9 @@ public class BlockStructureRule {
             // inside this named construct's body (e.g. a frozen method deep inside an outer
             // class) silently suppressed the guaranteed blank line at the *outer* construct's own
             // `{`/`}`, even though neither boundary gap itself was ever going to be touched.
-            if( anyFrozen(
+            if( MiscRuleCore.anyFrozen(
                 tokens, i, beforeIdx + 1
-            ) || anyFrozen(
+            ) || MiscRuleCore.anyFrozen(
                 tokens, afterIdx, closeIdx + 1
             ) ) continue;
             blankBeforeIdx.add(beforeIdx);
@@ -2457,7 +2457,7 @@ public class BlockStructureRule {
                 // own closing comment too, even though nothing about the outer `}` itself was
                 // ever going to be touched.
                 final int frozenCheckEnd = Math.max(insertAt, existingCommentIdx) + 1;
-                if( anyFrozen(tokens, i, frozenCheckEnd) ) continue;
+                if( MiscRuleCore.anyFrozen(tokens, i, frozenCheckEnd) ) continue;
                 final String comment = decideComment(tokens, f, i);
                 if(comment != null) {
                     if( safeToCommentAfter(tokens, insertAt) ) {
@@ -3098,7 +3098,7 @@ public class BlockStructureRule {
                     prev.text
                 ) ) ) break;
             } // for j
-            if( headerStart >= 0 && !anyFrozen(tokens, headerStart, i + 1) ) {
+            if( headerStart >= 0 && !MiscRuleCore.anyFrozen(tokens, headerStart, i + 1) ) {
                 for(int j = headerStart; j < i; ++j) collapse[j] = true;
             }
         } // for i
@@ -3206,37 +3206,6 @@ public class BlockStructureRule {
     }
 
     /**
-     * {@code true} if any token in {@code [fromInclusive, toExclusive)} is frozen (RDD_KEY_90
-     *  §A) -- used by structural/span-level passes to skip a whole candidate unit rather than try
-     *  to partially rewrite it
-     */
-    private boolean anyFrozen(
-        final List<Token> tokens,
-        final int         fromInclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromInclusive; i < toExclusive; ++i) {
-            if( tokens.get(i).frozen ) return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Joins tokens' literal text verbatim, with no whitespace normalization (unlike
-     *  {@link #renderInline}) -- used by {@link #alignBracelessElseIfChain}, which works on the
-     *  already fully-formatted line-by-line text rather than a token stream
-     */
-    private String joinVerbatim(final List<Token> tokens)
-    {
-        final StringBuilder out = new StringBuilder();
-        for(final Token t : tokens) out.append(t.text);
-
-        return out.toString();
-    }
-
-    /**
      * Column-aligns the collapsed one-line bodies of an {@code if}/{@code else if}/{@code else}
      * chain so every branch's body starts at the same column -- the widest of the chain's own
      * {@code if(...) }/{@code else if(...) } condition widths, never the bare final
@@ -3263,7 +3232,7 @@ public class BlockStructureRule {
      */
     public String alignBracelessElseIfChain(final List<Token> tokens)
     {
-        final String[] lines = joinVerbatim(tokens).split("\n", -1);
+        final String[] lines = MiscRuleCore.joinVerbatim(tokens).split("\n", -1);
         // A CRLF-original input can still carry a stray trailing '\r' on some/all of these split
         // lines at this point in the pipeline -- final CRLF/LF normalization only happens once, at
         // the very end, in Main.applyLineEndings (see that method's own comment on why: an

@@ -110,7 +110,7 @@ public class CppSpecificRule {
             if( !isPunct( tokens.get(i), "(" ) || !isCandidateSignatureName(tokens, i) ) continue;
             final int closeIdx = matchParenForward(tokens, i);
             if( closeIdx < 0 || hasCommentBetween(tokens, i, closeIdx) ) continue;
-            if( anyFrozen(tokens, i, closeIdx + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, i, closeIdx + 1) ) continue;
             if(lang.isC) {
                 if( isEmptyBetween(
                     tokens, i, closeIdx
@@ -338,7 +338,7 @@ public class CppSpecificRule {
             // Keep single-line bodies K&R -- never Allman-convert a one-liner (RDD_KEY_75)
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) continue;
-            if( anyFrozen(tokens, funcCloseParen, i + 1) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, funcCloseParen, i + 1) ) continue;
             gapToBrace.put(gapStart, i);
             // When the function's own `)` is on a different line than the immediate preceding
             // token (initializer-list case), store the correct indent from the function's line
@@ -724,7 +724,7 @@ public class CppSpecificRule {
             final int nextIdx = nextSignificantIndex(tokens, i);
             if( nextIdx >= 0 && isPunct( tokens.get(nextIdx), "[" ) ) ellipsisBeforeBracket.add(i);
         }
-        if( ellipsisBeforeBracket.isEmpty() ) return joinVerbatim(tokens);
+        if( ellipsisBeforeBracket.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final StringBuilder out                   = new StringBuilder();
         final List<Token>   gap                   = new ArrayList<>();
@@ -795,7 +795,7 @@ public class CppSpecificRule {
             final int clauseEndIdx = findRequiresClauseEnd(tokens, i);
             if(clauseEndIdx < 0 || clauseEndIdx <= i + 1) continue;
             if( hasCommentBetween(tokens, closeParenIdx, clauseEndIdx) ) continue;
-            if( anyFrozen(tokens, closeParenIdx, clauseEndIdx) ) continue;
+            if( MiscRuleCore.anyFrozen(tokens, closeParenIdx, clauseEndIdx) ) continue;
             // A preprocessor directive (`#if`/`#else`/`#endif`) inside the clause's own
             // constraint-expression -- e.g. `requires(\n#if COND\n std::formattable<T, CharT>
             // \n#else\n ...\n#endif\n)` (microsoft/proxy's `proxy_fmt.h`/`proxy.h`) -- must stay
@@ -875,7 +875,7 @@ public class CppSpecificRule {
             renders.add(rendered);
         } // for
 
-        if( spans.isEmpty() ) return joinVerbatim(tokens);
+        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final StringBuilder out    = new StringBuilder();
               int           cursor = 0;
@@ -949,7 +949,7 @@ public class CppSpecificRule {
                 }
                 if( hasCommentBetween(
                     tokens, cursor, closeParenIdx
-                ) || anyFrozen(
+                ) || MiscRuleCore.anyFrozen(
                     tokens, cursor, closeParenIdx
                 ) ) {
                     bad = true;
@@ -1066,7 +1066,7 @@ public class CppSpecificRule {
             i = lastCloseParenIdx;
         } // for i
 
-        if( spans.isEmpty() ) return joinVerbatim(tokens);
+        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final StringBuilder out    = new StringBuilder();
               int           cursor = 0;
@@ -1101,7 +1101,7 @@ public class CppSpecificRule {
             if(closeParenIdx < 0) continue;
             if( hasCommentBetween(
                 tokens, openParenIdx, closeParenIdx
-            ) || anyFrozen(
+            ) || MiscRuleCore.anyFrozen(
                 tokens, openParenIdx, closeParenIdx
             ) ) continue;
             if(closeParenIdx == openParenIdx + 1) continue;
@@ -1110,7 +1110,7 @@ public class CppSpecificRule {
             renders.add(inner);
         } // for
 
-        if( spans.isEmpty() ) return joinVerbatim(tokens);
+        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final StringBuilder out    = new StringBuilder();
               int           cursor = 0;
@@ -1178,7 +1178,7 @@ public class CppSpecificRule {
                 } // if
             }
         } // for
-        if( pairs.isEmpty() ) return joinVerbatim(tokens);
+        if( pairs.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final List<int[]>  spans   = new ArrayList<>();
         final List<String> renders = new ArrayList<>();
@@ -1188,7 +1188,7 @@ public class CppSpecificRule {
             if(closeIdx <= openIdx + 1) continue;
             if( hasCommentBetween(
                 tokens, openIdx, closeIdx
-            ) || anyFrozen(
+            ) || MiscRuleCore.anyFrozen(
                 tokens, openIdx, closeIdx + 1
             ) || hasNewlineBetween(
                 tokens, openIdx, closeIdx
@@ -1213,7 +1213,7 @@ public class CppSpecificRule {
             renders.add( render.toString() );
         } // for pair
 
-        if( spans.isEmpty() ) return joinVerbatim(tokens);
+        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final StringBuilder out    = new StringBuilder();
               int           cursor = 0;
@@ -1244,7 +1244,7 @@ public class CppSpecificRule {
         for(int i = 0; i < n; ++i) {
             if( isOp( tokens.get(i), "^^" ) ) reflectionOps.add(i);
         }
-        if( reflectionOps.isEmpty() ) return joinVerbatim(tokens);
+        if( reflectionOps.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
 
         final StringBuilder out                 = new StringBuilder();
         final List<Token>   gap                 = new ArrayList<>();
@@ -1541,9 +1541,9 @@ public class CppSpecificRule {
     )
     {
         final HeaderZones z = detectHeaderZones(tokens);
-        if( z == null || anyFrozen(
+        if( z == null || MiscRuleCore.anyFrozen(
             tokens, 0, z.isPragmaOnce ? z.guardOpenIdx + 1 : z.endifIdx + 1
-        ) ) return joinVerbatim(
+        ) ) return MiscRuleCore.joinVerbatim(
             tokens
         );
 
@@ -1757,13 +1757,6 @@ public class CppSpecificRule {
         for(int i = fromInclusive; i < toExclusive; ++i) out.append( tokens.get(i).text );
     }
 
-    private String joinVerbatim(final List<Token> tokens)
-    {
-        final StringBuilder out = new StringBuilder();
-        for(final Token t : tokens) out.append(t.text);
-
-        return out.toString();
-    }
 
     private int nextNonBlankIndex(final List<Token> tokens, final int from)
     {
@@ -1963,19 +1956,6 @@ public class CppSpecificRule {
         }
 
         return newlineCount == 1;
-    }
-
-    private boolean anyFrozen(
-        final List<Token> tokens,
-        final int         fromInclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromInclusive; i < toExclusive; ++i) {
-            if( tokens.get(i).frozen ) return true;
-        }
-
-        return false;
     }
 
 } // class CppSpecificRule

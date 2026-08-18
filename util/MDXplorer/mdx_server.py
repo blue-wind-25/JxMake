@@ -23,8 +23,8 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from markdown_it import MarkdownIt
 from mdit_py_plugins.gfm import gfm_plugin
 from mdit_py_plugins.tasklists import tasklists_plugin

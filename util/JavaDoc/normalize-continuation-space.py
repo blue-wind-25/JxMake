@@ -152,7 +152,7 @@ def process_file(path, show_diff):
 def main():
     parser = argparse.ArgumentParser(
         description=(
-            "Normalize Claude-style extra spaces in JavaDoc "
+            "Normalize Claude-style (accidental?) extra spaces in JavaDoc "
             "continuation lines."
         )
     )

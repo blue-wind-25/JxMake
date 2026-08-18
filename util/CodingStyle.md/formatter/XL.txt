@@ -222,10 +222,12 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
+What is this job? I thought the XML formatter can already indent flat XML and even all-one-line XML properly?
 - [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
   architecture class as CURLY_GDR), lower value (XML rarely needs deep reindent vs.
   curly-brace nesting).
 
+From these 3 blockers, which one can be implemented with minimal risk with the current formatter architecture?
 - [JS_TS] JSX full embedding-aware dispatcher (real grammar parsing of children/attribute
   values, vs. today's opaque-preservation + opening-tag-attribute-wrap approach). Blockers:
   unbounded recursion into `{}` holes, HTML5-tree-construction pass unverified for JSX's

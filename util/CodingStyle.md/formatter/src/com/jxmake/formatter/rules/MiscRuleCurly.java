@@ -1360,7 +1360,7 @@ public static final class Signature {
                         suffix, tokens, closeIdx + 1, effectiveLineEndIndex(tokens, closeIdx)
                     );
                     final int candidateLen = expandedIndentWidth(
-                        baseIndent
+                        baseIndent, indentWidth
                     ) + prefix.length() + candidate.length() + suffix.length();
                     if(candidateLen <= lineLengthLimit) return candidate;
                 } // if
@@ -1469,7 +1469,7 @@ public static final class Signature {
             tokens, lineStartIndex(tokens, nameIdx), lineEndIdx - 1
         );
         if( expandedIndentWidth(
-            baseIndent
+            baseIndent, indentWidth
         ) + wholeLineRest.length() <= effectiveLimit ) return null; // Option 0 -- already fits, no change
 
         final List<String> dropped = (sigForRender != null) ? renderDropped(

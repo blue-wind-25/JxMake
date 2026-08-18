@@ -351,7 +351,7 @@ public abstract class MiscRuleCore {
     }
     protected String renderIndent(final String original, final String indentStyle)
     {
-        final int width = expandedIndentWidth(original);
+        final int width = expandedIndentWidth(original, indentWidth);
         if(width % indentWidth != 0) return original;
 
         return indentText(width / indentWidth, indentStyle);
@@ -369,7 +369,7 @@ public abstract class MiscRuleCore {
      * testing, local `src/com`/`src/org` dogfood -- `enforceCallLineBreaking`'s whole-line/
      * candidate fits-checks).
      */
-    protected int expandedIndentWidth(final String original)
+    protected static int expandedIndentWidth(final String original, final int indentWidth)
     {
         int width = 0;
         for( int i = 0; i < original.length(); ++i ) width += ( original.charAt(

@@ -104,9 +104,9 @@ public class BlockStructureRule {
     private final int lineLengthLimit;
     /**
      * Configured `indent-size`, kept alongside the pre-built {@link #indentUnit} string so
-     * {@link #expandedIndentWidth} can tab-expand a raw (not-yet-converted) leading-whitespace
-     * run the same way {@code MiscRuleCore.expandedIndentWidth} does -- see that method's own
-     * javadoc for why a plain {@code String.length()} undercounts a tab.
+     * {@code MiscRuleCore.expandedIndentWidth} can tab-expand a raw (not-yet-converted)
+     * leading-whitespace run -- see that method's own javadoc for why a plain
+     * {@code String.length()} undercounts a tab.
      */
     private final int indentWidth;
 
@@ -1989,28 +1989,12 @@ public class BlockStructureRule {
     }
 
     /**
-     * Column width of a raw (not-yet-converted) leading-whitespace run, expanding each
-     * {@code '\t'} to the next {@link #indentWidth} tab stop -- duplicated from {@code
-     * MiscRuleCore.expandedIndentWidth} (this class has no shared ancestor with the `*Curly`
-     * rule-class hierarchy, same "each rule class matches its own local conventions" duplication
-     * precedent as {@code JavaSpecificRule.isSingleLineBody}'s own copy).
-     */
-    private int expandedIndentWidth(final String original)
-    {
-        int width = 0;
-        for( int i = 0; i < original.length(); ++i ) width += ( original.charAt(
-            i
-        ) == '\t' ) ? ( indentWidth - (width % indentWidth) ) : 1;
-
-        return width;
-    }
-
-    /**
      * True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
      * argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break
      * across lines if it doesn't fit (zero-arg calls are never broken). Duplicated from {@code
-     * JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical helper, same duplication
-     * precedent as {@link #expandedIndentWidth} above.
+     * JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical helper, same "each rule class
+     * matches its own local conventions" duplication precedent as {@code
+     * MiscRuleCore.expandedIndentWidth}'s own callers.
      */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
     {
@@ -2110,8 +2094,8 @@ public class BlockStructureRule {
     )
     {
         if( !(lang.isJs || lang.isTs) ) return false;
-        final int width = expandedIndentWidth(
-            lineIndent(tokens, indentAnchorIdx)
+        final int width = MiscRuleCore.expandedIndentWidth(
+            lineIndent(tokens, indentAnchorIdx), indentWidth
         ) + candidate.length();
         if(width <= lineLengthLimit) return false;
 

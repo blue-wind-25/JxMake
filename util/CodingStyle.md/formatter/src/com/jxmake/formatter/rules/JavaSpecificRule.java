@@ -90,24 +90,6 @@ public class JavaSpecificRule {
     }
 
     /**
-     * Same tab-expansion rule as {@code MiscRuleCore.expandedIndentWidth} (kept here as a
-     * copy since this class doesn't extend {@code MiscRuleCore}): a raw-source indent string
-     * still containing literal tabs must have each tab expanded to the configured
-     * {@code indent-size}, not measured via {@code String.length()} (1 char per tab), or a
-     * tab-indented one-liner's true post-conversion width is undercounted -- the same bug class
-     * documented at {@code MiscRuleCore.expandedIndentWidth}.
-     */
-    private int expandedIndentWidth(final String original)
-    {
-        int width = 0;
-        for( int i = 0; i < original.length(); ++i ) width += ( original.charAt(
-            i
-        ) == '\t' ) ? ( indentWidth - (width % indentWidth) ) : 1;
-
-        return width;
-    }
-
-    /**
      * STYLE_JAVA.md §2: a recognized Java <b>method definition</b>'s own brace moves to its own
      * line (Allman) whenever it is currently K&amp;R/same-line. Class/interface/enum body braces
      * and every control-flow block already correctly stay K&amp;R via the shared, language-general
@@ -306,7 +288,7 @@ public class JavaSpecificRule {
             // just the significant-token span starting at `lineStart` (which is the first
             // *significant* token, excluding leading whitespace). Omitting it undercounted every
             // indented one-liner's width by its indent depth.
-            int     width        = expandedIndentWidth( lineIndent(tokens, lineStart) );
+            int     width        = MiscRuleCore.expandedIndentWidth( lineIndent(tokens, lineStart), indentWidth );
             boolean lastWasSpace = false;
             for(int k = lineStart; k <= lineEnd; ++k) {
                 final Token t = tokens.get(k);

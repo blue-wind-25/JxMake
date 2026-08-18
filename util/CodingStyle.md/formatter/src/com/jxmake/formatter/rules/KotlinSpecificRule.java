@@ -1622,7 +1622,7 @@ public class KotlinSpecificRule {
         final int         closeParenIdx
     )
     {
-        final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+        final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
         if(openParenIdx < 0) return false;
         int p = prevSignificantIndex(tokens, openParenIdx - 1);
         if(p < 0) return false;
@@ -1689,22 +1689,6 @@ public class KotlinSpecificRule {
                 ++depth;
             }
             else if( isAngleOpen( tokens.get(i) ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
-    }
-
-    private int matchParenBackward(final List<Token> tokens, final int closeIdx)
-    {
-        int depth = 0;
-        for(int i = closeIdx; i >= 0; --i) {
-            if( isPunct( tokens.get(i), ")" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), "(" ) ) {
                 --depth;
                 if(depth == 0) return i;
             }
@@ -2260,7 +2244,7 @@ public class KotlinSpecificRule {
             prev.text
         ) ) ) return true;
         if( isPunct(prev, ")") ) {
-            final int openParen = matchParenBackward(tokens, prevSig);
+            final int openParen = MiscRuleCore.matchParenBackward(tokens, prevSig);
             if(openParen >= 0) {
                 final int kwIdx = prevSignificantIndex(tokens, openParen - 1);
                 if( kwIdx >= 0 && tokens.get(

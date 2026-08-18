@@ -178,9 +178,9 @@ public class JavaSpecificRule {
                         && isMethodDefinitionCloseParen(tokens, throwsCloseParen)
                         && !isEnumConstantBody(tokens, i)
                         && !MiscRuleCore.anyFrozen(tokens, throwsCloseParen, i + 1) ) {
-                    final int closeBraceIdx = matchBraceForward(tokens, i);
+                    final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
                     if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) {
-                        final int openParenIdx = matchParenBackward(tokens, throwsCloseParen);
+                        final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, throwsCloseParen);
                         final int nameIdx      = prevSignificantIndex(tokens, openParenIdx);
                         oneLiners.add(
                             new OneLinerCandidate(nameIdx, throwsCloseParen, i, closeBraceIdx)
@@ -203,9 +203,9 @@ public class JavaSpecificRule {
             if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
             if( isEnumConstantBody(tokens, i) ) continue;
             if( MiscRuleCore.anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
-            final int closeBraceIdx = matchBraceForward(tokens, i);
+            final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
             if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) {
-                final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+                final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
                 final int nameIdx      = prevSignificantIndex(tokens, openParenIdx);
                 oneLiners.add( new OneLinerCandidate(nameIdx, closeParenIdx, i, closeBraceIdx) );
                 continue;
@@ -347,7 +347,7 @@ public class JavaSpecificRule {
             if(t.type != TokenType.IDENTIFIER) continue;
             final int parenIdx = nextSignificantIndex(tokens, i);
             if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
-            final int closeIdx = matchParenForward(tokens, parenIdx);
+            final int closeIdx = MiscRuleCore.matchParenForward(tokens, parenIdx);
             if(closeIdx < 0 || closeIdx > to) continue;
             final int argsFrom = nextSignificantIndex(tokens, parenIdx);
             if(argsFrom >= 0 && argsFrom < closeIdx) return true;
@@ -358,7 +358,7 @@ public class JavaSpecificRule {
 
     private boolean isMethodDefinitionCloseParen(final List<Token> tokens, final int closeParenIdx)
     {
-        final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+        final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
 
         return openParenIdx >= 0 && isCandidateMethodName(tokens, openParenIdx);
     }
@@ -458,7 +458,7 @@ public class JavaSpecificRule {
      */
     private boolean isEnumConstantBody(final List<Token> tokens, final int braceIdx)
     {
-        final int closeBraceIdx = matchBraceForward(tokens, braceIdx);
+        final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, braceIdx);
         if(closeBraceIdx < 0) return false;
         final int next = nextSignificantIndex(tokens, closeBraceIdx);
 
@@ -539,7 +539,7 @@ public class JavaSpecificRule {
         final Map<Integer, String> result = new HashMap<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             if( !isPunct( tokens.get(i), "{" ) || !isEnumBodyBrace(tokens, i) ) continue;
-            final int closeBraceIdx = matchBraceForward(tokens, i);
+            final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
             if(closeBraceIdx < 0) continue;
             final int firstMember = nextSignificantIndex(tokens, i + 1);
             if(firstMember < 0 || firstMember >= closeBraceIdx) continue;
@@ -1131,11 +1131,11 @@ public class JavaSpecificRule {
             if( t.type != TokenType.KEYWORD || !"switch".equals(t.text) ) continue;
             final int openParenIdx = nextSignificantIndex(tokens, i);
             if( openParenIdx < 0 || !isPunct( tokens.get(openParenIdx), "(" ) ) continue;
-            final int closeParenIdx = matchParenForward(tokens, openParenIdx);
+            final int closeParenIdx = MiscRuleCore.matchParenForward(tokens, openParenIdx);
             if(closeParenIdx < 0) continue;
             final int openBraceIdx = nextSignificantIndex(tokens, closeParenIdx);
             if( openBraceIdx < 0 || !isPunct( tokens.get(openBraceIdx), "{" ) ) continue;
-            final int closeBraceIdx = matchBraceForward(tokens, openBraceIdx);
+            final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, openBraceIdx);
             if(closeBraceIdx < 0) continue;
 
             final List<ArrowCase> cases = findArrowCases(tokens, openBraceIdx, closeBraceIdx);
@@ -1320,22 +1320,6 @@ public class JavaSpecificRule {
         return out.toString();
     }
 
-    private int matchParenForward(final List<Token> tokens, final int openIdx)
-    {
-        int depth = 0;
-        for( int i = openIdx; i < tokens.size(); ++i ) {
-            if( isPunct( tokens.get(i), "(" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), ")" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
-    }
-
     /**
      * Nearest preceding {@code class}/{@code interface} KEYWORD token, or -1 -- bounded-effort,
      *  no depth tracking, same posture as the rest of this codebase's non-AST heuristics
@@ -1428,38 +1412,6 @@ public class JavaSpecificRule {
         ).text;
 
         return "";
-    }
-
-    private int matchParenBackward(final List<Token> tokens, final int closeIdx)
-    {
-        int depth = 0;
-        for(int i = closeIdx; i >= 0; --i) {
-            if( isPunct( tokens.get(i), ")" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), "(" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
-    }
-
-    private int matchBraceForward(final List<Token> tokens, final int openIdx)
-    {
-        int depth = 0;
-        for( int i = openIdx; i < tokens.size(); ++i ) {
-            if( isPunct( tokens.get(i), "{" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), "}" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
     }
 
     private int prevSignificantIndex(final List<Token> tokens, final int from)

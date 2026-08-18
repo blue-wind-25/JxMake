@@ -108,7 +108,7 @@ public class CppSpecificRule {
         final Map<Integer, Integer> spans = new HashMap<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             if( !isPunct( tokens.get(i), "(" ) || !isCandidateSignatureName(tokens, i) ) continue;
-            final int closeIdx = matchParenForward(tokens, i);
+            final int closeIdx = MiscRuleCore.matchParenForward(tokens, i);
             if( closeIdx < 0 || hasCommentBetween(tokens, i, closeIdx) ) continue;
             if( MiscRuleCore.anyFrozen(tokens, i, closeIdx + 1) ) continue;
             if(lang.isC) {
@@ -336,7 +336,7 @@ public class CppSpecificRule {
             if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, lastBeforeBrace, i) ) continue;
             final int gapStart = lastBeforeBrace + 1;
             // Keep single-line bodies K&R -- never Allman-convert a one-liner (RDD_KEY_75)
-            final int closeBraceIdx = matchBraceForward(tokens, i);
+            final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
             if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) continue;
             if( MiscRuleCore.anyFrozen(tokens, funcCloseParen, i + 1) ) continue;
             gapToBrace.put(gapStart, i);
@@ -417,23 +417,6 @@ public class CppSpecificRule {
         }
 
         return true;
-    }
-
-    /** Forward `{`/`}` bracket match -- the brace-pair analog of {@link #matchParenForward} */
-    private int matchBraceForward(final List<Token> tokens, final int openIdx)
-    {
-        int depth = 0;
-        for( int i = openIdx; i < tokens.size(); ++i ) {
-            if( isPunct( tokens.get(i), "{" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), "}" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
     }
 
     /**
@@ -526,7 +509,7 @@ public class CppSpecificRule {
         final int         closeParenIdx
     )
     {
-        final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+        final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
 
         return openParenIdx >= 0 && isCandidateSignatureName(tokens, openParenIdx);
     }
@@ -822,18 +805,18 @@ public class CppSpecificRule {
             // intermediate specifier's own opening-paren line (e.g. a `noexcept(` continuation
             // line, itself possibly awkwardly wrapped by an unrelated pass) as baseIndent would
             // reproduce the same class of instability this fix is for.
-            int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+            int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
             while(openParenIdx >= 0) {
                 final int beforeOpen = prevSignificantIndex(tokens, openParenIdx);
                 if( beforeOpen >= 0 && isPunct( tokens.get(beforeOpen), ")" ) ) {
-                    openParenIdx = matchParenBackward(tokens, beforeOpen);
+                    openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeOpen);
                     continue;
                 }
                 if( beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
                         && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
                     final int beforeSpecifier = prevSignificantIndex(tokens, beforeOpen);
                     if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
-                        openParenIdx = matchParenBackward(tokens, beforeSpecifier);
+                        openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeSpecifier);
                         continue;
                     }
                 } // if
@@ -929,7 +912,7 @@ public class CppSpecificRule {
                     bad = true;
                     break;
                 }
-                final int closeParenIdx = matchParenForward(tokens, openParenIdx);
+                final int closeParenIdx = MiscRuleCore.matchParenForward(tokens, openParenIdx);
                 if(closeParenIdx < 0) {
                     bad = true;
                     break;
@@ -964,18 +947,18 @@ public class CppSpecificRule {
             // list and the contract-clause group, same technique as
             // enforceRequiresClausePlacement, to reach the declarator's own opening paren for a
             // stable baseIndent.
-            int openParenForIndent = matchParenBackward(tokens, anchorCloseParenIdx);
+            int openParenForIndent = MiscRuleCore.matchParenBackward(tokens, anchorCloseParenIdx);
             while(openParenForIndent >= 0) {
                 final int beforeOpen = prevSignificantIndex(tokens, openParenForIndent);
                 if( beforeOpen >= 0 && isPunct( tokens.get(beforeOpen), ")" ) ) {
-                    openParenForIndent = matchParenBackward(tokens, beforeOpen);
+                    openParenForIndent = MiscRuleCore.matchParenBackward(tokens, beforeOpen);
                     continue;
                 }
                 if( beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
                         && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
                     final int beforeSpecifier = prevSignificantIndex(tokens, beforeOpen);
                     if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
-                        openParenForIndent = matchParenBackward(tokens, beforeSpecifier);
+                        openParenForIndent = MiscRuleCore.matchParenBackward(tokens, beforeSpecifier);
                         continue;
                     }
                 } // if
@@ -1084,7 +1067,7 @@ public class CppSpecificRule {
             if( t.type != TokenType.IDENTIFIER || !"contract_assert".equals(t.text) ) continue;
             final int openParenIdx = nextSignificantIndex(tokens, i);
             if( openParenIdx < 0 || !isPunct( tokens.get(openParenIdx), "(" ) ) continue;
-            final int closeParenIdx = matchParenForward(tokens, openParenIdx);
+            final int closeParenIdx = MiscRuleCore.matchParenForward(tokens, openParenIdx);
             if(closeParenIdx < 0) continue;
             if( hasCommentBetween(
                 tokens, openParenIdx, closeParenIdx
@@ -1761,38 +1744,6 @@ public class CppSpecificRule {
             final TokenType ty = tokens.get(i).type;
             if(ty != TokenType.WHITESPACE && ty != TokenType.NEWLINE) return i;
         }
-
-        return -1;
-    }
-
-    private int matchParenForward(final List<Token> tokens, final int openIdx)
-    {
-        int depth = 0;
-        for( int i = openIdx; i < tokens.size(); ++i ) {
-            if( isPunct( tokens.get(i), "(" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), ")" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
-    }
-
-    private int matchParenBackward(final List<Token> tokens, final int closeIdx)
-    {
-        int depth = 0;
-        for(int i = closeIdx; i >= 0; --i) {
-            if( isPunct( tokens.get(i), ")" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), "(" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
 
         return -1;
     }

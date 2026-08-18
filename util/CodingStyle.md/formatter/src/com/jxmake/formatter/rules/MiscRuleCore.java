@@ -737,7 +737,7 @@ public abstract class MiscRuleCore {
         return "type".equals(lastSig.text) && secondLastSig != null
                 && secondLastSig.type == TokenType.KEYWORD && "import".equals(secondLastSig.text);
     }
-int matchParenForward(final List<Token> tokens, final int openIdx)
+protected static int matchParenForward(final List<Token> tokens, final int openIdx)
 {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
@@ -752,6 +752,26 @@ int matchParenForward(final List<Token> tokens, final int openIdx)
 
         return -1;
 }
+    /**
+     * Forward `{`/`}` bracket match -- the brace-pair analog of {@link #matchParenForward},
+     *  previously re-implemented byte-identically in both {@code CppSpecificRule} and
+     *  {@code JavaSpecificRule}
+     */
+    protected static int matchBraceForward(final List<Token> tokens, final int openIdx)
+    {
+        int depth = 0;
+        for( int i = openIdx; i < tokens.size(); ++i ) {
+            if( isPunct( tokens.get(i), "{" ) ) {
+                ++depth;
+            }
+            else if( isPunct( tokens.get(i), "}" ) ) {
+                --depth;
+                if(depth == 0) return i;
+            }
+        } // for
+
+        return -1;
+    }
     protected boolean isStatementBoundary(final Token t)
     {
         return t == null || isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}");
@@ -1825,7 +1845,7 @@ public static final class Assignment {
 
         return i;
     }
-    protected int matchParenBackward(final List<Token> tokens, final int closeIdx)
+    protected static int matchParenBackward(final List<Token> tokens, final int closeIdx)
     {
         int depth = 0;
         for(int i = closeIdx; i >= 0; --i) {

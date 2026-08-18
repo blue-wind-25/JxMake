@@ -388,6 +388,12 @@ public final class XmlSpecificRule {
     private final Config enclosingConfig;
 
     private String s;
+    /**
+     * Lowercased copy of {@link #s}, computed once in {@link #format} -- {@link
+     *  #indexOfIgnoreCase}/{@link #indexOfTagBoundary} search this instead of re-lowercasing the
+     *  whole document on every call
+     */
+    private String sLower;
     private int    pos;
     /**
      * Depth counter for `<svg>` ancestors, tracked only so the HTML5 "image" -> "img" tag-name
@@ -664,8 +670,9 @@ public final class XmlSpecificRule {
 
     public String format(final String content)
     {
-        this.s   = content;
-        this.pos = 0;
+        this.s      = content;
+        this.sLower = content.toLowerCase(java.util.Locale.ROOT);
+        this.pos    = 0;
         final List<Node> nodes = parseNodes(false);
         if( !eof() ) throw new XmlParseException(
             "trailing content after document, near: " + s.substring( pos, Math.min( s.length(), pos + 40 ) )
@@ -1372,7 +1379,7 @@ public final class XmlSpecificRule {
      */
     private Node finishRawElement(final Node n, final String closeTagLower)
     {
-        final int close = indexOfIgnoreCase(s, closeTagLower, pos);
+        final int close = indexOfIgnoreCase(closeTagLower, pos);
         if(close < 0) {
             // Both call sites of this method are `lang.isHtml5`-gated (`<pre>`/`<xmp>`), so reaching
             // real end-of-input with the literal closing tag never appearing is the same "stopped
@@ -1402,7 +1409,7 @@ public final class XmlSpecificRule {
     private Node finishRawTextElement(final Node n, final String lowerTag)
     {
         final String closeTagLower = "</" + lowerTag + ">";
-        final int    close         = indexOfIgnoreCase(s, closeTagLower, pos);
+        final int    close         = indexOfIgnoreCase(closeTagLower, pos);
         if(close < 0) {
             // See finishRawElement's own comment -- same EOF-tolerance rationale, applied here for
             // `<script>`/`<style>` raw-text elements whose literal closing tag never appears at all
@@ -1418,15 +1425,12 @@ public final class XmlSpecificRule {
         return n;
     }
 
-    private static int indexOfIgnoreCase(
-        final String haystack,
+    private int indexOfIgnoreCase(
         final String needleLower,
         final int    from
     )
     {
-        final String lower = haystack.toLowerCase(java.util.Locale.ROOT);
-
-        return lower.indexOf(needleLower, from);
+        return sLower.indexOf(needleLower, from);
     }
 
     /**
@@ -1450,8 +1454,8 @@ public final class XmlSpecificRule {
               int    scan       = openTagEnd + 1;
               int    closeStart = -1;
         while(depth > 0) {
-            final int nextOpen  = indexOfTagBoundary(s, openTok, scan);
-            final int nextClose = indexOfTagBoundary(s, closeTok, scan);
+            final int nextOpen  = indexOfTagBoundary(openTok, scan);
+            final int nextClose = indexOfTagBoundary(closeTok, scan);
             if(nextClose < 0) throw new XmlParseException(
                 "expected closing tag </" + tagName + ">"
             );
@@ -1508,20 +1512,18 @@ public final class XmlSpecificRule {
      *  at `from`, requiring a tag-boundary character (whitespace, `>`, `/`, or end-of-string)
      *  immediately after the match so `"<ruby"` doesn't false-match inside `"<rubytag"`.
      */
-    private static int indexOfTagBoundary(
-        final String haystack,
+    private int indexOfTagBoundary(
         final String tokenLower,
         final int    from
     )
     {
-        final String lower = haystack.toLowerCase(java.util.Locale.ROOT);
-              int    idx   = from;
+        int idx = from;
         while(true) {
-            idx = lower.indexOf(tokenLower, idx);
+            idx = sLower.indexOf(tokenLower, idx);
             if(idx < 0) return -1;
             final int after = idx + tokenLower.length();
-            if( after >= haystack.length() ) return idx;
-            final char c = haystack.charAt(after);
+            if( after >= s.length() ) return idx;
+            final char c = s.charAt(after);
             if( Character.isWhitespace(c) || c == '>' || c == '/' ) return idx;
             idx = after + 1;
         } // while

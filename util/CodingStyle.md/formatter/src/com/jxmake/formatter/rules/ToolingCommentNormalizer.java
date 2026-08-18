@@ -174,8 +174,7 @@ final class ToolingCommentNormalizer {
             combined.append( chain.get(i) );
         }
         final String combinedText = combined.toString();
-        final java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("[.!?]\\s+([a-z])").matcher(combinedText);
+        final java.util.regex.Matcher matcher = MiscRuleCore.SENTENCE_BOUNDARY.matcher(combinedText);
         final java.util.Map<Integer, Character> capitalized = new java.util.HashMap<>();
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);

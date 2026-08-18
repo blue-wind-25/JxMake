@@ -2545,6 +2545,13 @@ public static final class Assignment {
      *  entry (never re-splitting the transformed combined text) -- more robust against subtle
      *  whitespace/wrap differences between the combined and original per-line forms.
      */
+    /**
+     * `[.!?]` + whitespace + lowercase-letter sentence-boundary matcher, shared with {@link
+     *  com.jxmake.formatter.rules.ToolingCommentNormalizer}'s identical use of the same pattern
+     */
+    protected static final java.util.regex.Pattern SENTENCE_BOUNDARY =
+            java.util.regex.Pattern.compile("[.!?]\\s+([a-z])");
+
     protected void capitalizeMultiSentence(
         final List<String>  contents,
         final List<Boolean> rewritableFlags
@@ -2564,8 +2571,7 @@ public static final class Assignment {
         // detection already relied on elsewhere in this codebase's comment-grammar handling
         // (dot-count/trailing-period logic), applied here to an internal sentence start rather
         // than only the trailing period.
-        final java.util.regex.Matcher matcher =
-                java.util.regex.Pattern.compile("[.!?]\\s+([a-z])").matcher(combinedText);
+        final java.util.regex.Matcher matcher = SENTENCE_BOUNDARY.matcher(combinedText);
         final Map<Integer, Character> capitalized = new HashMap<>();
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);

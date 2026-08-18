@@ -1212,15 +1212,15 @@ public final class PowerShellSpecificRule {
         return null;
     }
 
+    private static final Pattern CONTROL_HEADER_KEYWORD = Pattern.compile(
+        "(?i)^(if|elseif|else|while|for|foreach|switch|function|filter|catch|trap|try|finally|" + "begin|process|end|dynamicparam)\\b"
+    );
+
     private static boolean isControlHeader(final String pattern)
     {
-        final String t = pattern.trim();
+        final String  t = pattern.trim();
         // Word-at-start check against control keywords (case-insensitive)
-        final Matcher m = Pattern.compile(
-            "(?i)^(if|elseif|else|while|for|foreach|switch|function|filter|catch|trap|try|finally|" + "begin|process|end|dynamicparam)\\b"
-        ).matcher(
-            t
-        );
+        final Matcher m = CONTROL_HEADER_KEYWORD.matcher(t);
 
         return m.find();
     }

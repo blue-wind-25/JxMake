@@ -1677,6 +1677,59 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         );
     }
 
+    /**
+     * True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
+     *  {@code NEWLINE} token, anywhere after {@code afterToken} (found by identity, since
+     *  {@code stmt} and the caller's filtered {@code sig}/{@code initTokens} share the same
+     *  {@code Token} objects), that is either (a) inside a `{`...`}` brace body (brace depth > 0
+     *  relative to {@code afterToken}) -- a genuine multi-line block/lambda body
+     *  (`Thread({ ...multi-line... }, "name")`, `if(...) { ... } else { ... }`) that must never
+     *  be flattened onto one line by this group's rendering -- or (b) at paren/bracket depth 0
+     *  *and* brace depth 0 -- a top-level newline with nothing to explain it away. A newline that
+     *  is neither -- i.e. sitting strictly inside a call's parens with no enclosing brace, depth
+     *  tracking mirroring {@code ScopePipeline.hasTopLevelNewline}'s own "ignore newlines inside
+     *  a call's parens" idiom -- is treated as single-line for grouping purposes: it only means a
+     *  brace-free initializer's own nested call argument list was wrapped across lines by a
+     *  previous run of {@code MiscRule.enforceCallLineBreaking} (e.g. `if(cond)
+     *  full.substring(\n    0, N\n) + "..."  else full`, braceless, one logical expression).
+     *  Without the paren-depth carve-out, such an initializer bailed out of its alignment group
+     *  only on a *second* format pass (intact on a fresh input, since the wrapping newlines don't
+     *  exist yet when this check first runs there) -- an idempotency bug where a sibling
+     *  declaration's own column padding silently shrank between passes. Without the brace-depth
+     *  override on top of it, a `{`-bodied trailing-lambda argument's *own* internal
+     *  statement-separating newlines would also be swallowed as "inside a call's parens" --
+     *  caught only via `make test` regressing the RDD_KEY_134 fixture (`real_code_regressions_17`)
+     *  after adding the paren-depth carve-out alone, not reasoned out in advance; a single-line
+     *  lambda (`x?.let { it + 1 } ?: 0`, `kt_combined_out.kt`) has no newline inside its braces at
+     *  all and so is correctly unaffected by either carve-out. Shared by every curly-family
+     *  declaration-alignment subclass that needs this bailout (originally Kotlin-only, then
+     *  duplicated verbatim into the JS/TS sibling -- pulled up here).
+     */
+    protected boolean spansMultipleLines(final List<Token> stmt, final Token afterToken)
+    {
+        boolean seen       = false;
+        int     parenDepth = 0;
+        int     braceDepth = 0;
+        for(final Token t : stmt) {
+            if(seen) {
+                     if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
+                else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
+                else if( isPunct(t, "{") ) braceDepth++;
+                else if( isPunct(t, "}") ) braceDepth--;
+                else if( t.type == TokenType.NEWLINE && ( braceDepth > 0 || (parenDepth == 0 && braceDepth == 0) ) ) return true;
+            } // if
+            if(t == afterToken) seen = true;
+        } // for
 
+        return false;
+    }
+
+    protected String trimTrailingSpaces(final String s)
+    {
+        int end = s.length();
+        while( end > 0 && s.charAt(end - 1) == ' ' ) end--;
+
+        return s.substring(0, end);
+    }
 
 } // class DeclarationAlignmentRuleCurly

@@ -470,31 +470,6 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
     }
 
     /**
-     * Same "never flatten a genuine multi-line block/lambda initializer onto one line" bailout
-     *  as {@code KotlinDeclarationAlignmentRule.spansMultipleLines}, including its paren-depth
-     *  carve-out for a brace-free initializer whose own nested call argument list was wrapped
-     *  across lines by a previous {@code MiscRuleCurly.enforceCallLineBreaking} pass.
-     */
-    private boolean spansMultipleLines(final List<Token> stmt, final Token afterToken)
-    {
-        boolean seen       = false;
-        int     parenDepth = 0;
-        int     braceDepth = 0;
-        for(final Token t : stmt) {
-            if(seen) {
-                     if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
-                else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
-                else if( isPunct(t, "{") ) braceDepth++;
-                else if( isPunct(t, "}") ) braceDepth--;
-                else if( t.type == TokenType.NEWLINE && ( braceDepth > 0 || (parenDepth == 0 && braceDepth == 0) ) ) return true;
-            } // if
-            if(t == afterToken) seen = true;
-        } // for
-
-        return false;
-    }
-
-    /**
      * Splits one scope's direct-content tokens into groups of consecutive `let`/`const`/`var`
      * declaration statements -- same grouping-break rule as the base class's {@code
      * groupDeclarations} (STYLE.md §5)/Kotlin's {@code groupAlignableDeclarations}: a blank line,
@@ -603,14 +578,6 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         );
 
         return lines;
-    }
-
-    private String trimTrailingSpaces(final String s)
-    {
-        int end = s.length();
-        while( end > 0 && s.charAt(end - 1) == ' ' ) end--;
-
-        return s.substring(0, end);
     }
 
 } // class JsTsDeclarationAlignmentRule

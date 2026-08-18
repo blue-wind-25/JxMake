@@ -598,13 +598,6 @@ public class TokenizerIndent extends TokenizerCore {
         } // while
     }
 
-    private Token emitPunct(final char c)
-    {
-        ++pos;
-
-        return new Token( TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null );
-    }
-
     /**
      * `(`/`[`/`{` all merge into one bracket-nesting counter (unlike the curly family, Python
      *  attaches no separate scope meaning to `{` -- it's only ever a dict/set literal), stored in

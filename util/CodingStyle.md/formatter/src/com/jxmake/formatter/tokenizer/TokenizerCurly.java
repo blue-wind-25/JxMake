@@ -938,13 +938,6 @@ public class TokenizerCurly extends TokenizerCore {
         return new Token( TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null );
     }
 
-    private Token emitPunct(final char c)
-    {
-        ++pos;
-
-        return new Token( TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null );
-    }
-
     private Token emitPreprocessorOrDefine()
     {
         int p = pos + 1; // Skip '#'

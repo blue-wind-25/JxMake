@@ -204,6 +204,18 @@ public class TokenizerCore {
         return new HashSet<>( Arrays.asList(words) );
     }
 
+    /**
+     * Same-shape single-character PUNCT emitter -- previously re-implemented byte-identically in
+     *  both {@link TokenizerCurly} and {@link TokenizerIndent}, promoted here alongside
+     *  {@link #setOf}
+     */
+    protected Token emitPunct(final char c)
+    {
+        ++pos;
+
+        return new Token( TokenType.PUNCT, String.valueOf(c), braceDepth, parenDepth, null );
+    }
+
     public static final String JXM_CFMT_DIS = "JXM_CFMT_DIS";
     public static final String JXM_CFMT_ENA = "JXM_CFMT_ENA";
     public static final String JXM_CFMT_CFG = "JXM_CFMT_CFG";

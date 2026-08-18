@@ -84,7 +84,7 @@ public final class TomlSpecificRule {
 
     /**
      * Malformed TOML input that the parser cannot make sense of -- caught generically by
-     *  {@code Main}'s per-file error handling, same as any other rule class's runtime failure
+     * {@code Main}'s per-file error handling, same as any other rule class's runtime failure
      */
     public static final class TomlParseException extends RuntimeException {
 
@@ -107,11 +107,11 @@ public final class TomlSpecificRule {
 
     /**
      * 2026-08-08 session: chain-groups a run of consecutive leading `#` comments the same way curly
-     *  chains `//` (RDD_KEY_265/RDD_KEY_266) -- delegates to
-     *  {@link ToolingCommentNormalizer#normalizeChain}, shared with YAML/Makefile/Bash/PowerShell.
-     *  {@code raw} holds unnormalized, trimmed `#...`-prefixed comment lines in source order;
-     *  {@code blankBefore.get(k)} is true iff a blank line separated comment {@code k} from comment
-     *  {@code k-1}.
+     * chains `//` (RDD_KEY_265/RDD_KEY_266) -- delegates to
+     * {@link ToolingCommentNormalizer#normalizeChain}, shared with YAML/Makefile/Bash/PowerShell.
+     * {@code raw} holds unnormalized, trimmed `#...`-prefixed comment lines in source order;
+     * {@code blankBefore.get(k)} is true iff a blank line separated comment {@code k} from comment
+     * {@code k-1}.
      */
     private List<String> finalizeComments(final List<String> raw, final List<Boolean> blankBefore)
     {
@@ -149,8 +149,8 @@ public final class TomlSpecificRule {
 
     /**
      * Splits off a same-line trailing `#` comment, respecting quotes -- a `#` only starts a
-     *  comment when at the start of the string or preceded by whitespace. Returns a two-element
-     *  array: [codePart (right-trimmed), commentPartOrNull].
+     * comment when at the start of the string or preceded by whitespace. Returns a two-element
+     * array: [codePart (right-trimmed), commentPartOrNull].
      */
     private static String[] splitTrailingComment(final String s)
     {
@@ -159,7 +159,7 @@ public final class TomlSpecificRule {
 
     /**
      * Returns {@code """}/{@code '''} if {@code value} opens a multi-line basic/literal string,
-     *  else {@code null}
+     * else {@code null}
      */
     private static String multilineStringDelim(final String value)
     {
@@ -171,9 +171,9 @@ public final class TomlSpecificRule {
 
     /**
      * True when {@code trimmedLine} is a {@code key = """.../key = '''...} line whose
-     *  multi-line-string value is not closed on the same physical line -- i.e. real continuation
-     *  lines must be consumed (TOML v1.0 core syntax; found missing entirely via rust-lang/cargo
-     *  dogfood testing, see the "Line-based parsing" loop).
+     * multi-line-string value is not closed on the same physical line -- i.e. real continuation
+     * lines must be consumed (TOML v1.0 core syntax; found missing entirely via rust-lang/cargo
+     * dogfood testing, see the "Line-based parsing" loop).
      */
     private static boolean isUnterminatedMultilineStringLine(final String trimmedLine)
     {
@@ -188,9 +188,9 @@ public final class TomlSpecificRule {
 
     /**
      * Net {@code [`/`{` minus `]`/`}`} depth change across {@code s}, ignoring bracket-looking
-     *  characters inside quotes -- used to detect a `key = value` line whose array/inline-table
-     *  value spans multiple physical input lines (only produced by this formatter's own §6.3 loose
-     *  array output, but input may echo it back, e.g. under an idempotency check).
+     * characters inside quotes -- used to detect a `key = value` line whose array/inline-table
+     * value spans multiple physical input lines (only produced by this formatter's own §6.3 loose
+     * array output, but input may echo it back, e.g. under an idempotency check).
      */
     private static int bracketBalance(final String s)
     {
@@ -337,7 +337,7 @@ public final class TomlSpecificRule {
 
     /**
      * Reads a scalar (unquoted, or a quoted string) up to the next structural character
-     *  ({@code , ] }}, or -- for an inline-table key -- {@code =})
+     * ({@code , ] }}, or -- for an inline-table key -- {@code =})
      */
     private String readScalarText(final ValueCursor c, final boolean stopAtEquals)
     {
@@ -395,7 +395,7 @@ public final class TomlSpecificRule {
 
     /**
      * §6.3: an array of atoms stays tight; one containing a nested array/inline table goes loose,
-     *  one element per line, indented one level under the key's own column.
+     * one element per line, indented one level under the key's own column.
      */
     private void renderValue(final ValueNode node, final StringBuilder out)
     {

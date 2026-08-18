@@ -24,20 +24,20 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /**
  * Runs the real rules-then-GRU-on-abstain pipeline (mirroring
- *  {@link com.jxmake.formatter.classifier.gru.GruAbstainResolver#resolve} /
- *  {@link com.jxmake.formatter.rules.MiscRuleCore#classifyComment(String)}'s leading-token,
- *  {@code targetWordIndex=0} call site) over an {@code extract_comments.py} corpus, at a swept
- *  set of {@code abstainThreshold} values, and tallies the GRU stage's YES/NO/ABSTAIN decision
- *  distribution -- separately from {@link GruEval}, which measures precision against a *labeled*
- *  set. This tool needs no ground truth, so it's the one to reach for on a real, unrelated
- *  codebase where hand-labeling isn't practical: a low abstain rate and/or a heavy single-class
- *  skew on truly out-of-distribution text is itself a signal worth checking (was the reported
- *  precision figure training-fit, not genuinely held-out? -- see {@code STATE_AI.md}'s repeated
- *  training-fit-vs-held-out gap, e.g. the 98.7%-vs-86.3% 2026-08-02 entry). Comments the rule-based
- *  classifier already decides are skipped entirely (never reach the GRU in production either) --
- *  run the corpus through {@link FilterAbstain} first so every line actually exercises the GRU
- *  stage, rather than sampling from a raw {@code extract_comments.py} dump where most lines never
- *  would.
+ * {@link com.jxmake.formatter.classifier.gru.GruAbstainResolver#resolve} /
+ * {@link com.jxmake.formatter.rules.MiscRuleCore#classifyComment(String)}'s leading-token,
+ * {@code targetWordIndex=0} call site) over an {@code extract_comments.py} corpus, at a swept
+ * set of {@code abstainThreshold} values, and tallies the GRU stage's YES/NO/ABSTAIN decision
+ * distribution -- separately from {@link GruEval}, which measures precision against a *labeled*
+ * set. This tool needs no ground truth, so it's the one to reach for on a real, unrelated
+ * codebase where hand-labeling isn't practical: a low abstain rate and/or a heavy single-class
+ * skew on truly out-of-distribution text is itself a signal worth checking (was the reported
+ * precision figure training-fit, not genuinely held-out? -- see {@code STATE_AI.md}'s repeated
+ * training-fit-vs-held-out gap, e.g. the 98.7%-vs-86.3% 2026-08-02 entry). Comments the rule-based
+ * classifier already decides are skipped entirely (never reach the GRU in production either) --
+ * run the corpus through {@link FilterAbstain} first so every line actually exercises the GRU
+ * stage, rather than sampling from a raw {@code extract_comments.py} dump where most lines never
+ * would.
  */
 public final class GruRealCorpusTally {
 

@@ -21,8 +21,8 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /**
  * Standalone self-check for {@link GruAbstainResolver}, following the same zero-dependency
- *  plain-{@code main()} pattern as {@code GruWeightsSelfTest.java}/{@code GruTokenizerSelfTest
- *  .java}/{@code GruSoftmaxSelfTest.java} -- no test framework exists anywhere in this project.
+ * plain-{@code main()} pattern as {@code GruWeightsSelfTest.java}/{@code GruTokenizerSelfTest
+ * .java}/{@code GruSoftmaxSelfTest.java} -- no test framework exists anywhere in this project.
  *
  *  <p>Covers the four cases STATE_AI.md's task description calls out:
  *  <ol>

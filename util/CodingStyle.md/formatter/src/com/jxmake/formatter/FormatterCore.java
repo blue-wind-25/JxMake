@@ -34,10 +34,10 @@ public abstract class FormatterCore {
 
     /**
      * {@code filePath}-aware overload -- needed so {@link Lang#isJsxSyntax} (a `.jsx`/`.tsx`
-     *  extension check independent of the already-inferred `"js"`/`"ts"` language string, see
-     *  `Lang.infer`) can be set correctly per file. The path-less overload above is kept for
-     *  every caller with no real per-file path to check (e.g. `XmlSpecificRule`'s forced
-     *  `"js"`/`"css"` dispatch for embedded `<script>`/`<style>` content).
+     * extension check independent of the already-inferred `"js"`/`"ts"` language string, see
+     * `Lang.infer`) can be set correctly per file. The path-less overload above is kept for
+     * every caller with no real per-file path to check (e.g. `XmlSpecificRule`'s forced
+     * `"js"`/`"css"` dispatch for embedded `<script>`/`<style>` content).
      */
     public static FormatterCore forLanguage(final String language, final String filePath)
     {
@@ -46,9 +46,9 @@ public abstract class FormatterCore {
 
     /**
      * {@code jsxInTsOptIn}-aware overload -- threads {@code Config.isJsxInTs()} through to
-     *  {@link Lang}'s constructor so a `.ts` file can opt into the JSX boundary-finding pre-pass
-     *  (see `Lang.isJsxSyntax`'s javadoc, STATE_JS_TS.md's 2026-08-13 implementation section).
-     *  `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` files are unaffected by this parameter either way.
+     * {@link Lang}'s constructor so a `.ts` file can opt into the JSX boundary-finding pre-pass
+     * (see `Lang.isJsxSyntax`'s javadoc, STATE_JS_TS.md's 2026-08-13 implementation section).
+     * `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` files are unaffected by this parameter either way.
      */
     public static FormatterCore forLanguage(
         final String  language,

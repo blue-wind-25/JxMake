@@ -14,8 +14,8 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /**
  * Builds a {@link CommentFeatureVector} from raw comment text. Pure function, no formatter
- *  mutation -- see STATE_COMMENT_GRAMMAR.md's hard architectural constraint. Not yet wired into
- *  {@code MiscRuleCore}; implementation is step 1 of that file's "Handoff note" suggested order.
+ * mutation -- see STATE_COMMENT_GRAMMAR.md's hard architectural constraint. Not yet wired into
+ * {@code MiscRuleCore}; implementation is step 1 of that file's "Handoff note" suggested order.
  */
 public final class CommentFeatureExtractor {
 
@@ -45,14 +45,14 @@ public final class CommentFeatureExtractor {
 
     /**
      * Same as {@link #extract(String, Lang, TokenType)}, but {@code targetWordIndex} (per
-     *  {@link com.jxmake.formatter.classifier.gru.GruClassifier#tokenize}) scopes
-     *  {@code hasLeadingKeywordMatch} to only fire when the decision is actually about the
-     *  leading word (index 0) -- e.g. {@code MiscRuleCore}'s strip-trailing-period call site
-     *  passes the *last* token's index, since the ambiguous trailing dot has nothing to do with
-     *  whatever keyword the comment happens to start with. Without this, a comment like
-     *  "return true if ... type ." would abstain from stripping its stray trailing period just
-     *  because it starts with the keyword "return" -- a real regression found 2026-07-30 fixing
-     *  `test/real_code_regressions_54_inp.java`, see STATE_AI.md's 2026-07-30 section.
+     * {@link com.jxmake.formatter.classifier.gru.GruClassifier#tokenize}) scopes
+     * {@code hasLeadingKeywordMatch} to only fire when the decision is actually about the
+     * leading word (index 0) -- e.g. {@code MiscRuleCore}'s strip-trailing-period call site
+     * passes the *last* token's index, since the ambiguous trailing dot has nothing to do with
+     * whatever keyword the comment happens to start with. Without this, a comment like
+     * "return true if ... type ." would abstain from stripping its stray trailing period just
+     * because it starts with the keyword "return" -- a real regression found 2026-07-30 fixing
+     * `test/real_code_regressions_54_inp.java`, see STATE_AI.md's 2026-07-30 section.
      */
     public static CommentFeatureVector extract(
         final String    commentText,
@@ -137,9 +137,9 @@ public final class CommentFeatureExtractor {
 
     /**
      * [start, end) of the first contiguous run of letters/digits/underscore after skipping
-     *  leading whitespace -- same extraction MiscRuleCore.capitalizeFirstLetter and
-     *  KeywordAmbiguityGate.hasLeadingKeywordMatch use, kept in sync by construction here since
-     *  both callers now route through this.
+     * leading whitespace -- same extraction MiscRuleCore.capitalizeFirstLetter and
+     * KeywordAmbiguityGate.hasLeadingKeywordMatch use, kept in sync by construction here since
+     * both callers now route through this.
      */
     private static int[] leadingWordBounds(final String commentText)
     {
@@ -159,7 +159,7 @@ public final class CommentFeatureExtractor {
 
     /**
      * The next contiguous word (letters/digits/underscore) starting at or after {@code from},
-     *  skipping any non-word characters in between, or "" if there is none
+     * skipping any non-word characters in between, or "" if there is none
      */
     private static String nextWord(final String commentText, final int from)
     {

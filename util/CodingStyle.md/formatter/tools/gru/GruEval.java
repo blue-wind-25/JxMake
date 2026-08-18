@@ -17,11 +17,11 @@ import com.jxmake.formatter.classifier.gru.GruClassifier;
 
 /**
  * Measures precision of a trained {@code GruClassifier} against an RDD_EXT_21-schema
- *  labeled-examples file: loads the weights file, classifies every example, and reports
- *  correct/decided/abstained counts overall and per YES/NO class. Deliberately lives outside
- *  {@code src/} alongside {@link GruTrainer}, since it's evaluation tooling for real corpora, not
- *  shipped runtime code -- same category as {@code CommentAbstainTally.java}. {@link
- *  #tools/gru/cross_validate.py} shells out to this class once per fold.
+ * labeled-examples file: loads the weights file, classifies every example, and reports
+ * correct/decided/abstained counts overall and per YES/NO class. Deliberately lives outside
+ * {@code src/} alongside {@link GruTrainer}, since it's evaluation tooling for real corpora, not
+ * shipped runtime code -- same category as {@code CommentAbstainTally.java}. {@link
+ * #tools/gru/cross_validate.py} shells out to this class once per fold.
  */
 public final class GruEval {
 
@@ -33,8 +33,8 @@ public final class GruEval {
 
     /**
      * A single labeled example plus its pre-computed softmax probabilities, cached so a
-     *  --threshold sweep (below) evaluates every candidate threshold against the exact same
-     *  forward-pass outputs instead of recomputing them once per threshold
+     * --threshold sweep (below) evaluates every candidate threshold against the exact same
+     * forward-pass outputs instead of recomputing them once per threshold
      */
     private static final class Scored {
 

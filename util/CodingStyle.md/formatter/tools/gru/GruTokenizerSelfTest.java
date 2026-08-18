@@ -11,11 +11,11 @@ import com.jxmake.formatter.classifier.gru.GruClassifier;
 
 /**
  * Standalone self-check for {@code GruClassifier}'s tokenizer and OOV hash bucket, per
- *  RDD_EXT_12/13. No test framework exists anywhere in this project (the formatter's own
- *  testing methodology is the {@code _inp}/{@code _out} fixture-diffing in {@code test/}, which
- *  doesn't apply to internal classifier logic), so this follows the project's existing
- *  zero-dependency style: a plain {@code main()} that asserts and exits non-zero on failure.
- *  Non-shipped, like {@code GruTrainer.java}. Run via: {@code java GruTokenizerSelfTest}.
+ * RDD_EXT_12/13. No test framework exists anywhere in this project (the formatter's own
+ * testing methodology is the {@code _inp}/{@code _out} fixture-diffing in {@code test/}, which
+ * doesn't apply to internal classifier logic), so this follows the project's existing
+ * zero-dependency style: a plain {@code main()} that asserts and exits non-zero on failure.
+ * Non-shipped, like {@code GruTrainer.java}. Run via: {@code java GruTokenizerSelfTest}.
  */
 public final class GruTokenizerSelfTest {
 

@@ -21,9 +21,9 @@ import com.jxmake.formatter.classifier.CommentFeatureVector;
 
 /**
  * Measures the real rule-based {@link CommentClassifier}'s ABSTAIN rate over a real comment
- *  corpus -- STATE_AI.md's Step 3 open item 9, the sole genuinely blocking item before any GRU
- *  training-data acquisition can start. Deliberately lives outside {@code src/}, same as
- *  {@code GruTrainer.java} -- this is a one-off measurement tool, not runtime or shipped code.
+ * corpus -- STATE_AI.md's Step 3 open item 9, the sole genuinely blocking item before any GRU
+ * training-data acquisition can start. Deliberately lives outside {@code src/}, same as
+ * {@code GruTrainer.java} -- this is a one-off measurement tool, not runtime or shipped code.
  *
  *  <p>Reads records written by {@code tools/gru/extract_comments.py}: one comment per line, format
  *  {@code "<lang>\t<escaped comment text>"}, where the comment text has its own literal newlines/

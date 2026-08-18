@@ -23,13 +23,13 @@ import com.jxmake.formatter.classifier.CommentFeatureVector;
 
 /**
  * Extracts Pool A (keyword-ambiguity) candidates for Step 3's GRU training set --
- *  STATE_AI.md's "Training-set acquisition" section. Reads the same corpus format
- *  {@code tools/gru/extract_comments.py} writes and {@code CommentAbstainTally} reads
- *  ({@code "<lang>\t<escaped comment text>"}), runs each comment through the real
- *  {@link CommentFeatureExtractor#extract(String, Lang)} / {@link CommentClassifier#classify}
- *  pipeline (not a reimplementation), and writes out only the comments that ABSTAIN
- *  *because of* keyword ambiguity ({@link CommentFeatureVector#hasLeadingKeywordMatch}) --
- *  i.e. this is exactly the "Pool A" definition from STATE_AI.md.
+ * STATE_AI.md's "Training-set acquisition" section. Reads the same corpus format
+ * {@code tools/gru/extract_comments.py} writes and {@code CommentAbstainTally} reads
+ * ({@code "<lang>\t<escaped comment text>"}), runs each comment through the real
+ * {@link CommentFeatureExtractor#extract(String, Lang)} / {@link CommentClassifier#classify}
+ * pipeline (not a reimplementation), and writes out only the comments that ABSTAIN
+ * *because of* keyword ambiguity ({@link CommentFeatureVector#hasLeadingKeywordMatch}) --
+ * i.e. this is exactly the "Pool A" definition from STATE_AI.md.
  *
  *  <p>Deliberately excludes ABSTAINs where {@code hasNonLatinScript} is set instead: those are
  *  {@code NonLatinScriptGate} hits (non-English script comments, or non-comment vendored data

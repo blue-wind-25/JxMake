@@ -24,10 +24,10 @@ import com.jxmake.formatter.classifier.gru.GruClassifier;
 
 /**
  * Auto-labels a real comment corpus via the existing rule-based (linear) {@link CommentClassifier}
- *  to produce {@code tools/gru/sample_default.txt}, an RDD_EXT_20/21-schema labeled-examples file
- *  for {@code GruTrainer} -- replaces the old "extract corpus, archive raw, hand-label later"
- *  workflow for the default training set (Pool A/Pool B hand-labeling per {@code acquire_corpus.sh}
- *  remains available separately for growing the corpus further; this tool does not replace that).
+ * to produce {@code tools/gru/sample_default.txt}, an RDD_EXT_20/21-schema labeled-examples file
+ * for {@code GruTrainer} -- replaces the old "extract corpus, archive raw, hand-label later"
+ * workflow for the default training set (Pool A/Pool B hand-labeling per {@code acquire_corpus.sh}
+ * remains available separately for growing the corpus further; this tool does not replace that).
  *
  *  <p>Reads the same corpus format {@code extract_comments.py} writes and
  *  {@code CommentAbstainTally}/{@code ExtractPoolA} read ({@code "<lang>\t<escaped comment text>"}).
@@ -63,8 +63,8 @@ public final class GenerateSampleDefault {
 
     /**
      * Header written to the top of every generated {@code sample_default.txt}, documenting
-     *  provenance per the user's explicit request -- lines starting with {@code #} are already
-     *  skipped by {@code GruTrainer.readExamples}, same convention as {@code sample_examples.txt}.
+     * provenance per the user's explicit request -- lines starting with {@code #} are already
+     * skipped by {@code GruTrainer.readExamples}, same convention as {@code sample_examples.txt}.
      */
     private static final String[] HEADER = {
         "# tools/gru/sample_default.txt -- auto-generated GRU training corpus.",

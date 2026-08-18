@@ -11,9 +11,9 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /**
  * Feature vector extracted from a single comment for {@link CommentClassifier} scoring. Pure
- *  data -- extraction lives in {@link CommentFeatureExtractor}, scoring in
- *  {@link CommentClassifier}. See STATE_COMMENT_GRAMMAR.md's "Scope split" section for the
- *  feature list this is meant to hold.
+ * data -- extraction lives in {@link CommentFeatureExtractor}, scoring in
+ * {@link CommentClassifier}. See STATE_COMMENT_GRAMMAR.md's "Scope split" section for the
+ * feature list this is meant to hold.
  *
  *  <p>{@link #targetWord} is the word the classifier is being asked to make a decision about
  *  (currently always the comment's leading word, since the two funnel points that will call

@@ -61,12 +61,12 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * {@code pythonImportSort}/{@code pythonImportBlankLines} gate/parameterize §3's import-
-     *  ordering pass ({@link #applyImportSort}) -- see {@code Config#isPythonImportSort}/
-     *  {@code Config#pythonImportBlankLines}. The two-/three-arg constructors above default both
-     *  to their {@code Config} default (on / 1) for any caller that doesn't need to thread a real
-     *  {@code Config} through (kept for backward compatibility). This constructor also leaves
-     *  comment-normalization (see the 10-arg constructor below) off, matching its own prior
-     *  behavior before that pass existed -- no other in-tree caller besides test code needs it.
+     * ordering pass ({@link #applyImportSort}) -- see {@code Config#isPythonImportSort}/
+     * {@code Config#pythonImportBlankLines}. The two-/three-arg constructors above default both
+     * to their {@code Config} default (on / 1) for any caller that doesn't need to thread a real
+     * {@code Config} through (kept for backward compatibility). This constructor also leaves
+     * comment-normalization (see the 10-arg constructor below) off, matching its own prior
+     * behavior before that pass existed -- no other in-tree caller besides test code needs it.
      */
     public ScopePipelineIndent(
         final Lang    lang,
@@ -82,15 +82,15 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Full constructor additionally threading the `normalize-comment-start-case`/
-     *  `normalize-comment-end-period`/`comment-normalization-classifier`/`gru-classifier`/
-     *  `gru-weights-path` config values through to {@link #miscRule} (2026-08-08 session, comment
-     *  normalization for python3 -- see STATE_PYTHON3.md), the same classifier/GRU-backed decision
-     *  path the curly family's own {@code MiscRuleCurly#enforceCommentStyle} already uses via
-     *  {@code MiscRuleCore#capitalizeFirstLetter(String)}/{@code #stripSoleTrailingPeriodAcrossLines}
-     *  -- {@link MiscRuleIndent} needed no new classifier-integration code of its own, only its own
-     *  {@code #}-comment chain-grouping ({@link MiscRuleIndent#computeHashCommentGroups}) built on
-     *  top of those already-shared, already-gated primitives. {@link #applyCommentNormalization}
-     *  is the new pass this constructor enables.
+     * `normalize-comment-end-period`/`comment-normalization-classifier`/`gru-classifier`/
+     * `gru-weights-path` config values through to {@link #miscRule} (2026-08-08 session, comment
+     * normalization for python3 -- see STATE_PYTHON3.md), the same classifier/GRU-backed decision
+     * path the curly family's own {@code MiscRuleCurly#enforceCommentStyle} already uses via
+     * {@code MiscRuleCore#capitalizeFirstLetter(String)}/{@code #stripSoleTrailingPeriodAcrossLines}
+     * -- {@link MiscRuleIndent} needed no new classifier-integration code of its own, only its own
+     * {@code #}-comment chain-grouping ({@link MiscRuleIndent#computeHashCommentGroups}) built on
+     * top of those already-shared, already-gated primitives. {@link #applyCommentNormalization}
+     * is the new pass this constructor enables.
      */
     public ScopePipelineIndent(
         final Lang    lang,
@@ -147,14 +147,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * `normalize-comment-start-case`/`normalize-comment-end-period` for python3's `#` comments
-     *  (2026-08-08 session -- see STATE_PYTHON3.md; previously not wired up for python3 at all).
-     *  Delegates the actual chain-grouping/normalization decision entirely to {@link
-     *  MiscRuleIndent#computeHashCommentGroups}, then turns each changed {@code COMMENT_LINE}
-     *  token into a single-token {@link Replacement} (a comment token is never split across
-     *  physical lines, so `[idx, idx+1)` always exactly covers it). A group member whose
-     *  normalized body is identical to its current body (nothing to change, or the config keys/
-     *  classifier gate left it untouched) is skipped -- keeps this pass's own replacement count
-     *  proportional to actual changes, same posture as every other pass in this class.
+     * (2026-08-08 session -- see STATE_PYTHON3.md; previously not wired up for python3 at all).
+     * Delegates the actual chain-grouping/normalization decision entirely to {@link
+     * MiscRuleIndent#computeHashCommentGroups}, then turns each changed {@code COMMENT_LINE}
+     * token into a single-token {@link Replacement} (a comment token is never split across
+     * physical lines, so `[idx, idx+1)` always exactly covers it). A group member whose
+     * normalized body is identical to its current body (nothing to change, or the config keys/
+     * classifier gate left it untouched) is skipped -- keeps this pass's own replacement count
+     * proportional to actual changes, same posture as every other pass in this class.
      */
     private List<Replacement> applyCommentNormalization(final List<Token> tokens)
     {
@@ -173,14 +173,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * One logical line: {@code [start, end)} is its full token range including its own leading
-     *  {@code INDENT}/{@code DEDENT} markers (if any) and its terminating {@code NEWLINE} (absent
-     *  only for a file's last line); {@code contentStart} is the first token after those leading
-     *  markers/whitespace. {@code depth} is the indentation depth this line's own statement lives
-     *  at, after applying its own leading markers. A line whose range spans more than one {@code
-     *  NEWLINE} token (bracket/backslash continuation) is a multi-physical-line statement -- every
-     *  rule pass in this class treats those as unrecognized (out of scope for this slice, same
-     *  "documented gap, not a guess" precedent used throughout this job) rather than guessing at
-     *  their shape.
+     * {@code INDENT}/{@code DEDENT} markers (if any) and its terminating {@code NEWLINE} (absent
+     * only for a file's last line); {@code contentStart} is the first token after those leading
+     * markers/whitespace. {@code depth} is the indentation depth this line's own statement lives
+     * at, after applying its own leading markers. A line whose range spans more than one {@code
+     * NEWLINE} token (bracket/backslash continuation) is a multi-physical-line statement -- every
+     * rule pass in this class treats those as unrecognized (out of scope for this slice, same
+     * "documented gap, not a guess" precedent used throughout this job) rather than guessing at
+     * their shape.
      */
     private static final class RawLine {
 
@@ -260,16 +260,16 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Same as {@link #nextSignificant}, but also skips a backslash line-continuation OP token (a
-     *  lone {@code "\"} is never a real Python operator elsewhere -- it's only ever emitted as an
-     *  OP token by {@code TokenizerIndent} for this exact continuation use, per {@code
-     *  TokenizerIndent#isBackslashContinuation}'s own javadoc, so treating it as transparent here is
-     *  safe). {@link #isGapToken} itself can't be widened for this because it's shared with every
-     *  other pass, where a backslash's presence still matters (e.g. §2's own {@code
-     *  RawLine#multiPhysicalLine} boundary detection). Used by {@link #classifyImport}'s comma-list
-     *  parsing so a backslash-continued `import a, \` / `from x import a, \` continuation's comma
-     *  is followed correctly onto the next physical line's first name, instead of the `\` token
-     *  itself being mistaken for the next name and causing a safe-bail (never a crash, but a real
-     *  coverage gap this method exists to close).
+     * lone {@code "\"} is never a real Python operator elsewhere -- it's only ever emitted as an
+     * OP token by {@code TokenizerIndent} for this exact continuation use, per {@code
+     * TokenizerIndent#isBackslashContinuation}'s own javadoc, so treating it as transparent here is
+     * safe). {@link #isGapToken} itself can't be widened for this because it's shared with every
+     * other pass, where a backslash's presence still matters (e.g. §2's own {@code
+     * RawLine#multiPhysicalLine} boundary detection). Used by {@link #classifyImport}'s comma-list
+     * parsing so a backslash-continued `import a, \` / `from x import a, \` continuation's comma
+     * is followed correctly onto the next physical line's first name, instead of the `\` token
+     * itself being mistaken for the next name and causing a safe-bail (never a crash, but a real
+     * coverage gap this method exists to close).
      */
     private int nextSignificantSkipBackslash(final List<Token> tokens, final int from, final int to)
     {
@@ -289,11 +289,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Classifies each {@code rawLines} entry as a §2 assignment candidate or not, then groups
-     *  consecutive same-depth candidates (a blank line, a comment-only line, a depth change, or a
-     *  non-candidate statement all break the group -- STYLE_PYTHON3.md §2: "a blank line or a
-     *  comment breaks the group") and returns one {@link Replacement} per grouped assignment,
-     *  replacing only its own `target...value` span -- the line's own indentation, surrounding
-     *  blank lines/comments, and any trailing same-line comment are left untouched.
+     * consecutive same-depth candidates (a blank line, a comment-only line, a depth change, or a
+     * non-candidate statement all break the group -- STYLE_PYTHON3.md §2: "a blank line or a
+     * comment breaks the group") and returns one {@link Replacement} per grouped assignment,
+     * replacing only its own `target...value` span -- the line's own indentation, surrounding
+     * blank lines/comments, and any trailing same-line comment are left untouched.
      */
     private List<Replacement> applyAssignmentAlignment(
         final List<Token>   tokens,
@@ -367,9 +367,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Classifies one line's content range as a §2 assignment candidate. Rejects unless: the first
-     *  significant token is a bare {@code IDENTIFIER}, the next significant token is an {@code OP}
-     *  in {@link com.jxmake.formatter.rules.MiscRuleCore#ASSIGNMENT_OPS}, and at least one
-     *  significant, non-comment value token follows.
+     * significant token is a bare {@code IDENTIFIER}, the next significant token is an {@code OP}
+     * in {@link com.jxmake.formatter.rules.MiscRuleCore#ASSIGNMENT_OPS}, and at least one
+     * significant, non-comment value token follows.
      */
     private PyAssignment classifyAssignment(final List<Token> tokens, final RawLine line)
     {
@@ -405,20 +405,20 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Classifies each {@code rawLines} entry as a §3 import candidate or not, groups consecutive
-     *  candidates at the same depth (a blank line, a comment-only line, a depth change, or a
-     *  non-import statement all break the group -- STYLE_PYTHON3.md §3.2's "any non-import
-     *  statement breaks the group" plus this slice's own conservative extension to blank/comment
-     *  lines, since the style doc is silent on how a blank line or an attached comment should
-     *  move when statements are physically reordered around it; treating them as group boundaries
-     *  sidesteps that ambiguity entirely rather than guessing), stable-sorts each group per §3.1/
-     *  §3.3, and returns one {@link Replacement} per group covering the whole group's line range,
-     *  replacing it with the same lines' own verbatim text (indentation, content, trailing
-     *  same-line comment) in the new order.
+     * candidates at the same depth (a blank line, a comment-only line, a depth change, or a
+     * non-import statement all break the group -- STYLE_PYTHON3.md §3.2's "any non-import
+     * statement breaks the group" plus this slice's own conservative extension to blank/comment
+     * lines, since the style doc is silent on how a blank line or an attached comment should
+     * move when statements are physically reordered around it; treating them as group boundaries
+     * sidesteps that ambiguity entirely rather than guessing), stable-sorts each group per §3.1/
+     * §3.3, and returns one {@link Replacement} per group covering the whole group's line range,
+     * replacing it with the same lines' own verbatim text (indentation, content, trailing
+     * same-line comment) in the new order.
      *
      * <p>Gated on {@code pythonImportSort} (RDD_KEY_247): when off, the whole pass -- both this
-     *  reordering and {@link #applyImportGroupBlankLines}'s blank-line normalization below -- is a
-     *  complete no-op, mirroring the Java/JS-family precedent's own "off" posture for its own
-     *  sort flag (see {@code Config#isJavaImportSort}/{@code Config#isJsImportSort}).
+     * reordering and {@link #applyImportGroupBlankLines}'s blank-line normalization below -- is a
+     * complete no-op, mirroring the Java/JS-family precedent's own "off" posture for its own
+     * sort flag (see {@code Config#isJavaImportSort}/{@code Config#isJsImportSort}).
      */
     private List<Replacement> applyImportSort(
         final List<Token>   tokens,
@@ -477,17 +477,17 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * STYLE_PYTHON3.md §3.2's {@code python-import-blank-lines}, mirroring {@code
-     *  JsTsSpecificRule#renderImportSegment}/{@code JavaSpecificRule#enforceImportOrdering}'s own
-     *  "insert {@code blankLines} blank lines between adjacent groups" shape (RDD_KEY_247) -- but
-     *  scoped narrowly to the one case unambiguous for Python's own (bucket-less, purely
-     *  adjacency-based) grouping: two consecutive recognized import groups at the SAME depth,
-     *  separated ONLY by blank physical line(s) (no comment, no depth change, no other statement
-     *  in between -- {@link #applyImportSort}'s own group-boundary rules guarantee any same-depth
-     *  boundary has at least one such line between the two groups, so this never fires on a
-     *  zero-length gap). A gap containing a comment or spanning a depth change is left completely
-     *  untouched -- normalizing blank-line count across a comment or into/out of a nested scope
-     *  isn't what this key documents, and STYLE_PYTHON3.md's own worked example never shows either
-     *  shape.
+     * JsTsSpecificRule#renderImportSegment}/{@code JavaSpecificRule#enforceImportOrdering}'s own
+     * "insert {@code blankLines} blank lines between adjacent groups" shape (RDD_KEY_247) -- but
+     * scoped narrowly to the one case unambiguous for Python's own (bucket-less, purely
+     * adjacency-based) grouping: two consecutive recognized import groups at the SAME depth,
+     * separated ONLY by blank physical line(s) (no comment, no depth change, no other statement
+     * in between -- {@link #applyImportSort}'s own group-boundary rules guarantee any same-depth
+     * boundary has at least one such line between the two groups, so this never fires on a
+     * zero-length gap). A gap containing a comment or spanning a depth change is left completely
+     * untouched -- normalizing blank-line count across a comment or into/out of a nested scope
+     * isn't what this key documents, and STYLE_PYTHON3.md's own worked example never shows either
+     * shape.
      */
     private List<Replacement> applyImportGroupBlankLines(
         final List<Token>   tokens,
@@ -527,11 +527,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * True iff {@code line} has no significant content at all -- a bare blank physical line (its
-     *  own {@code [contentStart, end)} span holds nothing but {@code WHITESPACE}/{@code NEWLINE}).
-     *  A comment-only line returns {@code false} (a {@code COMMENT_LINE}/{@code COMMENT_BLOCK}
-     *  token is significant for this check even though {@link
-     *  com.jxmake.formatter.tokenizer.TokenizerCore.Token#isGapToken} treats it as a gap token for
-     *  other purposes) -- {@link #applyImportGroupBlankLines} must never conflate the two.
+     * own {@code [contentStart, end)} span holds nothing but {@code WHITESPACE}/{@code NEWLINE}).
+     * A comment-only line returns {@code false} (a {@code COMMENT_LINE}/{@code COMMENT_BLOCK}
+     * token is significant for this check even though {@link
+     * com.jxmake.formatter.tokenizer.TokenizerCore.Token#isGapToken} treats it as a gap token for
+     * other purposes) -- {@link #applyImportGroupBlankLines} must never conflate the two.
      */
     private boolean isBlankLine(final List<Token> tokens, final RawLine line)
     {
@@ -590,8 +590,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Returns {@code imp}'s {@code nameUnitTexts} reordered to match its own sorted {@code names},
-     *  or {@code null} if {@code imp} has no name list ({@code Kind.IMPORT}) or its names are
-     *  already in sorted order (nothing to rebuild).
+     * or {@code null} if {@code imp} has no name list ({@code Kind.IMPORT}) or its names are
+     * already in sorted order (nothing to rebuild).
      */
     private List<String> sortedNameUnits(final PyImport imp)
     {
@@ -626,23 +626,23 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Classifies one line (now including a {@link RawLine#multiPhysicalLine} candidate) as a §3
-     *  import candidate: `import dotted[.dotted...][ as alias][, ...]` (single- or multi-module, the
-     *  latter on one physical line or backslash-continued) or `from [.[.[...]]][dotted] import
-     *  (name[ as alias][, ...] | *)` (bare comma-list or a parenthesized, possibly multi-physical-
-     *  line, list). Every shape's within-clause name list is still only reordered when doing so can't
-     *  silently drop content: a parenthesized list containing any comment token anywhere between its
-     *  own `(`/`)` disables {@code nameListStart}/{@code nameListEnd} (kept at {@code -1}, matching
-     *  the pre-existing "no name-list to rebuild" shape {@code sortedNameUnits} already treats as a
-     *  no-op) -- {@code names}/{@code moduleName}/{@code kind} are still populated, so the statement
-     *  still participates in cross-statement group sorting and always moves as one verbatim block
-     *  (comments, original per-line layout, and comma/parenthesis style all preserved exactly) via
-     *  {@link #flushImportGroup}'s existing "no sortedUnits -- reproduce the whole line verbatim"
-     *  path. A backslash-continued list can never carry a mid-list comment (the backslash must be the
-     *  physical line's last character, which a `#` comment would swallow, guaranteeing a syntax
-     *  error) so no equivalent guard is needed there. Any shape this method can't confidently parse
-     *  (malformed brackets, unrecognized trailing tokens, empty parens) returns {@code null} --
-     *  §3.2's group-boundary rule then treats the whole line as an ordinary non-import statement,
-     *  safely excluding it from grouping/sorting without corrupting it.
+     * import candidate: `import dotted[.dotted...][ as alias][, ...]` (single- or multi-module, the
+     * latter on one physical line or backslash-continued) or `from [.[.[...]]][dotted] import
+     * (name[ as alias][, ...] | *)` (bare comma-list or a parenthesized, possibly multi-physical-
+     * line, list). Every shape's within-clause name list is still only reordered when doing so can't
+     * silently drop content: a parenthesized list containing any comment token anywhere between its
+     * own `(`/`)` disables {@code nameListStart}/{@code nameListEnd} (kept at {@code -1}, matching
+     * the pre-existing "no name-list to rebuild" shape {@code sortedNameUnits} already treats as a
+     * no-op) -- {@code names}/{@code moduleName}/{@code kind} are still populated, so the statement
+     * still participates in cross-statement group sorting and always moves as one verbatim block
+     * (comments, original per-line layout, and comma/parenthesis style all preserved exactly) via
+     * {@link #flushImportGroup}'s existing "no sortedUnits -- reproduce the whole line verbatim"
+     * path. A backslash-continued list can never carry a mid-list comment (the backslash must be the
+     * physical line's last character, which a `#` comment would swallow, guaranteeing a syntax
+     * error) so no equivalent guard is needed there. Any shape this method can't confidently parse
+     * (malformed brackets, unrecognized trailing tokens, empty parens) returns {@code null} --
+     * §3.2's group-boundary rule then treats the whole line as an ordinary non-import statement,
+     * safely excluding it from grouping/sorting without corrupting it.
      */
     private PyImport classifyImport(final List<Token> tokens, final RawLine line)
     {
@@ -804,9 +804,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Reads a dotted/comma-list-leading name run (`a.b.c`) starting at {@code from}, stopping at
-     *  the first token that isn't an {@code IDENTIFIER}/{@code .} continuation -- used both for a
-     *  plain `import a.b.c` module name and for a `from`-clause's non-relative module tail. Returns
-     *  null if {@code from} isn't an {@code IDENTIFIER}.
+     * the first token that isn't an {@code IDENTIFIER}/{@code .} continuation -- used both for a
+     * plain `import a.b.c` module name and for a `from`-clause's non-relative module tail. Returns
+     * null if {@code from} isn't an {@code IDENTIFIER}.
      */
     private String readDottedName(final List<Token> tokens, final int from, final int to)
     {
@@ -855,24 +855,24 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * STYLE_PYTHON3.md §4: a decorator line's own `@` binds tight to whatever follows it (any
-     *  whitespace between them is removed), and every `(`/`[`/`{` pair anywhere in the decorator's
-     *  own expression (the call's argument list, plus any bracket nested inside it, e.g. a
-     *  `methods=[...]` kwarg) gets its immediate delimiter gap normalized per §1's tight/loose
-     *  test ({@link PythonBracketComplexityEvaluator#isLooseParen}/{@code isLooseBracket}/
-     *  {@code isLooseBrace}) -- one space just inside the opener/closer when loose, none when
-     *  tight, same delimiter-only-padding convention {@code MiscRuleCore#enforceComplexityPadding}
-     *  uses for the C-family (comma/operator spacing inside the content is deliberately left
-     *  untouched, not this pass's concern, same division of responsibility as that method).
-     *  Multi-physical-line decorators (a wrapped call spanning a bracket continuation) are left
-     *  completely untouched by the bracket-padding step above -- same "documented gap, not a
-     *  guess" precedent as §2/§3. A single-physical-line decorator whose call still overflows
-     *  `line-length` after padding is handed to {@link #tryWrapDecoratorCall}, which (per
-     *  STYLE_PYTHON3.md §4's "Overflow" worked example) breaks the outermost call's own
-     *  top-level argument list one-per-line with a trailing comma -- the general line-length-
-     *  based call-argument-wrapping mechanism the C-family's `enforceCallLineBreaking` has but
-     *  this codebase never ported (STATE_PYTHON3.md §4's documented gap, now closed for the
-     *  decorator-call case specifically; §6's own signature-wrap decision remains its own,
-     *  separate open gap).
+     * whitespace between them is removed), and every `(`/`[`/`{` pair anywhere in the decorator's
+     * own expression (the call's argument list, plus any bracket nested inside it, e.g. a
+     * `methods=[...]` kwarg) gets its immediate delimiter gap normalized per §1's tight/loose
+     * test ({@link PythonBracketComplexityEvaluator#isLooseParen}/{@code isLooseBracket}/
+     * {@code isLooseBrace}) -- one space just inside the opener/closer when loose, none when
+     * tight, same delimiter-only-padding convention {@code MiscRuleCore#enforceComplexityPadding}
+     * uses for the C-family (comma/operator spacing inside the content is deliberately left
+     * untouched, not this pass's concern, same division of responsibility as that method).
+     * Multi-physical-line decorators (a wrapped call spanning a bracket continuation) are left
+     * completely untouched by the bracket-padding step above -- same "documented gap, not a
+     * guess" precedent as §2/§3. A single-physical-line decorator whose call still overflows
+     * `line-length` after padding is handed to {@link #tryWrapDecoratorCall}, which (per
+     * STYLE_PYTHON3.md §4's "Overflow" worked example) breaks the outermost call's own
+     * top-level argument list one-per-line with a trailing comma -- the general line-length-
+     * based call-argument-wrapping mechanism the C-family's `enforceCallLineBreaking` has but
+     * this codebase never ported (STATE_PYTHON3.md §4's documented gap, now closed for the
+     * decorator-call case specifically; §6's own signature-wrap decision remains its own,
+     * separate open gap).
      */
     private List<Replacement> applyDecoratorSpacing(
         final List<Token>   tokens,
@@ -915,16 +915,16 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * STYLE_PYTHON3.md §4's "Overflow" case: the decorator's own outermost call `(...)`
-     *  exceeding `line-length` wraps its top-level argument list one-per-line (each argument
-     *  indented one level past the `@` line, a trailing comma after the last argument, the
-     *  closing `)` back at the `@` line's own indent) -- the same shape the worked example in
-     *  §4 shows. Returns {@code null} (leave the line untouched) whenever: the decorator has no
-     *  trailing call at all (`@dataclass`, `@x.setter`); the call isn't the very last thing on
-     *  the line (a trailing comment, or something chained after the closing `)`, both left as a
-     *  documented gap rather than guessed at); the call is empty (zero-arg, never wrapped, same
-     *  precedent as {@code MiscRuleCurly#enforceCallLineBreaking}); a comment sits anywhere
-     *  inside the call's parens (comment-disqualifies-the-candidate, same posture as the
-     *  C-family); or the padded line already fits within {@code lineLength} as-is.
+     * exceeding `line-length` wraps its top-level argument list one-per-line (each argument
+     * indented one level past the `@` line, a trailing comma after the last argument, the
+     * closing `)` back at the `@` line's own indent) -- the same shape the worked example in
+     * §4 shows. Returns {@code null} (leave the line untouched) whenever: the decorator has no
+     * trailing call at all (`@dataclass`, `@x.setter`); the call isn't the very last thing on
+     * the line (a trailing comment, or something chained after the closing `)`, both left as a
+     * documented gap rather than guessed at); the call is empty (zero-arg, never wrapped, same
+     * precedent as {@code MiscRuleCurly#enforceCallLineBreaking}); a comment sits anywhere
+     * inside the call's parens (comment-disqualifies-the-candidate, same posture as the
+     * C-family); or the padded line already fits within {@code lineLength} as-is.
      */
     private Replacement tryWrapDecoratorCall(
         final List<Token>       tokens,
@@ -1002,11 +1002,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Splits {@code [start, end)} on top-level (bracket-depth-0) commas, returning each segment
-     *  trimmed to its own significant range ({@code [firstSig, lastSig + 1)}). An empty trailing
-     *  segment (a source trailing comma immediately before {@code end}) is dropped rather than
-     *  producing a phantom empty argument -- {@link #tryWrapDecoratorCall} always synthesizes its
-     *  own trailing comma on every argument it emits, so an already-present one is redundant, not
-     *  additive.
+     * trimmed to its own significant range ({@code [firstSig, lastSig + 1)}). An empty trailing
+     * segment (a source trailing comma immediately before {@code end}) is dropped rather than
+     * producing a phantom empty argument -- {@link #tryWrapDecoratorCall} always synthesizes its
+     * own trailing comma on every argument it emits, so an already-present one is redundant, not
+     * additive.
      */
     private List<int[]> splitTopLevelArgs(final List<Token> tokens, final int start, final int end)
     {
@@ -1047,11 +1047,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Reassembles {@code [start, end)}'s source text verbatim, applying any {@code
-     *  replacements} entry whose {@code start} falls in range, same left-to-right cursor walk
-     *  {@link #render} uses for the whole token stream -- a scoped, read-only sibling used to
-     *  measure/re-render a single sub-span (a decorator call's own text, or one of its
-     *  arguments) without disturbing the file-wide {@code replacements} list a caller is still
-     *  assembling
+     * replacements} entry whose {@code start} falls in range, same left-to-right cursor walk
+     * {@link #render} uses for the whole token stream -- a scoped, read-only sibling used to
+     * measure/re-render a single sub-span (a decorator call's own text, or one of its
+     * arguments) without disturbing the file-wide {@code replacements} list a caller is still
+     * assembling
      */
     private String renderSpan(
         final List<Token>       tokens,
@@ -1087,9 +1087,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Recursively normalizes the immediate delimiter gap of every `(`/`[`/`{` pair found in
-     *  {@code [from, to)} (a decorator's own expression range) -- applies at every nesting level,
-     *  not just the outermost call, mirroring {@code enforceComplexityPadding}'s uniform-depth
-     *  posture
+     * {@code [from, to)} (a decorator's own expression range) -- applies at every nesting level,
+     * not just the outermost call, mirroring {@code enforceComplexityPadding}'s uniform-depth
+     * posture
      */
     private void applyBracketPadding(
         final List<Token>       tokens,
@@ -1178,10 +1178,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Finds {@code openIdx}'s matching close bracket within {@code [openIdx, limit)}, tracking
-     *  depth across all three bracket kinds jointly (same joint-nesting convention {@link
-     *  TokenizerIndent}'s own {@code parenDepth} uses) so a mismatched-kind close never
-     *  short-circuits the match. Returns -1 if unmatched within the range (should not happen for
-     *  syntactically valid, single-physical-line input).
+     * depth across all three bracket kinds jointly (same joint-nesting convention {@link
+     * TokenizerIndent}'s own {@code parenDepth} uses) so a mismatched-kind close never
+     * short-circuits the match. Returns -1 if unmatched within the range (should not happen for
+     * syntactically valid, single-physical-line input).
      */
     private int matchBracket(final List<Token> tokens, final int openIdx, final int limit)
     {
@@ -1205,10 +1205,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Scans backward from {@code from} for the nearest non-gap token, stopping strictly before
-     *  {@code lowExclusive}. Returns {@code lowExclusive} itself if every token in between is a
-     *  gap token (i.e. no significant token found) -- callers only invoke this when {@code
-     *  nextSignificant} already confirmed at least one significant token exists in the range, so
-     *  that case is unreachable in practice, but the bound keeps this helper safe standalone.
+     * {@code lowExclusive}. Returns {@code lowExclusive} itself if every token in between is a
+     * gap token (i.e. no significant token found) -- callers only invoke this when {@code
+     * nextSignificant} already confirmed at least one significant token exists in the range, so
+     * that case is unreachable in practice, but the bound keeps this helper safe standalone.
      */
     private int prevSignificant(final List<Token> tokens, final int from, final int lowExclusive)
     {
@@ -1220,13 +1220,13 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Returns a {@link Replacement} collapsing the gap {@code [from, to)} to exactly {@code
-     *  desired} text ({@code ""} for tight, {@code " "} for loose), or {@code null} if the gap
-     *  already renders as {@code desired} or the gap contains a comment/newline (conservative skip
-     *  -- same posture as {@code enforceComplexityPadding}'s own comment/NEWLINE exclusion, though
-     *  a comment inside a single-physical-line decorator's own delimiter gap should not occur in
-     *  practice). {@code from == to} (no existing gap token at all, e.g. a tight `("x")`) is a
-     *  valid zero-width insertion point, not a no-op -- unlike {@code from > to}, which cannot
-     *  happen for a well-formed range and is guarded against defensively.
+     * desired} text ({@code ""} for tight, {@code " "} for loose), or {@code null} if the gap
+     * already renders as {@code desired} or the gap contains a comment/newline (conservative skip
+     * -- same posture as {@code enforceComplexityPadding}'s own comment/NEWLINE exclusion, though
+     * a comment inside a single-physical-line decorator's own delimiter gap should not occur in
+     * practice). {@code from == to} (no existing gap token at all, e.g. a tight `("x")`) is a
+     * valid zero-width insertion point, not a no-op -- unlike {@code from > to}, which cannot
+     * happen for a well-formed range and is guarded against defensively.
      */
     private Replacement normalizeGap(
         final List<Token> tokens,
@@ -1250,14 +1250,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * STYLE_PYTHON3.md §5: an f-string field's `{...}` braces are tight against the expression
-     *  they hold (`f"{ x + 1 }"` -> `f"{x + 1}"`) -- whitespace directly inside the braces is
-     *  never part of the printed output, so it is trimmed to nothing, same delimiter-only-padding
-     *  posture {@link #applyBracketPadding} uses for a decorator's own call parens (except here the
-     *  desired gap is unconditionally zero-width, never a padded space -- STYLE_PYTHON3.md §5 shows
-     *  no loose-brace-padding shape for a field, only tight). Everything from the field's own
-     *  `!conversion`/`:format_spec` onward (opaque per §5, see {@link
-     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}) is left completely
-     *  untouched, including its own internal whitespace.
+     * they hold (`f"{ x + 1 }"` -> `f"{x + 1}"`) -- whitespace directly inside the braces is
+     * never part of the printed output, so it is trimmed to nothing, same delimiter-only-padding
+     * posture {@link #applyBracketPadding} uses for a decorator's own call parens (except here the
+     * desired gap is unconditionally zero-width, never a padded space -- STYLE_PYTHON3.md §5 shows
+     * no loose-brace-padding shape for a field, only tight). Everything from the field's own
+     * `!conversion`/`:format_spec` onward (opaque per §5, see {@link
+     * com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}) is left completely
+     * untouched, including its own internal whitespace.
      *
      *  <p>Operates directly over the full token stream (not per-{@link RawLine}, unlike §2/§3/§4)
      *  since a field's own brace/expression tokens never carry a `NEWLINE`, and a triple-quoted
@@ -1313,8 +1313,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Processes one f-string span starting at {@code startIdx} (its {@code FSTRING_START}
-     *  token), dispatching each `{...}` field found at this level to {@link #processField}.
-     *  Returns the index right after this f-string's {@code FSTRING_END}.
+     * token), dispatching each `{...}` field found at this level to {@link #processField}.
+     * Returns the index right after this f-string's {@code FSTRING_END}.
      */
     private int processFString(
         final List<Token>       tokens,
@@ -1336,15 +1336,15 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Processes one `{...}` field, {@code openIdx} pointing at its opening `{`. Tracks a local
-     *  `(`/`[`/`{` depth (mirroring {@link
-     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}'s own depth counter) so a
-     *  nested bracket's own `}` isn't mistaken for this field's closing brace; a nested f-string
-     *  found inside the expression (e.g. `f"{f'{a}'}"`) is skipped over atomically via a recursive
-     *  {@link #processFString} call -- its own fields get their own independent trim through that
-     *  call, and its internal brackets never affect this field's own depth count. {@code exprEnd}
-     *  is the index of the first depth-0 `!conversion` OP token, {@code FSTRING_FORMAT_SPEC} token,
-     *  or (if neither is present) this field's own closing `}` -- whichever comes first. Returns
-     *  the index right after the field's closing `}`.
+     * `(`/`[`/`{` depth (mirroring {@link
+     * com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}'s own depth counter) so a
+     * nested bracket's own `}` isn't mistaken for this field's closing brace; a nested f-string
+     * found inside the expression (e.g. `f"{f'{a}'}"`) is skipped over atomically via a recursive
+     * {@link #processFString} call -- its own fields get their own independent trim through that
+     * call, and its internal brackets never affect this field's own depth count. {@code exprEnd}
+     * is the index of the first depth-0 `!conversion` OP token, {@code FSTRING_FORMAT_SPEC} token,
+     * or (if neither is present) this field's own closing `}` -- whichever comes first. Returns
+     * the index right after the field's closing `}`.
      */
     private int processField(
         final List<Token>       tokens,
@@ -1379,8 +1379,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * A `!r`/`!s`/`!a` conversion OP token, per {@link
-     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}'s own emission rule (only
-     *  ever a 2-character `!`-prefixed OP token).
+     * com.jxmake.formatter.tokenizer.TokenizerIndent#emitFStringField}'s own emission rule (only
+     * ever a 2-character `!`-prefixed OP token).
      */
     private boolean isFStringConversion(final String text)
     {
@@ -1389,16 +1389,16 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Trims the gap directly inside a field's opening `{` to zero-width unconditionally (the
-     *  expression's own leading whitespace is never significant, STYLE_PYTHON3.md §5). The gap
-     *  right before {@code exprEnd} is only trimmed when {@code trimClose} is true -- i.e. when
-     *  {@code exprEnd} is itself the field's own closing `}` (no `!conversion`/`:format_spec`
-     *  present). When a conversion or format spec IS present, STYLE_PYTHON3.md §5's own worked
-     *  example (`f"{value !r}"`, listed as "never touched") keeps any whitespace immediately
-     *  before the opaque tail exactly as written -- only the opaque tail's own text ({@code !r}/
-     *  {@code :spec}), not the boundary gap leading into it, is what "never touched" refers to in
-     *  the brace-tightness sense used here, so this pass does not touch that gap at all. A field
-     *  with no significant expression token at all (e.g. a malformed empty `{}`) is left alone --
-     *  defensive only, not valid Python.
+     * expression's own leading whitespace is never significant, STYLE_PYTHON3.md §5). The gap
+     * right before {@code exprEnd} is only trimmed when {@code trimClose} is true -- i.e. when
+     * {@code exprEnd} is itself the field's own closing `}` (no `!conversion`/`:format_spec`
+     * present). When a conversion or format spec IS present, STYLE_PYTHON3.md §5's own worked
+     * example (`f"{value !r}"`, listed as "never touched") keeps any whitespace immediately
+     * before the opaque tail exactly as written -- only the opaque tail's own text ({@code !r}/
+     * {@code :spec}), not the boundary gap leading into it, is what "never touched" refers to in
+     * the brace-tightness sense used here, so this pass does not touch that gap at all. A field
+     * with no significant expression token at all (e.g. a malformed empty `{}`) is left alone --
+     * defensive only, not valid Python.
      */
     private void addBraceTrim(
         final List<Token>       tokens,
@@ -1451,32 +1451,32 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * STYLE_PYTHON3.md §6's inline-vs-one-per-line decision (STYLE.md §8, directly referenced by
-     *  §6's own text): an inline, single-physical-line `def` signature that still overflows {@code
-     *  lineLength} wraps to one-parameter-per-line, the closing `)` indented to match the `def`
-     *  line's own first character, with any `-> ReturnType` staying fixed on the closing `)`'s own
-     *  line immediately before the header `:` (§6: "a fixed position, not part of the per-parameter
-     *  alignment grid"). Mirrors {@link #tryWrapDecoratorCall} (§4)'s shape as the model for "when
-     *  does an inline construct overflow and get broken", but -- unlike that method, which leaves
-     *  plain unaligned one-per-line arguments for nothing further to align -- renders the wrapped
-     *  parameter lines directly through {@link MiscRuleIndent#renderPySignatureGroup}, the exact
-     *  same renderer {@link #trySignatureGroup} (§6's pre-existing alignment-only slice) already
-     *  uses for an already-one-per-line source signature. Aligning inline here (rather than relying
-     *  on a later pass to pick the newly-wrapped lines back up) is a deliberate pass-ordering choice,
-     *  not an oversight: the wrapped parameter lines are synthesized text, never real {@code
-     *  RawLine}s split out of the original source, so {@link #applySignatureAlignment}'s own {@code
-     *  RawLine}-driven loop (which only ever iterates {@code rawLines} computed once up front from
-     *  the *original*, pre-wrap token stream) could never discover them even on a later pipeline
-     *  pass within the same {@link #process} call -- there's no "later pass" that would see this
-     *  pass's output as new input. This also guarantees the two passes never fight over the same
-     *  line: {@link #applySignatureAlignment} explicitly skips any line that isn't {@code
-     *  multiPhysicalLine}, and this pass only ever fires on a line that IS still single-physical (an
-     *  inline signature) at the time {@code rawLines} was computed -- mutually exclusive by
-     *  construction, no shared candidate line ever reaches both.
+     * §6's own text): an inline, single-physical-line `def` signature that still overflows {@code
+     * lineLength} wraps to one-parameter-per-line, the closing `)` indented to match the `def`
+     * line's own first character, with any `-> ReturnType` staying fixed on the closing `)`'s own
+     * line immediately before the header `:` (§6: "a fixed position, not part of the per-parameter
+     * alignment grid"). Mirrors {@link #tryWrapDecoratorCall} (§4)'s shape as the model for "when
+     * does an inline construct overflow and get broken", but -- unlike that method, which leaves
+     * plain unaligned one-per-line arguments for nothing further to align -- renders the wrapped
+     * parameter lines directly through {@link MiscRuleIndent#renderPySignatureGroup}, the exact
+     * same renderer {@link #trySignatureGroup} (§6's pre-existing alignment-only slice) already
+     * uses for an already-one-per-line source signature. Aligning inline here (rather than relying
+     * on a later pass to pick the newly-wrapped lines back up) is a deliberate pass-ordering choice,
+     * not an oversight: the wrapped parameter lines are synthesized text, never real {@code
+     * RawLine}s split out of the original source, so {@link #applySignatureAlignment}'s own {@code
+     * RawLine}-driven loop (which only ever iterates {@code rawLines} computed once up front from
+     * the *original*, pre-wrap token stream) could never discover them even on a later pipeline
+     * pass within the same {@link #process} call -- there's no "later pass" that would see this
+     * pass's output as new input. This also guarantees the two passes never fight over the same
+     * line: {@link #applySignatureAlignment} explicitly skips any line that isn't {@code
+     * multiPhysicalLine}, and this pass only ever fires on a line that IS still single-physical (an
+     * inline signature) at the time {@code rawLines} was computed -- mutually exclusive by
+     * construction, no shared candidate line ever reaches both.
      *
      * <p>Unlike §4's decorator-call wrap (which always synthesizes a trailing comma per its own
-     *  worked example), §6's own worked example shows NO trailing comma after the last parameter --
-     *  so none is added here; every parameter but the last gets one, matching the worked example
-     *  exactly.
+     * worked example), §6's own worked example shows NO trailing comma after the last parameter --
+     * so none is added here; every parameter but the last gets one, matching the worked example
+     * exactly.
      */
     private List<Replacement> applySignatureWrapping(
         final List<Token>   tokens,
@@ -1513,15 +1513,15 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Returns {@code null} (leave the line completely untouched) whenever: a comment sits anywhere
-     *  inside the parens or between `)` and the header `:` (comment-disqualifies-the-candidate, same
-     *  posture {@link #tryWrapDecoratorCall} takes for §4); no header-terminating `:` is found on
-     *  this same physical line (an unsupported shape -- e.g. a body already starting inline after
-     *  the colon still has the colon on this line, so this only actually excludes a signature whose
-     *  own trailing `:` was, unusually, pushed to a further line by hand); the call has zero
-     *  parameters (nothing to break out, same precedent as §4's zero-arg call); any parameter segment
-     *  fails {@link #classifySignatureParam}'s own per-parameter classification (an already-
-     *  documented gap inherited unchanged from §6's alignment slice); or the line already fits within
-     *  {@code lineLength} as written (never force-wrap an already-short signature).
+     * inside the parens or between `)` and the header `:` (comment-disqualifies-the-candidate, same
+     * posture {@link #tryWrapDecoratorCall} takes for §4); no header-terminating `:` is found on
+     * this same physical line (an unsupported shape -- e.g. a body already starting inline after
+     * the colon still has the colon on this line, so this only actually excludes a signature whose
+     * own trailing `:` was, unusually, pushed to a further line by hand); the call has zero
+     * parameters (nothing to break out, same precedent as §4's zero-arg call); any parameter segment
+     * fails {@link #classifySignatureParam}'s own per-parameter classification (an already-
+     * documented gap inherited unchanged from §6's alignment slice); or the line already fits within
+     * {@code lineLength} as written (never force-wrap an already-short signature).
      */
     private Replacement tryWrapDefSignature(
         final List<Token> tokens,
@@ -1592,18 +1592,18 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * This pass only ever column-aligns the {@code :}/{@code =} of a {@code def} signature's
-     *  parameter list that is <em>already</em> written one-parameter-per-line in the source, taking
-     *  that human-authored line-breaking as given (the same posture §2's assignment alignment takes
-     *  toward an already-single-line assignment candidate: normalize spacing given the existing
-     *  structure, never decide when to (re)break a line) -- it never itself decides to break or join
-     *  a signature. **The inline-vs-one-per-line decision itself now lives in {@link
-     *  #applySignatureWrapping}/{@link #tryWrapDefSignature}, run immediately before this pass** (own
-     *  §4-style overflow-wrap, added 2026-08-12) -- an inline signature that overflows {@code
-     *  lineLength} is wrapped and aligned there in one shot, never reaching this method at all; an
-     *  inline signature that still fits is left alone by both passes. An inline (already-one-line)
-     *  signature that reaches THIS method specifically (i.e. one {@link #applySignatureWrapping}
-     *  declined to touch) is untouched by construction -- it is never {@code multiPhysicalLine}, so
-     *  it never reaches {@link #trySignatureGroup} at all.
+     * parameter list that is <em>already</em> written one-parameter-per-line in the source, taking
+     * that human-authored line-breaking as given (the same posture §2's assignment alignment takes
+     * toward an already-single-line assignment candidate: normalize spacing given the existing
+     * structure, never decide when to (re)break a line) -- it never itself decides to break or join
+     * a signature. **The inline-vs-one-per-line decision itself now lives in {@link
+     * #applySignatureWrapping}/{@link #tryWrapDefSignature}, run immediately before this pass** (own
+     * §4-style overflow-wrap, added 2026-08-12) -- an inline signature that overflows {@code
+     * lineLength} is wrapped and aligned there in one shot, never reaching this method at all; an
+     * inline signature that still fits is left alone by both passes. An inline (already-one-line)
+     * signature that reaches THIS method specifically (i.e. one {@link #applySignatureWrapping}
+     * declined to touch) is untouched by construction -- it is never {@code multiPhysicalLine}, so
+     * it never reaches {@link #trySignatureGroup} at all.
      */
     private List<Replacement> applySignatureAlignment(
         final List<Token>   tokens,
@@ -1639,17 +1639,17 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Attempts to classify {@code (openIdx, closeIdx)}'s interior as an already one-parameter-per-
-     *  line signature: the opening `(` has nothing but a {@code NEWLINE} after it on its own line,
-     *  the closing `)` has nothing but its own leading indentation before it on its own line, and
-     *  every line in between is exactly one parameter (optionally comment-free, single top-level
-     *  {@code :}/{@code =}, optional trailing comma). Returns {@code null} (leave completely
-     *  untouched) the moment any of that isn't true -- an inline first parameter
-     *  (`def f(x,\n    y,\n)`), a multi-parameter line, a per-parameter trailing comment, or a
-     *  parameter itself spanning more than one physical line (a multi-line default value/nested
-     *  bracket continuation) are all treated as this slice's own documented gaps, same "STOP and
-     *  leave untouched rather than guess" precedent §2-§5 already established -- not a hard
-     *  STATE_COMMON.md ambiguity requiring a user answer, since STYLE_PYTHON3.md §6 itself only ever
-     *  describes the already-one-per-line shape being aligned here.
+     * line signature: the opening `(` has nothing but a {@code NEWLINE} after it on its own line,
+     * the closing `)` has nothing but its own leading indentation before it on its own line, and
+     * every line in between is exactly one parameter (optionally comment-free, single top-level
+     * {@code :}/{@code =}, optional trailing comma). Returns {@code null} (leave completely
+     * untouched) the moment any of that isn't true -- an inline first parameter
+     * (`def f(x,\n    y,\n)`), a multi-parameter line, a per-parameter trailing comment, or a
+     * parameter itself spanning more than one physical line (a multi-line default value/nested
+     * bracket continuation) are all treated as this slice's own documented gaps, same "STOP and
+     * leave untouched rather than guess" precedent §2-§5 already established -- not a hard
+     * STATE_COMMON.md ambiguity requiring a user answer, since STYLE_PYTHON3.md §6 itself only ever
+     * describes the already-one-per-line shape being aligned here.
      */
     private List<Replacement> trySignatureGroup(
         final List<Token> tokens,
@@ -1721,16 +1721,16 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Classifies one already-isolated parameter line ({@code [segStart, segEnd)}, a single
-     *  {@code NEWLINE}-delimited segment strictly inside a signature's `(`/`)`) into a {@link
-     *  PyParam}: {@code name[: type][= default][,]}. The top-level {@code :}/{@code =} search
-     *  tracks this segment's own local bracket depth (starting fresh at 0, since the segment is
-     *  known to hold exactly one parameter) so a nested-bracket type hint like
-     *  {@code List[Dict[str, int]]} never has its own internal {@code :}/{@code =} mistaken for the
-     *  parameter's own annotation/default separator -- the same depth-tracking shape {@link
-     *  #classifyLoose}/{@link #matchBracket} already use elsewhere in this class, just applied to
-     *  {@code :}/{@code =} search instead of bracket matching. Returns {@code null} (segment
-     *  rejected, whole signature left untouched by the caller) if the segment contains a comment or
-     *  has no name token at all.
+     * {@code NEWLINE}-delimited segment strictly inside a signature's `(`/`)`) into a {@link
+     * PyParam}: {@code name[: type][= default][,]}. The top-level {@code :}/{@code =} search
+     * tracks this segment's own local bracket depth (starting fresh at 0, since the segment is
+     * known to hold exactly one parameter) so a nested-bracket type hint like
+     * {@code List[Dict[str, int]]} never has its own internal {@code :}/{@code =} mistaken for the
+     * parameter's own annotation/default separator -- the same depth-tracking shape {@link
+     * #classifyLoose}/{@link #matchBracket} already use elsewhere in this class, just applied to
+     * {@code :}/{@code =} search instead of bracket matching. Returns {@code null} (segment
+     * rejected, whole signature left untouched by the caller) if the segment contains a comment or
+     * has no name token at all.
      */
     private PyParam classifySignatureParam(
         final List<Token> tokens,
@@ -1820,8 +1820,8 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Scans backward from {@code end - 1} for the nearest non-gap token strictly at/after {@code
-     *  start}, returning the index right after it (i.e. the exclusive end of the trimmed range), or
-     *  {@code start} itself if no significant token is found in {@code [start, end)}.
+     * start}, returning the index right after it (i.e. the exclusive end of the trimmed range), or
+     * {@code start} itself if no significant token is found in {@code [start, end)}.
      */
     private int trimEndIdx(final List<Token> tokens, final int start, final int end)
     {
@@ -1836,14 +1836,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * One recognized {@code case pattern:} header on a single physical line: {@code
-     *  [patternStart, patternEnd)} is the pattern's own trimmed token span (including any {@code if}
-     *  guard clause -- the guard is part of the case's own header, not the body), {@code colonIdx}
-     *  is the header-terminating `:` (found at bracket depth 0 relative to the pattern, so a mapping
-     *  pattern's own `{"key": value}` colon -- inside `{}` -- is never mistaken for it), and {@code
-     *  compact} is true when at least one significant, non-comment token follows the `:` on the same
-     *  physical line (STYLE_PYTHON3.md §7/§8: the body stays same-line vs. drops to an indented
-     *  block is read as-already-written, never decided here, same posture as §6's signature-grouping
-     *  toward an already-broken-out parameter list).
+     * [patternStart, patternEnd)} is the pattern's own trimmed token span (including any {@code if}
+     * guard clause -- the guard is part of the case's own header, not the body), {@code colonIdx}
+     * is the header-terminating `:` (found at bracket depth 0 relative to the pattern, so a mapping
+     * pattern's own `{"key": value}` colon -- inside `{}` -- is never mistaken for it), and {@code
+     * compact} is true when at least one significant, non-comment token follows the `:` on the same
+     * physical line (STYLE_PYTHON3.md §7/§8: the body stays same-line vs. drops to an indented
+     * block is read as-already-written, never decided here, same posture as §6's signature-grouping
+     * toward an already-broken-out parameter list).
      */
     private static final class CaseLine {
 
@@ -1854,28 +1854,28 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final boolean compact;
         /**
          * True when this line is block-form as originally written (compact == false) but qualifies
-         *  for §8's single-statement-body join -- see {@link #tryQualifyJoinBody}. Used so §7's
-         *  all-or-nothing alignment decision is made against the shape the line WILL have after §8's
-         *  join runs in this same pass, instead of the shape it currently has -- fixes the §7/§8
-         *  join-then-align ordering non-idempotency (round1 leaves an unaligned block-form group
-         *  alone, §8 joins it, and a naive round2 would then see already-compact input and align it,
-         *  producing output that differs from round1's).
+         * for §8's single-statement-body join -- see {@link #tryQualifyJoinBody}. Used so §7's
+         * all-or-nothing alignment decision is made against the shape the line WILL have after §8's
+         * join runs in this same pass, instead of the shape it currently has -- fixes the §7/§8
+         * join-then-align ordering non-idempotency (round1 leaves an unaligned block-form group
+         * alone, §8 joins it, and a naive round2 would then see already-compact input and align it,
+         * producing output that differs from round1's).
          */
         final boolean virtualJoin;
         final int     bodyContentStart;
         final int     bodyContentEnd;
         /**
          * The line's own physical end (only meaningful/used for a {@code compact} member's own
-         *  post-alignment length check in {@link #flushCaseGroup} -- a {@code virtualJoin} member
-         *  uses {@code bodyContentEnd} for that same purpose instead)
+         * post-alignment length check in {@link #flushCaseGroup} -- a {@code virtualJoin} member
+         * uses {@code bodyContentEnd} for that same purpose instead)
          */
         final int lineEnd;
         /**
          * The joined body's own {@code RawLine.end} (only meaningful for a {@code virtualJoin}
-         *  member) -- {@code bodyContentEnd} excludes a body trailing comment ({@code trimEndIdx}
-         *  treats it as a gap token), so {@link #flushCaseGroup}'s post-alignment length check needs
-         *  this to measure the line as it will actually appear, comment included, matching the same
-         *  fix applied to {@link #tryQualifyJoinBody}'s two other call sites.
+         * member) -- {@code bodyContentEnd} excludes a body trailing comment ({@code trimEndIdx}
+         * treats it as a gap token), so {@link #flushCaseGroup}'s post-alignment length check needs
+         * this to measure the line as it will actually appear, comment included, matching the same
+         * fix applied to {@link #tryQualifyJoinBody}'s two other call sites.
          */
         final int bodyLineEnd;
 
@@ -1908,19 +1908,19 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Headers (by {@code RawLine.start}) whose §8 join was already performed -- with colon-alignment
-     *  padding baked in -- by {@link #flushCaseGroup} this pass; {@link #applySingleStatementBody}
-     *  consults this to avoid emitting a second, overlapping, unpadded join replacement for the same
-     *  header. Cleared and repopulated at the start of every {@link #applyCaseColonAlignment} call.
+     * padding baked in -- by {@link #flushCaseGroup} this pass; {@link #applySingleStatementBody}
+     * consults this to avoid emitting a second, overlapping, unpadded join replacement for the same
+     * header. Cleared and repopulated at the start of every {@link #applyCaseColonAlignment} call.
      */
     private final Set<Integer> caseJoinAlignedHeaders = new HashSet<>();
 
     /**
      * Classifies each {@code rawLines} entry as a §7 {@code case} header or not, groups
-     *  contiguous same-depth {@code case} lines (a blank line, a comment-only line, a depth change,
-     *  or any non-{@code case} statement all break the group -- same boundary convention §2/§3 use),
-     *  and -- **all-or-nothing** per STYLE_PYTHON3.md §7 -- aligns the `:` column across a group only
-     *  when every member in it is already in compact one-line form; a group containing even one
-     *  block-body {@code case} gets no alignment at all, not even for its own compact members.
+     * contiguous same-depth {@code case} lines (a blank line, a comment-only line, a depth change,
+     * or any non-{@code case} statement all break the group -- same boundary convention §2/§3 use),
+     * and -- **all-or-nothing** per STYLE_PYTHON3.md §7 -- aligns the `:` column across a group only
+     * when every member in it is already in compact one-line form; a group containing even one
+     * block-body {@code case} gets no alignment at all, not even for its own compact members.
      */
     private List<Replacement> applyCaseColonAlignment(
         final List<Token>   tokens,
@@ -1962,11 +1962,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Classifies one line as a §7 {@code case} header: {@code case} is tokenized as a plain {@code
-     *  IDENTIFIER} (a context-sensitive soft keyword, per {@code TokenizerIndent}'s own {@code
-     *  KEYWORDS_PYTHON} exclusion), so this checks its literal text rather than {@code
-     *  TokenType.KEYWORD}. Rejects (returns {@code null}) a multi-physical-line {@code case} header
-     *  (a wrapped pattern spanning a bracket/backslash continuation) -- same "documented gap, not a
-     *  guess" precedent as every prior §2-§6 slice -- and any line with no top-level `:` at all.
+     * IDENTIFIER} (a context-sensitive soft keyword, per {@code TokenizerIndent}'s own {@code
+     * KEYWORDS_PYTHON} exclusion), so this checks its literal text rather than {@code
+     * TokenType.KEYWORD}. Rejects (returns {@code null}) a multi-physical-line {@code case} header
+     * (a wrapped pattern spanning a bracket/backslash continuation) -- same "documented gap, not a
+     * guess" precedent as every prior §2-§6 slice -- and any line with no top-level `:` at all.
      */
     private CaseLine classifyCaseLine(
         final List<Token>   tokens,
@@ -2053,10 +2053,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Returns {@code [bodyContentStart, bodyContentEnd)} for the single-statement body that would
-     *  qualify for §8's join at header index {@code headerIdx}, or {@code null} if no such join
-     *  qualifies -- mirrors {@link #applySingleStatementBody}'s own per-header qualification checks
-     *  exactly (structural checks only; the joined-line length budget is each caller's own concern,
-     *  since §7's caller needs to add its own alignment padding to that length before checking it)
+     * qualify for §8's join at header index {@code headerIdx}, or {@code null} if no such join
+     * qualifies -- mirrors {@link #applySingleStatementBody}'s own per-header qualification checks
+     * exactly (structural checks only; the joined-line length budget is each caller's own concern,
+     * since §7's caller needs to add its own alignment padding to that length before checking it)
      */
     private int[] tryQualifyJoinBody(
         final List<Token>   tokens,
@@ -2087,11 +2087,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Emits one {@link Replacement} per compact group member, padding the gap between its own
-     *  trimmed pattern text and its `:` to the group's widest pattern width -- mirrors {@link
-     *  #normalizeGap}'s "gap-only, no whole-line rebuild" shape (used for §4/§5's bracket/brace
-     *  padding), just with a per-group computed width instead of a fixed tight/loose text. Does
-     *  nothing at all (no replacements) when the group is empty or contains any block-body member,
-     *  per §7's all-or-nothing rule.
+     * trimmed pattern text and its `:` to the group's widest pattern width -- mirrors {@link
+     * #normalizeGap}'s "gap-only, no whole-line rebuild" shape (used for §4/§5's bracket/brace
+     * padding), just with a per-group computed width instead of a fixed tight/loose text. Does
+     * nothing at all (no replacements) when the group is empty or contains any block-body member,
+     * per §7's all-or-nothing rule.
      */
     private void flushCaseGroup(
         final List<Token>       tokens,
@@ -2181,11 +2181,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Keywords whose already-block-form header ({@code header:} on its own line, body on the next
-     *  indented line) is a §8 join candidate: `if`/`elif`/`else`/`while`/`for`. {@code case} is
-     *  handled separately (reuses {@link #classifyCaseLine}, since `case` is a context-sensitive
-     *  soft keyword tokenized as a plain {@code IDENTIFIER}, not a member of this set) --
-     *  `def`/`class`/`try`/`except`/`finally`/`with` are deliberately never members, per
-     *  STYLE_PYTHON3.md §8's explicit "never applies" list.
+     * indented line) is a §8 join candidate: `if`/`elif`/`else`/`while`/`for`. {@code case} is
+     * handled separately (reuses {@link #classifyCaseLine}, since `case` is a context-sensitive
+     * soft keyword tokenized as a plain {@code IDENTIFIER}, not a member of this set) --
+     * `def`/`class`/`try`/`except`/`finally`/`with` are deliberately never members, per
+     * STYLE_PYTHON3.md §8's explicit "never applies" list.
      */
     private static final Set<String> SINGLE_STMT_HEADER_KEYWORDS = new HashSet<>( Arrays.asList(
         "if", "elif", "else", "while", "for"
@@ -2193,10 +2193,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * STYLE_PYTHON3.md §8: joins a block already written as `header:` followed by exactly one
-     *  indented simple-statement line back onto the header's own line (`header: statement`) when
-     *  the joined line fits within {@code line-length}. An already-compact line over that limit
-     *  expands into the ordinary indented-block form. Neither direction creates or extends a
-     *  semicolon chain.
+     * indented simple-statement line back onto the header's own line (`header: statement`) when
+     * the joined line fits within {@code line-length}. An already-compact line over that limit
+     * expands into the ordinary indented-block form. Neither direction creates or extends a
+     * semicolon chain.
      *
      *  <p>A header qualifies only when: it is a single physical line (not {@code
      *  multiPhysicalLine} header/body preserves its internal layout), its first significant token is one of {@link
@@ -2399,10 +2399,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Classifies {@code line} as a §8 block-form header, returning the index of its own
-     *  header-terminating `:`, or {@code -1} if it doesn't qualify (already compact, not one of the
-     *  qualifying keywords, multi-physical-line, or no depth-0 `:` found). Delegates to {@link
-     *  #classifyCaseLine} for the {@code case} soft keyword (reusing §7's own header-colon/compact
-     *  detection rather than re-deriving it); handles `if`/`elif`/`else`/`while`/`for` directly.
+     * header-terminating `:`, or {@code -1} if it doesn't qualify (already compact, not one of the
+     * qualifying keywords, multi-physical-line, or no depth-0 `:` found). Delegates to {@link
+     * #classifyCaseLine} for the {@code case} soft keyword (reusing §7's own header-colon/compact
+     * detection rather than re-deriving it); handles `if`/`elif`/`else`/`while`/`for` directly.
      */
     private int classifySingleStatementHeaderColon(
         final List<Token>   tokens,
@@ -2463,12 +2463,12 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * True iff {@code [contentStart, contentEnd)} (a candidate body statement's own trimmed token
-     *  span) itself opens a new nested block: a depth-0 `:` (a nested `if`/`for`/`while`/`with`/
-     *  `match`/`def`/`class`/etc. header) or a `lambda` keyword anywhere in the span (conservative
-     *  bail on the lambda-colon ambiguity -- see {@link #applySingleStatementBody}'s javadoc).
-     *  `:=` is never at risk of being mistaken for either, since {@link
-     *  com.jxmake.formatter.tokenizer.TokenizerIndent#emitWalrus} already merges it into a single
-     *  pre-tokenized `OP`.
+     * span) itself opens a new nested block: a depth-0 `:` (a nested `if`/`for`/`while`/`with`/
+     * `match`/`def`/`class`/etc. header) or a `lambda` keyword anywhere in the span (conservative
+     * bail on the lambda-colon ambiguity -- see {@link #applySingleStatementBody}'s javadoc).
+     * `:=` is never at risk of being mistaken for either, since {@link
+     * com.jxmake.formatter.tokenizer.TokenizerIndent#emitWalrus} already merges it into a single
+     * pre-tokenized `OP`.
      */
     private boolean bodyOpensNewBlock(
         final List<Token> tokens,
@@ -2492,11 +2492,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Tracks one active indentation frame while scanning {@code rawLines} linearly: {@code
-     *  isFunctionBody} is true iff this frame was opened by a {@code def}/{@code async def} header
-     *  (as opposed to {@code if}/{@code for}/{@code while}/{@code with}/{@code try}/{@code class}/
-     *  {@code match}, all of which push a non-function frame); {@code sawContent} becomes true once
-     *  at least one real statement has been processed directly inside this frame (mirrors {@code
-     *  MiscRuleCurly.FuncFrame}'s own field of the same name and purpose for the C-family).
+     * isFunctionBody} is true iff this frame was opened by a {@code def}/{@code async def} header
+     * (as opposed to {@code if}/{@code for}/{@code while}/{@code with}/{@code try}/{@code class}/
+     * {@code match}, all of which push a non-function frame); {@code sawContent} becomes true once
+     * at least one real statement has been processed directly inside this frame (mirrors {@code
+     * MiscRuleCurly.FuncFrame}'s own field of the same name and purpose for the C-family).
      */
     private static final class ControlFlowFrame {
 
@@ -2507,21 +2507,21 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * STYLE_PYTHON3.md §9: two independent blank-line-insertion rules, both direct ports of an
-     *  already-implemented C-family precedent (§9.1 mirrors {@code
-     *  MiscRuleCurly#insertBlankLineBeforeReturn}'s STYLE.md §9; §9.2 mirrors
-     *  AI_PREAMBLE_FULL.md §12's default as literally stated in STYLE_PYTHON3.md §9.2's own text --
-     *  the C-family's own {@code BlockStructureRule#placeElseOnOwnLine}, cited as the nominal C-family
-     *  reference, turned out on inspection to only ever <em>preserve</em> an existing blank line
-     *  before {@code else}, never actively insert one from a last-statement-content check; §9.2 is
-     *  therefore implemented directly from STYLE_PYTHON3.md's own unambiguous text rather than by
-     *  porting a mechanism that doesn't actually exist in the C-family code, since the style doc's
-     *  wording ("add a blank line ... only when ...") leaves no ambiguity about the desired active
-     *  behavior -- not a STATE_COMMON.md-blocking ambiguity, just a documented discrepancy between
-     *  the task's framing and the actual C-family implementation). Both rules only ever ADD a
-     *  missing blank line, exactly mirroring {@code insertBlankLineBeforeReturn}'s own
-     *  "already-blank gap is left untouched" posture -- never removes one that's already present,
-     *  even an extraneous one beyond a single blank line (no worked example in STYLE_PYTHON3.md §9
-     *  shows a 2+-blank-line gap being collapsed, so this pass never collapses one either).
+     * already-implemented C-family precedent (§9.1 mirrors {@code
+     * MiscRuleCurly#insertBlankLineBeforeReturn}'s STYLE.md §9; §9.2 mirrors
+     * AI_PREAMBLE_FULL.md §12's default as literally stated in STYLE_PYTHON3.md §9.2's own text --
+     * the C-family's own {@code BlockStructureRule#placeElseOnOwnLine}, cited as the nominal C-family
+     * reference, turned out on inspection to only ever <em>preserve</em> an existing blank line
+     * before {@code else}, never actively insert one from a last-statement-content check; §9.2 is
+     * therefore implemented directly from STYLE_PYTHON3.md's own unambiguous text rather than by
+     * porting a mechanism that doesn't actually exist in the C-family code, since the style doc's
+     * wording ("add a blank line ... only when ...") leaves no ambiguity about the desired active
+     * behavior -- not a STATE_COMMON.md-blocking ambiguity, just a documented discrepancy between
+     * the task's framing and the actual C-family implementation). Both rules only ever ADD a
+     * missing blank line, exactly mirroring {@code insertBlankLineBeforeReturn}'s own
+     * "already-blank gap is left untouched" posture -- never removes one that's already present,
+     * even an extraneous one beyond a single blank line (no worked example in STYLE_PYTHON3.md §9
+     * shows a 2+-blank-line gap being collapsed, so this pass never collapses one either).
      *
      *  <p><b>§9.1</b>: a blank line is added directly before a {@code return} statement when it is
      *  the first significant token of its own {@link RawLine} (this alone, by construction, already
@@ -2640,11 +2640,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * True iff {@code line}'s first significant token is {@code def} (optionally preceded by {@code
-     *  async}) -- i.e. it opens a function-body frame. Deliberately also recognizes a {@code
-     *  multiPhysicalLine} header (a wrapped parameter list): only the header's own leading token is
-     *  ever inspected, which is unaffected by how many physical lines the parameter list itself
-     *  spans, so no additional handling is needed for that case (fixed 2026-08-11, see {@link
-     *  #applyControlFlowBlankLines}'s javadoc).
+     * async}) -- i.e. it opens a function-body frame. Deliberately also recognizes a {@code
+     * multiPhysicalLine} header (a wrapped parameter list): only the header's own leading token is
+     * ever inspected, which is unaffected by how many physical lines the parameter list itself
+     * spans, so no additional handling is needed for that case (fixed 2026-08-11, see {@link
+     * #applyControlFlowBlankLines}'s javadoc).
      */
     private boolean isDefHeaderLine(final List<Token> tokens, final RawLine line)
     {
@@ -2662,11 +2662,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Walks backward from {@code idx - 1}, skipping blank and comment-only lines, and returns the
-     *  index of the nearest genuine-content {@link RawLine}, or {@code -1} if none exists before
-     *  {@code idx}. Returns an index (rather than the {@link RawLine} itself, as the prior version of
-     *  this method did) so callers such as {@link #isUnconditionalExitLine} can also consult {@code
-     *  rawLines}' own §8-compact-header classification for that same line, which itself needs the
-     *  line's index, not just its content.
+     * index of the nearest genuine-content {@link RawLine}, or {@code -1} if none exists before
+     * {@code idx}. Returns an index (rather than the {@link RawLine} itself, as the prior version of
+     * this method did) so callers such as {@link #isUnconditionalExitLine} can also consult {@code
+     * rawLines}' own §8-compact-header classification for that same line, which itself needs the
+     * line's index, not just its content.
      */
     private int previousContentLineIndex(
         final List<Token>   tokens,
@@ -2690,18 +2690,18 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * True iff {@code rawLines.get(lineIdx)}'s effective LAST statement is exactly {@code return}/
-     *  {@code break}/{@code continue} -- deliberately NOT {@code raise}, matching the C-family
-     *  reference list's own existing omission (STYLE_PYTHON3.md §9.2). Two shapes beyond a plain
-     *  single-statement line are recognized (fixed 2026-08-11, see {@link
-     *  #applyControlFlowBlankLines}'s javadoc): (1) a §8-compact header (e.g. {@code if x: return y})
-     *  -- delegates to {@link #classifyCompactSingleStatementHeaderColon} to find the body's own
-     *  start just past the header colon, since that's this line's real last (and only) statement, not
-     *  the header keyword; (2) a semicolon-chained line (e.g. {@code x = 1; return y}) -- {@link
-     *  #lastSemicolonSegmentStart} finds the leading token of the LAST top-level {@code ;}-delimited
-     *  sub-statement, which is this line's true textually-last statement regardless of how many
-     *  segments precede it. Both shapes compose (a compact header whose body itself is semicolon-
-     *  chained is handled by narrowing to the body span first, then finding that span's own last
-     *  semicolon segment).
+     * {@code break}/{@code continue} -- deliberately NOT {@code raise}, matching the C-family
+     * reference list's own existing omission (STYLE_PYTHON3.md §9.2). Two shapes beyond a plain
+     * single-statement line are recognized (fixed 2026-08-11, see {@link
+     * #applyControlFlowBlankLines}'s javadoc): (1) a §8-compact header (e.g. {@code if x: return y})
+     * -- delegates to {@link #classifyCompactSingleStatementHeaderColon} to find the body's own
+     * start just past the header colon, since that's this line's real last (and only) statement, not
+     * the header keyword; (2) a semicolon-chained line (e.g. {@code x = 1; return y}) -- {@link
+     * #lastSemicolonSegmentStart} finds the leading token of the LAST top-level {@code ;}-delimited
+     * sub-statement, which is this line's true textually-last statement regardless of how many
+     * segments precede it. Both shapes compose (a compact header whose body itself is semicolon-
+     * chained is handled by narrowing to the body span first, then finding that span's own last
+     * semicolon segment).
      */
     private boolean isUnconditionalExitLine(
         final List<Token>   tokens,
@@ -2731,10 +2731,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Returns the index of the leading significant token of the LAST top-level ({@code ;}-delimited,
-     *  bracket-depth-0) sub-statement within {@code [start, end)}, or {@code -1} if that span holds no
-     *  significant token at all. When {@code [start, end)} contains no top-level {@code ;}, this is
-     *  simply the span's own first significant token -- same result as a plain {@code
-     *  nextSignificant(tokens, start, end)} call, so a line with no semicolon chaining is unaffected.
+     * bracket-depth-0) sub-statement within {@code [start, end)}, or {@code -1} if that span holds no
+     * significant token at all. When {@code [start, end)} contains no top-level {@code ;}, this is
+     * simply the span's own first significant token -- same result as a plain {@code
+     * nextSignificant(tokens, start, end)} call, so a line with no semicolon chaining is unaffected.
      */
     private int lastSemicolonSegmentStart(final List<Token> tokens, final int start, final int end)
     {
@@ -2752,14 +2752,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * True iff any top-level ({@code ;}-delimited, bracket-depth-0) sub-statement within {@code
-     *  [start, end)} leads with the {@code return} keyword -- covers both a plain {@code return}-first
-     *  line (the pre-existing §9.1 shape) and a semicolon-chained line where {@code return} is a LATER
-     *  sub-statement (e.g. {@code x = 1; return y}) (fixed 2026-08-11, see {@link
-     *  #applyControlFlowBlankLines}'s javadoc). The latter shape still inserts the blank line before
-     *  the whole physical line, not immediately before the {@code return} sub-statement itself --
-     *  this pass only ever inserts a line break between two existing {@link RawLine}s, never splits
-     *  one physical line into two, so a mid-line separation is not achievable at this granularity;
-     *  separating the whole line from what precedes it is the closest conservative approximation.
+     * [start, end)} leads with the {@code return} keyword -- covers both a plain {@code return}-first
+     * line (the pre-existing §9.1 shape) and a semicolon-chained line where {@code return} is a LATER
+     * sub-statement (e.g. {@code x = 1; return y}) (fixed 2026-08-11, see {@link
+     * #applyControlFlowBlankLines}'s javadoc). The latter shape still inserts the blank line before
+     * the whole physical line, not immediately before the {@code return} sub-statement itself --
+     * this pass only ever inserts a line break between two existing {@link RawLine}s, never splits
+     * one physical line into two, so a mid-line separation is not achievable at this granularity;
+     * separating the whole line from what precedes it is the closest conservative approximation.
      */
     private boolean lineHasTopLevelReturnSegment(
         final List<Token> tokens,
@@ -2793,11 +2793,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Returns a zero-width {@link Replacement} inserting one blank line (a bare {@code "\n"})
-     *  immediately before {@code line}'s own leading indentation, or {@code null} if a blank line is
-     *  already present there (idempotent -- matches the C-family reference's own "already-blank gap
-     *  left untouched" posture) or if the immediately preceding {@link RawLine} is a comment-only
-     *  line (conservative skip, see {@link #applyControlFlowBlankLines}'s javadoc). {@code idx == 0}
-     *  (no preceding line at all) also returns {@code null} -- nothing to separate a blank line from.
+     * immediately before {@code line}'s own leading indentation, or {@code null} if a blank line is
+     * already present there (idempotent -- matches the C-family reference's own "already-blank gap
+     * left untouched" posture) or if the immediately preceding {@link RawLine} is a comment-only
+     * line (conservative skip, see {@link #applyControlFlowBlankLines}'s javadoc). {@code idx == 0}
+     * (no preceding line at all) also returns {@code null} -- nothing to separate a blank line from.
      */
     private Replacement insertBlankLineBefore(
         final List<Token>   tokens,
@@ -2817,10 +2817,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
 
     /**
      * Reassembles {@code tokens}' source text verbatim. Every token kind's {@code text} is its
-     *  exact original source span, EXCEPT the synthesized {@code INDENT}/{@code DEDENT} markers
-     *  (see {@link TokenizerIndent#synthesizeIndentation}), which carry no source text of their
-     *  own (their {@code text} field instead holds the new indent width, for a later rule pass's
-     *  use) and so must be skipped here rather than appended.
+     * exact original source span, EXCEPT the synthesized {@code INDENT}/{@code DEDENT} markers
+     * (see {@link TokenizerIndent#synthesizeIndentation}), which carry no source text of their
+     * own (their {@code text} field instead holds the new indent width, for a later rule pass's
+     * use) and so must be skipped here rather than appended.
      *
      *  <p>Two independently-computed passes' replacements can legitimately overlap in token-index
      *  range (e.g. {@link #applySingleStatementBody}'s header+body span and {@link

@@ -90,7 +90,7 @@ public final class YamlSpecificRule {
 
     /**
      * Malformed YAML input that the parser cannot make sense of -- caught generically by
-     *  {@code Main}'s per-file error handling, same as any other rule class's runtime failure
+     * {@code Main}'s per-file error handling, same as any other rule class's runtime failure
      */
     public static final class YamlParseException extends RuntimeException {
 
@@ -113,12 +113,12 @@ public final class YamlSpecificRule {
 
     /**
      * 2026-08-08 session: chain-groups a run of consecutive leading `#` comments the same way
-     *  curly chains `//` (RDD_KEY_265/RDD_KEY_266) -- delegates the actual grouping/normalization to
-     *  {@link ToolingCommentNormalizer#normalizeChain}, shared with TOML/Makefile/Bash/PowerShell.
-     *  {@code raw} holds unnormalized {@link CommentLine}s (each already carrying its own
-     *  blank-before-this-comment flag, per-comment, from parsing); only the resulting text changes,
-     *  the blank-before flags are preserved as-is (they drive blank-line rendering, orthogonal to
-     *  the sentence-grouping decision here).
+     * curly chains `//` (RDD_KEY_265/RDD_KEY_266) -- delegates the actual grouping/normalization to
+     * {@link ToolingCommentNormalizer#normalizeChain}, shared with TOML/Makefile/Bash/PowerShell.
+     * {@code raw} holds unnormalized {@link CommentLine}s (each already carrying its own
+     * blank-before-this-comment flag, per-comment, from parsing); only the resulting text changes,
+     * the blank-before flags are preserved as-is (they drive blank-line rendering, orthogonal to
+     * the sentence-grouping decision here).
      */
     private List<CommentLine> finalizeComments(final List<CommentLine> raw)
     {
@@ -154,8 +154,8 @@ public final class YamlSpecificRule {
 
     /**
      * Finds the first unquoted, unbracketed ':' that acts as a mapping-key separator (must be
-     *  followed by a space or end-of-string) -- distinguishes "name: Widget" from a bare scalar
-     *  like "https://example.com" or an inline flow collection. Returns -1 if none.
+     * followed by a space or end-of-string) -- distinguishes "name: Widget" from a bare scalar
+     * like "https://example.com" or an inline flow collection. Returns -1 if none.
      */
     private static int findMappingColon(final String s)
     {
@@ -166,8 +166,8 @@ public final class YamlSpecificRule {
 
     /**
      * Splits off a same-line trailing `#` comment from {@code s}, respecting quotes -- a `#` only
-     *  starts a comment when it is at the start of the string or preceded by whitespace. Returns a
-     *  two-element array: [codePart (right-trimmed), commentPartOrNull].
+     * starts a comment when it is at the start of the string or preceded by whitespace. Returns a
+     * two-element array: [codePart (right-trimmed), commentPartOrNull].
      */
     private static String[] splitTrailingComment(final String s)
     {
@@ -202,12 +202,12 @@ public final class YamlSpecificRule {
 
     /**
      * One leading comment line preceding an item, plus whether a blank line separated it from
-     *  whatever came right before it (the previous comment, or the previous item) -- needed so a
-     *  blank/comment/blank run isn't collapsed into "one blank, then all comments bunched
-     *  together" (that shape is common right after a nested block ends, e.g. a comment between
-     *  two top-level tasks in an Ansible playbook, and was previously lossy/non-idempotent:
-     *  {@link Item#blankBefore} alone can only represent one blank-line position, not one before
-     *  *and* one after a comment run).
+     * whatever came right before it (the previous comment, or the previous item) -- needed so a
+     * blank/comment/blank run isn't collapsed into "one blank, then all comments bunched
+     * together" (that shape is common right after a nested block ends, e.g. a comment between
+     * two top-level tasks in an Ansible playbook, and was previously lossy/non-idempotent:
+     * {@link Item#blankBefore} alone can only represent one blank-line position, not one before
+     * *and* one after a comment run).
      */
     private static final class CommentLine {
 
@@ -402,7 +402,7 @@ public final class YamlSpecificRule {
 
     /**
      * Reads a flow scalar (unquoted, or a quoted string) up to the next structural character
-     *  ({@code , ] }}, or -- for a mapping key -- {@code :})
+     * ({@code , ] }}, or -- for a mapping key -- {@code :})
      */
     private String readFlowScalarText(final FlowCursor c, final boolean stopAtColon)
     {
@@ -457,9 +457,9 @@ public final class YamlSpecificRule {
 
     /**
      * Renders a keyed item's flow value: inline if the whole line fits within line-length, else
-     *  block-converted per §5.4, recursing so nested flow collections get the same overflow test at
-     *  their own depth. {@code keyPrefix} is the fully-rendered {@code key<pad>:} text (already
-     *  appended to {@code out} at the correct indent, no trailing space/value yet).
+     * block-converted per §5.4, recursing so nested flow collections get the same overflow test at
+     * their own depth. {@code keyPrefix} is the fully-rendered {@code key<pad>:} text (already
+     * appended to {@code out} at the correct indent, no trailing space/value yet).
      */
     private void renderFlowValue(
         final FlowNode      node,
@@ -569,13 +569,13 @@ public final class YamlSpecificRule {
 
     /**
      * Looks ahead past any blank line(s) to the next real (non-blank) line, WITHOUT consuming
-     *  anything -- {@code pos} is left unchanged so a blank line between a key and its child block
-     *  is still consumed normally (as {@code pendingBlank}) by whichever {@link #parseBlock} call
-     *  eventually reaches it. Used purely to decide "does this key have a child block at all" --
-     *  a plain {@link #peek()} would see the blank line itself and (since it isn't blank-aware)
-     *  wrongly conclude there's no child, silently truncating the rest of the mapping (a real
-     *  docker/compose dogfood bug: a blank line right after a top-level key like "services:"
-     *  caused everything under it to be dropped).
+     * anything -- {@code pos} is left unchanged so a blank line between a key and its child block
+     * is still consumed normally (as {@code pendingBlank}) by whichever {@link #parseBlock} call
+     * eventually reaches it. Used purely to decide "does this key have a child block at all" --
+     * a plain {@link #peek()} would see the blank line itself and (since it isn't blank-aware)
+     * wrongly conclude there's no child, silently truncating the rest of the mapping (a real
+     * docker/compose dogfood bug: a blank line right after a top-level key like "services:"
+     * caused everything under it to be dropped).
      */
     private Line peekNonBlank()
     {
@@ -593,10 +593,10 @@ public final class YamlSpecificRule {
 
     /**
      * Parses a single homogeneous block (all mapping keys, or all sequence dashes) whose items sit
-     *  at exactly {@code blockIndent}. Stops (without consuming) at dedent, at end of input, or at a
-     *  line whose shape (dash vs. key) doesn't match the block's own kind -- a block is always
-     *  homogeneous per YAML's grammar, so a shape mismatch at the same column means control belongs
-     *  back to the caller's own block instead.
+     * at exactly {@code blockIndent}. Stops (without consuming) at dedent, at end of input, or at a
+     * line whose shape (dash vs. key) doesn't match the block's own kind -- a block is always
+     * homogeneous per YAML's grammar, so a shape mismatch at the same column means control belongs
+     * back to the caller's own block instead.
      */
     private List<Item> parseBlock(final int blockIndent)
     {
@@ -756,10 +756,10 @@ public final class YamlSpecificRule {
 
     /**
      * Consumes physical lines (verbatim, raw) following a keyed item's unquoted plain scalar value,
-     *  as long as each is more-indented than the key and doesn't itself look like a new mapping key
-     *  or sequence dash (which would instead be a genuine nested block, handled by the caller before
-     *  reaching here). Stored verbatim/opaque in {@code item.multilineScalarBody}, same rendering and
-     *  idempotency rationale as {@link #parseMultilineQuotedScalar}.
+     * as long as each is more-indented than the key and doesn't itself look like a new mapping key
+     * or sequence dash (which would instead be a genuine nested block, handled by the caller before
+     * reaching here). Stored verbatim/opaque in {@code item.multilineScalarBody}, same rendering and
+     * idempotency rationale as {@link #parseMultilineQuotedScalar}.
      */
     private void parseMultilinePlainScalar(final Item item, final int keyIndent)
     {
@@ -777,9 +777,9 @@ public final class YamlSpecificRule {
 
     /**
      * Returns the index of the unescaped closing {@code quote} character in {@code s} starting the
-     *  scan at {@code start}, or -1 if not found on this line/segment. A doubled single-quote
-     *  ({@code ''}) inside a single-quoted scalar is YAML's escape for a literal quote (not a
-     *  closer); a backslash-escaped char is skipped whole inside a double-quoted scalar.
+     * scan at {@code start}, or -1 if not found on this line/segment. A doubled single-quote
+     * ({@code ''}) inside a single-quoted scalar is YAML's escape for a literal quote (not a
+     * closer); a backslash-escaped char is skipped whole inside a double-quoted scalar.
      */
     private static int findClosingQuote(final String s, final int start, final char quote)
     {
@@ -810,11 +810,11 @@ public final class YamlSpecificRule {
 
     /**
      * Consumes physical lines (verbatim, raw) following a keyed item's quoted scalar value until the
-     *  scalar's closing quote is found (or input runs out / a blank line is hit -- a conservative
-     *  stopping point, since a blank line inside a real quoted scalar continuation is rare in
-     *  practice). The captured continuation lines are stored verbatim/opaque in
-     *  {@code item.multilineScalarBody} -- not reflowed -- so re-formatting the formatter's own
-     *  output is trivially idempotent (the captured lines pass through byte-for-byte).
+     * scalar's closing quote is found (or input runs out / a blank line is hit -- a conservative
+     * stopping point, since a blank line inside a real quoted scalar continuation is rare in
+     * practice). The captured continuation lines are stored verbatim/opaque in
+     * {@code item.multilineScalarBody} -- not reflowed -- so re-formatting the formatter's own
+     * output is trivially idempotent (the captured lines pass through byte-for-byte).
      */
     private void parseMultilineQuotedScalar(
         final Item   item,
@@ -999,10 +999,10 @@ public final class YamlSpecificRule {
 
     /**
      * Parses a nested sequence dash that sits inline on its parent dash's own physical line (e.g.
-     *  the {@code "- a"} in {@code "- - a\n  - b"}). {@code dashLine} is the {@code "- ..."}-shaped
-     *  text starting at column {@code dashCol}; the first nested item's value/further nesting comes
-     *  from {@code dashLine} itself, and any sibling nested items follow on subsequent physical
-     *  lines at the same column ({@code dashCol}), parsed via the ordinary {@link #parseBlock}.
+     * the {@code "- a"} in {@code "- - a\n  - b"}). {@code dashLine} is the {@code "- ..."}-shaped
+     * text starting at column {@code dashCol}; the first nested item's value/further nesting comes
+     * from {@code dashLine} itself, and any sibling nested items follow on subsequent physical
+     * lines at the same column ({@code dashCol}), parsed via the ordinary {@link #parseBlock}.
      */
     private List<Item> parseInlineNestedSeq(final String dashLine, final int dashCol)
     {
@@ -1027,13 +1027,13 @@ public final class YamlSpecificRule {
 
     /**
      * Captures a {@code |}/{@code >} block scalar's body lines, stored with each line's
-     *  indentation as a delta <em>relative to the header key's own original indent</em>
-     *  (not absolute/verbatim) -- same reasoning and same idempotency requirement as
-     *  {@link #parseMultilineQuotedScalar}/{@link #parseMultilinePlainScalar}: the header key's
-     *  rendered column can shift (indent-size changes, colon-alignment padding, nesting-depth
-     *  differences elsewhere in the renderer), and an absolute-indent copy would drift out of
-     *  sync with it, breaking idempotency (and potentially validity, since the body must stay
-     *  more-indented than the header to still parse as part of the block scalar)
+     * indentation as a delta <em>relative to the header key's own original indent</em>
+     * (not absolute/verbatim) -- same reasoning and same idempotency requirement as
+     * {@link #parseMultilineQuotedScalar}/{@link #parseMultilinePlainScalar}: the header key's
+     * rendered column can shift (indent-size changes, colon-alignment padding, nesting-depth
+     * differences elsewhere in the renderer), and an absolute-indent copy would drift out of
+     * sync with it, breaking idempotency (and potentially validity, since the body must stay
+     * more-indented than the header to still parse as part of the block scalar)
      */
     private String captureBlockScalarBody(final int headerIndent)
     {
@@ -1084,13 +1084,13 @@ public final class YamlSpecificRule {
 
     /**
      * Renders a multi-line scalar's continuation lines: {@code body} holds each continuation line
-     *  as its indentation <em>relative to its own key's original indent</em> (not absolute), joined
-     *  by {@code \n} -- see {@link #parseMultilinePlainScalar}/{@link #parseMultilineQuotedScalar}.
-     *  Rendering re-anchors each line to the key's newly-computed {@code indent(depth)} plus that
-     *  preserved relative delta, so the continuation always stays deeper than its key regardless of
-     *  indent-size or nesting-depth changes introduced elsewhere by reformatting -- required for
-     *  idempotency (a verbatim/absolute-indent copy would drift out of sync with a reindented key
-     *  line, e.g. after a global indent-size change or an unrelated nesting-depth fix).
+     * as its indentation <em>relative to its own key's original indent</em> (not absolute), joined
+     * by {@code \n} -- see {@link #parseMultilinePlainScalar}/{@link #parseMultilineQuotedScalar}.
+     * Rendering re-anchors each line to the key's newly-computed {@code indent(depth)} plus that
+     * preserved relative delta, so the continuation always stays deeper than its key regardless of
+     * indent-size or nesting-depth changes introduced elsewhere by reformatting -- required for
+     * idempotency (a verbatim/absolute-indent copy would drift out of sync with a reindented key
+     * line, e.g. after a global indent-size change or an unrelated nesting-depth fix).
      */
     private void appendMultilineScalarBody(
         final String        body,
@@ -1103,11 +1103,11 @@ public final class YamlSpecificRule {
 
     /**
      * Same as {@link #appendMultilineScalarBody(String, int, StringBuilder)} but anchored at an
-     *  explicit prefix string rather than a clean {@code indent(depth)} value -- needed for
-     *  contexts (e.g. sequence-of-mapping sibling keys) whose rendered column is an offset like
-     *  {@code indent(depth) + "  "} rather than a depth the {@code indent()} helper itself models.
-     *  Blank body lines (originally-blank lines inside the block scalar/continuation) are emitted
-     *  as truly empty lines, not padded with trailing whitespace.
+     * explicit prefix string rather than a clean {@code indent(depth)} value -- needed for
+     * contexts (e.g. sequence-of-mapping sibling keys) whose rendered column is an offset like
+     * {@code indent(depth) + "  "} rather than a depth the {@code indent()} helper itself models.
+     * Blank body lines (originally-blank lines inside the block scalar/continuation) are emitted
+     * as truly empty lines, not padded with trailing whitespace.
      */
     private void appendMultilineScalarBody(
         final String        body,
@@ -1215,8 +1215,8 @@ public final class YamlSpecificRule {
 
     /**
      * A sequence item that's itself a mapping (`- name: Widget`): the first key stays inline after
-     *  the `-`, subsequent keys in the same item-mapping align one column past the `-` and space
-     *  (under the first key), per §5.3.
+     * the `-`, subsequent keys in the same item-mapping align one column past the `-` and space
+     * (under the first key), per §5.3.
      */
     private void renderSeqOfMapping(final Item item, final int depth, final StringBuilder out)
     {
@@ -1365,8 +1365,8 @@ public final class YamlSpecificRule {
 
     /**
      * Line-splits, parses, and re-renders {@code content} per STYLE_DATA_FORMATS.md §5. `---`
-     *  document separators and `...` end markers are preserved as written and reset structural
-     *  depth for whatever follows, per §5.7.
+     * document separators and `...` end markers are preserved as written and reset structural
+     * depth for whatever follows, per §5.7.
      */
     public String format(final String content)
     {

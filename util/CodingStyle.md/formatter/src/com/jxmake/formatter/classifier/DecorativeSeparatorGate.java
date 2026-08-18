@@ -9,13 +9,13 @@ package com.jxmake.formatter.classifier;
 
 /**
  * First real {@link CommentClassifier} gate that can return {@link CommentDecision#NO} (see
- *  RDD_KEY_96's note that {@code classify} previously had no NO-producing path at all). Presence-
- *  based, like {@link NonLatinScriptGate}: a comment with no letter or digit anywhere -- just
- *  punctuation/symbol runs such as {@code ****...****} or {@code #####...#####} -- cannot be prose
- *  by construction, so this is decided as confidently as the non-Latin-script gate rather than via
- *  {@link CommentClassifierWeights}'s scored path. Deliberately narrow: does not attempt to catch
- *  commented-out code or license blocks (those still need real word content to distinguish from
- *  prose, so they stay on the scored path / a future gate, not this one).
+ * RDD_KEY_96's note that {@code classify} previously had no NO-producing path at all). Presence-
+ * based, like {@link NonLatinScriptGate}: a comment with no letter or digit anywhere -- just
+ * punctuation/symbol runs such as {@code ****...****} or {@code #####...#####} -- cannot be prose
+ * by construction, so this is decided as confidently as the non-Latin-script gate rather than via
+ * {@link CommentClassifierWeights}'s scored path. Deliberately narrow: does not attempt to catch
+ * commented-out code or license blocks (those still need real word content to distinguish from
+ * prose, so they stay on the scored path / a future gate, not this one).
  */
 public final class DecorativeSeparatorGate {
 

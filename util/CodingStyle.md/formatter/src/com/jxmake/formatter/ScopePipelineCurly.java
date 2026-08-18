@@ -123,7 +123,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
-     *  config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor.
+     * config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor.
      */
     public ScopePipelineCurly(
         final Lang    lang,
@@ -146,7 +146,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Full constructor additionally taking the {@code line-length-with-comment} config value --
-     *  see {@code MiscRuleCore.lineLengthWithCommentLimit}'s own doc comment.
+     * see {@code MiscRuleCore.lineLengthWithCommentLimit}'s own doc comment.
      */
     public ScopePipelineCurly(
         final Lang    lang,
@@ -192,10 +192,10 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Wraps {@link TokenizerCore#tokenize} and stamps frozen-span state (RDD_KEY_90 §A) on every
-     *  re-tokenize, same as {@code Formatter}'s tokenizer wrapper. {@code startFrozen} must be the
-     *  frozen state observed at {@code s}'s own starting boundary -- a substring extracted mid-file
-     *  (a recursed-into child scope) may not textually contain the JXM_CFMT_DIS marker that caused
-     *  that state, so it cannot be re-derived by scanning {@code s} alone.
+     * re-tokenize, same as {@code Formatter}'s tokenizer wrapper. {@code startFrozen} must be the
+     * frozen state observed at {@code s}'s own starting boundary -- a substring extracted mid-file
+     * (a recursed-into child scope) may not textually contain the JXM_CFMT_DIS marker that caused
+     * that state, so it cannot be re-derived by scanning {@code s} alone.
      */
     private List<Token> tokenize(final String s, final boolean startFrozen)
     {
@@ -301,7 +301,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * True iff {@code text} starts a named construct -- ported from
-     *  {@code BlockStructureRule.isNamedConstructStartKeyword}.
+     * {@code BlockStructureRule.isNamedConstructStartKeyword}.
      */
     private boolean isNamedConstructStartKeyword(final String text)
     {
@@ -354,12 +354,12 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * True iff {@code tokens[start, colonIdx)} contains exactly one significant token and it is
-     *  `public`/`private`/`protected` -- a C++ access-specifier label, which (unlike a ternary's
-     *  `:`) must end its own span here rather than being absorbed into the member that follows.
-     *  Without this, "public:\n    Foo() {}" is swept into one span whose lead tokens become
-     *  "public :", corrupting {@link #applySignaturePass}'s candidate-signature parse. Deliberately
-     *  narrow: a bare ternary always has more than one significant lead token (e.g. `a ? b`), and a
-     *  `case`/`default` switch label never matches this keyword set, so neither is affected.
+     * `public`/`private`/`protected` -- a C++ access-specifier label, which (unlike a ternary's
+     * `:`) must end its own span here rather than being absorbed into the member that follows.
+     * Without this, "public:\n    Foo() {}" is swept into one span whose lead tokens become
+     * "public :", corrupting {@link #applySignaturePass}'s candidate-signature parse. Deliberately
+     * narrow: a bare ternary always has more than one significant lead token (e.g. `a ? b`), and a
+     * `case`/`default` switch label never matches this keyword set, so neither is affected.
      */
     private boolean isAccessSpecifierLabel(
         final List<Token> tokens,
@@ -389,9 +389,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Extends {@code from} forward over a same-line trailing comment, so it stays attached to the
-     *  span that just closed instead of becoming the next span's leading content -- same algorithm
-     *  as {@code DeclarationAlignmentRule.pullTrailingSameLine}, returning just the new index since
-     *  this caller tracks spans by index range rather than building a token sublist.
+     * span that just closed instead of becoming the next span's leading content -- same algorithm
+     * as {@code DeclarationAlignmentRule.pullTrailingSameLine}, returning just the new index since
+     * this caller tracks spans by index range rather than building a token sublist.
      */
     private int pullTrailingSameLine(final List<Token> tokens, final int from)
     {
@@ -408,11 +408,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * True if the `{` at {@code braceIdx} opens a `namespace NAME { ... }` (or nested
-     *  `namespace a::b { ... }`) body -- found by walking back over the optional
-     *  `IDENTIFIER (:: IDENTIFIER)*` name chain to check for an immediately preceding
-     *  `namespace` keyword. {@code Token.name} alone can't distinguish this from any other
-     *  named construct (it holds just the bare name, e.g. `"audio"`, not the construct
-     *  keyword).
+     * `namespace a::b { ... }`) body -- found by walking back over the optional
+     * `IDENTIFIER (:: IDENTIFIER)*` name chain to check for an immediately preceding
+     * `namespace` keyword. {@code Token.name} alone can't distinguish this from any other
+     * named construct (it holds just the bare name, e.g. `"audio"`, not the construct
+     * keyword).
      */
     private boolean isNamespaceScope(final List<Token> tokens, final int braceIdx)
     {
@@ -434,16 +434,16 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Returns the leading whitespace of the line that contains the span's first significant
-     *  token -- i.e. the indentation of the named construct whose one-liner body we are about
-     *  to pre-expand.  Scans forward to the first non-gap token, then backward to the preceding
-     *  newline; the text between that newline and the token is the indentation.
+     * token -- i.e. the indentation of the named construct whose one-liner body we are about
+     * to pre-expand.  Scans forward to the first non-gap token, then backward to the preceding
+     * newline; the text between that newline and the token is the indentation.
      */
     /**
      * True iff {@code colonIdx} is the terminating `:` of a `case EXPR :` / `default :` switch
-     *  label, found by scanning backward over the label's constant-expression tokens (bare
-     *  identifiers/numbers/`::`-qualified names) until the `case`/`default` keyword itself is
-     *  reached, or a `;`/`}`/`{`/`:` is hit first (in which case this is some other kind of
-     *  colon -- inheritance list, ternary, constructor initializer list -- and not a label)
+     * label, found by scanning backward over the label's constant-expression tokens (bare
+     * identifiers/numbers/`::`-qualified names) until the `case`/`default` keyword itself is
+     * reached, or a `;`/`}`/`{`/`:` is hit first (in which case this is some other kind of
+     * colon -- inheritance list, ternary, constructor initializer list -- and not a label)
      */
     private boolean isCaseOrDefaultLabelColon(final List<Token> tokens, final int colonIdx)
     {
@@ -654,16 +654,16 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Kotlin-only: true if this span's own header (from its true statement start, not just
-     *  {@code span.start} -- a span can carry more than one leading statement, same caveat
-     *  {@code findParentIndent} itself documents) contains a depth-0 {@code where} keyword --
-     *  i.e. a generic {@code where} clause, which {@code KotlinSpecificRule.
-     *  enforceWhereClausePlacement} can wrap onto its own indented continuation line(s). Used by
-     *  {@code processScope} to force {@code spanIndent} over a volatile {@code braceIndent} for a
-     *  `fun` with a wrapped `where` clause, the same posture RDD_KEY_159 already gives
-     *  `isNamedScope` -- `NAMED_CONSTRUCT_KOTLIN` never includes `fun`, so that fix alone doesn't
-     *  cover this shape (RDD_KEY_214's own deferred 4-file residual). Depth tracked over
-     *  parens/brackets/reclassified generic angle brackets so a bound's own generic argument
-     *  (`Comparable<T>`) or the param list's own parens never falsely end the scan early.
+     * {@code span.start} -- a span can carry more than one leading statement, same caveat
+     * {@code findParentIndent} itself documents) contains a depth-0 {@code where} keyword --
+     * i.e. a generic {@code where} clause, which {@code KotlinSpecificRule.
+     * enforceWhereClausePlacement} can wrap onto its own indented continuation line(s). Used by
+     * {@code processScope} to force {@code spanIndent} over a volatile {@code braceIndent} for a
+     * `fun` with a wrapped `where` clause, the same posture RDD_KEY_159 already gives
+     * `isNamedScope` -- `NAMED_CONSTRUCT_KOTLIN` never includes `fun`, so that fix alone doesn't
+     * cover this shape (RDD_KEY_214's own deferred 4-file residual). Depth tracked over
+     * parens/brackets/reclassified generic angle brackets so a bound's own generic argument
+     * (`Comparable<T>`) or the param list's own parens never falsely end the scan early.
      */
     private boolean headerHasTopLevelWhereClause(final List<Token> tokens, final Span span)
     {
@@ -716,14 +716,14 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Returns the leading whitespace of the physical line containing {@code idx} (typically an
-     *  {@code openBraceIdx}), or {@code null} if no NEWLINE precedes it within {@code tokens}.
-     *  Unlike {@link #findParentIndent}, which anchors on the STATEMENT's own start (skipping
-     *  back over a multi-line fluent chain to, e.g., `AlertDialog.Builder(this)`), this looks at
-     *  only the immediate physical line the brace itself sits on -- e.g. the `.setPositiveButton(
-     *  "Ok") {` continuation line, not the chain's first line. A trailing-lambda body's own
-     *  indent, and its closing `}`'s alignment, follow the brace's own line, not the whole
-     *  statement's first line -- see the Kotlin `MainActivity._checkRecovery()` closing-brace
-     *  indentation drift bug (RDD_KEY_136).
+     * {@code openBraceIdx}), or {@code null} if no NEWLINE precedes it within {@code tokens}.
+     * Unlike {@link #findParentIndent}, which anchors on the STATEMENT's own start (skipping
+     * back over a multi-line fluent chain to, e.g., `AlertDialog.Builder(this)`), this looks at
+     * only the immediate physical line the brace itself sits on -- e.g. the `.setPositiveButton(
+     * "Ok") {` continuation line, not the chain's first line. A trailing-lambda body's own
+     * indent, and its closing `}`'s alignment, follow the brace's own line, not the whole
+     * statement's first line -- see the Kotlin `MainActivity._checkRecovery()` closing-brace
+     * indentation drift bug (RDD_KEY_136).
      */
     private String braceLineIndent(final List<Token> tokens, final int idx)
     {
@@ -756,16 +756,16 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * If {@code openBrace}'s own physical line (whose leading NEWLINE is {@code ownLineNewline})
-     *  consists of nothing but a bare `when {`/`when(subject) {` (a nested `when` expression used
-     *  as a `when` branch's body) OR a plain trailing-lambda call head (`identifier(...)? {`, e.g.
-     *  `buildCodeBlock {`), and the immediately preceding physical line ends with a top-level
-     *  `->`, returns the index of the NEWLINE that starts THAT preceding line (the branch label's
-     *  own line) -- the line the two will be merged onto by
-     *  {@code KotlinSpecificRule.formatWhenExpressions}' arrow-alignment pass, later in the same
-     *  pipeline. Returns -1 if the shape doesn't match. The plain-call-head case covers a `when`
-     *  branch whose body is a call with only a trailing lambda, no other body content
-     *  (`kmAnnotations.kt`'s `is ArrayKClassValue -> \n  buildCodeBlock { ... }`), same merge
-     *  mechanism as the `when`-only case originally handled.
+     * consists of nothing but a bare `when {`/`when(subject) {` (a nested `when` expression used
+     * as a `when` branch's body) OR a plain trailing-lambda call head (`identifier(...)? {`, e.g.
+     * `buildCodeBlock {`), and the immediately preceding physical line ends with a top-level
+     * `->`, returns the index of the NEWLINE that starts THAT preceding line (the branch label's
+     * own line) -- the line the two will be merged onto by
+     * {@code KotlinSpecificRule.formatWhenExpressions}' arrow-alignment pass, later in the same
+     * pipeline. Returns -1 if the shape doesn't match. The plain-call-head case covers a `when`
+     * branch whose body is a call with only a trailing lambda, no other body content
+     * (`kmAnnotations.kt`'s `is ArrayKClassValue -> \n  buildCodeBlock { ... }`), same merge
+     * mechanism as the `when`-only case originally handled.
      */
     private int findMergingWhenBranchLineStart(
         final List<Token> tokens,
@@ -905,19 +905,19 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * STYLE_KOTLIN.md §6/§12 -- Kotlin's `[modifiers] val|var name [: type] [= init]` grammar is
-     *  reversed relative to C/Java's `[modifiers] Type name [= init]`, so {@code
-     *  KotlinDeclarationAlignmentRule} parses/renders it with its own {@code Row} model rather
-     *  than the base {@code Declaration} model above. Kotlin properties/locals are conventionally
-     *  newline-terminated with no `;`, so {@code splitTopLevelSpans} (built around `;`/`}`-
-     *  terminated C/Java statements) cannot be reused to find each declaration's own span --
-     *  instead this anchors directly on each row's own leading token ({@code firstAnchor}, never
-     *  empty) and trailing token ({@code lastAnchor}), both always present in {@code tokens} by
-     *  identity, via {@code buildIndexMap}.
-     *  <p>A plain declaration (§6) and a destructuring declaration (§12) are grouped together in
-     *  one merged pass here -- RDD_KEY_107's original "own group stream, never merged" design was
-     *  revisited and reversed on explicit user request, matching this codebase's existing C++
-     *  structured-bindings precedent (`auto [b, c] = ...` already aligns in the same group as a
-     *  plain `int a = ...`); see RDD_LOG.md's RDD_KEY_107 entry for the full revision note.
+     * reversed relative to C/Java's `[modifiers] Type name [= init]`, so {@code
+     * KotlinDeclarationAlignmentRule} parses/renders it with its own {@code Row} model rather
+     * than the base {@code Declaration} model above. Kotlin properties/locals are conventionally
+     * newline-terminated with no `;`, so {@code splitTopLevelSpans} (built around `;`/`}`-
+     * terminated C/Java statements) cannot be reused to find each declaration's own span --
+     * instead this anchors directly on each row's own leading token ({@code firstAnchor}, never
+     * empty) and trailing token ({@code lastAnchor}), both always present in {@code tokens} by
+     * identity, via {@code buildIndexMap}.
+     * <p>A plain declaration (§6) and a destructuring declaration (§12) are grouped together in
+     * one merged pass here -- RDD_KEY_107's original "own group stream, never merged" design was
+     * revisited and reversed on explicit user request, matching this codebase's existing C++
+     * structured-bindings precedent (`auto [b, c] = ...` already aligns in the same group as a
+     * plain `int a = ...`); see RDD_LOG.md's RDD_KEY_107 entry for the full revision note.
      */
     private String applyKotlinDeclarationsPass(final List<Token> tokens, final int depth)
     {
@@ -944,10 +944,10 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * STYLE_JS_TS.md §11 -- mirrors {@link #applyKotlinDeclarationsPass} (JS/TS's `let x: Type =
-     *  value` is likewise name-before-type, reversed relative to C/Java), but JS/TS statements are
-     *  always `;`-terminated (STYLE_JS_TS.md §2), unlike Kotlin's newline-terminated properties --
-     *  {@link JsTsDeclarationAlignmentRule} still exposes {@code lastAnchor} the same way, so the
-     *  same identity-based {@link #addKotlinDeclReplacement} splice-back helper is reused as-is.
+     * value` is likewise name-before-type, reversed relative to C/Java), but JS/TS statements are
+     * always `;`-terminated (STYLE_JS_TS.md §2), unlike Kotlin's newline-terminated properties --
+     * {@link JsTsDeclarationAlignmentRule} still exposes {@code lastAnchor} the same way, so the
+     * same identity-based {@link #addKotlinDeclReplacement} splice-back helper is reused as-is.
      */
     private String applyJsTsDeclarationsPass(final List<Token> tokens)
     {
@@ -969,11 +969,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Shared splice-range/leading-gap computation for one Kotlin declaration group -- same
-     *  idempotent leading-padding-strip logic as {@link #applyDeclarationsPass}, but the group's
-     *  own leading-gap boundary is derived from the previous significant token (there is no
-     *  {@code Span} to anchor on for newline-terminated Kotlin statements) and the trailing
-     *  boundary is exactly one past {@code lastAnchor} (already the group's true last token --
-     *  no trailing whitespace to trim, unlike a `;`/`}`-terminated C/Java span)
+     * idempotent leading-padding-strip logic as {@link #applyDeclarationsPass}, but the group's
+     * own leading-gap boundary is derived from the previous significant token (there is no
+     * {@code Span} to anchor on for newline-terminated Kotlin statements) and the trailing
+     * boundary is exactly one past {@code lastAnchor} (already the group's true last token --
+     * no trailing whitespace to trim, unlike a `;`/`}`-terminated C/Java span)
      */
     private void addKotlinDeclReplacement(
         final List<Token>         tokens,
@@ -1107,9 +1107,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Identical shape to {@link #applyDeclarationsPass} using {@code MiscRuleCurly.groupAssignments}/
-     *  {@code render} -- an {@code Assignment}'s {@code target} is always the statement's own
-     *  first significant token (per {@code MiscRuleCurly.parseAssignment}), so it doubles as both the
-     *  start- and end-anchor.
+     * {@code render} -- an {@code Assignment}'s {@code target} is always the statement's own
+     * first significant token (per {@code MiscRuleCurly.parseAssignment}), so it doubles as both the
+     * start- and end-anchor.
      */
     private String applyAssignmentsPass(final List<Token> tokens)
     {
@@ -1433,21 +1433,21 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * True iff the token immediately before {@code openIdx} is an IDENTIFIER not itself preceded
-     *  by `new` -- the candidate-signature-name signal, ported from
-     *  {@code JavaSpecificRule.isCandidateMethodName}/{@code CppSpecificRule.isCandidateSignatureName}.
+     * by `new` -- the candidate-signature-name signal, ported from
+     * {@code JavaSpecificRule.isCandidateMethodName}/{@code CppSpecificRule.isCandidateSignatureName}.
      */
     /**
      * Finds a top-level (depth-0) `:` between {@code from} and {@code to} that introduces a
-     *  constructor's member-initializer list -- recognized by being immediately preceded by `)`
-     *  (the parameter list's own close paren) and not itself part of `::`. Returns -1 if none
-     *  found (an ordinary function/control-flow body, or a C++11 base-class-in-braces case with
-     *  no initializer list at all).
+     * constructor's member-initializer list -- recognized by being immediately preceded by `)`
+     * (the parameter list's own close paren) and not itself part of `::`. Returns -1 if none
+     * found (an ordinary function/control-flow body, or a C++11 base-class-in-braces case with
+     * no initializer list at all).
      */
     /**
      * Finds the last depth-0 `)` in {@code [from, to)} -- for Kotlin, the parameter list's own
-     *  closing paren, when it isn't the token immediately before {@code to} (an explicit `:
-     *  ReturnType` tail sits between them, STYLE_KOTLIN.md §9). Angle brackets (`<T>` generics,
-     *  `List<Int>` in a return type) don't affect `(`/`)` depth so need no special handling here.
+     * closing paren, when it isn't the token immediately before {@code to} (an explicit `:
+     * ReturnType` tail sits between them, STYLE_KOTLIN.md §9). Angle brackets (`<T>` generics,
+     * `List<Int>` in a return type) don't affect `(`/`)` depth so need no special handling here.
      */
     private int findLastTopLevelCloseParen(final List<Token> tokens, final int from, final int to)
     {
@@ -1469,11 +1469,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * True iff a depth-0 (outside any `(`/`[`/`{`, relative to {@code from}) {@code OP} token
-     *  with text {@code opText} appears anywhere in {@code tokens[from, to)} -- used by {@code
-     *  applySignaturePass}'s Kotlin `: ReturnType` tail detection (C6i fix) to tell a genuine
-     *  expression-bodied function's `: ReturnType =` tail (legitimately allowed to continue onto a
-     *  later physical line before its own trailing-lambda body's `{`) apart from a block-bodied
-     *  `: ReturnType {` tail (which must never contain a NEWLINE of its own before `{`)
+     * with text {@code opText} appears anywhere in {@code tokens[from, to)} -- used by {@code
+     * applySignaturePass}'s Kotlin `: ReturnType` tail detection (C6i fix) to tell a genuine
+     * expression-bodied function's `: ReturnType =` tail (legitimately allowed to continue onto a
+     * later physical line before its own trailing-lambda body's `{`) apart from a block-bodied
+     * `: ReturnType {` tail (which must never contain a NEWLINE of its own before `{`)
      */
     private boolean hasTopLevelOperator(
         final List<Token> tokens,
@@ -1495,9 +1495,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * True iff two consecutive {@code TokenType.NEWLINE} tokens (a blank source line) appear
-     *  anywhere in {@code tokens[from, to)} -- used by {@code applySignaturePass}'s Kotlin
-     *  `: ReturnType` tail detection to refuse treating a candidate tail as reaching all the way
-     *  to a later, unrelated declaration's `{` across a genuine statement/paragraph break.
+     * anywhere in {@code tokens[from, to)} -- used by {@code applySignaturePass}'s Kotlin
+     * `: ReturnType` tail detection to refuse treating a candidate tail as reaching all the way
+     * to a later, unrelated declaration's `{` across a genuine statement/paragraph break.
      */
     private boolean hasTopLevelBlankLine(final List<Token> tokens, final int from, final int to)
     {
@@ -1548,8 +1548,8 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * True iff the `{` at {@code braceIdx} is a Java enum constant's anonymous constant-body --
-     *  detected via its matching `}` being immediately followed by `,` or `;` -- ported from
-     *  {@code JavaSpecificRule.isEnumConstantBody}.
+     * detected via its matching `}` being immediately followed by `,` or `;` -- ported from
+     * {@code JavaSpecificRule.isEnumConstantBody}.
      */
     private boolean isEnumConstantBody(final List<Token> tokens, final int braceIdx)
     {
@@ -1739,15 +1739,15 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     private static final int RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS = 1;
     /**
      * Assignments-pass-only re-run (RDD_KEY_270's Java-family follow-up): re-derives just
-     *  {@link #applyAssignmentsPass}'s trailing-comment-column/`=`-column padding against the
-     *  post-call-wrap shape, touching nothing else -- narrower than {@code
-     *  RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS}, which also re-runs {@link
-     *  #applyOversizedAggregateInitClosingBracePass}/{@link #applyDeclarationsPass} and was shown
-     *  (see the Open Questions entry in STATE_C_CPP_JAVA.md, "attempt 2") to silently re-collapse
-     *  unrelated already-correct output for Java (`JavaSpecificRule.separateEnumConstantListTerminator`'s
-     *  enum-constant-list `;`-separation) when widened beyond JS/TS. Since `applyAssignmentsPass`
-     *  only ever touches genuine assignment-statement groups (`MiscRuleCurly.groupAssignments`),
-     *  re-running it alone cannot touch an enum constant list or an aggregate-init closing brace.
+     * {@link #applyAssignmentsPass}'s trailing-comment-column/`=`-column padding against the
+     * post-call-wrap shape, touching nothing else -- narrower than {@code
+     * RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS}, which also re-runs {@link
+     * #applyOversizedAggregateInitClosingBracePass}/{@link #applyDeclarationsPass} and was shown
+     * (see the Open Questions entry in STATE_C_CPP_JAVA.md, "attempt 2") to silently re-collapse
+     * unrelated already-correct output for Java (`JavaSpecificRule.separateEnumConstantListTerminator`'s
+     * enum-constant-list `;`-separation) when widened beyond JS/TS. Since `applyAssignmentsPass`
+     * only ever touches genuine assignment-statement groups (`MiscRuleCurly.groupAssignments`),
+     * re-running it alone cannot touch an enum constant list or an aggregate-init closing brace.
      */
     private static final int RERUN_MODE_ASSIGNMENTS_ONLY = 2;
 
@@ -2049,7 +2049,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Public entry point: tokenizes {@code source} and runs the recursive scope pipeline,
-     *  starting at depth 0. The one method {@code Main.java} calls once per file.
+     * starting at depth 0. The one method {@code Main.java} calls once per file.
      */
     public String process(final String source)
     {
@@ -2058,11 +2058,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * RDD_KEY_246/RDD_KEY_248 -- narrow re-run entry point for {@code FormatterCurly.format}'s
-     *  JS/TS-only fixup: re-runs only {@link #applyOversizedAggregateInitClosingBracePass} +
-     *  {@link #applyDeclarationsPass} (closing-brace first, so declarations sees the corrected
-     *  shape) across the whole scope tree, leaving every other pass single-pass for this round.
-     *  See {@link #processScope(List, int, boolean, String, int)}'s doc comment for the full
-     *  rationale.
+     * JS/TS-only fixup: re-runs only {@link #applyOversizedAggregateInitClosingBracePass} +
+     * {@link #applyDeclarationsPass} (closing-brace first, so declarations sees the corrected
+     * shape) across the whole scope tree, leaving every other pass single-pass for this round.
+     * See {@link #processScope(List, int, boolean, String, int)}'s doc comment for the full
+     * rationale.
      */
     public String reapplyClosingBraceAndDeclarationsPass(final String source)
     {
@@ -2074,13 +2074,13 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * RDD_KEY_270 Java-family follow-up -- narrow re-run entry point for {@code
-     *  FormatterCurly.format}'s Java-only fixup: re-runs only {@link #applyAssignmentsPass} across
-     *  the whole scope tree, re-deriving an assignment alignment group's trailing-comment-column
-     *  padding against the post-call-wrap shape without touching {@link
-     *  #applyOversizedAggregateInitClosingBracePass}/{@link #applyDeclarationsPass} (the two passes
-     *  that widening {@link #reapplyClosingBraceAndDeclarationsPass} to Java was found to regress --
-     *  see STATE_C_CPP_JAVA.md's Open Questions entry, "attempt 1"/"attempt 2"). See {@link
-     *  #processScope(List, int, boolean, String, int)}'s doc comment for the full rationale.
+     * FormatterCurly.format}'s Java-only fixup: re-runs only {@link #applyAssignmentsPass} across
+     * the whole scope tree, re-deriving an assignment alignment group's trailing-comment-column
+     * padding against the post-call-wrap shape without touching {@link
+     * #applyOversizedAggregateInitClosingBracePass}/{@link #applyDeclarationsPass} (the two passes
+     * that widening {@link #reapplyClosingBraceAndDeclarationsPass} to Java was found to regress --
+     * see STATE_C_CPP_JAVA.md's Open Questions entry, "attempt 1"/"attempt 2"). See {@link
+     * #processScope(List, int, boolean, String, int)}'s doc comment for the full rationale.
      */
     public String reapplyAssignmentsPassOnly(final String source)
     {
@@ -2091,12 +2091,12 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Starting from the declarator's own line ({@code lineFirst}), pulls in an immediately
-     *  preceding leading `requires` clause line (`template<T>\n    requires ...\n Decl`), and --
-     *  only when such a requires line was found -- the `template<...>` header line above *that*,
-     *  so the whole group collapses onto the declarator's line. A bare `template<...>` header
-     *  with no requires clause is left untouched (stays verbatim on its own line, per the
-     *  resolved decision covering `cpp_modern_inp.cpp` Bug 4a) since the requires-line pull is
-     *  what gates the template-line pull.
+     * preceding leading `requires` clause line (`template<T>\n    requires ...\n Decl`), and --
+     * only when such a requires line was found -- the `template<...>` header line above *that*,
+     * so the whole group collapses onto the declarator's line. A bare `template<...>` header
+     * with no requires clause is left untouched (stays verbatim on its own line, per the
+     * resolved decision covering `cpp_modern_inp.cpp` Bug 4a) since the requires-line pull is
+     * what gates the template-line pull.
      */
     private int extendOverLeadingRequiresAndTemplate(
         final List<Token> tokens,

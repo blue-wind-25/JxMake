@@ -28,9 +28,9 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Returns, for each key in {@code keys} (a single alignment group), the padding spaces to
-     *  insert between that key and its `:` so every `:` in the group lines up at the same column
-     *  -- the widest key in the group gets exactly one space, every other key gets enough extra
-     *  padding to match
+     * insert between that key and its `:` so every `:` in the group lines up at the same column
+     * -- the widest key in the group gets exactly one space, every other key gets enough extra
+     * padding to match
      */
     public static String[] padKeysForColonAlignment(final List<String> keys)
     {
@@ -49,11 +49,11 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Returns {@code c} repeated {@code count} times -- was independently re-implemented, byte-
-     *  identical, as a private helper in {@link com.jxmake.formatter.rules.JsonSpecificRule},
-     *  {@link com.jxmake.formatter.rules.CssSpecificRule}, and (pre-existing, unchanged here)
-     *  {@code YamlTomlSharedRule} (2026-08-16 cleanup-pass consolidation); promoted here as the one
-     *  shared copy since this class is already the cross-family static-helper home those two
-     *  callers use for {@link #padKeysForColonAlignment}/comment normalization.
+     * identical, as a private helper in {@link com.jxmake.formatter.rules.JsonSpecificRule},
+     * {@link com.jxmake.formatter.rules.CssSpecificRule}, and (pre-existing, unchanged here)
+     * {@code YamlTomlSharedRule} (2026-08-16 cleanup-pass consolidation); promoted here as the one
+     * shared copy since this class is already the cross-family static-helper home those two
+     * callers use for {@link #padKeysForColonAlignment}/comment normalization.
      */
     public static String repeatChar(final char c, final int count)
     {
@@ -65,9 +65,9 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Returns {@code indentUnit} repeated {@code depth} times -- the per-depth indent string used by
-     *  every "SimpleBraced"-shaped recursive-descent renderer (JSON/CSS directly, YAML/TOML via
-     *  their own {@code indent(int)} wrapper) to build a line prefix. Same 2026-08-16 consolidation
-     *  as {@link #repeatChar}.
+     * every "SimpleBraced"-shaped recursive-descent renderer (JSON/CSS directly, YAML/TOML via
+     * their own {@code indent(int)} wrapper) to build a line prefix. Same 2026-08-16 consolidation
+     * as {@link #repeatChar}.
      */
     public static String indent(final int depth, final String indentUnit)
     {
@@ -79,21 +79,21 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Lightweight `normalize-comment-start-case` for the SimpleBraced family: capitalizes the
-     *  first letter of {@code commentText} if -- and only if -- the very first non-whitespace
-     *  character after the `//`/`/*` delimiter is a lowercase letter. Unlike the curly family's
-     *  {@code MiscRuleCore.capitalizeFirstLetter}, this has no keyword-exclusion list or
-     *  classifier gate -- JSON/CSS have no language keywords a comment could start with that
-     *  would need protecting from titlecasing. Only the very first line of a multi-line block
-     *  comment is affected: {@code content.length()} scanning stops at the first letter found.
-     *  <p><b>Directive-comment carve-out</b> (found via real-code dogfood testing against
-     *  `twbs/bootstrap`): a single-line comment whose entire trimmed body contains no whitespace
-     *  at all (e.g. CSS's `/* rtl:begin:ignore *&#47;`/`/* rtl:end:ignore *&#47;` -- a case-sensitive
-     *  rtlcss build-tool directive, or `/* stylelint-disable *&#47;`) is treated as an opaque
-     *  machine-readable token, not an English prose sentence, and is never capitalized -- doing so
-     *  would silently break the third-party tool that parses it. This is narrower than "starts with
-     *  a lowercase word containing a colon" (which would wrongly suppress the common `TODO: fix
-     *  this` / `NOTE: ...` prose convention, already capitalized as-is since `TODO`/`NOTE` start
-     *  uppercase): only a body with *zero* whitespace anywhere is treated as directive-like.
+     * first letter of {@code commentText} if -- and only if -- the very first non-whitespace
+     * character after the `//`/`/*` delimiter is a lowercase letter. Unlike the curly family's
+     * {@code MiscRuleCore.capitalizeFirstLetter}, this has no keyword-exclusion list or
+     * classifier gate -- JSON/CSS have no language keywords a comment could start with that
+     * would need protecting from titlecasing. Only the very first line of a multi-line block
+     * comment is affected: {@code content.length()} scanning stops at the first letter found.
+     * <p><b>Directive-comment carve-out</b> (found via real-code dogfood testing against
+     * `twbs/bootstrap`): a single-line comment whose entire trimmed body contains no whitespace
+     * at all (e.g. CSS's `/* rtl:begin:ignore *&#47;`/`/* rtl:end:ignore *&#47;` -- a case-sensitive
+     * rtlcss build-tool directive, or `/* stylelint-disable *&#47;`) is treated as an opaque
+     * machine-readable token, not an English prose sentence, and is never capitalized -- doing so
+     * would silently break the third-party tool that parses it. This is narrower than "starts with
+     * a lowercase word containing a colon" (which would wrongly suppress the common `TODO: fix
+     * this` / `NOTE: ...` prose convention, already capitalized as-is since `TODO`/`NOTE` start
+     * uppercase): only a body with *zero* whitespace anywhere is treated as directive-like.
      */
     public static String capitalizeCommentStart(final String commentText)
     {
@@ -122,12 +122,12 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * True iff the first line's entire body (starting at {@code bodyStart}, the first
-     *  non-whitespace character after the delimiter, up to end-of-line or the comment's closing
-     *  `*&#47;`/end-of-string) is a *single* whitespace-free token containing a `:` or `-`
-     *  separator -- i.e. the whole comment line is one opaque directive like `rtl:begin:ignore` or
-     *  `stylelint-disable`, not a prose sentence that merely happens to start with a
-     *  hyphenated/colon-containing word (e.g. "auto-generated file, do not edit" has more content
-     *  after the first token and must NOT be treated as directive-like).
+     * non-whitespace character after the delimiter, up to end-of-line or the comment's closing
+     * `*&#47;`/end-of-string) is a *single* whitespace-free token containing a `:` or `-`
+     * separator -- i.e. the whole comment line is one opaque directive like `rtl:begin:ignore` or
+     * `stylelint-disable`, not a prose sentence that merely happens to start with a
+     * hyphenated/colon-containing word (e.g. "auto-generated file, do not edit" has more content
+     * after the first token and must NOT be treated as directive-like).
      */
     private static boolean isSingleTokenDirective(final String commentText, final int bodyStart)
     {
@@ -160,11 +160,11 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Reindents a (possibly multi-line) block comment's continuation lines to the new structural
-     *  {@code indentPrefix}: the first line is left as-is (the caller already prints
-     *  {@code indentPrefix} before it), and every subsequent line gets {@code indentPrefix}
-     *  prepended in front of whatever whitespace it already has -- preserving the comment's
-     *  original *relative* indentation (e.g. an aligned {@code *} continuation, or hanging
-     *  sentence indent) rather than the absolute column it happened to sit at in the source.
+     * {@code indentPrefix}: the first line is left as-is (the caller already prints
+     * {@code indentPrefix} before it), and every subsequent line gets {@code indentPrefix}
+     * prepended in front of whatever whitespace it already has -- preserving the comment's
+     * original *relative* indentation (e.g. an aligned {@code *} continuation, or hanging
+     * sentence indent) rather than the absolute column it happened to sit at in the source.
      */
     public static String reindentBlockComment(final String commentText, final String indentPrefix)
     {
@@ -188,13 +188,13 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * {@code normalize-comment-end-period} for the SimpleBraced family: strips a sole trailing `.`
-     *  from a {@code //}/{@code /* *&#47;}-delimited {@code commentText} (delimiters included, same
-     *  shape {@link #capitalizeCommentStart} takes), same "only if it's the only `.` anywhere in the
-     *  comment" rule the curly family and the tooling languages both use (an ellipsis `...` is left
-     *  alone for free). For a {@code //} line comment the period must sit right at the end of the
-     *  text; for a {@code /* *&#47;} block comment (which may span multiple lines as one token) it
-     *  must sit right before the closing {@code *&#47;}. Operates on the delimiter-stripped interior
-     *  only, so the delimiters themselves (which contain no `.`) never affect the dot count.
+     * from a {@code //}/{@code /* *&#47;}-delimited {@code commentText} (delimiters included, same
+     * shape {@link #capitalizeCommentStart} takes), same "only if it's the only `.` anywhere in the
+     * comment" rule the curly family and the tooling languages both use (an ellipsis `...` is left
+     * alone for free). For a {@code //} line comment the period must sit right at the end of the
+     * text; for a {@code /* *&#47;} block comment (which may span multiple lines as one token) it
+     * must sit right before the closing {@code *&#47;}. Operates on the delimiter-stripped interior
+     * only, so the delimiters themselves (which contain no `.`) never affect the dot count.
      */
     public static String stripCommentEndPeriod(final String commentText)
     {
@@ -222,17 +222,17 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * 2026-08-08 session: give the SimpleBraced family (JSON/JSON5/CSS) curly's information
-     *  architecture for {@code normalize-comment-start-case}/{@code normalize-comment-end-period} --
-     *  chain consecutive standalone `//` line comments (JSON5 only; JSON/CSS never lex `//`) with no
-     *  blank line between into one sentence-detection unit, and treat a multi-line `/* *&#47;` block
-     *  comment already in the conventional ` * `-per-line continuation-marker banner shape as one
-     *  unit too (analogous to {@code MiscRuleCore.reformatMultiLineBlockComment} and
-     *  {@code XmlSpecificRule.tryBannerShape}, adapted to this family's own delimiters -- no
-     *  classifier/keyword-exclusion gate, since JSON/CSS have no language keywords a comment could
-     *  start with that would need protecting). {@code normalizeComment} handles a single/standalone
-     *  comment (a trailing or mid-token comment, always a chain of one); {@code normalizeCommentTrivia}
-     *  handles a whole run of leading comments collected between two significant tokens, grouping
-     *  consecutive `//` comments and normalizing each `/* *&#47;` block comment on its own.
+     * architecture for {@code normalize-comment-start-case}/{@code normalize-comment-end-period} --
+     * chain consecutive standalone `//` line comments (JSON5 only; JSON/CSS never lex `//`) with no
+     * blank line between into one sentence-detection unit, and treat a multi-line `/* *&#47;` block
+     * comment already in the conventional ` * `-per-line continuation-marker banner shape as one
+     * unit too (analogous to {@code MiscRuleCore.reformatMultiLineBlockComment} and
+     * {@code XmlSpecificRule.tryBannerShape}, adapted to this family's own delimiters -- no
+     * classifier/keyword-exclusion gate, since JSON/CSS have no language keywords a comment could
+     * start with that would need protecting). {@code normalizeComment} handles a single/standalone
+     * comment (a trailing or mid-token comment, always a chain of one); {@code normalizeCommentTrivia}
+     * handles a whole run of leading comments collected between two significant tokens, grouping
+     * consecutive `//` comments and normalizing each `/* *&#47;` block comment on its own.
      */
     public static String normalizeComment(
         final String  raw,
@@ -249,11 +249,11 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Groups {@code rawTexts} (raw, un-normalized comment tokens collected in source order) into
-     *  `//`-chains (consecutive, {@code blankBefore.get(k)==false}) and standalone `/* *&#47;` block
-     *  comments, normalizes each group/comment, and appends the results to {@code out} in order.
-     *  {@code blankBefore.get(k)} is true iff a blank line (2+ consecutive newlines) separated
-     *  comment {@code k} from comment {@code k-1}; index 0's value is irrelevant (a group always
-     *  starts fresh at the beginning of a sub-run).
+     * `//`-chains (consecutive, {@code blankBefore.get(k)==false}) and standalone `/* *&#47;` block
+     * comments, normalizes each group/comment, and appends the results to {@code out} in order.
+     * {@code blankBefore.get(k)} is true iff a blank line (2+ consecutive newlines) separated
+     * comment {@code k} from comment {@code k-1}; index 0's value is irrelevant (a group always
+     * starts fresh at the beginning of a sub-run).
      */
     public static void normalizeCommentTrivia(
         final List<String>  rawTexts,
@@ -289,9 +289,9 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Normalizes one chain of consecutive standalone `//` comments as a single sentence-detection
-     *  unit: only the first comment's start is capitalized, and the trailing `.` is stripped only if
-     *  it's the sole `.` across the whole chain's content (and only from the chain's last comment).
-     *  A singleton list (chain of one) is the same as the old per-comment-token behavior.
+     * unit: only the first comment's start is capitalized, and the trailing `.` is stripped only if
+     * it's the sole `.` across the whole chain's content (and only from the chain's last comment).
+     * A singleton list (chain of one) is the same as the old per-comment-token behavior.
      */
     public static List<String> normalizeLineCommentChain(
         final List<String> rawTexts,
@@ -332,9 +332,9 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Normalizes one standalone `/* *&#47;` block comment: a single-line comment gets the existing
-     *  per-token treatment; a multi-line comment already in the conventional ` * `-per-line banner
-     *  shape gets the same single-unit treatment via {@link #tryBannerShape}; any other multi-line
-     *  shape (wrapped prose, commented-out code) is left unchanged, same posture as curly/XML-HTML5
+     * per-token treatment; a multi-line comment already in the conventional ` * `-per-line banner
+     * shape gets the same single-unit treatment via {@link #tryBannerShape}; any other multi-line
+     * shape (wrapped prose, commented-out code) is left unchanged, same posture as curly/XML-HTML5
      */
     public static String normalizeBlockComment(
         final String  raw,
@@ -359,10 +359,10 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
 
     /**
      * Recognizes and reformats the conventional ` * `-per-line continuation-marker banner shape --
-     *  every line after the first, whitespace-stripped, must start with `*`. Returns {@code null} if
-     *  {@code raw} isn't in that shape. Output uses a bare {@code " *"} continuation prefix on each
-     *  line (no indent baked in) -- the caller's later {@link #reindentBlockComment} pass supplies the
-     *  real structural indent, matching how a freshly-collected leading comment is rendered.
+     * every line after the first, whitespace-stripped, must start with `*`. Returns {@code null} if
+     * {@code raw} isn't in that shape. Output uses a bare {@code " *"} continuation prefix on each
+     * line (no indent baked in) -- the caller's later {@link #reindentBlockComment} pass supplies the
+     * real structural indent, matching how a freshly-collected leading comment is rendered.
      */
     private static String tryBannerShape(
         final String  raw,

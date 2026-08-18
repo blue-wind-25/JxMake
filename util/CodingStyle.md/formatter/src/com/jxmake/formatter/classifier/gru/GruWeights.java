@@ -18,18 +18,18 @@ import java.util.regex.Pattern;
 
 /**
  * Loader/schema for the external, trained weights file consumed by {@link GruClassifier}.
- *  Per STATE_NEXT_AI.md's "GRU implementation design", the trainer (a separate, non-shipped
- *  {@code tools/gru} entry point) writes this file; {@code GruClassifier} never bakes weight
- *  arrays into source the way {@link com.jxmake.formatter.classifier.CommentClassifierWeights}
- *  does, since a neural net's weight count isn't hand-editable the same way and retraining
- *  shouldn't require a JAR rebuild. JSON is used (not a flat binary tensor dump) so a trained
- *  file stays diffable/inspectable in v1 (RDD_EXT_14).
+ * Per STATE_NEXT_AI.md's "GRU implementation design", the trainer (a separate, non-shipped
+ * {@code tools/gru} entry point) writes this file; {@code GruClassifier} never bakes weight
+ * arrays into source the way {@link com.jxmake.formatter.classifier.CommentClassifierWeights}
+ * does, since a neural net's weight count isn't hand-editable the same way and retraining
+ * shouldn't require a JAR rebuild. JSON is used (not a flat binary tensor dump) so a trained
+ * file stays diffable/inspectable in v1 (RDD_EXT_14).
  */
 public final class GruWeights {
 
     /**
      * Current schema version this loader understands. Bump alongside any incompatible change
-     *  to this class's field layout.
+     * to this class's field layout.
      */
     public static final int CURRENT_SCHEMA_VERSION = 1;
 
@@ -49,7 +49,7 @@ public final class GruWeights {
 
     /**
      * Softmax confidence cutoff below which the classifier abstains (RDD_EXT_11). Lives here,
-     *  not hardcoded, so a retrain can ship a new threshold alongside new weights in one file.
+     * not hardcoded, so a retrain can ship a new threshold alongside new weights in one file.
      */
     public final double abstainThreshold;
 
@@ -62,13 +62,13 @@ public final class GruWeights {
 
     /**
      * Explicit vocab words, in embedding-row order; row {@code explicitVocab.length + hashBucket}
-     *  is an OOV row. Null iff no trained weights are present.
+     * is an OOV row. Null iff no trained weights are present.
      */
     public final String[] explicitVocab;
 
     /**
      * Embedding table: {@code embeddings.length == explicitVocab.length + hashBuckets} rows,
-     *  each {@code embeddingDim} wide. Null iff no trained weights are present.
+     * each {@code embeddingDim} wide. Null iff no trained weights are present.
      */
     public final double[][] embeddings;
 
@@ -80,25 +80,25 @@ public final class GruWeights {
 
     /**
      * Dense head: {@code denseW} is 64 x (2*hiddenSize), {@code denseB} is length 64. Null iff no
-     *  trained weights are present.
+     * trained weights are present.
      */
     public final double[][] denseW;
     public final double[]   denseB;
 
     /**
      * Output layer: {@code outW} is numClasses x 64, {@code outB} is length numClasses. Null iff
-     *  no trained weights are present.
+     * no trained weights are present.
      */
     public final double[][] outW;
     public final double[]   outB;
 
     /**
      * One GRU direction's gate weights: update ({@code z}), reset ({@code r}), and candidate
-     *  ({@code h}) gates. {@code Wz}/{@code Wr}/{@code Wh} are hiddenSize x embeddingDim (applied
-     *  to the input); {@code Uz}/{@code Ur}/{@code Uh} are hiddenSize x hiddenSize (applied to the
-     *  previous hidden state); {@code bz}/{@code br}/{@code bh} are length hiddenSize. Plain data
-     *  holder, mutable, shared by both the trained-weights side (here) and gradient accumulation
-     *  during training (same shape, see {@code tools/gru/GruTrainer.java}).
+     * ({@code h}) gates. {@code Wz}/{@code Wr}/{@code Wh} are hiddenSize x embeddingDim (applied
+     * to the input); {@code Uz}/{@code Ur}/{@code Uh} are hiddenSize x hiddenSize (applied to the
+     * previous hidden state); {@code bz}/{@code br}/{@code bh} are length hiddenSize. Plain data
+     * holder, mutable, shared by both the trained-weights side (here) and gradient accumulation
+     * during training (same shape, see {@code tools/gru/GruTrainer.java}).
      */
     public static final class DirectionWeights {
 
@@ -135,7 +135,7 @@ public final class GruWeights {
 
         /**
          * Allocates a zero-filled instance of the given shape -- used both as an initial-weights
-         *  starting point (before random init) and as a gradient accumulator during training
+         * starting point (before random init) and as a gradient accumulator during training
          */
         public static DirectionWeights zeros(int hiddenSize, int embeddingDim)
         {
@@ -187,11 +187,11 @@ public final class GruWeights {
 
     /**
      * True iff this file carries real trained numbers (embedding table, both GRU directions,
-     *  dense head, output layer, and the explicit vocab word list all present together) rather
-     *  than just the flat architecture-constant scalars. {@link GruClassifier#classify} checks
-     *  this and abstains when false, per the project's fail-safe posture (missing/unusable signal
-     *  -> ABSTAIN, never blocks formatting). Partial files (some but not all arrays present) are
-     *  treated as untrained too -- a real trainer run always writes the full bundle at once.
+     * dense head, output layer, and the explicit vocab word list all present together) rather
+     * than just the flat architecture-constant scalars. {@link GruClassifier#classify} checks
+     * this and abstains when false, per the project's fail-safe posture (missing/unusable signal
+     * -> ABSTAIN, never blocks formatting). Partial files (some but not all arrays present) are
+     * treated as untrained too -- a real trainer run always writes the full bundle at once.
      */
     public boolean hasTrainedWeights()
     {
@@ -201,9 +201,9 @@ public final class GruWeights {
 
     /**
      * Loads and validates a weights file from {@code path}. Throws a clear, explicit error
-     *  naming the expected vs. found schema version on any mismatch, rather than attempting to
-     *  parse a shape the loader wasn't written for -- per RDD_EXT_14, this is a hard error, not
-     *  a silent-misparse risk.
+     * naming the expected vs. found schema version on any mismatch, rather than attempting to
+     * parse a shape the loader wasn't written for -- per RDD_EXT_14, this is a hard error, not
+     * a silent-misparse risk.
      *
      *  <p>The flat scalar fields (hand-rolled regex extraction, no external JSON library -- the
      *  project has none) are always required. The trained-weight arrays (embedding table, GRU

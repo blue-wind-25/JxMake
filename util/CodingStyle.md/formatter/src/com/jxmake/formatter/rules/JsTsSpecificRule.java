@@ -66,9 +66,9 @@ public final class JsTsSpecificRule {
     // ── §2 Statement termination (semicolon insertion) ──────────────────────────────
     /**
      * Tokens that mean "the statement isn't finished yet" when they're the last significant
-     *  token seen before a would-be statement boundary -- a trailing binary/assignment operator,
-     *  a comma, a colon (object-literal key or ternary), an opening bracket, or a keyword that
-     *  can never end a statement on its own
+     * token seen before a would-be statement boundary -- a trailing binary/assignment operator,
+     * a comma, a colon (object-literal key or ternary), an opening bracket, or a keyword that
+     * can never end a statement on its own
      */
     private static final Set<String> CONTINUATION_OPS = new HashSet<>( Arrays.asList(
         "=",
@@ -119,15 +119,15 @@ public final class JsTsSpecificRule {
 
     /**
      * Operators that, when they're the FIRST significant token on the line following a
-     *  candidate statement boundary (leading-operator continuation style -- method chaining
-     *  `.get()\n.expect()`, comma-first declarator lists `var a = 1\n  , b = 2`, ternary
-     *  break-before-operator `cond\n  ? x\n  : y`, logical-operator chains, etc.), can *never*
-     *  legally begin a new statement -- so their presence there means the previous line's
-     *  statement is not actually finished yet, regardless of what its own last token was.
-     *  Deliberately excludes ops that have a valid unary/statement-leading use (`+`, `-`, `!`,
-     *  `...` (rest/spread can't start a statement either, but is excluded out of caution as
-     *  it is not observed as a real leading-continuation shape) -- so this set stays narrower
-     *  than {@link #CONTINUATION_OPS} on purpose.
+     * candidate statement boundary (leading-operator continuation style -- method chaining
+     * `.get()\n.expect()`, comma-first declarator lists `var a = 1\n  , b = 2`, ternary
+     * break-before-operator `cond\n  ? x\n  : y`, logical-operator chains, etc.), can *never*
+     * legally begin a new statement -- so their presence there means the previous line's
+     * statement is not actually finished yet, regardless of what its own last token was.
+     * Deliberately excludes ops that have a valid unary/statement-leading use (`+`, `-`, `!`,
+     * `...` (rest/spread can't start a statement either, but is excluded out of caution as
+     * it is not observed as a real leading-continuation shape) -- so this set stays narrower
+     * than {@link #CONTINUATION_OPS} on purpose.
      */
     private static final Set<String> LEADING_CONTINUATION_OPS = new HashSet<>( Arrays.asList(
         ".",
@@ -287,10 +287,10 @@ public final class JsTsSpecificRule {
 
     /**
      * Decides whether a semicolon is needed right after {@code lastSigIdx} (the last real
-     *  content token of a candidate statement), and if so records an override appending `;` to
-     *  that token's own text. {@code boundaryIdx} is the NEWLINE or closing-`}` token that
-     *  triggered the check -- used only to look ahead for a following `{` (control-flow/
-     *  function/class header continuation) and to bail out on a frozen span.
+     * content token of a candidate statement), and if so records an override appending `;` to
+     * that token's own text. {@code boundaryIdx} is the NEWLINE or closing-`}` token that
+     * triggered the check -- used only to look ahead for a following `{` (control-flow/
+     * function/class header continuation) and to bail out on a frozen span.
      */
     private void maybeInsertSemicolon(
         final List<Token>           tokens,
@@ -390,9 +390,9 @@ public final class JsTsSpecificRule {
 
     /**
      * True if {@code idx} is the closing `)` of a decorator's own argument list
-     *  (`@Name(...)`), or {@code idx} is a bare decorator name with no argument list
-     *  (`@Name`) -- either way, this token ends a decorator application, not a statement, and a
-     *  trailing semicolon must never be inserted after it.
+     * (`@Name(...)`), or {@code idx} is a bare decorator name with no argument list
+     * (`@Name`) -- either way, this token ends a decorator application, not a statement, and a
+     * trailing semicolon must never be inserted after it.
      */
     private boolean endsWithDecoratorApplication(
         final List<Token>           tokens,
@@ -414,7 +414,7 @@ public final class JsTsSpecificRule {
 
     /**
      * True if the token at {@code nameIdx} is an identifier immediately (tight, no gap other
-     *  than the `@` itself) preceded by `@` -- a decorator's own name
+     * than the `@` itself) preceded by `@` -- a decorator's own name
      */
     private boolean isDecoratorName(final List<Token> tokens, final int nameIdx)
     {
@@ -577,9 +577,9 @@ public final class JsTsSpecificRule {
 
     /**
      * True iff {@code idx} is a valid index into {@code tokens} and that token is the KEYWORD
-     *  {@code text} -- small guard used by {@link #classifyBraces}'s `import type {` lookback so
-     *  a negative "not found" index from {@link #prevSignificantIndex} doesn't need its own
-     *  bounds check at every call site
+     * {@code text} -- small guard used by {@link #classifyBraces}'s `import type {` lookback so
+     * a negative "not found" index from {@link #prevSignificantIndex} doesn't need its own
+     * bounds check at every call site
      */
     private boolean isKeywordAt(final List<Token> tokens, final int idx, final String text)
     {
@@ -592,11 +592,11 @@ public final class JsTsSpecificRule {
 
     /**
      * True iff the `{` at {@code braceIdx} opens a TS enum body -- i.e. it is directly preceded
-     *  by an IDENTIFIER (the enum's own name) whose own preceding significant token is the `enum`
-     *  KEYWORD (TS has no `extends`/generic clause on an enum name, unlike class/interface, so no
-     *  intervening-clause walk is needed the way Java's own {@code isEnumBodyBrace} needs one).
-     *  `const enum Name { ... }` is covered too -- the `const` modifier sits before `enum`, outside
-     *  this check's own two-token lookback, so it doesn't need to be inspected at all.
+     * by an IDENTIFIER (the enum's own name) whose own preceding significant token is the `enum`
+     * KEYWORD (TS has no `extends`/generic clause on an enum name, unlike class/interface, so no
+     * intervening-clause walk is needed the way Java's own {@code isEnumBodyBrace} needs one).
+     * `const enum Name { ... }` is covered too -- the `const` modifier sits before `enum`, outside
+     * this check's own two-token lookback, so it doesn't need to be inspected at all.
      */
     private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
     {
@@ -851,9 +851,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Finds the {@code TEMPLATE_HOLE_CLOSE} matching the {@code TEMPLATE_HOLE_OPEN} at
-     *  {@code openIdx}, tracking nesting depth so a nested template literal's own hole pair inside
-     *  doesn't prematurely match. Returns -1 if unbalanced (defensive only -- the tokenizer itself
-     *  guarantees balanced pairs by construction; never expected to fire).
+     * {@code openIdx}, tracking nesting depth so a nested template literal's own hole pair inside
+     * doesn't prematurely match. Returns -1 if unbalanced (defensive only -- the tokenizer itself
+     * guarantees balanced pairs by construction; never expected to fire).
      */
     private int findMatchingTemplateHoleClose(final List<Token> tokens, final int openIdx)
     {
@@ -872,24 +872,24 @@ public final class JsTsSpecificRule {
 
     /**
      * Re-renders a segmented template-literal hole's already-tokenized interior (the slice
-     *  strictly between its {@code TEMPLATE_HOLE_OPEN}/{@code TEMPLATE_HOLE_CLOSE} pair) via
-     *  {@code renderTokens}'s ordinary tight/loose adjacency rules -- the token-based counterpart
-     *  of {@link #reformatInterpolationInterior}'s text-based version, used for `.jsx`/`.tsx`
-     *  files where the hole's interior is real tokens rather than raw substring text. Same
-     *  conservative bailout as the text-based path: returns {@code null} (caller leaves the
-     *  original interior untouched) if empty/blank, or if any significant token is a NEWLINE,
-     *  comment, or frozen (a {@code JSX_SPAN} is frozen by design -- {@code true} to preserve its
-     *  raw text byte-for-byte, but that is a deliberate keep-as-is, not a bailout reason, so it is
-     *  explicitly exempted from the frozen check here). A bare nested {@code TEMPLATE_HOLE_OPEN}
-     *  found directly in the slice (STATE_JS_TS.md sub-context 2) is recursively reformatted via
-     *  this same method and spliced back in as one synthetic {@code ${...}} STRING token, mirroring
-     *  {@link #reformatInterpolationInterior}'s own recursive-nesting structure. A nested template
-     *  *literal* (its own STRING/HOLE_OPEN/.../STRING segment chain, opening backtick to closing
-     *  backtick) is folded whole into a single synthetic STRING token spanning the entire literal
-     *  -- its own segments are never pushed into the significant-token list individually, since
-     *  {@code renderTokens} spaces adjacent STRING tokens apart as if they were two separate value
-     *  expressions, which corrupted (and on repeated passes, snowballed) the nested literal's raw
-     *  text; folding it into one token sidesteps that entirely.
+     * strictly between its {@code TEMPLATE_HOLE_OPEN}/{@code TEMPLATE_HOLE_CLOSE} pair) via
+     * {@code renderTokens}'s ordinary tight/loose adjacency rules -- the token-based counterpart
+     * of {@link #reformatInterpolationInterior}'s text-based version, used for `.jsx`/`.tsx`
+     * files where the hole's interior is real tokens rather than raw substring text. Same
+     * conservative bailout as the text-based path: returns {@code null} (caller leaves the
+     * original interior untouched) if empty/blank, or if any significant token is a NEWLINE,
+     * comment, or frozen (a {@code JSX_SPAN} is frozen by design -- {@code true} to preserve its
+     * raw text byte-for-byte, but that is a deliberate keep-as-is, not a bailout reason, so it is
+     * explicitly exempted from the frozen check here). A bare nested {@code TEMPLATE_HOLE_OPEN}
+     * found directly in the slice (STATE_JS_TS.md sub-context 2) is recursively reformatted via
+     * this same method and spliced back in as one synthetic {@code ${...}} STRING token, mirroring
+     * {@link #reformatInterpolationInterior}'s own recursive-nesting structure. A nested template
+     * *literal* (its own STRING/HOLE_OPEN/.../STRING segment chain, opening backtick to closing
+     * backtick) is folded whole into a single synthetic STRING token spanning the entire literal
+     * -- its own segments are never pushed into the significant-token list individually, since
+     * {@code renderTokens} spaces adjacent STRING tokens apart as if they were two separate value
+     * expressions, which corrupted (and on repeated passes, snowballed) the nested literal's raw
+     * text; folding it into one token sidesteps that entirely.
      */
     private String renderTemplateHoleInterior(final List<Token> interior, final MiscRuleCurly misc)
     {
@@ -980,10 +980,10 @@ public final class JsTsSpecificRule {
 
     /**
      * Finds every top-level `${...}` span in {@code text} (a whole backtick-delimited template
-     *  literal, opening/closing backtick included) and re-renders each interior expression via
-     *  {@code renderTokens}, splicing the results back into the literal's raw text. Returns
-     *  {@code text} unchanged if there are no interpolations, or if any span's own interior fails
-     *  its conservative reformat check (see {@link #reformatInterpolationInterior}).
+     * literal, opening/closing backtick included) and re-renders each interior expression via
+     * {@code renderTokens}, splicing the results back into the literal's raw text. Returns
+     * {@code text} unchanged if there are no interpolations, or if any span's own interior fails
+     * its conservative reformat check (see {@link #reformatInterpolationInterior}).
      */
     private String rewriteTemplateLiteral(
         final String         text,
@@ -1011,11 +1011,11 @@ public final class JsTsSpecificRule {
 
     /**
      * Scans a template literal's raw text (opening/closing backtick included) for every
-     *  top-level `${...}` interpolation, returning each as a {@code [interiorStart, interiorEnd)}
-     *  index pair (excluding the `${`/`}` delimiters themselves). Mirrors {@code
-     *  TokenizerCurly.skipTemplateInterpolation}'s nesting rules: `{`/`}` depth counting, with
-     *  nested `"`/`'`/`` ` `` quoted spans skipped as opaque units so an interior brace inside a
-     *  string literal (or a nested template) doesn't corrupt depth counting.
+     * top-level `${...}` interpolation, returning each as a {@code [interiorStart, interiorEnd)}
+     * index pair (excluding the `${`/`}` delimiters themselves). Mirrors {@code
+     * TokenizerCurly.skipTemplateInterpolation}'s nesting rules: `{`/`}` depth counting, with
+     * nested `"`/`'`/`` ` `` quoted spans skipped as opaque units so an interior brace inside a
+     * string literal (or a nested template) doesn't corrupt depth counting.
      */
     private List<int[]> findInterpolationSpans(final String text)
     {
@@ -1067,10 +1067,10 @@ public final class JsTsSpecificRule {
 
     /**
      * Skips a quoted span (`"`/`'`/`` ` ``-delimited, {@code quote} is the delimiter char)
-     *  starting at {@code p} (the opening delimiter itself), returning the index right after its
-     *  closing delimiter -- or {@code boundIdx} if unterminated within that bound. A nested
-     *  backtick template's own interior (including any of its own `${...}`) is treated as opaque
-     *  by this same skip -- not reformatted, see this section's own javadoc scope note.
+     * starting at {@code p} (the opening delimiter itself), returning the index right after its
+     * closing delimiter -- or {@code boundIdx} if unterminated within that bound. A nested
+     * backtick template's own interior (including any of its own `${...}`) is treated as opaque
+     * by this same skip -- not reformatted, see this section's own javadoc scope note.
      */
     private int skipQuotedSpan(final String text, final int p, final int boundIdx, final char quote)
     {
@@ -1090,14 +1090,14 @@ public final class JsTsSpecificRule {
 
     /**
      * Re-tokenizes {@code interior} (a `${...}` interpolation's raw interior substring) in
-     *  isolation and re-joins its significant tokens via {@code renderTokens}'s ordinary
-     *  tight/loose adjacency rules. Returns {@code null} (caller leaves the original interior
-     *  untouched) if the interior is empty/blank, contains a NEWLINE or comment token (multi-line
-     *  or commented interpolation -- out of this flat pass's scope), or contains a frozen token.
-     *  A nested backtick-delimited STRING token among the interior's own significant tokens (a
-     *  template literal nested inside this interpolation, e.g. `` `${`inner ${x}`}` ``) is
-     *  recursively reformatted via {@code rewriteTemplateLiteral} before re-joining, so nesting of
-     *  any depth gets its own `${...}` spacing normalized, not just the outermost level.
+     * isolation and re-joins its significant tokens via {@code renderTokens}'s ordinary
+     * tight/loose adjacency rules. Returns {@code null} (caller leaves the original interior
+     * untouched) if the interior is empty/blank, contains a NEWLINE or comment token (multi-line
+     * or commented interpolation -- out of this flat pass's scope), or contains a frozen token.
+     * A nested backtick-delimited STRING token among the interior's own significant tokens (a
+     * template literal nested inside this interpolation, e.g. `` `${`inner ${x}`}` ``) is
+     * recursively reformatted via {@code rewriteTemplateLiteral} before re-joining, so nesting of
+     * any depth gets its own `${...}` spacing normalized, not just the outermost level.
      */
     private String reformatInterpolationInterior(
         final String         interior,
@@ -1213,12 +1213,12 @@ public final class JsTsSpecificRule {
 
     /**
      * Walks backward from {@code fromIdx} (the last significant token seen before a candidate
-     *  `{`) to find the header's own closing `)`. If {@code fromIdx} itself is `)`, that's the
-     *  direct-adjacency (plain JS, or TS with no return type) case. Otherwise looks for a `:`
-     *  return-type-annotation tail whose own immediately-preceding significant token is `)` --
-     *  the return type's own interior content between that `:` and {@code fromIdx} is never
-     *  otherwise inspected. Returns -1 if neither shape is found before a statement-breaking
-     *  token (`;`, `{`, `}`) is hit.
+     * `{`) to find the header's own closing `)`. If {@code fromIdx} itself is `)`, that's the
+     * direct-adjacency (plain JS, or TS with no return type) case. Otherwise looks for a `:`
+     * return-type-annotation tail whose own immediately-preceding significant token is `)` --
+     * the return type's own interior content between that `:` and {@code fromIdx} is never
+     * otherwise inspected. Returns -1 if neither shape is found before a statement-breaking
+     * token (`;`, `{`, `}`) is hit.
      */
     private int findHeaderCloseParen(final List<Token> tokens, final int fromIdx)
     {
@@ -1242,11 +1242,11 @@ public final class JsTsSpecificRule {
 
     /**
      * Index of the `<` matching the `>` at {@code closeIdx} (a generic type-parameter list's
-     *  closing bracket), via local backward depth counting over the tokenizer's own
-     *  {@code ANGLE_BRACKET_OPEN}/{@code ANGLE_BRACKET_CLOSE} reclassification (not raw `<`/`>`
-     *  operator tokens, which would also match unrelated comparisons) -- structurally identical to
-     *  {@code BlockStructureRule.matchAngleOpenBackward}, duplicated locally rather than shared
-     *  since that method is private to its own class. Returns -1 if unmatched.
+     * closing bracket), via local backward depth counting over the tokenizer's own
+     * {@code ANGLE_BRACKET_OPEN}/{@code ANGLE_BRACKET_CLOSE} reclassification (not raw `<`/`>`
+     * operator tokens, which would also match unrelated comparisons) -- structurally identical to
+     * {@code BlockStructureRule.matchAngleOpenBackward}, duplicated locally rather than shared
+     * since that method is private to its own class. Returns -1 if unmatched.
      */
     private int matchAngleOpenBackward(final List<Token> tokens, final int closeIdx)
     {
@@ -1280,7 +1280,7 @@ public final class JsTsSpecificRule {
 
     /**
      * True if {@code braceIdx}/{@code closeBraceIdx} delimit an empty body -- nothing (not even
-     *  a comment) between the two braces
+     * a comment) between the two braces
      */
     private boolean isEmptyBody(
         final List<Token> tokens,
@@ -1294,7 +1294,7 @@ public final class JsTsSpecificRule {
 
     /**
      * True if no NEWLINE token appears anywhere between {@code braceIdx} and
-     *  {@code closeBraceIdx} inclusive -- the whole body sits on one physical line
+     * {@code closeBraceIdx} inclusive -- the whole body sits on one physical line
      */
     private boolean isSingleLineBraceBody(
         final List<Token> tokens,
@@ -1312,9 +1312,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Second pass: given the set of `{` indices approved for Allman conversion (keyed by the
-     *  last header token that immediately precedes each, in {@code headerTokenToBrace}), rebuilds
-     *  the token stream, replacing the gap right after each such header token with a NEWLINE plus
-     *  the header line's own leading indentation, followed by the brace
+     * last header token that immediately precedes each, in {@code headerTokenToBrace}), rebuilds
+     * the token stream, replacing the gap right after each such header token with a NEWLINE plus
+     * the header line's own leading indentation, followed by the brace
      */
     private String renderAllmanBraceMoves(
         final List<Token>           tokens,
@@ -1343,17 +1343,17 @@ public final class JsTsSpecificRule {
 
     /**
      * Reindents a leading multi-line block comment (captured verbatim from the source, so its
-     *  continuation lines still carry whatever absolute indentation they had at the *original*
-     *  code depth) to align under {@code indentPrefix} at the *new* depth this comment is being
-     *  re-emitted at (e.g. by an alignment-grid rewrite that may reindent the code around it).
-     *  Unlike {@link FormatterSimpleBraced#reindentBlockComment}, which only prepends
-     *  {@code indentPrefix} in front of whatever whitespace a continuation line already has (correct
-     *  when that line has none of its own, e.g. freshly generated text), this fully strips each
-     *  continuation line's existing leading whitespace first and reconstructs
-     *  {@code indentPrefix + " " + strippedLine} -- correct regardless of what depth the comment's
-     *  interior lines were originally written at, and idempotent (re-running against already
-     *  correctly-reindented text is a no-op). Single-line comments (no {@code '\n'}) pass through
-     *  unchanged.
+     * continuation lines still carry whatever absolute indentation they had at the *original*
+     * code depth) to align under {@code indentPrefix} at the *new* depth this comment is being
+     * re-emitted at (e.g. by an alignment-grid rewrite that may reindent the code around it).
+     * Unlike {@link FormatterSimpleBraced#reindentBlockComment}, which only prepends
+     * {@code indentPrefix} in front of whatever whitespace a continuation line already has (correct
+     * when that line has none of its own, e.g. freshly generated text), this fully strips each
+     * continuation line's existing leading whitespace first and reconstructs
+     * {@code indentPrefix + " " + strippedLine} -- correct regardless of what depth the comment's
+     * interior lines were originally written at, and idempotent (re-running against already
+     * correctly-reindented text is a no-op). Single-line comments (no {@code '\n'}) pass through
+     * unchanged.
      */
     private static String reindentLeadingComment(
         final String commentText,
@@ -1374,7 +1374,7 @@ public final class JsTsSpecificRule {
 
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- {@code ""} if
-     *  that line has no leading whitespace (column-0 start)
+     * that line has no leading whitespace (column-0 start)
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
@@ -1397,8 +1397,8 @@ public final class JsTsSpecificRule {
 
     /**
      * Rendered column (0-based, in characters) of the physical line up to but not including
-     *  token {@code idx} -- i.e. how many characters of that line's own text precede it. Used to
-     *  compute the alignment target column for continuation-line indentation.
+     * token {@code idx} -- i.e. how many characters of that line's own text precede it. Used to
+     * compute the alignment target column for continuation-line indentation.
      */
     private int lineColumnOf(final List<Token> tokens, final int idx)
     {
@@ -1415,16 +1415,16 @@ public final class JsTsSpecificRule {
     // ── Step 2 "context 11" Increment 2: self-closing-tag attribute wrap ─────────────
     /**
      * STATE_JS_TS.md's Step 2 "context 11" scoping session, Increments 2-3 of the suggested
-     *  5-increment breakdown: the actual wrap-decision function, applied to any root
-     *  {@code JSX_SPAN} opening tag -- self-closing (Increment 2) or with children (Increment 3).
-     *  Mirrors {@link MiscRuleCurly#enforceCallLineBreaking}'s decision-ladder shape (fits on one
-     *  line -> no change; else one-attribute-per-line) without routing through that method's
-     *  comma-split/typed-signature machinery, which doesn't fit JSX's whitespace-separated,
-     *  comma-less attribute list (sub-context 3). Per sub-context 2's whitespace-significance
-     *  hazard, only the opening tag itself (up through its own {@code >} / {@code />}) is ever
-     *  rewritten -- everything from {@link Token#jsxOpeningTagEndOffset} onward (children plus the
-     *  closing tag, when present) is spliced back in byte-for-byte untouched, never re-tokenized
-     *  or re-rendered.
+     * 5-increment breakdown: the actual wrap-decision function, applied to any root
+     * {@code JSX_SPAN} opening tag -- self-closing (Increment 2) or with children (Increment 3).
+     * Mirrors {@link MiscRuleCurly#enforceCallLineBreaking}'s decision-ladder shape (fits on one
+     * line -> no change; else one-attribute-per-line) without routing through that method's
+     * comma-split/typed-signature machinery, which doesn't fit JSX's whitespace-separated,
+     * comma-less attribute list (sub-context 3). Per sub-context 2's whitespace-significance
+     * hazard, only the opening tag itself (up through its own {@code >} / {@code />}) is ever
+     * rewritten -- everything from {@link Token#jsxOpeningTagEndOffset} onward (children plus the
+     * closing tag, when present) is spliced back in byte-for-byte untouched, never re-tokenized
+     * or re-rendered.
      */
     public String enforceJsxSelfClosingAttributeWrap(final List<Token> tokens)
     {
@@ -1444,12 +1444,12 @@ public final class JsTsSpecificRule {
 
     /**
      * Returns replacement text for the root {@code JSX_SPAN} at {@code idx} if its opening tag
-     *  doesn't fit on its current line and needs one-attribute-per-line wrapping, or {@code null}
-     *  for no change (Option 0: already fits, or has no attributes to wrap in the first place).
-     *  Width is measured over the opening tag only ({@link Token#jsxOpeningTagEndOffset} bytes of
-     *  {@code text}), never over any children -- a children-bearing tag's child content is opaque
-     *  to this measurement, same approximation Increment 1's {@code JsxWrapDiagnostics} already
-     *  uses, so a short opening tag with huge children never spuriously wraps.
+     * doesn't fit on its current line and needs one-attribute-per-line wrapping, or {@code null}
+     * for no change (Option 0: already fits, or has no attributes to wrap in the first place).
+     * Width is measured over the opening tag only ({@link Token#jsxOpeningTagEndOffset} bytes of
+     * {@code text}), never over any children -- a children-bearing tag's child content is opaque
+     * to this measurement, same approximation Increment 1's {@code JsxWrapDiagnostics} already
+     * uses, so a short opening tag with huge children never spuriously wraps.
      */
     private String renderJsxSelfClosingWrapCandidate(final List<Token> tokens, final int idx)
     {
@@ -1538,8 +1538,8 @@ public final class JsTsSpecificRule {
 
     /**
      * True when the nearest preceding significant token to {@code idx} is a statement boundary
-     *  (`;`, `{`, `}`) or there isn't one (start of file/scope) -- i.e. {@code idx} can validly
-     *  start a new top-level statement.
+     * (`;`, `{`, `}`) or there isn't one (start of file/scope) -- i.e. {@code idx} can validly
+     * start a new top-level statement.
      */
     private boolean isStatementBoundary(final List<Token> tokens, final int idx)
     {
@@ -1552,10 +1552,10 @@ public final class JsTsSpecificRule {
 
     /**
      * Attempts to rewrite one {@code type NAME = ...;} alias starting at the `type` keyword
-     *  (index {@code typeIdx}) whose RHS is a multi-line union/intersection expression, appending
-     *  the rewritten text (with continuation lines re-indented) directly to {@code out} and
-     *  returning the index just past the statement's `;` on success, or returning {@code typeIdx}
-     *  unchanged (having appended nothing) if this shape isn't recognized.
+     * (index {@code typeIdx}) whose RHS is a multi-line union/intersection expression, appending
+     * the rewritten text (with continuation lines re-indented) directly to {@code out} and
+     * returning the index just past the statement's `;` on success, or returning {@code typeIdx}
+     * unchanged (having appended nothing) if this shape isn't recognized.
      */
     private int tryRewriteUnionTypeAlias(
         final List<Token>   tokens,
@@ -1831,9 +1831,9 @@ public final class JsTsSpecificRule {
     // ── §11.2 Class field modifier-priority table ────────────────────────────────────
     /**
      * STYLE_JS_TS.md §11.2's fixed six-slot modifier order -- `declare` first (ambient marker),
-     *  then visibility (`public`/`private`/`protected`, mutually exclusive so all three share one
-     *  slot), then `static`, `abstract`, `override`, `readonly` last (parallels Java's `final`
-     *  taking the position right before the name).
+     * then visibility (`public`/`private`/`protected`, mutually exclusive so all three share one
+     * slot), then `static`, `abstract`, `override`, `readonly` last (parallels Java's `final`
+     * taking the position right before the name).
      */
     private static final List<String>         MODIFIER_ORDER    = Arrays.asList(
         "declare", "public", "private", "protected", "static", "abstract", "override", "readonly"
@@ -1925,12 +1925,12 @@ public final class JsTsSpecificRule {
     // ── §12 Enum member formatting ───────────────────────────────────────────────────
     /**
      * One parsed enum member: an optional list of standalone (own-line) leading comments, the
-     *  member's own name, whether it carries an explicit `= value` (and that value's raw text,
-     *  trimmed, if so -- internal spacing within the value expression itself is left exactly as
-     *  originally written, out of this method's scope), and an optional same-line trailing
-     *  comment. {@code trailingComment} is mutable -- it may be discovered either immediately
-     *  after the member's own name/value (before its trailing comma) or immediately after that
-     *  comma (before the next member), so it's filled in from whichever position is found.
+     * member's own name, whether it carries an explicit `= value` (and that value's raw text,
+     * trimmed, if so -- internal spacing within the value expression itself is left exactly as
+     * originally written, out of this method's scope), and an optional same-line trailing
+     * comment. {@code trailingComment} is mutable -- it may be discovered either immediately
+     * after the member's own name/value (before its trailing comma) or immediately after that
+     * comma (before the next member), so it's filled in from whichever position is found.
      */
     private static final class EnumMember {
 
@@ -2022,9 +2022,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Rewrites the interior of one enum body (tokens strictly between {@code openIdx}'s `{` and
-     *  {@code closeIdx}'s `}`, not including either brace) into the one-member-per-line,
-     *  `=`-aligned-when-applicable layout described on {@link #enforceEnumMemberFormatting}, or
-     *  returns {@code null} if {@link #parseEnumMembers} can't safely parse it
+     * {@code closeIdx}'s `}`, not including either brace) into the one-member-per-line,
+     * `=`-aligned-when-applicable layout described on {@link #enforceEnumMemberFormatting}, or
+     * returns {@code null} if {@link #parseEnumMembers} can't safely parse it
      */
     private String rewriteEnumBody(final List<Token> tokens, final int openIdx, final int closeIdx)
     {
@@ -2064,13 +2064,13 @@ public final class JsTsSpecificRule {
 
     /**
      * Parses an enum body's interior (between {@code openIdx} and {@code closeIdx}, exclusive)
-     *  into an ordered list of {@link EnumMember}s via a single forward scan, tracking whether the
-     *  most recently seen top-level separator was a comma on the *same physical line* as what
-     *  follows it (so a same-line trailing comment right after a member's own comma is correctly
-     *  attributed back to that member, not misread as a standalone leading comment for the next
-     *  one). Returns {@code null} (bail, leave this enum body untouched) if a non-identifier
-     *  top-level token is found where a member name is expected, if a member's value expression
-     *  spans a NEWLINE, or if a floating comment is left with no member following it.
+     * into an ordered list of {@link EnumMember}s via a single forward scan, tracking whether the
+     * most recently seen top-level separator was a comma on the *same physical line* as what
+     * follows it (so a same-line trailing comment right after a member's own comma is correctly
+     * attributed back to that member, not misread as a standalone leading comment for the next
+     * one). Returns {@code null} (bail, leave this enum body untouched) if a non-identifier
+     * top-level token is found where a member name is expected, if a member's value expression
+     * spans a NEWLINE, or if a floating comment is left with no member following it.
      */
     private List<EnumMember> parseEnumMembers(
         final List<Token> tokens,
@@ -2160,8 +2160,8 @@ public final class JsTsSpecificRule {
 
     /**
      * One parsed simple class-field declaration (`[modifiers] name[?][: type][ = init];`) inside
-     *  a class body -- the class-body analog of {@link InterfaceMember}, plus the modifier phrase
-     *  and optional initializer §11.2 field declarations carry that interface members never do.
+     * a class body -- the class-body analog of {@link InterfaceMember}, plus the modifier phrase
+     * and optional initializer §11.2 field declarations carry that interface members never do.
      */
     private static final class ClassField {
 
@@ -2263,9 +2263,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Rewrites the interior of one class body (strictly between {@code openIdx}'s `{` and
-     *  {@code closeIdx}'s `}`), aligning each maximal run of consecutive simple field declarations
-     *  and copying everything else (methods, blank lines, comments that aren't a field's own
-     *  leading comment) through byte-for-byte
+     * {@code closeIdx}'s `}`), aligning each maximal run of consecutive simple field declarations
+     * and copying everything else (methods, blank lines, comments that aren't a field's own
+     * leading comment) through byte-for-byte
      */
     private String rewriteClassFieldGroups(
         final List<Token> tokens,
@@ -2363,9 +2363,9 @@ public final class JsTsSpecificRule {
 
     /**
      * If the token at {@code idx} is a NEWLINE, returns {@code idx + 1}; otherwise returns
-     *  {@code idx} unchanged. Used right after {@link #flushClassFieldGroup} to avoid
-     *  double-counting the line-ending newline its own rendering already emitted for the last
-     *  member, before any subsequent raw-copy span starting at that same position.
+     * {@code idx} unchanged. Used right after {@link #flushClassFieldGroup} to avoid
+     * double-counting the line-ending newline its own rendering already emitted for the last
+     * member, before any subsequent raw-copy span starting at that same position.
      */
     private int skipOneNewline(final List<Token> tokens, final int idx)
     {
@@ -2374,16 +2374,16 @@ public final class JsTsSpecificRule {
 
     /**
      * True when two NEWLINE tokens appear back-to-back (with only WHITESPACE, never a COMMENT or
-     *  anything else, between them) somewhere in {@code tokens} between {@code fromIdx} (exclusive;
-     *  -1 means "no prior field, never a blank-line break") and {@code toIdx} (exclusive) -- a
-     *  genuine blank source line, as opposed to merely two-or-more NEWLINEs total across the gap.
-     *  A same-line leading comment (`/** @internal *&#47; readonly x: T;`) forces its own line when
-     *  {@link #flushClassFieldGroup} renders a group (one NEWLINE after the comment, one more after
-     *  the previous field's `;`) without there ever having been a real blank line in the source --
-     *  simply counting total NEWLINEs previously miscounted that shape as blank on a second pass fed
-     *  the first pass's own rendered (now comment-on-its-own-line) output, splitting a group that
-     *  should have stayed joined and making the resulting column alignment non-idempotent (found via
-     *  `microsoft/TypeScript`'s `server/editorServices.ts`/`server/project.ts`).
+     * anything else, between them) somewhere in {@code tokens} between {@code fromIdx} (exclusive;
+     * -1 means "no prior field, never a blank-line break") and {@code toIdx} (exclusive) -- a
+     * genuine blank source line, as opposed to merely two-or-more NEWLINEs total across the gap.
+     * A same-line leading comment (`/** @internal *&#47; readonly x: T;`) forces its own line when
+     * {@link #flushClassFieldGroup} renders a group (one NEWLINE after the comment, one more after
+     * the previous field's `;`) without there ever having been a real blank line in the source --
+     * simply counting total NEWLINEs previously miscounted that shape as blank on a second pass fed
+     * the first pass's own rendered (now comment-on-its-own-line) output, splitting a group that
+     * should have stayed joined and making the resulting column alignment non-idempotent (found via
+     * `microsoft/TypeScript`'s `server/editorServices.ts`/`server/project.ts`).
      */
     private boolean blankLineBetween(final List<Token> tokens, final int fromIdx, final int toIdx)
     {
@@ -2405,7 +2405,7 @@ public final class JsTsSpecificRule {
 
     /**
      * Renders {@code group} (if non-empty) as an aligned grid into {@code out}, then clears it.
-     *  Returns {@code true} iff anything was flushed (group was non-empty).
+     * Returns {@code true} iff anything was flushed (group was non-empty).
      */
     private boolean flushClassFieldGroup(
         final List<Token>      tokens,
@@ -2462,8 +2462,8 @@ public final class JsTsSpecificRule {
 
     /**
      * Attempts to parse a simple class-field declaration starting at {@code start} (already
-     *  known to be a non-comment, non-gap token). Returns {@code null} if this isn't a recognized
-     *  field shape (a method, an untyped/computed member, a multi-line type/initializer, ...).
+     * known to be a non-comment, non-gap token). Returns {@code null} if this isn't a recognized
+     * field shape (a method, an untyped/computed member, a multi-line type/initializer, ...).
      */
     private ClassField tryParseClassField(
         final List<Token>  tokens,
@@ -2599,9 +2599,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Skips forward from {@code start} (a member this pass doesn't recognize -- a method, an
-     *  untyped field, etc.) past that member's own end: either a depth-0 `;` or, for a member
-     *  with its own brace body (a method), the matching `}` of that body. Bracket-depth-aware over
-     *  `(`/`[`/`{`/`<>` so nested structure never trips an early depth-0 match.
+     * untyped field, etc.) past that member's own end: either a depth-0 `;` or, for a member
+     * with its own brace body (a method), the matching `}` of that body. Bracket-depth-aware over
+     * `(`/`[`/`{`/`<>` so nested structure never trips an early depth-0 match.
      */
     private int skipTopLevelMember(final List<Token> tokens, final int start, final int closeIdx)
     {
@@ -2846,7 +2846,7 @@ public final class JsTsSpecificRule {
 
     /**
      * Bracket-stack scan producing the index set of every `:` token classified as a
-     *  type-annotation colon. See {@link #enforceTypeColonSpacing}'s javadoc for the exact rules.
+     * type-annotation colon. See {@link #enforceTypeColonSpacing}'s javadoc for the exact rules.
      */
     private Set<Integer> classifyTypeColons(final List<Token> tokens)
     {
@@ -2995,14 +2995,14 @@ public final class JsTsSpecificRule {
 
     /**
      * Classifies the `{` at {@code braceIdx} as the body brace of a `class` or `interface`
-     *  declaration (returns {@code "CLASS"}/{@code "IFACE"}), or {@code null} if it's neither.
-     *  Scans backward from {@code braceIdx} tracking `(`/`[`/`<...>` nesting (an `extends`/
-     *  `implements` clause's own type arguments, e.g. `class Foo extends Bar<T> implements Baz {`,
-     *  never contain a `{` themselves, so a depth-0 `{`/`}`/`;` encountered first means "no class/
-     *  interface header found -- give up", not "false positive risk") until either a depth-0
-     *  `class`/`interface` KEYWORD is found (match) or a depth-0 statement/block boundary (`{`,
-     *  `}`, `;`) is hit first (no match, e.g. an ordinary function/control-flow body or an object-
-     *  literal brace).
+     * declaration (returns {@code "CLASS"}/{@code "IFACE"}), or {@code null} if it's neither.
+     * Scans backward from {@code braceIdx} tracking `(`/`[`/`<...>` nesting (an `extends`/
+     * `implements` clause's own type arguments, e.g. `class Foo extends Bar<T> implements Baz {`,
+     * never contain a `{` themselves, so a depth-0 `{`/`}`/`;` encountered first means "no class/
+     * interface header found -- give up", not "false positive risk") until either a depth-0
+     * `class`/`interface` KEYWORD is found (match) or a depth-0 statement/block boundary (`{`,
+     * `}`, `;`) is hit first (no match, e.g. an ordinary function/control-flow body or an object-
+     * literal brace).
      */
     private String classBraceKind(final List<Token> tokens, final int braceIdx)
     {
@@ -3056,10 +3056,10 @@ public final class JsTsSpecificRule {
 
     /**
      * True iff the KEYWORD token at index {@code kwIdx} (text `class` or `interface`) is being
-     *  used as a TS property/field name, not a class/interface declaration keyword -- i.e. the
-     *  next significant (non-gap) token forward is `:` or `?` (an optional-marker before `:`)
-     *  rather than an identifier (the declared class/interface's own name). See
-     *  {@link #classBraceKind}'s call sites for the exact bug this guards against.
+     * used as a TS property/field name, not a class/interface declaration keyword -- i.e. the
+     * next significant (non-gap) token forward is `:` or `?` (an optional-marker before `:`)
+     * rather than an identifier (the declared class/interface's own name). See
+     * {@link #classBraceKind}'s call sites for the exact bug this guards against.
      */
     private boolean isFieldNameKeywordUsage(final List<Token> tokens, final int kwIdx)
     {
@@ -3073,20 +3073,20 @@ public final class JsTsSpecificRule {
 
     /**
      * True iff the `{` at {@code braceIdx} is the object-shaped body of a `type X = { ... };`
-     *  alias declaration -- i.e. immediately preceded by `=`, whose own enclosing statement (walked
-     *  backward the same depth-aware way as {@link #classBraceKind}) starts with the `type`
-     *  KEYWORD. Excludes non-object type aliases (`type Status = "a" | "b";`, no brace at all) and
-     *  ordinary `=`-preceded object-literal initializers (`const obj = { ... };`, whose enclosing
-     *  statement starts with `const`/`let`/`var`, never `type`) by construction.
+     * alias declaration -- i.e. immediately preceded by `=`, whose own enclosing statement (walked
+     * backward the same depth-aware way as {@link #classBraceKind}) starts with the `type`
+     * KEYWORD. Excludes non-object type aliases (`type Status = "a" | "b";`, no brace at all) and
+     * ordinary `=`-preceded object-literal initializers (`const obj = { ... };`, whose enclosing
+     * statement starts with `const`/`let`/`var`, never `type`) by construction.
      */
     /**
      * True iff the `{` at {@code braceIdx} is immediately preceded by a TS legacy angle-bracket
-     *  cast (`<Type>{...}`, e.g. `push(<WaitCallback>{doneCb: cb})`) -- i.e. a plain OP `>` whose
-     *  matching plain OP `<` sits directly before a single (optionally dotted) type name, and that
-     *  `<` itself follows a value-starting token (`(`, `,`, `=`, `return`, etc.). Such a `<...>`
-     *  is never reclassified to ANGLE_BRACKET_OPEN/CLOSE by
-     *  {@code TokenizerCurly.reclassifyAngleBrackets}, which only tracks a `<` preceded by an
-     *  IDENTIFIER (a generic clause) -- so it's still a plain OP pair by the time this runs.
+     * cast (`<Type>{...}`, e.g. `push(<WaitCallback>{doneCb: cb})`) -- i.e. a plain OP `>` whose
+     * matching plain OP `<` sits directly before a single (optionally dotted) type name, and that
+     * `<` itself follows a value-starting token (`(`, `,`, `=`, `return`, etc.). Such a `<...>`
+     * is never reclassified to ANGLE_BRACKET_OPEN/CLOSE by
+     * {@code TokenizerCurly.reclassifyAngleBrackets}, which only tracks a `<` preceded by an
+     * IDENTIFIER (a generic clause) -- so it's still a plain OP pair by the time this runs.
      */
     private boolean isLegacyCastBrace(final List<Token> tokens, final int braceIdx)
     {
@@ -3187,11 +3187,11 @@ public final class JsTsSpecificRule {
     // ── §14 interface/type-alias member `:` alignment ────────────────────────────────
     /**
      * One parsed `interface`/object-shaped `type`-alias member: optional leading (own-line)
-     *  comments, the member's rendered "name phrase" (an optional {@code readonly } prefix plus the
-     *  property name plus an optional trailing {@code ?}), its type expression's raw text (trimmed,
-     *  internal spacing preserved exactly as originally written), and an optional same-line trailing
-     *  comment -- structurally the direct TS analog of {@link EnumMember}, same fields modulo the
-     *  `=`-value pair being a `:`-type pair instead
+     * comments, the member's rendered "name phrase" (an optional {@code readonly } prefix plus the
+     * property name plus an optional trailing {@code ?}), its type expression's raw text (trimmed,
+     * internal spacing preserved exactly as originally written), and an optional same-line trailing
+     * comment -- structurally the direct TS analog of {@link EnumMember}, same fields modulo the
+     * `=`-value pair being a `:`-type pair instead
      */
     private static final class InterfaceMember {
 
@@ -3278,8 +3278,8 @@ public final class JsTsSpecificRule {
 
     /**
      * Rewrites the interior of one `interface`/type-alias body into the always-`: `-column-aligned
-     *  layout described on {@link #enforceInterfaceTypeAliasMemberColonAlignment}, or returns
-     *  {@code null} if {@link #parseInterfaceMembers} can't safely parse it
+     * layout described on {@link #enforceInterfaceTypeAliasMemberColonAlignment}, or returns
+     * {@code null} if {@link #parseInterfaceMembers} can't safely parse it
      */
     private String rewriteInterfaceBody(
         final List<Token> tokens,
@@ -3323,11 +3323,11 @@ public final class JsTsSpecificRule {
 
     /**
      * Parses an `interface`/type-alias body's interior (between {@code openIdx} and
-     *  {@code closeIdx}, exclusive) into an ordered list of {@link InterfaceMember}s via a single
-     *  forward scan, mirroring {@link #parseEnumMembers}'s shape but with `;`-terminated `name :
-     *  type` members instead of `,`-terminated `name [= value]` ones. Returns {@code null} (bail,
-     *  leave the whole body untouched) on any unrecognized member shape, a member value spanning a
-     *  NEWLINE, or a floating comment with no member following it.
+     * {@code closeIdx}, exclusive) into an ordered list of {@link InterfaceMember}s via a single
+     * forward scan, mirroring {@link #parseEnumMembers}'s shape but with `;`-terminated `name :
+     * type` members instead of `,`-terminated `name [= value]` ones. Returns {@code null} (bail,
+     * leave the whole body untouched) on any unrecognized member shape, a member value spanning a
+     * NEWLINE, or a floating comment with no member following it.
      */
     private List<InterfaceMember> parseInterfaceMembers(
         final List<Token> tokens,
@@ -3430,9 +3430,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Depth-aware forward scan (over `(`/`[`/`{` nesting) from {@code fromIdx} for a depth-0
-     *  `,` reached before the statement's own depth-0 terminating `;` -- true iff the enclosing
-     *  `let`/`const`/`var` statement is a multi-declarator statement, per {@link
-     *  #isTypeColonAt}'s declarator-colon suppression note above
+     * `,` reached before the statement's own depth-0 terminating `;` -- true iff the enclosing
+     * `let`/`const`/`var` statement is a multi-declarator statement, per {@link
+     * #isTypeColonAt}'s declarator-colon suppression note above
      */
     private boolean hasTopLevelCommaBeforeSemicolon(final List<Token> tokens, final int fromIdx)
     {
@@ -3451,8 +3451,8 @@ public final class JsTsSpecificRule {
 
     /**
      * True if {@code closeParenIdx} closes a `case (...):`-style parenthesized case-label
-     *  condition -- i.e. the token immediately before the matching `(` is the `case` keyword --
-     *  the one shape where a bare `)` immediately followed by `:` is NOT a return-type colon.
+     * condition -- i.e. the token immediately before the matching `(` is the `case` keyword --
+     * the one shape where a bare `)` immediately followed by `:` is NOT a return-type colon.
      */
     private boolean isCaseLabelParen(
         final List<Token>           tokens,
@@ -3470,18 +3470,18 @@ public final class JsTsSpecificRule {
 
     /**
      * True if {@code closeParenIdx} closes a plain grouping/sub-expression `(...)` -- e.g. a
-     *  parenthesized ternary (`cond ? (a ? b : c) : d`) or any other parenthesized expression --
-     *  rather than a function/arrow/constructor parameter list, the other shape where a bare `)`
-     *  immediately followed by `:` is NOT a return-type colon. A real parameter list's `(` is
-     *  always immediately preceded by the function/method name (IDENTIFIER), a generic clause's
-     *  closing `>` (`foo<T>(...)`), a signature keyword (`function`/`constructor`/`new`/`get`/
-     *  `set`/etc.), or nothing at all (an anonymous function expression's very first token) --
-     *  never by an operator. A grouping paren, by contrast, always sits in the middle of an
-     *  expression and is therefore always immediately preceded by an operator (`?`, `:`, `&&`,
-     *  `||`, `=`, `return`, etc.) (vuejs/core dogfood, `shared/src/typeUtils.ts`'s
-     *  `T extends object ? (keyof T extends K ? true : false) : false`, where the outer ternary's
-     *  own `:` was misclassified as a return-type colon because its preceding `)` closes the
-     *  parenthesized nested-ternary sub-expression, not a parameter list).
+     * parenthesized ternary (`cond ? (a ? b : c) : d`) or any other parenthesized expression --
+     * rather than a function/arrow/constructor parameter list, the other shape where a bare `)`
+     * immediately followed by `:` is NOT a return-type colon. A real parameter list's `(` is
+     * always immediately preceded by the function/method name (IDENTIFIER), a generic clause's
+     * closing `>` (`foo<T>(...)`), a signature keyword (`function`/`constructor`/`new`/`get`/
+     * `set`/etc.), or nothing at all (an anonymous function expression's very first token) --
+     * never by an operator. A grouping paren, by contrast, always sits in the middle of an
+     * expression and is therefore always immediately preceded by an operator (`?`, `:`, `&&`,
+     * `||`, `=`, `return`, etc.) (vuejs/core dogfood, `shared/src/typeUtils.ts`'s
+     * `T extends object ? (keyof T extends K ? true : false) : false`, where the outer ternary's
+     * own `:` was misclassified as a return-type colon because its preceding `)` closes the
+     * parenthesized nested-ternary sub-expression, not a parameter list).
      */
     private boolean isGroupingExpressionParen(
         final List<Token>           tokens,
@@ -3500,8 +3500,8 @@ public final class JsTsSpecificRule {
 
     /**
      * Same "is this `{` a value/pattern brace" heuristic as {@link #classifyBraces}'s
-     *  {@code isValue} local, duplicated (not shared) since it's used from a different pass with
-     *  different bookkeeping needs (a bracket-kind stack, not resetDepth/needsSemicolon maps)
+     * {@code isValue} local, duplicated (not shared) since it's used from a different pass with
+     * different bookkeeping needs (a bracket-kind stack, not resetDepth/needsSemicolon maps)
      */
     private boolean isValuePrecededBrace(final List<Token> tokens, final int openIdx)
     {
@@ -3640,9 +3640,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Index of the last token of a decorator application starting at {@code atIdx} (the
-     *  {@code @} token itself): the decorator name identifier for a bare {@code @Name}, or the
-     *  matching {@code )} for {@code @Name(args)}. Returns -1 if the shape isn't recognized (no
-     *  identifier immediately follows {@code @}).
+     * {@code @} token itself): the decorator name identifier for a bare {@code @Name}, or the
+     * matching {@code )} for {@code @Name(args)}. Returns -1 if the shape isn't recognized (no
+     * identifier immediately follows {@code @}).
      */
     private int findDecoratorEnd(
         final List<Token>           tokens,
@@ -3692,8 +3692,8 @@ public final class JsTsSpecificRule {
 
     /**
      * Index one past the last token of the physical line containing token {@code idx} (i.e. the
-     *  index of the line's own trailing {@code NEWLINE}, or the token count if the file ends
-     *  without one).
+     * index of the line's own trailing {@code NEWLINE}, or the token count if the file ends
+     * without one).
      */
     private int lineEndIndex(final List<Token> tokens, final int idx)
     {
@@ -3706,9 +3706,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Plain concatenation of each token's own raw text across {@code [from, to)} of a token
-     *  sublist -- used only for this method's own line-length estimate and for re-emitting the
-     *  decorator's own span verbatim when dropping it to its own line; not a general-purpose
-     *  renderer (does not touch spacing, unlike {@code MiscRuleCurly.collapseTokensToOneLine}).
+     * sublist -- used only for this method's own line-length estimate and for re-emitting the
+     * decorator's own span verbatim when dropping it to its own line; not a general-purpose
+     * renderer (does not touch spacing, unlike {@code MiscRuleCurly.collapseTokensToOneLine}).
      */
     private String collapseTokensToOneLine(final List<Token> slice)
     {
@@ -3721,7 +3721,7 @@ public final class JsTsSpecificRule {
     // ── §15 Import ordering ──────────────────────────────────────────────────────────
     /**
      * The three fixed §15 bucket names -- {@code groupOrder} must be an exact permutation of
-     *  this set, mirroring {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s validation posture.
+     * this set, mirroring {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s validation posture.
      */
     private static final Set<String> IMPORT_GROUP_KEYS = new HashSet<>( Arrays.asList(
         "builtin", "third-party", "local"
@@ -3729,11 +3729,11 @@ public final class JsTsSpecificRule {
 
     /**
      * Reasonably complete (not exhaustive-to-the-letter) list of Node built-in module names,
-     *  matched against a bare specifier's own leading path segment (e.g. {@code "fs/promises"}
-     *  still classifies as {@code builtin} via its {@code "fs"} segment). A {@code node:}-prefixed
-     *  specifier is always {@code builtin} regardless of list membership (RDD_KEY_195's
-     *  classification order, leg 1) -- unambiguous by ecosystem convention, doesn't rely on this
-     *  list being complete.
+     * matched against a bare specifier's own leading path segment (e.g. {@code "fs/promises"}
+     * still classifies as {@code builtin} via its {@code "fs"} segment). A {@code node:}-prefixed
+     * specifier is always {@code builtin} regardless of list membership (RDD_KEY_195's
+     * classification order, leg 1) -- unambiguous by ecosystem convention, doesn't rely on this
+     * list being complete.
      */
     private static final Set<String> NODE_BUILTIN_MODULES = new HashSet<>( Arrays.asList(
         "assert",
@@ -3783,11 +3783,11 @@ public final class JsTsSpecificRule {
 
     /**
      * One successfully-parsed {@code import ...;} declaration -- {@code startIdx}/{@code
-     *  semicolonIdx} bound its own original token span, re-emitted verbatim (not canonically
-     *  regenerated, unlike Java's import-ordering pass) when reordering, since JS/TS import
-     *  clauses (named-import lists, {@code type} modifier, default+namespace combinations) have
-     *  enough internal shape variety that preserving the original text is safer than trying to
-     *  reconstruct it.
+     * semicolonIdx} bound its own original token span, re-emitted verbatim (not canonically
+     * regenerated, unlike Java's import-ordering pass) when reordering, since JS/TS import
+     * clauses (named-import lists, {@code type} modifier, default+namespace combinations) have
+     * enough internal shape variety that preserving the original text is safer than trying to
+     * reconstruct it.
      */
     private static final class ParsedJsImport {
 
@@ -3955,9 +3955,9 @@ public final class JsTsSpecificRule {
 
     /**
      * Groups/sorts and renders one segment's imports (a maximal run of imports uninterrupted by
-     *  a standalone comment, RDD_KEY_197) into its own bucketed, blank-line-separated text --
-     *  the same shape {@code enforceImportOrdering} used to produce for the whole file before
-     *  segmenting at standalone comments was introduced
+     * a standalone comment, RDD_KEY_197) into its own bucketed, blank-line-separated text --
+     * the same shape {@code enforceImportOrdering} used to produce for the whole file before
+     * segmenting at standalone comments was introduced
      */
     private String renderImportSegment(
         final List<Token>          tokens,
@@ -4001,14 +4001,14 @@ public final class JsTsSpecificRule {
 
     /**
      * Parses one {@code import ...;} declaration starting at the {@code import} keyword token at
-     *  {@code importIdx}. Permissive about the shape of the clause between {@code import} and the
-     *  module-path {@code STRING} token (default import, namespace {@code * as x}, named-import
-     *  list, {@code type} modifier, side-effect-only form with no {@code from} clause at all) --
-     *  it only needs to locate the path string and the terminating {@code ;}, not fully validate
-     *  the clause grammar, since the original token span is re-emitted verbatim rather than
-     *  reconstructed. Returns {@code null} -- signaling "bail the entire pass" to the caller --
-     *  if a comment is found anywhere inside the declaration, or if no module-path {@code STRING}
-     *  token or no terminating {@code ;} is found before EOF.
+     * {@code importIdx}. Permissive about the shape of the clause between {@code import} and the
+     * module-path {@code STRING} token (default import, namespace {@code * as x}, named-import
+     * list, {@code type} modifier, side-effect-only form with no {@code from} clause at all) --
+     * it only needs to locate the path string and the terminating {@code ;}, not fully validate
+     * the clause grammar, since the original token span is re-emitted verbatim rather than
+     * reconstructed. Returns {@code null} -- signaling "bail the entire pass" to the caller --
+     * if a comment is found anywhere inside the declaration, or if no module-path {@code STRING}
+     * token or no terminating {@code ;} is found before EOF.
      */
     private ParsedJsImport parseJsImportStatement(final List<Token> tokens, final int importIdx)
     {
@@ -4036,10 +4036,10 @@ public final class JsTsSpecificRule {
 
     /**
      * RDD_KEY_197: extends a just-parsed import's span past a trailing same-line comment right
-     *  after its `;` (only whitespace, no NEWLINE, in between) -- that comment travels with its
-     *  own import through reordering rather than being (mis)treated as a floating comment between
-     *  imports that would otherwise segment the list. Returns {@code fromIdx} unchanged (no
-     *  trailing comment found) otherwise.
+     * after its `;` (only whitespace, no NEWLINE, in between) -- that comment travels with its
+     * own import through reordering rather than being (mis)treated as a floating comment between
+     * imports that would otherwise segment the list. Returns {@code fromIdx} unchanged (no
+     * trailing comment found) otherwise.
      */
     private int extendPastTrailingComment(final List<Token> tokens, final int fromIdx)
     {
@@ -4057,8 +4057,8 @@ public final class JsTsSpecificRule {
 
     /**
      * Strips the surrounding quote characters (`'`/`"`/`` ` ``) from a {@code STRING} token's raw
-     *  text -- module-path specifiers never contain the quote character they're delimited by
-     *  unescaped, so a plain substring is sufficient (no escape-processing needed)
+     * text -- module-path specifiers never contain the quote character they're delimited by
+     * unescaped, so a plain substring is sufficient (no escape-processing needed)
      */
     private String stringLiteralContent(final String raw)
     {
@@ -4069,9 +4069,9 @@ public final class JsTsSpecificRule {
 
     /**
      * True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token exists anywhere in {@code
-     *  tokens[fromInclusive, toExclusive)} -- used to detect a floating comment between two
-     *  otherwise-clean import declarations, which would otherwise be silently dropped by
-     *  reordering
+     * tokens[fromInclusive, toExclusive)} -- used to detect a floating comment between two
+     * otherwise-clean import declarations, which would otherwise be silently dropped by
+     * reordering
      */
     private boolean hasCommentBetween(
         final List<Token> tokens,
@@ -4089,8 +4089,8 @@ public final class JsTsSpecificRule {
 
     /**
      * Classification priority (RDD_KEY_195): {@code node:}-prefixed or a known Node built-in
-     *  name &gt; relative-path-prefixed ({@code local}) &gt; everything else ({@code
-     *  third-party})
+     * name &gt; relative-path-prefixed ({@code local}) &gt; everything else ({@code
+     * third-party})
      */
     private String classifyJsImportGroup(final String path)
     {

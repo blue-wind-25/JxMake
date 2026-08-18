@@ -103,7 +103,7 @@ public final class JsonSpecificRule {
 
     /**
      * Malformed JSON/JSON5 input that the parser cannot make sense of -- caught generically by
-     *  {@code Main}'s per-file error handling, same as any other rule class's runtime failure
+     * {@code Main}'s per-file error handling, same as any other rule class's runtime failure
      */
     public static final class JsonParseException extends RuntimeException {
 
@@ -177,8 +177,8 @@ public final class JsonSpecificRule {
 
     /**
      * Consumes whitespace/newlines/comments up to the next significant token, recording comment
-     *  text (in order) and whether a blank line (2+ consecutive newlines) occurred anywhere in the
-     *  span -- both a group-break signal per §1.1.
+     * text (in order) and whether a blank line (2+ consecutive newlines) occurred anywhere in the
+     * span -- both a group-break signal per §1.1.
      */
     private void collectTrivia(
         final Cursor       c,
@@ -217,7 +217,7 @@ public final class JsonSpecificRule {
 
     /**
      * Same-line trailing comment right after a value/comma -- only consumed if no newline is
-     *  crossed first
+     * crossed first
      */
     private String collectTrailingComment(final Cursor c)
     {
@@ -334,7 +334,7 @@ public final class JsonSpecificRule {
 
     /**
      * True if {@code node} is a scalar, or a container with no members/elements at all -- these
-     *  never force their containing array loose
+     * never force their containing array loose
      */
     private boolean containsContainer(final Node node)
     {
@@ -358,7 +358,7 @@ public final class JsonSpecificRule {
 
     /**
      * True if every item in {@code c} is a plain scalar-valued member/element with no comments/
-     *  blank lines -- the shared tight-rendering eligibility check for both objects and arrays
+     * blank lines -- the shared tight-rendering eligibility check for both objects and arrays
      */
     private boolean canBeTight(final Container c)
     {
@@ -373,8 +373,8 @@ public final class JsonSpecificRule {
 
     /**
      * §1.2: an object stays tight (single line, {@code { key : value, ... }} with inner padding
-     *  spaces) only if every member is a scalar (no nested object/array), no member carries a
-     *  comment, and the tight rendering fits within the configured line-length limit.
+     * spaces) only if every member is a scalar (no nested object/array), no member carries a
+     * comment, and the tight rendering fits within the configured line-length limit.
      */
     private void renderObject(final Container c, final int depth, final StringBuilder out)
     {
@@ -403,8 +403,8 @@ public final class JsonSpecificRule {
 
     /**
      * §1.2: an array stays tight (single line) only if every element is a scalar (no nested
-     *  object/array) and no element carries a comment, and the tight rendering fits within the
-     *  configured line-length limit at this nesting depth.
+     * object/array) and no element carries a comment, and the tight rendering fits within the
+     * configured line-length limit at this nesting depth.
      */
     private void renderArray(final Container c, final int depth, final StringBuilder out)
     {

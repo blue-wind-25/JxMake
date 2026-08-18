@@ -230,8 +230,8 @@ public final class Main {
 
     /**
      * One file's worth of work from the old serial loop body, factored out so both the serial
-     *  and read-ahead-pipelined dispatch paths share the exact same per-file logic/error
-     *  handling
+     * and read-ahead-pipelined dispatch paths share the exact same per-file logic/error
+     * handling
      */
     private static void runOneFile(
         final String                                    file,
@@ -281,12 +281,12 @@ public final class Main {
 
     /**
      * Bounded read-ahead pipeline: up to {@code readAhead} files are formatted concurrently
-     *  (each on its own worker thread, each independently going through the exact same
-     *  {@code processFile} path -- including its own server-delegation HTTP round trip) instead
-     *  of strictly one at a time, while still consuming/printing results in original file order
-     *  so diff output / exit-status aggregation stay deterministic. This keeps the server's own
-     *  thread pool (see {@code server-concurrency}) continuously fed instead of idling between
-     *  requests.
+     * (each on its own worker thread, each independently going through the exact same
+     * {@code processFile} path -- including its own server-delegation HTTP round trip) instead
+     * of strictly one at a time, while still consuming/printing results in original file order
+     * so diff output / exit-status aggregation stay deterministic. This keeps the server's own
+     * thread pool (see {@code server-concurrency}) continuously fed instead of idling between
+     * requests.
      */
     private static void runFilesWithReadAhead(
         final List<String>                              files,

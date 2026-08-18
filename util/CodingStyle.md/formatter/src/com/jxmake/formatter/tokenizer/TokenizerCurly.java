@@ -578,13 +578,13 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Performs exactly one lexical step of the main character-level scan (dispatches on
-     *  {@code source.charAt(pos)}, emits the resulting token(s) via {@link #addToken}, advances
-     *  {@code pos}). Originally the direct body of {@link #tokenize}'s own {@code while} loop;
-     *  extracted (STATE_JS_TS.md's 2026-08-13 scoping session, sub-context 0) so a template-literal
-     *  hole's interior can re-enter the exact same dispatch the top-level scan uses (see
-     *  {@link #tokenizeTemplateHoleInterior}) instead of duplicating this chain. Pure refactor --
-     *  {@link #tokenize}'s own loop is now just {@code while(pos < length) tokenizeOneUnit(tokens);
-     *  if(syntaxError) break;}, byte-identical control flow to before this extraction.
+     * {@code source.charAt(pos)}, emits the resulting token(s) via {@link #addToken}, advances
+     * {@code pos}). Originally the direct body of {@link #tokenize}'s own {@code while} loop;
+     * extracted (STATE_JS_TS.md's 2026-08-13 scoping session, sub-context 0) so a template-literal
+     * hole's interior can re-enter the exact same dispatch the top-level scan uses (see
+     * {@link #tokenizeTemplateHoleInterior}) instead of duplicating this chain. Pure refactor --
+     * {@link #tokenize}'s own loop is now just {@code while(pos < length) tokenizeOneUnit(tokens);
+     * if(syntaxError) break;}, byte-identical control flow to before this extraction.
      */
     private void tokenizeOneUnit(final List<Token> tokens)
     {
@@ -798,8 +798,8 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * True iff the most recent significant token tracked so far is the {@code ::} operator --
-     *  used to recognize Kotlin class-literal expressions ({@code Foo::class}) so the {@code class}
-     *  keyword there is not mistaken for the start of an actual class declaration
+     * used to recognize Kotlin class-literal expressions ({@code Foo::class}) so the {@code class}
+     * keyword there is not mistaken for the start of an actual class declaration
      */
     private boolean isPrecededByDoubleColon()
     {
@@ -811,8 +811,8 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * True iff the last two significant tokens (before the `=` currently being tracked) are the
-     *  `concept` keyword followed by its declared name -- arms {@code pendingConceptName}, the
-     *  `concept` analog of {@link #computeRecordHeaderName}
+     * `concept` keyword followed by its declared name -- arms {@code pendingConceptName}, the
+     * `concept` analog of {@link #computeRecordHeaderName}
      */
     private String computeConceptHeaderName()
     {
@@ -1023,10 +1023,10 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Like {@link #emitMacroDef}, a {@code #if}/{@code #elif}/etc. directive can itself span
-     *  multiple physical lines via a trailing {@code \} continuation (e.g. a long boolean
-     *  condition) -- failing to consume those continuation lines here left their real `(`/`)`
-     *  tokens to be lexed as ordinary PUNCT by the caller, permanently desyncing every
-     *  brace/paren-depth counter for the remainder of the file from that point on.
+     * multiple physical lines via a trailing {@code \} continuation (e.g. a long boolean
+     * condition) -- failing to consume those continuation lines here left their real `(`/`)`
+     * tokens to be lexed as ordinary PUNCT by the caller, permanently desyncing every
+     * brace/paren-depth counter for the remainder of the file from that point on.
      */
     private Token emitPreprocessor()
     {
@@ -1119,12 +1119,12 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * True iff {@code pos} sits on the opening `"""` of a Java text block (STYLE_JAVA17.md §4) --
-     *  three consecutive `"` characters, Java only ({@code emitString}'s plain-string path already
-     *  bails on a bare `"` followed by a newline before finding its own closing quote, which is
-     *  exactly what would otherwise happen here: without this check, a text block's opening `"""`
-     *  mis-lexes as an empty string token followed by a single stray-quote token, exposing the
-     *  block's entire multi-line content -- braces, indentation, everything -- to every other rule
-     *  in the pipeline).
+     * three consecutive `"` characters, Java only ({@code emitString}'s plain-string path already
+     * bails on a bare `"` followed by a newline before finding its own closing quote, which is
+     * exactly what would otherwise happen here: without this check, a text block's opening `"""`
+     * mis-lexes as an empty string token followed by a single stray-quote token, exposing the
+     * block's entire multi-line content -- braces, indentation, everything -- to every other rule
+     * in the pipeline).
      */
     private boolean isTextBlockOpener()
     {
@@ -1174,13 +1174,13 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * True iff {@code pos} sits on the opening `"""` of a Kotlin raw string. Neither
-     *  STYLE_KOTLIN.md nor STYLE_KOTLIN2.md mentions raw strings at all -- surfaced as a
-     *  side-finding while fixing §19's interpolation-nesting risk (RDD_KEY_116) and confirmed via
-     *  harness to be badly broken: without this check, `"""hello "world" end"""` mis-lexed as five
-     *  tokens (`""` / `"hello "` / `world` (a bare `IDENTIFIER`!) / `" end"` / `""`) instead of one,
-     *  and a multi-line raw string mis-lexed a spurious `NEWLINE` token into the middle of what
-     *  should be one opaque string -- exposing the content's real newlines to every indentation/
-     *  scope pass in the pipeline exactly the way an unrecognized text block would.
+     * STYLE_KOTLIN.md nor STYLE_KOTLIN2.md mentions raw strings at all -- surfaced as a
+     * side-finding while fixing §19's interpolation-nesting risk (RDD_KEY_116) and confirmed via
+     * harness to be badly broken: without this check, `"""hello "world" end"""` mis-lexed as five
+     * tokens (`""` / `"hello "` / `world` (a bare `IDENTIFIER`!) / `" end"` / `""`) instead of one,
+     * and a multi-line raw string mis-lexed a spurious `NEWLINE` token into the middle of what
+     * should be one opaque string -- exposing the content's real newlines to every indentation/
+     * scope pass in the pipeline exactly the way an unrecognized text block would.
      */
     private boolean isKotlinRawStringOpener()
     {
@@ -1257,15 +1257,15 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * C++11 raw string literals (`R"delim(...)delim"`, optionally prefixed by an encoding
-     *  prefix `u8`/`u`/`U`/`L`) can contain arbitrary characters -- including `{`/`}` -- as plain
-     *  content (nanobench's mustache HTML templates are stored this way). Without recognizing the
-     *  whole thing as one opaque token, {@code emitIdentifierOrKeyword} + {@code emitString} would
-     *  lex the prefix, the raw delimiter, and the literal's contents as ordinary source, exposing
-     *  any brace characters inside to the brace-depth tracker that every scope-splitting pass
-     *  relies on -- silently corrupting nesting depth for the rest of the file. Returns the
-     *  prefix length (`"R"` = 1, `"u8R"` = 3, ...) if {@code pos} sits on a genuine raw string
-     *  opener (prefix + `"` + a valid delimiter of at most 16 chars with no whitespace/paren/
-     *  backslash + `(`), else -1.
+     * prefix `u8`/`u`/`U`/`L`) can contain arbitrary characters -- including `{`/`}` -- as plain
+     * content (nanobench's mustache HTML templates are stored this way). Without recognizing the
+     * whole thing as one opaque token, {@code emitIdentifierOrKeyword} + {@code emitString} would
+     * lex the prefix, the raw delimiter, and the literal's contents as ordinary source, exposing
+     * any brace characters inside to the brace-depth tracker that every scope-splitting pass
+     * relies on -- silently corrupting nesting depth for the rest of the file. Returns the
+     * prefix length (`"R"` = 1, `"u8R"` = 3, ...) if {@code pos} sits on a genuine raw string
+     * opener (prefix + `"` + a valid delimiter of at most 16 chars with no whitespace/paren/
+     * backslash + `(`), else -1.
      */
     private int rawStringPrefixLength()
     {
@@ -1288,10 +1288,10 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Lexes a raw string literal as a single opaque STRING token, from the encoding/`R` prefix
-     *  through the closing `)delim"` -- content in between (including any `{`/`}`/`"` chars) is
-     *  never re-examined by the brace-depth tracker or any other rule (same "opaque, own text,
-     *  never split" precedent as {@link #emitBlockComment}/{@link #emitTextBlock}). An unterminated
-     *  raw string (no matching `)delim"` before EOF) is consumed to the end of the source.
+     * through the closing `)delim"` -- content in between (including any `{`/`}`/`"` chars) is
+     * never re-examined by the brace-depth tracker or any other rule (same "opaque, own text,
+     * never split" precedent as {@link #emitBlockComment}/{@link #emitTextBlock}). An unterminated
+     * raw string (no matching `)delim"` before EOF) is consumed to the end of the source.
      */
     private Token emitRawString(final int prefixLen)
     {
@@ -1669,8 +1669,8 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Skips a `${...}` interpolation body (opening `${` already consumed), respecting nested
-     *  `{}` depth, nested quoted strings, and nested template literals so an interior `}`/`` ` ``/
-     *  quote char doesn't prematurely end the interpolation or the outer template literal.
+     * `{}` depth, nested quoted strings, and nested template literals so an interior `}`/`` ` ``/
+     * quote char doesn't prematurely end the interpolation or the outer template literal.
      */
     private void skipTemplateInterpolation()
     {
@@ -1776,10 +1776,10 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Scans from just after a `${`'s opening `{` to just past its matching `}`, skipping over any
-     *  nested `{`/`}` (e.g. a lambda literal passed inside the interpolation expression), string
-     *  literals (recursively, via {@link #skipKotlinString}), and char literals encountered along
-     *  the way -- so a `"`/`{`/`}` inside any of those never desynchronizes the depth count or gets
-     *  mistaken for this block's own closing `}`.
+     * nested `{`/`}` (e.g. a lambda literal passed inside the interpolation expression), string
+     * literals (recursively, via {@link #skipKotlinString}), and char literals encountered along
+     * the way -- so a `"`/`{`/`}` inside any of those never desynchronizes the depth count or gets
+     * mistaken for this block's own closing `}`.
      */
     private int skipKotlinInterpolationBlock(final int startIdx)
     {
@@ -1821,8 +1821,8 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Same scan as {@link #emitChar} but returning the end index rather than allocating a
-     *  {@code Token} -- used by {@link #skipKotlinInterpolationBlock} to skip a char literal
-     *  without misreading its own quote as structurally significant
+     * {@code Token} -- used by {@link #skipKotlinInterpolationBlock} to skip a char literal
+     * without misreading its own quote as structurally significant
      */
     private int skipKotlinChar(final int openQuoteIdx)
     {
@@ -1953,28 +1953,28 @@ public class TokenizerCurly extends TokenizerCore {
     // ── JSX/TSX boundary-finding pre-pass (XL.txt TIER 3, STATE_JS_TS.md) ───────────
     /**
      * Finds each top-level JSX/TSX tree in the flat token list and collapses it into one opaque
-     *  {@link TokenType#JSX_SPAN} token (raw source text preserved byte-for-byte, including
-     *  embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
-     *  true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
+     * {@link TokenType#JSX_SPAN} token (raw source text preserved byte-for-byte, including
+     * embedded newlines; {@code frozen = true}). Only called when {@link Lang#isJsxSyntax} is
+     * true (`.jsx`/`.tsx` files only) -- see the call site in {@link #tokenize}.
      *
      * <p><b>Increment 1+2+3+4+5+6 scope</b> (see STATE_JS_TS.md's "2026-08-12 design session" for
-     *  the full 11-context list this will eventually cover, and the "2026-08-13 Increment 6" entry
-     *  for why items 9/10's literal recursive-walk design was NOT implemented as originally
-     *  specified): ten expression-start contexts are recognized here as a JSX-open candidate --
-     *  "after `return`" (Increment 1), "after `=>`" (arrow-function body start), "after `?`"/"after
-     *  `:`" (both branches of a ternary conditional expression) (Increment 2), call-argument-start /
-     *  array-literal-element-start (Increment 3, see {@link #isCallArgumentOrArrayElementStart}),
-     *  assignment-RHS (incl. compound assignment operators) / logical-nullish-RHS (Increment 4, see
-     *  {@link #isAssignmentOrLogicalRhsStart}), grouping-paren-start (Increment 5, see
-     *  {@link #isGroupingParenStart}), and bare `{`-hole-start / spread (Increment 6, see the plain
-     *  {@code Token.isPunct(prev, "{")} check and {@link #isSpreadContext}). Design list item 10
-     *  (template-literal `${}` holes) is NOT implemented -- see STATE_JS_TS.md, structurally
-     *  unreachable at this pre-pass's granularity because {@code emitTemplateLiteral} already
-     *  swallows an entire template literal (including every `${...}` interpolation) into one opaque
-     *  character-level STRING token before this post-tokenize pass ever runs; recognizing JSX inside
-     *  a template hole would require a tokenizer-level change, not an addition to this method. A `<`
-     *  in an unlisted expression-start context still falls through unchanged to the existing
-     *  `reclassifyAngleBrackets`/relational-operator handling, same as before this pre-pass existed.
+     * the full 11-context list this will eventually cover, and the "2026-08-13 Increment 6" entry
+     * for why items 9/10's literal recursive-walk design was NOT implemented as originally
+     * specified): ten expression-start contexts are recognized here as a JSX-open candidate --
+     * "after `return`" (Increment 1), "after `=>`" (arrow-function body start), "after `?`"/"after
+     * `:`" (both branches of a ternary conditional expression) (Increment 2), call-argument-start /
+     * array-literal-element-start (Increment 3, see {@link #isCallArgumentOrArrayElementStart}),
+     * assignment-RHS (incl. compound assignment operators) / logical-nullish-RHS (Increment 4, see
+     * {@link #isAssignmentOrLogicalRhsStart}), grouping-paren-start (Increment 5, see
+     * {@link #isGroupingParenStart}), and bare `{`-hole-start / spread (Increment 6, see the plain
+     * {@code Token.isPunct(prev, "{")} check and {@link #isSpreadContext}). Design list item 10
+     * (template-literal `${}` holes) is NOT implemented -- see STATE_JS_TS.md, structurally
+     * unreachable at this pre-pass's granularity because {@code emitTemplateLiteral} already
+     * swallows an entire template literal (including every `${...}` interpolation) into one opaque
+     * character-level STRING token before this post-tokenize pass ever runs; recognizing JSX inside
+     * a template hole would require a tokenizer-level change, not an addition to this method. A `<`
+     * in an unlisted expression-start context still falls through unchanged to the existing
+     * `reclassifyAngleBrackets`/relational-operator handling, same as before this pre-pass existed.
      */
     private void findJsxSpans(final List<Token> tokens)
     {
@@ -2075,11 +2075,11 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Assignment operators (per STATE_JS_TS.md's design list item 6: "after `=`... also covers
-     *  `+=`/`-=`/etc. compound assignment operators -- same RHS-start shape"). Matches the exact set
-     *  of assignment-shaped entries this tokenizer's own {@link #MULTI_CHAR_OPS} emits, plus the
-     *  plain single-char `=`. Not reused from {@code MiscRuleCore.ASSIGNMENT_OPS} (rules package) --
-     *  that field is `protected` and cross-package, and is missing `&&=`/`||=`/`??=`/`<<=`/`>>>=`
-     *  which this tokenizer's own lexer does emit; kept local and tokenizer-scoped instead.
+     * `+=`/`-=`/etc. compound assignment operators -- same RHS-start shape"). Matches the exact set
+     * of assignment-shaped entries this tokenizer's own {@link #MULTI_CHAR_OPS} emits, plus the
+     * plain single-char `=`. Not reused from {@code MiscRuleCore.ASSIGNMENT_OPS} (rules package) --
+     * that field is `protected` and cross-package, and is missing `&&=`/`||=`/`??=`/`<<=`/`>>>=`
+     * which this tokenizer's own lexer does emit; kept local and tokenizer-scoped instead.
      */
     private static final Set<String> JSX_ASSIGNMENT_OPS = setOf(
         "=",
@@ -2104,14 +2104,14 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * True when {@code prev} is an assignment operator (design list item 6, Increment 4) or a
-     *  logical/nullish short-circuit operator (design list item 7, Increment 4) -- both are
-     *  simple single-token-lookback checks, same shape as Increment 2's `=>`/`?`/`:` checks, no
-     *  comma/bracket-depth tracking needed. Compound assignment (`+=` etc.) and logical-assignment
-     *  (`&&=` etc.) share the same "RHS starts right after" shape as plain `=`, so both live in one
-     *  set/check rather than two. Safety is unchanged from every prior increment: a wrongly-attempted
-     *  context (e.g. `x = y < z` genuinely relational) is harmless because
-     *  {@link #findJsxSpanEnd}/{@link #parseJsxTag} returns -1 for anything that doesn't parse as
-     *  balanced JSX, leaving tokens untouched.
+     * logical/nullish short-circuit operator (design list item 7, Increment 4) -- both are
+     * simple single-token-lookback checks, same shape as Increment 2's `=>`/`?`/`:` checks, no
+     * comma/bracket-depth tracking needed. Compound assignment (`+=` etc.) and logical-assignment
+     * (`&&=` etc.) share the same "RHS starts right after" shape as plain `=`, so both live in one
+     * set/check rather than two. Safety is unchanged from every prior increment: a wrongly-attempted
+     * context (e.g. `x = y < z` genuinely relational) is harmless because
+     * {@link #findJsxSpanEnd}/{@link #parseJsxTag} returns -1 for anything that doesn't parse as
+     * balanced JSX, leaving tokens untouched.
      */
     private boolean isAssignmentOrLogicalRhsStart(final Token prev)
     {
@@ -2122,14 +2122,14 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Walks forward from {@code sig.get(s0)} (a `<` token, already confirmed to be at a
-     *  recognized expression-start context by the caller) tracking JSX tag-nesting depth, and
-     *  returns the raw token index of the final `>` (or self-closing tag's `>`) that closes the
-     *  whole top-level tree -- or {@code -1} if the token stream doesn't actually form a balanced
-     *  JSX tree from this point (e.g. a genuine less-than comparison that happened to match the
-     *  "after return" context; the caller must treat {@code -1} as "not JSX, leave alone", not an
-     *  error). A `{...}` expression hole's interior is balance-skipped without interpretation
-     *  (Increment 1 does not recurse into holes -- any `<`/`>` inside one is irrelevant to the
-     *  *outer* tree's own tag-nesting depth either way).
+     * recognized expression-start context by the caller) tracking JSX tag-nesting depth, and
+     * returns the raw token index of the final `>` (or self-closing tag's `>`) that closes the
+     * whole top-level tree -- or {@code -1} if the token stream doesn't actually form a balanced
+     * JSX tree from this point (e.g. a genuine less-than comparison that happened to match the
+     * "after return" context; the caller must treat {@code -1} as "not JSX, leave alone", not an
+     * error). A `{...}` expression hole's interior is balance-skipped without interpretation
+     * (Increment 1 does not recurse into holes -- any `<`/`>` inside one is irrelevant to the
+     * *outer* tree's own tag-nesting depth either way).
      */
     private int findJsxSpanEnd(final List<Token> tokens, final List<Integer> sig, final int s0)
     {
@@ -2177,11 +2177,11 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Result of {@link #parseJsxTag}: {@code newSigPos} is the `sig` position immediately after
-     *  the consumed closing `>`; {@code kind} is 0 (open tag), 1 (closing tag, `</Name>`), or 2
-     *  (self-closing tag, `<Name .../>`); {@code tagName} is the tag's raw dotted name text (e.g.
-     *  `"Foo"` or `"React.Fragment"`), captured for the tag-name-identity check in
-     *  {@link #findJsxSpanEnd} (STATE_JS_TS.md's 2026-08-13 hardening -- previously only tag-nesting
-     *  *depth* was tracked, not name identity, so `<a>...</b>` silently balanced).
+     * the consumed closing `>`; {@code kind} is 0 (open tag), 1 (closing tag, `</Name>`), or 2
+     * (self-closing tag, `<Name .../>`); {@code tagName} is the tag's raw dotted name text (e.g.
+     * `"Foo"` or `"React.Fragment"`), captured for the tag-name-identity check in
+     * {@link #findJsxSpanEnd} (STATE_JS_TS.md's 2026-08-13 hardening -- previously only tag-nesting
+     * *depth* was tracked, not name identity, so `<a>...</b>` silently balanced).
      */
     private static final class JsxTagResult {
 
@@ -2212,19 +2212,19 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Parses one JSX tag (open, close, or self-closing) starting at {@code sig.get(s)} (a `<`
-     *  token). Returns a {@link JsxTagResult}, or {@code null} if this `<` does
-     *  not actually begin a well-formed tag (no tag-name IDENTIFIER following, or no matching `>`
-     *  found before the token stream ends). Attribute-value expression holes (`attr={...}`) are
-     *  balance-skipped via a local brace-depth counter so an embedded `>` (e.g. `attr={a > b}`)
-     *  isn't mistaken for the tag's own close.
+     * token). Returns a {@link JsxTagResult}, or {@code null} if this `<` does
+     * not actually begin a well-formed tag (no tag-name IDENTIFIER following, or no matching `>`
+     * found before the token stream ends). Attribute-value expression holes (`attr={...}`) are
+     * balance-skipped via a local brace-depth counter so an embedded `>` (e.g. `attr={a > b}`)
+     * isn't mistaken for the tag's own close.
      *
      * <p>Also records each top-level (localBrace == 0) attribute's start position, for an
-     *  open/self-close tag: either a plain `IDENTIFIER` (a bare boolean attribute like `disabled`,
-     *  or the name half of `name=value` -- either way the identifier itself is the attribute's own
-     *  boundary) or a `{` at localBrace == 0 (a spread attribute, `{...props}`, which has no
-     *  preceding name). Purely structural bookkeeping for STATE_JS_TS.md's Step 2 "context 11"
-     *  scoping session, sub-context 1 -- unused by anything in this method itself, consumed only
-     *  by {@link #findJsxSpans}.
+     * open/self-close tag: either a plain `IDENTIFIER` (a bare boolean attribute like `disabled`,
+     * or the name half of `name=value` -- either way the identifier itself is the attribute's own
+     * boundary) or a `{` at localBrace == 0 (a spread attribute, `{...props}`, which has no
+     * preceding name). Purely structural bookkeeping for STATE_JS_TS.md's Step 2 "context 11"
+     * scoping session, sub-context 1 -- unused by anything in this method itself, consumed only
+     * by {@link #findJsxSpans}.
      */
     private JsxTagResult parseJsxTag(
         final List<Token>   tokens,
@@ -2310,7 +2310,7 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Balance-skips a `{...}` hole starting at {@code sig.get(s)} (a `{` token); returns the
-     *  `sig` position immediately after the matching `}`, or -1 if unbalanced.
+     * `sig` position immediately after the matching `}`, or -1 if unbalanced.
      */
     private int skipBalancedBraceHole(
         final List<Token>   tokens,
@@ -2335,26 +2335,26 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Increment 3: recognizes a `<` at sig position {@code s} as a call-argument-start or
-     *  array-literal-element-start JSX context, per STATE_JS_TS.md's design list items
-     *  "Call-argument start" / "Array-literal element start". Two shapes each, both handled
-     *  uniformly here:
-     *  <ul>
-     *  <li>Immediately after `(` -- only when that `(` is itself a call-open (the token before it
-     *  is an IDENTIFIER, `)`, or `]`), matching {@code reclassifyAngleBrackets}'s own
-     *  generic-safe-token notion of "call-shaped". A bare grouping `(` (not preceded by a
-     *  call-owner) is deliberately NOT recognized here -- the design calls out grouping-paren-start
-     *  as its own separate, not-yet-implemented context; over-claiming it here would blur that
-     *  boundary.</li>
-     *  <li>Immediately after `[` -- always array-literal-element-start (no call/grouping ambiguity
-     *  exists for `[`; a computed member-access `[` starting with JSX is vanishingly rare and, even
-     *  if wrongly attempted, {@link #findJsxSpanEnd}/{@link #parseJsxTag} returns -1 for anything
-     *  that doesn't parse as balanced JSX, leaving tokens untouched).</li>
-     *  <li>Immediately after a top-level `,` -- walks backward to find the nearest unmatched
-     *  enclosing bracket ({@link #findEnclosingOpenBracket}); if it's a call-open `(` or any `[`,
-     *  the comma is a call-argument/array-element boundary by the same test as above. A `,` whose
-     *  enclosing bracket is a grouping `(`, a `{` (object literal), or nothing (top level) is not
-     *  recognized this increment.</li>
-     *  </ul>
+     * array-literal-element-start JSX context, per STATE_JS_TS.md's design list items
+     * "Call-argument start" / "Array-literal element start". Two shapes each, both handled
+     * uniformly here:
+     * <ul>
+     * <li>Immediately after `(` -- only when that `(` is itself a call-open (the token before it
+     * is an IDENTIFIER, `)`, or `]`), matching {@code reclassifyAngleBrackets}'s own
+     * generic-safe-token notion of "call-shaped". A bare grouping `(` (not preceded by a
+     * call-owner) is deliberately NOT recognized here -- the design calls out grouping-paren-start
+     * as its own separate, not-yet-implemented context; over-claiming it here would blur that
+     * boundary.</li>
+     * <li>Immediately after `[` -- always array-literal-element-start (no call/grouping ambiguity
+     * exists for `[`; a computed member-access `[` starting with JSX is vanishingly rare and, even
+     * if wrongly attempted, {@link #findJsxSpanEnd}/{@link #parseJsxTag} returns -1 for anything
+     * that doesn't parse as balanced JSX, leaving tokens untouched).</li>
+     * <li>Immediately after a top-level `,` -- walks backward to find the nearest unmatched
+     * enclosing bracket ({@link #findEnclosingOpenBracket}); if it's a call-open `(` or any `[`,
+     * the comma is a call-argument/array-element boundary by the same test as above. A `,` whose
+     * enclosing bracket is a grouping `(`, a `{` (object literal), or nothing (top level) is not
+     * recognized this increment.</li>
+     * </ul>
      */
     private boolean isCallArgumentOrArrayElementStart(
         final List<Token>   tokens,
@@ -2382,8 +2382,8 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * True when the `(` token at {@code sig.get(parenS)} is a call-open -- immediately preceded
-     *  by an IDENTIFIER, `)`, or `]` (same notion `reclassifyAngleBrackets`'s generic-safe-token
-     *  check already uses to distinguish a call from a bare grouping paren).
+     * by an IDENTIFIER, `)`, or `]` (same notion `reclassifyAngleBrackets`'s generic-safe-token
+     * check already uses to distinguish a call from a bare grouping paren).
      */
     private boolean isCallOpenParen(
         final List<Token>   tokens,
@@ -2403,11 +2403,11 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Increment 5: recognizes a `<` at sig position {@code s} as a grouping-paren-start JSX
-     *  context, per STATE_JS_TS.md's design list item "Parenthesized-expression start" (item 8) --
-     *  the mirror image of {@link #isCallOpenParen}: immediately after a `(` that is NOT itself a
-     *  call-open (i.e. not preceded by an IDENTIFIER/`)`/`]`). A call-open `(` is already covered
-     *  by {@link #isCallArgumentOrArrayElementStart} -- this check deliberately only fires on the
-     *  complementary case to avoid double-claiming the same `(` shape both ways.
+     * context, per STATE_JS_TS.md's design list item "Parenthesized-expression start" (item 8) --
+     * the mirror image of {@link #isCallOpenParen}: immediately after a `(` that is NOT itself a
+     * call-open (i.e. not preceded by an IDENTIFIER/`)`/`]`). A call-open `(` is already covered
+     * by {@link #isCallArgumentOrArrayElementStart} -- this check deliberately only fires on the
+     * complementary case to avoid double-claiming the same `(` shape both ways.
      */
     private boolean isGroupingParenStart(
         final List<Token>   tokens,
@@ -2425,13 +2425,13 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Increment 6: recognizes a `<` at sig position {@code s} as a spread-element JSX context
-     *  (design list item 11: "after `...` wherever spread is legal in expression position
-     *  (array-literal element, call argument)"). The token immediately before `<` must be `...`;
-     *  the token before *that* is then tested against the exact same call/array-argument-start
-     *  shapes {@link #isCallArgumentOrArrayElementStart} already uses (immediately after `(`/`[`,
-     *  or after a top-level `,` whose enclosing bracket is a call-open `(` or any `[`) -- spread is
-     *  only legal in those two positions, so this reuses that logic one token further back rather
-     *  than duplicating the `(`/`[`/`,` shape table.
+     * (design list item 11: "after `...` wherever spread is legal in expression position
+     * (array-literal element, call argument)"). The token immediately before `<` must be `...`;
+     * the token before *that* is then tested against the exact same call/array-argument-start
+     * shapes {@link #isCallArgumentOrArrayElementStart} already uses (immediately after `(`/`[`,
+     * or after a top-level `,` whose enclosing bracket is a call-open `(` or any `[`) -- spread is
+     * only legal in those two positions, so this reuses that logic one token further back rather
+     * than duplicating the `(`/`[`/`,` shape table.
      */
     private boolean isSpreadContext(final List<Token> tokens, final List<Integer> sig, final int s)
     {
@@ -2444,9 +2444,9 @@ public class TokenizerCurly extends TokenizerCore {
 
     /**
      * Scans backward from (but not including) {@code sig.get(beforeS)} tracking bracket depth
-     *  across `(`/`)`, `[`/`]`, `{`/`}`, and returns the `sig` index of the nearest unmatched
-     *  opening bracket -- the bracket that directly encloses position {@code beforeS} -- or -1 if
-     *  none is found (top level). Used to classify a top-level `,` by what it's inside of.
+     * across `(`/`)`, `[`/`]`, `{`/`}`, and returns the `sig` index of the nearest unmatched
+     * opening bracket -- the bracket that directly encloses position {@code beforeS} -- or -1 if
+     * none is found (top level). Used to classify a top-level `,` by what it's inside of.
      */
     private int findEnclosingOpenBracket(
         final List<Token>   tokens,

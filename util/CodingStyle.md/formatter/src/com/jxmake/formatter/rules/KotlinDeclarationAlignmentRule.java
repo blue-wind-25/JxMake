@@ -57,8 +57,8 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
 
     /**
      * RDD_KEY_162: indent-width-aware constructor, used by {@code ScopePipeline} so {@link
-     *  #renderAlignedGroup(List, int)} can estimate a group member's true rendered column and
-     *  refuse to pad another member wide enough to push it past {@code lineLengthLimit}
+     * #renderAlignedGroup(List, int)} can estimate a group member's true rendered column and
+     * refuse to pad another member wide enough to push it past {@code lineLengthLimit}
      */
     public KotlinDeclarationAlignmentRule(
         final Lang lang,
@@ -192,10 +192,10 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
 
     /**
      * Parses one statement's tokens as `[modifiers] val|var name [: type] [= init]`, or
-     *  returns null if it doesn't match this shape -- any other statement (a function call,
-     *  control-flow, a function/class declaration, an annotation-prefixed property, etc.)
-     *  breaks the group, same conservative "don't guess past an unrecognized shape" posture
-     *  used throughout this codebase, rather than the base class's much broader C/Java grammar.
+     * returns null if it doesn't match this shape -- any other statement (a function call,
+     * control-flow, a function/class declaration, an annotation-prefixed property, etc.)
+     * breaks the group, same conservative "don't guess past an unrecognized shape" posture
+     * used throughout this codebase, rather than the base class's much broader C/Java grammar.
      */
     private KotlinDecl parseKotlinDeclaration(final List<Token> stmt)
     {
@@ -308,14 +308,14 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
 
     /**
      * True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
-     *  {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token anywhere strictly between {@code
-     *  afterToken} (found by identity, same approach as {@link #spansMultipleLines}) and {@code
-     *  stmt}'s own last significant token -- i.e. an *embedded* comment inside the initializer
-     *  expression that a comment-free {@code significantOnly} rebuild would otherwise silently
-     *  drop. A trailing end-of-line comment (after the last significant token) is deliberately
-     *  excluded -- that one is already carried separately via {@link #findTrailingComment} and
-     *  rendered back, so flagging it here would needlessly break grouping for the common case of
-     *  a plain `val x = 1 // comment` declaration.
+     * {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token anywhere strictly between {@code
+     * afterToken} (found by identity, same approach as {@link #spansMultipleLines}) and {@code
+     * stmt}'s own last significant token -- i.e. an *embedded* comment inside the initializer
+     * expression that a comment-free {@code significantOnly} rebuild would otherwise silently
+     * drop. A trailing end-of-line comment (after the last significant token) is deliberately
+     * excluded -- that one is already carried separately via {@link #findTrailingComment} and
+     * rendered back, so flagging it here would needlessly break grouping for the common case of
+     * a plain `val x = 1 // comment` declaration.
      */
     private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken)
     {
@@ -418,11 +418,11 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
     // ── §12 Destructuring declarations ──────────────────────────────────────────
     /**
      * One component of a destructuring declaration's parenthesized name list (`a` or `id:
-     *  Long`); {@code typeTokens} is empty if the component has no explicit type (the common
-     *  case -- STYLE_KOTLIN.md §12's own examples never type-annotate a component). The
-     *  unnamed placeholder `_` needs no special handling here -- it tokenizes as a plain
-     *  IDENTIFIER, per STYLE_KOTLIN.md §12's own "just another identifier for spacing
-     *  purposes" framing.
+     * Long`); {@code typeTokens} is empty if the component has no explicit type (the common
+     * case -- STYLE_KOTLIN.md §12's own examples never type-annotate a component). The
+     * unnamed placeholder `_` needs no special handling here -- it tokenizes as a plain
+     * IDENTIFIER, per STYLE_KOTLIN.md §12's own "just another identifier for spacing
+     * purposes" framing.
      */
     public static final class Component {
 
@@ -439,11 +439,11 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
 
     /**
      * One parsed `val`/`var (a, b, ...) = value` destructuring declaration. Unlike {@link
-     *  KotlinDecl}, there is no per-component type column to grid-align -- STYLE_KOTLIN.md §12
-     *  is explicit that "a destructuring list has no type annotations to anchor a column grid"
-     *  -- so this carries a single pre-rendered {@code lhsText} (`(a, b)`, comma-normalized)
-     *  rather than a per-component token list, mirroring {@code MiscRule.Assignment}'s own
-     *  single-{@code lhsText}-cell shape for the same reason.
+     * KotlinDecl}, there is no per-component type column to grid-align -- STYLE_KOTLIN.md §12
+     * is explicit that "a destructuring list has no type annotations to anchor a column grid"
+     * -- so this carries a single pre-rendered {@code lhsText} (`(a, b)`, comma-normalized)
+     * rather than a per-component token list, mirroring {@code MiscRule.Assignment}'s own
+     * single-{@code lhsText}-cell shape for the same reason.
      */
     public static final class DestructuringDecl {
 
@@ -701,9 +701,9 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
 
     /**
      * Wraps a parsed {@link KotlinDecl} as a {@link Row} for the merged §6/§12 pass -- same
-     *  last-anchor fallback chain (trailing comment, else last init token, else last type token,
-     *  else the name itself) {@code ScopePipeline}'s pre-revision two-pass code used to compute
-     *  inline for the §6 side
+     * last-anchor fallback chain (trailing comment, else last init token, else last type token,
+     * else the name itself) {@code ScopePipeline}'s pre-revision two-pass code used to compute
+     * inline for the §6 side
      */
     private Row toRow(final KotlinDecl d)
     {
@@ -721,9 +721,9 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
 
     /**
      * Wraps a parsed {@link DestructuringDecl} as a {@link Row} -- always has a non-empty
-     *  {@code initTokens} ({@link #parseDestructuringDeclaration} rejects a destructuring
-     *  declaration with no initializer, so no name-token fallback is ever needed here, unlike
-     *  {@link #toRow(KotlinDecl)} above)
+     * {@code initTokens} ({@link #parseDestructuringDeclaration} rejects a destructuring
+     * declaration with no initializer, so no name-token fallback is ever needed here, unlike
+     * {@link #toRow(KotlinDecl)} above)
      */
     private Row toRow(final DestructuringDecl d)
     {
@@ -908,22 +908,22 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
 
     /**
      * True iff {@code initTokens} contains a literal {@code {} -- a lambda/object/block
-     *  expression -- anywhere. This, not a generic "has a breakable call" check, is the correct
-     *  gate for the width-budget exclusion above: {@link #spansMultipleLines} only ever bails a
-     *  re-parsed declaration out of its alignment group over a newline found at brace-depth > 0
-     *  (or a genuine top-level one); a later phase wrapping a call's arguments that sit strictly
-     *  inside PARENS with no enclosing brace (e.g. `full.substring(0, N)`,
-     *  `test/real_code_regressions_18`'s shape, or `threadContextElements(emitContext)` above)
-     *  never lands inside a brace, so {@code spansMultipleLines} correctly does NOT bail on it --
-     *  that row stays groupable/idempotent forever regardless of how long it is or how much
-     *  alignment padding it carries, so it must never be excluded here. A row whose initializer
-     *  is itself brace-bodied (a trailing lambda, `ChannelFlow.kt`'s
-     *  `emitRef = { downstream.emit(it) }`), by contrast, WILL have any future line-break land
-     *  inside that brace, guaranteeing a bail (and the resulting group-wide padding collapse) the
-     *  moment it overflows -- so once its own group-aligned width overflows the budget, excluding
-     *  it pre-emptively (rendering solo from the very first pass) is what actually restores
-     *  idempotency, regardless of whether it was already going to wrap on its own merits (e.g. a
-     *  long trailing comment) independent of any alignment padding.
+     * expression -- anywhere. This, not a generic "has a breakable call" check, is the correct
+     * gate for the width-budget exclusion above: {@link #spansMultipleLines} only ever bails a
+     * re-parsed declaration out of its alignment group over a newline found at brace-depth > 0
+     * (or a genuine top-level one); a later phase wrapping a call's arguments that sit strictly
+     * inside PARENS with no enclosing brace (e.g. `full.substring(0, N)`,
+     * `test/real_code_regressions_18`'s shape, or `threadContextElements(emitContext)` above)
+     * never lands inside a brace, so {@code spansMultipleLines} correctly does NOT bail on it --
+     * that row stays groupable/idempotent forever regardless of how long it is or how much
+     * alignment padding it carries, so it must never be excluded here. A row whose initializer
+     * is itself brace-bodied (a trailing lambda, `ChannelFlow.kt`'s
+     * `emitRef = { downstream.emit(it) }`), by contrast, WILL have any future line-break land
+     * inside that brace, guaranteeing a bail (and the resulting group-wide padding collapse) the
+     * moment it overflows -- so once its own group-aligned width overflows the budget, excluding
+     * it pre-emptively (rendering solo from the very first pass) is what actually restores
+     * idempotency, regardless of whether it was already going to wrap on its own merits (e.g. a
+     * long trailing comment) independent of any alignment padding.
      */
     private boolean hasBraceBodiedInit(final List<Token> initTokens)
     {

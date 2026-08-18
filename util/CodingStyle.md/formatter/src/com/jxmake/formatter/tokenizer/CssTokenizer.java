@@ -83,8 +83,8 @@ public final class CssTokenizer extends TokenizerSimpleBraced {
 
     /**
      * A run of any characters that are not whitespace, a comment start, a quote, or one of the
-     *  structural punctuation characters -- covers selector fragments, property names, at-rule
-     *  keywords, and value text (numbers, units, hex colors, function names) uniformly
+     * structural punctuation characters -- covers selector fragments, property names, at-rule
+     * keywords, and value text (numbers, units, hex colors, function names) uniformly
      */
     private Token emitTextRun()
     {

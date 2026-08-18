@@ -11,14 +11,14 @@ import java.util.regex.Pattern;
 
 /**
  * Detects a comment that reads as a multi-line license/copyright block -- the informal rule
- *  {@code tools/gru/README.txt}'s "Hand labeling" section already uses for Pool B: "spans 2+
- *  newlines, a license block not a single sentence -&gt; NO". Per STATE_AI.md's "further
- *  CommentClassifier NO-producing gates" TODO, that hand-labeling shortcut is too blunt to use
- *  verbatim -- a real multi-line prose paragraph (a comment split across lines purely for line-
- *  width reasons, common throughout this codebase's own Javadoc/block-comment style) must not
- *  misfire. Mirrors {@link CommentedOutCodeGate}'s two-independent-signal shape: a primary
- *  newline-count-plus-terminal-punctuation signal, confirmed by a second, independent
- *  license/copyright-specific signal, rather than either alone.
+ * {@code tools/gru/README.txt}'s "Hand labeling" section already uses for Pool B: "spans 2+
+ * newlines, a license block not a single sentence -&gt; NO". Per STATE_AI.md's "further
+ * CommentClassifier NO-producing gates" TODO, that hand-labeling shortcut is too blunt to use
+ * verbatim -- a real multi-line prose paragraph (a comment split across lines purely for line-
+ * width reasons, common throughout this codebase's own Javadoc/block-comment style) must not
+ * misfire. Mirrors {@link CommentedOutCodeGate}'s two-independent-signal shape: a primary
+ * newline-count-plus-terminal-punctuation signal, confirmed by a second, independent
+ * license/copyright-specific signal, rather than either alone.
  *
  *  <p><b>Primary signal</b> -- spans 2+ newlines <i>and</i> the comment's last non-whitespace
  *  character is not sentence-ending punctuation ({@code .}/{@code !}/{@code ?}). Genuine

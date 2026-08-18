@@ -39,9 +39,9 @@ public abstract class ScopePipelineCore {
 
     /**
      * One top-level (depth-0) span of a scope's token list: either a `;`-terminated statement,
-     *  or a `{ }`-block-terminated member, plus any same-line trailing comment. {@code end} is
-     *  exclusive. {@code openBraceIdx}/{@code closeBraceIdx} are -1 for a statement span;
-     *  otherwise they are this span's own top-level brace pair.
+     * or a `{ }`-block-terminated member, plus any same-line trailing comment. {@code end} is
+     * exclusive. {@code openBraceIdx}/{@code closeBraceIdx} are -1 for a statement span;
+     * otherwise they are this span's own top-level brace pair.
      */
     protected static final class Span {
 
@@ -87,8 +87,8 @@ public abstract class ScopePipelineCore {
 
     /**
      * Reassembles {@code tokens}' source text, substituting each {@code replacements} range
-     *  (assumed sorted by {@code start}, non-overlapping) and passing every other token through
-     *  verbatim
+     * (assumed sorted by {@code start}, non-overlapping) and passing every other token through
+     * verbatim
      */
     protected String splice(final List<Token> tokens, final List<Replacement> replacements)
     {
@@ -121,20 +121,20 @@ public abstract class ScopePipelineCore {
 
     /**
      * The indentation of the line a leading gap ends on -- the text after its last `\n`, or the
-     *  whole gap if it contains none. Truncated at the first non-space/non-tab character: a gap
-     *  can legitimately contain a same-line leading comment before the first declaration in a
-     *  group (e.g. STL's `/* [[no_unique_address]] *&#47; _Vw _Range;`), and that comment text is
-     *  not real indentation -- callers use this value both to compute the group's own visual
-     *  `leadingGap` (comment included, correctly, via the separate `rawLeadingGap` string) *and*
-     *  as the per-line join separator between every sibling declaration/assignment in the same
-     *  group. Without truncation, a same-line leading comment on just the *first* member leaked
-     *  into that join separator and got silently duplicated onto every subsequent sibling line --
-     *  found via `microsoft/STL` real-code testing (`ranges.hpp`'s `/* [[no_unique_address]] *&#47;
-     *  _Vw _Range;` immediately followed by un-commented `_Count`/`_Remainder` siblings in the same
-     *  alignment group), and the root cause of the "declaration-alignment column-padding
-     *  non-idempotency" gap (the duplicated-vs-not-yet-duplicated comment changes the raw leading
-     *  gap's character count between rounds, in turn changing whether `applyDeclarationsPass`'s
-     *  own idempotent-strip heuristic treats it as pre-existing padding).
+     * whole gap if it contains none. Truncated at the first non-space/non-tab character: a gap
+     * can legitimately contain a same-line leading comment before the first declaration in a
+     * group (e.g. STL's `/* [[no_unique_address]] *&#47; _Vw _Range;`), and that comment text is
+     * not real indentation -- callers use this value both to compute the group's own visual
+     * `leadingGap` (comment included, correctly, via the separate `rawLeadingGap` string) *and*
+     * as the per-line join separator between every sibling declaration/assignment in the same
+     * group. Without truncation, a same-line leading comment on just the *first* member leaked
+     * into that join separator and got silently duplicated onto every subsequent sibling line --
+     * found via `microsoft/STL` real-code testing (`ranges.hpp`'s `/* [[no_unique_address]] *&#47;
+     * _Vw _Range;` immediately followed by un-commented `_Count`/`_Remainder` siblings in the same
+     * alignment group), and the root cause of the "declaration-alignment column-padding
+     * non-idempotency" gap (the duplicated-vs-not-yet-duplicated comment changes the raw leading
+     * gap's character count between rounds, in turn changing whether `applyDeclarationsPass`'s
+     * own idempotent-strip heuristic treats it as pre-existing padding).
      */
     protected String trailingIndent(final String gap)
     {
@@ -174,8 +174,8 @@ public abstract class ScopePipelineCore {
 
     /**
      * Rounds `rawIndent` (spaces/tabs) up to the nearest multiple of {@link #indentWidth}.
-     *  Returns `rawIndent` unchanged when it is already a valid indentation (zero, or a positive
-     *  multiple of indentWidth).  Only non-zero non-multiples (e.g. 2-space source) are touched.
+     * Returns `rawIndent` unchanged when it is already a valid indentation (zero, or a positive
+     * multiple of indentWidth).  Only non-zero non-multiples (e.g. 2-space source) are touched.
      */
     protected String normalizeIndent(final String rawIndent)
     {
@@ -197,9 +197,9 @@ public abstract class ScopePipelineCore {
 
     /**
      * Returns a `leadingGap` that ends with `normalizedIndent` on its final line.  Only acts
-     *  when `leadingGap` already has a newline (multi-line indented content); if `leadingGap`
-     *  has no newline the content is inline and the gap is left unchanged -- callers that need
-     *  to expand a one-liner named-scope body pre-process it before calling processScope.
+     * when `leadingGap` already has a newline (multi-line indented content); if `leadingGap`
+     * has no newline the content is inline and the gap is left unchanged -- callers that need
+     * to expand a one-liner named-scope body pre-process it before calling processScope.
      */
     protected String normalizeLeadingGap(
         final String leadingGap,
@@ -216,8 +216,8 @@ public abstract class ScopePipelineCore {
 
     /**
      * Strips trailing spaces/tabs/newlines/carriage-returns from {@code s} -- used to discard a
-     *  scope's original, unnormalized gap before its closing `}` so a fresh {@code "\n" + indent}
-     *  can be appended in its place
+     * scope's original, unnormalized gap before its closing `}` so a fresh {@code "\n" + indent}
+     * can be appended in its place
      */
     protected String trimTrailingWhitespace(final String s)
     {
@@ -233,8 +233,8 @@ public abstract class ScopePipelineCore {
 
     /**
      * Counts the {@code '\n'} characters in the pure-whitespace run at the very end of {@code s}
-     *  (what {@link #trimTrailingWhitespace} would strip) -- one for a plain trailing newline,
-     *  two or more when genuine blank source line(s) sat in the gap being force-reindented
+     * (what {@link #trimTrailingWhitespace} would strip) -- one for a plain trailing newline,
+     * two or more when genuine blank source line(s) sat in the gap being force-reindented
      */
     protected int trailingRunNewlineCount(final String s)
     {
@@ -269,12 +269,12 @@ public abstract class ScopePipelineCore {
 
     /**
      * Like {@code Token.isGapToken} but excludes comments -- used to trim a declaration/assignment
-     *  group's replaced span down to its true trailing content without eating a same-line trailing
-     *  comment that the group's own rendered {@code text} did NOT already re-include verbatim
-     *  (unlike a mid-group member, the group's *last* member's trailing comment is only captured
-     *  once, by {@code Declaration.trailingComment}/{@code Assignment.trailingComment} and rendered
-     *  into `text` -- if this trim treated the comment as trimmable "gap" too, it would stay behind
-     *  in the untouched source right after the replaced span, duplicating it in the output).
+     * group's replaced span down to its true trailing content without eating a same-line trailing
+     * comment that the group's own rendered {@code text} did NOT already re-include verbatim
+     * (unlike a mid-group member, the group's *last* member's trailing comment is only captured
+     * once, by {@code Declaration.trailingComment}/{@code Assignment.trailingComment} and rendered
+     * into `text` -- if this trim treated the comment as trimmable "gap" too, it would stay behind
+     * in the untouched source right after the replaced span, duplicating it in the output).
      */
     protected boolean isWhitespaceOrNewline(final Token t)
     {
@@ -327,8 +327,8 @@ public abstract class ScopePipelineCore {
 
     /**
      * True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token sits anywhere in the pure-gap
-     *  run immediately before {@code closeBraceIdx} (i.e. between it and the nearest preceding
-     *  non-gap token).
+     * run immediately before {@code closeBraceIdx} (i.e. between it and the nearest preceding
+     * non-gap token).
      */
     protected boolean trailingGapHasComment(final List<Token> tokens, final int closeBraceIdx)
     {

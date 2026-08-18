@@ -745,7 +745,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
 
     /**
      * True iff {@code t} is a C++ post-paren qualifier that can appear between {@code )} and
-     *  the function body or terminator (const, volatile, noexcept, override, final)
+     * the function body or terminator (const, volatile, noexcept, override, final)
      */
     private boolean isPostParenQualifier(final Token t)
     {
@@ -762,8 +762,8 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
 
     /**
      * True iff the scope tokens contain at least one access-specifier label
-     *  ({@code public:} / {@code private:} / {@code protected:}) at depth 0.
-     *  Used to distinguish class/struct bodies from file/namespace scopes.
+     * ({@code public:} / {@code private:} / {@code protected:}) at depth 0.
+     * Used to distinguish class/struct bodies from file/namespace scopes.
      */
     private boolean hasAccessSpecifier(final List<Token> tokens)
     {

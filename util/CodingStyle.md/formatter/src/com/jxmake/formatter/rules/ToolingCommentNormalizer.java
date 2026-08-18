@@ -81,16 +81,16 @@ final class ToolingCommentNormalizer {
 
     /**
      * 2026-08-08 session: chain-groups consecutive standalone `#` comments the same way curly
-     *  chains `//` (RDD_KEY_265/RDD_KEY_266) -- shared by all five languages that use this class'
-     *  `#`-comment shape (yaml/toml -- data-formats job; makefile/bash/powershell -- tooling job).
-     *  {@code bodies} is each comment's text *after* the leading `#`, in source order; {@code
-     *  blankBeforeEach.get(k)} is true iff a blank line separated comment {@code k} from comment
-     *  {@code k-1} (index 0's value is irrelevant -- a group always starts fresh at a sub-run's
-     *  beginning). Within a chain (no blank line between consecutive comments), only the first
-     *  comment's start is capitalized, and a sole trailing `.` is stripped only if it's the only
-     *  `.` across the whole chain, from the chain's last comment only -- matching curly's
-     *  `computeLineCommentGroups` shape. A singleton chain (length 1) reduces to the pre-existing
-     *  per-comment-token behavior.
+     * chains `//` (RDD_KEY_265/RDD_KEY_266) -- shared by all five languages that use this class'
+     * `#`-comment shape (yaml/toml -- data-formats job; makefile/bash/powershell -- tooling job).
+     * {@code bodies} is each comment's text *after* the leading `#`, in source order; {@code
+     * blankBeforeEach.get(k)} is true iff a blank line separated comment {@code k} from comment
+     * {@code k-1} (index 0's value is irrelevant -- a group always starts fresh at a sub-run's
+     * beginning). Within a chain (no blank line between consecutive comments), only the first
+     * comment's start is capitalized, and a sole trailing `.` is stripped only if it's the only
+     * `.` across the whole chain, from the chain's last comment only -- matching curly's
+     * `computeLineCommentGroups` shape. A singleton chain (length 1) reduces to the pre-existing
+     * per-comment-token behavior.
      */
     static List<String> normalizeChain(
         final List<String>  bodies,
@@ -210,14 +210,14 @@ final class ToolingCommentNormalizer {
 
     /**
      * Shared deferred-placeholder mechanism for character-level tokenizers (Bash, PowerShell) that
-     *  cannot look ahead to know whether a standalone `#` comment starts a chain: each comment's raw
-     *  body is buffered here behind a unique placeholder marker emitted into the pass-A output in the
-     *  comment's place; once the whole file has been scanned, {@link #resolve} groups strictly
-     *  line-consecutive entries into chains, normalizes each chain via {@link #normalizeChain}, and
-     *  substitutes the final text back over every placeholder. Makefile's tokenizer is line-oriented
-     *  and does simple lookahead instead -- it has no need for this mechanism. Originally implemented
-     *  independently (and identically) in {@code BashSpecificRule} and {@code PowerShellSpecificRule}
-     *  for RDD_KEY_267; extracted here since both languages' logic was the same modulo marker text.
+     * cannot look ahead to know whether a standalone `#` comment starts a chain: each comment's raw
+     * body is buffered here behind a unique placeholder marker emitted into the pass-A output in the
+     * comment's place; once the whole file has been scanned, {@link #resolve} groups strictly
+     * line-consecutive entries into chains, normalizes each chain via {@link #normalizeChain}, and
+     * substitutes the final text back over every placeholder. Makefile's tokenizer is line-oriented
+     * and does simple lookahead instead -- it has no need for this mechanism. Originally implemented
+     * independently (and identically) in {@code BashSpecificRule} and {@code PowerShellSpecificRule}
+     * for RDD_KEY_267; extracted here since both languages' logic was the same modulo marker text.
      */
     static final class ChainCollector {
 
@@ -244,7 +244,7 @@ final class ToolingCommentNormalizer {
 
         /**
          * {@code markerPrefix}/{@code markerSuffix} bracket each generated placeholder -- caller picks
-         *  text guaranteed not to collide with real source content (e.g. Bash wraps in {@code U+0007}).
+         * text guaranteed not to collide with real source content (e.g. Bash wraps in {@code U+0007}).
          */
         ChainCollector(final String markerPrefix, final String markerSuffix)
         {
@@ -263,8 +263,8 @@ final class ToolingCommentNormalizer {
 
         /**
          * Groups collected entries into strictly line-consecutive chains, normalizes each chain, and
-         *  substitutes every placeholder in {@code transformed} with its final text. A no-op if no
-         *  comment was deferred.
+         * substitutes every placeholder in {@code transformed} with its final text. A no-op if no
+         * comment was deferred.
          */
         String resolve(
             final String      transformed,
@@ -326,16 +326,16 @@ final class ToolingCommentNormalizer {
 
         /**
          * Companion to {@link #resolve}, called with the SAME pre-substitution {@code transformed}
-         *  string originally passed to {@link #resolve} (so placeholder text can still be located by
-         *  position) plus a kind-string that is character-for-character aligned with it -- substitutes
-         *  each placeholder span with a run of {@code 'O'} matching the length of that placeholder's
-         *  *final* substituted text (recorded by the prior {@link #resolve} call), keeping the returned
-         *  kind string aligned with {@code resolve}'s own return value. A textual {@code String.replace}
-         *  (as {@link #resolve} itself uses) does not work here -- the kind string is built from 'C'/'O'
-         *  characters only and never literally contains the placeholder marker text -- so this scans
-         *  {@code preResolveTransformed} for each placeholder's position and splices the kind string at
-         *  the same offsets instead. Must be called after {@link #resolve} (uses its recorded
-         *  {@code resolvedLength} per entry). A no-op if no comment was deferred.
+         * string originally passed to {@link #resolve} (so placeholder text can still be located by
+         * position) plus a kind-string that is character-for-character aligned with it -- substitutes
+         * each placeholder span with a run of {@code 'O'} matching the length of that placeholder's
+         * *final* substituted text (recorded by the prior {@link #resolve} call), keeping the returned
+         * kind string aligned with {@code resolve}'s own return value. A textual {@code String.replace}
+         * (as {@link #resolve} itself uses) does not work here -- the kind string is built from 'C'/'O'
+         * characters only and never literally contains the placeholder marker text -- so this scans
+         * {@code preResolveTransformed} for each placeholder's position and splices the kind string at
+         * the same offsets instead. Must be called after {@link #resolve} (uses its recorded
+         * {@code resolvedLength} per entry). A no-op if no comment was deferred.
          */
         String resolveKind(final String preResolveTransformed, final String preResolveKind)
         {
@@ -358,9 +358,9 @@ final class ToolingCommentNormalizer {
 
     /**
      * Strips the trailing `.` only when it is the sole `.` in {@code text} -- an ellipsis (`...`) is
-     *  left alone for free. Package-private (not {@code private}) so the data-format rule classes
-     *  (TOML/YAML, whose `#`-comment shape matches Makefile/Bash/PowerShell's) can reuse it directly
-     *  for {@code normalize-comment-end-period} instead of duplicating the same logic.
+     * left alone for free. Package-private (not {@code private}) so the data-format rule classes
+     * (TOML/YAML, whose `#`-comment shape matches Makefile/Bash/PowerShell's) can reuse it directly
+     * for {@code normalize-comment-end-period} instead of duplicating the same logic.
      */
     static String stripSoleTrailingPeriod(final String text)
     {

@@ -51,8 +51,8 @@ final class YamlTomlSharedRule {
 
     /**
      * Splits off a same-line trailing `#` comment from {@code s}, respecting quotes -- a `#` only
-     *  starts a comment when it is at the start of the string or preceded by whitespace. Returns a
-     *  two-element array: [codePart (right-trimmed), commentPartOrNull].
+     * starts a comment when it is at the start of the string or preceded by whitespace. Returns a
+     * two-element array: [codePart (right-trimmed), commentPartOrNull].
      */
     static String[] splitTrailingComment(final String s)
     {
@@ -85,9 +85,9 @@ final class YamlTomlSharedRule {
 
     /**
      * Normalizes a same-line trailing `#...` comment: optional sole-trailing-period stripping,
-     *  then optional first-letter capitalization (skipping a already-uppercase/non-letter leading
-     *  character) -- identical logic previously duplicated verbatim in {@code YamlSpecificRule}
-     *  and {@code TomlSpecificRule}'s own private {@code normComment}.
+     * then optional first-letter capitalization (skipping a already-uppercase/non-letter leading
+     * character) -- identical logic previously duplicated verbatim in {@code YamlSpecificRule}
+     * and {@code TomlSpecificRule}'s own private {@code normComment}.
      */
     static String normComment(
         final String  commentText,
@@ -121,18 +121,18 @@ final class YamlTomlSharedRule {
 
     /**
      * Computes per-item `=`/`:`-alignment padding for a run of {@code size} items, grouping
-     *  adjacent keyed items with no leading comment/blank-line break between them into independent
-     *  alignment groups (same shape as JSON's §1.1 grouping) -- identical loop previously
-     *  duplicated verbatim in {@code YamlSpecificRule}/{@code TomlSpecificRule}'s own
-     *  {@code renderItems}. Indexed via predicates/accessor rather than a shared item type, since
-     *  the two callers' own {@code Item} classes are unrelated (YAML's carries sequence/mapping
-     *  fields TOML has no use for, and vice versa).
+     * adjacent keyed items with no leading comment/blank-line break between them into independent
+     * alignment groups (same shape as JSON's §1.1 grouping) -- identical loop previously
+     * duplicated verbatim in {@code YamlSpecificRule}/{@code TomlSpecificRule}'s own
+     * {@code renderItems}. Indexed via predicates/accessor rather than a shared item type, since
+     * the two callers' own {@code Item} classes are unrelated (YAML's carries sequence/mapping
+     * fields TOML has no use for, and vice versa).
      */
     /**
      * Terminal-condition callback for {@link #scanQuoteAwareBracket} -- invoked once per character
-     *  not consumed by quote/bracket handling, after any bracket-depth delta for that character has
-     *  already been applied to {@code depth}. Return {@code true} to stop the scan at index
-     *  {@code i}.
+     * not consumed by quote/bracket handling, after any bracket-depth delta for that character has
+     * already been applied to {@code depth}. Return {@code true} to stop the scan at index
+     * {@code i}.
      */
     interface BracketScanStop {
 
@@ -142,12 +142,12 @@ final class YamlTomlSharedRule {
 
     /**
      * Result of {@link #scanQuoteAwareBracket}: {@code stopIndex} is the index of the first
-     *  character {@code stop} matched, or {@code -1} if it never matched (including when
-     *  {@code stop} was {@code null}); {@code finalDepth} is the net bracket depth at the end of
-     *  the scan (meaningful for a caller like {@code bracketBalance} that scans with no terminal
-     *  condition -- {@code stopIndex} is always {@code -1} in that case). Plain result-holder, not
-     *  a packed/encoded int, to avoid any sentinel-collision risk when depth can legitimately go
-     *  negative (e.g. a lone {@code ]} continuation line).
+     * character {@code stop} matched, or {@code -1} if it never matched (including when
+     * {@code stop} was {@code null}); {@code finalDepth} is the net bracket depth at the end of
+     * the scan (meaningful for a caller like {@code bracketBalance} that scans with no terminal
+     * condition -- {@code stopIndex} is always {@code -1} in that case). Plain result-holder, not
+     * a packed/encoded int, to avoid any sentinel-collision risk when depth can legitimately go
+     * negative (e.g. a lone {@code ]} continuation line).
      */
     static final class BracketScanResult {
 
@@ -164,11 +164,11 @@ final class YamlTomlSharedRule {
 
     /**
      * Shared core of the quote-aware ({@code '`/`"`-respecting, backslash-escape-aware inside
-     *  double quotes only) `{}`/`[]`-depth scanner previously duplicated (with a different terminal
-     *  condition each time) as {@code TomlSpecificRule.bracketBalance}/{@code findAssignmentEquals}
-     *  and {@code YamlSpecificRule.findMappingColon}. {@code stop} is consulted for every character
-     *  not itself consumed as a quote/bracket character; pass {@code null} for a scan with no
-     *  terminal condition (i.e. one that always runs to the end of {@code s}).
+     * double quotes only) `{}`/`[]`-depth scanner previously duplicated (with a different terminal
+     * condition each time) as {@code TomlSpecificRule.bracketBalance}/{@code findAssignmentEquals}
+     * and {@code YamlSpecificRule.findMappingColon}. {@code stop} is consulted for every character
+     * not itself consumed as a quote/bracket character; pass {@code null} for a scan with no
+     * terminal condition (i.e. one that always runs to the end of {@code s}).
      */
     static BracketScanResult scanQuoteAwareBracket(final String s, final BracketScanStop stop)
     {

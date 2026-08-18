@@ -113,8 +113,8 @@ public class TokenizerCore {
 
         /**
          * Null-safe: {@code t} is a `PUNCT` token whose text equals {@code text}. Centralizes
-         *  what used to be a byte-for-byte-identical private helper duplicated in nearly every
-         *  rule class.
+         * what used to be a byte-for-byte-identical private helper duplicated in nearly every
+         * rule class.
          */
         public static boolean isPunct(final Token t, final String text)
         {
@@ -152,7 +152,7 @@ public class TokenizerCore {
 
         /**
          * Null-safe: {@code t} is whitespace, a newline, or a comment -- a token every rule
-         *  class's rendering passes skip over when scanning for the next significant token
+         * class's rendering passes skip over when scanning for the next significant token
          */
         public static boolean isGapToken(final Token t)
         {
@@ -163,20 +163,20 @@ public class TokenizerCore {
 
         /**
          * True iff {@code tokens.get(index)} is the operand immediately following a unary
-         *  `-`/`+` at {@code tokens.get(index - 1)} -- i.e. that `-`/`+` is not itself preceded
-         *  by another operand (identifier/number/string/char/closing `)`/`]`), which would make
-         *  it binary instead. A caller's pairwise (prev, cur) spacing decision has no way to see
-         *  the token before `prev`, so without this check a leading/embedded unary sign (e.g.
-         *  `int aaa = +1;`, or a ternary's `-1` else-arm) renders with a spurious space
-         *  (`= + 1`, `- 1`). Centralized here (RDD_KEY_238 follow-up) after being found
-         *  independently duplicated, byte-for-byte identical, in both
-         *  {@code DeclarationAlignmentRuleCore} and {@code MiscRuleCore} -- same "duplicated
-         *  small token helper" pattern {@link #isPunct}/{@link #isOp}/etc. already centralized
-         *  here; this one is a pure function of {@code (tokens, index)} with no per-instance
-         *  {@code lang}/config dependency, so unlike the class-refactor's other same-named-helper
-         *  duplicates (`setOf`, `isTightToken`'s language-specific bodies), promoting it here is a
-         *  same-behavior move, not a new shared-utility-class decision. Both call sites now
-         *  delegate to this method; neither keeps its own copy.
+         * `-`/`+` at {@code tokens.get(index - 1)} -- i.e. that `-`/`+` is not itself preceded
+         * by another operand (identifier/number/string/char/closing `)`/`]`), which would make
+         * it binary instead. A caller's pairwise (prev, cur) spacing decision has no way to see
+         * the token before `prev`, so without this check a leading/embedded unary sign (e.g.
+         * `int aaa = +1;`, or a ternary's `-1` else-arm) renders with a spurious space
+         * (`= + 1`, `- 1`). Centralized here (RDD_KEY_238 follow-up) after being found
+         * independently duplicated, byte-for-byte identical, in both
+         * {@code DeclarationAlignmentRuleCore} and {@code MiscRuleCore} -- same "duplicated
+         * small token helper" pattern {@link #isPunct}/{@link #isOp}/etc. already centralized
+         * here; this one is a pure function of {@code (tokens, index)} with no per-instance
+         * {@code lang}/config dependency, so unlike the class-refactor's other same-named-helper
+         * duplicates (`setOf`, `isTightToken`'s language-specific bodies), promoting it here is a
+         * same-behavior move, not a new shared-utility-class decision. Both call sites now
+         * delegate to this method; neither keeps its own copy.
          */
         public static boolean isUnaryMinusOperand(final List<Token> tokens, final int index)
         {
@@ -195,9 +195,9 @@ public class TokenizerCore {
 
     /**
      * Small keyword/operator-set-literal builder -- previously re-implemented byte-identically
-     *  in both {@link TokenizerCurly} and {@link TokenizerIndent} (and independently in a few
-     *  {@code rules} package classes outside this hierarchy); promoted here during the
-     *  2026-07-28 cleanup pass since both tokenizer siblings shared this exact base already
+     * in both {@link TokenizerCurly} and {@link TokenizerIndent} (and independently in a few
+     * {@code rules} package classes outside this hierarchy); promoted here during the
+     * 2026-07-28 cleanup pass since both tokenizer siblings shared this exact base already
      */
     protected static Set<String> setOf(final String... words)
     {
@@ -206,8 +206,8 @@ public class TokenizerCore {
 
     /**
      * Same-shape single-character PUNCT emitter -- previously re-implemented byte-identically in
-     *  both {@link TokenizerCurly} and {@link TokenizerIndent}, promoted here alongside
-     *  {@link #setOf}
+     * both {@link TokenizerCurly} and {@link TokenizerIndent}, promoted here alongside
+     * {@link #setOf}
      */
     protected Token emitPunct(final char c)
     {
@@ -230,10 +230,10 @@ public class TokenizerCore {
 
     /**
      * Scans {@code tokens} in order, toggling a frozen/unfrozen state on
-     *  {@code //% JXM_CFMT_DIS}/{@code ENA} (and block-comment equivalent) marker comments, and
-     *  stamps {@link Token#frozen} on every token accordingly. A marker token itself is always
-     *  stamped frozen (never reformatted/removed), regardless of whether it disables or
-     *  re-enables. {@code startFrozen} seeds the initial state (set from {@code --format-off}).
+     * {@code //% JXM_CFMT_DIS}/{@code ENA} (and block-comment equivalent) marker comments, and
+     * stamps {@link Token#frozen} on every token accordingly. A marker token itself is always
+     * stamped frozen (never reformatted/removed), regardless of whether it disables or
+     * re-enables. {@code startFrozen} seeds the initial state (set from {@code --format-off}).
      */
     public static void markFrozenSpans(final List<Token> tokens, final boolean startFrozen)
     {

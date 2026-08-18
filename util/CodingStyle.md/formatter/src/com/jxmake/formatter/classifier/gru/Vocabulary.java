@@ -14,10 +14,10 @@ import java.util.Map;
 
 /**
  * Word-to-embedding-index lookup for {@link GruClassifier}, per STATE_NEXT_AI.md's "GRU
- *  implementation design": an explicit vocab (~3.5k words -- every keyword across every
- *  supported/planned language gets a guaranteed slot, plus common English comment-corpus words
- *  filling the rest) with a hashed-bucket fallback for anything out of vocab (RDD_EXT_13's
- *  FNV-1a mod {@link GruClassifier#HASH_BUCKETS}, via {@link GruClassifier#hashBucket}).
+ * implementation design": an explicit vocab (~3.5k words -- every keyword across every
+ * supported/planned language gets a guaranteed slot, plus common English comment-corpus words
+ * filling the rest) with a hashed-bucket fallback for anything out of vocab (RDD_EXT_13's
+ * FNV-1a mod {@link GruClassifier#HASH_BUCKETS}, via {@link GruClassifier#hashBucket}).
  *
  *  <p>This class is only the lookup mechanism -- the actual ~3.5k-word explicit vocab content is
  *  training-data curation work (which keywords, which common words, how they're ordered), not an
@@ -34,8 +34,8 @@ public final class Vocabulary {
 
     /**
      * Builds a vocabulary from an explicit, ordered word list -- each word's position is its
-     *  embedding index (0-based, case-preserved, no deduplication check beyond what the caller
-     *  provides)
+     * embedding index (0-based, case-preserved, no deduplication check beyond what the caller
+     * provides)
      */
     public Vocabulary(List<String> explicitWords)
     {
@@ -55,9 +55,9 @@ public final class Vocabulary {
 
     /**
      * Resolves {@code word} to an embedding-table row index: an explicit vocab index if present
-     *  (case-sensitive match), otherwise {@code explicitVocabSize + hashBucket(word)} -- so the
-     *  full embedding table has {@code explicitVocabSize + HASH_BUCKETS} rows, explicit slots
-     *  first, OOV hash buckets after
+     * (case-sensitive match), otherwise {@code explicitVocabSize + hashBucket(word)} -- so the
+     * full embedding table has {@code explicitVocabSize + HASH_BUCKETS} rows, explicit slots
+     * first, OOV hash buckets after
      */
     public int lookup(String word)
     {
@@ -69,7 +69,7 @@ public final class Vocabulary {
 
     /**
      * Total embedding table row count this vocabulary implies: explicit slots plus OOV hash
-     *  buckets
+     * buckets
      */
     public int totalEmbeddingRows()
     {

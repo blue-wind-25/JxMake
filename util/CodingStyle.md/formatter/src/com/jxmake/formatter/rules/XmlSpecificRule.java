@@ -47,7 +47,7 @@ public final class XmlSpecificRule {
 
     /**
      * HTML5 void elements (never a closing tag; any self-closing `/` is normalized away),
-     *  per STYLE_DATA_FORMATS.md §4.1.
+     * per STYLE_DATA_FORMATS.md §4.1.
      */
     private static final java.util.Set<String> VOID_ELEMENTS = new java.util.HashSet<>( java.util.Arrays.asList(
         "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param",
@@ -56,7 +56,7 @@ public final class XmlSpecificRule {
 
     /**
      * `<script>` MIME types that mean "this is JavaScript" per HTML5 semantics -- anything else
-     *  (or a recognized non-executable type such as `application/json`) is left fully opaque
+     * (or a recognized non-executable type such as `application/json`) is left fully opaque
      */
     private static final java.util.Set<String> JS_SCRIPT_TYPES = new java.util.HashSet<>( java.util.Arrays.asList(
         "text/javascript", "application/javascript", "application/ecmascript",
@@ -65,15 +65,15 @@ public final class XmlSpecificRule {
 
     /**
      * HTML5 tree-construction spec tag-name rewrites: a start tag whose name (lowercased) is a key
-     *  here is renamed to the mapped value and reprocessed as that element instead -- currently just
-     *  `image` -> `img` (a real, spec-mandated quirk, confirmed via real WPT dogfood input,
-     *  `speculative-parsing/**\/resources/image-src-framed.sub.html` etc.). Map (not a single constant)
-     *  so any future tag-name rewrite the spec turns out to need is one entry, no new code -- per the
-     *  spec's tree-construction algorithm this is currently the only such rewrite ("isindex" is a
-     *  different, much larger obsolete-element-expansion quirk, not a simple rename, and out of scope).
-     *  Only applies to HTML content -- callers must additionally gate on not being inside real foreign
-     *  content (see {@link #svgDepth}) since e.g. a real `<image>` inside `<svg>` is a legitimate SVG
-     *  element, not this quirk.
+     * here is renamed to the mapped value and reprocessed as that element instead -- currently just
+     * `image` -> `img` (a real, spec-mandated quirk, confirmed via real WPT dogfood input,
+     * `speculative-parsing/**\/resources/image-src-framed.sub.html` etc.). Map (not a single constant)
+     * so any future tag-name rewrite the spec turns out to need is one entry, no new code -- per the
+     * spec's tree-construction algorithm this is currently the only such rewrite ("isindex" is a
+     * different, much larger obsolete-element-expansion quirk, not a simple rename, and out of scope).
+     * Only applies to HTML content -- callers must additionally gate on not being inside real foreign
+     * content (see {@link #svgDepth}) since e.g. a real `<image>` inside `<svg>` is a legitimate SVG
+     * element, not this quirk.
      */
     private static final java.util.Map<String, String> TAG_NAME_REWRITES = new java.util.HashMap<>();
     static {
@@ -82,12 +82,12 @@ public final class XmlSpecificRule {
 
     /**
      * HTML5 tree-construction spec's "Adjust SVG tag names" step: inside real SVG foreign content,
-     *  a start tag whose lowercased name is a key here is corrected to the mapped mixed-case spec
-     *  name (SVG is XML-based/case-sensitive even though HTML5 parsing is otherwise case-insensitive).
-     *  Opposite gating from {@link #TAG_NAME_REWRITES}: that map applies only OUTSIDE svg
-     *  ({@code svgDepth == 0}), this one applies only INSIDE svg ({@code svgDepth > 0}) -- kept as a
-     *  separate map/gate rather than merged, since the two conditions are mutually exclusive. Table is
-     *  the WHATWG HTML5 spec's stable "Adjust SVG tag names" list (unchanged for years).
+     * a start tag whose lowercased name is a key here is corrected to the mapped mixed-case spec
+     * name (SVG is XML-based/case-sensitive even though HTML5 parsing is otherwise case-insensitive).
+     * Opposite gating from {@link #TAG_NAME_REWRITES}: that map applies only OUTSIDE svg
+     * ({@code svgDepth == 0}), this one applies only INSIDE svg ({@code svgDepth > 0}) -- kept as a
+     * separate map/gate rather than merged, since the two conditions are mutually exclusive. Table is
+     * the WHATWG HTML5 spec's stable "Adjust SVG tag names" list (unchanged for years).
      */
     private static final java.util.Map<String, String> SVG_TAG_NAME_CASE_FIXUP = new java.util.HashMap<>();
     static {
@@ -194,8 +194,8 @@ public final class XmlSpecificRule {
 
     /**
      * HTML5 tree-construction spec's "Adjust MathML attributes" step: inside real MathML foreign content
-     *  ({@code mathmlDepth > 0}), attribute and tag names are corrected to the mapped mixed-case spec name
-     *  (e.g. `definitionurl` -> `definitionURL`).
+     * ({@code mathmlDepth > 0}), attribute and tag names are corrected to the mapped mixed-case spec name
+     * (e.g. `definitionurl` -> `definitionURL`).
      */
     private static final java.util.Map<String, String> MATHML_TAG_NAME_CASE_FIXUP = new java.util.HashMap<>();
     static {
@@ -209,26 +209,26 @@ public final class XmlSpecificRule {
 
     /**
      * HTML5 elements whose children rely on the spec's implied-end-tag tree-construction rule
-     *  (e.g. `<rb>`/`<rt>`/`<rp>`/`<rtc>` inside `<ruby>` never carry an explicit closing tag in
-     *  valid markup) -- rather than modeling the full per-element-family implied-closing-trigger
-     *  spec (a large feature, RDD_KEY_198), each name here is instead scanned as one opaque,
-     *  byte-for-byte-verbatim span from its opening tag to its own MATCHING closing tag (nested
-     *  same-name opens/closes tracked), reusing the same "don't parse the interior, just find the
-     *  matching close" pattern {@link #finishRawTextElement}/{@link #finishRawElement} already use
-     *  for `<script>`/`<style>`/`<pre>`. Extend by adding a name here only -- no other code change
-     *  needed for a simple case; do not add per-element implied-closing-trigger logic.
+     * (e.g. `<rb>`/`<rt>`/`<rp>`/`<rtc>` inside `<ruby>` never carry an explicit closing tag in
+     * valid markup) -- rather than modeling the full per-element-family implied-closing-trigger
+     * spec (a large feature, RDD_KEY_198), each name here is instead scanned as one opaque,
+     * byte-for-byte-verbatim span from its opening tag to its own MATCHING closing tag (nested
+     * same-name opens/closes tracked), reusing the same "don't parse the interior, just find the
+     * matching close" pattern {@link #finishRawTextElement}/{@link #finishRawElement} already use
+     * for `<script>`/`<style>`/`<pre>`. Extend by adding a name here only -- no other code change
+     * needed for a simple case; do not add per-element implied-closing-trigger logic.
      */
     private static final java.util.Set<String> OPAQUE_IMPLIED_END_TAG_ELEMENTS = new java.util.HashSet<>(
             java.util.Arrays.asList("ruby") );
 
     /**
      * Real HTML5 tag names, used only by {@link #isMarkupFragmentDirective} to recognize a comment
-     *  whose content is a leftover markup fragment (e.g. a commented-out {@code <tr>...</tr>} or
-     *  {@code <p>...</p>} block where the author's {@code <!--}/{@code <} boundary landed mid-tag,
-     *  leaving the fragment's first "word" a bare tag-name-open token like {@code tr>}/{@code p>}
-     *  rather than a capitalizable English sentence). Deliberately a closed set of real tag names
-     *  (not "any lowercase word immediately followed by {@code >}") -- see that method's Javadoc for
-     *  the corpus evidence this restriction is based on.
+     * whose content is a leftover markup fragment (e.g. a commented-out {@code <tr>...</tr>} or
+     * {@code <p>...</p>} block where the author's {@code <!--}/{@code <} boundary landed mid-tag,
+     * leaving the fragment's first "word" a bare tag-name-open token like {@code tr>}/{@code p>}
+     * rather than a capitalizable English sentence). Deliberately a closed set of real tag names
+     * (not "any lowercase word immediately followed by {@code >}") -- see that method's Javadoc for
+     * the corpus evidence this restriction is based on.
      */
     private static final java.util.Set<String> MARKUP_FRAGMENT_TAG_NAMES = new java.util.HashSet<>(
         java.util.Arrays.asList(
@@ -247,30 +247,30 @@ public final class XmlSpecificRule {
 
     /**
      * General, reusable "implied-closing trigger" table: an element name registered here is parsed
-     *  as a REAL node (attributes/children/normal rendering, unlike {@link #OPAQUE_IMPLIED_END_TAG_ELEMENTS}'
-     *  whole-span opaque capture) whose children stop -- implying an unwritten closing tag -- as soon
-     *  as one of the mapped sibling start-tag names begins, in addition to the existing "parent's own
-     *  closing tag also ends me" behavior every element already gets via {@code parseNodes}'s
-     *  {@code stopAtCloseTag}. Populate with one entry per element only once real dogfood input needs
-     *  it -- currently `option` (closes on a sibling `<option>`/`<optgroup>` start, or when its
-     *  parent `<select>`/`<datalist>`/`<optgroup>` closes), `head` (closes on a sibling `<body>`
-     *  start, confirmed via real WPT dogfood input, `meta-inhead-insertion-mode.html`), and `p`
-     *  (RDD_KEY_204 -- closes on any of the HTML5 spec's fixed "close a p element" trigger-tag
-     *  list, confirmed via real `apache/ant` `manual/` dogfood input: a `<p>...` paragraph with no
-     *  explicit `</p>` before a following `<h3>` caused the parser to swallow the rest of the
-     *  document as that `<p>`'s children until the first unrelated closing tag anywhere downstream,
-     *  producing a spurious duplicate `</p>` at the very end). Do NOT add `li`/`td`/`tr`/etc.
-     *  speculatively without similar real dogfood evidence -- see STATE_DATA_FORMATS.md's Open
-     *  Questions/RDD_LOG.md for the rationale.
+     * as a REAL node (attributes/children/normal rendering, unlike {@link #OPAQUE_IMPLIED_END_TAG_ELEMENTS}'
+     * whole-span opaque capture) whose children stop -- implying an unwritten closing tag -- as soon
+     * as one of the mapped sibling start-tag names begins, in addition to the existing "parent's own
+     * closing tag also ends me" behavior every element already gets via {@code parseNodes}'s
+     * {@code stopAtCloseTag}. Populate with one entry per element only once real dogfood input needs
+     * it -- currently `option` (closes on a sibling `<option>`/`<optgroup>` start, or when its
+     * parent `<select>`/`<datalist>`/`<optgroup>` closes), `head` (closes on a sibling `<body>`
+     * start, confirmed via real WPT dogfood input, `meta-inhead-insertion-mode.html`), and `p`
+     * (RDD_KEY_204 -- closes on any of the HTML5 spec's fixed "close a p element" trigger-tag
+     * list, confirmed via real `apache/ant` `manual/` dogfood input: a `<p>...` paragraph with no
+     * explicit `</p>` before a following `<h3>` caused the parser to swallow the rest of the
+     * document as that `<p>`'s children until the first unrelated closing tag anywhere downstream,
+     * producing a spurious duplicate `</p>` at the very end). Do NOT add `li`/`td`/`tr`/etc.
+     * speculatively without similar real dogfood evidence -- see STATE_DATA_FORMATS.md's Open
+     * Questions/RDD_LOG.md for the rationale.
      */
     /**
      * Level-2 tc-gap (RDD_KEY_230, foster-parenting): element names allowed to remain as direct
-     *  children of a {@code <table>} without being relocated -- the HTML5 spec's own "in table"
-     *  insertion-mode structural set (row-group/row/cell-boundary elements, plus {@code <script>}/
-     *  {@code <style>}/{@code <template>}, which the spec also exempts from foster-parenting). Any
-     *  other element, or non-whitespace text, encountered directly inside {@code <table>} (i.e. while
-     *  {@link #isInTableInsertionMode()} is true) gets foster-parented instead -- see
-     *  {@link #shouldFosterParent}.
+     * children of a {@code <table>} without being relocated -- the HTML5 spec's own "in table"
+     * insertion-mode structural set (row-group/row/cell-boundary elements, plus {@code <script>}/
+     * {@code <style>}/{@code <template>}, which the spec also exempts from foster-parenting). Any
+     * other element, or non-whitespace text, encountered directly inside {@code <table>} (i.e. while
+     * {@link #isInTableInsertionMode()} is true) gets foster-parented instead -- see
+     * {@link #shouldFosterParent}.
      */
     private static final java.util.Set<String> TABLE_STRUCTURE_CHILDREN = new java.util.HashSet<>(
         java.util.Arrays.asList(
@@ -281,10 +281,10 @@ public final class XmlSpecificRule {
 
     /**
      * Level-4 tc-gap (RDD_KEY_230, adoption agency): the HTML5 spec's own "formatting elements"
-     *  vocabulary -- the element names the adoption agency algorithm exists to recover misnesting
-     *  for (e.g. {@code <b>1<i>2</b>3</i>}). See {@link #reconstructFormattingElement} for the
-     *  narrow, single-level approximation actually implemented -- NOT the spec's full "list of
-     *  active formatting elements" + "furthest block" + "bookmark" algorithm.
+     * vocabulary -- the element names the adoption agency algorithm exists to recover misnesting
+     * for (e.g. {@code <b>1<i>2</b>3</i>}). See {@link #reconstructFormattingElement} for the
+     * narrow, single-level approximation actually implemented -- NOT the spec's full "list of
+     * active formatting elements" + "furthest block" + "bookmark" algorithm.
      */
     private static final java.util.Set<String> FORMATTING_ELEMENTS = new java.util.HashSet<>(
         java.util.Arrays.asList(
@@ -295,10 +295,10 @@ public final class XmlSpecificRule {
 
     /**
      * Level-1 tc-gap (RDD_KEY_230, {@link #insertImplicitBodyIfNeeded}): the HTML5 spec's
-     *  "in head"/"before head" insertion-mode vocabulary -- element names that, when no explicit
-     *  {@code <head>} is present, still belong to an implicit head rather than triggering the
-     *  "head insertion mode closed" transition to body content. Tracked explicitly via
-     *  {@link #headInsertionModeClosed} rather than inferred per-call from sibling structure.
+     * "in head"/"before head" insertion-mode vocabulary -- element names that, when no explicit
+     * {@code <head>} is present, still belong to an implicit head rather than triggering the
+     * "head insertion mode closed" transition to body content. Tracked explicitly via
+     * {@link #headInsertionModeClosed} rather than inferred per-call from sibling structure.
      */
     private static final java.util.Set<String> HEAD_ELIGIBLE_ELEMENTS = new java.util.HashSet<>(
         java.util.Arrays.asList(
@@ -342,19 +342,19 @@ public final class XmlSpecificRule {
         String       trailingComment;           // Normalized text of a same-line trailing comment, or null
         /**
          * Set (non-null) only when this ELEMENT's children are "mixed content" -- at least one
-         *  non-whitespace-only TEXT node AND at least one ELEMENT node interleaved (e.g.
-         *  {@code <p>Click <a href="x">here</a> to continue.</p>}). Holds the ORIGINAL source text of
-         *  the element's content, verbatim (leading/trailing whitespace trimmed only at the outer
-         *  boundary, nothing normalized/reflowed internally), captured at parse time rather than
-         *  re-derived by recursing through the pretty-printer -- XML text-node whitespace can be
-         *  semantically significant (XHTML-like prose, Android string resources with embedded
-         *  {@code <b>}/{@code <a>} markup, DocBook, SVG {@code <text>}), so inserting any
-         *  reflow/reindentation between text and inline elements would silently change the represented
-         *  value. Rendered inline as a single line with no wrapping, even if it overflows
-         *  {@code line-length} -- deliberately mirrors the existing opaque/preserve-verbatim posture
-         *  already used for DOCTYPE/PI (§2.3), CDATA (§2.4 default case), and multi-line comments
-         *  (§2.5). {@code null} for every other element (pure-text/CDATA-only or
-         *  pure-child-element-only content).
+         * non-whitespace-only TEXT node AND at least one ELEMENT node interleaved (e.g.
+         * {@code <p>Click <a href="x">here</a> to continue.</p>}). Holds the ORIGINAL source text of
+         * the element's content, verbatim (leading/trailing whitespace trimmed only at the outer
+         * boundary, nothing normalized/reflowed internally), captured at parse time rather than
+         * re-derived by recursing through the pretty-printer -- XML text-node whitespace can be
+         * semantically significant (XHTML-like prose, Android string resources with embedded
+         * {@code <b>}/{@code <a>} markup, DocBook, SVG {@code <text>}), so inserting any
+         * reflow/reindentation between text and inline elements would silently change the represented
+         * value. Rendered inline as a single line with no wrapping, even if it overflows
+         * {@code line-length} -- deliberately mirrors the existing opaque/preserve-verbatim posture
+         * already used for DOCTYPE/PI (§2.3), CDATA (§2.4 default case), and multi-line comments
+         * (§2.5). {@code null} for every other element (pure-text/CDATA-only or
+         * pure-child-element-only content).
          */
         String mixedContentRaw;
 
@@ -362,9 +362,9 @@ public final class XmlSpecificRule {
 
     /**
      * Level-2 tc-gap (RDD_KEY_230, foster-parenting): holds nodes relocated out of a {@code <table>}
-     *  while it's being parsed, pending splice into the table's own parent's children list (just
-     *  before the table node itself) once the table element finishes parsing -- see
-     *  {@link #fosterBufferStack} and {@link #pendingFosterBuffer}
+     * while it's being parsed, pending splice into the table's own parent's children list (just
+     * before the table node itself) once the table element finishes parsing -- see
+     * {@link #fosterBufferStack} and {@link #pendingFosterBuffer}
      */
     private static final class FosterBuffer {
 
@@ -380,58 +380,58 @@ public final class XmlSpecificRule {
     private final boolean normalizeCommentEndPeriod;
     /**
      * Real resolved Config of the enclosing HTML file, threaded through so a spliced
-     *  {@code <script>} block inherits every JS/TS-specific config key (e.g. `js-import-order`),
-     *  not just the 4 primitive fields above. May be null (legacy/test constructors) -- in that
-     *  case {@link #renderScriptOrStyle} falls back to a throwaway {@code Config.resolve(null, ...)}
-     *  built from those 4 fields, same as before this was threaded through.
+     * {@code <script>} block inherits every JS/TS-specific config key (e.g. `js-import-order`),
+     * not just the 4 primitive fields above. May be null (legacy/test constructors) -- in that
+     * case {@link #renderScriptOrStyle} falls back to a throwaway {@code Config.resolve(null, ...)}
+     * built from those 4 fields, same as before this was threaded through.
      */
     private final Config enclosingConfig;
 
     private String s;
     /**
      * Lowercased copy of {@link #s}, computed once in {@link #format} -- {@link
-     *  #indexOfIgnoreCase}/{@link #indexOfTagBoundary} search this instead of re-lowercasing the
-     *  whole document on every call
+     * #indexOfIgnoreCase}/{@link #indexOfTagBoundary} search this instead of re-lowercasing the
+     * whole document on every call
      */
     private String sLower;
     private int    pos;
     /**
      * Depth counter for `<svg>` ancestors, tracked only so the HTML5 "image" -> "img" tag-name
-     *  rewrite (see {@link #parseElement}) can be correctly scoped to HTML content only -- inside
-     *  real SVG foreign content, `<image>` is a legitimate SVG element with its own closing tag, not
-     *  a quirk alias for `<img>`. Confirmed via real WPT dogfood input (`svg-image-href.tentative.html`
-     *  etc., which nest a real `<image>`/`</image>` pair inside `<svg>`).
+     * rewrite (see {@link #parseElement}) can be correctly scoped to HTML content only -- inside
+     * real SVG foreign content, `<image>` is a legitimate SVG element with its own closing tag, not
+     * a quirk alias for `<img>`. Confirmed via real WPT dogfood input (`svg-image-href.tentative.html`
+     * etc., which nest a real `<image>`/`</image>` pair inside `<svg>`).
      */
     private int svgDepth;
 
     /**
      * Depth counter for `<math>` ancestors, tracked so MathML case fixup (e.g. `definitionurl` ->
-     *  `definitionURL`) applies only inside MathML foreign content.
+     * `definitionURL`) applies only inside MathML foreign content.
      */
     private int mathmlDepth;
 
     /**
      * Lightweight name-only stack of currently-open element tag names (lowercased), pushed in
-     *  {@link #parseElement} right after a start tag is recognized and popped on every return path
-     *  (matched close, implied-close-trigger path, and the tolerant-close fallback alike). Lets
-     *  {@link #parseNodes} distinguish, at a closing tag encountered mid-children-parse, "this name
-     *  matches something actually open on the path from the document root to here" (a legitimate
-     *  cascade-close -- the mechanism WPT's {@code charset/after-bogus.html} mismatched-tag case
-     *  relies on) from "this name matches nothing open anywhere" (a genuine orphan close tag, e.g.
-     *  apache/ant's `manual/running.html` stray {@code </p>} with no open {@code <p>} at all --
-     *  see STATE_DATA_FORMATS.md's Open Questions item 2). Deliberately NOT the full per-insertion-
-     *  mode HTML5 tree-construction state -- just enough to make that one distinction.
+     * {@link #parseElement} right after a start tag is recognized and popped on every return path
+     * (matched close, implied-close-trigger path, and the tolerant-close fallback alike). Lets
+     * {@link #parseNodes} distinguish, at a closing tag encountered mid-children-parse, "this name
+     * matches something actually open on the path from the document root to here" (a legitimate
+     * cascade-close -- the mechanism WPT's {@code charset/after-bogus.html} mismatched-tag case
+     * relies on) from "this name matches nothing open anywhere" (a genuine orphan close tag, e.g.
+     * apache/ant's `manual/running.html` stray {@code </p>} with no open {@code <p>} at all --
+     * see STATE_DATA_FORMATS.md's Open Questions item 2). Deliberately NOT the full per-insertion-
+     * mode HTML5 tree-construction state -- just enough to make that one distinction.
      */
     private final java.util.Deque<String> openTagStack = new java.util.ArrayDeque<>();
 
     /**
      * {@code html5-tc-gap-level} (tc gap job, {@code STATE_HTML5_TCG.md}, {@code RDD_KEY_230}),
-     *  read once per file from {@link #enclosingConfig} (which may be null -- legacy/test
-     *  constructors -- in which case this falls back to {@code 0}, same as the config default).
-     *  Guards this class's tc-gap code paths on their own (`>= N` for the level introducing
-     *  each gap) -- deliberately NOT ANDed with {@code lang.isHtml5} on top, since the config key
-     *  only has effect when {@code lang.isHtml5} is already true elsewhere in the pipeline (see
-     *  STATE_HTML5_TCG.md's Non-goals).
+     * read once per file from {@link #enclosingConfig} (which may be null -- legacy/test
+     * constructors -- in which case this falls back to {@code 0}, same as the config default).
+     * Guards this class's tc-gap code paths on their own (`>= N` for the level introducing
+     * each gap) -- deliberately NOT ANDed with {@code lang.isHtml5} on top, since the config key
+     * only has effect when {@code lang.isHtml5} is already true elsewhere in the pipeline (see
+     * STATE_HTML5_TCG.md's Non-goals).
      */
     private final int html5TcGapLevel;
 
@@ -446,98 +446,98 @@ public final class XmlSpecificRule {
 
     /**
      * Level-1 tc-gap guard (RDD_KEY_230): set once an implicit {@code <body>} has been
-     *  synthesized for the document currently being parsed, so a document with multiple
-     *  head-adjacent content nodes only ever gets one synthetic {@code <body>} inserted
+     * synthesized for the document currently being parsed, so a document with multiple
+     * head-adjacent content nodes only ever gets one synthetic {@code <body>} inserted
      */
     private boolean bodyInserted;
 
     /**
      * Level-1 tc-gap fix (root cause noted in STATE_HTML5_TCG.md's "Known residual gap"): tracks
-     *  the real HTML5 tree-construction "head insertion mode closed" transition explicitly, instead
-     *  of inferring it per-call from sibling structure. Starts {@code false} for every document;
-     *  set {@code true} the moment {@link #insertImplicitBodyIfNeeded} either finds an explicit
-     *  {@code <head>} element, or encounters a top-level sibling that is not head-eligible (see
-     *  {@link #HEAD_ELIGIBLE_ELEMENTS}) -- mirroring the spec's own criterion for when "in head"/
-     *  "before head" insertion mode ends and "in body" begins. While this flag is still
-     *  {@code false}, a leading run of {@code <meta>}/{@code <title>}/{@code <script>}/etc. siblings
-     *  is head content, not body content, even when no explicit {@code <head>} tag exists at all.
+     * the real HTML5 tree-construction "head insertion mode closed" transition explicitly, instead
+     * of inferring it per-call from sibling structure. Starts {@code false} for every document;
+     * set {@code true} the moment {@link #insertImplicitBodyIfNeeded} either finds an explicit
+     * {@code <head>} element, or encounters a top-level sibling that is not head-eligible (see
+     * {@link #HEAD_ELIGIBLE_ELEMENTS}) -- mirroring the spec's own criterion for when "in head"/
+     * "before head" insertion mode ends and "in body" begins. While this flag is still
+     * {@code false}, a leading run of {@code <meta>}/{@code <title>}/{@code <script>}/etc. siblings
+     * is head content, not body content, even when no explicit {@code <head>} tag exists at all.
      */
     private boolean headInsertionModeClosed;
 
     /**
      * Level-2 tc-gap (RDD_KEY_230, foster-parenting): one {@link FosterBuffer} per currently-open
-     *  {@code <table>} ancestor, pushed/popped in {@link #parseElement} alongside {@link #openTagStack}
-     *  on {@code <table>} open/close. A {@code Deque}-of-buffers (not one flat buffer) so a fostered
-     *  node inside a nested {@code <table>} splices into its own immediately-enclosing table's
-     *  relocation point, not an outer table's. Asserted empty at the end of {@link #format} as a leak
-     *  guard (every push must be matched by a pop in {@code parseElement}'s {@code finally}).
+     * {@code <table>} ancestor, pushed/popped in {@link #parseElement} alongside {@link #openTagStack}
+     * on {@code <table>} open/close. A {@code Deque}-of-buffers (not one flat buffer) so a fostered
+     * node inside a nested {@code <table>} splices into its own immediately-enclosing table's
+     * relocation point, not an outer table's. Asserted empty at the end of {@link #format} as a leak
+     * guard (every push must be matched by a pop in {@code parseElement}'s {@code finally}).
      */
     private final java.util.Deque<FosterBuffer> fosterBufferStack = new java.util.ArrayDeque<>();
 
     /**
      * Level-2 tc-gap (RDD_KEY_230) side channel (Option B): set by {@link #parseElement} the instant
-     *  a {@code <table>} with non-empty buffered foster content finishes parsing, consumed by the
-     *  immediate caller in {@link #parseNodes} right before it would otherwise add the just-returned
-     *  {@code <table>} node to its own children list -- the buffered nodes are spliced in first, so
-     *  they land immediately before the table in that ancestor's children, matching the spec's "insert
-     *  immediately before the table" requirement. Always {@code null} again immediately after being
-     *  consumed.
+     * a {@code <table>} with non-empty buffered foster content finishes parsing, consumed by the
+     * immediate caller in {@link #parseNodes} right before it would otherwise add the just-returned
+     * {@code <table>} node to its own children list -- the buffered nodes are spliced in first, so
+     * they land immediately before the table in that ancestor's children, matching the spec's "insert
+     * immediately before the table" requirement. Always {@code null} again immediately after being
+     * consumed.
      */
     private FosterBuffer pendingFosterBuffer;
 
     /**
      * Level-3 tc-gap (RDD_KEY_230, misnested {@code <form>} reconstruction): the "form element
-     *  pointer" -- the currently active {@code <form>} {@link Node}, or {@code null} if none. A
-     *  {@code <form>} start tag encountered while this is non-null is suppressed (see
-     *  {@link #pendingSuppressedFormNode}) instead of creating a second nested form element, per the
-     *  spec's own single-slot form-pointer concept. Scoped per {@code <template>} boundary via a plain
-     *  local-variable save/restore in {@link #parseElement} (the same pattern {@code isSvg}/
-     *  {@code svgDepth} and {@code isTable}/{@code fosterBufferStack} already use) rather than a
-     *  separate explicit {@code Deque} field -- the Java call stack itself already provides the
-     *  correct nesting behavior for a save/restore-shaped local, confirmed via a manual smoke test of
-     *  a {@code <form>} nested inside a {@code <template>} that is itself inside another
-     *  {@code <form>}'s content (the inner form is correctly allowed, not suppressed, because
-     *  entering the {@code <template>} resets this field to {@code null} for its own local scope and
-     *  restores the outer form's pointer on exit) before this field's shape was settled -- see
-     *  STATE_HTML5_TCG.md checklist item 6's own note.
+     * pointer" -- the currently active {@code <form>} {@link Node}, or {@code null} if none. A
+     * {@code <form>} start tag encountered while this is non-null is suppressed (see
+     * {@link #pendingSuppressedFormNode}) instead of creating a second nested form element, per the
+     * spec's own single-slot form-pointer concept. Scoped per {@code <template>} boundary via a plain
+     * local-variable save/restore in {@link #parseElement} (the same pattern {@code isSvg}/
+     * {@code svgDepth} and {@code isTable}/{@code fosterBufferStack} already use) rather than a
+     * separate explicit {@code Deque} field -- the Java call stack itself already provides the
+     * correct nesting behavior for a save/restore-shaped local, confirmed via a manual smoke test of
+     * a {@code <form>} nested inside a {@code <template>} that is itself inside another
+     * {@code <form>}'s content (the inner form is correctly allowed, not suppressed, because
+     * entering the {@code <template>} resets this field to {@code null} for its own local scope and
+     * restores the outer form's pointer on exit) before this field's shape was settled -- see
+     * STATE_HTML5_TCG.md checklist item 6's own note.
      */
     private Node currentFormElementPointer;
 
     /**
      * Level-3 tc-gap (RDD_KEY_230) side channel: set by {@link #parseElement}, in its {@code finally}
-     *  block, to the just-finished {@code <form>} {@link Node} when that form was suppressed (a second
-     *  {@code <form>} encountered while {@link #currentFormElementPointer} was already non-null).
-     *  Consumed by {@link #parseNodes} immediately after receiving that same node back from
-     *  {@link #parseSingleNode} -- rather than adding the suppressed wrapper element itself, its own
-     *  children are spliced directly into the caller's children list instead, matching the spec's
-     *  "ignore the start tag" recovery (the form's content still appears in the tree, just without its
-     *  own now-ignored wrapping element). Always {@code null} again immediately after being consumed.
+     * block, to the just-finished {@code <form>} {@link Node} when that form was suppressed (a second
+     * {@code <form>} encountered while {@link #currentFormElementPointer} was already non-null).
+     * Consumed by {@link #parseNodes} immediately after receiving that same node back from
+     * {@link #parseSingleNode} -- rather than adding the suppressed wrapper element itself, its own
+     * children are spliced directly into the caller's children list instead, matching the spec's
+     * "ignore the start tag" recovery (the form's content still appears in the tree, just without its
+     * own now-ignored wrapping element). Always {@code null} again immediately after being consumed.
      */
     private Node pendingSuppressedFormNode;
 
     /**
      * Level-4 tc-gap (RDD_KEY_230, adoption agency) side channel, part 1: set by {@link #parseElement}
-     *  the instant a formatting element (see {@link #FORMATTING_ELEMENTS}) is implicitly closed
-     *  because the very next token is a closing tag belonging to one of ITS OWN ancestors (the
-     *  classic {@code <b>1<i>2</b>3</i>} misnesting -- {@code <i>} is implicitly closed here because
-     *  {@code </b>} is next, not {@code </i>}), paired with {@link #pendingAdoptionOuterTagLower}
-     *  (the ancestor tag name that triggered it). Cleared the moment that ancestor's own real
-     *  closing tag is actually matched (see {@link #pendingReconstructFormattingTemplate}) or left
-     *  set (and simply never consumed) if that never happens -- deliberately only tracks the single
-     *  most-recently-orphaned formatting element, not a full stack of simultaneous misnestings; see
-     *  STATE_HTML5_TCG.md checklist item 7's own note on what subset of the spec algorithm this is.
+     * the instant a formatting element (see {@link #FORMATTING_ELEMENTS}) is implicitly closed
+     * because the very next token is a closing tag belonging to one of ITS OWN ancestors (the
+     * classic {@code <b>1<i>2</b>3</i>} misnesting -- {@code <i>} is implicitly closed here because
+     * {@code </b>} is next, not {@code </i>}), paired with {@link #pendingAdoptionOuterTagLower}
+     * (the ancestor tag name that triggered it). Cleared the moment that ancestor's own real
+     * closing tag is actually matched (see {@link #pendingReconstructFormattingTemplate}) or left
+     * set (and simply never consumed) if that never happens -- deliberately only tracks the single
+     * most-recently-orphaned formatting element, not a full stack of simultaneous misnestings; see
+     * STATE_HTML5_TCG.md checklist item 7's own note on what subset of the spec algorithm this is.
      */
     private Node   pendingAdoptionNode;
     private String pendingAdoptionOuterTagLower;
 
     /**
      * Level-4 tc-gap (RDD_KEY_230, adoption agency) side channel, part 2: set by {@link #parseElement}
-     *  in the {@code closeTok}-match branch when the element that just genuinely closed is the same
-     *  ancestor recorded in {@link #pendingAdoptionOuterTagLower}. Consumed by {@link #parseNodes}
-     *  immediately after adding that ancestor node to its own children list -- a clone of the
-     *  orphaned formatting element (see {@link #reconstructFormattingElement}) is parsed as the next
-     *  sibling, reconstructing the spec's "reopen the formatting element after the misnesting
-     *  ancestor closes" recovery. Always {@code null} again immediately after being consumed.
+     * in the {@code closeTok}-match branch when the element that just genuinely closed is the same
+     * ancestor recorded in {@link #pendingAdoptionOuterTagLower}. Consumed by {@link #parseNodes}
+     * immediately after adding that ancestor node to its own children list -- a clone of the
+     * orphaned formatting element (see {@link #reconstructFormattingElement}) is parsed as the next
+     * sibling, reconstructing the spec's "reopen the formatting element after the misnesting
+     * ancestor closes" recovery. Always {@code null} again immediately after being consumed.
      */
     private Node pendingReconstructFormattingTemplate;
 
@@ -626,13 +626,13 @@ public final class XmlSpecificRule {
 
     /**
      * Case-insensitive `</tagName>` (or `</tagName `) check at the cursor, used only for HTML5
-     *  closing-tag matching against an {@code n.tagName} that may have been case-rewritten from the
-     *  source's own literal casing ({@link #TAG_NAME_REWRITES}/{@link #SVG_TAG_NAME_CASE_FIXUP}/{@link #MATHML_TAG_NAME_CASE_FIXUP}) --
-     *  e.g. source `<fegaussianblur>...</fegaussianblur>` becomes `n.tagName ==
-     *  "feGaussianBlur"`, so a literal-case match against the source's own lowercase closing tag would
-     *  never succeed without this. HTML5 tag-name matching is spec-mandated case-insensitive; other
-     *  languages (XML/XHTML-family) keep the exact-case {@link #startsWith(String)} check since they
-     *  never rewrite tag names.
+     * closing-tag matching against an {@code n.tagName} that may have been case-rewritten from the
+     * source's own literal casing ({@link #TAG_NAME_REWRITES}/{@link #SVG_TAG_NAME_CASE_FIXUP}/{@link #MATHML_TAG_NAME_CASE_FIXUP}) --
+     * e.g. source `<fegaussianblur>...</fegaussianblur>` becomes `n.tagName ==
+     * "feGaussianBlur"`, so a literal-case match against the source's own lowercase closing tag would
+     * never succeed without this. HTML5 tag-name matching is spec-mandated case-insensitive; other
+     * languages (XML/XHTML-family) keep the exact-case {@link #startsWith(String)} check since they
+     * never rewrite tag names.
      */
     private boolean startsWithCloseTagIgnoreCase(final String tagName)
     {
@@ -688,16 +688,16 @@ public final class XmlSpecificRule {
 
     /**
      * Level-2 tc-gap (RDD_KEY_230, foster-parenting trigger detection): true iff the node about to
-     *  be added is a DIRECT child of an open {@code <table>} -- i.e. {@link #openTagStack}'s innermost
-     *  (top) entry is exactly {@code "table"}. Deliberately NOT a full ancestor scan: once any
-     *  structural child (a {@code <tr>}, a stray {@code <div>}, etc.) is itself pushed onto
-     *  {@code openTagStack}, that child's own descendants are no longer being evaluated in the "in
-     *  table" insertion mode -- they're in whatever nested mode that child established (e.g. "in row"
-     *  inside a {@code <tr>}, or plain "in body" inside a fostered {@code <div>}) and must NOT be
-     *  independently re-evaluated for fostering, or a fostered element's own children would be
-     *  incorrectly stripped back out of it. This single-level check is what makes that distinction:
-     *  {@code openTagStack.peek()} only equals {@code "table"} while {@link #parseNodes} is building
-     *  the table's own direct children list.
+     * be added is a DIRECT child of an open {@code <table>} -- i.e. {@link #openTagStack}'s innermost
+     * (top) entry is exactly {@code "table"}. Deliberately NOT a full ancestor scan: once any
+     * structural child (a {@code <tr>}, a stray {@code <div>}, etc.) is itself pushed onto
+     * {@code openTagStack}, that child's own descendants are no longer being evaluated in the "in
+     * table" insertion mode -- they're in whatever nested mode that child established (e.g. "in row"
+     * inside a {@code <tr>}, or plain "in body" inside a fostered {@code <div>}) and must NOT be
+     * independently re-evaluated for fostering, or a fostered element's own children would be
+     * incorrectly stripped back out of it. This single-level check is what makes that distinction:
+     * {@code openTagStack.peek()} only equals {@code "table"} while {@link #parseNodes} is building
+     * the table's own direct children list.
      */
     private boolean isInTableInsertionMode()
     {
@@ -706,11 +706,11 @@ public final class XmlSpecificRule {
 
     /**
      * Level-2 tc-gap (RDD_KEY_230): true iff {@code node}, encountered directly inside a
-     *  {@code <table>} (i.e. while {@link #isInTableInsertionMode()} is true), must be foster-parented
-     *  rather than left as a direct child of the table -- any element not in
-     *  {@link #TABLE_STRUCTURE_CHILDREN}, or non-whitespace text. Comments/PIs/frozen spans are never
-     *  fostered (they carry no visible tree-shape content the spec's foster-parenting rule cares
-     *  about).
+     * {@code <table>} (i.e. while {@link #isInTableInsertionMode()} is true), must be foster-parented
+     * rather than left as a direct child of the table -- any element not in
+     * {@link #TABLE_STRUCTURE_CHILDREN}, or non-whitespace text. Comments/PIs/frozen spans are never
+     * fostered (they carry no visible tree-shape content the spec's foster-parenting rule cares
+     * about).
      */
     private boolean shouldFosterParent(final Node node)
     {
@@ -728,16 +728,16 @@ public final class XmlSpecificRule {
 
     /**
      * Level-1 tc-gap fix (RDD_KEY_230, STATE_HTML5_TCG.md checklist item 3): a document with no
-     *  explicit {@code <body>} start tag anywhere still gets one implicitly inserted at the point
-     *  the spec calls "in body"-eligible content. Simplification (noted in STATE_HTML5_TCG.md):
-     *  rather than modeling "head closed" as a distinct insertion-mode transition, this treats the
-     *  first non-whitespace, non-comment, non-DOCTYPE, non-{@code <head>} sibling encountered
-     *  (searching the {@code <html>} element's children if one exists, else the top-level document
-     *  nodes) as the synthesis point, and wraps it plus every sibling after it in a synthesized
-     *  {@code <body>} element. This is the first fabricated-node path in this otherwise strictly
-     *  preserve-as-written formatter -- see RDD_KEY_230. Guarded by {@link #bodyInserted} so a
-     *  document is never given more than one synthetic {@code <body>}, even if this were ever
-     *  called more than once for the same parse.
+     * explicit {@code <body>} start tag anywhere still gets one implicitly inserted at the point
+     * the spec calls "in body"-eligible content. Simplification (noted in STATE_HTML5_TCG.md):
+     * rather than modeling "head closed" as a distinct insertion-mode transition, this treats the
+     * first non-whitespace, non-comment, non-DOCTYPE, non-{@code <head>} sibling encountered
+     * (searching the {@code <html>} element's children if one exists, else the top-level document
+     * nodes) as the synthesis point, and wraps it plus every sibling after it in a synthesized
+     * {@code <body>} element. This is the first fabricated-node path in this otherwise strictly
+     * preserve-as-written formatter -- see RDD_KEY_230. Guarded by {@link #bodyInserted} so a
+     * document is never given more than one synthetic {@code <body>}, even if this were ever
+     * called more than once for the same parse.
      */
     private void insertImplicitBodyIfNeeded(final List<Node> nodes)
     {
@@ -802,31 +802,31 @@ public final class XmlSpecificRule {
 
     /**
      * Level-4 tc-gap (RDD_KEY_230, adoption agency): reconstructs a clone of an orphaned
-     *  {@code template} formatting element as a fresh sibling, parsing forward from the current
-     *  cursor position exactly like {@link #parseElement} would for a freshly-encountered start tag
-     *  of the same name (push {@link #openTagStack}, parse children via {@link #parseNodes}, consume
-     *  a matching real close tag if one appears, pop {@link #openTagStack}) -- except the open tag
-     *  itself is synthesized (copied from {@code template}, which is never re-added to any children
-     *  list itself) rather than read from source text, since the source's own open tag for it was
-     *  already consumed the first time it was parsed.
-     *  <p>
-     *  <b>What subset of the spec's adoption agency algorithm this is, and why (STATE_HTML5_TCG.md
-     *  checklist item 7):</b> the full spec algorithm maintains an explicit "list of active
-     *  formatting elements" plus a "furthest block"/"bookmark"-tracking bounded-iteration loop
-     *  capable of correctly resolving arbitrarily deep and/or multiple SIMULTANEOUS misnestings in
-     *  one pass. This formatter builds its tree via plain recursive descent (no reified, mutable,
-     *  randomly-addressable tree the way the spec's algorithm assumes), so implementing that full
-     *  generality was judged too large/risky a change for one checkpoint (per this checklist item's
-     *  own documented allowance) and was not attempted. What's implemented instead: {@link
-     *  #pendingAdoptionNode} tracks only the SINGLE most-recently-orphaned formatting element at a
-     *  time (a plain field, not a stack/list), detected only for the narrow "next token is a real
-     *  closing tag belonging to one of my own ancestors" case (not the spec's full furthest-block
-     *  search), and reconstructed as a plain next-sibling clone (not spliced back into the original
-     *  misnesting position via a bookmark). This correctly handles the classic single-level case
-     *  (e.g. {@code <b>1<i>2</b>3</i>}), but a second, simultaneous misnesting (e.g. two formatting
-     *  elements both orphaned by the same ancestor close) only reconstructs the innermost/most-recent
-     *  one -- the outer one is silently dropped, same accepted-limitation posture as level 1's
-     *  head-less-document gap and level 2's single-level table check.
+     * {@code template} formatting element as a fresh sibling, parsing forward from the current
+     * cursor position exactly like {@link #parseElement} would for a freshly-encountered start tag
+     * of the same name (push {@link #openTagStack}, parse children via {@link #parseNodes}, consume
+     * a matching real close tag if one appears, pop {@link #openTagStack}) -- except the open tag
+     * itself is synthesized (copied from {@code template}, which is never re-added to any children
+     * list itself) rather than read from source text, since the source's own open tag for it was
+     * already consumed the first time it was parsed.
+     * <p>
+     * <b>What subset of the spec's adoption agency algorithm this is, and why (STATE_HTML5_TCG.md
+     * checklist item 7):</b> the full spec algorithm maintains an explicit "list of active
+     * formatting elements" plus a "furthest block"/"bookmark"-tracking bounded-iteration loop
+     * capable of correctly resolving arbitrarily deep and/or multiple SIMULTANEOUS misnestings in
+     * one pass. This formatter builds its tree via plain recursive descent (no reified, mutable,
+     * randomly-addressable tree the way the spec's algorithm assumes), so implementing that full
+     * generality was judged too large/risky a change for one checkpoint (per this checklist item's
+     * own documented allowance) and was not attempted. What's implemented instead: {@link
+     * #pendingAdoptionNode} tracks only the SINGLE most-recently-orphaned formatting element at a
+     * time (a plain field, not a stack/list), detected only for the narrow "next token is a real
+     * closing tag belonging to one of my own ancestors" case (not the spec's full furthest-block
+     * search), and reconstructed as a plain next-sibling clone (not spliced back into the original
+     * misnesting position via a bookmark). This correctly handles the classic single-level case
+     * (e.g. {@code <b>1<i>2</b>3</i>}), but a second, simultaneous misnesting (e.g. two formatting
+     * elements both orphaned by the same ancestor close) only reconstructs the innermost/most-recent
+     * one -- the outer one is silently dropped, same accepted-limitation posture as level 1's
+     * head-less-document gap and level 2's single-level table check.
      */
     private Node reconstructFormattingElement(final Node template)
     {
@@ -863,8 +863,8 @@ public final class XmlSpecificRule {
 
     /**
      * @param impliedCloseTriggers when non-null, children stop being consumed (implying the
-     *  currently-open element is closed, with no explicit closing tag) as soon as upcoming input is a
-     *  start tag whose name is in this set -- see {@link #IMPLIED_CLOSE_TRIGGERS}
+     * currently-open element is closed, with no explicit closing tag) as soon as upcoming input is a
+     * start tag whose name is in this set -- see {@link #IMPLIED_CLOSE_TRIGGERS}
      */
     private List<Node> parseNodes(
         final boolean               stopAtCloseTag,
@@ -972,7 +972,7 @@ public final class XmlSpecificRule {
 
     /**
      * True if the cursor is positioned at a start tag (not a closing tag) whose lowercased name is
-     *  in {@code triggers}. Used by {@link #IMPLIED_CLOSE_TRIGGERS}.
+     * in {@code triggers}. Used by {@link #IMPLIED_CLOSE_TRIGGERS}.
      */
     private boolean startsWithTriggerTag(final java.util.Set<String> triggers)
     {
@@ -993,7 +993,7 @@ public final class XmlSpecificRule {
 
     /**
      * Lowercased tag name of the closing tag at the cursor (which must already be positioned at
-     *  `</`) -- used by {@link #openTagStack}'s ancestor/orphan check
+     * `</`) -- used by {@link #openTagStack}'s ancestor/orphan check
      */
     private String peekCloseTagNameLower()
     {
@@ -1006,7 +1006,7 @@ public final class XmlSpecificRule {
 
     /**
      * Builds a synthetic empty (open/close-with-nothing) element node, e.g. for an orphan
-     *  {@code </p>} -- see the "p end tag" spec note in {@code RDD_LOG.md}'s {@code RDD_KEY_223}.
+     * {@code </p>} -- see the "p end tag" spec note in {@code RDD_LOG.md}'s {@code RDD_KEY_223}.
      */
     private Node synthesizeEmptyElement(final String tagNameLower)
     {
@@ -1375,7 +1375,7 @@ public final class XmlSpecificRule {
 
     /**
      * `<pre>` content is opaque like CDATA (RDD_KEY_185) -- capture verbatim through the literal
-     *  closing tag, no reindentation, byte-for-byte
+     * closing tag, no reindentation, byte-for-byte
      */
     private Node finishRawElement(final Node n, final String closeTagLower)
     {
@@ -1404,7 +1404,7 @@ public final class XmlSpecificRule {
 
     /**
      * `<script>`/`<style>` are HTML5 raw-text elements: content runs verbatim up to the literal
-     *  closing tag, never tag-parsed (a `<`/`&` inside JS/CSS source must not confuse the parser)
+     * closing tag, never tag-parsed (a `<`/`&` inside JS/CSS source must not confuse the parser)
      */
     private Node finishRawTextElement(final Node n, final String lowerTag)
     {
@@ -1435,10 +1435,10 @@ public final class XmlSpecificRule {
 
     /**
      * Captures an {@link #OPAQUE_IMPLIED_END_TAG_ELEMENTS} element (e.g. `<ruby>`) as one
-     *  byte-for-byte-verbatim span, from its own opening `<` through its own MATCHING `</tag>`
-     *  (correctly tracking nested same-name opens/closes so an inner `<ruby>` doesn't fool the
-     *  matching logic into stopping early) -- no interior parsing at all, so implied-end-tag
-     *  children (`<rb>`/`<rt>`/`<rp>`/`<rtc>`, or any further nesting) are never touched.
+     * byte-for-byte-verbatim span, from its own opening `<` through its own MATCHING `</tag>`
+     * (correctly tracking nested same-name opens/closes so an inner `<ruby>` doesn't fool the
+     * matching logic into stopping early) -- no interior parsing at all, so implied-end-tag
+     * children (`<rb>`/`<rt>`/`<rp>`/`<rtc>`, or any further nesting) are never touched.
      */
     private Node parseOpaqueImpliedEndTagElement(
         final int    tagStart,
@@ -1484,7 +1484,7 @@ public final class XmlSpecificRule {
 
     /**
      * Scans forward from `start` (pointing at a tag's `<`) to its terminating `>`, skipping over
-     *  any `>` that occurs inside a quoted attribute value. Returns -1 if unterminated.
+     * any `>` that occurs inside a quoted attribute value. Returns -1 if unterminated.
      */
     private int findTagEnd(final int start)
     {
@@ -1509,8 +1509,8 @@ public final class XmlSpecificRule {
 
     /**
      * Case-insensitive search for `tokenLower` (e.g. `"<ruby"`/`"</ruby"`) in `haystack` starting
-     *  at `from`, requiring a tag-boundary character (whitespace, `>`, `/`, or end-of-string)
-     *  immediately after the match so `"<ruby"` doesn't false-match inside `"<rubytag"`.
+     * at `from`, requiring a tag-boundary character (whitespace, `>`, `/`, or end-of-string)
+     * immediately after the match so `"<ruby"` doesn't false-match inside `"<rubytag"`.
      */
     private int indexOfTagBoundary(
         final String tokenLower,
@@ -1601,13 +1601,13 @@ public final class XmlSpecificRule {
 
     /**
      * Detects the curly-equivalent " * "-per-line continuation-marker banner shape on a multi-line
-     *  {@code <!-- -->} interior (RAW, pre-trim content between the markers) and, if matched, returns
-     *  the already capitalize/period-normalized content lines (no `*` markers, no indentation --
-     *  render time reindents per the node's own depth); returns {@code null} if any continuation
-     *  line doesn't start with `*` after stripping leading whitespace, meaning the caller should fall
-     *  back to freeze-verbatim. Mirrors {@code MiscRuleCore.reformatMultiLineBlockComment}'s shape
-     *  check/content-extraction, adapted for `<!--`/`-->` markers living outside {@code raw} (unlike
-     *  curly's `/*`/`*&#47;` which are embedded in the first/last physical lines).
+     * {@code <!-- -->} interior (RAW, pre-trim content between the markers) and, if matched, returns
+     * the already capitalize/period-normalized content lines (no `*` markers, no indentation --
+     * render time reindents per the node's own depth); returns {@code null} if any continuation
+     * line doesn't start with `*` after stripping leading whitespace, meaning the caller should fall
+     * back to freeze-verbatim. Mirrors {@code MiscRuleCore.reformatMultiLineBlockComment}'s shape
+     * check/content-extraction, adapted for `<!--`/`-->` markers living outside {@code raw} (unlike
+     * curly's `/*`/`*&#47;` which are embedded in the first/last physical lines).
      */
     private List<String> tryBannerShape(final String raw)
     {
@@ -1717,15 +1717,15 @@ public final class XmlSpecificRule {
 
     /**
      * True iff {@code text} (already trimmed by every {@code normComment} call site) is a single
-     *  word with no interior whitespace anywhere -- e.g. WordPress's magic comments
-     *  {@code <!--more-->}/{@code <!--nextpage-->}/{@code <!--noteaser-->}, which are
-     *  content-splitting directives a third-party tool parses literally, not prose, and must never
-     *  be capitalized. Deliberately broad (unlike CSS's {@code isSingleTokenDirective}, which also
-     *  requires a {@code :}/{@code -} separator): a real corpus check across three real-world HTML5
-     *  dogfood trees (WordPress/wordpress-develop, web-platform-tests/wpt,
-     *  alexandersandberg/html5-elements-tester) found zero genuine one-word English prose comments
-     *  that this would wrongly leave lowercase -- see README.md's "Known Limitations" for the
-     *  accepted false-negative risk on codebases outside that sample.
+     * word with no interior whitespace anywhere -- e.g. WordPress's magic comments
+     * {@code <!--more-->}/{@code <!--nextpage-->}/{@code <!--noteaser-->}, which are
+     * content-splitting directives a third-party tool parses literally, not prose, and must never
+     * be capitalized. Deliberately broad (unlike CSS's {@code isSingleTokenDirective}, which also
+     * requires a {@code :}/{@code -} separator): a real corpus check across three real-world HTML5
+     * dogfood trees (WordPress/wordpress-develop, web-platform-tests/wpt,
+     * alexandersandberg/html5-elements-tester) found zero genuine one-word English prose comments
+     * that this would wrongly leave lowercase -- see README.md's "Known Limitations" for the
+     * accepted false-negative risk on codebases outside that sample.
      */
     private static boolean isSingleWordDirective(final String text)
     {
@@ -1738,26 +1738,26 @@ public final class XmlSpecificRule {
 
     /**
      * True iff {@code text}'s leading run of lowercase letters is immediately followed by
-     *  {@code >} (no interior whitespace) and that run matches a real HTML tag name in
-     *  {@link #MARKUP_FRAGMENT_TAG_NAMES} -- e.g. {@code tr>}/{@code p>} from a commented-out
-     *  {@code <!-- <tr>...</tr> -->}/{@code <!-- <p>...</p> -->} fragment where the author's own
-     *  {@code <!--}/{@code <} boundary landed mid-tag, leaving the fragment's first "word" a bare
-     *  tag-name-open token rather than a capitalizable English sentence -- capitalizing it (e.g. to
-     *  {@code Tr>}) corrupts commented-out markup, confirmed via real {@code apache/ant} `manual/`
-     *  dogfood input ({@code Tasks/antlr.html}/{@code Tasks/attrib.html}). Deliberately restricted
-     *  to a closed set of real tag names, not "any lowercase word immediately followed by
-     *  {@code >}" -- a corpus grep for {@code <!--[a-z]+>} across {@code apache/ant manual/},
-     *  {@code WordPress/wordpress-develop}, and
-     *  {@code alexandersandberg/html5-elements-tester} found exactly this shape twice
-     *  ({@code <!--tr>}) plus once ({@code <!--p>}), and zero unrelated hits -- so the tag-name
-     *  restriction costs nothing in practice while guarding against a coincidental short lowercase
-     *  word immediately followed by {@code >} that isn't actually a tag fragment. A same-corpus
-     *  lowercase-starting comment that is NOT a markup fragment ({@code attributes inherited from
-     *  MatchingTask}, {@code apache/ant manual/Tasks/imageio.html}/{@code image.html}) correctly
-     *  falls through this check (no {@code >} immediately after its first word) and stays subject to
-     *  ordinary capitalization -- confirmed a genuine, unrelated doc-authoring convention (identical
-     *  string reused verbatim across the two files, not markup-adjacent) rather than another
-     *  instance of this bug.
+     * {@code >} (no interior whitespace) and that run matches a real HTML tag name in
+     * {@link #MARKUP_FRAGMENT_TAG_NAMES} -- e.g. {@code tr>}/{@code p>} from a commented-out
+     * {@code <!-- <tr>...</tr> -->}/{@code <!-- <p>...</p> -->} fragment where the author's own
+     * {@code <!--}/{@code <} boundary landed mid-tag, leaving the fragment's first "word" a bare
+     * tag-name-open token rather than a capitalizable English sentence -- capitalizing it (e.g. to
+     * {@code Tr>}) corrupts commented-out markup, confirmed via real {@code apache/ant} `manual/`
+     * dogfood input ({@code Tasks/antlr.html}/{@code Tasks/attrib.html}). Deliberately restricted
+     * to a closed set of real tag names, not "any lowercase word immediately followed by
+     * {@code >}" -- a corpus grep for {@code <!--[a-z]+>} across {@code apache/ant manual/},
+     * {@code WordPress/wordpress-develop}, and
+     * {@code alexandersandberg/html5-elements-tester} found exactly this shape twice
+     * ({@code <!--tr>}) plus once ({@code <!--p>}), and zero unrelated hits -- so the tag-name
+     * restriction costs nothing in practice while guarding against a coincidental short lowercase
+     * word immediately followed by {@code >} that isn't actually a tag fragment. A same-corpus
+     * lowercase-starting comment that is NOT a markup fragment ({@code attributes inherited from
+     * MatchingTask}, {@code apache/ant manual/Tasks/imageio.html}/{@code image.html}) correctly
+     * falls through this check (no {@code >} immediately after its first word) and stays subject to
+     * ordinary capitalization -- confirmed a genuine, unrelated doc-authoring convention (identical
+     * string reused verbatim across the two files, not markup-adjacent) rather than another
+     * instance of this bug.
      */
     private static boolean isMarkupFragmentDirective(final String text)
     {
@@ -1932,12 +1932,12 @@ public final class XmlSpecificRule {
 
     /**
      * HTML5 §4.2: `<style>` content splices out to the CSS formatter and back, reindented one
-     *  level deeper; `<script>` content splices out to the JS formatter the same way, except a
-     *  non-JS `type` (e.g. `application/json`) or a `//% JXM_CFMT_DIS`/`ENA`-frozen span stays
-     *  fully opaque. Uses `FormatterCore.forLanguage("js")` (not `"ts"` -- HTML `<script>` is
-     *  always plain JS, TypeScript has no browser-native embedding) with a defaults-only {@link
-     *  Config} built from this rule's own inherited line-length/indent/comment-case settings, so
-     *  the spliced JS matches the enclosing HTML file's formatting knobs.
+     * level deeper; `<script>` content splices out to the JS formatter the same way, except a
+     * non-JS `type` (e.g. `application/json`) or a `//% JXM_CFMT_DIS`/`ENA`-frozen span stays
+     * fully opaque. Uses `FormatterCore.forLanguage("js")` (not `"ts"` -- HTML `<script>` is
+     * always plain JS, TypeScript has no browser-native embedding) with a defaults-only {@link
+     * Config} built from this rule's own inherited line-length/indent/comment-case settings, so
+     * the spliced JS matches the enclosing HTML file's formatting knobs.
      */
     private void renderScriptOrStyle(final Node n, final int depth, final StringBuilder out)
     {
@@ -2020,12 +2020,12 @@ public final class XmlSpecificRule {
 
     /**
      * Strips the common leading whitespace shared by every non-blank line of `text`. Without this,
-     *  reformatting an already-spliced `<script>` block (idempotency round2) would feed the JS
-     *  formatter content that already carries the previous round's `reindent`-baked absolute
-     *  indentation -- since this formatter preserves original relative indentation rather than
-     *  re-deriving it from brace depth (STATE_COMMON.md's "General scope-depth reindentation" gap),
-     *  that baked indentation survives untouched and `reindent` then adds a second layer on top,
-     *  compounding the indentation on every round.
+     * reformatting an already-spliced `<script>` block (idempotency round2) would feed the JS
+     * formatter content that already carries the previous round's `reindent`-baked absolute
+     * indentation -- since this formatter preserves original relative indentation rather than
+     * re-deriving it from brace depth (STATE_COMMON.md's "General scope-depth reindentation" gap),
+     * that baked indentation survives untouched and `reindent` then adds a second layer on top,
+     * compounding the indentation on every round.
      */
     private String dedent(final String text)
     {
@@ -2050,8 +2050,8 @@ public final class XmlSpecificRule {
 
     /**
      * Whether `raw` (a `<script>` element's inner content, possibly `<![CDATA[ ]]>`-wrapped)
-     *  contains a `//% JXM_CFMT_DIS` / `//% JXM_CFMT_ENA` line pair -- the temporary scaffold-only
-     *  escape hatch for real JS content until JS/TS formatting lands
+     * contains a `//% JXM_CFMT_DIS` / `//% JXM_CFMT_ENA` line pair -- the temporary scaffold-only
+     * escape hatch for real JS content until JS/TS formatting lands
      */
     private boolean isFrozenScriptContent(final String raw)
     {
@@ -2087,8 +2087,8 @@ public final class XmlSpecificRule {
 
     /**
      * Prefixes every non-empty line of already-formatted `text` with `depth` levels of
-     *  indentation, for splicing an embedded sub-formatter's (CSS's) output back into HTML at its
-     *  correct nesting depth
+     * indentation, for splicing an embedded sub-formatter's (CSS's) output back into HTML at its
+     * correct nesting depth
      */
     private String reindent(final String text, final int depth)
     {
@@ -2128,11 +2128,11 @@ public final class XmlSpecificRule {
 
     /**
      * True iff `children` is "mixed content" per §2.2's mixed-content rule: at least one
-     *  non-whitespace-only TEXT node AND at least one ELEMENT node among the same sibling list. A
-     *  nested mixed-content element (an ELEMENT child whose own content is itself mixed) still just
-     *  counts as "an ELEMENT node" here -- its own inner text/markup is part of the literal source
-     *  span this outer element's {@link Node#mixedContentRaw} captures, so nested mixed content falls
-     *  out naturally without any recursive handling.
+     * non-whitespace-only TEXT node AND at least one ELEMENT node among the same sibling list. A
+     * nested mixed-content element (an ELEMENT child whose own content is itself mixed) still just
+     * counts as "an ELEMENT node" here -- its own inner text/markup is part of the literal source
+     * span this outer element's {@link Node#mixedContentRaw} captures, so nested mixed content falls
+     * out naturally without any recursive handling.
      */
     private boolean isMixedContent(final List<Node> children)
     {

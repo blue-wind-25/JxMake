@@ -127,12 +127,12 @@ public class java_content_diff {
 
     /**
      * Strips a single trailing "." -- like the lowercasing this class already
-     *  does for {@code normalize-comment-start-case}, a sole-trailing-period
-     *  removal is expected, intentional behavior ({@code
-     *  normalize-comment-end-period}, per STYLE.md #15: single-sentence
-     *  comments must not end with a period) and must not be flagged as
-     *  dropped content. An ellipsis ("...") is untouched since its dot count
-     *  isn't 1, matching {@code MiscRuleCore.stripSoleTrailingPeriod}.
+     * does for {@code normalize-comment-start-case}, a sole-trailing-period
+     * removal is expected, intentional behavior ({@code
+     * normalize-comment-end-period}, per STYLE.md #15: single-sentence
+     * comments must not end with a period) and must not be flagged as
+     * dropped content. An ellipsis ("...") is untouched since its dot count
+     * isn't 1, matching {@code MiscRuleCore.stripSoleTrailingPeriod}.
      */
     static String normalizeTrailingPeriod(String s)
     {
@@ -149,12 +149,12 @@ public class java_content_diff {
 
     /**
      * Strips a leading Javadoc/block-comment continuation marker ("<ws>* ")
-     *  from every line before whitespace-collapsing, so reflowing a comment
-     *  from a single opening line ({@code /** Foo...}) to one-sentence-per-
-     *  line ({@code /**\n * Foo...}) does not read as changed content --
-     *  without this, the collapsed text picks up a spurious doubled "*"
-     *  (the line's own marker plus the following line's) that isn't part of
-     *  the actual comment text.
+     * from every line before whitespace-collapsing, so reflowing a comment
+     * from a single opening line ({@code /** Foo...}) to one-sentence-per-
+     * line ({@code /**\n * Foo...}) does not read as changed content --
+     * without this, the collapsed text picks up a spurious doubled "*"
+     * (the line's own marker plus the following line's) that isn't part of
+     * the actual comment text.
      */
     static String normalizeCommentBody(String s)
     {
@@ -167,9 +167,9 @@ public class java_content_diff {
 
     /**
      * A closing-brace annotation trailer ({@code } // while}, {@code } //
-     *  class Foo}) is new content the formatter is intentionally adding, not
-     *  a normalization of pre-existing comment text, so it must not be
-     *  flagged as an unexplained addition
+     * class Foo}) is new content the formatter is intentionally adding, not
+     * a normalization of pre-existing comment text, so it must not be
+     * flagged as an unexplained addition
      */
     static final java.util.regex.Pattern BRACE_ANNOTATION = java.util.regex.Pattern.compile(
         "^(while|for|if|else|do|switch|try|catch|finally)( \\S+)?$"
@@ -177,7 +177,7 @@ public class java_content_diff {
 
     /**
      * Raw-text comment scan: skips string/char literals so a "//" or "/*"
-     *  inside a literal is never mistaken for a comment start
+     * inside a literal is never mistaken for a comment start
      */
     static List<String> extractComments(String src)
     {
@@ -254,8 +254,8 @@ public class java_content_diff {
 
     /**
      * {@code ignorableAddition} lets a caller exempt entries that are only
-     *  in {@code b} but are known, intentional new content (e.g. closing-
-     *  brace annotations) rather than a genuine unexplained addition.
+     * in {@code b} but are known, intentional new content (e.g. closing-
+     * brace annotations) rather than a genuine unexplained addition.
      */
     static List<String> diffMultisets(
         String                               label,
@@ -287,10 +287,10 @@ public class java_content_diff {
 
     /**
      * Printed immediately before a pair's AST diff starts -- if the tool
-     *  hangs/is slow on one particular file in a large batch, this line
-     *  (already flushed to stdout for every prior file) shows exactly which
-     *  file and when, mirroring Main.main's/ServerMode.FormatHandler's own
-     *  "processing <file>" trace precedent (STATE_COMMON.md).
+     * hangs/is slow on one particular file in a large batch, this line
+     * (already flushed to stdout for every prior file) shows exactly which
+     * file and when, mirroring Main.main's/ServerMode.FormatHandler's own
+     * "processing <file>" trace precedent (STATE_COMMON.md).
      */
     static void printTimestampedHeader(String relPath)
     {
@@ -299,23 +299,23 @@ public class java_content_diff {
 
     /**
      * The full single-pair AST-diff check (package/imports/declarations/
-     *  comments), shared by both the single-pair and batch modes. Assumes
-     *  both paths are already confirmed to exist -- callers are responsible
-     *  for the missing-file check so a batch run can warn-and-skip instead
-     *  of throwing.
+     * comments), shared by both the single-pair and batch modes. Assumes
+     * both paths are already confirmed to exist -- callers are responsible
+     * for the missing-file check so a batch run can warn-and-skip instead
+     * of throwing.
      *
      * A javac parse failure is let propagate rather than caught here (unlike
-     *  kotlin_content_diff.compareOne, which never throws on a parse
-     *  failure -- Kotlin's PSI parser tolerates malformed input and returns
-     *  a best-effort tree instead of throwing): {@code JavacTask.parse()}
-     *  can throw for a genuinely malformed file, and single-pair mode's
-     *  caller (main, via runSingle) treats that as a hard usage-adjacent
-     *  error (exit 2, matching this tool's pre-existing behavior). In batch
-     *  mode, runBatch wraps its call to this method in a try/catch so one
-     *  file's parse failure is counted as a MISMATCH/ERROR and does not
-     *  abort the rest of the batch -- the same generic-catch shape
-     *  kotlin_content_diff.runBatch already uses, even though the two
-     *  tools' parsers fail in different ways.
+     * kotlin_content_diff.compareOne, which never throws on a parse
+     * failure -- Kotlin's PSI parser tolerates malformed input and returns
+     * a best-effort tree instead of throwing): {@code JavacTask.parse()}
+     * can throw for a genuinely malformed file, and single-pair mode's
+     * caller (main, via runSingle) treats that as a hard usage-adjacent
+     * error (exit 2, matching this tool's pre-existing behavior). In batch
+     * mode, runBatch wraps its call to this method in a try/catch so one
+     * file's parse failure is counted as a MISMATCH/ERROR and does not
+     * abort the rest of the batch -- the same generic-catch shape
+     * kotlin_content_diff.runBatch already uses, even though the two
+     * tools' parsers fail in different ways.
      */
     static boolean compareOne(
         Path origPath, Path fmtPath, String origLabel, String fmtLabel

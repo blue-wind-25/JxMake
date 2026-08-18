@@ -36,8 +36,8 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * §1.1 baseline + §1.2 comprehensions, for `()` content (call arguments, parenthesized
-     *  expressions/tuples, and generator expressions -- a bare `for` at the content's own top
-     *  level makes any of these loose, same as a `[]`/`{}` comprehension).
+     * expressions/tuples, and generator expressions -- a bare `for` at the content's own top
+     * level makes any of these loose, same as a `[]`/`{}` comprehension).
      */
     public boolean isLooseParen(final List<Token> contentTokens)
     {
@@ -46,13 +46,13 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * §1.1/§1.2/§1.3/§1.4, for `[]` content (subscripts, slices, and list literals). A top-level
-     *  comprehension makes the bracket unconditionally loose (§1.2). Otherwise, per §1.3, the
-     *  content is split on top-level `:` (a slice's own separators, never a complexity signal by
-     *  themselves) into independent sub-expressions -- the bracket goes loose if any one segment
-     *  does (§1.1's nesting-propagation principle applied per-segment). A plain index or list
-     *  literal (no top-level `:`) degrades to a single segment, i.e. the §1.1 baseline unchanged.
-     *  §1.4 star-unpacking needs no special case here -- {@code *}/{@code **} are `OP` tokens, not
-     *  bracket punctuation, so they never trip {@link #containsNestedBracket} on their own.
+     * comprehension makes the bracket unconditionally loose (§1.2). Otherwise, per §1.3, the
+     * content is split on top-level `:` (a slice's own separators, never a complexity signal by
+     * themselves) into independent sub-expressions -- the bracket goes loose if any one segment
+     * does (§1.1's nesting-propagation principle applied per-segment). A plain index or list
+     * literal (no top-level `:`) degrades to a single segment, i.e. the §1.1 baseline unchanged.
+     * §1.4 star-unpacking needs no special case here -- {@code *}/{@code **} are `OP` tokens, not
+     * bracket punctuation, so they never trip {@link #containsNestedBracket} on their own.
      */
     public boolean isLooseBracket(final List<Token> contentTokens)
     {
@@ -66,10 +66,10 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * §1.5: `{}` padding does not use the §1.1 complexity heuristic at all -- every non-empty
-     *  `{}` (dict or set, comprehension or literal, with or without `*`/`**` unpacking) is
-     *  unconditionally loose, and an empty `{}` is unconditionally tight, per STYLE.md §3.3's
-     *  "always pad non-empty `{}`" rule applied uniformly (RDD_KEY_184: no unpacking-only tight
-     *  carve-out).
+     * `{}` (dict or set, comprehension or literal, with or without `*`/`**` unpacking) is
+     * unconditionally loose, and an empty `{}` is unconditionally tight, per STYLE.md §3.3's
+     * "always pad non-empty `{}`" rule applied uniformly (RDD_KEY_184: no unpacking-only tight
+     * carve-out).
      */
     public boolean isLooseBrace(final List<Token> contentTokens)
     {
@@ -78,10 +78,10 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * §1.5's dict-vs-set disambiguation: presence of a top-level `:` means dict; none means set;
-     *  empty `{}` is defined as dict (Python has no empty-set literal -- `set()` is a call, not a
-     *  literal). A comprehension's own leading `key: value` (dict comprehension) vs. bare
-     *  expression (set comprehension) is distinguished the same way, since that `:` is also at
-     *  the content's own top level.
+     * empty `{}` is defined as dict (Python has no empty-set literal -- `set()` is a call, not a
+     * literal). A comprehension's own leading `key: value` (dict comprehension) vs. bare
+     * expression (set comprehension) is distinguished the same way, since that `:` is also at
+     * the content's own top level.
      */
     public BraceKind classifyBrace(final List<Token> contentTokens)
     {
@@ -92,8 +92,8 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * True if {@code tokens} contains a `for` KEYWORD at its own top level (depth 0 relative to
-     *  the content itself -- a `for` nested inside a deeper bracket within the content, e.g. an
-     *  inner call's own comprehension argument, does not count for the outer content).
+     * the content itself -- a `for` nested inside a deeper bracket within the content, e.g. an
+     * inner call's own comprehension argument, does not count for the outer content).
      */
     private boolean containsTopLevelComprehension(final List<Token> tokens)
     {
@@ -109,8 +109,8 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * True if {@code tokens} contains any `(`/`[`/`{` at any depth -- a function call or any
-     *  nested bracket, at any nesting level, signals complexity per STYLE.md §3.1's outward-
-     *  propagation rule (an inner loose bracket makes every enclosing bracket loose too).
+     * nested bracket, at any nesting level, signals complexity per STYLE.md §3.1's outward-
+     * propagation rule (an inner loose bracket makes every enclosing bracket loose too).
      */
     private boolean containsNestedBracket(final List<Token> tokens)
     {
@@ -123,8 +123,8 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * True if {@code tokens} contains a `:` PUNCT at its own top level (depth 0). Used both by
-     *  {@link #classifyBrace} (dict-vs-set) and {@link #isLooseBracket} (slice-segment splitting,
-     *  via {@link #splitOnTopLevelColon}).
+     * {@link #classifyBrace} (dict-vs-set) and {@link #isLooseBracket} (slice-segment splitting,
+     * via {@link #splitOnTopLevelColon}).
      */
     private boolean containsTopLevelColon(final List<Token> tokens)
     {
@@ -140,10 +140,10 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * Splits {@code tokens} into segments on every top-level (depth 0) `:` PUNCT, the `:` itself
-     *  dropped from every segment (§1.3: slice colons are pure separators, never part of either
-     *  side's own sub-expression). A nested bracket's own internal `:` (e.g. a dict literal or a
-     *  nested slice) is correctly excluded from splitting since it's below depth 0. No top-level
-     *  `:` at all yields a single segment equal to the full input.
+     * dropped from every segment (§1.3: slice colons are pure separators, never part of either
+     * side's own sub-expression). A nested bracket's own internal `:` (e.g. a dict literal or a
+     * nested slice) is correctly excluded from splitting since it's below depth 0. No top-level
+     * `:` at all yields a single segment equal to the full input.
      */
     private List<List<Token>> splitOnTopLevelColon(final List<Token> tokens)
     {
@@ -174,7 +174,7 @@ public class PythonBracketComplexityEvaluator {
 
     /**
      * True if {@code tokens} has no real content -- every token is a gap token (whitespace/
-     *  newline/comment) or the list is empty. Used for §1.5's empty-`{}` special case.
+     * newline/comment) or the list is empty. Used for §1.5's empty-`{}` special case.
      */
     private boolean isEmptyContent(final List<Token> tokens)
     {

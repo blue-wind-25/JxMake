@@ -35,20 +35,20 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * Python analog of {@link MiscRuleCore#COMMENT_NO_CAPITALIZE_C} (2026-08-08 session, comment
-     *  normalization for python3 -- see STATE_PYTHON3.md). Two families of leading word that must
-     *  never be capitalized even when they start a `#` comment sentence: (1) Python's own reserved
-     *  words (hard keywords plus the context-sensitive soft keywords `match`/`case`/`type`/`_`,
-     *  plus `self`/`cls` -- both plain identifiers, not grammar keywords, but conventionally
-     *  lowercase and frequently the first word of a comment describing the bound instance/class,
-     *  e.g. {@code # self is bound at call time}); (2) well-known lowercase, colon-suffixed
-     *  "magic comment" directive words consumed verbatim by real tools (linters/type-checkers/
-     *  formatters), where capitalizing the first letter would silently break the directive were a
-     *  human to later copy the word into a real one --
-     *  {@code noqa}/{@code type}/{@code pragma}/{@code coding}/{@code fmt}/{@code isort}/
-     *  {@code pylint}/{@code mypy}/{@code flake8}/{@code nosec}. {@code capitalizeFirstLetter}'s
-     *  leading-word extraction stops at the first non-letter/digit/underscore, so a directive
-     *  written as {@code # type: ignore} or {@code # noqa: E501} still matches on {@code "type"}/
-     *  {@code "noqa"} even though the source line itself continues with a `:`.
+     * normalization for python3 -- see STATE_PYTHON3.md). Two families of leading word that must
+     * never be capitalized even when they start a `#` comment sentence: (1) Python's own reserved
+     * words (hard keywords plus the context-sensitive soft keywords `match`/`case`/`type`/`_`,
+     * plus `self`/`cls` -- both plain identifiers, not grammar keywords, but conventionally
+     * lowercase and frequently the first word of a comment describing the bound instance/class,
+     * e.g. {@code # self is bound at call time}); (2) well-known lowercase, colon-suffixed
+     * "magic comment" directive words consumed verbatim by real tools (linters/type-checkers/
+     * formatters), where capitalizing the first letter would silently break the directive were a
+     * human to later copy the word into a real one --
+     * {@code noqa}/{@code type}/{@code pragma}/{@code coding}/{@code fmt}/{@code isort}/
+     * {@code pylint}/{@code mypy}/{@code flake8}/{@code nosec}. {@code capitalizeFirstLetter}'s
+     * leading-word extraction stops at the first non-letter/digit/underscore, so a directive
+     * written as {@code # type: ignore} or {@code # noqa: E501} still matches on {@code "type"}/
+     * {@code "noqa"} even though the source line itself continues with a `:`.
      */
     protected static final Set<String> COMMENT_NO_CAPITALIZE_PYTHON = setOf(
         "False",
@@ -128,14 +128,14 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * Python has no C-family "closing-brace label comment" concept ({@link
-     *  MiscRuleCore#isClosingBraceLabelComment} checks for a preceding `}`, meaningless for a
-     *  `#`-comment chain) and no separator-alignment-comment concept either ({@link
-     *  MiscRuleCore#parseSeparatorComment} is hardcoded to a `//`-prefixed, 2-char-stripped
-     *  comment body and would misparse/out-of-bounds on a 1-char `#` body) -- STYLE_PYTHON3.md's
-     *  §7 note ("no closing-comment mechanism exists, confirmed via full-tree grep, out of scope")
-     *  already established neither concept applies to this language. Both overridden to always
-     *  return true: every standalone `#` comment is a chain link, and every comment considered by
-     *  the chain grouping below is rewritable.
+     * MiscRuleCore#isClosingBraceLabelComment} checks for a preceding `}`, meaningless for a
+     * `#`-comment chain) and no separator-alignment-comment concept either ({@link
+     * MiscRuleCore#parseSeparatorComment} is hardcoded to a `//`-prefixed, 2-char-stripped
+     * comment body and would misparse/out-of-bounds on a 1-char `#` body) -- STYLE_PYTHON3.md's
+     * §7 note ("no closing-comment mechanism exists, confirmed via full-tree grep, out of scope")
+     * already established neither concept applies to this language. Both overridden to always
+     * return true: every standalone `#` comment is a chain link, and every comment considered by
+     * the chain grouping below is rewritable.
      */
     @Override
     protected boolean isCommentChainLink(final List<Token> tokens, final int idx)
@@ -151,24 +151,24 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * `#`-comment analog of {@link MiscRuleCore#computeLineCommentGroups} (STYLE_PYTHON3.md has no
-     *  numbered section for this -- comment normalization was never wired up for python3 at all
-     *  until this 2026-08-08 session; see STATE_PYTHON3.md). Chain-groups consecutive standalone
-     *  `#` comments (no blank line between them, per the inherited {@link
-     *  #nextCommentChainLinkIfAdjacent}/{@link #isStandaloneCommentLine} primitives -- both already
-     *  family-agnostic, unchanged from the curly-family originals) into one §15-style
-     *  sentence-detection unit: only the group's first comment's start is capitalized (routed
-     *  through {@link #capitalizeFirstLetter(String)}, which already gates on {@code
-     *  normalize-comment-start-case} and, when {@code comment-normalization-classifier} is on,
-     *  defers to the same rule-based/GRU-backed {@link #classifyComment(String, int)} decision path
-     *  curly uses -- {@link #isCommentNoCapitalizeWord} is only consulted in the non-classifier
-     *  branch), and a sole trailing `.` across the whole group is stripped from the last comment
-     *  only (via the already family-agnostic {@link #stripSoleTrailingPeriodAcrossLines}). A
-     *  trailing (non-standalone) comment starts and ends its own singleton group, reducing to the
-     *  same per-comment behavior {@link #capitalizeFirstLetter(String)}/{@link
-     *  #stripSoleTrailingPeriod(String)} already give any other single comment. Returns each
-     *  group member's already-normalized body text (without the leading `#`), keyed by its token
-     *  index; a {@code COMMENT_LINE} token index absent from the map must be rendered verbatim by
-     *  the caller.
+     * numbered section for this -- comment normalization was never wired up for python3 at all
+     * until this 2026-08-08 session; see STATE_PYTHON3.md). Chain-groups consecutive standalone
+     * `#` comments (no blank line between them, per the inherited {@link
+     * #nextCommentChainLinkIfAdjacent}/{@link #isStandaloneCommentLine} primitives -- both already
+     * family-agnostic, unchanged from the curly-family originals) into one §15-style
+     * sentence-detection unit: only the group's first comment's start is capitalized (routed
+     * through {@link #capitalizeFirstLetter(String)}, which already gates on {@code
+     * normalize-comment-start-case} and, when {@code comment-normalization-classifier} is on,
+     * defers to the same rule-based/GRU-backed {@link #classifyComment(String, int)} decision path
+     * curly uses -- {@link #isCommentNoCapitalizeWord} is only consulted in the non-classifier
+     * branch), and a sole trailing `.` across the whole group is stripped from the last comment
+     * only (via the already family-agnostic {@link #stripSoleTrailingPeriodAcrossLines}). A
+     * trailing (non-standalone) comment starts and ends its own singleton group, reducing to the
+     * same per-comment behavior {@link #capitalizeFirstLetter(String)}/{@link
+     * #stripSoleTrailingPeriod(String)} already give any other single comment. Returns each
+     * group member's already-normalized body text (without the leading `#`), keyed by its token
+     * index; a {@code COMMENT_LINE} token index absent from the map must be rendered verbatim by
+     * the caller.
      */
     public Map<Integer, String> computeHashCommentGroups(final List<Token> tokens)
     {
@@ -206,10 +206,10 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * One recognized `identifier (op) value` assignment candidate line, restricted to a single
-     *  bare IDENTIFIER target (same restriction {@link MiscRuleCore#parseAssignment} applies to
-     *  the C-family) and to a single physical/logical line -- a multi-line right-hand side (see
-     *  STYLE_PYTHON3.md §2's two continuation examples) is explicitly NOT covered by this slice
-     *  and never produced by {@link com.jxmake.formatter.ScopePipelineIndent}'s classifier.
+     * bare IDENTIFIER target (same restriction {@link MiscRuleCore#parseAssignment} applies to
+     * the C-family) and to a single physical/logical line -- a multi-line right-hand side (see
+     * STYLE_PYTHON3.md §2's two continuation examples) is explicitly NOT covered by this slice
+     * and never produced by {@link com.jxmake.formatter.ScopePipelineIndent}'s classifier.
      */
     public static final class PyAssignment {
 
@@ -228,13 +228,13 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * One recognized §6 function-signature parameter, restricted (by {@link
-     *  com.jxmake.formatter.ScopePipelineIndent}'s own classifier) to a parameter already written on
-     *  its own physical line inside an already one-parameter-per-line {@code def} signature --
-     *  this class never itself decides to break/join lines, mirroring {@link PyAssignment}'s own
-     *  "given, not decided" posture for §2. {@code typeTokens}/{@code defaultTokens} are empty
-     *  (never null) when the parameter has no type hint / no default value, so a bare {@code name}
-     *  or {@code name=default} parameter still participates in the group per STYLE_PYTHON3.md §6's
-     *  own "padded as if its `:` column were empty" text.
+     * com.jxmake.formatter.ScopePipelineIndent}'s own classifier) to a parameter already written on
+     * its own physical line inside an already one-parameter-per-line {@code def} signature --
+     * this class never itself decides to break/join lines, mirroring {@link PyAssignment}'s own
+     * "given, not decided" posture for §2. {@code typeTokens}/{@code defaultTokens} are empty
+     * (never null) when the parameter has no type hint / no default value, so a bare {@code name}
+     * or {@code name=default} parameter still participates in the group per STYLE_PYTHON3.md §6's
+     * own "padded as if its `:` column were empty" text.
      */
     public static final class PyParam {
 
@@ -260,8 +260,8 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * Public wrapper around the inherited {@link MiscRuleCore#ASSIGNMENT_OPS} -- that field is
-     *  `protected`, so callers outside the {@code rules} package (e.g. {@link
-     *  com.jxmake.formatter.ScopePipelineIndent}'s line classifier) cannot reference it directly.
+     * `protected`, so callers outside the {@code rules} package (e.g. {@link
+     * com.jxmake.formatter.ScopePipelineIndent}'s line classifier) cannot reference it directly.
      */
     public static boolean isAssignmentOp(final String opText)
     {
@@ -270,16 +270,16 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * One recognized §3 import-statement candidate: `import <moduleName>` ({@code IMPORT}, empty
-     *  {@code names}) or `from <moduleName> import <names>` ({@code FROM}, or {@code FUTURE} when
-     *  {@code moduleName} is exactly {@code "__future__"}). {@code moduleName} is the dotted-name
-     *  text verbatim (including any leading `.`/`..` relative-import dots -- ASCII `.` (0x2E)
-     *  already sorts before any letter, so no special-casing is needed per STYLE_PYTHON3.md §3.1's
-     *  own note). {@code names} holds each imported name's own text in source order (ignoring any
-     *  `as alias` -- STYLE_PYTHON3.md §3.1 point 3 sorts by "the first imported name", not its
-     *  alias), or a single {@code "*"} for a star-import. Implements {@link Comparable} directly as
-     *  §3's full sort key: {@code kind} (FUTURE < IMPORT < FROM, per §3.1 point 1 plus §3.3's
-     *  future-import-to-group-top promotion), then {@code moduleName} alphabetically (§3.1 point
-     *  2), then {@code names} lexicographically element-by-element (§3.1 point 3).
+     * {@code names}) or `from <moduleName> import <names>` ({@code FROM}, or {@code FUTURE} when
+     * {@code moduleName} is exactly {@code "__future__"}). {@code moduleName} is the dotted-name
+     * text verbatim (including any leading `.`/`..` relative-import dots -- ASCII `.` (0x2E)
+     * already sorts before any letter, so no special-casing is needed per STYLE_PYTHON3.md §3.1's
+     * own note). {@code names} holds each imported name's own text in source order (ignoring any
+     * `as alias` -- STYLE_PYTHON3.md §3.1 point 3 sorts by "the first imported name", not its
+     * alias), or a single {@code "*"} for a star-import. Implements {@link Comparable} directly as
+     * §3's full sort key: {@code kind} (FUTURE < IMPORT < FROM, per §3.1 point 1 plus §3.3's
+     * future-import-to-group-top promotion), then {@code moduleName} alphabetically (§3.1 point
+     * 2), then {@code names} lexicographically element-by-element (§3.1 point 3).
      */
     public static final class PyImport implements Comparable<PyImport> {
 
@@ -372,11 +372,11 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * Renders one alignment group's replacement text for each member, in order -- `name (op)=
-     *  value`, padded so every `=` in the group lands in the same column, no trailing `;`, no
-     *  comment-column alignment (STYLE_PYTHON3.md §2 does not call for aligning trailing comments,
-     *  unlike STYLE.md §6's C-family {@code render}, which uses {@link
-     *  com.jxmake.formatter.grid.ColumnGrid} for that -- omitted here since nothing in the spec
-     *  requires it and no worked example shows it).
+     * value`, padded so every `=` in the group lands in the same column, no trailing `;`, no
+     * comment-column alignment (STYLE_PYTHON3.md §2 does not call for aligning trailing comments,
+     * unlike STYLE.md §6's C-family {@code render}, which uses {@link
+     * com.jxmake.formatter.grid.ColumnGrid} for that -- omitted here since nothing in the spec
+     * requires it and no worked example shows it).
      */
     public List<String> renderPyGroup(final List<PyAssignment> group)
     {
@@ -405,18 +405,18 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * Renders one broken-out §6 signature group's replacement text for each parameter, in order.
-     *  Alignment target is the {@code :} column (name padded to the group's widest name, same "pad
-     *  to widest, one gap before the marker" shape {@link #renderPyGroup} uses for {@code =}) and,
-     *  independently, the {@code =} column for whichever parameters have BOTH a type hint and a
-     *  default -- {@code maxTypeLenForDefault} is computed only over that subset, so a parameter's
-     *  own type text is never padded unless its own default needs the padding to align its `=`; a
-     *  typed-but-defaultless parameter (e.g. {@code y : "List[int]"} in STYLE_PYTHON3.md §6's own
-     *  worked example) renders its type text unpadded, avoiding trailing whitespace before its
-     *  comma. A parameter with no type hint at all skips the `:`-column segment entirely (STYLE_
-     *  PYTHON3.md §6: "padded as if its `:` column were empty" -- read literally as "omitted", not
-     *  as a fake blank-padded `:` -- so its own `=`, if present, is not forced to align with typed
-     *  rows' `=` column; this is the documented, expected shape of a partial row in this grid, same
-     *  posture as any other sparse alignment grid elsewhere in this codebase).
+     * Alignment target is the {@code :} column (name padded to the group's widest name, same "pad
+     * to widest, one gap before the marker" shape {@link #renderPyGroup} uses for {@code =}) and,
+     * independently, the {@code =} column for whichever parameters have BOTH a type hint and a
+     * default -- {@code maxTypeLenForDefault} is computed only over that subset, so a parameter's
+     * own type text is never padded unless its own default needs the padding to align its `=`; a
+     * typed-but-defaultless parameter (e.g. {@code y : "List[int]"} in STYLE_PYTHON3.md §6's own
+     * worked example) renders its type text unpadded, avoiding trailing whitespace before its
+     * comma. A parameter with no type hint at all skips the `:`-column segment entirely (STYLE_
+     * PYTHON3.md §6: "padded as if its `:` column were empty" -- read literally as "omitted", not
+     * as a fake blank-padded `:` -- so its own `=`, if present, is not forced to align with typed
+     * rows' `=` column; this is the documented, expected shape of a partial row in this grid, same
+     * posture as any other sparse alignment grid elsewhere in this codebase).
      */
     public List<String> renderPySignatureGroup(final List<PyParam> group)
     {
@@ -456,44 +456,44 @@ public final class MiscRuleIndent extends MiscRuleCore {
 
     /**
      * Python analog of {@link MiscRuleCore#convertIndentation} -- converts every line's leading
-     *  indentation run to the requested `spaces`/`tabs` style, per STYLE.md §1 / STATE_PYTHON3.md's
-     *  "Open Questions" entry this resolves. Deliberately NOT a per-line raw-width-ratio rescale
-     *  like the C-family version: since Python's indentation is itself the only block-structure
-     *  signal (no braces to independently re-derive depth from), rewriting purely off *measured*
-     *  width per line risks changing block membership if a line's own width is irregular relative
-     *  to {@link #indentWidth} (a naive `width / indentWidth` guess could round two genuinely
-     *  different depths to the same target width, silently merging blocks).
+     * indentation run to the requested `spaces`/`tabs` style, per STYLE.md §1 / STATE_PYTHON3.md's
+     * "Open Questions" entry this resolves. Deliberately NOT a per-line raw-width-ratio rescale
+     * like the C-family version: since Python's indentation is itself the only block-structure
+     * signal (no braces to independently re-derive depth from), rewriting purely off *measured*
+     * width per line risks changing block membership if a line's own width is irregular relative
+     * to {@link #indentWidth} (a naive `width / indentWidth` guess could round two genuinely
+     * different depths to the same target width, silently merging blocks).
      *
      * <p>Instead this rebuilds each real (non-blank, non-comment-only) statement line's indentation
-     *  from the depth already established by {@link
-     *  com.jxmake.formatter.tokenizer.TokenizerIndent#synthesizeIndentation}'s own INDENT/DEDENT
-     *  synthesis -- the same mechanism Python's own grammar uses to decide block membership from
-     *  the source being formatted, already proven internally consistent by the fact that the file
-     *  tokenized at all. A running `depth` counter is incremented/decremented by each INDENT/DEDENT
-     *  marker actually encountered; the target text is always exactly `depth * indentWidth` (or
-     *  `depth` tabs), so two statement lines can never collapse to the same rendered width unless
-     *  they were already at the same depth. Blank/comment-only lines are deliberately left
-     *  untouched (never rewritten) -- they carry no INDENT/DEDENT of their own, so their "depth" is
-     *  ambiguous (a comment is free to sit at whatever column the author chose, independent of the
-     *  depth carried over from the preceding real statement; found via real-code testing against
-     *  this job's own `test/py_comments_inp.py` fixture, a `match`/`case`-adjacent comment
-     *  deliberately dedented to visually group with a following, shallower block). This granularity
-     *  question -- whole-file uniform target vs. per-block drift-tracking -- was resolved as
-     *  "neither, in the C-family sense": real-code evidence (`psf/black`/`django/django`/
-     *  `python/cpython` checkouts, 2026-08-04) found zero in-code (non-string-literal) indentation
-     *  drift in any of the three -- the only tab-indented lines found anywhere (3 files in
-     *  `psf/black`) were entirely inside already-opaque triple-quoted docstrings (§10,
-     *  RDD_KEY_186), never touched by this or any other pass. Depth-based rewriting sidesteps the
-     *  need to choose a block-boundary granularity at all: it operates per physical line using
-     *  structure Python's own grammar already resolved, not a heuristic re-guess of it.
+     * from the depth already established by {@link
+     * com.jxmake.formatter.tokenizer.TokenizerIndent#synthesizeIndentation}'s own INDENT/DEDENT
+     * synthesis -- the same mechanism Python's own grammar uses to decide block membership from
+     * the source being formatted, already proven internally consistent by the fact that the file
+     * tokenized at all. A running `depth` counter is incremented/decremented by each INDENT/DEDENT
+     * marker actually encountered; the target text is always exactly `depth * indentWidth` (or
+     * `depth` tabs), so two statement lines can never collapse to the same rendered width unless
+     * they were already at the same depth. Blank/comment-only lines are deliberately left
+     * untouched (never rewritten) -- they carry no INDENT/DEDENT of their own, so their "depth" is
+     * ambiguous (a comment is free to sit at whatever column the author chose, independent of the
+     * depth carried over from the preceding real statement; found via real-code testing against
+     * this job's own `test/py_comments_inp.py` fixture, a `match`/`case`-adjacent comment
+     * deliberately dedented to visually group with a following, shallower block). This granularity
+     * question -- whole-file uniform target vs. per-block drift-tracking -- was resolved as
+     * "neither, in the C-family sense": real-code evidence (`psf/black`/`django/django`/
+     * `python/cpython` checkouts, 2026-08-04) found zero in-code (non-string-literal) indentation
+     * drift in any of the three -- the only tab-indented lines found anywhere (3 files in
+     * `psf/black`) were entirely inside already-opaque triple-quoted docstrings (§10,
+     * RDD_KEY_186), never touched by this or any other pass. Depth-based rewriting sidesteps the
+     * need to choose a block-boundary granularity at all: it operates per physical line using
+     * structure Python's own grammar already resolved, not a heuristic re-guess of it.
      *
      * <p>A line with no leading {@code WHITESPACE} token (column-0 statements) is left alone --
-     *  there is nothing to rewrite. Multi-physical-line statements (bracket/backslash
-     *  continuation): only the first physical line's own leading indentation is touched; interior
-     *  continuation lines' whitespace is not itself indentation (Python's grammar assigns it no
-     *  block-structure meaning inside an open bracket/continuation) and is left untouched, same
-     *  "documented gap, not a guess" posture used throughout this job. A frozen {@code WHITESPACE}
-     *  token (inside an already-opaque span) is never rewritten.
+     * there is nothing to rewrite. Multi-physical-line statements (bracket/backslash
+     * continuation): only the first physical line's own leading indentation is touched; interior
+     * continuation lines' whitespace is not itself indentation (Python's grammar assigns it no
+     * block-structure meaning inside an open bracket/continuation) and is left untouched, same
+     * "documented gap, not a guess" posture used throughout this job. A frozen {@code WHITESPACE}
+     * token (inside an already-opaque span) is never rewritten.
      */
     public String convertIndentation(final List<Token> tokens, final String indentStyle)
     {

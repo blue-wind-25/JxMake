@@ -55,8 +55,8 @@ public final class Lang {
     public final boolean isSimpleBraced;
     /**
      * True when the JSX boundary-finding pre-pass ({@code TokenizerCurly#findJsxSpans}) should run
-     *  for this file. Gates the pre-pass -- a file this is {@code false} for must see zero behavior
-     *  change, so the pre-pass must never run unless this is true.
+     * for this file. Gates the pre-pass -- a file this is {@code false} for must see zero behavior
+     * change, so the pre-pass must never run unless this is true.
      *
      *  <p>Extension-based rules (STATE_JS_TS.md's 2026-08-13 implementation section, following the
      *  2026-08-13 research session's recommendation, itself following Babel/Prettier's own
@@ -95,9 +95,9 @@ public final class Lang {
 
     /**
      * {@code jsxInTsOptIn}-aware overload -- lets a caller thread {@code Config.isJsxInTs()}
-     *  through so a {@code .ts} file can opt into the JSX boundary-finding pre-pass (see
-     *  {@link #isJsxSyntax}'s javadoc). Has no effect on any extension other than {@code .ts} --
-     *  {@code .jsx}/{@code .tsx}/{@code .js}/{@code .mjs}/{@code .cjs} are unaffected either way.
+     * through so a {@code .ts} file can opt into the JSX boundary-finding pre-pass (see
+     * {@link #isJsxSyntax}'s javadoc). Has no effect on any extension other than {@code .ts} --
+     * {@code .jsx}/{@code .tsx}/{@code .js}/{@code .mjs}/{@code .cjs} are unaffected either way.
      */
     public Lang(final String language, final String filePath, final boolean jsxInTsOptIn)
     {

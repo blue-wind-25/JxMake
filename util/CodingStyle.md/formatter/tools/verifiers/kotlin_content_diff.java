@@ -117,27 +117,27 @@ public class kotlin_content_diff {
 
     /**
      * Canonicalize a subtree: leaf tokens only, whitespace/comment/KDoc
-     *  nodes skipped, joined with single spaces. Walks the ASTNode (not
-     *  PsiElement.getChildren(), which for stub-based elements like
-     *  KtClass/KtProperty/KtNamedFunction only returns structurally
-     *  significant composite children -- plain leaf tokens (identifiers,
-     *  keywords, comments) never show up there at all).
+     * nodes skipped, joined with single spaces. Walks the ASTNode (not
+     * PsiElement.getChildren(), which for stub-based elements like
+     * KtClass/KtProperty/KtNamedFunction only returns structurally
+     * significant composite children -- plain leaf tokens (identifiers,
+     * keywords, comments) never show up there at all).
      */
     /**
      * STYLE_KOTLIN.md §10 (mirrors STYLE.md's general single-statement-block
-     *  brace-omission rule, same JS/TS precedent as js_ts_content_diff.js's
-     *  Block-with-one-statement tolerance): a `for`/`while`/`do`/`if`/`else`
-     *  body containing exactly one statement may legitimately be rendered
-     *  with or without its `{`/`}`, in either direction. Every one of these
-     *  control-structure bodies is wrapped in a
-     *  KtContainerNodeForControlStructureBody regardless of which keyword
-     *  owns it (confirmed empirically -- for/while/do-while/if/else bodies
-     *  all share this one parent type), so a single check covers every
-     *  construct STYLE.md §10 names. Only the exact one-statement shape is
-     *  unwrapped -- a block with zero or 2+ statements still walks normally
-     *  (braces included), so a genuinely dropped/added statement inside a
-     *  braceless-collapsed body is still caught by the ordinary per-leaf
-     *  comparison below.
+     * brace-omission rule, same JS/TS precedent as js_ts_content_diff.js's
+     * Block-with-one-statement tolerance): a `for`/`while`/`do`/`if`/`else`
+     * body containing exactly one statement may legitimately be rendered
+     * with or without its `{`/`}`, in either direction. Every one of these
+     * control-structure bodies is wrapped in a
+     * KtContainerNodeForControlStructureBody regardless of which keyword
+     * owns it (confirmed empirically -- for/while/do-while/if/else bodies
+     * all share this one parent type), so a single check covers every
+     * construct STYLE.md §10 names. Only the exact one-statement shape is
+     * unwrapped -- a block with zero or 2+ statements still walks normally
+     * (braces included), so a genuinely dropped/added statement inside a
+     * braceless-collapsed body is still caught by the ordinary per-leaf
+     * comparison below.
      */
     static boolean isCollapsibleControlBlock(ASTNode n)
     {
@@ -200,8 +200,8 @@ public class kotlin_content_diff {
 
     /**
      * Walks the ASTNode tree collecting every comment/KDoc leaf's text --
-     *  see collectLeafText's comment on why PsiElement.getChildren()/
-     *  PsiTreeUtil can't be used to reach these for stub-based elements.
+     * see collectLeafText's comment on why PsiElement.getChildren()/
+     * PsiTreeUtil can't be used to reach these for stub-based elements.
      */
     static void collectComments(ASTNode n, List<String> out)
     {
@@ -224,12 +224,12 @@ public class kotlin_content_diff {
 
     /**
      * A sole trailing "." is a legitimate normalize-comment-end-period
-     *  transform (STYLE.md §15, same as java_content_diff's
-     *  normalizeTrailingPeriod), not corruption -- strip it on both sides
-     *  before comparing so a comment differing only by that period isn't
-     *  flagged. Guarded to a *single* trailing period (mirrors Java's
-     *  `count() == 1` check) so a real ellipsis/decimal/abbreviation run at
-     *  the end of a comment is left alone.
+     * transform (STYLE.md §15, same as java_content_diff's
+     * normalizeTrailingPeriod), not corruption -- strip it on both sides
+     * before comparing so a comment differing only by that period isn't
+     * flagged. Guarded to a *single* trailing period (mirrors Java's
+     * `count() == 1` check) so a real ellipsis/decimal/abbreviation run at
+     * the end of a comment is left alone.
      */
     static String normalizeTrailingPeriod(String s)
     {
@@ -246,18 +246,18 @@ public class kotlin_content_diff {
 
     /**
      * KDoc continuation-line leading-asterisk spacing before a fenced code
-     *  block (STYLE_KOTLIN.md's KDoc formatting) is a legitimate,
-     *  intentional transform -- the formatter normalizes `*```` (no space
-     *  between the continuation `*` and a following backtick-fence run) to
-     *  `* ```` (exactly one space), or vice versa. normalizeWhitespace's
-     *  `\s+` -> " " collapse alone can't equate these: one side has ZERO
-     *  whitespace characters between `*` and the backtick run, the other has
-     *  one, so there's no existing whitespace run for `\s+` to collapse on
-     *  the zero-space side. Deliberately narrow -- only touches a literal
-     *  `*` immediately followed by (optional whitespace then) one or more
-     *  backticks, normalizing to exactly one space between them. Does not
-     *  touch any other `*`/backtick adjacency shape, so it can't mask a
-     *  dropped/added/reordered word elsewhere in the comment body.
+     * block (STYLE_KOTLIN.md's KDoc formatting) is a legitimate,
+     * intentional transform -- the formatter normalizes `*```` (no space
+     * between the continuation `*` and a following backtick-fence run) to
+     * `* ```` (exactly one space), or vice versa. normalizeWhitespace's
+     * `\s+` -> " " collapse alone can't equate these: one side has ZERO
+     * whitespace characters between `*` and the backtick run, the other has
+     * one, so there's no existing whitespace run for `\s+` to collapse on
+     * the zero-space side. Deliberately narrow -- only touches a literal
+     * `*` immediately followed by (optional whitespace then) one or more
+     * backticks, normalizing to exactly one space between them. Does not
+     * touch any other `*`/backtick adjacency shape, so it can't mask a
+     * dropped/added/reordered word elsewhere in the comment body.
      */
     static String normalizeKdocAsteriskFenceSpacing(String s)
     {
@@ -279,36 +279,36 @@ public class kotlin_content_diff {
 
     /**
      * STYLE.md's general closing-brace-annotation tolerance for control-flow
-     *  constructs (`} // while`, `} // for x`, `} // when kind`, ...) --
-     *  same precedent as java_content_diff.java's BRACE_ANNOTATION: this is
-     *  new content the formatter intentionally adds (length-gated, STYLE.md
-     *  §7), not a normalization of pre-existing text, so it must not be
-     *  flagged as an unexplained addition. Deliberately loose (keyword +
-     *  at most one trailing word, not verified against an actual construct)
-     *  -- matches the already-shipped Java precedent for the same control-
-     *  flow-keyword family. `class`/`interface`/`enum class`/`object`/
-     *  `companion object`/`init` closing comments are handled separately
-     *  (namedConstructClosingComments below), verified against the file's
-     *  actual declarations, since those always carry a real name that a
-     *  wrong/corrupted closing comment could plausibly get wrong.
+     * constructs (`} // while`, `} // for x`, `} // when kind`, ...) --
+     * same precedent as java_content_diff.java's BRACE_ANNOTATION: this is
+     * new content the formatter intentionally adds (length-gated, STYLE.md
+     * §7), not a normalization of pre-existing text, so it must not be
+     * flagged as an unexplained addition. Deliberately loose (keyword +
+     * at most one trailing word, not verified against an actual construct)
+     * -- matches the already-shipped Java precedent for the same control-
+     * flow-keyword family. `class`/`interface`/`enum class`/`object`/
+     * `companion object`/`init` closing comments are handled separately
+     * (namedConstructClosingComments below), verified against the file's
+     * actual declarations, since those always carry a real name that a
+     * wrong/corrupted closing comment could plausibly get wrong.
      *
      * `when` is deliberately EXCLUDED from this loose keyword list (unlike
-     *  the shipped 2026-08-10 version, which included it): RDD_KEY_101's
-     *  `when` closing comment names the FULL `when(...)` subject verbatim,
-     *  which for a `when (val x = expr)` capture form is a multi-word
-     *  expression (`val`/`var` name + `=` + an arbitrary initializer), not a
-     *  single trailing identifier -- e.g. `// when val accessDenied =
-     *  error.suppressedExceptions.single()`. The single-trailing-word clause
-     *  rejected this shape as an unexplained addition, a false MISMATCH
-     *  against a real, always-emitted closing comment (confirmed against
-     *  PathRecursiveFunctionsTest.kt/PathTreeWalkTest.kt/coreRuntime.kt), but
-     *  widening the trailing clause to accept ANY text after `when` (tried
-     *  first, reverted) let a genuinely WRONG subject name slip through
-     *  uncaught -- a real regression the checker exists to prevent. `when`'s
-     *  closing comment is instead verified against the file's actual `when`
-     *  subject text via whenClosingComments below, the same
-     *  verified-per-construct precedent namedConstructClosingComments already
-     *  uses for `class`/`object`/`init`, rather than a free-floating pattern.
+     * the shipped 2026-08-10 version, which included it): RDD_KEY_101's
+     * `when` closing comment names the FULL `when(...)` subject verbatim,
+     * which for a `when (val x = expr)` capture form is a multi-word
+     * expression (`val`/`var` name + `=` + an arbitrary initializer), not a
+     * single trailing identifier -- e.g. `// when val accessDenied =
+     * error.suppressedExceptions.single()`. The single-trailing-word clause
+     * rejected this shape as an unexplained addition, a false MISMATCH
+     * against a real, always-emitted closing comment (confirmed against
+     * PathRecursiveFunctionsTest.kt/PathTreeWalkTest.kt/coreRuntime.kt), but
+     * widening the trailing clause to accept ANY text after `when` (tried
+     * first, reverted) let a genuinely WRONG subject name slip through
+     * uncaught -- a real regression the checker exists to prevent. `when`'s
+     * closing comment is instead verified against the file's actual `when`
+     * subject text via whenClosingComments below, the same
+     * verified-per-construct precedent namedConstructClosingComments already
+     * uses for `class`/`object`/`init`, rather than a free-floating pattern.
      */
     static final java.util.regex.Pattern CONTROL_FLOW_CLOSING = java.util.regex.Pattern.compile(
         "^(while|for|if|else|do|try|catch|finally)( \\S+)?$"
@@ -316,29 +316,29 @@ public class kotlin_content_diff {
 
     /**
      * STYLE_KOTLIN.md §3.1: `class`/`object`/`companion object` bodies (and
-     *  §3.4's `init` blocks) always receive a closing comment, unconditionally
-     *  -- new content the formatter intentionally adds, not a normalization
-     *  of pre-existing text. Computed from the ORIGINAL file's own real
-     *  declarations (not a free-floating pattern) so a closing comment naming
-     *  the wrong construct, or one with no corresponding declaration at all,
-     *  is still flagged as a genuine mismatch.
+     * §3.4's `init` blocks) always receive a closing comment, unconditionally
+     * -- new content the formatter intentionally adds, not a normalization
+     * of pre-existing text. Computed from the ORIGINAL file's own real
+     * declarations (not a free-floating pattern) so a closing comment naming
+     * the wrong construct, or one with no corresponding declaration at all,
+     * is still flagged as a genuine mismatch.
      *
      * Each declaration contributes a GROUP of acceptable variant texts rather
-     *  than one fixed string: real-corpus spot-checking (25-file sample of
-     *  JetBrains/kotlin, beyond the 4 gap repros this fix set out to cover)
-     *  found the formatter's `object`-closing-comment naming is inconsistent
-     *  -- observed emitting `// class GeneratedSuites` (wrong keyword) for a
-     *  plain `object GeneratedSuites {}`, and bare `// Default`/`// BuilderContext`
-     *  (keyword omitted) for a supertyped `object Default : X {}` -- alongside
-     *  the expected `// object Foo`/`// object` shapes. This looks like a
-     *  pre-existing quirk in the formatter's own named-construct classifier
-     *  for `object` specifically (not touched here -- out of scope for this
-     *  checker fix), so all four observed shapes are accepted as long as they
-     *  still carry the declaration's own real name (or no name, for an
-     *  anonymous object) -- a wrong name is still rejected. `class`/
-     *  `interface`/`enum class`/`companion object`/`init` were not observed
-     *  to have this inconsistency in the sample and keep one exact shape
-     *  each.
+     * than one fixed string: real-corpus spot-checking (25-file sample of
+     * JetBrains/kotlin, beyond the 4 gap repros this fix set out to cover)
+     * found the formatter's `object`-closing-comment naming is inconsistent
+     * -- observed emitting `// class GeneratedSuites` (wrong keyword) for a
+     * plain `object GeneratedSuites {}`, and bare `// Default`/`// BuilderContext`
+     * (keyword omitted) for a supertyped `object Default : X {}` -- alongside
+     * the expected `// object Foo`/`// object` shapes. This looks like a
+     * pre-existing quirk in the formatter's own named-construct classifier
+     * for `object` specifically (not touched here -- out of scope for this
+     * checker fix), so all four observed shapes are accepted as long as they
+     * still carry the declaration's own real name (or no name, for an
+     * anonymous object) -- a wrong name is still rejected. `class`/
+     * `interface`/`enum class`/`companion object`/`init` were not observed
+     * to have this inconsistency in the sample and keep one exact shape
+     * each.
      */
     static void collectNamedConstructClosings(PsiElement e, List<List<String>> out)
     {
@@ -392,17 +392,17 @@ public class kotlin_content_diff {
 
     /**
      * RDD_KEY_101 (`STATE_KOTLIN.md`): every `when [(subject)] { ... }` gets a
-     *  `// when <subject>` closing comment (bare `// when` if subject-less) --
-     *  new content the formatter intentionally adds, not a normalization of
-     *  pre-existing text. `<subject>` is the raw text between the `when`'s own
-     *  `(`/`)`, whitespace-collapsed to one line -- mirrors
-     *  `KotlinSpecificRule.formatWhenExpressions`'s own `subject =
-     *  literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ")`
-     *  exactly, so the tolerance only accepts the one subject text a real
-     *  `when` in the ORIGINAL file could actually produce -- a closing
-     *  comment naming the wrong subject (or naming a `when` that doesn't
-     *  exist at all) is still flagged as a genuine mismatch, unlike a
-     *  free-floating regex.
+     * `// when <subject>` closing comment (bare `// when` if subject-less) --
+     * new content the formatter intentionally adds, not a normalization of
+     * pre-existing text. `<subject>` is the raw text between the `when`'s own
+     * `(`/`)`, whitespace-collapsed to one line -- mirrors
+     * `KotlinSpecificRule.formatWhenExpressions`'s own `subject =
+     * literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ")`
+     * exactly, so the tolerance only accepts the one subject text a real
+     * `when` in the ORIGINAL file could actually produce -- a closing
+     * comment naming the wrong subject (or naming a `when` that doesn't
+     * exist at all) is still flagged as a genuine mismatch, unlike a
+     * free-floating regex.
      */
     static void collectWhenClosingComments(PsiElement e, List<List<String>> out)
     {
@@ -455,12 +455,12 @@ public class kotlin_content_diff {
 
     /**
      * Same shape as diffMultisets, plus the two closing-comment tolerances
-     *  above: a plain unmatched-in-`a` entry still mismatches unconditionally
-     *  (a dropped/corrupted comment is never tolerated); an unmatched-in-`b`
-     *  entry is only tolerated if it's either a loose control-flow closing
-     *  annotation, or one consumed (one-for-one, not just "present anywhere
-     *  in the set") from `namedConstructAllowed`'s per-file real-construct
-     *  count
+     * above: a plain unmatched-in-`a` entry still mismatches unconditionally
+     * (a dropped/corrupted comment is never tolerated); an unmatched-in-`b`
+     * entry is only tolerated if it's either a loose control-flow closing
+     * annotation, or one consumed (one-for-one, not just "present anywhere
+     * in the set") from `namedConstructAllowed`'s per-file real-construct
+     * count
      */
     static List<String> diffCommentMultisets(
         List<String>       a,
@@ -502,10 +502,10 @@ public class kotlin_content_diff {
 
     /**
      * Printed immediately before a pair's AST diff starts -- if the tool
-     *  hangs/is slow on one particular file in a large batch, this line
-     *  (already flushed to stdout for every prior file) shows exactly which
-     *  file and when, mirroring Main.main's/ServerMode.FormatHandler's own
-     *  "processing <file>" trace precedent (STATE_COMMON.md).
+     * hangs/is slow on one particular file in a large batch, this line
+     * (already flushed to stdout for every prior file) shows exactly which
+     * file and when, mirroring Main.main's/ServerMode.FormatHandler's own
+     * "processing <file>" trace precedent (STATE_COMMON.md).
      */
     static void printTimestampedHeader(String relPath)
     {
@@ -514,10 +514,10 @@ public class kotlin_content_diff {
 
     /**
      * The full single-pair AST-diff check (imports/declarations/comments),
-     *  shared by both the single-pair and batch modes. Assumes both paths
-     *  are already confirmed to exist -- callers are responsible for the
-     *  missing-file check so a batch run can warn-and-skip instead of
-     *  throwing.
+     * shared by both the single-pair and batch modes. Assumes both paths
+     * are already confirmed to exist -- callers are responsible for the
+     * missing-file check so a batch run can warn-and-skip instead of
+     * throwing.
      */
     static boolean compareOne(
         Path origPath, Path fmtPath, String origLabel, String fmtLabel

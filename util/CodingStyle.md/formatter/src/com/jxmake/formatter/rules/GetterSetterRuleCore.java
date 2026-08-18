@@ -217,13 +217,13 @@ public abstract class GetterSetterRuleCore {
 
     /**
      * True when {@code lastSig} (the last significant token before a candidate depth-0
-     *  NEWLINE boundary) means the statement isn't finished yet -- a trailing binary/assignment
-     *  operator, comma, or a keyword that can never end a statement on its own. Deliberately a
-     *  small, conservative subset of {@code JsTsSpecificRule.CONTINUATION_OPS}/
-     *  {@code CONTINUATION_KEYWORDS} (open brackets are handled separately via this method's own
-     *  {@code depth} tracking, not needed here) -- this method only needs to avoid mis-splitting
-     *  the shapes {@code splitMembers} actually sees (fields/one-liner signatures), not to be a
-     *  general-purpose ASI oracle (that's {@code enforceSemicolonInsertion}'s job, in Phase 1).
+     * NEWLINE boundary) means the statement isn't finished yet -- a trailing binary/assignment
+     * operator, comma, or a keyword that can never end a statement on its own. Deliberately a
+     * small, conservative subset of {@code JsTsSpecificRule.CONTINUATION_OPS}/
+     * {@code CONTINUATION_KEYWORDS} (open brackets are handled separately via this method's own
+     * {@code depth} tracking, not needed here) -- this method only needs to avoid mis-splitting
+     * the shapes {@code splitMembers} actually sees (fields/one-liner signatures), not to be a
+     * general-purpose ASI oracle (that's {@code enforceSemicolonInsertion}'s job, in Phase 1).
      */
     private boolean isAsiContinuation(final Token lastSig)
     {
@@ -266,10 +266,10 @@ public abstract class GetterSetterRuleCore {
 
     /**
      * True if {@code [bodyFrom, bodyTo)} contains at least one {@code name(args)} call with a
-     *  non-empty argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later
-     *  break across lines if it doesn't fit ({@code name()} zero-arg calls are never broken, see
-     *  that method's own doc comment). Visibility raised private -> protected for
-     *  {@code KotlinGetterSetterRule} reuse (RDD_KEY_138) -- purely additive, no behavior change.
+     * non-empty argument list -- the shape {@code MiscRule.enforceCallLineBreaking} may later
+     * break across lines if it doesn't fit ({@code name()} zero-arg calls are never broken, see
+     * that method's own doc comment). Visibility raised private -> protected for
+     * {@code KotlinGetterSetterRule} reuse (RDD_KEY_138) -- purely additive, no behavior change.
      */
     protected boolean hasBreakableCall(
         final List<Token> tokens,

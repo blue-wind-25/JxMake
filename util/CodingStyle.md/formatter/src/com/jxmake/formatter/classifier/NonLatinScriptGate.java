@@ -9,8 +9,8 @@ package com.jxmake.formatter.classifier;
 
 /**
  * RDD_KEY_95: presence-based gate, not ratio-based -- any non-Latin codepoint anywhere in the
- *  comment skips the classifier entirely for that comment (mixed-token comments defeat
- *  whole-string language-ID; this is permanently out of scope, not a threshold to tune)
+ * comment skips the classifier entirely for that comment (mixed-token comments defeat
+ * whole-string language-ID; this is permanently out of scope, not a threshold to tune)
  */
 public final class NonLatinScriptGate {
 

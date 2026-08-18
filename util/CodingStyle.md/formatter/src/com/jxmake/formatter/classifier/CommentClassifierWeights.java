@@ -9,11 +9,11 @@ package com.jxmake.formatter.classifier;
 
 /**
  * Weight constants for {@link CommentClassifier}'s scoring formula ({@code score = w*x + bias},
- *  threshold compare). Derived per RDD_KEY_97 (frontier-model-assisted, offline, one-time) from
- *  the labeled example sets in {@code tools/classifier_weights/} -- see {@code tools/classifier_weights/weights.md} for the full derivation
- *  and per-example verification. Do not hand-tune or corpus-train these directly; extend the
- *  {@code tools/classifier_weights/} example sets and re-run {@code tools/classifier_weights/derive_weights.py}, per that file's "Extending
- *  this" section.
+ * threshold compare). Derived per RDD_KEY_97 (frontier-model-assisted, offline, one-time) from
+ * the labeled example sets in {@code tools/classifier_weights/} -- see {@code tools/classifier_weights/weights.md} for the full derivation
+ * and per-example verification. Do not hand-tune or corpus-train these directly; extend the
+ * {@code tools/classifier_weights/} example sets and re-run {@code tools/classifier_weights/derive_weights.py}, per that file's "Extending
+ * this" section.
  */
 public final class CommentClassifierWeights {
 

@@ -85,9 +85,9 @@ public abstract class MiscRuleCore {
 
     /**
      * Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
-     *  config values (STATE_AI.md Step 3) -- see {@link #classifyComment(String, int)}. The
-     *  shorter constructor above defaults these to off/empty (no behavior change for any caller
-     *  that hasn't opted in yet, e.g. {@code MiscRuleIndent}/{@code MiscRuleTags}).
+     * config values (STATE_AI.md Step 3) -- see {@link #classifyComment(String, int)}. The
+     * shorter constructor above defaults these to off/empty (no behavior change for any caller
+     * that hasn't opted in yet, e.g. {@code MiscRuleIndent}/{@code MiscRuleTags}).
      */
     protected MiscRuleCore(
         final Lang    lang,
@@ -107,7 +107,7 @@ public abstract class MiscRuleCore {
 
     /**
      * Full constructor additionally taking the {@code line-length-with-comment} config value --
-     *  see {@link #lineLengthWithCommentLimit}'s own doc comment
+     * see {@link #lineLengthWithCommentLimit}'s own doc comment
      */
     protected MiscRuleCore(
         final Lang    lang,
@@ -142,8 +142,8 @@ public abstract class MiscRuleCore {
 
     /**
      * Control-flow keywords whose own condition/argument parens must never be mistaken for a
-     *  C-style cast's parens by {@link #isCStyleCastClose} -- see that method's call site. Exact
-     *  duplicate of `DeclarationAlignmentRuleCore.CONTROL_FLOW_KEYWORDS`.
+     * C-style cast's parens by {@link #isCStyleCastClose} -- see that method's call site. Exact
+     * duplicate of `DeclarationAlignmentRuleCore.CONTROL_FLOW_KEYWORDS`.
      */
     private static final Set<String> CONTROL_FLOW_KEYWORDS = setOf(
         "if", "while", "for", "switch", "catch", "do", "else"
@@ -152,8 +152,8 @@ public abstract class MiscRuleCore {
     // ── §1 Indentation ───────────────────────────────────────────────────────────
     /**
      * Tab display size and spaces-per-level default, per STYLE.md §1 -- overridable via the
-     *  `indent-size` config key (see {@link #indentWidth}). Shared by any rule (this one or a
-     *  future one, e.g. §8's signature wrapping) that needs to *generate* new indentation.
+     * `indent-size` config key (see {@link #indentWidth}). Shared by any rule (this one or a
+     * future one, e.g. §8's signature wrapping) that needs to *generate* new indentation.
      */
     public static final int DEFAULT_INDENT_WIDTH = 4;
 
@@ -358,16 +358,16 @@ public abstract class MiscRuleCore {
     }
     /**
      * Column width of a raw (not-yet-{@link #convertIndentation}-normalized) leading-whitespace
-     *  run, expanding each {@code '\t'} to the next {@link #indentWidth} tab stop the same way
-     *  {@link #renderIndent} does -- unlike {@code original.length()}, which undercounts a tab as
-     *  a single character. Any line-length fits-check that measures a physical line still
-     *  containing raw source indentation (i.e. anything that runs before {@code
-     *  convertIndentation}, which is always the pipeline's last phase) must use this instead of
-     *  {@code String.length()} on that indent, or a tab-indented line whose true post-conversion
-     *  width would exceed {@code lineLengthLimit} can wrongly measure as fitting -- stable only on
-     *  a second format pass, once the indent is already spaces from the start (found via real-code
-     *  testing, local `src/com`/`src/org` dogfood -- `enforceCallLineBreaking`'s whole-line/
-     *  candidate fits-checks).
+     * run, expanding each {@code '\t'} to the next {@link #indentWidth} tab stop the same way
+     * {@link #renderIndent} does -- unlike {@code original.length()}, which undercounts a tab as
+     * a single character. Any line-length fits-check that measures a physical line still
+     * containing raw source indentation (i.e. anything that runs before {@code
+     * convertIndentation}, which is always the pipeline's last phase) must use this instead of
+     * {@code String.length()} on that indent, or a tab-indented line whose true post-conversion
+     * width would exceed {@code lineLengthLimit} can wrongly measure as fitting -- stable only on
+     * a second format pass, once the indent is already spaces from the start (found via real-code
+     * testing, local `src/com`/`src/org` dogfood -- `enforceCallLineBreaking`'s whole-line/
+     * candidate fits-checks).
      */
     protected int expandedIndentWidth(final String original)
     {
@@ -380,8 +380,8 @@ public abstract class MiscRuleCore {
     }
     /**
      * Renders `level` indent levels in the requested style -- shared by §1's line converter
-     *  above and §8's signature-wrapping below, which both need to *generate* brand-new
-     *  indentation (as opposed to converting indentation that already exists in source)
+     * above and §8's signature-wrapping below, which both need to *generate* brand-new
+     * indentation (as opposed to converting indentation that already exists in source)
      */
     protected String indentText(final int level, final String indentStyle)
     {
@@ -754,8 +754,8 @@ protected static int matchParenForward(final List<Token> tokens, final int openI
 }
     /**
      * Forward `{`/`}` bracket match -- the brace-pair analog of {@link #matchParenForward},
-     *  previously re-implemented byte-identically in both {@code CppSpecificRule} and
-     *  {@code JavaSpecificRule}
+     * previously re-implemented byte-identically in both {@code CppSpecificRule} and
+     * {@code JavaSpecificRule}
      */
     protected static int matchBraceForward(final List<Token> tokens, final int openIdx)
     {
@@ -1370,9 +1370,9 @@ public static final class Assignment {
     }
     /**
      * Joins tokens into canonical spaced text -- exact copy of
-     *  `DeclarationAlignmentRule.renderTokens`'s tight-attachment rules (`*`/`&`/`::`/generics/
-     *  `[`/`]`/`,`), duplicated here rather than shared since neither class currently exposes
-     *  these as a shared utility (each rule class keeps its own small token-joining helpers).
+     * `DeclarationAlignmentRule.renderTokens`'s tight-attachment rules (`*`/`&`/`::`/generics/
+     * `[`/`]`/`,`), duplicated here rather than shared since neither class currently exposes
+     * these as a shared utility (each rule class keeps its own small token-joining helpers).
      */
     protected String renderTokens(final List<Token> tokens)
     {
@@ -1398,12 +1398,12 @@ public static final class Assignment {
     }
     /**
      * True iff the `)` at `closeIdx` in `tokens` closes a C-style cast: `(Type)` where the
-     *  content between the matching `(` and `)` is just a type-like token sequence
-     *  (IDENTIFIER/KEYWORD plus optional `*`), and the token before the matching `(` is not an
-     *  IDENTIFIER/`)`/`]` (which would make it a function call or subscript instead), nor a
-     *  control-flow keyword's own condition parens. Exact duplicate of
-     *  `DeclarationAlignmentRuleCore.isCStyleCastClose` -- used only by {@link
-     *  #renderExpressionTokens}.
+     * content between the matching `(` and `)` is just a type-like token sequence
+     * (IDENTIFIER/KEYWORD plus optional `*`), and the token before the matching `(` is not an
+     * IDENTIFIER/`)`/`]` (which would make it a function call or subscript instead), nor a
+     * control-flow keyword's own condition parens. Exact duplicate of
+     * `DeclarationAlignmentRuleCore.isCStyleCastClose` -- used only by {@link
+     * #renderExpressionTokens}.
      */
     protected boolean isCStyleCastClose(final List<Token> tokens, final int closeIdx)
     {
@@ -1443,15 +1443,15 @@ public static final class Assignment {
     }
     /**
      * Renders an arbitrary expression's token list (e.g. a plain assignment statement's RHS)
-     *  where `*`/`&` may be either binary operators or unary pointer/reference/dereference
-     *  operators -- exact duplicate of `DeclarationAlignmentRuleCore.renderInitTokens`'s
-     *  disambiguation logic (lookahead to detect binary `*`/`&`; unary dereference/address-of stays
-     *  tight against its operand; C-style cast close-paren stays tight against what follows).
-     *  Unlike {@link #renderTokens} (tuned for signatures/parameter lists, where a bare `*ptr`
-     *  dereference never appears at this join point), this is the general-purpose joiner needed for
-     *  a full expression -- {@link #renderTokens} alone regressed `g_config = *cfg;` into
-     *  `g_config = * cfg;` (RDD_KEY_238 follow-up) when first tried as the assignment-RHS renderer,
-     *  since it has no unary-`*`/`&` lookahead at all.
+     * where `*`/`&` may be either binary operators or unary pointer/reference/dereference
+     * operators -- exact duplicate of `DeclarationAlignmentRuleCore.renderInitTokens`'s
+     * disambiguation logic (lookahead to detect binary `*`/`&`; unary dereference/address-of stays
+     * tight against its operand; C-style cast close-paren stays tight against what follows).
+     * Unlike {@link #renderTokens} (tuned for signatures/parameter lists, where a bare `*ptr`
+     * dereference never appears at this join point), this is the general-purpose joiner needed for
+     * a full expression -- {@link #renderTokens} alone regressed `g_config = *cfg;` into
+     * `g_config = * cfg;` (RDD_KEY_238 follow-up) when first tried as the assignment-RHS renderer,
+     * since it has no unary-`*`/`&` lookahead at all.
      */
     protected String renderExpressionTokens(final List<Token> tokens)
     {
@@ -1514,13 +1514,13 @@ public static final class Assignment {
     }
     /**
      * A leading `template<...>` clause's `<`/`>` tokens are never reclassified to
-     *  {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE} by the tokenizer (it only arms on an
-     *  identifier/cast-keyword before `<`, not the `template` keyword -- see
-     *  `DeclarationAlignmentRule`'s own template-prefix handling for the same precedent), so
-     *  {@link #needsSpaceBetween}/{@link #isTightToken} would otherwise space them like a
-     *  comparison operator. Populates the identity sets of every open/close `<`/`>` token
-     *  belonging to such a clause (depth-matched on the raw `<`/`>` OP tokens themselves) so the
-     *  caller can treat them as tight without touching the tokens' actual type.
+     * {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE} by the tokenizer (it only arms on an
+     * identifier/cast-keyword before `<`, not the `template` keyword -- see
+     * `DeclarationAlignmentRule`'s own template-prefix handling for the same precedent), so
+     * {@link #needsSpaceBetween}/{@link #isTightToken} would otherwise space them like a
+     * comparison operator. Populates the identity sets of every open/close `<`/`>` token
+     * belonging to such a clause (depth-matched on the raw `<`/`>` OP tokens themselves) so the
+     * caller can treat them as tight without touching the tokens' actual type.
      */
     protected boolean needsSpaceBetween(
         final Token      prev,
@@ -1534,11 +1534,11 @@ public static final class Assignment {
 
     /**
      * Same as {@link #needsSpaceBetween(Token, Token, Set, Set)} but with the full token list +
-     *  current index available, needed only by the C6d function-type-position lookahead below
-     *  (mirrors `DeclarationAlignmentRuleCore`'s documented-duplicate overload of the same name --
-     *  see that class's own comment for the full rationale). Callers that can't supply a list
-     *  (e.g. `MiscRuleCurly`'s lead-token/name join, where `cur` is always an identifier, never
-     *  `(`) fall back to the 4-arg overload, which passes {@code tokens = null}.
+     * current index available, needed only by the C6d function-type-position lookahead below
+     * (mirrors `DeclarationAlignmentRuleCore`'s documented-duplicate overload of the same name --
+     * see that class's own comment for the full rationale). Callers that can't supply a list
+     * (e.g. `MiscRuleCurly`'s lead-token/name join, where `cur` is always an identifier, never
+     * `(`) fall back to the 4-arg overload, which passes {@code tokens = null}.
      */
     protected boolean needsSpaceBetween(
         final Token       prev,
@@ -1708,9 +1708,9 @@ public static final class Assignment {
 
     /**
      * True iff {@code text} is exactly `"$$"` or `"$$$"` -- Kotlin 2.4's multi-dollar string
-     *  interpolation prefix (2 or 3 dollar signs, per the language spec; a single bare `$` has no
-     *  such meaning and is left alone). Used only by the C6b carve-out above. Exact duplicate of
-     *  `DeclarationAlignmentRuleCore.isDollarRun`.
+     * interpolation prefix (2 or 3 dollar signs, per the language spec; a single bare `$` has no
+     * such meaning and is left alone). Used only by the C6b carve-out above. Exact duplicate of
+     * `DeclarationAlignmentRuleCore.isDollarRun`.
      */
     protected static boolean isDollarRun(final String text)
     {
@@ -1719,15 +1719,15 @@ public static final class Assignment {
 
     /**
      * True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --
-     *  i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`, OR by a
-     *  `?` (C6k-5: a nullable function type wraps the whole thing in its own parens,
-     *  `@Composable( () -> Unit )?` -- a bare `?` immediately after `@Identifier(...)` is
-     *  unambiguous evidence of this shape). Used only by C6d's annotation-vs-function-type
-     *  disambiguation above; `tokens == null` (the 4-arg {@link #needsSpaceBetween} overload, no
-     *  list available) conservatively returns {@code false}, preserving pre-C6d behavior for any
-     *  caller that can't supply a list. Exact duplicate of
-     *  `DeclarationAlignmentRuleCore.isAnnotationFunctionTypeParen` -- see that method for the
-     *  full rationale.
+     * i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`, OR by a
+     * `?` (C6k-5: a nullable function type wraps the whole thing in its own parens,
+     * `@Composable( () -> Unit )?` -- a bare `?` immediately after `@Identifier(...)` is
+     * unambiguous evidence of this shape). Used only by C6d's annotation-vs-function-type
+     * disambiguation above; `tokens == null` (the 4-arg {@link #needsSpaceBetween} overload, no
+     * list available) conservatively returns {@code false}, preserving pre-C6d behavior for any
+     * caller that can't supply a list. Exact duplicate of
+     * `DeclarationAlignmentRuleCore.isAnnotationFunctionTypeParen` -- see that method for the
+     * full rationale.
      */
     private boolean isAnnotationFunctionTypeParen(final List<Token> tokens, final int parenIdx)
     {
@@ -1826,8 +1826,8 @@ public static final class Assignment {
     }
     /**
      * Like {@link #significantOnly}, but keeps comment tokens -- used by {@link #parseSignature}
-     *  so a parameter's inline block comment survives parsing instead of being silently dropped;
-     *  only whitespace/newlines are gap tokens here
+     * so a parameter's inline block comment survives parsing instead of being silently dropped;
+     * only whitespace/newlines are gap tokens here
      */
     protected List<Token> significantWithComments(final List<Token> stmt)
     {
@@ -1933,10 +1933,10 @@ public static final class Assignment {
     }
     /**
      * A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token
-     *  (see {@link com.jxmake.formatter.tokenizer.TokenizerCore.TokenType#PREPROCESSOR}'s own
-     *  doc), so its trailing `//` comment never becomes a separate {@code COMMENT_LINE} token and
-     *  is skipped by the loop above. Applies the same capitalization rule directly to the text
-     *  portion after a top-level (not inside a string/char literal) `//`, if any.
+     * (see {@link com.jxmake.formatter.tokenizer.TokenizerCore.TokenType#PREPROCESSOR}'s own
+     * doc), so its trailing `//` comment never becomes a separate {@code COMMENT_LINE} token and
+     * is skipped by the loop above. Applies the same capitalization rule directly to the text
+     * portion after a top-level (not inside a string/char literal) `//`, if any.
      */
     protected String capitalizePreprocessorTrailingComment(final String text)
     {
@@ -1973,16 +1973,16 @@ public static final class Assignment {
     }
     /**
      * Groups consecutive `//` line comments -- back to back with no blank line between -- into
-     *  one §15 sentence-detection unit, the same way a multi-line `/* ... *&#47;` block comment
-     *  already is: the trailing period is stripped only when it is the sole `.` across every line
-     *  of the group, not just the last line alone. A closing-brace-label comment
-     *  ({@link #isClosingBraceLabelComment}) breaks the chain entirely (never a link). A
-     *  separator-alignment comment ({@link #parseSeparatorComment}) still counts as a chain link
-     *  for dot-counting purposes (an ordinary prose sentence can coincidentally look like one, see
-     *  RDD_KEY_47 follow-up) but is never itself rewritten -- rendered verbatim, exactly as before.
-     *  Returns each rewritable group member's already-capitalized, period-decided replacement
-     *  content, keyed by its token index; a token absent from the map must be rendered verbatim by
-     *  the caller.
+     * one §15 sentence-detection unit, the same way a multi-line `/* ... *&#47;` block comment
+     * already is: the trailing period is stripped only when it is the sole `.` across every line
+     * of the group, not just the last line alone. A closing-brace-label comment
+     * ({@link #isClosingBraceLabelComment}) breaks the chain entirely (never a link). A
+     * separator-alignment comment ({@link #parseSeparatorComment}) still counts as a chain link
+     * for dot-counting purposes (an ordinary prose sentence can coincidentally look like one, see
+     * RDD_KEY_47 follow-up) but is never itself rewritten -- rendered verbatim, exactly as before.
+     * Returns each rewritable group member's already-capitalized, period-decided replacement
+     * content, keyed by its token index; a token absent from the map must be rendered verbatim by
+     * the caller.
      */
     protected Map<Integer, String> computeLineCommentGroups(final List<Token> tokens)
     {
@@ -2037,7 +2037,7 @@ public static final class Assignment {
     }
     /**
      * True iff the {@code COMMENT_LINE} token at {@code idx} extends a §15 sentence-detection
-     *  chain: any plain `//` comment that is not a closing-brace label
+     * chain: any plain `//` comment that is not a closing-brace label
      */
     protected boolean isCommentChainLink(final List<Token> tokens, final int idx)
     {
@@ -2045,7 +2045,7 @@ public static final class Assignment {
     }
     /**
      * True iff the {@code COMMENT_LINE} token at {@code idx} may actually be rewritten (not a
-     *  separator-alignment label, handled instead by {@link #alignCommentSeparators})
+     * separator-alignment label, handled instead by {@link #alignCommentSeparators})
      */
     protected boolean isCommentRewritable(final List<Token> tokens, final int idx)
     {
@@ -2055,12 +2055,12 @@ public static final class Assignment {
     }
     /**
      * True iff the {@code COMMENT_LINE} token at {@code idx} is alone on its physical line (only
-     *  {@code WHITESPACE} between it and the start of the line or a preceding {@code NEWLINE}) --
-     *  as opposed to a trailing end-of-line comment following real code on the same line. A
-     *  trailing comment must never extend the §15 grouping chain onto a following line's own-line
-     *  comment: the two are logically unrelated (one annotates a statement, the other starts a
-     *  fresh prose block), even though nothing here stops a trailing comment from being grouped
-     *  on its own as a size-1 group and rewritten individually.
+     * {@code WHITESPACE} between it and the start of the line or a preceding {@code NEWLINE}) --
+     * as opposed to a trailing end-of-line comment following real code on the same line. A
+     * trailing comment must never extend the §15 grouping chain onto a following line's own-line
+     * comment: the two are logically unrelated (one annotates a statement, the other starts a
+     * fresh prose block), even though nothing here stops a trailing comment from being grouped
+     * on its own as a size-1 group and rewritten individually.
      */
     protected boolean isStandaloneCommentLine(final List<Token> tokens, final int idx)
     {
@@ -2071,11 +2071,11 @@ public static final class Assignment {
     }
     /**
      * If the token at {@code idx} is a `//` chain-link comment standing alone on its own physical
-     *  line, and it is followed -- after exactly one {@code NEWLINE} and only {@code WHITESPACE}
-     *  otherwise (no blank line, no other token) -- by another chain-link `//` comment, returns
-     *  that next comment's token index; otherwise returns -1. A trailing end-of-line comment (one
-     *  following real code on its own line) never extends the chain onto the next line, even if
-     *  that next line is itself a standalone comment.
+     * line, and it is followed -- after exactly one {@code NEWLINE} and only {@code WHITESPACE}
+     * otherwise (no blank line, no other token) -- by another chain-link `//` comment, returns
+     * that next comment's token index; otherwise returns -1. A trailing end-of-line comment (one
+     * following real code on its own line) never extends the chain onto the next line, even if
+     * that next line is itself a standalone comment.
      */
     protected int nextCommentChainLinkIfAdjacent(final List<Token> tokens, final int idx)
     {
@@ -2107,12 +2107,12 @@ public static final class Assignment {
     }
     /**
      * True iff the {@code COMMENT_LINE} token at {@code idx} is immediately preceded, on the
-     *  same physical line (only {@code WHITESPACE} in between, no {@code NEWLINE}), by a `}` --
-     *  optionally followed by a `;` (C/C++ `struct`/`class`/`enum`/`union` definitions) -- the
-     *  exact shape {@code BlockStructureRule.addClosingComments} generates (STYLE.md §7's
-     *  `// label` closing comments). Catches both freshly-generated and user-written instances of
-     *  this shape alike, consistent with STYLE.md's own "labels/markers/closing-comments" framing
-     *  not distinguishing the two.
+     * same physical line (only {@code WHITESPACE} in between, no {@code NEWLINE}), by a `}` --
+     * optionally followed by a `;` (C/C++ `struct`/`class`/`enum`/`union` definitions) -- the
+     * exact shape {@code BlockStructureRule.addClosingComments} generates (STYLE.md §7's
+     * `// label` closing comments). Catches both freshly-generated and user-written instances of
+     * this shape alike, consistent with STYLE.md's own "labels/markers/closing-comments" framing
+     * not distinguishing the two.
      */
     protected boolean isClosingBraceLabelComment(final List<Token> tokens, final int idx)
     {
@@ -2180,10 +2180,10 @@ public static final class Assignment {
     }
     /**
      * Lowercase short function/prose words whose presence as a whole word in a label/rest
-     *  fragment signals ordinary English sentence structure rather than a short code-like label
-     *  (see {@link #looksCodeLike}). Deliberately small and common -- these are words that show
-     *  up constantly in prose but essentially never inside a §15-style aligned label/value
-     *  fragment (e.g. `Comment A`, `10`, `nested`).
+     * fragment signals ordinary English sentence structure rather than a short code-like label
+     * (see {@link #looksCodeLike}). Deliberately small and common -- these are words that show
+     * up constantly in prose but essentially never inside a §15-style aligned label/value
+     * fragment (e.g. `Comment A`, `10`, `nested`).
      */
     private static final Set<String> PROSE_STOPWORDS = new HashSet<>( Arrays.asList(
         "a",
@@ -2334,7 +2334,7 @@ public static final class Assignment {
     }
     /**
      * The {@link SepMatch} for the line spanning {@code [from, to)}, or {@code null} if that
-     *  line's last significant token isn't a qualifying separator-alignment `//` comment
+     * line's last significant token isn't a qualifying separator-alignment `//` comment
      */
     protected SepMatch findTrailingSeparatorComment(
         final List<Token> tokens,
@@ -2431,7 +2431,7 @@ public static final class Assignment {
     }
     /**
      * Drops a leading `*` and at most one space immediately after it. Caller must have already
-     *  verified {@code wsStrippedLine} starts with `*`.
+     * verified {@code wsStrippedLine} starts with `*`.
      */
     protected String afterLeadingStarMarker(final String wsStrippedLine)
     {
@@ -2449,7 +2449,7 @@ public static final class Assignment {
     }
     /**
      * Cross-line generalization of {@link #stripSoleTrailingPeriod}: strips the trailing `.` on
-     *  the last entry only when it is the sole `.` across every entry.
+     * the last entry only when it is the sole `.` across every entry.
      */
     protected void stripSoleTrailingPeriodAcrossLines(final List<String> lines)
     {
@@ -2473,7 +2473,7 @@ public static final class Assignment {
     }
     /**
      * The leading whitespace of the line containing the token at idx, or "" if it isn't first on
-     *  its line -- same precedent as `BlockStructureRule.indentBefore`.
+     * its line -- same precedent as `BlockStructureRule.indentBefore`.
      */
     protected String indentBefore(final List<Token> tokens, final int idx)
     {
@@ -2526,19 +2526,19 @@ public static final class Assignment {
     }
     /**
      * `normalize-comment-start-case-multiline` (default off -- see
-     *  STATE_COMMON.md's "Multi-sentence comment capitalization" section for full design
-     *  rationale). {@code contents}/{@code rewritableFlags} are the group's still-separate
-     *  per-line comment strings (parallel arrays, one entry per group member) -- combined here
-     *  into one logical text stream purely for sentence-boundary detection and classifier
-     *  feeding, joined the same way {@link #computeLineCommentGroups} already groups adjacent
-     *  `//` lines. Sentence 1's leading word is skipped (already handled by
-     *  {@link #capitalizeFirstLetter} at the call site above); every subsequent
-     *  `[.!?]` + whitespace + lowercase-letter boundary is offered to the EXISTING
-     *  mechanical/linear/GRU classifier stack via {@link #classifyComment(String, int)},
-     *  reused completely as-is (out-of-distribution risk explicitly accepted -- it was trained
-     *  for "is this leading word safe to capitalize," not "is this a sentence boundary") rather
-     *  than any new dedicated gate. A candidate boundary the stack doesn't return YES for is left
-     *  untouched, same as the existing single-sentence behavior when it abstains/says NO.
+     * STATE_COMMON.md's "Multi-sentence comment capitalization" section for full design
+     * rationale). {@code contents}/{@code rewritableFlags} are the group's still-separate
+     * per-line comment strings (parallel arrays, one entry per group member) -- combined here
+     * into one logical text stream purely for sentence-boundary detection and classifier
+     * feeding, joined the same way {@link #computeLineCommentGroups} already groups adjacent
+     * `//` lines. Sentence 1's leading word is skipped (already handled by
+     * {@link #capitalizeFirstLetter} at the call site above); every subsequent
+     * `[.!?]` + whitespace + lowercase-letter boundary is offered to the EXISTING
+     * mechanical/linear/GRU classifier stack via {@link #classifyComment(String, int)},
+     * reused completely as-is (out-of-distribution risk explicitly accepted -- it was trained
+     * for "is this leading word safe to capitalize," not "is this a sentence boundary") rather
+     * than any new dedicated gate. A candidate boundary the stack doesn't return YES for is left
+     * untouched, same as the existing single-sentence behavior when it abstains/says NO.
      *
      *  <p>Capitalized character positions are tracked against the synthetic combined string, then
      *  mapped back onto the corresponding character of the ORIGINAL per-line {@code contents}
@@ -2547,7 +2547,7 @@ public static final class Assignment {
      */
     /**
      * `[.!?]` + whitespace + lowercase-letter sentence-boundary matcher, shared with {@link
-     *  com.jxmake.formatter.rules.ToolingCommentNormalizer}'s identical use of the same pattern
+     * com.jxmake.formatter.rules.ToolingCommentNormalizer}'s identical use of the same pattern
      */
     protected static final java.util.regex.Pattern SENTENCE_BOUNDARY =
             java.util.regex.Pattern.compile("[.!?]\\s+([a-z])");
@@ -2613,10 +2613,10 @@ public static final class Assignment {
     }
     /**
      * Common multi-letter abbreviations that legitimately end in `.` mid-sentence -- checked
-     *  against the word immediately preceding a candidate `[.!?]` boundary in
-     *  {@link #isEligibleSentenceBoundary} (case-insensitive). A single-letter preceding "word"
-     *  (initials, or the first half of `e.g.`/`i.e.`) is rejected unconditionally there instead of
-     *  needing its own set entry.
+     * against the word immediately preceding a candidate `[.!?]` boundary in
+     * {@link #isEligibleSentenceBoundary} (case-insensitive). A single-letter preceding "word"
+     * (initials, or the first half of `e.g.`/`i.e.`) is rejected unconditionally there instead of
+     * needing its own set entry.
      */
     protected static final Set<String> MULTI_SENTENCE_ABBREVIATIONS = setOf(
         "vs", "etc", "al", "cf", "approx", "fig", "eq", "no", "figs", "eqs"
@@ -2681,9 +2681,9 @@ public static final class Assignment {
     }
     /**
      * True iff `word` is a keyword in the current file's language ({@link #lang}) that must
-     *  never be titlecased when it starts a comment sentence -- checked against the
-     *  language-specific set only, so a C/C++-only keyword like `inline` never suppresses
-     *  capitalization in a Java comment, and vice versa
+     * never be titlecased when it starts a comment sentence -- checked against the
+     * language-specific set only, so a C/C++-only keyword like `inline` never suppresses
+     * capitalization in a Java comment, and vice versa
      */
     protected boolean isCommentNoCapitalizeWord(final String word)
     {
@@ -2703,13 +2703,13 @@ public static final class Assignment {
     }
     /**
      * RDD_KEY_94/STATE_COMMENT_GRAMMAR.md's classifier-backed decision path -- only consulted
-     *  when {@link #commentNormalizationClassifier} is on, replacing the purely-deterministic
-     *  {@link #isCommentNoCapitalizeWord}/dot-count logic for that one comment. Per the hard
-     *  architectural constraint, {@link CommentDecision#ABSTAIN} (and, symmetrically here,
-     *  {@link CommentDecision#NO}) must behave exactly as if the relevant {@code
-     *  normalize-comment-*} key were {@code off} for that one comment -- callers check
-     *  {@code != CommentDecision.YES}, not {@code == CommentDecision.ABSTAIN}, so a future
-     *  NO-capable classifier doesn't silently start normalizing on NO.
+     * when {@link #commentNormalizationClassifier} is on, replacing the purely-deterministic
+     * {@link #isCommentNoCapitalizeWord}/dot-count logic for that one comment. Per the hard
+     * architectural constraint, {@link CommentDecision#ABSTAIN} (and, symmetrically here,
+     * {@link CommentDecision#NO}) must behave exactly as if the relevant {@code
+     * normalize-comment-*} key were {@code off} for that one comment -- callers check
+     * {@code != CommentDecision.YES}, not {@code == CommentDecision.ABSTAIN}, so a future
+     * NO-capable classifier doesn't silently start normalizing on NO.
      *
      *  <p>Runs the rule-based classifier first; when it abstains and {@link #gruClassifier} is on,
      *  falls through to {@link GruAbstainResolver#resolve} (STATE_AI.md Step 3) with
@@ -2724,8 +2724,8 @@ public static final class Assignment {
 
     /**
      * Same as {@link #classifyComment(String)}, but lets the caller specify which token index
-     *  (post {@link GruClassifier#tokenize}) the ambiguous decision is actually about, so the GRU
-     *  stage (when reached) looks at the right word
+     * (post {@link GruClassifier#tokenize}) the ambiguous decision is actually about, so the GRU
+     * stage (when reached) looks at the right word
      */
     protected CommentDecision classifyComment(final String content, final int targetWordIndex)
     {
@@ -2741,8 +2741,8 @@ public static final class Assignment {
 
     /**
      * Token index of the last token in {@code content} per {@link GruClassifier#tokenize}, or 0
-     *  if {@code content} tokenizes to nothing -- used as the strip-trailing-period call sites'
-     *  {@code targetWordIndex} (the ambiguous trailing dot is the last token)
+     * if {@code content} tokenizes to nothing -- used as the strip-trailing-period call sites'
+     * {@code targetWordIndex} (the ambiguous trailing dot is the last token)
      */
     protected static int lastTokenIndex(final String content)
     {
@@ -2752,7 +2752,7 @@ public static final class Assignment {
     }
     /**
      * Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
-     *  ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1.
+     * ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1.
      */
     protected String stripSoleTrailingPeriod(final String content)
     {
@@ -2782,8 +2782,8 @@ public static final class Assignment {
     }
     /**
      * {@code true} if any token in {@code [fromInclusive, toExclusive)} is frozen (RDD_KEY_90
-     *  §A) -- used by structural/span-level passes to skip a whole candidate unit rather than try
-     *  to partially rewrite it
+     * §A) -- used by structural/span-level passes to skip a whole candidate unit rather than try
+     * to partially rewrite it
      */
     protected static boolean anyFrozen(
         final List<Token> tokens,

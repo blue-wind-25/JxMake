@@ -50,11 +50,11 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * One parsed `[modifiers] name : type [= default]` parameter. {@code typeTokens} is never
-     *  empty on a successfully parsed param -- Kotlin requires an explicit type on every
-     *  function/constructor parameter, unlike a `val`/`var` property's optional inferred type
-     *  (STYLE_KOTLIN.md §6) -- so {@link #parseKotlinParam} returns null (bailing the whole
-     *  signature, same "never guess past an unrecognized shape" posture as {@code MiscRuleCore}'s own
-     *  {@code parseParam}) rather than modeling a missing type.
+     * empty on a successfully parsed param -- Kotlin requires an explicit type on every
+     * function/constructor parameter, unlike a `val`/`var` property's optional inferred type
+     * (STYLE_KOTLIN.md §6) -- so {@link #parseKotlinParam} returns null (bailing the whole
+     * signature, same "never guess past an unrecognized shape" posture as {@code MiscRuleCore}'s own
+     * {@code parseParam}) rather than modeling a missing type.
      */
     public static final class KotlinParam {
 
@@ -93,12 +93,12 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * One parsed signature: `leadTokens name ( params )`, `leadTokens` being every token before
-     *  the name (`fun`, an optional `<T>` generic-parameter clause, an optional extension-function
-     *  receiver type, modifiers) -- same "not split apart" posture as {@code MiscRuleCurly.Signature},
-     *  since §7 has no per-row alignment across multiple signatures. {@code trailingComma} records
-     *  whether the source's last parameter was itself followed by a comma before `)`, so
-     *  {@link #render} can preserve it exactly as written (STYLE_KOTLIN.md §7.2 -- never added,
-     *  never removed).
+     * the name (`fun`, an optional `<T>` generic-parameter clause, an optional extension-function
+     * receiver type, modifiers) -- same "not split apart" posture as {@code MiscRuleCurly.Signature},
+     * since §7 has no per-row alignment across multiple signatures. {@code trailingComma} records
+     * whether the source's last parameter was itself followed by a comma before `)`, so
+     * {@link #render} can preserve it exactly as written (STYLE_KOTLIN.md §7.2 -- never added,
+     * never removed).
      */
     public static final class KotlinSignature {
 
@@ -245,12 +245,12 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * Builds the identity set of comment tokens (line or block) in {@code raw} that begin their
-     *  own source line -- i.e. a NEWLINE (not just whitespace/nothing else) separates them from
-     *  the preceding token. Distinguishes "this comment is NOT glued to the end of the previous
-     *  param's line" (so it must never be folded into that param as a trailing same-line comment)
-     *  from a genuine same-line trailing comment (`val x: Int, // note`). See {@link
-     *  #findStandaloneComments} for the stricter "shares no line with anything" check used for the
-     *  render-time own-line decision.
+     * own source line -- i.e. a NEWLINE (not just whitespace/nothing else) separates them from
+     * the preceding token. Distinguishes "this comment is NOT glued to the end of the previous
+     * param's line" (so it must never be folded into that param as a trailing same-line comment)
+     * from a genuine same-line trailing comment (`val x: Int, // note`). See {@link
+     * #findStandaloneComments} for the stricter "shares no line with anything" check used for the
+     * render-time own-line decision.
      */
     private java.util.Set<Token> findLineStartComments(final List<Token> raw)
     {
@@ -276,15 +276,15 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * Builds the identity set of comment tokens (line or block) in {@code raw} that stand
-     *  entirely alone on their own source line -- i.e. they both begin a fresh line (see {@link
-     *  #findLineStartComments}) AND are themselves followed by a NEWLINE (not just
-     *  whitespace) before the next significant token, so no code shares their physical line in
-     *  either direction. A line comment always satisfies the "followed by NEWLINE" half
-     *  (everything to end-of-line is part of it). A block comment does NOT satisfy it when code
-     *  immediately follows on the same line (e.g. an inline {@code Nullable}-style annotation
-     *  comment directly before a param) -- that shape keeps the existing same-line leading-comment
-     *  rendering; only a truly standalone comment (RDD_LOG.md's C1 shape) must render on its own
-     *  output line.
+     * entirely alone on their own source line -- i.e. they both begin a fresh line (see {@link
+     * #findLineStartComments}) AND are themselves followed by a NEWLINE (not just
+     * whitespace) before the next significant token, so no code shares their physical line in
+     * either direction. A line comment always satisfies the "followed by NEWLINE" half
+     * (everything to end-of-line is part of it). A block comment does NOT satisfy it when code
+     * immediately follows on the same line (e.g. an inline {@code Nullable}-style annotation
+     * comment directly before a param) -- that shape keeps the existing same-line leading-comment
+     * rendering; only a truly standalone comment (RDD_LOG.md's C1 shape) must render on its own
+     * output line.
      */
     private java.util.Set<Token> findStandaloneComments(final List<Token> raw)
     {
@@ -311,8 +311,8 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * Parses one already-comma-split param slice as `[modifiers] name : type [= default]`,
-     *  returning null for anything that doesn't match -- an annotation-prefixed param, a
-     *  destructuring lambda param, or any other shape with no STYLE_KOTLIN.md §7 worked example.
+     * returning null for anything that doesn't match -- an annotation-prefixed param, a
+     * destructuring lambda param, or any other shape with no STYLE_KOTLIN.md §7 worked example.
      */
     private KotlinParam parseKotlinParam(
         final List<Token>          rawSlice,
@@ -534,12 +534,12 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * STYLE_KOTLIN.md §9: everything after a function signature's parameter-list close paren --
-     *  an optional `: ReturnType` and/or an optional expression body (`= expr`). Either or both may
-     *  be empty/absent (a block-bodied function with an inferred return type has neither; one with
-     *  an explicit return type but a `{ ... }` block body has {@code returnTypeTokens} only). The
-     *  leading `:` and `=` themselves are stripped here (not carried in the token lists), matching
-     *  {@link KotlinParam}'s own established convention of rendering its `: type`/`= default` cells
-     *  with an explicit literal prefix rather than keeping the operator token in the slice.
+     * an optional `: ReturnType` and/or an optional expression body (`= expr`). Either or both may
+     * be empty/absent (a block-bodied function with an inferred return type has neither; one with
+     * an explicit return type but a `{ ... }` block body has {@code returnTypeTokens} only). The
+     * leading `:` and `=` themselves are stripped here (not carried in the token lists), matching
+     * {@link KotlinParam}'s own established convention of rendering its `: type`/`= default` cells
+     * with an explicit literal prefix rather than keeping the operator token in the slice.
      */
     public static final class FunctionTail {
 
@@ -562,18 +562,18 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * Parses the tokens following a signature's closing `)` -- everything up to (not including)
-     *  the function's own body-opening `{` for a block-bodied function, or through the end of the
-     *  expression for an expression-bodied one. Returns null if given no tokens to parse (there is
-     *  always at least a valid, possibly-empty {@link FunctionTail} otherwise), or -- C6f shape
-     *  (3) -- if the expression-body slice contains a {@code COMMENT_LINE} anywhere (e.g. a run of
-     *  standalone `//` comment lines between the `=` and the real expression, as in
-     *  `AbstractNativeBlackBoxTest.kt`'s `buildJUnitDynamicNodes`). {@link #renderWithTail}'s tail
-     *  rendering flattens {@code exprTokens} via the comment-unaware {@code renderTokens} helper
-     *  (same mechanism as {@link #parseKotlinParam}'s already-fixed C6f shape (1)), which would fuse
-     *  every leading comment line plus the first line of the real expression onto one line, silently
-     *  swallowing content after the first embedded `//`. Same "never guess" bail as shapes (1)/(2):
-     *  the caller ({@code ScopePipelineCurly}) treats a null return like a null {@code KotlinSignature}
-     *  and leaves the whole span untouched.
+     * the function's own body-opening `{` for a block-bodied function, or through the end of the
+     * expression for an expression-bodied one. Returns null if given no tokens to parse (there is
+     * always at least a valid, possibly-empty {@link FunctionTail} otherwise), or -- C6f shape
+     * (3) -- if the expression-body slice contains a {@code COMMENT_LINE} anywhere (e.g. a run of
+     * standalone `//` comment lines between the `=` and the real expression, as in
+     * `AbstractNativeBlackBoxTest.kt`'s `buildJUnitDynamicNodes`). {@link #renderWithTail}'s tail
+     * rendering flattens {@code exprTokens} via the comment-unaware {@code renderTokens} helper
+     * (same mechanism as {@link #parseKotlinParam}'s already-fixed C6f shape (1)), which would fuse
+     * every leading comment line plus the first line of the real expression onto one line, silently
+     * swallowing content after the first embedded `//`. Same "never guess" bail as shapes (1)/(2):
+     * the caller ({@code ScopePipelineCurly}) treats a null return like a null {@code KotlinSignature}
+     * and leaves the whole span untouched.
      */
     public FunctionTail parseFunctionTail(final List<Token> tailTokens)
     {
@@ -691,11 +691,11 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * Joins {@code tailPart} onto {@code base} with no space if it's a `: ReturnType` cell (its
-     *  leading `:` is tight against the preceding `)`, matching every other STYLE_KOTLIN.md `:`
-     *  placement in this file) or with one space if it's an `= expr` cell (a normal binary-operator
-     *  spacing) -- distinguished by {@code tailPart}'s own leading character, since both shapes are
-     *  passed through this same join point (inline, params-broken-but-tail-fits, and the
-     *  return-type-only half of the wrap-`=` case all share it). No-op if {@code tailPart} is empty.
+     * leading `:` is tight against the preceding `)`, matching every other STYLE_KOTLIN.md `:`
+     * placement in this file) or with one space if it's an `= expr` cell (a normal binary-operator
+     * spacing) -- distinguished by {@code tailPart}'s own leading character, since both shapes are
+     * passed through this same join point (inline, params-broken-but-tail-fits, and the
+     * return-type-only half of the wrap-`=` case all share it). No-op if {@code tailPart} is empty.
      */
     private String appendTailPart(final String base, final String tailPart)
     {
@@ -706,11 +706,11 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * True iff any token in {@code slice} is a {@code COMMENT_LINE} -- see the C6f bail-out
-     *  in {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsLineComment}'s
-     *  identical-purpose helper in a structurally unrelated class hierarchy (no shared ancestor
-     *  short of a new cross-cutting utility, same "not worth promoting" reasoning as the other
-     *  independently-duplicated {@code setOf} helpers noted in STATE_COMMON.md's cleanup-pass
-     *  section).
+     * in {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsLineComment}'s
+     * identical-purpose helper in a structurally unrelated class hierarchy (no shared ancestor
+     * short of a new cross-cutting utility, same "not worth promoting" reasoning as the other
+     * independently-duplicated {@code setOf} helpers noted in STATE_COMMON.md's cleanup-pass
+     * section).
      */
     private boolean containsLineComment(final List<Token> slice)
     {
@@ -723,9 +723,9 @@ public class KotlinSignatureRule extends MiscRuleCurly {
 
     /**
      * True iff {@code slice} contains a {@code {...}} block (brace-depth > 0 relative to
-     *  {@code slice} itself) with at least one NEWLINE inside it -- see the C6k-1 bail-out in
-     *  {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsMultilineNestedBrace}'s
-     *  identical-purpose helper in a structurally unrelated class hierarchy.
+     * {@code slice} itself) with at least one NEWLINE inside it -- see the C6k-1 bail-out in
+     * {@link #parseKotlinParam}. Mirrors {@code BlockStructureRule.containsMultilineNestedBrace}'s
+     * identical-purpose helper in a structurally unrelated class hierarchy.
      */
     private boolean containsMultilineNestedBrace(final List<Token> slice)
     {

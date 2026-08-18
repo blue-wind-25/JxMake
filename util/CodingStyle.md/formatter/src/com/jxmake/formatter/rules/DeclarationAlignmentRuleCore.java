@@ -32,7 +32,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Control-flow keywords whose own condition/argument parens must never be mistaken for a
-     *  C-style cast's parens by {@link #isCStyleCastClose} -- see that method's call site
+     * C-style cast's parens by {@link #isCStyleCastClose} -- see that method's call site
      */
     private static final Set<String> CONTROL_FLOW_KEYWORDS = setOf(
         "if", "while", "for", "switch", "catch", "do", "else"
@@ -60,7 +60,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
      */
     protected String renderTokens(final List<Token> tokens)
     {
@@ -105,18 +105,18 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * JS/TS-only helper for {@link #renderTokens}: identifies every `:` token that is a
-     *  genuine object-literal property-key colon (tight-before), as opposed to a ternary `:`
-     *  or a colon nested inside a paren/bracket frame (e.g. a TS parameter type annotation,
-     *  already handled downstream by {@code JsTsSpecificRule.enforceTypeColonSpacing}). Tracks a
-     *  small per-frame stack: each `{`/`(`/`[` pushes a frame; a `{` is classified as an
-     *  object-literal frame unless its immediately preceding significant token is an
-     *  IDENTIFIER, `=>`, or `)` (a block body, not a literal) -- the very first token of an
-     *  initializer (`prevSig == null`) is treated as an object literal, matching `= {...}`'s
-     *  own shape. Within an object-literal frame, an `expectingKey` flag starts `true` right
-     *  after `{`/a top-level `,`, and is cleared the first time a `:` is seen at that frame's own
-     *  depth -- so only that first colon per key/value pair is classified; a later ternary `:`
-     *  in the same value position (`{a: cond ? 1 : 2}`) is correctly left unclassified since
-     *  `expectingKey` is already `false` by the time it's reached.
+     * genuine object-literal property-key colon (tight-before), as opposed to a ternary `:`
+     * or a colon nested inside a paren/bracket frame (e.g. a TS parameter type annotation,
+     * already handled downstream by {@code JsTsSpecificRule.enforceTypeColonSpacing}). Tracks a
+     * small per-frame stack: each `{`/`(`/`[` pushes a frame; a `{` is classified as an
+     * object-literal frame unless its immediately preceding significant token is an
+     * IDENTIFIER, `=>`, or `)` (a block body, not a literal) -- the very first token of an
+     * initializer (`prevSig == null`) is treated as an object literal, matching `= {...}`'s
+     * own shape. Within an object-literal frame, an `expectingKey` flag starts `true` right
+     * after `{`/a top-level `,`, and is cleared the first time a `:` is seen at that frame's own
+     * depth -- so only that first colon per key/value pair is classified; a later ternary `:`
+     * in the same value position (`{a: cond ? 1 : 2}`) is correctly left unclassified since
+     * `expectingKey` is already `false` by the time it's reached.
      */
     private java.util.Set<Token> computeJsObjectPropertyColons(final List<Token> tokens)
     {
@@ -170,12 +170,12 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Renders initializer value tokens (the right-hand side of `= expr`) where `*` and `&`
-     *  may represent either binary operators or unary pointer/reference operators. Uses
-     *  lookahead to distinguish binary `*`/`&`: if followed by an IDENTIFIER or NUMBER and
-     *  preceded by an IDENTIFIER or WHITESPACE, a space is inserted before the operator.
-     *  Also suppresses spacing between unary dereference `*`/`**` and the following
-     *  identifier in C/C++ expression contexts (e.g. `*ptr`, `**ptr`), while all other
-     *  spacing follows the normal token-spacing rules.
+     * may represent either binary operators or unary pointer/reference operators. Uses
+     * lookahead to distinguish binary `*`/`&`: if followed by an IDENTIFIER or NUMBER and
+     * preceded by an IDENTIFIER or WHITESPACE, a space is inserted before the operator.
+     * Also suppresses spacing between unary dereference `*`/`**` and the following
+     * identifier in C/C++ expression contexts (e.g. `*ptr`, `**ptr`), while all other
+     * spacing follows the normal token-spacing rules.
      */
     protected String renderInitTokens(final List<Token> tokens)
     {
@@ -274,8 +274,8 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (its own {@code renderTokens} override, real-code testing against {@code square/okio}) --
-     *  purely additive, no behavior change
+     * (its own {@code renderTokens} override, real-code testing against {@code square/okio}) --
+     * purely additive, no behavior change
      */
     protected boolean needsSpaceBetween(final Token prev, final Token cur)
     {
@@ -284,11 +284,11 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Same as {@link #needsSpaceBetween(Token, Token)} but with the full token list + current
-     *  index available, needed only by the C6d function-type-position lookahead below (every
-     *  other rule in this method is a purely local prev/cur decision). Callers that can't supply
-     *  a list (none currently) fall back to the 2-arg overload, which passes {@code tokens = null}
-     *  -- {@link #isAnnotationFunctionTypeParen} treats a missing list as "not a function type",
-     *  preserving this method's pre-C6d tight-after-`@` behavior exactly.
+     * index available, needed only by the C6d function-type-position lookahead below (every
+     * other rule in this method is a purely local prev/cur decision). Callers that can't supply
+     * a list (none currently) fall back to the 2-arg overload, which passes {@code tokens = null}
+     * -- {@link #isAnnotationFunctionTypeParen} treats a missing list as "not a function type",
+     * preserving this method's pre-C6d tight-after-`@` behavior exactly.
      */
     protected boolean needsSpaceBetween(
         final Token       prev,
@@ -455,9 +455,9 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * True iff {@code text} is exactly `"$$"` or `"$$$"` -- Kotlin 2.4's multi-dollar string
-     *  interpolation prefix (2 or 3 dollar signs, per the language spec; a single bare `$` has no
-     *  such meaning and is left alone). Used only by the C6b carve-out above. Exact duplicate of
-     *  `MiscRuleCore.isDollarRun`.
+     * interpolation prefix (2 or 3 dollar signs, per the language spec; a single bare `$` has no
+     * such meaning and is left alone). Used only by the C6b carve-out above. Exact duplicate of
+     * `MiscRuleCore.isDollarRun`.
      */
     protected static boolean isDollarRun(final String text)
     {
@@ -466,17 +466,17 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * True iff `tokens.get(parenIdx)` is `(` and it opens a function type's parameter list --
-     *  i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`, OR by a
-     *  `?` (C6k-5: a nullable function type used as a parameter's default-bearing type wraps the
-     *  whole thing in its own parens, `@Composable( () -> Unit )?` -- here `parenIdx` is the
-     *  *outer* paren, whose own matching `)` is followed by `?`, not `->` (the `->` sits inside,
-     *  before the close). A bare `?` immediately after `@Identifier(...)` is unambiguous evidence
-     *  of this shape -- an annotation invocation's own argument list is never itself followed by
-     *  `?`, so no further lookahead is needed, same "unambiguous by construction" reasoning as
-     *  C6j's `{`-then-`[` carve-out). Used only by C6d's annotation-vs-function-type
-     *  disambiguation above; `tokens == null` (the 2-arg {@link #needsSpaceBetween} overload, no
-     *  list available) conservatively returns {@code false}, preserving pre-C6d behavior for any
-     *  caller that can't supply a list.
+     * i.e. its matching `)` is followed (skipping whitespace/comments/newlines) by `->`, OR by a
+     * `?` (C6k-5: a nullable function type used as a parameter's default-bearing type wraps the
+     * whole thing in its own parens, `@Composable( () -> Unit )?` -- here `parenIdx` is the
+     * *outer* paren, whose own matching `)` is followed by `?`, not `->` (the `->` sits inside,
+     * before the close). A bare `?` immediately after `@Identifier(...)` is unambiguous evidence
+     * of this shape -- an annotation invocation's own argument list is never itself followed by
+     * `?`, so no further lookahead is needed, same "unambiguous by construction" reasoning as
+     * C6j's `{`-then-`[` carve-out). Used only by C6d's annotation-vs-function-type
+     * disambiguation above; `tokens == null` (the 2-arg {@link #needsSpaceBetween} overload, no
+     * list available) conservatively returns {@code false}, preserving pre-C6d behavior for any
+     * caller that can't supply a list.
      */
     private boolean isAnnotationFunctionTypeParen(final List<Token> tokens, final int parenIdx)
     {
@@ -547,7 +547,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
      */
     protected List<List<Token>> splitStatements(final List<Token> scopeTokens)
     {
@@ -639,9 +639,9 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Pulls a same-line trailing comment after a just-closed statement so it stays attached
-     *  to that statement instead of becoming the next statement's leading token -- ported from
-     *  {@code MiscRule.splitAssignmentStatements}'s identical depth-aware splitting algorithm
-     *  (see STATE.md "`DeclarationAlignmentRule.splitStatements` depth-awareness fix").
+     * to that statement instead of becoming the next statement's leading token -- ported from
+     * {@code MiscRule.splitAssignmentStatements}'s identical depth-aware splitting algorithm
+     * (see STATE.md "`DeclarationAlignmentRule.splitStatements` depth-awareness fix").
      */
     private int pullTrailingSameLine(
         final List<Token> tokens,
@@ -668,8 +668,8 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * True iff {@code current} contains exactly one significant non-gap token followed by {@code :}
-     *  and that token is {@code public}, {@code private}, or {@code protected} -- i.e. this `:` is
-     *  a C++ access-specifier label boundary, not a ternary or bitfield colon.
+     * and that token is {@code public}, {@code private}, or {@code protected} -- i.e. this `:` is
+     * a C++ access-specifier label boundary, not a ternary or bitfield colon.
      */
     private boolean isAccessSpecifierColon(final List<Token> current)
     {
@@ -691,7 +691,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
      */
     protected boolean hasCommentBefore(final List<Token> stmt)
     {
@@ -705,7 +705,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
      */
     protected boolean hasBlankLineBefore(final List<Token> stmt)
     {
@@ -732,7 +732,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
      */
     protected int lastSignificantIdx(final List<Token> tokens, final int from, final int to)
     {
@@ -745,7 +745,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
      */
     protected Token findTrailingComment(final List<Token> stmt)
     {
@@ -760,7 +760,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     *  (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
      */
     protected List<Token> significantOnly(final List<Token> stmt)
     {

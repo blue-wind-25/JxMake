@@ -112,11 +112,11 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Post-pass over the flat token stream: inserts {@code INDENT}/{@code DEDENT} markers at
-     *  the start of each logical line whose indentation width differs from the enclosing block's,
-     *  per Python's significant-whitespace grammar. Mirrors CPython's own tokenizer algorithm
-     *  (a stack of indent widths, compared line-by-line) without attempting its stricter
-     *  tabs/spaces consistency error (`TabError`) -- this formatter assumes syntactically valid
-     *  input, same posture as every other language here.
+     * the start of each logical line whose indentation width differs from the enclosing block's,
+     * per Python's significant-whitespace grammar. Mirrors CPython's own tokenizer algorithm
+     * (a stack of indent widths, compared line-by-line) without attempting its stricter
+     * tabs/spaces consistency error (`TabError`) -- this formatter assumes syntactically valid
+     * input, same posture as every other language here.
      *
      *  <p>A physical line only starts a new logical line -- and is therefore eligible to open/
      *  close a block -- when: it is not blank, is not comment-only (STYLE_PYTHON3.md: blank and
@@ -190,9 +190,9 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * {@code out}'s last element is a just-appended `NEWLINE` -- true when the token right
-     *  before it is a `\` OP (a backslash line-continuation, which per Python grammar must be
-     *  the line's final character, making it immediately adjacent to the newline with nothing,
-     *  not even whitespace, between)
+     * before it is a `\` OP (a backslash line-continuation, which per Python grammar must be
+     * the line's final character, making it immediately adjacent to the newline with nothing,
+     * not even whitespace, between)
      */
     private boolean isBackslashContinuation(final List<Token> out)
     {
@@ -204,9 +204,9 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Python's own indentation-width rule (CPython tokenizer): each space advances by 1, each
-     *  tab advances to the next multiple of 8, and a form-feed resets the count to 0. Used only
-     *  to compare relative indentation levels for INDENT/DEDENT purposes -- not a tabs/spaces
-     *  validity check.
+     * tab advances to the next multiple of 8, and a form-feed resets the count to 0. Used only
+     * to compare relative indentation levels for INDENT/DEDENT purposes -- not a tabs/spaces
+     * validity check.
      */
     private static int indentWidth(final String whitespace)
     {
@@ -223,11 +223,11 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * One dispatch step: appends exactly one token to {@code out}, except for a string-prefixed
-     *  identifier immediately followed by a quote, which appends the prefix IDENTIFIER plus
-     *  either one STRING token (plain/triple-quoted) or the full FSTRING_START/.../FSTRING_END
-     *  sequence (f-strings, via {@link #emitFString}). Shared between the top-level {@link
-     *  #tokenize} loop and {@link #emitFStringField}'s expression sub-scan so both stay in sync
-     *  on identifier/string/number/operator handling.
+     * identifier immediately followed by a quote, which appends the prefix IDENTIFIER plus
+     * either one STRING token (plain/triple-quoted) or the full FSTRING_START/.../FSTRING_END
+     * sequence (f-strings, via {@link #emitFString}). Shared between the top-level {@link
+     * #tokenize} loop and {@link #emitFStringField}'s expression sub-scan so both stay in sync
+     * on identifier/string/number/operator handling.
      */
     private void dispatchToken(final List<Token> out)
     {
@@ -296,9 +296,9 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Python identifiers never include `$` (unlike the curly family's JS/TS-driven
-     *  {@link TokenizerCore#isIdentifierStart}); overridden here so a stray `$` (not valid
-     *  Python syntax at all) falls through to {@link #emitOperator} as an opaque single
-     *  character rather than silently starting an identifier scan
+     * {@link TokenizerCore#isIdentifierStart}); overridden here so a stray `$` (not valid
+     * Python syntax at all) falls through to {@link #emitOperator} as an opaque single
+     * character rather than silently starting an identifier scan
      */
     @Override
     protected boolean isIdentifierStart(final char c)
@@ -337,11 +337,11 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Single-line, single/double-quoted string literal (the tokenize loop dispatches the
-     *  triple-quoted case to {@link #emitTripleQuotedString} before reaching here -- see class
-     *  javadoc for what's still out of scope, e.g. f-string interpolation). Any string-prefix
-     *  letters (`r`/`b`/`f`/`u`, any case/combination) were already consumed as a leading
-     *  IDENTIFIER token by the tokenize loop's normal dispatch before this method is reached;
-     *  this method only handles the quoted body starting at the quote character itself.
+     * triple-quoted case to {@link #emitTripleQuotedString} before reaching here -- see class
+     * javadoc for what's still out of scope, e.g. f-string interpolation). Any string-prefix
+     * letters (`r`/`b`/`f`/`u`, any case/combination) were already consumed as a leading
+     * IDENTIFIER token by the tokenize loop's normal dispatch before this method is reached;
+     * this method only handles the quoted body starting at the quote character itself.
      */
     private Token emitSimpleString(final char quote)
     {
@@ -369,10 +369,10 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Triple-quoted string/docstring (RDD_KEY_186: opaque, preserved verbatim beyond the
-     *  opening `"""`/`'''`, may span multiple lines/embed the other quote character singly or
-     *  doubly). Emitted as one {@code STRING} token including any embedded newlines -- callers
-     *  that need per-line indentation info must not assume one token is one line, same
-     *  precedent as {@link TokenizerCurly}'s block comments/text blocks.
+     * opening `"""`/`'''`, may span multiple lines/embed the other quote character singly or
+     * doubly). Emitted as one {@code STRING} token including any embedded newlines -- callers
+     * that need per-line indentation info must not assume one token is one line, same
+     * precedent as {@link TokenizerCurly}'s block comments/text blocks.
      */
     private Token emitTripleQuotedString(final char quote)
     {
@@ -399,10 +399,10 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * F-string body (prefix already consumed/emitted by {@link #dispatchToken}), following
-     *  CPython 3.12+'s FSTRING_START/MIDDLE/END scheme. Emits FSTRING_START (opening quote(s)),
-     *  then alternates FSTRING_MIDDLE literal-text tokens with `{...}` fields (see {@link
-     *  #emitFStringField}), then FSTRING_END (closing quote(s)). A doubled `{{`/`}}` is an
-     *  escaped literal brace and stays inside the surrounding FSTRING_MIDDLE text verbatim.
+     * CPython 3.12+'s FSTRING_START/MIDDLE/END scheme. Emits FSTRING_START (opening quote(s)),
+     * then alternates FSTRING_MIDDLE literal-text tokens with `{...}` fields (see {@link
+     * #emitFStringField}), then FSTRING_END (closing quote(s)). A doubled `{{`/`}}` is an
+     * escaped literal brace and stays inside the surrounding FSTRING_MIDDLE text verbatim.
      */
     private List<Token> emitFString(final char quote, final boolean triple)
     {
@@ -471,14 +471,14 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Scans one f-string `{...}` field's contents -- called with {@code pos} positioned right
-     *  after the opening `{` (already emitted by {@link #emitFString}). Tokenizes the expression
-     *  portion via {@link #dispatchToken} (same dispatch the top-level tokenizer uses, so nested
-     *  strings/f-strings/brackets/numbers all work normally), tracking a local bracket depth so a
-     *  nested `:`/`}` (e.g. a dict literal or slice inside the expression) isn't mistaken for the
-     *  field's own format-spec separator or closing brace. At depth 0, a `!` immediately followed
-     *  by a conversion letter (`r`/`s`/`a`) and then `:`/`}` starts an opaque conversion OP token;
-     *  a `:` starts an opaque {@link #emitFStringFormatSpec}. Consumes and emits the field's
-     *  closing `}` before returning.
+     * after the opening `{` (already emitted by {@link #emitFString}). Tokenizes the expression
+     * portion via {@link #dispatchToken} (same dispatch the top-level tokenizer uses, so nested
+     * strings/f-strings/brackets/numbers all work normally), tracking a local bracket depth so a
+     * nested `:`/`}` (e.g. a dict literal or slice inside the expression) isn't mistaken for the
+     * field's own format-spec separator or closing brace. At depth 0, a `!` immediately followed
+     * by a conversion letter (`r`/`s`/`a`) and then `:`/`}` starts an opaque conversion OP token;
+     * a `:` starts an opaque {@link #emitFStringFormatSpec}. Consumes and emits the field's
+     * closing `}` before returning.
      */
     private void emitFStringField(final List<Token> out)
     {
@@ -509,10 +509,10 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Opaque `:format_spec` tail of an f-string field (STYLE_PYTHON3.md §5: "format spec is
-     *  opaque" -- a literal spec string, not code, preserved exactly as written). Brace-balances
-     *  to find the field's true closing `}` (a format spec may itself contain a nested `{expr}`
-     *  replacement field per Python grammar), but does NOT recursively sub-tokenize that nested
-     *  field -- a documented limitation of this slice, consistent with the class javadoc.
+     * opaque" -- a literal spec string, not code, preserved exactly as written). Brace-balances
+     * to find the field's true closing `}` (a format spec may itself contain a nested `{expr}`
+     * replacement field per Python grammar), but does NOT recursively sub-tokenize that nested
+     * field -- a documented limitation of this slice, consistent with the class javadoc.
      *
      *  <p>Inside a nested replacement field (`depth > 0`), a quote character starts a real Python
      *  string literal (e.g. `f'{2:{"{"}>10}'`'s nested field is the expression `"{"`) whose own
@@ -567,9 +567,9 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Advances {@code pos} past a quoted string literal (triple- or single-quoted, `\`-escapes
-     *  honored) found while brace-counting inside a nested replacement field in {@link
-     *  #emitFStringFormatSpec} -- does not emit a token, since the format spec stays one opaque
-     *  token overall; only its internal brace-counting needs to see past the string's content
+     * honored) found while brace-counting inside a nested replacement field in {@link
+     * #emitFStringFormatSpec} -- does not emit a token, since the format spec stays one opaque
+     * token overall; only its internal brace-counting needs to see past the string's content
      */
     private void skipNestedStringLiteral(final char quote)
     {
@@ -600,9 +600,9 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * `(`/`[`/`{` all merge into one bracket-nesting counter (unlike the curly family, Python
-     *  attaches no separate scope meaning to `{` -- it's only ever a dict/set literal), stored in
-     *  the inherited {@code parenDepth} field. Any of the three suppresses logical-line/NEWLINE
-     *  significance identically, which is what {@link #synthesizeIndentation} relies on.
+     * attaches no separate scope meaning to `{` -- it's only ever a dict/set literal), stored in
+     * the inherited {@code parenDepth} field. Any of the three suppresses logical-line/NEWLINE
+     * significance identically, which is what {@link #synthesizeIndentation} relies on.
      */
     private Token emitOpenBracket(final char c)
     {
@@ -614,9 +614,9 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Counterpart to {@link #emitOpenBracket}. Guards against going negative on unbalanced/
-     *  syntactically invalid input rather than throwing -- this tokenizer assumes valid input but
-     *  shouldn't corrupt {@code parenDepth} for the rest of the file if that assumption is ever
-     *  violated.
+     * syntactically invalid input rather than throwing -- this tokenizer assumes valid input but
+     * shouldn't corrupt {@code parenDepth} for the rest of the file if that assumption is ever
+     * violated.
      */
     private Token emitCloseBracket(final char c)
     {
@@ -628,8 +628,8 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * The `:=` walrus operator (PEP 572), emitted as a single OP token rather than falling out
-     *  as separate `:` PUNCT + `=` OP -- dispatched from {@link #tokenize} before the general
-     *  punct branch since `:` is otherwise claimed by {@link #emitPunct}
+     * as separate `:` PUNCT + `=` OP -- dispatched from {@link #tokenize} before the general
+     * punct branch since `:` is otherwise claimed by {@link #emitPunct}
      */
     private Token emitWalrus()
     {
@@ -644,9 +644,9 @@ public class TokenizerIndent extends TokenizerCore {
 
     /**
      * Python's multi-character operators (CPython grammar), longest-first so e.g. `**=` matches
-     *  before `**`/`*=` and `//=` before `//`. `:=` (walrus) is dispatched separately by {@link
-     *  #emitWalrus} before this method is ever reached, since `:` is otherwise claimed by {@link
-     *  #emitPunct}.
+     * before `**`/`*=` and `//=` before `//`. `:=` (walrus) is dispatched separately by {@link
+     * #emitWalrus} before this method is ever reached, since `:` is otherwise claimed by {@link
+     * #emitPunct}.
      */
     private static final String[] MULTI_CHAR_OPS = {
             "**=", "//=", "<<=", ">>=",

@@ -15,9 +15,9 @@ import com.jxmake.formatter.Lang;
 
 /**
  * RDD_KEY_96: per-language keyword lists (no shared list across C/C++/Java/Kotlin) + two-stage
- *  check -- a cheap membership test first, then contextual scoring only on actual keyword
- *  matches. Keeps the common case (no keyword present) O(1)-ish and avoids scoring cost on
- *  comments that can't be ambiguous in the first place.
+ * check -- a cheap membership test first, then contextual scoring only on actual keyword
+ * matches. Keeps the common case (no keyword present) O(1)-ish and avoids scoring cost on
+ * comments that can't be ambiguous in the first place.
  */
 public final class KeywordAmbiguityGate {
 
@@ -355,8 +355,8 @@ public final class KeywordAmbiguityGate {
 
     /**
      * First contiguous run of letters/digits/underscore after skipping leading whitespace, or
-     *  "" if commentText has no such leading word. Mirrors
-     *  MiscRuleCore.capitalizeFirstLetter's leading-word extraction.
+     * "" if commentText has no such leading word. Mirrors
+     * MiscRuleCore.capitalizeFirstLetter's leading-word extraction.
      */
     private static String leadingWord(final String commentText)
     {
@@ -374,13 +374,13 @@ public final class KeywordAmbiguityGate {
 
     /**
      * Stage 2 -- contextual scoring, only invoked when stage 1 ({@link #hasLeadingKeywordMatch})
-     *  returns true. Resolves the ambiguity a bare keyword-membership test can't (e.g. "static"
-     *  as an English adjective vs. the language keyword). Weights and derivation: see
-     *  {@code tools/classifier_weights/weights.md}. Returns {@code true} only when the comment reads as ordinary
-     *  prose (safe to normalize); any of {@code nextCharIsOpenParen}, {@code nextTokenIsArrow},
-     *  {@code containsSemicolon}, or {@code containsUrlOrFilenameOrNumber} is enough on its own
-     *  to push the score below threshold, per that file's "asymmetric risk" rationale -- a false
-     *  skip is zero-cost, a false positive is a visible bug.
+     * returns true. Resolves the ambiguity a bare keyword-membership test can't (e.g. "static"
+     * as an English adjective vs. the language keyword). Weights and derivation: see
+     * {@code tools/classifier_weights/weights.md}. Returns {@code true} only when the comment reads as ordinary
+     * prose (safe to normalize); any of {@code nextCharIsOpenParen}, {@code nextTokenIsArrow},
+     * {@code containsSemicolon}, or {@code containsUrlOrFilenameOrNumber} is enough on its own
+     * to push the score below threshold, per that file's "asymmetric risk" rationale -- a false
+     * skip is zero-cost, a false positive is a visible bug.
      */
     public static boolean resolveAmbiguousKeyword(final CommentFeatureVector features)
     {

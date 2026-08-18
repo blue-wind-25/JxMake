@@ -38,8 +38,8 @@ public class KotlinSpecificRule {
 
     /**
      * One indentation level, used by {@link #enforceWhereClausePlacement} when wrapping a
-     *  trailing `where` clause to its own line -- built from the configured `indent-size` (see
-     *  the constructor), not a hardcoded literal, same precedent as `CppSpecificRule.indentUnit`.
+     * trailing `where` clause to its own line -- built from the configured `indent-size` (see
+     * the constructor), not a hardcoded literal, same precedent as `CppSpecificRule.indentUnit`.
      */
     private final String indentUnit;
 
@@ -65,7 +65,7 @@ public class KotlinSpecificRule {
     // ── §4 `when` expression ─────────────────────────────────────────────────────
     /**
      * One `EXPR -> body` / `else -> body` branch found directly (brace/paren depth 0 relative to
-     *  the `when`'s own `{`) inside a `when` body
+     * the `when`'s own `{`) inside a `when` body
      */
     private static final class WhenBranch {
 
@@ -162,7 +162,7 @@ public class KotlinSpecificRule {
 
     /**
      * Finds every `when` branch in [openBrace+1, closeBrace), or {@code null} if the body
-     *  doesn't fit the required one-branch-per-line shape (see {@link #formatWhenExpressions})
+     * doesn't fit the required one-branch-per-line shape (see {@link #formatWhenExpressions})
      */
     private List<WhenBranch> findWhenBranches(
         final List<Token> tokens,
@@ -208,8 +208,8 @@ public class KotlinSpecificRule {
 
     /**
      * The first top-level (paren/bracket/brace-depth 0 relative to `from`) `->` OP token in
-     *  [from, limit), or -1 if none is found -- a nested `{`/`(` (e.g. a lambda inside the branch
-     *  condition) is skipped over so its own `->` is never mistaken for the branch's.
+     * [from, limit), or -1 if none is found -- a nested `{`/`(` (e.g. a lambda inside the branch
+     * condition) is skipped over so its own `->` is never mistaken for the branch's.
      */
     private int findTopLevelArrow(final List<Token> tokens, final int from, final int limit)
     {
@@ -240,17 +240,17 @@ public class KotlinSpecificRule {
 
     /**
      * Guarantees the gap [fromIdx, toExclusive) contains a blank line, same comment-anchored
-     *  mechanism as {@code SwitchRule.ensureBlankLineInGap} (RDD_KEY_129 revision -- the original
-     *  version here bailed out entirely whenever any comment token appeared anywhere in the gap,
-     *  which meant a `when` branch led by its own standalone comment (e.g. `// Success case`
-     *  right after the `when(...) {`) never got its blank line at all, since {@code
-     *  findWhenBranches}'s {@code labelStart} is the branch's first *significant* token --
-     *  {@code nextSignificantIndex} skips comments -- so the comment ends up inside the scanned
-     *  gap even though it visually belongs to the branch, not the `when`'s own opening). A
-     *  standalone comment that starts its own line is now treated as the anchor: the blank line
-     *  is guaranteed in the sub-gap strictly before it, and the comment itself is left exactly
-     *  where it is (never relocated). A comment trailing on the same line as what precedes it is
-     *  not treated as an anchor -- it belongs to that preceding content.
+     * mechanism as {@code SwitchRule.ensureBlankLineInGap} (RDD_KEY_129 revision -- the original
+     * version here bailed out entirely whenever any comment token appeared anywhere in the gap,
+     * which meant a `when` branch led by its own standalone comment (e.g. `// Success case`
+     * right after the `when(...) {`) never got its blank line at all, since {@code
+     * findWhenBranches}'s {@code labelStart} is the branch's first *significant* token --
+     * {@code nextSignificantIndex} skips comments -- so the comment ends up inside the scanned
+     * gap even though it visually belongs to the branch, not the `when`'s own opening). A
+     * standalone comment that starts its own line is now treated as the anchor: the blank line
+     * is guaranteed in the sub-gap strictly before it, and the comment itself is left exactly
+     * where it is (never relocated). A comment trailing on the same line as what precedes it is
+     * not treated as an anchor -- it belongs to that preceding content.
      */
     private void ensureBlankLineInGap(
         final List<Token>          tokens,
@@ -282,11 +282,11 @@ public class KotlinSpecificRule {
 
     /**
      * True if the token at {@code idx} is the first thing on its own line: scanning backward
-     *  from it, only WHITESPACE is found before hitting a NEWLINE or {@code floor} (the last
-     *  real-content token before the gap being searched, guaranteed non-whitespace/non-newline,
-     *  so reaching it without a NEWLINE means {@code idx} is still on that content's own line).
-     *  Same helper as {@code SwitchRule.startsOwnLine}, duplicated here since that class is not
-     *  shared infrastructure this file extends.
+     * from it, only WHITESPACE is found before hitting a NEWLINE or {@code floor} (the last
+     * real-content token before the gap being searched, guaranteed non-whitespace/non-newline,
+     * so reaching it without a NEWLINE means {@code idx} is still on that content's own line).
+     * Same helper as {@code SwitchRule.startsOwnLine}, duplicated here since that class is not
+     * shared infrastructure this file extends.
      */
     private boolean startsOwnLine(final List<Token> tokens, final int idx, final int floor)
     {
@@ -301,9 +301,9 @@ public class KotlinSpecificRule {
 
     /**
      * Appends `// when subject` (or bare `// when` if {@code subject} is null/empty) after
-     *  {@code closeBrace}, unless something other than whitespace already follows on the same
-     *  line (existing content or a comment -- left alone rather than risking corruption/duplication,
-     *  same posture as {@code BlockStructureRule.addClosingComments}).
+     * {@code closeBrace}, unless something other than whitespace already follows on the same
+     * line (existing content or a comment -- left alone rather than risking corruption/duplication,
+     * same posture as {@code BlockStructureRule.addClosingComments}).
      */
     private void applyClosingComment(
         final List<Token>          tokens,
@@ -322,11 +322,11 @@ public class KotlinSpecificRule {
 
     /**
      * Pads every branch's label to the widest in {@code branches} (trailing-cell trick, same
-     *  precedent as {@code SwitchRule.applyInlineAlignment}'s label cell) and rewrites only the
-     *  label+arrow span -- body content from {@code bodyStart} onward is left untouched. Skips
-     *  (leaves byte-for-byte untouched) any individual branch whose padded label would push its
-     *  own same-line body content past {@code lineLengthLimit}, same predict-before-committing
-     *  posture as {@code JavaSpecificRule.applyArrowAlignment}.
+     * precedent as {@code SwitchRule.applyInlineAlignment}'s label cell) and rewrites only the
+     * label+arrow span -- body content from {@code bodyStart} onward is left untouched. Skips
+     * (leaves byte-for-byte untouched) any individual branch whose padded label would push its
+     * own same-line body content past {@code lineLengthLimit}, same predict-before-committing
+     * posture as {@code JavaSpecificRule.applyArrowAlignment}.
      */
     private void applyArrowAlignment(
         final List<Token>          tokens,
@@ -364,8 +364,8 @@ public class KotlinSpecificRule {
 
     /**
      * Total text length of the run of WHITESPACE tokens immediately preceding {@code idx} --
-     *  the leading indentation of {@code idx}'s own physical line (0 if {@code idx} isn't first
-     *  on its line)
+     * the leading indentation of {@code idx}'s own physical line (0 if {@code idx} isn't first
+     * on its line)
      */
     private int lineIndentWidth(final List<Token> tokens, final int idx)
     {
@@ -534,10 +534,10 @@ public class KotlinSpecificRule {
 
     /**
      * True iff {@code t} is a token that legitimately continues tight against a preceding `!!`
-     *  (a postfix chain: `.`/`[`/`(`, or another `?.`/`!!`) -- used only by the C6k-4 fix in
-     *  {@link #enforceNullSafetyOperatorSpacing} to distinguish `x!!.foo()`/`x!![0]`/`x!!()` (stay
-     *  tight) from `x!! in y`/`x!! ?: y`/`x!! + y` (ordinary keyword/operator continuation, needs
-     *  its normal spacing, left untouched by this pass).
+     * (a postfix chain: `.`/`[`/`(`, or another `?.`/`!!`) -- used only by the C6k-4 fix in
+     * {@link #enforceNullSafetyOperatorSpacing} to distinguish `x!!.foo()`/`x!![0]`/`x!!()` (stay
+     * tight) from `x!! in y`/`x!! ?: y`/`x!! + y` (ordinary keyword/operator continuation, needs
+     * its normal spacing, left untouched by this pass).
      */
     private boolean isPostfixNullOpContinuation(final Token t)
     {
@@ -618,7 +618,7 @@ public class KotlinSpecificRule {
     // ── §11 Labeled jumps ────────────────────────────────────────────────────────
     /**
      * Tracks progress through a `return@label`/`break@loop`/`continue@loop` jump, or a
-     *  `label@` declaration, as tokens are consumed left to right
+     * `label@` declaration, as tokens are consumed left to right
      */
     private enum JumpState {
 
@@ -740,11 +740,11 @@ public class KotlinSpecificRule {
 
     /**
      * True iff the next significant token at or after {@code from} is `for`/`while`/`do`, or a
-     *  `{` (a labeled lambda literal, e.g. `"123".let parse@ { ... }`) -- the only constructs a
-     *  Kotlin label (`label@`) can prefix. Used by {@link #enforceLabeledJumpSpacing} to tell a
-     *  genuine label declaration apart from an unrelated `@Annotation` that merely happens to sit
-     *  right after some other identifier (a class name, an enum constant, etc.), which is never a
-     *  valid label target.
+     * `{` (a labeled lambda literal, e.g. `"123".let parse@ { ... }`) -- the only constructs a
+     * Kotlin label (`label@`) can prefix. Used by {@link #enforceLabeledJumpSpacing} to tell a
+     * genuine label declaration apart from an unrelated `@Annotation` that merely happens to sit
+     * right after some other identifier (a class name, an enum constant, etc.), which is never a
+     * valid label target.
      */
     private boolean isLoopLabelTarget(final List<Token> tokens, final int from)
     {
@@ -831,9 +831,9 @@ public class KotlinSpecificRule {
 
     /**
      * Every `when`-branch selector arrow's own token index, across every `when` block in
-     *  {@code tokens} -- walks the same `when(...) { ... }` shape {@link #formatWhenExpressions}
-     *  recognizes, so {@link #enforceArrowSpacing} can exclude exactly those arrows (already
-     *  owned by §4's column alignment) without duplicating that method's alignment logic.
+     * {@code tokens} -- walks the same `when(...) { ... }` shape {@link #formatWhenExpressions}
+     * recognizes, so {@link #enforceArrowSpacing} can exclude exactly those arrows (already
+     * owned by §4's column alignment) without duplicating that method's alignment logic.
      */
     private java.util.Set<Integer> collectWhenBranchArrowIndices(final List<Token> tokens)
     {
@@ -938,7 +938,7 @@ public class KotlinSpecificRule {
     // ── §14 Generic `where` clause ───────────────────────────────────────────────
     /**
      * One `TypeParam : Bound` entry of a `where` clause, found between two top-level commas
-     *  (or between `where` and the clause's own end for the first/only entry)
+     * (or between `where` and the clause's own end for the first/only entry)
      */
     private static final class WhereBound {
 
@@ -1038,8 +1038,8 @@ public class KotlinSpecificRule {
 
     /**
      * The first `{`/`;` reached scanning forward from {@code whereIdx}, or -1 if neither is
-     *  found -- the clause's own end (exclusive), per {@link #enforceWhereClausePlacement}'s doc
-     *  comment
+     * found -- the clause's own end (exclusive), per {@link #enforceWhereClausePlacement}'s doc
+     * comment
      */
     private int findWhereClauseEnd(final List<Token> tokens, final int whereIdx)
     {
@@ -1053,9 +1053,9 @@ public class KotlinSpecificRule {
 
     /**
      * Splits [fromInclusive, toExclusive) into bounds at every top-level comma -- depth tracked
-     *  over parens/brackets/braces and the tokenizer's own reclassified generic angle brackets
-     *  (`ANGLE_BRACKET_OPEN`/`_CLOSE`), so a bound's own generic argument (`Comparable<T>`) is
-     *  never mistaken for a bound separator
+     * over parens/brackets/braces and the tokenizer's own reclassified generic angle brackets
+     * (`ANGLE_BRACKET_OPEN`/`_CLOSE`), so a bound's own generic argument (`Comparable<T>`) is
+     * never mistaken for a bound separator
      */
     private List<WhereBound> splitWhereBounds(
         final List<Token> tokens,
@@ -1095,7 +1095,7 @@ public class KotlinSpecificRule {
 
     /**
      * True if a comment token lies anywhere in {@code (fromExclusive, toExclusive)} -- blocks
-     *  the rewrite entirely, same posture as {@code CppSpecificRule.hasCommentBetween}.
+     * the rewrite entirely, same posture as {@code CppSpecificRule.hasCommentBetween}.
      */
     private boolean hasCommentBetween(
         final List<Token> tokens,
@@ -1120,13 +1120,13 @@ public class KotlinSpecificRule {
 
     /**
      * Line-leading indent of the physical line where the multi-line construct governing
-     *  {@code idx} truly begins -- scans backward from {@code idx} tracking paren/bracket/angle
-     *  depth, stopping at the nearest depth-0 {@code ;}/{@code }}/{@code {}, same "true statement
-     *  start" posture as {@code ScopePipelineCurly.findParentIndent}. Distinct from
-     *  {@link #lineStartIndex}/{@link #lineIndent}, which only back up to the immediately
-     *  preceding physical line and can land on a continuation line of an already-wrapped
-     *  multi-line header (e.g. a generic parameter list broken across several lines) instead of
-     *  the header's own true first line.
+     * {@code idx} truly begins -- scans backward from {@code idx} tracking paren/bracket/angle
+     * depth, stopping at the nearest depth-0 {@code ;}/{@code }}/{@code {}, same "true statement
+     * start" posture as {@code ScopePipelineCurly.findParentIndent}. Distinct from
+     * {@link #lineStartIndex}/{@link #lineIndent}, which only back up to the immediately
+     * preceding physical line and can land on a continuation line of an already-wrapped
+     * multi-line header (e.g. a generic parameter list broken across several lines) instead of
+     * the header's own true first line.
      */
     private String signatureLineIndent(final List<Token> tokens, final int idx)
     {
@@ -1167,7 +1167,7 @@ public class KotlinSpecificRule {
 
     /**
      * The index of the first significant token on the physical line containing {@code idx} --
-     *  same purpose as {@code CppSpecificRule.lineStartIndex}.
+     * same purpose as {@code CppSpecificRule.lineStartIndex}.
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
@@ -1185,8 +1185,8 @@ public class KotlinSpecificRule {
 
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
-     *  line has no leading whitespace (column-0 start). Same purpose as
-     *  {@code CppSpecificRule.lineIndent}.
+     * line has no leading whitespace (column-0 start). Same purpose as
+     * {@code CppSpecificRule.lineIndent}.
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
@@ -1209,9 +1209,9 @@ public class KotlinSpecificRule {
 
     /**
      * Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
-     *  run collapses to exactly one space -- used to measure a would-be single-line rendering
-     *  against {@link #lineLengthLimit} without actually committing to it. Same purpose as
-     *  {@code CppSpecificRule.collapseToOneLine}.
+     * run collapses to exactly one space -- used to measure a would-be single-line rendering
+     * against {@link #lineLengthLimit} without actually committing to it. Same purpose as
+     * {@code CppSpecificRule.collapseToOneLine}.
      */
     private String collapseToOneLine(
         final List<Token> tokens,
@@ -1234,8 +1234,8 @@ public class KotlinSpecificRule {
 
     /**
      * Same as {@link #render} but drops any token index present in {@code suppressed} entirely
-     *  (used to elide a bound's interior gap tokens once its whole span has been replaced by a
-     *  single override at its start index)
+     * (used to elide a bound's interior gap tokens once its whole span has been replaced by a
+     * single override at its start index)
      */
     private String renderSuppressing(
         final List<Token>            tokens,
@@ -1319,13 +1319,13 @@ public class KotlinSpecificRule {
 
     /**
      * Renders a gap that straddles the enum-list-terminating `;` as a forced blank line, without
-     *  discarding any comment the original gap carried (e.g. a same-line trailing comment on the
-     *  `;` itself, or a standalone comment on its own line before the next member/declaration) --
-     *  the naive fixed "\n\n" + indent replacement used to silently drop both. A same-line trailing
-     *  comment (anything before the gap's first {@code NEWLINE}) is preserved verbatim right after
-     *  the terminator; everything from that first newline onward is preserved too, with only the
-     *  run of blank newlines immediately following it collapsed down to exactly one forced blank
-     *  line (comments and their own surrounding newlines further into the gap are left untouched).
+     * discarding any comment the original gap carried (e.g. a same-line trailing comment on the
+     * `;` itself, or a standalone comment on its own line before the next member/declaration) --
+     * the naive fixed "\n\n" + indent replacement used to silently drop both. A same-line trailing
+     * comment (anything before the gap's first {@code NEWLINE}) is preserved verbatim right after
+     * the terminator; everything from that first newline onward is preserved too, with only the
+     * run of blank newlines immediately following it collapsed down to exactly one forced blank
+     * line (comments and their own surrounding newlines further into the gap are left untouched).
      */
     private String forceBlankLine(final List<Token> gap, final String indent)
     {
@@ -1367,13 +1367,13 @@ public class KotlinSpecificRule {
 
     /**
      * The mandatory `;` this method relocates onto its own line often carries a same-line
-     *  trailing comment (`NOT_FOUND(404);   // missing`) that, textually, trails the `;` -- but
-     *  semantically describes the entry before it, not the relocated `;` itself. Left in place, the
-     *  forced blank-line rewrite below would either strand it awkwardly after the relocated `;` or
-     *  (before this fix existed) silently drop it. This pass moves such a comment (and its single
-     *  leading whitespace token, if any) back before the terminator, so it reads as the entry's own
-     *  trailing comment once the `;` moves to its own line. Recomputes terminators after each move
-     *  since a move shifts every later token's index.
+     * trailing comment (`NOT_FOUND(404);   // missing`) that, textually, trails the `;` -- but
+     * semantically describes the entry before it, not the relocated `;` itself. Left in place, the
+     * forced blank-line rewrite below would either strand it awkwardly after the relocated `;` or
+     * (before this fix existed) silently drop it. This pass moves such a comment (and its single
+     * leading whitespace token, if any) back before the terminator, so it reads as the entry's own
+     * trailing comment once the `;` moves to its own line. Recomputes terminators after each move
+     * since a move shifts every later token's index.
      */
     private List<Token> relocateEnumTerminatorTrailingComments(final List<Token> tokensIn)
     {
@@ -1426,8 +1426,8 @@ public class KotlinSpecificRule {
 
     /**
      * Finds every Kotlin `enum class` body's entry-list-terminating `;` that has at least one
-     *  more member after it before the enum's own `}` -- keyed by token index, valued by the
-     *  indent string of the enum body's member lines (derived from its first member's own line)
+     * more member after it before the enum's own `}` -- keyed by token index, valued by the
+     * indent string of the enum body's member lines (derived from its first member's own line)
      */
     private Map<Integer, String> findEnumConstantListTerminators(final List<Token> tokens)
     {
@@ -1466,9 +1466,9 @@ public class KotlinSpecificRule {
 
     /**
      * True iff the `{` at {@code braceIdx} opens a Kotlin `enum class` body -- scans backward
-     *  past the enum's name and any supertype/generic-bound clause tokens until it finds the
-     *  `enum` keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely).
-     *  Same shape as {@code JavaSpecificRule.isEnumBodyBrace}.
+     * past the enum's name and any supertype/generic-bound clause tokens until it finds the
+     * `enum` keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely).
+     * Same shape as {@code JavaSpecificRule.isEnumBodyBrace}.
      */
     private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
     {
@@ -1568,10 +1568,10 @@ public class KotlinSpecificRule {
 
     /**
      * Given the last significant token before a candidate body `{`, returns the index of the
-     *  signature's parameter-list `)` -- either {@code lastBeforeBrace} itself (no return type),
-     *  or, if a `: ReturnType` sits between the `)` and the `{` (e.g. `fun f(): String {`), the
-     *  `)` found by scanning back over the return-type span for a depth-0 `:`. Returns -1 for any
-     *  other shape (bail, not a candidate).
+     * signature's parameter-list `)` -- either {@code lastBeforeBrace} itself (no return type),
+     * or, if a `: ReturnType` sits between the `)` and the `{` (e.g. `fun f(): String {`), the
+     * `)` found by scanning back over the return-type span for a depth-0 `:`. Returns -1 for any
+     * other shape (bail, not a candidate).
      */
     private int findSignatureCloseParenBeforeBrace(
         final List<Token> tokens,
@@ -1614,8 +1614,8 @@ public class KotlinSpecificRule {
 
     /**
      * True iff the `)` at {@code closeParenIdx} is a function or secondary-constructor
-     *  definition's parameter-list close paren -- see {@link #enforceFunctionDefinitionAllmanBraceStyle}'s
-     *  own doc comment for the backward-scan shape and why it's deliberately conservative
+     * definition's parameter-list close paren -- see {@link #enforceFunctionDefinitionAllmanBraceStyle}'s
+     * own doc comment for the backward-scan shape and why it's deliberately conservative
      */
     private boolean isFunctionOrConstructorCloseParen(
         final List<Token> tokens,
@@ -1662,10 +1662,10 @@ public class KotlinSpecificRule {
 
     /**
      * True for either a reclassified {@code ANGLE_BRACKET_CLOSE} or a plain {@code OP(">")} --
-     *  the tokenizer only reclassifies `<`/`>` into angle-bracket tokens in contexts it recognizes
-     *  as generic-usage-like (e.g. `List<T>`); a function's own `<T>` type-parameter clause right
-     *  after `fun` is not one of those contexts, so it stays plain `OP` tokens (confirmed via
-     *  harness). Both shapes mean the same thing here, so both are accepted.
+     * the tokenizer only reclassifies `<`/`>` into angle-bracket tokens in contexts it recognizes
+     * as generic-usage-like (e.g. `List<T>`); a function's own `<T>` type-parameter clause right
+     * after `fun` is not one of those contexts, so it stays plain `OP` tokens (confirmed via
+     * harness). Both shapes mean the same thing here, so both are accepted.
      */
     private boolean isAngleClose(final Token t)
     {
@@ -1679,7 +1679,7 @@ public class KotlinSpecificRule {
 
     /**
      * Given the index of an angle-close token (real or plain `OP(">")`), returns the index of its
-     *  matching angle-open token, or -1 if unbalanced
+     * matching angle-open token, or -1 if unbalanced
      */
     private int skipAngleBracketsBackward(final List<Token> tokens, final int closeIdx)
     {
@@ -1700,18 +1700,18 @@ public class KotlinSpecificRule {
 
     /**
      * True iff no {@code NEWLINE} appears between {@code braceIdx} and {@code closeBraceIdx}
-     *  inclusive -- the whole `{ ... }` body sits on one physical line -- AND the body isn't
-     *  predicted to be broken across lines later by {@code MiscRuleCurly.enforceCallLineBreaking}
-     *  (Phase 1, later in the pipeline) anyway. Without that second condition, a fresh format
-     *  sees the body still on one physical line (still short, pre-call-breaking) and keeps `{`
-     *  K&amp;R inline, but reformatting that already-broken output sees a genuinely multi-line
-     *  body and moves `{` to Allman -- a pass-ordering idempotency bug identical in shape to the
-     *  one already documented and fixed on {@code JavaSpecificRule.isSingleLineBody}/
-     *  {@code GetterSetterRuleCurly.parseOneLinerMember}, never previously ported to this Kotlin
-     *  sibling (RDD_KEY_140). The prediction only has to agree with
-     *  {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once
-     *  this method predicts "too long" and goes Allman, the body only ever grows more lines
-     *  after that (never re-collapses), so every later pass keeps agreeing.
+     * inclusive -- the whole `{ ... }` body sits on one physical line -- AND the body isn't
+     * predicted to be broken across lines later by {@code MiscRuleCurly.enforceCallLineBreaking}
+     * (Phase 1, later in the pipeline) anyway. Without that second condition, a fresh format
+     * sees the body still on one physical line (still short, pre-call-breaking) and keeps `{`
+     * K&amp;R inline, but reformatting that already-broken output sees a genuinely multi-line
+     * body and moves `{` to Allman -- a pass-ordering idempotency bug identical in shape to the
+     * one already documented and fixed on {@code JavaSpecificRule.isSingleLineBody}/
+     * {@code GetterSetterRuleCurly.parseOneLinerMember}, never previously ported to this Kotlin
+     * sibling (RDD_KEY_140). The prediction only has to agree with
+     * {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once
+     * this method predicts "too long" and goes Allman, the body only ever grows more lines
+     * after that (never re-collapses), so every later pass keeps agreeing.
      */
     private boolean isSingleLineBody(
         final List<Token> tokens,
@@ -1741,11 +1741,11 @@ public class KotlinSpecificRule {
 
     /**
      * True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
-     *  argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break across
-     *  lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
-     *  comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical
-     *  helper -- same "each rule class matches its own local conventions" precedent already used
-     *  across those classes.
+     * argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break across
+     * lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
+     * comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical
+     * helper -- same "each rule class matches its own local conventions" precedent already used
+     * across those classes.
      */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
     {
@@ -1809,8 +1809,8 @@ public class KotlinSpecificRule {
 
     /**
      * True iff the `;` at {@code idx} is the last significant thing on its physical line --
-     *  the next non-gap token (if any) starts on a later line, or there is none (end of file).
-     *  A trailing line/block comment after the `;` does not count as "another statement".
+     * the next non-gap token (if any) starts on a later line, or there is none (end of file).
+     * A trailing line/block comment after the `;` does not count as "another statement".
      */
     private boolean isTrailingSemicolon(final List<Token> tokens, final int idx)
     {
@@ -1826,13 +1826,13 @@ public class KotlinSpecificRule {
 
     /**
      * The six fixed classification buckets every Kotlin import is sorted into, per
-     *  STYLE_KOTLIN.md §24. Mirrors {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s six-bucket
-     *  shape, but swaps {@code static} for {@code kotlin} -- Kotlin has no {@code import static}
-     *  keyword, so "this is a static import" isn't lexically detectable the way it is in Java (a
-     *  companion-object-member or top-level-function import uses the exact same {@code import
-     *  a.b.c} syntax as any other import). {@code groupOrder} passed into {@link
-     *  #enforceKotlinImportOrdering} configures only the *emission order* of these always-the-same
-     *  six buckets, never which buckets exist -- so it must be a permutation of exactly this set.
+     * STYLE_KOTLIN.md §24. Mirrors {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s six-bucket
+     * shape, but swaps {@code static} for {@code kotlin} -- Kotlin has no {@code import static}
+     * keyword, so "this is a static import" isn't lexically detectable the way it is in Java (a
+     * companion-object-member or top-level-function import uses the exact same {@code import
+     * a.b.c} syntax as any other import). {@code groupOrder} passed into {@link
+     * #enforceKotlinImportOrdering} configures only the *emission order* of these always-the-same
+     * six buckets, never which buckets exist -- so it must be a permutation of exactly this set.
      */
     private static final Set<String> KOTLIN_IMPORT_GROUP_KEYS = new HashSet<>( Arrays.asList(
         "kotlin", "java", "android", "com", "org", "other", "local"
@@ -1975,7 +1975,7 @@ public class KotlinSpecificRule {
 
     /**
      * One successfully-parsed `import a.b.c[.*] [as Alias]` statement. {@code alias} is
-     *  {@code null} when no `as` clause is present.
+     * {@code null} when no `as` clause is present.
      */
     private static final class ParsedKotlinImport {
 
@@ -2055,10 +2055,10 @@ public class KotlinSpecificRule {
 
     /**
      * True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
-     *  `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.*` multi-char
-     *  pointer-to-member OP token (shared across all languages, so a wildcard import's trailing
-     *  `.*` lexes as one combined OP token here too, same discovery as
-     *  {@code JavaSpecificRule.isPathOp}'s own doc comment).
+     * `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.*` multi-char
+     * pointer-to-member OP token (shared across all languages, so a wildcard import's trailing
+     * `.*` lexes as one combined OP token here too, same discovery as
+     * {@code JavaSpecificRule.isPathOp}'s own doc comment).
      */
     private boolean isPathOp(final Token t)
     {
@@ -2073,10 +2073,10 @@ public class KotlinSpecificRule {
 
     /**
      * Reads the first {@code package a.b.c} declaration in {@code tokens} (best-effort lookup,
-     *  not a rewrite) and returns its top {@code importDepth} dot-components. Empty list if no
-     *  `package` declaration exists. Kotlin's `package` statement, like `import`, is never
-     *  `;`-terminated in practice -- this scan stops at whichever comes first, `;` or NEWLINE/EOF,
-     *  same posture as {@link #parseKotlinImportStatement}.
+     * not a rewrite) and returns its top {@code importDepth} dot-components. Empty list if no
+     * `package` declaration exists. Kotlin's `package` statement, like `import`, is never
+     * `;`-terminated in practice -- this scan stops at whichever comes first, `;` or NEWLINE/EOF,
+     * same posture as {@link #parseKotlinImportStatement}.
      */
     private List<String> findLocalPackagePrefix(final List<Token> tokens, final int importDepth)
     {
@@ -2103,7 +2103,7 @@ public class KotlinSpecificRule {
 
     /**
      * Classification priority: local &gt; kotlin &gt; java/javax &gt; org &gt; com &gt; other --
-     *  see {@link #KOTLIN_IMPORT_GROUP_KEYS}'s doc comment for why there is no `static` bucket
+     * see {@link #KOTLIN_IMPORT_GROUP_KEYS}'s doc comment for why there is no `static` bucket
      */
     private String classifyKotlinImportGroup(
         final ParsedKotlinImport imp,
@@ -2222,9 +2222,9 @@ public class KotlinSpecificRule {
 
     /**
      * True if the `{` at {@code braceIdx} is a named-construct body (already handled elsewhere),
-     *  a `when` body (own dedicated handling), or a control-flow body (`if`/`while`/`for`/
-     *  `catch`/`do`/`try`/`else`/`finally`, per STYLE.md's "never add/remove blank lines inside a
-     *  control-flow block" rule) -- see {@link #stripLeadingBlankBeforeNonDeclarationStatement}.
+     * a `when` body (own dedicated handling), or a control-flow body (`if`/`while`/`for`/
+     * `catch`/`do`/`try`/`else`/`finally`, per STYLE.md's "never add/remove blank lines inside a
+     * control-flow block" rule) -- see {@link #stripLeadingBlankBeforeNonDeclarationStatement}.
      */
     private boolean isControlFlowOrWhenOrNamedBrace(final List<Token> tokens, final int braceIdx)
     {

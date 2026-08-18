@@ -67,7 +67,7 @@ public class MiscRuleCurly extends MiscRuleCore {
 
     /**
      * Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
-     *  config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor.
+     * config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor.
      */
     public MiscRuleCurly(
         final Lang    lang,
@@ -86,7 +86,7 @@ public class MiscRuleCurly extends MiscRuleCore {
 
     /**
      * Full constructor additionally taking the {@code line-length-with-comment} config value --
-     *  see {@link MiscRuleCore#lineLengthWithCommentLimit}'s own doc comment
+     * see {@link MiscRuleCore#lineLengthWithCommentLimit}'s own doc comment
      */
     public MiscRuleCurly(
         final Lang    lang,
@@ -409,15 +409,15 @@ public static final class Signature {
     }
     /**
      * Same split as {@link #splitTopLevelCommas}, but also tracks `{`/`}` depth (in addition to
-     *  paren/bracket/angle) so a comma inside a brace-bodied argument -- e.g. a lambda's own
-     *  parameter list, `{ source, target, exception -> ... }` -- is never mistaken for a top-level
-     *  argument separator. Deliberately a separate method rather than widening {@link
-     *  #splitTopLevelCommas} itself: that method's result also feeds {@link #parseSignature}/
-     *  {@link #renderCallDropped}/{@link #renderCallOnePerLine} rendering paths whose existing,
-     *  already-verified behavior for a C/C++/Java brace-init-list argument this fix must not risk
-     *  changing; this variant is used only where a brace-bodied argument's internal commas must
-     *  never split it apart, e.g. {@link #renderCallCandidate}'s per-argument multi-line-brace-body
-     *  bail check.
+     * paren/bracket/angle) so a comma inside a brace-bodied argument -- e.g. a lambda's own
+     * parameter list, `{ source, target, exception -> ... }` -- is never mistaken for a top-level
+     * argument separator. Deliberately a separate method rather than widening {@link
+     * #splitTopLevelCommas} itself: that method's result also feeds {@link #parseSignature}/
+     * {@link #renderCallDropped}/{@link #renderCallOnePerLine} rendering paths whose existing,
+     * already-verified behavior for a C/C++/Java brace-init-list argument this fix must not risk
+     * changing; this variant is used only where a brace-bodied argument's internal commas must
+     * never split it apart, e.g. {@link #renderCallCandidate}'s per-argument multi-line-brace-body
+     * bail check.
      */
     private List<List<Token>> splitTopLevelCommasBraceAware(final List<Token> tokens)
     {
@@ -456,21 +456,21 @@ public static final class Signature {
     }
     /**
      * Splits {@code paramsSlice} into top-level (depth-0) comma-separated arguments -- exactly
-     *  like {@link #splitTopLevelCommas}, but tracking paren/bracket/angle depth *cumulatively
-     *  across the whole slice* rather than resetting it to 0 per original source line -- then
-     *  groups consecutive arguments back into "rows" by which original line each one *starts* on.
-     *  An argument that itself spans multiple lines (e.g. a lone nested call whose own argument
-     *  list wraps) stays one argument in one row; only a depth-0 {@code NEWLINE} seen since the
-     *  last depth-0 comma starts a new row. This replaces the old {@code splitOnNewlines} +
-     *  per-line {@link #splitTopLevelCommas} combination, which mis-split a nested comma sitting at
-     *  a line break (still inside an unclosed paren from the previous line) as if it were a local
-     *  top-level split point, corrupting the rendered output (see RDD_KEY_5 addendum). Trailing/
-     *  leading empty parts (a dangling comma with nothing after it before the closing paren) are
-     *  dropped. A depth-0 {@code NEWLINE} only counts as starting a new row if it occurs *before*
-     *  the part's first significant token (a leading newline) -- a trailing newline after a part's
-     *  last significant token (e.g. the newline before a lone closing-paren line) must not
-     *  retroactively mark that already-started part as beginning a new row, or a sibling argument
-     *  that legitimately shared a source line with it gets wrongly split onto its own line.
+     * like {@link #splitTopLevelCommas}, but tracking paren/bracket/angle depth *cumulatively
+     * across the whole slice* rather than resetting it to 0 per original source line -- then
+     * groups consecutive arguments back into "rows" by which original line each one *starts* on.
+     * An argument that itself spans multiple lines (e.g. a lone nested call whose own argument
+     * list wraps) stays one argument in one row; only a depth-0 {@code NEWLINE} seen since the
+     * last depth-0 comma starts a new row. This replaces the old {@code splitOnNewlines} +
+     * per-line {@link #splitTopLevelCommas} combination, which mis-split a nested comma sitting at
+     * a line break (still inside an unclosed paren from the previous line) as if it were a local
+     * top-level split point, corrupting the rendered output (see RDD_KEY_5 addendum). Trailing/
+     * leading empty parts (a dangling comma with nothing after it before the closing paren) are
+     * dropped. A depth-0 {@code NEWLINE} only counts as starting a new row if it occurs *before*
+     * the part's first significant token (a leading newline) -- a trailing newline after a part's
+     * last significant token (e.g. the newline before a lone closing-paren line) must not
+     * retroactively mark that already-started part as beginning a new row, or a sibling argument
+     * that legitimately shared a source line with it gets wrongly split onto its own line.
      */
     private List<List<List<Token>>> groupByOriginalLine(final List<Token> paramsSlice)
     {
@@ -521,14 +521,14 @@ public static final class Signature {
     }
     /**
      * Reports whether {@code paramsSlice}'s last significant token (before the closing paren,
-     *  since {@code paramsSlice} is already the interior of a call/param list) is a `,` -- i.e.
-     *  whether the original source already had a trailing comma before `)`. Used only by the
-     *  Kotlin-gated trailing-comma-preservation exception in {@link #renderCallPreserveGroups}/
-     *  {@link #renderCallDropped}/{@link #renderCallOnePerLine} (STYLE_KOTLIN.md §7.2 -- a trailing
-     *  comma must be preserved exactly as written, never added or stripped -- see RDD_LOG.md's
-     *  trailing-comma-drop entry). {@code groupByOriginalLine}/{@code splitTopLevelCommas} both
-     *  discard this signal once they've split the slice into parts, so it must be checked against
-     *  the raw slice directly, before any splitting.
+     * since {@code paramsSlice} is already the interior of a call/param list) is a `,` -- i.e.
+     * whether the original source already had a trailing comma before `)`. Used only by the
+     * Kotlin-gated trailing-comma-preservation exception in {@link #renderCallPreserveGroups}/
+     * {@link #renderCallDropped}/{@link #renderCallOnePerLine} (STYLE_KOTLIN.md §7.2 -- a trailing
+     * comma must be preserved exactly as written, never added or stripped -- see RDD_LOG.md's
+     * trailing-comma-drop entry). {@code groupByOriginalLine}/{@code splitTopLevelCommas} both
+     * discard this signal once they've split the slice into parts, so it must be checked against
+     * the raw slice directly, before any splitting.
      */
     private boolean hasTrailingComma(final List<Token> paramsSlice)
     {
@@ -541,8 +541,8 @@ public static final class Signature {
     }
     /**
      * Parses one already-significant-only param slice, peeling a trailing `[size]` run (same
-     *  depth-tracked peel-off precedent as `DeclarationAlignmentRule.parseDeclaration`'s
-     *  `sizeTokens` loop) before requiring the final remaining token to be the IDENTIFIER name.
+     * depth-tracked peel-off precedent as `DeclarationAlignmentRule.parseDeclaration`'s
+     * `sizeTokens` loop) before requiring the final remaining token to be the IDENTIFIER name.
      */
     private Param parseParam(final List<Token> rawSlice)
     {
@@ -631,8 +631,8 @@ public static final class Signature {
     }
     /**
      * @param trailingLen length of any trailing same-line text after the signature's own `)`
-     *  (e.g. a constructor's member-initializer-list opener, `: field(`) that the line-length
-     *  wrap decision below must also account for.
+     * (e.g. a constructor's member-initializer-list opener, `: field(`) that the line-length
+     * wrap decision below must also account for.
      */
     public List<String> render(
         final Signature sig,
@@ -877,12 +877,12 @@ public static final class Signature {
     }
     /**
      * Kotlin-only sibling of {@link #appendGapWithForcedBlank} (see RDD_KEY_129): forces the
-     *  blank line into the sub-gap strictly after the *last* comment token in {@code gap} (the
-     *  return statement's own standalone leading comment), leaving everything at/before that
-     *  comment untouched -- if the sub-gap after it already has 2+ newlines, nothing changes; if
-     *  it has exactly 1, a second is inserted right after it; if it has 0 (comment glued to the
-     *  same line as the `return`), left untouched, same "no worked example to guess from" posture
-     *  as the zero-newline case in {@link #appendGapWithForcedBlank}'s caller
+     * blank line into the sub-gap strictly after the *last* comment token in {@code gap} (the
+     * return statement's own standalone leading comment), leaving everything at/before that
+     * comment untouched -- if the sub-gap after it already has 2+ newlines, nothing changes; if
+     * it has exactly 1, a second is inserted right after it; if it has 0 (comment glued to the
+     * same line as the `return`), left untouched, same "no worked example to guess from" posture
+     * as the zero-newline case in {@link #appendGapWithForcedBlank}'s caller
      */
     private void appendGapWithForcedBlankAfterLastComment(
         final StringBuilder out,
@@ -933,9 +933,9 @@ public static final class Signature {
     }
     /**
      * A `return` immediately preceded by `)` whose matching `(` is preceded by `if`/`while`/
-     *  `for`/`switch` is the controlled body of a brace-less single-statement control-flow
-     *  construct -- not at function scope, regardless of which frame is on top of the stack
-     *  (a brace-less body never pushes its own frame)
+     * `for`/`switch` is the controlled body of a brace-less single-statement control-flow
+     * construct -- not at function scope, regardless of which frame is on top of the stack
+     * (a brace-less body never pushes its own frame)
      */
     private boolean isBraceLessControlFlowReturn(final List<Token> tokens, final int returnIdx)
     {
@@ -995,9 +995,9 @@ public static final class Signature {
     }
     /**
      * If {@code fromIdx} is the last token of a `throws ExceptionType, ExceptionType...` clause
-     *  (a comma-separated identifier/qualified-name list immediately preceded by the `throws`
-     *  keyword), returns the index just before that keyword; otherwise returns {@code fromIdx}
-     *  unchanged.
+     * (a comma-separated identifier/qualified-name list immediately preceded by the `throws`
+     * keyword), returns the index just before that keyword; otherwise returns {@code fromIdx}
+     * unchanged.
      */
     private int skipThrowsClauseBackward(final List<Token> tokens, final int fromIdx)
     {
@@ -1029,9 +1029,9 @@ public static final class Signature {
     }
     /**
      * Kotlin analog of {@link #findCloseParenBeforeTrailingReturnType}: scans backward from
-     *  {@code fromIdx} through a Kotlin return type (`: ReturnType`), tracking angle-bracket and
-     *  paren depth; returns the function's close paren that precedes the top-level `:`, or -1 if
-     *  not found
+     * {@code fromIdx} through a Kotlin return type (`: ReturnType`), tracking angle-bracket and
+     * paren depth; returns the function's close paren that precedes the top-level `:`, or -1 if
+     * not found
      */
     private int findCloseParenBeforeKotlinReturnType(final List<Token> tokens, final int fromIdx)
     {
@@ -1079,8 +1079,8 @@ public static final class Signature {
     }
     /**
      * Scans backward from {@code fromIdx} through a trailing return type, tracking angle-bracket
-     *  and paren depth; returns the function's close paren that precedes {@code ->} (skipping any
-     *  post-paren qualifiers between {@code )} and {@code ->}), or -1 if not found
+     * and paren depth; returns the function's close paren that precedes {@code ->} (skipping any
+     * post-paren qualifiers between {@code )} and {@code ->}), or -1 if not found
      */
     private int findCloseParenBeforeTrailingReturnType(final List<Token> tokens, final int fromIdx)
     {
@@ -1232,14 +1232,14 @@ public static final class Signature {
     }
     /**
      * Dispatches one candidate (its `(`/`)` span already located by the caller) to the
-     *  appropriate option per RDD_EXT_4's candidate-availability matrix, collapsed to the
-     *  deterministic subset since AI selection (Step 2) is permanently not feasible: a multi-line
-     *  source candidate always gets Option 2 (preserve groups); a single-line candidate that
-     *  already fits returns {@code null} (Option 0, no change); otherwise Option 1 (dropped),
-     *  falling back to Option 3 (one-per-line) if dropped itself doesn't fit. Returns the
-     *  replacement text for the half-open span {@code [openIdx, closeIdx]} (i.e. starting with the
-     *  `(` token's own text and ending with the `)` token's own text), or {@code null} for no
-     *  change.
+     * appropriate option per RDD_EXT_4's candidate-availability matrix, collapsed to the
+     * deterministic subset since AI selection (Step 2) is permanently not feasible: a multi-line
+     * source candidate always gets Option 2 (preserve groups); a single-line candidate that
+     * already fits returns {@code null} (Option 0, no change); otherwise Option 1 (dropped),
+     * falling back to Option 3 (one-per-line) if dropped itself doesn't fit. Returns the
+     * replacement text for the half-open span {@code [openIdx, closeIdx]} (i.e. starting with the
+     * `(` token's own text and ending with the `)` token's own text), or {@code null} for no
+     * change.
      */
     private String renderCallCandidate(
         final List<Token> tokens,
@@ -1487,10 +1487,10 @@ public static final class Signature {
     }
     /**
      * Option 1 (dropped form) for a forward declaration: every param on one line, indented one
-     *  level under {@code baseIndent}, with `)` on its own line back at {@code baseIndent} --
-     *  mirrors {@link #renderParamsInline}'s join. Returns {@code null} (caller falls back to
-     *  {@link #renderOnePerLine}, Option 3) if even this single params line exceeds
-     *  {@link #lineLengthLimit}.
+     * level under {@code baseIndent}, with `)` on its own line back at {@code baseIndent} --
+     * mirrors {@link #renderParamsInline}'s join. Returns {@code null} (caller falls back to
+     * {@link #renderOnePerLine}, Option 3) if even this single params line exceeds
+     * {@link #lineLengthLimit}.
      */
     private List<String> renderDropped(final Signature sig, final String baseIndent)
     {
@@ -1501,10 +1501,10 @@ public static final class Signature {
     }
     /**
      * Option 3 (one-per-line) for a forward declaration -- same type-column-padded shape as
-     *  {@link #render}'s broken form, parameterized by raw {@code baseIndent} text instead of an
-     *  integer level (this pass has no tracked recursion depth, see
-     *  {@link #indentUnit}'s doc comment), so this is a deliberate sibling rather than a
-     *  direct reuse of {@link #render}
+     * {@link #render}'s broken form, parameterized by raw {@code baseIndent} text instead of an
+     * integer level (this pass has no tracked recursion depth, see
+     * {@link #indentUnit}'s doc comment), so this is a deliberate sibling rather than a
+     * direct reuse of {@link #render}
      */
     private List<String> renderOnePerLine(final Signature sig, final String baseIndent)
     {
@@ -1553,13 +1553,13 @@ public static final class Signature {
     }
     /**
      * Option 1 (dropped form) for a plain call: every argument on one line, untyped, split on
-     *  top-level commas (raw -- {@link #splitTopLevelCommas} tracks paren/bracket/angle depth
-     *  itself, so it doesn't need {@link #significantOnly} first) and each argument rendered via
-     *  {@link #collapseTokensToOneLine} rather than {@link #renderTokens} (see that method's doc
-     *  comment for why -- a nested call inside an argument must not get its own parens spread
-     *  apart); the top-level `,` separators between sibling arguments are inserted explicitly here
-     *  instead, normalized to `", "` regardless of original spacing. Returns {@code null} (caller
-     *  falls back to {@link #renderCallOnePerLine}) if the line doesn't fit.
+     * top-level commas (raw -- {@link #splitTopLevelCommas} tracks paren/bracket/angle depth
+     * itself, so it doesn't need {@link #significantOnly} first) and each argument rendered via
+     * {@link #collapseTokensToOneLine} rather than {@link #renderTokens} (see that method's doc
+     * comment for why -- a nested call inside an argument must not get its own parens spread
+     * apart); the top-level `,` separators between sibling arguments are inserted explicitly here
+     * instead, normalized to `", "` regardless of original spacing. Returns {@code null} (caller
+     * falls back to {@link #renderCallOnePerLine}) if the line doesn't fit.
      */
     private List<String> renderCallDropped(final List<Token> paramsSlice, final String baseIndent)
     {
@@ -1595,10 +1595,10 @@ public static final class Signature {
     }
     /**
      * Option 3 (one-per-line) for a plain call: each top-level argument on its own line, no
-     *  column alignment (untyped arguments have no type column to align) -- only
-     *  {@link #splitTopLevelCommas} is needed, not the typed {@link #parseParam} machinery; each
-     *  argument rendered via {@link #collapseTokensToOneLine}, same nested-call-safety reason as
-     *  {@link #renderCallDropped}
+     * column alignment (untyped arguments have no type column to align) -- only
+     * {@link #splitTopLevelCommas} is needed, not the typed {@link #parseParam} machinery; each
+     * argument rendered via {@link #collapseTokensToOneLine}, same nested-call-safety reason as
+     * {@link #renderCallDropped}
      */
     private List<String> renderCallOnePerLine(
         final List<Token> paramsSlice,
@@ -1630,19 +1630,19 @@ public static final class Signature {
     }
     /**
      * Option 2 (preserve groups) for a plain call: keeps the source's existing line breaks
-     *  exactly (one output line per original physical line that had any significant content) --
-     *  a line that turns out to have nothing significant on it (a stray blank line) is dropped
-     *  entirely -- no STYLE.md worked example sanctions preserving a blank line inside an argument
-     *  list. Within each line, arguments are split on top-level commas and each rendered via
-     *  {@link #collapseTokensToOneLine} (not {@link #renderTokens} -- same nested-call-safety
-     *  reason as {@link #renderCallDropped}); sibling arguments on the same line are joined with an
-     *  explicit normalized `", "`, and a line's last argument gets a trailing `,` unless it is the
-     *  very last argument overall (mirrors {@link #renderDeclarationPreserveGroups}'s
-     *  {@code isLastOverall} logic, so a multi-arg trailing line like `c, d,` / `e` renders with the
-     *  comma exactly where the original grouping implies more follows). Every preserved line is
-     *  re-indented to one level under {@code baseIndent} -- "preserve groups" means preserve which
-     *  arguments share a line, not preserve arbitrary original indentation depth, same distinction
-     *  {@link #renderDeclarationPreserveGroups} makes.
+     * exactly (one output line per original physical line that had any significant content) --
+     * a line that turns out to have nothing significant on it (a stray blank line) is dropped
+     * entirely -- no STYLE.md worked example sanctions preserving a blank line inside an argument
+     * list. Within each line, arguments are split on top-level commas and each rendered via
+     * {@link #collapseTokensToOneLine} (not {@link #renderTokens} -- same nested-call-safety
+     * reason as {@link #renderCallDropped}); sibling arguments on the same line are joined with an
+     * explicit normalized `", "`, and a line's last argument gets a trailing `,` unless it is the
+     * very last argument overall (mirrors {@link #renderDeclarationPreserveGroups}'s
+     * {@code isLastOverall} logic, so a multi-arg trailing line like `c, d,` / `e` renders with the
+     * comma exactly where the original grouping implies more follows). Every preserved line is
+     * re-indented to one level under {@code baseIndent} -- "preserve groups" means preserve which
+     * arguments share a line, not preserve arbitrary original indentation depth, same distinction
+     * {@link #renderDeclarationPreserveGroups} makes.
      */
     private List<String> renderCallPreserveGroups(
         final List<Token> paramsSlice,
@@ -1676,18 +1676,18 @@ public static final class Signature {
     }
     /**
      * Option 2 (preserve groups) for a forward declaration: same per-original-line grouping as
-     *  {@link #renderCallPreserveGroups}, but each line's params are parsed (typed) via
-     *  {@link #parseParam} and laid out in a {@link ColumnGrid} with two columns per parameter
-     *  slot position (type, name) -- slot N's type/name cells align vertically across every line
-     *  that has an Nth parameter, matching STYLE_NEXT_EXT.md's worked example, reusing
-     *  `DeclarationAlignmentRule`'s "plain `ColumnGrid` + one join space" convention (not
-     *  {@link #render}'s own `maxTypeLen + 1` convention, which RDD_EXT_4 ties specifically to §5's
-     *  grid, not §8's signature padding). No comment column is needed here: a candidate with any
-     *  comment between its parens is already rejected entirely by {@link #enforceCallLineBreaking}
-     *  before this method is ever called, so STYLE.md §8's per-line trailing-comment rule for this
-     *  option is a documented gap, not implemented (see RDD_KEY_5). Returns {@code null} -- leaving
-     *  the whole candidate untouched -- if any line's params don't reduce to {@link Param}'s typed
-     *  shape (the same "bail the whole signature" posture {@link #parseSignature} itself uses).
+     * {@link #renderCallPreserveGroups}, but each line's params are parsed (typed) via
+     * {@link #parseParam} and laid out in a {@link ColumnGrid} with two columns per parameter
+     * slot position (type, name) -- slot N's type/name cells align vertically across every line
+     * that has an Nth parameter, matching STYLE_NEXT_EXT.md's worked example, reusing
+     * `DeclarationAlignmentRule`'s "plain `ColumnGrid` + one join space" convention (not
+     * {@link #render}'s own `maxTypeLen + 1` convention, which RDD_EXT_4 ties specifically to §5's
+     * grid, not §8's signature padding). No comment column is needed here: a candidate with any
+     * comment between its parens is already rejected entirely by {@link #enforceCallLineBreaking}
+     * before this method is ever called, so STYLE.md §8's per-line trailing-comment rule for this
+     * option is a documented gap, not implemented (see RDD_KEY_5). Returns {@code null} -- leaving
+     * the whole candidate untouched -- if any line's params don't reduce to {@link Param}'s typed
+     * shape (the same "bail the whole signature" posture {@link #parseSignature} itself uses).
      */
     private List<String> renderDeclarationPreserveGroups(
         final List<Token> paramsSlice,
@@ -1730,7 +1730,7 @@ public static final class Signature {
     }
     /**
      * True iff any token in {@code [fromExclusive, toExclusive)} is a {@code NEWLINE} -- the
-     *  multi-line-source detection signal for {@link #renderCallCandidate}'s Option 2 branch
+     * multi-line-source detection signal for {@link #renderCallCandidate}'s Option 2 branch
      */
     private boolean containsNewline(final List<Token> tokens)
     {
@@ -1738,14 +1738,14 @@ public static final class Signature {
     }
     /**
      * Same signal as {@link #containsNewline}, but only counts a {@code NEWLINE} strictly
-     *  between this argument's own first and last significant tokens -- i.e. a genuinely
-     *  multi-line argument body, not merely a formatting newline that happened to land in this
-     *  argument's *leading* gap because {@link #splitTopLevelCommas} hands the separator's
-     *  trailing whitespace/newline to the next argument. Used by {@link #renderCallCandidate}'s
-     *  per-topLevelArg multi-line-brace-body bail so a short, single-physical-line trailing
-     *  argument (e.g. `real_code_regressions_1`'s `{ ret, level1(ret) }`) that merely starts on
-     *  its own source line right after a comma doesn't get misclassified as "itself spans
-     *  multiple lines" and wrongly bail the whole candidate untouched.
+     * between this argument's own first and last significant tokens -- i.e. a genuinely
+     * multi-line argument body, not merely a formatting newline that happened to land in this
+     * argument's *leading* gap because {@link #splitTopLevelCommas} hands the separator's
+     * trailing whitespace/newline to the next argument. Used by {@link #renderCallCandidate}'s
+     * per-topLevelArg multi-line-brace-body bail so a short, single-physical-line trailing
+     * argument (e.g. `real_code_regressions_1`'s `{ ret, level1(ret) }`) that merely starts on
+     * its own source line right after a comma doesn't get misclassified as "itself spans
+     * multiple lines" and wrongly bail the whole candidate untouched.
      */
     private boolean containsInternalNewline(final List<Token> tokens)
     {
@@ -1766,8 +1766,8 @@ public static final class Signature {
     }
     /**
      * True iff any token in {@code tokens} is a {@code {} -- the "this argument is itself a
-     *  brace-bodied block, not a plain expression" detection signal used alongside
-     *  {@link #containsNewline} by {@link #renderCallCandidate}'s Option 2 branch
+     * brace-bodied block, not a plain expression" detection signal used alongside
+     * {@link #containsNewline} by {@link #renderCallCandidate}'s Option 2 branch
      */
     private boolean containsBrace(final List<Token> tokens)
     {
@@ -1779,9 +1779,9 @@ public static final class Signature {
     }
     /**
      * True iff any token in {@code (fromExclusive, toExclusive)} is a comment -- same "comment in
-     *  the gap blocks the rewrite" signal as `CppSpecificRule.hasCommentBetween`, duplicated here
-     *  per this file's established no-shared-helpers-across-rule-classes precedent (see
-     *  {@link #renderTokens}'s doc comment).
+     * the gap blocks the rewrite" signal as `CppSpecificRule.hasCommentBetween`, duplicated here
+     * per this file's established no-shared-helpers-across-rule-classes precedent (see
+     * {@link #renderTokens}'s doc comment).
      */
     private boolean hasCommentBetween(
         final List<Token> tokens,
@@ -1798,8 +1798,8 @@ public static final class Signature {
     }
     /**
      * Appends {@code tokens[fromInclusive, toExclusive)}'s own text verbatim -- same precedent as
-     *  `CppSpecificRule.appendRange`, duplicated here (see {@link #hasCommentBetween}'s doc
-     *  comment).
+     * `CppSpecificRule.appendRange`, duplicated here (see {@link #hasCommentBetween}'s doc
+     * comment).
      */
     private void appendRange(
         final StringBuilder out,
@@ -1812,14 +1812,14 @@ public static final class Signature {
     }
     /**
      * Same as {@link #appendRange}, except a whitespace run immediately preceding a trailing
-     *  line comment is collapsed to a single space for measurement purposes. That gap is
-     *  comment-column alignment padding, whose width depends on the physical layout of sibling
-     *  statements (e.g. a declaration-alignment grid) and can differ between a fresh single-line
-     *  call and a reformat of that same call's own already-wrapped output -- counting it verbatim
-     *  made this fits-check flip inconsistently between the two (found via angular/angular
-     *  real-code testing, `location_shim.ts`'s `composeUrls`: `this.$$absUrl = ...slice(1); //
-     *  comment`, non-idempotent without this). Used only for measurement, never rendered into
-     *  actual output.
+     * line comment is collapsed to a single space for measurement purposes. That gap is
+     * comment-column alignment padding, whose width depends on the physical layout of sibling
+     * statements (e.g. a declaration-alignment grid) and can differ between a fresh single-line
+     * call and a reformat of that same call's own already-wrapped output -- counting it verbatim
+     * made this fits-check flip inconsistently between the two (found via angular/angular
+     * real-code testing, `location_shim.ts`'s `composeUrls`: `this.$$absUrl = ...slice(1); //
+     * comment`, non-idempotent without this). Used only for measurement, never rendered into
+     * actual output.
      */
     private void appendRangeCollapsingTrailingCommentGap(
         final StringBuilder out,
@@ -1846,19 +1846,19 @@ public static final class Signature {
     }
     /**
      * Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
-     *  run that actually *contains* a newline collapses to exactly one space (matching what a real
-     *  multi-line-to-single-line join would render there) -- same precedent as
-     *  `CppSpecificRule.collapseToOneLine`, duplicated here (see {@link #hasCommentBetween}'s doc
-     *  comment); used only to *measure* a would-be single-line rendering against
-     *  {@link #lineLengthLimit}, never committed to output as-is. A run of pure horizontal
-     *  whitespace (no {@code NEWLINE} token in it) is preserved verbatim instead of being flattened
-     *  to one space: it's already-real same-line spacing an earlier pass deliberately produced --
-     *  most commonly a declaration-alignment grid's `=`-column padding (`const res    = ...`) -- and
-     *  flattening it here would undercount the candidate's true rendered width by the padding
-     *  amount, letting a call that doesn't actually fit (once its own line's real padding is
-     *  accounted for) wrongly pass the fits-check and collapse to one line anyway (found via
-     *  vuejs/core real-code testing, `scripts/release.js`'s `const res = await fetch(...)` sitting
-     *  in an alignment group with a longer-named sibling declaration).
+     * run that actually *contains* a newline collapses to exactly one space (matching what a real
+     * multi-line-to-single-line join would render there) -- same precedent as
+     * `CppSpecificRule.collapseToOneLine`, duplicated here (see {@link #hasCommentBetween}'s doc
+     * comment); used only to *measure* a would-be single-line rendering against
+     * {@link #lineLengthLimit}, never committed to output as-is. A run of pure horizontal
+     * whitespace (no {@code NEWLINE} token in it) is preserved verbatim instead of being flattened
+     * to one space: it's already-real same-line spacing an earlier pass deliberately produced --
+     * most commonly a declaration-alignment grid's `=`-column padding (`const res    = ...`) -- and
+     * flattening it here would undercount the candidate's true rendered width by the padding
+     * amount, letting a call that doesn't actually fit (once its own line's real padding is
+     * accounted for) wrongly pass the fits-check and collapse to one line anyway (found via
+     * vuejs/core real-code testing, `scripts/release.js`'s `const res = await fetch(...)` sitting
+     * in an alignment group with a longer-named sibling declaration).
      */
     private String collapseToOneLine(
         final List<Token> tokens,
@@ -1886,17 +1886,17 @@ public static final class Signature {
     }
     /**
      * Helper for {@link #collapseToOneLine}: appends a gap of consecutive WHITESPACE/NEWLINE
-     *  tokens either verbatim (pure horizontal whitespace, no NEWLINE in it) or as a single space
-     *  (a NEWLINE present, same "joined multi-line run becomes one space" rule as before) --
-     *  unless the gap sits at a tight `.`/`->` member-access join (either side), in which case no
-     *  space is inserted regardless of how the original line broke. Without this, a wrapped
-     *  member-access expression whose line happened to break right at the `.`/`->` (e.g. C++'s
-     *  `_Other.\n_Owns`, found via microsoft/STL real-code testing on `unique_lock`'s copy
-     *  constructor once its enclosing initializer-list line was long enough to wrap and then
-     *  collapse back) corrupted the expression into `_Other. _Owns` on the round that re-collapsed
-     *  it -- same tight-join corruption already fixed once in {@link #collapseTokensToOneLine} for
-     *  JS/TS's `.`/`?.` (nestjs/nest real-code testing), just never mirrored here for C++'s
-     *  `.`/`->` case since collapseToOneLine has its own independent implementation.
+     * tokens either verbatim (pure horizontal whitespace, no NEWLINE in it) or as a single space
+     * (a NEWLINE present, same "joined multi-line run becomes one space" rule as before) --
+     * unless the gap sits at a tight `.`/`->` member-access join (either side), in which case no
+     * space is inserted regardless of how the original line broke. Without this, a wrapped
+     * member-access expression whose line happened to break right at the `.`/`->` (e.g. C++'s
+     * `_Other.\n_Owns`, found via microsoft/STL real-code testing on `unique_lock`'s copy
+     * constructor once its enclosing initializer-list line was long enough to wrap and then
+     * collapse back) corrupted the expression into `_Other. _Owns` on the round that re-collapsed
+     * it -- same tight-join corruption already fixed once in {@link #collapseTokensToOneLine} for
+     * JS/TS's `.`/`?.` (nestjs/nest real-code testing), just never mirrored here for C++'s
+     * `.`/`->` case since collapseToOneLine has its own independent implementation.
      */
     private void flushCollapseGap(
         final StringBuilder sb,
@@ -1935,18 +1935,18 @@ public static final class Signature {
     }
     /**
      * Same whitespace/newline-run-collapsing as {@link #collapseToOneLine}, but over a detached
-     *  sublist (as returned by {@link #splitTopLevelCommas}/{@link #groupByOriginalLine}) rather than
-     *  an index range into the original token list. Used to render one call argument's own tokens
-     *  -- deliberately does *not* route through {@link #renderTokens}, since an argument may itself
-     *  contain a nested call/parenthesized sub-expression (`bar(1, 2)`); `renderTokens`'s
-     *  tight-attachment rules don't know `(`/`)` should stay tight to a preceding identifier (those
-     *  rules were written for type-token lists, which never contain a literal call), so routing an
-     *  arbitrary expression through it would spread `bar ( 1, 2 )` apart. Collapsing only existing
-     *  whitespace runs -- never inserting a space where the source had none -- reproduces the
-     *  nested expression's own spacing as-is instead of guessing at it, consistent with this pass's
-     *  "claim and skip" rule for nested candidates (see {@link #enforceCallLineBreaking}'s doc
-     *  comment): a nested call's interior is never independently analyzed, so it rides along
-     *  unprocessed rather than being normalized.
+     * sublist (as returned by {@link #splitTopLevelCommas}/{@link #groupByOriginalLine}) rather than
+     * an index range into the original token list. Used to render one call argument's own tokens
+     * -- deliberately does *not* route through {@link #renderTokens}, since an argument may itself
+     * contain a nested call/parenthesized sub-expression (`bar(1, 2)`); `renderTokens`'s
+     * tight-attachment rules don't know `(`/`)` should stay tight to a preceding identifier (those
+     * rules were written for type-token lists, which never contain a literal call), so routing an
+     * arbitrary expression through it would spread `bar ( 1, 2 )` apart. Collapsing only existing
+     * whitespace runs -- never inserting a space where the source had none -- reproduces the
+     * nested expression's own spacing as-is instead of guessing at it, consistent with this pass's
+     * "claim and skip" rule for nested candidates (see {@link #enforceCallLineBreaking}'s doc
+     * comment): a nested call's interior is never independently analyzed, so it rides along
+     * unprocessed rather than being normalized.
      */
     private String collapseTokensToOneLine(final List<Token> tokens)
     {
@@ -1986,10 +1986,10 @@ public static final class Signature {
     }
     /**
      * The index of the first significant token on the physical line containing {@code idx} --
-     *  same precedent as `CppSpecificRule.lineStartIndex`, duplicated here (see
-     *  {@link #hasCommentBetween}'s doc comment), adapted to this class's own
-     *  {@link #nextSignificantIndex} (inclusive-of-{@code from} semantics, unlike
-     *  `CppSpecificRule`'s exclusive one -- hence the {@code + 1} below).
+     * same precedent as `CppSpecificRule.lineStartIndex`, duplicated here (see
+     * {@link #hasCommentBetween}'s doc comment), adapted to this class's own
+     * {@link #nextSignificantIndex} (inclusive-of-{@code from} semantics, unlike
+     * `CppSpecificRule`'s exclusive one -- hence the {@code + 1} below).
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
@@ -2006,13 +2006,13 @@ public static final class Signature {
     }
     /**
      * Kotlin-only lookahead used by {@link #enforceCallLineBreaking}'s true-signature exemption:
-     *  starting at a top-level `:` immediately after a candidate's own `)`, scans forward
-     *  (depth-aware over `(`/`[`/`{`/`<`) through the return-type tokens to determine whether the
-     *  signature's tail is a real `{`-bodied block (returns {@code true}) rather than an `=`-led
-     *  expression body (returns {@code false}) -- a top-level `=` encountered before any top-level
-     *  `{` means this is NOT the block-body shape. Stops at end of file or the first NEWLINE run
-     *  that isn't inside an open group (a return type is never itself broken across a blank
-     *  top-level line).
+     * starting at a top-level `:` immediately after a candidate's own `)`, scans forward
+     * (depth-aware over `(`/`[`/`{`/`<`) through the return-type tokens to determine whether the
+     * signature's tail is a real `{`-bodied block (returns {@code true}) rather than an `=`-led
+     * expression body (returns {@code false}) -- a top-level `=` encountered before any top-level
+     * `{` means this is NOT the block-body shape. Stops at end of file or the first NEWLINE run
+     * that isn't inside an open group (a return type is never itself broken across a blank
+     * top-level line).
      */
     private boolean isKotlinReturnTypeThenBlockBody(final List<Token> tokens, final int colonIdx)
     {
@@ -2064,12 +2064,12 @@ public static final class Signature {
     }
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
-     *  line has no leading whitespace (column-0 start) -- same precedent as
-     *  `CppSpecificRule.lineIndent`/`JavaSpecificRule.lineIndent`, duplicated here (see
-     *  {@link #hasCommentBetween}'s doc comment). Unlike {@link #indentBefore}, this works
-     *  correctly even when {@code idx} itself is not the first significant token on its line (e.g.
-     *  the call name in {@code auto x = foo(a, b, c);}), which {@link #enforceCallLineBreaking}'s
-     *  candidates frequently are not.
+     * line has no leading whitespace (column-0 start) -- same precedent as
+     * `CppSpecificRule.lineIndent`/`JavaSpecificRule.lineIndent`, duplicated here (see
+     * {@link #hasCommentBetween}'s doc comment). Unlike {@link #indentBefore}, this works
+     * correctly even when {@code idx} itself is not the first significant token on its line (e.g.
+     * the call name in {@code auto x = foo(a, b, c);}), which {@link #enforceCallLineBreaking}'s
+     * candidates frequently are not.
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
@@ -2091,26 +2091,26 @@ public static final class Signature {
     }
     /**
      * {@link #lineIndent}, except for a Kotlin call candidate whose own physical line will be
-     *  MERGED onto the line above it later in the same pipeline by {@code
-     *  KotlinSpecificRule.formatWhenExpressions}' arrow-alignment pass (Phase 4, run well after
-     *  this pass, Phase 1 -- see {@code Formatter.formatOne}'s phase ordering). That happens
-     *  whenever a `when` branch's keyword-less body starts its own line (`label -> \n    body`,
-     *  the body not itself `{`-bodied): `formatWhenExpressions` unconditionally collapses label,
-     *  arrow, and body onto one line (RDD_KEY_101/§4), no line-length gate. A candidate whose
-     *  first token is exactly such a body-start reads its own (deeper, branch-body) physical-line
-     *  indent here, one phase too early -- correct on a fresh format's OWN first pass in isolation,
-     *  but stale by one level the moment the merge actually happens, so the call's already-baked
-     *  continuation-line/closing-paren indent visually sits one level deeper than the arrow line
-     *  it now shares. Reformatting that output (round 2) starts from the already-merged line and
-     *  gets it right, hence a round1-vs-round2 flap (same "physical-line-anchored decision
-     *  invalidated by a later merge" root cause as RDD_KEY_136/152/158/159, this time inside
-     *  {@code MiscRule} rather than {@code ScopePipeline}). Detected the same way {@code
-     *  ScopePipeline.findMergingWhenBranchLineStart} detects its own nested-`when` variant: the
-     *  line immediately before {@code nameIdx}'s own line ends (modulo whitespace) with a
-     *  top-level `->`. Not itself proof the `->` belongs to a genuine `when` branch (a lambda
-     *  arrow could in principle match too), but a lambda's `->` is essentially never followed by
-     *  its whole body starting on the very next line with nothing else on the arrow's own line --
-     *  and {@code formatWhenExpressions} only runs for Kotlin, so this is gated to Kotlin only.
+     * MERGED onto the line above it later in the same pipeline by {@code
+     * KotlinSpecificRule.formatWhenExpressions}' arrow-alignment pass (Phase 4, run well after
+     * this pass, Phase 1 -- see {@code Formatter.formatOne}'s phase ordering). That happens
+     * whenever a `when` branch's keyword-less body starts its own line (`label -> \n    body`,
+     * the body not itself `{`-bodied): `formatWhenExpressions` unconditionally collapses label,
+     * arrow, and body onto one line (RDD_KEY_101/§4), no line-length gate. A candidate whose
+     * first token is exactly such a body-start reads its own (deeper, branch-body) physical-line
+     * indent here, one phase too early -- correct on a fresh format's OWN first pass in isolation,
+     * but stale by one level the moment the merge actually happens, so the call's already-baked
+     * continuation-line/closing-paren indent visually sits one level deeper than the arrow line
+     * it now shares. Reformatting that output (round 2) starts from the already-merged line and
+     * gets it right, hence a round1-vs-round2 flap (same "physical-line-anchored decision
+     * invalidated by a later merge" root cause as RDD_KEY_136/152/158/159, this time inside
+     * {@code MiscRule} rather than {@code ScopePipeline}). Detected the same way {@code
+     * ScopePipeline.findMergingWhenBranchLineStart} detects its own nested-`when` variant: the
+     * line immediately before {@code nameIdx}'s own line ends (modulo whitespace) with a
+     * top-level `->`. Not itself proof the `->` belongs to a genuine `when` branch (a lambda
+     * arrow could in principle match too), but a lambda's `->` is essentially never followed by
+     * its whole body starting on the very next line with nothing else on the arrow's own line --
+     * and {@code formatWhenExpressions} only runs for Kotlin, so this is gated to Kotlin only.
      */
     private String effectiveCallBaseIndent(final List<Token> tokens, final int nameIdx)
     {

@@ -24,10 +24,10 @@ import com.jxmake.formatter.classifier.CommentFeatureVector;
 
 /**
  * Integration point for the "Rules, then GRU on abstain" pipeline documented in STATE_AI.md's
- *  "GRU implementation design" ({@code Rules -> high confidence / abstain -> bidirectional GRU
- *  classifier -> final decision}). This is purely additive plumbing -- it does not change
- *  {@link CommentClassifier#classify}'s pure rule-based signature/contract (that contract is a
- *  hard architectural constraint per that class's own javadoc).
+ * "GRU implementation design" ({@code Rules -> high confidence / abstain -> bidirectional GRU
+ * classifier -> final decision}). This is purely additive plumbing -- it does not change
+ * {@link CommentClassifier#classify}'s pure rule-based signature/contract (that contract is a
+ * hard architectural constraint per that class's own javadoc).
  *
  *  <p><b>Wired into {@code MiscRuleCore.classifyComment}</b> (both its capitalize-first-letter and
  *  strip-trailing-period funnel points), gated behind the same {@code gru-classifier}/
@@ -41,25 +41,25 @@ public final class GruAbstainResolver {
 
     /**
      * Cache of loaded {@link GruClassifier} instances keyed by resolved weights-file path, so the
-     *  weights JSON is parsed at most once per distinct path for the lifetime of the process --
-     *  {@link #resolve} previously called {@link GruClassifier#load} on every single ABSTAIN
-     *  comment, re-reading and re-parsing the same file over and over in both multi-file batch runs
-     *  and server mode. An absent {@link Optional} value (from a failed load) is cached too, so a
-     *  missing/corrupt weights file is only attempted once, not retried per comment -- consistent
-     *  with RDD_EXT_9's "skip for process lifetime after first failure" fail-safe pattern used
-     *  elsewhere in this codebase (see STATE_AI.md). {@link ConcurrentHashMap#computeIfAbsent} makes the single
-     *  load thread-safe without a separate lock, so a single shared {@link GruClassifier} per
-     *  weights path is also safe to hand out to concurrent server-mode requests.
+     * weights JSON is parsed at most once per distinct path for the lifetime of the process --
+     * {@link #resolve} previously called {@link GruClassifier#load} on every single ABSTAIN
+     * comment, re-reading and re-parsing the same file over and over in both multi-file batch runs
+     * and server mode. An absent {@link Optional} value (from a failed load) is cached too, so a
+     * missing/corrupt weights file is only attempted once, not retried per comment -- consistent
+     * with RDD_EXT_9's "skip for process lifetime after first failure" fail-safe pattern used
+     * elsewhere in this codebase (see STATE_AI.md). {@link ConcurrentHashMap#computeIfAbsent} makes the single
+     * load thread-safe without a separate lock, so a single shared {@link GruClassifier} per
+     * weights path is also safe to hand out to concurrent server-mode requests.
      */
     private static final ConcurrentHashMap<Path, Optional<GruClassifier>> CLASSIFIER_CACHE = new ConcurrentHashMap<>();
 
     /**
      * Filename of the GRU weights file expected in the "program directory" (see
-     *  {@link #programDirectory()}) when {@code gru-weights-path} is left at its default (empty)
-     *  -- i.e. not explicitly configured. Matches the name the top-level distribution build
-     *  (see {@code ../../../dist_build/jxmake_dist/apps/code-formatter/}) copies alongside the
-     *  packaged jar, and that {@code make gru-train} also copies into {@code $(CLASS_DIR)} for
-     *  dev/test runs.
+     * {@link #programDirectory()}) when {@code gru-weights-path} is left at its default (empty)
+     * -- i.e. not explicitly configured. Matches the name the top-level distribution build
+     * (see {@code ../../../dist_build/jxmake_dist/apps/code-formatter/}) copies alongside the
+     * packaged jar, and that {@code make gru-train} also copies into {@code $(CLASS_DIR)} for
+     * dev/test runs.
      */
     public static final String WEIGHTS_FILENAME = "code-formatter-ai-assist-weights.json";
 
@@ -69,8 +69,8 @@ public final class GruAbstainResolver {
 
     /**
      * Runs the full "Rules, then GRU on abstain" pipeline for one comment's target word, using
-     *  {@link Config#isGruClassifier()}/{@link Config#gruWeightsPath()} to decide whether the GRU
-     *  stage is even attempted.
+     * {@link Config#isGruClassifier()}/{@link Config#gruWeightsPath()} to decide whether the GRU
+     * stage is even attempted.
      *
      *  <ol>
      *      <li>Calls {@link CommentClassifier#classify(CommentFeatureVector)}.</li>
@@ -116,9 +116,9 @@ public final class GruAbstainResolver {
 
     /**
      * {@code Config}-free overload of {@link #resolve(CommentFeatureVector, String, int, Config)} for
-     *  callers (e.g. {@code MiscRuleCore}) that don't hold a full {@link Config} instance -- takes the
-     *  same two config values ({@code gru-classifier}, {@code gru-weights-path}) directly. Identical
-     *  behavior/fail-safe posture to the {@code Config}-based overload, which now just forwards here.
+     * callers (e.g. {@code MiscRuleCore}) that don't hold a full {@link Config} instance -- takes the
+     * same two config values ({@code gru-classifier}, {@code gru-weights-path}) directly. Identical
+     * behavior/fail-safe posture to the {@code Config}-based overload, which now just forwards here.
      */
     public static CommentDecision resolve(
         final CommentFeatureVector features,
@@ -150,12 +150,12 @@ public final class GruAbstainResolver {
 
     /**
      * Returns the cached {@link GruClassifier} for {@code weightsPath}, loading and caching it on
-     *  first use ({@link #CLASSIFIER_CACHE}) -- at most one {@link GruClassifier#load} call (and
-     *  thus one weights-file read/parse) per distinct path for the process's lifetime, shared
-     *  safely across every caller including concurrent server-mode requests. An empty
-     *  {@link Optional} means loading failed (and is cached too, so it isn't retried) --
-     *  {@link IOException} is the only checked exception {@link GruClassifier#load} declares, so it
-     *  is caught here and folded into that empty result.
+     * first use ({@link #CLASSIFIER_CACHE}) -- at most one {@link GruClassifier#load} call (and
+     * thus one weights-file read/parse) per distinct path for the process's lifetime, shared
+     * safely across every caller including concurrent server-mode requests. An empty
+     * {@link Optional} means loading failed (and is cached too, so it isn't retried) --
+     * {@link IOException} is the only checked exception {@link GruClassifier#load} declares, so it
+     * is caught here and folded into that empty result.
      */
     private static Optional<GruClassifier> loadCached(final Path weightsPath)
     {
@@ -174,10 +174,10 @@ public final class GruAbstainResolver {
 
     /**
      * Resolves the weights-file path to attempt loading: {@code gruWeightsPathConfig} if it is
-     *  explicitly set (non-empty), else derived as {@code programDirectory()/WEIGHTS_FILENAME} when
-     *  {@code gru-weights-path} is left at its default empty value. Returns {@code null} (a
-     *  fail-safe "no path" result, handled by the caller as {@code ABSTAIN}) if no explicit path
-     *  is configured and the program directory can't be determined either.
+     * explicitly set (non-empty), else derived as {@code programDirectory()/WEIGHTS_FILENAME} when
+     * {@code gru-weights-path} is left at its default empty value. Returns {@code null} (a
+     * fail-safe "no path" result, handled by the caller as {@code ABSTAIN}) if no explicit path
+     * is configured and the program directory can't be determined either.
      */
     private static Path resolveWeightsPath(final String gruWeightsPathConfig)
     {
@@ -192,14 +192,14 @@ public final class GruAbstainResolver {
 
     /**
      * Resolves the directory the running program lives in, so the GRU weights file can be found
-     *  next to it without a hardcoded path: the jar's parent directory when run via {@code -jar}
-     *  (packaged/distributed layout, e.g. {@code apps/code-formatter/} in the distribution tree),
-     *  or the classes directory itself for a dev/test run against {@code $(CLASS_DIR)} (there is
-     *  no jar to take a parent of in that case -- the classes directory already is the "program
-     *  directory" analog for that mode). Returns {@code null} (fail-safe, treated as "can't
-     *  resolve a default path" by {@link #resolveWeightsPath(Config)}) if the code source location
-     *  is unavailable or malformed -- this is not expected in normal operation, but must never
-     *  throw and block formatting.
+     * next to it without a hardcoded path: the jar's parent directory when run via {@code -jar}
+     * (packaged/distributed layout, e.g. {@code apps/code-formatter/} in the distribution tree),
+     * or the classes directory itself for a dev/test run against {@code $(CLASS_DIR)} (there is
+     * no jar to take a parent of in that case -- the classes directory already is the "program
+     * directory" analog for that mode). Returns {@code null} (fail-safe, treated as "can't
+     * resolve a default path" by {@link #resolveWeightsPath(Config)}) if the code source location
+     * is unavailable or malformed -- this is not expected in normal operation, but must never
+     * throw and block formatting.
      */
     private static Path programDirectory()
     {

@@ -88,25 +88,25 @@ public class BlockStructureRule {
     private final int  closingCommentMinLines;
     /**
      * One indentation level, used by {@link #insertNamedConstructBlankLines} to synthesize a
-     *  properly indented line when splitting a same-line nested body (e.g. `struct Foo { enum
-     *  Bar {`) onto its own line -- built from the configured `indent-size` (see the
-     *  constructor), not a hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own
-     *  former fallback.
+     * properly indented line when splitting a same-line nested body (e.g. `struct Foo { enum
+     * Bar {`) onto its own line -- built from the configured `indent-size` (see the
+     * constructor), not a hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own
+     * former fallback.
      */
     private final String indentUnit;
     /**
      * STYLE.md's overall line-length ceiling, used only by {@link #alignBracelessElseIfChain} to
-     *  refuse to column-pad a chain branch past this width -- see that method's own javadoc for
-     *  why (vuejs/core real-code testing: a padded-but-still-fits-check-stale consequent call
-     *  could otherwise silently render over the limit with no downstream pass left to re-wrap
-     *  it, since this pass runs last).
+     * refuse to column-pad a chain branch past this width -- see that method's own javadoc for
+     * why (vuejs/core real-code testing: a padded-but-still-fits-check-stale consequent call
+     * could otherwise silently render over the limit with no downstream pass left to re-wrap
+     * it, since this pass runs last).
      */
     private final int lineLengthLimit;
     /**
      * Configured `indent-size`, kept alongside the pre-built {@link #indentUnit} string so
-     *  {@link #expandedIndentWidth} can tab-expand a raw (not-yet-converted) leading-whitespace
-     *  run the same way {@code MiscRuleCore.expandedIndentWidth} does -- see that method's own
-     *  javadoc for why a plain {@code String.length()} undercounts a tab.
+     * {@link #expandedIndentWidth} can tab-expand a raw (not-yet-converted) leading-whitespace
+     * run the same way {@code MiscRuleCore.expandedIndentWidth} does -- see that method's own
+     * javadoc for why a plain {@code String.length()} undercounts a tab.
      */
     private final int indentWidth;
 
@@ -641,7 +641,7 @@ public class BlockStructureRule {
 
     /**
      * True iff any token in {@code slice} is a `{` or `}` punctuator -- see {@link #tryCollapse}
-     *  for why a body containing one is refused collapse
+     * for why a body containing one is refused collapse
      */
     private boolean containsBrace(final List<Token> slice)
     {
@@ -654,7 +654,7 @@ public class BlockStructureRule {
 
     /**
      * True iff any token in {@code slice} is a {@code COMMENT_LINE} -- the "unsafe to flatten
-     *  onto one physical line via {@link #renderInline}" signal used by {@link #tryCollapse}
+     * onto one physical line via {@link #renderInline}" signal used by {@link #tryCollapse}
      */
     private boolean containsLineComment(final List<Token> slice)
     {
@@ -667,8 +667,8 @@ public class BlockStructureRule {
 
     /**
      * Strips the space between {@code keyword} and a following `(` in {@code rendered} if
-     *  {@code keyword} is one of {@link #TIGHT_PAREN_KEYWORDS} -- see {@link #tryCollapseBraceless}
-     *  for why this must happen at collapse time rather than being left to a later pass
+     * {@code keyword} is one of {@link #TIGHT_PAREN_KEYWORDS} -- see {@link #tryCollapseBraceless}
+     * for why this must happen at collapse time rather than being left to a later pass
      */
     private String tightenParenPrefix(final String keyword, final String rendered)
     {
@@ -795,10 +795,10 @@ public class BlockStructureRule {
 
     /**
      * True iff {@code contents} (a braced body's interior) holds exactly one qualifying
-     *  top-level statement per STYLE.md §10 -- extracted out of {@link #tryCollapse} so the
-     *  same check can be dry-run, without producing any rendered text, over every branch of an
-     *  {@code if}/{@code else if}/{@code else} chain (see {@link #chainAllBranchesCollapsible})
-     *  to decide whether the *whole* chain qualifies before any single branch is touched.
+     * top-level statement per STYLE.md §10 -- extracted out of {@link #tryCollapse} so the
+     * same check can be dry-run, without producing any rendered text, over every branch of an
+     * {@code if}/{@code else if}/{@code else} chain (see {@link #chainAllBranchesCollapsible})
+     * to decide whether the *whole* chain qualifies before any single branch is touched.
      */
     private boolean isSingleStatementBody(final List<Token> contents)
     {
@@ -879,11 +879,11 @@ public class BlockStructureRule {
 
     /**
      * Kotlin-only sibling of the `;`-count check above: true iff {@code contents} (a braced
-     *  body's interior, including whitespace/newlines) holds exactly one top-level statement,
-     *  where "top-level" means outside any `(`/`[`/`{` nesting and no comment tokens are present
-     *  anywhere in the body. A depth-0 {@code NEWLINE} after some content has already been seen
-     *  marks a statement boundary; any further significant token after that boundary means more
-     *  than one statement, so the body doesn't qualify for the §10 single-statement omission.
+     * body's interior, including whitespace/newlines) holds exactly one top-level statement,
+     * where "top-level" means outside any `(`/`[`/`{` nesting and no comment tokens are present
+     * anywhere in the body. A depth-0 {@code NEWLINE} after some content has already been seen
+     * marks a statement boundary; any further significant token after that boundary means more
+     * than one statement, so the body doesn't qualify for the §10 single-statement omission.
      */
     private boolean isKotlinSingleStatementBody(final List<Token> contents)
     {
@@ -922,11 +922,11 @@ public class BlockStructureRule {
 
     /**
      * True iff {@code contents} contains a nested {@code {...}} block (brace-depth > 0 relative
-     *  to {@code contents} itself) with at least one NEWLINE inside it -- i.e. the block is not a
-     *  trivial one-liner and must stay exploded across physical lines. See
-     *  {@link #isKotlinSingleStatementBody}'s javadoc for why this matters: a single Kotlin
-     *  statement (one `when`/`synchronized`/etc.) can itself own such a block, and flattening it
-     *  via {@code renderInline} would fuse its separate inner statements with no separator.
+     * to {@code contents} itself) with at least one NEWLINE inside it -- i.e. the block is not a
+     * trivial one-liner and must stay exploded across physical lines. See
+     * {@link #isKotlinSingleStatementBody}'s javadoc for why this matters: a single Kotlin
+     * statement (one `when`/`synchronized`/etc.) can itself own such a block, and flattening it
+     * via {@code renderInline} would fuse its separate inner statements with no separator.
      */
     private boolean containsMultilineNestedBrace(final List<Token> contents)
     {
@@ -942,24 +942,24 @@ public class BlockStructureRule {
 
     /**
      * Kotlin-only sibling of {@link #tryCollapse} for a body that is already brace-free but
-     *  spans more than one physical line (`if(x)\n    stmt`) -- joins the condition and its sole
-     *  statement onto one line per STYLE.md §10, mirroring the braced path's single-statement
-     *  and no-nested-compound-body checks. Scans forward from right after the condition's `)`,
-     *  tracking `(`/`[`/`{` nesting depth, until a depth-0 {@code NEWLINE} following some
-     *  content (the statement's own end) or a depth-going-negative `}` (this body was the last
-     *  statement in its enclosing scope) is reached; bails (returns null, leaving the input
-     *  untouched) on any comment token in the body, an empty body, or a nested compound-body
-     *  keyword as the sole statement -- same conservative posture as {@link #tryCollapse}. On
-     *  success, {@code outBodyEnd[0]} is set to the token index one past the joined body (so the
-     *  caller's main loop can resume scanning from there).
+     * spans more than one physical line (`if(x)\n    stmt`) -- joins the condition and its sole
+     * statement onto one line per STYLE.md §10, mirroring the braced path's single-statement
+     * and no-nested-compound-body checks. Scans forward from right after the condition's `)`,
+     * tracking `(`/`[`/`{` nesting depth, until a depth-0 {@code NEWLINE} following some
+     * content (the statement's own end) or a depth-going-negative `}` (this body was the last
+     * statement in its enclosing scope) is reached; bails (returns null, leaving the input
+     * untouched) on any comment token in the body, an empty body, or a nested compound-body
+     * keyword as the sole statement -- same conservative posture as {@link #tryCollapse}. On
+     * success, {@code outBodyEnd[0]} is set to the token index one past the joined body (so the
+     * caller's main loop can resume scanning from there).
      */
     /**
      * Keywords whose own text is directly tight against a following `(` with no space
-     *  (`if(`, `while(`, `for(`, `switch(`, `catch(`, `when(`) -- mirrors {@code
-     *  MiscRuleCore.TIGHT_PAREN_KEYWORDS} exactly (kept as its own private copy rather than a shared
-     *  import since the two classes have no other coupling). Used by {@link #tryCollapseBraceless}
-     *  below to make its collapsed prefix already reflect the final tight spacing, rather than the
-     *  original source's `if (` form.
+     * (`if(`, `while(`, `for(`, `switch(`, `catch(`, `when(`) -- mirrors {@code
+     * MiscRuleCore.TIGHT_PAREN_KEYWORDS} exactly (kept as its own private copy rather than a shared
+     * import since the two classes have no other coupling). Used by {@link #tryCollapseBraceless}
+     * below to make its collapsed prefix already reflect the final tight spacing, rather than the
+     * original source's `if (` form.
      */
     private static final Set<String> TIGHT_PAREN_KEYWORDS = setOf(
         "if", "while", "for", "switch", "catch", "when"
@@ -1144,13 +1144,13 @@ public class BlockStructureRule {
 
     /**
      * Braceless-body sibling of {@link #isPartOfElseChain} -- unlike the braced-body case
-     *  (STYLE_C_CPP.md §10, whole chain forced to stay braced together), a braceless `else if`
-     *  branch has no such all-or-nothing rule: each branch of an {@code if}/{@code else if}/
-     *  {@code else} chain collapses to one line independently, same STYLE.md §10 single-statement
-     *  omission as a standalone {@code if}. {@link KotlinSpecificRule#alignBracelessElseIfChain}
-     *  runs afterward to column-align the whole collapsed chain's bodies. Always {@code false} --
-     *  kept as a named hook (rather than inlined at the one call site) documenting that this was a
-     *  deliberate choice, not an oversight.
+     * (STYLE_C_CPP.md §10, whole chain forced to stay braced together), a braceless `else if`
+     * branch has no such all-or-nothing rule: each branch of an {@code if}/{@code else if}/
+     * {@code else} chain collapses to one line independently, same STYLE.md §10 single-statement
+     * omission as a standalone {@code if}. {@link KotlinSpecificRule#alignBracelessElseIfChain}
+     * runs afterward to column-align the whole collapsed chain's bodies. Always {@code false} --
+     * kept as a named hook (rather than inlined at the one call site) documenting that this was a
+     * deliberate choice, not an oversight.
      */
     private boolean isPartOfElseChainBraceless(
         final List<Token>  tokens,
@@ -1164,16 +1164,16 @@ public class BlockStructureRule {
 
     /**
      * True if the `if` at {@code kwIndex} is part of an {@code else}/
-     *  {@code else if} chain -- either its closing `}` is followed by {@code else},
-     *  or the keyword itself is directly preceded by {@code else} (i.e. it is an
-     *  {@code else if} branch). For Kotlin, membership alone suppresses collapse of this
-     *  particular braced branch (unchanged legacy behavior -- Kotlin's own chain collapse is
-     *  driven entirely through the already-braceless path, see
-     *  {@link #isPartOfElseChainBraceless}). For C/C++/Java, membership only suppresses
-     *  collapse when the *whole* chain does not qualify to collapse together
-     *  (see {@link #chainAllBranchesCollapsible}) -- STYLE_C_CPP.md §10's all-or-nothing rule
-     *  cuts both ways: a chain where every branch is a qualifying single statement is free to
-     *  drop braces on every branch at once, opt-in only, never partially.
+     * {@code else if} chain -- either its closing `}` is followed by {@code else},
+     * or the keyword itself is directly preceded by {@code else} (i.e. it is an
+     * {@code else if} branch). For Kotlin, membership alone suppresses collapse of this
+     * particular braced branch (unchanged legacy behavior -- Kotlin's own chain collapse is
+     * driven entirely through the already-braceless path, see
+     * {@link #isPartOfElseChainBraceless}). For C/C++/Java, membership only suppresses
+     * collapse when the *whole* chain does not qualify to collapse together
+     * (see {@link #chainAllBranchesCollapsible}) -- STYLE_C_CPP.md §10's all-or-nothing rule
+     * cuts both ways: a chain where every branch is a qualifying single statement is free to
+     * drop braces on every branch at once, opt-in only, never partially.
      */
     private boolean isPartOfElseChain(
         final List<Token>  tokens,
@@ -1214,15 +1214,15 @@ public class BlockStructureRule {
 
     /**
      * C/C++/Java-only whole-chain brace-safety scan (STYLE_C_CPP.md §10 opt-in, per user
-     *  instruction: collapse every branch of an {@code if}/{@code else if}/{@code else} chain
-     *  to braceless only when NONE of them needs to keep its braces -- a single multi-statement
-     *  or otherwise non-qualifying branch anywhere in the chain leaves the *entire* chain
-     *  untouched, byte-for-byte, never a partial collapse. Walks from the chain's first `if`
-     *  (found by walking backward over any preceding {@code else}) forward through every
-     *  {@code else if}/bare {@code else} branch; a branch that is already brace-free is
-     *  trivially fine (nothing to remove) and does not block the scan. Returns {@code false}
-     *  (chain stays fully braced) on any malformed/unbalanced structure, matching this class's
-     *  conservative "don't guess" posture elsewhere.
+     * instruction: collapse every branch of an {@code if}/{@code else if}/{@code else} chain
+     * to braceless only when NONE of them needs to keep its braces -- a single multi-statement
+     * or otherwise non-qualifying branch anywhere in the chain leaves the *entire* chain
+     * untouched, byte-for-byte, never a partial collapse. Walks from the chain's first `if`
+     * (found by walking backward over any preceding {@code else}) forward through every
+     * {@code else if}/bare {@code else} branch; a branch that is already brace-free is
+     * trivially fine (nothing to remove) and does not block the scan. Returns {@code false}
+     * (chain stays fully braced) on any malformed/unbalanced structure, matching this class's
+     * conservative "don't guess" posture elsewhere.
      */
     private boolean chainAllBranchesCollapsible(
         final List<Token> tokens,
@@ -1303,8 +1303,8 @@ public class BlockStructureRule {
 
     /**
      * Skips backward over a run of WHITESPACE/NEWLINE tokens only (comments deliberately NOT
-     *  skipped -- see {@link #findChainStart}); returns the index of the nearest non-gap token,
-     *  or -1 if none remains
+     * skipped -- see {@link #findChainStart}); returns the index of the nearest non-gap token,
+     * or -1 if none remains
      */
     private int skipWhitespaceOnlyBackward(final List<Token> tokens, final int from)
     {
@@ -1320,9 +1320,9 @@ public class BlockStructureRule {
 
     /**
      * Given the index of a `}` that is claimed to close the previous branch of an else-if
-     *  chain, matches it backward to its `{`, then further back through the branch's own
-     *  `( ... )` condition to the `if` keyword that opens it. Returns -1 if {@code closeBraceIdx}
-     *  is not actually a `}`, or the structure is unbalanced/malformed.
+     * chain, matches it backward to its `{`, then further back through the branch's own
+     * `( ... )` condition to the `if` keyword that opens it. Returns -1 if {@code closeBraceIdx}
+     * is not actually a `}`, or the structure is unbalanced/malformed.
      */
     private int closeBraceToOwningIf(final List<Token> tokens, final int closeBraceIdx)
     {
@@ -1361,13 +1361,13 @@ public class BlockStructureRule {
 
     /**
      * For the `if`/`else` keyword at {@code kwIndex} (a member of some else-if chain), finds
-     *  the immediately preceding branch's own `if` keyword, if one exists. Returns -2 if
-     *  {@code kwIndex} is an `if` with no `else` immediately before it (i.e. it has no
-     *  predecessor -- it IS the chain's first branch). Returns -1 on a malformed/unbalanced
-     *  structure, or if a comment sits in a gap this must see past to judge (conservative
-     *  "don't guess past a comment" bail, matching this class's posture elsewhere -- e.g.
-     *  `real_code_regressions_5_inp.cpp`'s `withComment`, a `/* ... *\/` directly between a
-     *  branch's `}` and the following `else`).
+     * the immediately preceding branch's own `if` keyword, if one exists. Returns -2 if
+     * {@code kwIndex} is an `if` with no `else` immediately before it (i.e. it has no
+     * predecessor -- it IS the chain's first branch). Returns -1 on a malformed/unbalanced
+     * structure, or if a comment sits in a gap this must see past to judge (conservative
+     * "don't guess past a comment" bail, matching this class's posture elsewhere -- e.g.
+     * `real_code_regressions_5_inp.cpp`'s `withComment`, a `/* ... *\/` directly between a
+     * branch's `}` and the following `else`).
      */
     private int prevChainBranchIf(final List<Token> tokens, final int kwIndex)
     {
@@ -1415,11 +1415,11 @@ public class BlockStructureRule {
 
     /**
      * Walks backward from {@code anchorIndex} (an `if` or bare `else` token that is some
-     *  member of an else-if chain) to the index of the chain's very first `if`, by repeatedly
-     *  hopping to {@link #prevChainBranchIf}'s result. Returns -1 on any unbalanced structure or
-     *  comment this must see past (see {@link #prevChainBranchIf}'s javadoc) -- notably NOT on
-     *  reaching a branch with no predecessor, which just ends the walk successfully (that branch
-     *  IS the chain start).
+     * member of an else-if chain) to the index of the chain's very first `if`, by repeatedly
+     * hopping to {@link #prevChainBranchIf}'s result. Returns -1 on any unbalanced structure or
+     * comment this must see past (see {@link #prevChainBranchIf}'s javadoc) -- notably NOT on
+     * reaching a branch with no predecessor, which just ends the walk successfully (that branch
+     * IS the chain start).
      */
     private int findChainStart(final List<Token> tokens, final int anchorIndex)
     {
@@ -1614,9 +1614,9 @@ public class BlockStructureRule {
 
     /**
      * True iff the `while` keyword at {@code whileIdx} is the tail of a `do { ... } while
-     *  (cond)` construct -- i.e. the nearest preceding significant token is a `}` whose matching
-     *  `{` is itself immediately preceded (skipping non-significant tokens) by a `do` keyword. See
-     *  the call site's comment (RDD_KEY_151) for why this guard exists.
+     * (cond)` construct -- i.e. the nearest preceding significant token is a `}` whose matching
+     * `{` is itself immediately preceded (skipping non-significant tokens) by a `do` keyword. See
+     * the call site's comment (RDD_KEY_151) for why this guard exists.
      */
     private boolean isDoWhileTailKeyword(final List<Token> tokens, final int whileIdx)
     {
@@ -1705,10 +1705,10 @@ public class BlockStructureRule {
 
     /**
      * Like {@link #skipNonSignificant} but stops AT a comment token instead of skipping past
-     *  it -- used by the chain-collapse safety checks, where a comment sitting between two
-     *  branches (`}` /* ... *\/ else {`) must block collapse of that gap rather than being
-     *  silently skipped over, same "don't guess past a comment" posture as everywhere else in
-     *  this class (see e.g. `real_code_regressions_5_inp.cpp`'s `withComment`).
+     * it -- used by the chain-collapse safety checks, where a comment sitting between two
+     * branches (`}` /* ... *\/ else {`) must block collapse of that gap rather than being
+     * silently skipped over, same "don't guess past a comment" posture as everywhere else in
+     * this class (see e.g. `real_code_regressions_5_inp.cpp`'s `withComment`).
      */
     private int skipWhitespaceOnly(final List<Token> tokens, final int from)
     {
@@ -1967,7 +1967,7 @@ public class BlockStructureRule {
 
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
-     *  line has no leading whitespace (column-0 start)
+     * line has no leading whitespace (column-0 start)
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
@@ -1990,10 +1990,10 @@ public class BlockStructureRule {
 
     /**
      * Column width of a raw (not-yet-converted) leading-whitespace run, expanding each
-     *  {@code '\t'} to the next {@link #indentWidth} tab stop -- duplicated from {@code
-     *  MiscRuleCore.expandedIndentWidth} (this class has no shared ancestor with the `*Curly`
-     *  rule-class hierarchy, same "each rule class matches its own local conventions" duplication
-     *  precedent as {@code JavaSpecificRule.isSingleLineBody}'s own copy).
+     * {@code '\t'} to the next {@link #indentWidth} tab stop -- duplicated from {@code
+     * MiscRuleCore.expandedIndentWidth} (this class has no shared ancestor with the `*Curly`
+     * rule-class hierarchy, same "each rule class matches its own local conventions" duplication
+     * precedent as {@code JavaSpecificRule.isSingleLineBody}'s own copy).
      */
     private int expandedIndentWidth(final String original)
     {
@@ -2007,10 +2007,10 @@ public class BlockStructureRule {
 
     /**
      * True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
-     *  argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break
-     *  across lines if it doesn't fit (zero-arg calls are never broken). Duplicated from {@code
-     *  JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical helper, same duplication
-     *  precedent as {@link #expandedIndentWidth} above.
+     * argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break
+     * across lines if it doesn't fit (zero-arg calls are never broken). Duplicated from {@code
+     * JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical helper, same duplication
+     * precedent as {@link #expandedIndentWidth} above.
      */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
     {
@@ -2030,7 +2030,7 @@ public class BlockStructureRule {
 
     /**
      * Index of the next non-whitespace/non-newline token after {@code from}, or {@code -1} if
-     *  none -- local copy, see {@link #hasBreakableCall}'s own duplication note
+     * none -- local copy, see {@link #hasBreakableCall}'s own duplication note
      */
     private int nextSignificantIndexLocal(final List<Token> tokens, final int from)
     {
@@ -2044,7 +2044,7 @@ public class BlockStructureRule {
 
     /**
      * Index of the `(` at {@code openIdx}'s matching `)`, or {@code -1} if unmatched within
-     *  {@code tokens} -- local copy, see {@link #hasBreakableCall}'s own duplication note
+     * {@code tokens} -- local copy, see {@link #hasBreakableCall}'s own duplication note
      */
     private int matchParenForwardLocal(final List<Token> tokens, final int openIdx)
     {
@@ -2063,21 +2063,21 @@ public class BlockStructureRule {
 
     /**
      * JS/TS-only guard for `tryCollapse`/`collapseBracelessBody`'s single-statement-body
-     *  brace/braceless collapse (STATE_JS_TS.md, root cause #3, "2026-07-30 design/scoping pass"):
-     *  refuses the collapse when the joined one-line {@code candidate} would exceed {@link
-     *  #lineLengthLimit} AND nothing later can rescue it. Reuses the same
-     *  {@link #hasBreakableCall}/raw-width-estimate heuristic already used by {@code
-     *  JavaSpecificRule.isSingleLineBody}/{@code KotlinSpecificRule}'s analogous method/{@code
-     *  GetterSetterRuleCurly.parseOneLinerMember} for the identical underlying problem -- not a
-     *  true two-pass simulation of {@code MiscRuleCurly.enforceCallLineBreaking}'s later wrap
-     *  decision (an earlier attempt at a naive width-only guard, with no {@code hasBreakableCall}
-     *  gate, was reverted: it refused to collapse every braceless if/else with a wrappable-call
-     *  body, breaking 5 fixtures -- see the angular cluster-4 root-cause-#3 writeup in
-     *  STATE_JS_TS.md for the full story). If the body contains at least one breakable call,
-     *  collapsing is still safe even when over-limit: {@code enforceCallLineBreaking} will wrap
-     *  that call's arguments across lines afterward (a braceless consequent can legally span
-     *  multiple physical lines as long as it's still one statement), and both round1 and round2
-     *  predict the same "will wrap" outcome from this same heuristic, so idempotency holds.
+     * brace/braceless collapse (STATE_JS_TS.md, root cause #3, "2026-07-30 design/scoping pass"):
+     * refuses the collapse when the joined one-line {@code candidate} would exceed {@link
+     * #lineLengthLimit} AND nothing later can rescue it. Reuses the same
+     * {@link #hasBreakableCall}/raw-width-estimate heuristic already used by {@code
+     * JavaSpecificRule.isSingleLineBody}/{@code KotlinSpecificRule}'s analogous method/{@code
+     * GetterSetterRuleCurly.parseOneLinerMember} for the identical underlying problem -- not a
+     * true two-pass simulation of {@code MiscRuleCurly.enforceCallLineBreaking}'s later wrap
+     * decision (an earlier attempt at a naive width-only guard, with no {@code hasBreakableCall}
+     * gate, was reverted: it refused to collapse every braceless if/else with a wrappable-call
+     * body, breaking 5 fixtures -- see the angular cluster-4 root-cause-#3 writeup in
+     * STATE_JS_TS.md for the full story). If the body contains at least one breakable call,
+     * collapsing is still safe even when over-limit: {@code enforceCallLineBreaking} will wrap
+     * that call's arguments across lines afterward (a braceless consequent can legally span
+     * multiple physical lines as long as it's still one statement), and both round1 and round2
+     * predict the same "will wrap" outcome from this same heuristic, so idempotency holds.
      *
      * <p>Deliberate implementation-detail deviation from the original scoping-pass wording ("...
      *  and {@code hasBreakableCall} is false over the candidate's body span"): {@code
@@ -2144,8 +2144,8 @@ public class BlockStructureRule {
 
     /**
      * True if an array (`[`) or object (`{`) literal token appears anywhere in
-     *  {@code [from, to]} -- see {@link #refuseUnrescuableCollapse}'s call site for why this gates
-     *  the stricter post-wrap-estimate check off
+     * {@code [from, to]} -- see {@link #refuseUnrescuableCollapse}'s call site for why this gates
+     * the stricter post-wrap-estimate check off
      */
     private boolean containsListLiteral(final List<Token> tokens, final int from, final int to)
     {
@@ -2159,12 +2159,12 @@ public class BlockStructureRule {
 
     /**
      * Upper-bound estimate of how much physical-line width {@code MiscRuleCurly
-     *  .enforceCallLineBreaking} could remove by wrapping every {@link #hasBreakableCall}-rescuable
-     *  call found in {@code [from, to]} -- sums each call's own raw argument-list text width (from
-     *  just after its `(` to just before its matching `)`). Deliberately optimistic (a real wrap
-     *  still leaves the `name(` prefix and indentation on the line, so actual savings are always
-     *  <= this estimate) -- see {@link #refuseUnrescuableCollapse}'s call site for why an
-     *  optimistic-only estimate is the safe direction here.
+     * .enforceCallLineBreaking} could remove by wrapping every {@link #hasBreakableCall}-rescuable
+     * call found in {@code [from, to]} -- sums each call's own raw argument-list text width (from
+     * just after its `(` to just before its matching `)`). Deliberately optimistic (a real wrap
+     * still leaves the `name(` prefix and indentation on the line, so actual savings are always
+     * <= this estimate) -- see {@link #refuseUnrescuableCollapse}'s call site for why an
+     * optimistic-only estimate is the safe direction here.
      */
     private int maxRescueSavings(final List<Token> tokens, final int from, final int to)
     {
@@ -2186,8 +2186,8 @@ public class BlockStructureRule {
 
     /**
      * True iff nothing but whitespace and exactly one NEWLINE sits between tokens at indices
-     *  {@code fromExclusive} and {@code toExclusive} -- i.e. the two lines are adjacent with no
-     *  blank line between them.
+     * {@code fromExclusive} and {@code toExclusive} -- i.e. the two lines are adjacent with no
+     * blank line between them.
      */
     private boolean isSingleNewlineGap(
         final List<Token> tokens,
@@ -2205,8 +2205,8 @@ public class BlockStructureRule {
 
     /**
      * From a named `{` at {@code openIdx}, walks forward past any run of preprocessor directive
-     *  lines sitting directly against the brace (no blank line of their own), returning the index
-     *  of the first token that represents real body content
+     * lines sitting directly against the brace (no blank line of their own), returning the index
+     * of the first token that represents real body content
      */
     private int skipGuardForward(final List<Token> tokens, final int openIdx)
     {
@@ -2225,8 +2225,8 @@ public class BlockStructureRule {
 
     /**
      * From a named `}` at {@code closeIdx}, walks backward past any run of preprocessor
-     *  directive lines sitting directly against the brace (no blank line of their own), returning
-     *  the index of the last token that represents real body content
+     * directive lines sitting directly against the brace (no blank line of their own), returning
+     * the index of the last token that represents real body content
      */
     private int skipGuardBackward(final List<Token> tokens, final int closeIdx)
     {
@@ -2245,7 +2245,7 @@ public class BlockStructureRule {
 
     /**
      * True if the `{` at {@code openIdx} is immediately followed (ignoring gap tokens) by its
-     *  own matching `}`, i.e. an empty body -- {@code { }} or {@code {}}.
+     * own matching `}`, i.e. an empty body -- {@code { }} or {@code {}}.
      */
     private boolean isEmptyBraceBody(final List<Token> tokens, final int openIdx)
     {
@@ -2492,7 +2492,7 @@ public class BlockStructureRule {
 
     /**
      * Finds the index of a COMMENT_LINE token directly after {@code afterIdx} (skipping only
-     *  WHITESPACE), or -1 if the first non-whitespace token is not a COMMENT_LINE
+     * WHITESPACE), or -1 if the first non-whitespace token is not a COMMENT_LINE
      */
     private int findExistingLineComment(final List<Token> tokens, final int afterIdx, final int n)
     {
@@ -2504,12 +2504,12 @@ public class BlockStructureRule {
 
     /**
      * True if a comment's text looks like a stale/wrong closing-comment artifact left over
-     *  from a previous format pass: starts with {@code "// end "} (the closing-comment
-     *  convention used when a block that used to warrant one no longer does) followed by only
-     *  word characters (letters, digits, underscore) and spaces, with no punctuation or
-     *  symbols. An ordinary short comment that happens to be a single alphanumeric word or
-     *  phrase (e.g. `// getter`, `// validator`) does not start with {@code "end "} and so is
-     *  never mistaken for a stale closing-comment artifact.
+     * from a previous format pass: starts with {@code "// end "} (the closing-comment
+     * convention used when a block that used to warrant one no longer does) followed by only
+     * word characters (letters, digits, underscore) and spaces, with no punctuation or
+     * symbols. An ordinary short comment that happens to be a single alphanumeric word or
+     * phrase (e.g. `// getter`, `// validator`) does not start with {@code "end "} and so is
+     * never mistaken for a stale closing-comment artifact.
      */
     private boolean isLikelyClosingComment(final String text)
     {
@@ -2912,9 +2912,9 @@ public class BlockStructureRule {
 
     /**
      * If the `=` at {@code eqIdx} is immediately preceded (walking back past an optional generic
-     *  parameter clause) by `type IDENTIFIER`, returns that identifier; otherwise null. Depth-aware
-     *  the same way {@link #classifyBrace}'s sibling helpers are, so it doesn't misfire crossing a
-     *  `;`/`{`/`}` statement boundary.
+     * parameter clause) by `type IDENTIFIER`, returns that identifier; otherwise null. Depth-aware
+     * the same way {@link #classifyBrace}'s sibling helpers are, so it doesn't misfire crossing a
+     * `;`/`{`/`}` statement boundary.
      */
     private String typeAliasNameBeforeEquals(final List<Token> tokens, final int eqIdx)
     {
@@ -2959,9 +2959,9 @@ public class BlockStructureRule {
 
     /**
      * Index to insert the comment at: the `}`, or a trailing `;` right after it, if present --
-     *  also skipping past a single typedef-alias identifier between them (C's
-     *  `typedef enum/struct NAME { ... } ALIAS;`), so the alias/`;` themselves aren't split from
-     *  the body they close.
+     * also skipping past a single typedef-alias identifier between them (C's
+     * `typedef enum/struct NAME { ... } ALIAS;`), so the alias/`;` themselves aren't split from
+     * the body they close.
      */
     private int commentInsertionIndex(final List<Token> tokens, final int closeIdx)
     {

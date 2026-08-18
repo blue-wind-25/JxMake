@@ -101,7 +101,7 @@ public final class CssSpecificRule {
 
     /**
      * Malformed CSS that the parser cannot make sense of -- caught generically by {@code Main}'s
-     *  per-file error handling, same as any other rule class's runtime failure
+     * per-file error handling, same as any other rule class's runtime failure
      */
     public static final class CssParseException extends RuntimeException {
 
@@ -134,7 +134,7 @@ public final class CssSpecificRule {
 
     /**
      * A selector or at-rule header plus its block body -- covers plain rules, `@media`/
-     *  `@supports`/`@keyframes`, and native-nesting `&` blocks uniformly
+     * `@supports`/`@keyframes`, and native-nesting `&` blocks uniformly
      */
     private static final class Rule {
 
@@ -181,8 +181,8 @@ public final class CssSpecificRule {
 
     /**
      * Consumes whitespace/newlines/comments up to the next significant token, recording comment
-     *  text (in order) and whether a blank line occurred anywhere in the span -- a group-break
-     *  signal per §3.1. CSS has no `//` line comments, unlike JSON5's trivia scan.
+     * text (in order) and whether a blank line occurred anywhere in the span -- a group-break
+     * signal per §3.1. CSS has no `//` line comments, unlike JSON5's trivia scan.
      */
     private void collectTrivia(
         final Cursor       c,

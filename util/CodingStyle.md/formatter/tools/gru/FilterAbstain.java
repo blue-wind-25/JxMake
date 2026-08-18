@@ -21,18 +21,18 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 /**
  * Filters an {@code extract_comments.py} corpus file down to the lines the real rule-based
- *  {@link CommentClassifier} ABSTAINs on at {@code targetWordIndex=0} -- the leading-token
- *  (capitalize-decision) call site {@link com.jxmake.formatter.rules.MiscRuleCore#classifyComment}
- *  uses, and the only shape of line the GRU stage ever actually reaches in production. Complements
- *  {@link CommentAbstainTally}, which only tallies counts: this writes the ABSTAIN subset back out
- *  in the same {@code <lang>\t<escaped-comment-text>} format, so it can feed straight into
- *  {@link GruRealCorpusTally} (or manual hand-labeling) without wasting effort on lines the rules
- *  already resolve and the GRU never sees. Useful before running a held-out
- *  out-of-distribution GRU check against a real, unrelated codebase -- a raw
- *  {@code extract_comments.py} dump is mostly ordinary non-ambiguous prose/code that the rule-based
- *  classifier already decides on its own, so sampling from it directly under-exercises the GRU
- *  stage the same way a random sample from {@code sample_default.txt} would (see
- *  {@code STATE_AI.md}'s 2026-08-12 out-of-distribution investigation entry).
+ * {@link CommentClassifier} ABSTAINs on at {@code targetWordIndex=0} -- the leading-token
+ * (capitalize-decision) call site {@link com.jxmake.formatter.rules.MiscRuleCore#classifyComment}
+ * uses, and the only shape of line the GRU stage ever actually reaches in production. Complements
+ * {@link CommentAbstainTally}, which only tallies counts: this writes the ABSTAIN subset back out
+ * in the same {@code <lang>\t<escaped-comment-text>} format, so it can feed straight into
+ * {@link GruRealCorpusTally} (or manual hand-labeling) without wasting effort on lines the rules
+ * already resolve and the GRU never sees. Useful before running a held-out
+ * out-of-distribution GRU check against a real, unrelated codebase -- a raw
+ * {@code extract_comments.py} dump is mostly ordinary non-ambiguous prose/code that the rule-based
+ * classifier already decides on its own, so sampling from it directly under-exercises the GRU
+ * stage the same way a random sample from {@code sample_default.txt} would (see
+ * {@code STATE_AI.md}'s 2026-08-12 out-of-distribution investigation entry).
  */
 public final class FilterAbstain {
 

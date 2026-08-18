@@ -10,9 +10,9 @@ import com.jxmake.formatter.classifier.gru.GruClassifier;
 
 /**
  * Standalone self-check for {@link GruClassifier#softmax} and {@link GruClassifier#decide},
- *  hand-feeding fake logits/probabilities -- no trained weights or forward pass needed, since
- *  both are pure math/logic. Same zero-dependency plain-{@code main()} pattern as the other
- *  {@code Gru*SelfTest.java} files. Non-shipped. Run via: {@code java GruSoftmaxSelfTest}.
+ * hand-feeding fake logits/probabilities -- no trained weights or forward pass needed, since
+ * both are pure math/logic. Same zero-dependency plain-{@code main()} pattern as the other
+ * {@code Gru*SelfTest.java} files. Non-shipped. Run via: {@code java GruSoftmaxSelfTest}.
  */
 public final class GruSoftmaxSelfTest {
 

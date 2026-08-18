@@ -19,13 +19,13 @@ import com.jxmake.formatter.classifier.CommentDecision;
 
 /**
  * Runtime and shared forward/backward math for the Step 3 comment-classifier abstain-case
- *  resolution, per STATE_NEXT_AI.md's "GRU implementation design" -- a purpose-trained
- *  ~500k-parameter bidirectional GRU, the only feasible Step 3 approach (small instruction-tuned
- *  LLMs were tested and confirmed NOT FEASIBLE at this task). Loads a trained {@link GruWeights}
- *  file at startup; never contains literal weight arrays in source, unlike
- *  {@link com.jxmake.formatter.classifier.CommentClassifierWeights}'s baked-in linear-model
- *  constants -- a neural net's weight count isn't hand-editable the same way, and retraining
- *  shouldn't require a JAR rebuild.
+ * resolution, per STATE_NEXT_AI.md's "GRU implementation design" -- a purpose-trained
+ * ~500k-parameter bidirectional GRU, the only feasible Step 3 approach (small instruction-tuned
+ * LLMs were tested and confirmed NOT FEASIBLE at this task). Loads a trained {@link GruWeights}
+ * file at startup; never contains literal weight arrays in source, unlike
+ * {@link com.jxmake.formatter.classifier.CommentClassifierWeights}'s baked-in linear-model
+ * constants -- a neural net's weight count isn't hand-editable the same way, and retraining
+ * shouldn't require a JAR rebuild.
  *
  *  <p>{@link #forward} and {@link #backward} are {@code public static} (not just used internally
  *  by {@link #classify}) so {@code tools/gru/GruTrainer.java} -- outside {@code src/}, a different
@@ -37,25 +37,25 @@ public final class GruClassifier {
 
     /**
      * Number of OOV hash buckets (RDD_EXT_13): FNV-1a (32-bit) mod this value. Deterministic,
-     *  no external dependency, trivially identical to reimplement on the training and runtime
-     *  sides. Public so {@code tools/gru/GruTrainer.java} (outside {@code src/}, a different
-     *  package) can call the exact same {@link #tokenize}/{@link #hashBucket} the runtime uses --
-     *  RDD_EXT_13 requires these stay bit-for-bit identical between training and runtime.
+     * no external dependency, trivially identical to reimplement on the training and runtime
+     * sides. Public so {@code tools/gru/GruTrainer.java} (outside {@code src/}, a different
+     * package) can call the exact same {@link #tokenize}/{@link #hashBucket} the runtime uses --
+     * RDD_EXT_13 requires these stay bit-for-bit identical between training and runtime.
      */
     public static final int HASH_BUCKETS = 1024;
 
     /**
      * Per-comment token cap (truncate/pad), per the finalized architecture. Public for the same
-     *  cross-package reason as {@link #HASH_BUCKETS} -- the trainer must cap sequences the same
-     *  way the runtime does.
+     * cross-package reason as {@link #HASH_BUCKETS} -- the trainer must cap sequences the same
+     * way the runtime does.
      */
     public static final int SEQUENCE_CAP = 64;
 
     /**
      * Fixed softmax output class order this codebase uses -- an encoding convention (like
-     *  {@link #HASH_BUCKETS}'s hash choice), not one of STATE_NEXT_AI.md's open items. Whatever
-     *  training pipeline produces the weights file must emit its 3-way softmax output in this
-     *  same order, since {@link #decide} maps output index -> class positionally.
+     * {@link #HASH_BUCKETS}'s hash choice), not one of STATE_NEXT_AI.md's open items. Whatever
+     * training pipeline produces the weights file must emit its 3-way softmax output in this
+     * same order, since {@link #decide} maps output index -> class positionally.
      */
     public static final CommentDecision[] CLASS_ORDER = { CommentDecision.YES, CommentDecision.NO, CommentDecision.ABSTAIN };
 
@@ -68,10 +68,10 @@ public final class GruClassifier {
 
     /**
      * Loads a trained weights file and returns a ready-to-use classifier. Per the fail-safe
-     *  posture documented in STATE_NEXT_AI.md, a missing or unreadable weights file must make
-     *  the caller behave as {@link CommentDecision#ABSTAIN} for every comment -- callers should
-     *  catch {@link IOException} here and fall back accordingly rather than aborting formatting;
-     *  this method itself only reports the failure, it doesn't apply the fallback.
+     * posture documented in STATE_NEXT_AI.md, a missing or unreadable weights file must make
+     * the caller behave as {@link CommentDecision#ABSTAIN} for every comment -- callers should
+     * catch {@link IOException} here and fall back accordingly rather than aborting formatting;
+     * this method itself only reports the failure, it doesn't apply the fallback.
      */
     public static GruClassifier load(Path weightsFile) throws IOException
     {
@@ -80,10 +80,10 @@ public final class GruClassifier {
 
     /**
      * Classifies a single comment's ambiguous target word in context, returning the same
-     *  {@code YES}/{@code NO}/{@code ABSTAIN} classes as the existing rule-based classifier
-     *  (RDD_EXT_10 -- no more granular intermediate class). Abstains when the top softmax class
-     *  doesn't clear {@link GruWeights#abstainThreshold} (RDD_EXT_11), same posture as the
-     *  missing-weights-file/untrained-weights fail-safe.
+     * {@code YES}/{@code NO}/{@code ABSTAIN} classes as the existing rule-based classifier
+     * (RDD_EXT_10 -- no more granular intermediate class). Abstains when the top softmax class
+     * doesn't clear {@link GruWeights#abstainThreshold} (RDD_EXT_11), same posture as the
+     * missing-weights-file/untrained-weights fail-safe.
      */
     public CommentDecision classify(String commentText, int targetWordIndex)
     {
@@ -101,12 +101,12 @@ public final class GruClassifier {
 
     /**
      * Returns the raw softmax class-probability distribution for a comment's target word, or
-     *  {@code null} if classification cannot proceed at all (untrained weights, or an
-     *  out-of-range target index) -- the same fail-safe conditions {@link #classify} treats as an
-     *  unconditional ABSTAIN before even reaching {@link #decide}. Exposed so eval/tuning tooling
-     *  (e.g. a --threshold sweep) can try multiple {@code abstainThreshold} values against the
-     *  same forward pass without recomputing it or retraining -- {@link #classify} itself still
-     *  only ever uses {@link GruWeights#abstainThreshold}.
+     * {@code null} if classification cannot proceed at all (untrained weights, or an
+     * out-of-range target index) -- the same fail-safe conditions {@link #classify} treats as an
+     * unconditional ABSTAIN before even reaching {@link #decide}. Exposed so eval/tuning tooling
+     * (e.g. a --threshold sweep) can try multiple {@code abstainThreshold} values against the
+     * same forward pass without recomputing it or retraining -- {@link #classify} itself still
+     * only ever uses {@link GruWeights#abstainThreshold}.
      */
     public double[] probabilities(String commentText, int targetWordIndex)
     {
@@ -122,10 +122,10 @@ public final class GruClassifier {
 
     /**
      * Word-level tokenization per RDD_EXT_12: trailing/attached punctuation splits into its own
-     *  token ({@code matrix.} -> {@code matrix} + {@code .}), consistent with the existing
-     *  rule-based classifier's own dot-count reasoning. camelCase/snake_case identifiers stay
-     *  whole -- not sub-tokenized, since the classification signal comes from surrounding context
-     *  words, not from decomposing the identifier itself.
+     * token ({@code matrix.} -> {@code matrix} + {@code .}), consistent with the existing
+     * rule-based classifier's own dot-count reasoning. camelCase/snake_case identifiers stay
+     * whole -- not sub-tokenized, since the classification signal comes from surrounding context
+     * words, not from decomposing the identifier itself.
      */
     public static List<String> tokenize(String commentText)
     {
@@ -154,9 +154,9 @@ public final class GruClassifier {
 
     /**
      * Numerically-stable softmax: converts raw class scores (logits) into a probability
-     *  distribution that sums to 1. Subtracts the max logit before exponentiating to avoid
-     *  overflow -- this doesn't change the result ({@code softmax(x) == softmax(x - c)} for any
-     *  constant {@code c}), only its numerical stability for large logit magnitudes.
+     * distribution that sums to 1. Subtracts the max logit before exponentiating to avoid
+     * overflow -- this doesn't change the result ({@code softmax(x) == softmax(x - c)} for any
+     * constant {@code c}), only its numerical stability for large logit magnitudes.
      */
     public static double[] softmax(double[] logits)
     {
@@ -178,10 +178,10 @@ public final class GruClassifier {
 
     /**
      * Maps a softmax probability distribution to a {@link CommentDecision} per RDD_EXT_11: the
-     *  top class must clear {@code abstainThreshold} (not just be the argmax) to be returned as
-     *  that class; otherwise this abstains, same posture as the missing-weights-file fail-safe.
-     *  {@code probabilities[i]} corresponds to {@link #CLASS_ORDER}{@code [i]} -- callers must
-     *  pass a distribution produced in that same class order.
+     * top class must clear {@code abstainThreshold} (not just be the argmax) to be returned as
+     * that class; otherwise this abstains, same posture as the missing-weights-file fail-safe.
+     * {@code probabilities[i]} corresponds to {@link #CLASS_ORDER}{@code [i]} -- callers must
+     * pass a distribution produced in that same class order.
      */
     public static CommentDecision decide(double[] probabilities, double abstainThreshold)
     {
@@ -204,7 +204,7 @@ public final class GruClassifier {
 
     /**
      * FNV-1a (32-bit) hash mod {@link #HASH_BUCKETS}, per RDD_EXT_13. Must stay bit-for-bit
-     *  identical between the training side and this runtime side.
+     * identical between the training side and this runtime side.
      */
     public static int hashBucket(String token)
     {
@@ -222,12 +222,12 @@ public final class GruClassifier {
 
     /**
      * Every intermediate activation the forward pass produces, kept around so {@link #backward}
-     *  can backpropagate through it without recomputing. Plain data holder (flat public fields,
-     *  no getters), consistent with {@link GruWeights}'s own style. Only populated across the
-     *  ranges actually computed: forward-direction state for token indices {@code [0, targetIndex]},
-     *  backward-direction state for {@code [targetIndex, tokens.size())} -- per the recurrence's
-     *  causality, hidden state at any other index can't affect the target position's output, so
-     *  computing (and later backpropagating through) it would be wasted work.
+     * can backpropagate through it without recomputing. Plain data holder (flat public fields,
+     * no getters), consistent with {@link GruWeights}'s own style. Only populated across the
+     * ranges actually computed: forward-direction state for token indices {@code [0, targetIndex]},
+     * backward-direction state for {@code [targetIndex, tokens.size())} -- per the recurrence's
+     * causality, hidden state at any other index can't affect the target position's output, so
+     * computing (and later backpropagating through) it would be wasted work.
      */
     public static final class ForwardCache {
 
@@ -287,8 +287,8 @@ public final class GruClassifier {
 
     /**
      * Runs the bidirectional-GRU + dense-head forward pass for one comment's tokens, targeting
-     *  {@code targetIndex} (per the finalized architecture: classification indexes into the
-     *  target word's own biGRU output, concat forward+backward, no marker token)
+     * {@code targetIndex} (per the finalized architecture: classification indexes into the
+     * target word's own biGRU output, concat forward+backward, no marker token)
      */
     public static ForwardCache forward(
         GruWeights   weights,
@@ -392,10 +392,10 @@ public final class GruClassifier {
 
     /**
      * Accumulated gradients, one field per {@link GruWeights} trained-weight field, plus a sparse
-     *  per-row embedding gradient (most embedding rows are untouched by any single example, so a
-     *  map avoids allocating a full-size dense gradient table per example). Mutable accumulator,
-     *  built fresh per example by {@link #backward} -- callers (the trainer) apply it to their own
-     *  running weights via their own optimizer (Adam), then discard it.
+     * per-row embedding gradient (most embedding rows are untouched by any single example, so a
+     * map avoids allocating a full-size dense gradient table per example). Mutable accumulator,
+     * built fresh per example by {@link #backward} -- callers (the trainer) apply it to their own
+     * running weights via their own optimizer (Adam), then discard it.
      */
     public static final class Gradients {
 
@@ -432,9 +432,9 @@ public final class GruClassifier {
 
     /**
      * Backpropagates the cross-entropy loss for {@code trueClassIndex} (an index into
-     *  {@link #CLASS_ORDER}) through {@code cache}, returning per-parameter gradients. Standard
-     *  GRU backprop-through-time equations, run only across the ranges {@link #forward} actually
-     *  computed (see {@link ForwardCache}'s javadoc on why that's sufficient).
+     * {@link #CLASS_ORDER}) through {@code cache}, returning per-parameter gradients. Standard
+     * GRU backprop-through-time equations, run only across the ranges {@link #forward} actually
+     * computed (see {@link ForwardCache}'s javadoc on why that's sufficient).
      */
     public static Gradients backward(GruWeights weights, ForwardCache cache, int trueClassIndex)
     {
@@ -574,13 +574,13 @@ public final class GruClassifier {
 
     /**
      * Fused GRU gate computation: {@code out[i] = activation( dot(W[i], x) + dot(U[i], hPrev) +
-     *  b[i] )} for every {@code i}, {@code activation} = sigmoid when {@code useSigmoid}, tanh
-     *  otherwise. Replaces the previous {@code matVecInto}+{@code matVecInto}+{@code addVecInto}+
-     *  {@code sigmoidVec}/{@code tanhVec} four-call chain with a single flat, straight-line,
-     *  non-aliased pass per output row (no intermediate {@code wx}/{@code uh}/pre-activation
-     *  arrays) -- same per-element operation order as the code it replaces (W-row dot product,
-     *  then U-row dot product, then +bias, then activation), so results are bit-identical, not a
-     *  reassociation. {@code out} must not alias {@code x} or {@code hPrev}.
+     * b[i] )} for every {@code i}, {@code activation} = sigmoid when {@code useSigmoid}, tanh
+     * otherwise. Replaces the previous {@code matVecInto}+{@code matVecInto}+{@code addVecInto}+
+     * {@code sigmoidVec}/{@code tanhVec} four-call chain with a single flat, straight-line,
+     * non-aliased pass per output row (no intermediate {@code wx}/{@code uh}/pre-activation
+     * arrays) -- same per-element operation order as the code it replaces (W-row dot product,
+     * then U-row dot product, then +bias, then activation), so results are bit-identical, not a
+     * reassociation. {@code out} must not alias {@code x} or {@code hPrev}.
      */
     private static void gateInto(
         double[][] w,
@@ -606,7 +606,7 @@ public final class GruClassifier {
 
     /**
      * {@code W}-transpose times {@code v}: {@code result[j] = sum_i W[i][j] * v[i]}, where
-     *  {@code W} is {@code v.length} rows by {@code resultLength} columns.
+     * {@code W} is {@code v.length} rows by {@code resultLength} columns.
      */
     private static double[] matTVec(double[][] w, double[] v, int resultLength)
     {

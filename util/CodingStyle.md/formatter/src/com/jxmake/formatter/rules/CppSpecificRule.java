@@ -45,16 +45,16 @@ public class CppSpecificRule {
 
     /**
      * One indentation level, used by {@link #enforceRequiresClausePlacement} when wrapping a
-     *  trailing `requires` clause to its own line -- built from the configured `indent-size`
-     *  (see the constructor), not a hardcoded literal, same bug class as
-     *  `SwitchRule.deriveUnit`'s own former fallback.
+     * trailing `requires` clause to its own line -- built from the configured `indent-size`
+     * (see the constructor), not a hardcoded literal, same bug class as
+     * `SwitchRule.deriveUnit`'s own former fallback.
      */
     private final String indentUnit;
 
     /**
      * Shared evaluator for {@link #enforceAttributeAndSpliceBracketPadding}'s tight/loose
-     *  decision -- {@code isLoose} already works unmodified on `[[ ]]`/`[: :]` interior content
-     *  since it only looks for nested PUNCT `(`/`[` tokens, and a call's own `(` is exactly that
+     * decision -- {@code isLoose} already works unmodified on `[[ ]]`/`[: :]` interior content
+     * since it only looks for nested PUNCT `(`/`[` tokens, and a call's own `(` is exactly that
      */
     private static final ComplexityPaddingEvaluator ATTRIBUTE_COMPLEXITY_EVALUATOR = new ComplexityPaddingEvaluator();
 
@@ -148,7 +148,7 @@ public class CppSpecificRule {
 
     /**
      * True iff the token immediately before {@code openIdx} is an IDENTIFIER not itself preceded
-     *  by `new` -- the candidate-function-name signal shared by both rewrite directions
+     * by `new` -- the candidate-function-name signal shared by both rewrite directions
      */
     private boolean isCandidateSignatureName(final List<Token> tokens, final int openIdx)
     {
@@ -173,7 +173,7 @@ public class CppSpecificRule {
 
     /**
      * True iff {@code closeIdx} (a `)`) is directly followed by `{` -- the function-definition
-     *  signal, never true for a call
+     * signal, never true for a call
      */
     private boolean isFollowedByFunctionBody(final List<Token> tokens, final int closeIdx)
     {
@@ -184,13 +184,13 @@ public class CppSpecificRule {
 
     /**
      * True iff {@code closeIdx} (a `)`) is directly followed by another `(` -- never true for a
-     *  real C++ function declarator's empty parameter list (a bare `foo(void)` is followed by
-     *  `;`, `{`, a trailing-const/noexcept/override specifier, or a trailing-return-type `->`,
-     *  never by another paren group). Concept-emulation-macro conventions like range-v3's
-     *  `CPP_ret(void)(requires ...)` (see `detail/prologue.hpp`) reuse this exact
-     *  `IDENTIFIER(void)` shape as a macro invocation whose `void` argument is a real,
-     *  meaningful macro parameter (the wrapped return type placeholder) -- not an empty
-     *  parameter list -- so it must never be silently rewritten away here.
+     * real C++ function declarator's empty parameter list (a bare `foo(void)` is followed by
+     * `;`, `{`, a trailing-const/noexcept/override specifier, or a trailing-return-type `->`,
+     * never by another paren group). Concept-emulation-macro conventions like range-v3's
+     * `CPP_ret(void)(requires ...)` (see `detail/prologue.hpp`) reuse this exact
+     * `IDENTIFIER(void)` shape as a macro invocation whose `void` argument is a real,
+     * meaningful macro parameter (the wrapped return type placeholder) -- not an empty
+     * parameter list -- so it must never be silently rewritten away here.
      */
     private boolean isFollowedByOpenParen(final List<Token> tokens, final int closeIdx)
     {
@@ -241,8 +241,8 @@ public class CppSpecificRule {
 
     /**
      * True iff a {@code PREPROCESSOR} directive token sits anywhere in
-     *  {@code (fromExclusive, toExclusive)} -- see
-     *  {@link #enforceRequiresClausePlacement}'s preprocessor-in-clause check
+     * {@code (fromExclusive, toExclusive)} -- see
+     * {@link #enforceRequiresClausePlacement}'s preprocessor-in-clause check
      */
     private boolean hasPreprocessorBetween(
         final List<Token> tokens,
@@ -371,10 +371,10 @@ public class CppSpecificRule {
 
     /**
      * Resolves the close-paren of a candidate function definition, walking backward past any
-     *  constructor member-initializer list (`: init(val), ...`) to find the function's own `)`.
-     *  Returns {@code candidate} itself when no initializer-list colon is found (normal case),
-     *  or when a `{`/`}` scope boundary is crossed before finding one (stops at the boundary to
-     *  avoid following `:` from a different function's initializer list).
+     * constructor member-initializer list (`: init(val), ...`) to find the function's own `)`.
+     * Returns {@code candidate} itself when no initializer-list colon is found (normal case),
+     * or when a `{`/`}` scope boundary is crossed before finding one (stops at the boundary to
+     * avoid following `:` from a different function's initializer list).
      */
     private int resolveToFunctionCloseParen(final List<Token> tokens, final int candidate)
     {
@@ -404,7 +404,7 @@ public class CppSpecificRule {
 
     /**
      * True iff no {@code NEWLINE} token appears between {@code braceIdx} and {@code closeBraceIdx}
-     *  inclusive -- the whole `{ ... }` span is one physical line.
+     * inclusive -- the whole `{ ... }` span is one physical line.
      */
     private boolean isSingleLineBody(
         final List<Token> tokens,
@@ -421,9 +421,9 @@ public class CppSpecificRule {
 
     /**
      * Scans backward from {@code fromIdx} through a trailing return type expression, tracking
-     *  angle-bracket and paren depth, and returns the function's close paren that immediately
-     *  precedes {@code ->} (skipping any post-paren qualifiers between {@code )} and
-     *  {@code ->}), or -1 if no {@code ->} is found at depth 0 before a scope boundary
+     * angle-bracket and paren depth, and returns the function's close paren that immediately
+     * precedes {@code ->} (skipping any post-paren qualifiers between {@code )} and
+     * {@code ->}), or -1 if no {@code ->} is found at depth 0 before a scope boundary
      */
     private int findCloseParenBeforeTrailingReturnType(final List<Token> tokens, final int fromIdx)
     {
@@ -470,9 +470,9 @@ public class CppSpecificRule {
 
     /**
      * Scans backward from {@code fromIdx} through the expression of a trailing {@code requires}
-     *  clause and returns the function's close paren that immediately precedes the {@code requires}
-     *  keyword, or -1 if no such pattern is found. Handles angle-bracket and paren depth to avoid
-     *  mis-identifying a `)` inside the clause as the function's own close paren.
+     * clause and returns the function's close paren that immediately precedes the {@code requires}
+     * keyword, or -1 if no such pattern is found. Handles angle-bracket and paren depth to avoid
+     * mis-identifying a `)` inside the clause as the function's own close paren.
      */
     private int findCloseParenBeforeRequiresClause(final List<Token> tokens, final int fromIdx)
     {
@@ -517,7 +517,7 @@ public class CppSpecificRule {
 
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
-     *  line has no leading whitespace (column-0 start)
+     * line has no leading whitespace (column-0 start)
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {
@@ -629,8 +629,8 @@ public class CppSpecificRule {
 
     /**
      * Indices of every {@code ANGLE_BRACKET_OPEN}/{@code _CLOSE} token that is part of a
-     *  matched pair whose span contains at least one other such pair -- the set of "needs
-     *  padding" occurrences for {@link #enforceTemplateAngleBracketSpacing}
+     * matched pair whose span contains at least one other such pair -- the set of "needs
+     * padding" occurrences for {@link #enforceTemplateAngleBracketSpacing}
      */
     private Set<Integer> nestedAnglePairIndices(final List<Token> tokens)
     {
@@ -1253,9 +1253,9 @@ public class CppSpecificRule {
 
     /**
      * Every {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token in {@code (fromExclusive,
-     *  toExclusive)}, in source order -- used by {@link #enforceContractClausePlacement} to pull
-     *  comments sitting between a signature/clause and the next clause out of the span it's about
-     *  to overwrite, so they can be re-inserted rather than silently dropped
+     * toExclusive)}, in source order -- used by {@link #enforceContractClausePlacement} to pull
+     * comments sitting between a signature/clause and the next clause out of the span it's about
+     * to overwrite, so they can be re-inserted rather than silently dropped
      */
     private List<Token> collectComments(
         final List<Token> tokens,
@@ -1289,11 +1289,11 @@ public class CppSpecificRule {
 
     /**
      * Re-spaces a contract clause's parenthesized content as a plain expression -- single space
-     *  around every significant token pair except tight-binding to `(`/`)`/`,` -- per
-     *  {@link #enforceContractClausePlacement}'s doc comment. For {@code isPost}, a top-level `:`
-     *  (paren-depth 0 within the range) splits the result-binding identifier from the expression,
-     *  rendered tight-before/space-after (`r: expr`); absent a top-level `:`, falls back to
-     *  spacing the whole range as one expression.
+     * around every significant token pair except tight-binding to `(`/`)`/`,` -- per
+     * {@link #enforceContractClausePlacement}'s doc comment. For {@code isPost}, a top-level `:`
+     * (paren-depth 0 within the range) splits the result-binding identifier from the expression,
+     * rendered tight-before/space-after (`r: expr`); absent a top-level `:`, falls back to
+     * spacing the whole range as one expression.
      */
     private String renderContractExpression(
         final List<Token> tokens,
@@ -1330,8 +1330,8 @@ public class CppSpecificRule {
 
     /**
      * Single space between every pair of significant tokens in {@code [fromInclusive,
-     *  toInclusive]}, except no space after `(` and no space before `)`/`,`/`;` -- a minimal
-     *  expression pretty-printer for {@link #renderContractExpression}
+     * toInclusive]}, except no space after `(` and no space before `)`/`,`/`;` -- a minimal
+     * expression pretty-printer for {@link #renderContractExpression}
      */
     private String spaceExpressionTokens(
         final List<Token> tokens,
@@ -1367,8 +1367,8 @@ public class CppSpecificRule {
 
     /**
      * The first `{`/`;` reached scanning forward from {@code requiresIdx}, or -1 if neither is
-     *  found -- the trailing clause's own end (exclusive), per
-     *  {@link #enforceRequiresClausePlacement}'s doc comment
+     * found -- the trailing clause's own end (exclusive), per
+     * {@link #enforceRequiresClausePlacement}'s doc comment
      */
     private int findRequiresClauseEnd(final List<Token> tokens, final int requiresIdx)
     {
@@ -1382,7 +1382,7 @@ public class CppSpecificRule {
 
     /**
      * The index of the first significant token on the physical line containing {@code idx} --
-     *  the line-collapsing analog of {@link #lineIndent}
+     * the line-collapsing analog of {@link #lineIndent}
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
@@ -1400,8 +1400,8 @@ public class CppSpecificRule {
 
     /**
      * Renders {@code tokens[fromInclusive, toInclusive]} verbatim except every whitespace/newline
-     *  run collapses to exactly one space -- used to measure a would-be single-line rendering
-     *  against {@link #lineLengthLimit} without actually committing to it
+     * run collapses to exactly one space -- used to measure a would-be single-line rendering
+     * against {@link #lineLengthLimit} without actually committing to it
      */
     private String collapseToOneLine(
         final List<Token> tokens,
@@ -1446,7 +1446,7 @@ public class CppSpecificRule {
     }
     /**
      * Helper for {@link #collapseToOneLine}: finds the next non-WHITESPACE/NEWLINE token at or
-     *  after {@code fromExclusive + 1}, up to {@code toInclusive}, or {@code null} if none
+     * after {@code fromExclusive + 1}, up to {@code toInclusive}, or {@code null} if none
      */
     private Token nextSignificantForCollapse(
         final List<Token> tokens,
@@ -1547,7 +1547,7 @@ public class CppSpecificRule {
 
     /**
      * Detected zone boundaries for {@link #enforceHeaderFileStructure}, or {@code null} from the
-     *  detector if the token list doesn't match the expected shape
+     * detector if the token list doesn't match the expected shape
      */
     private static final class HeaderZones {
 
@@ -1662,7 +1662,7 @@ public class CppSpecificRule {
 
     /**
      * The directive keyword of a {@code PREPROCESSOR} token's text (e.g. `"ifndef"`, `"endif"`,
-     *  `"pragma"`), or `""` if the text doesn't start with `#`.
+     * `"pragma"`), or `""` if the text doesn't start with `#`.
      */
     private String directiveWord(final String text)
     {
@@ -1683,8 +1683,8 @@ public class CppSpecificRule {
 
     /**
      * The macro name of an `#ifndef NAME` / `#define NAME` directive's text, requiring nothing
-     *  else (e.g. a trailing comment) follow it on the line -- {@code null} if the shape doesn't
-     *  match exactly.
+     * else (e.g. a trailing comment) follow it on the line -- {@code null} if the shape doesn't
+     * match exactly.
      */
     private String extractDirectiveName(final String text, final String expectedDirective)
     {
@@ -1768,7 +1768,7 @@ public class CppSpecificRule {
 
     /**
      * True iff {@code t} is a C++ post-paren qualifier keyword that can appear between {@code )}
-     *  and {@code {}} in a function definition (const, volatile, noexcept, override, final)
+     * and {@code {}} in a function definition (const, volatile, noexcept, override, final)
      */
     private boolean isDefinitionQualifier(final Token t)
     {
@@ -1785,15 +1785,15 @@ public class CppSpecificRule {
 
     /**
      * Matches a function-like `#define NAME(...)` -- never realigned, since the name/value
-     *  relationship there isn't a simple name-column/value-column pair.
+     * relationship there isn't a simple name-column/value-column pair.
      */
     private static final Pattern FUNC_DEFINE = Pattern.compile("^#define\\s+[A-Za-z_]\\w*\\(");
 
     /**
      * Matches a scalar `#define NAME VALUE` (or `NAME VALUE // comment`) -- group 1 is the
-     *  name, group 2 is the value onward (untouched by realignment, only the gap before it
-     *  is rewritten). A `#define` with no value at all (e.g. a header guard) does not match
-     *  and is left alone.
+     * name, group 2 is the value onward (untouched by realignment, only the gap before it
+     * is rewritten). A `#define` with no value at all (e.g. a header guard) does not match
+     * and is left alone.
      */
     private static final Pattern VALUE_DEFINE = Pattern.compile(
         "^#define\\s+([A-Za-z_]\\w*)\\s+(\\S.*)$"
@@ -1877,8 +1877,8 @@ public class CppSpecificRule {
 
     /**
      * True iff, scanning from just after {@code prevIdx} to just before {@code curIdx}, the
-     *  only tokens present are whitespace and exactly one newline -- i.e. the two `#define`
-     *  tokens sit on immediately consecutive lines with no blank line between them.
+     * only tokens present are whitespace and exactly one newline -- i.e. the two `#define`
+     * tokens sit on immediately consecutive lines with no blank line between them.
      */
     private boolean isAdjacentDefineLine(
         final List<Token> tokens,

@@ -95,8 +95,8 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
 
     /**
      * {@link Member#pureSpecifier} marker distinguishing a §8 property-accessor member (this
-     *  field is otherwise unused/null for Kotlin, so it is repurposed here as a shape tag rather
-     *  than adding a new field to the shared {@code Member} class)
+     * field is otherwise unused/null for Kotlin, so it is repurposed here as a shape tag rather
+     * than adding a new field to the shared {@code Member} class)
      */
     private static final String ACCESSOR_MARKER = "ACCESSOR";
 

@@ -86,7 +86,7 @@ public final class JsonTokenizer extends TokenizerSimpleBraced {
 
     /**
      * Consumes a quoted string, including JSON5 backslash-newline continuations, as one opaque
-     *  token -- see STYLE_DATA_FORMATS.md §1.3.
+     * token -- see STYLE_DATA_FORMATS.md §1.3.
      */
     private Token emitString(final char quote)
     {
@@ -126,7 +126,7 @@ public final class JsonTokenizer extends TokenizerSimpleBraced {
 
     /**
      * Handles RFC 8259 numbers plus JSON5 additions (hex integers, leading/trailing decimal
-     *  point) -- a leading sign, if any, is tokenized separately as an {@code OP} token
+     * point) -- a leading sign, if any, is tokenized separately as an {@code OP} token
      */
     private Token emitJsonNumber()
     {
@@ -158,7 +158,7 @@ public final class JsonTokenizer extends TokenizerSimpleBraced {
 
     /**
      * Unquoted JSON5 object key, or a bare value keyword (`true`/`false`/`null`, JSON5's
-     *  `Infinity`/`NaN`) -- disambiguated by the parser based on position, not here
+     * `Infinity`/`NaN`) -- disambiguated by the parser based on position, not here
      */
     private Token emitIdentifier()
     {

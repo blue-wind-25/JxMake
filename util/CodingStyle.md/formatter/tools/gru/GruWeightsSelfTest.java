@@ -15,10 +15,10 @@ import com.jxmake.formatter.classifier.gru.GruWeights;
 
 /**
  * Standalone self-check for {@link GruWeights#load}, covering both the happy path and each error
- *  path (missing field, bad schema version, malformed number, unreadable file). Same
- *  zero-dependency plain-{@code main()} pattern as {@code GruTokenizerSelfTest.java} -- no test
- *  framework exists anywhere in this project. Writes small temp JSON files under the system temp
- *  directory and cleans them up. Non-shipped. Run via: {@code java GruWeightsSelfTest}.
+ * path (missing field, bad schema version, malformed number, unreadable file). Same
+ * zero-dependency plain-{@code main()} pattern as {@code GruTokenizerSelfTest.java} -- no test
+ * framework exists anywhere in this project. Writes small temp JSON files under the system temp
+ * directory and cleans them up. Non-shipped. Run via: {@code java GruWeightsSelfTest}.
  */
 public final class GruWeightsSelfTest {
 

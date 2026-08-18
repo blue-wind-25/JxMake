@@ -36,10 +36,10 @@ public class JavaSpecificRule {
 
     /**
      * The six fixed classification buckets every import is sorted into, per the resolved
-     *  STYLE_JAVA.md §7 reading (see STATE.md "§7 import group order/count contradiction" --
-     *  trust the worked example). {@code groupOrder} passed into {@link #enforceImportOrdering}
-     *  configures only the *emission order* of these always-the-same six buckets, never which
-     *  buckets exist -- so it must be a permutation of exactly this set.
+     * STYLE_JAVA.md §7 reading (see STATE.md "§7 import group order/count contradiction" --
+     * trust the worked example). {@code groupOrder} passed into {@link #enforceImportOrdering}
+     * configures only the *emission order* of these always-the-same six buckets, never which
+     * buckets exist -- so it must be a permutation of exactly this set.
      */
     private static final Set<String> IMPORT_GROUP_KEYS = new HashSet<>( Arrays.asList(
         "java", "com", "org", "other", "local", "static"
@@ -54,8 +54,8 @@ public class JavaSpecificRule {
     private final int indentWidth;
     /**
      * Fallback one-indent-level unit when it can't be derived from the class/interface's own
-     *  body indentation -- built from the configured `indent-size` (see the constructor), not a
-     *  hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own former fallback.
+     * body indentation -- built from the configured `indent-size` (see the constructor), not a
+     * hardcoded literal, same bug class as `SwitchRule.deriveUnit`'s own former fallback.
      */
     private final String defaultIndentUnit;
 
@@ -91,11 +91,11 @@ public class JavaSpecificRule {
 
     /**
      * Same tab-expansion rule as {@code MiscRuleCore.expandedIndentWidth} (kept here as a
-     *  copy since this class doesn't extend {@code MiscRuleCore}): a raw-source indent string
-     *  still containing literal tabs must have each tab expanded to the configured
-     *  {@code indent-size}, not measured via {@code String.length()} (1 char per tab), or a
-     *  tab-indented one-liner's true post-conversion width is undercounted -- the same bug class
-     *  documented at {@code MiscRuleCore.expandedIndentWidth}.
+     * copy since this class doesn't extend {@code MiscRuleCore}): a raw-source indent string
+     * still containing literal tabs must have each tab expanded to the configured
+     * {@code indent-size}, not measured via {@code String.length()} (1 char per tab), or a
+     * tab-indented one-liner's true post-conversion width is undercounted -- the same bug class
+     * documented at {@code MiscRuleCore.expandedIndentWidth}.
      */
     private int expandedIndentWidth(final String original)
     {
@@ -233,7 +233,7 @@ public class JavaSpecificRule {
 
     /**
      * One method-definition `{ ... }` whose body sits entirely on one physical line --
-     *  always stays K&amp;R (RDD_KEY_75/RDD_KEY_89), never converted to Allman.
+     * always stays K&amp;R (RDD_KEY_75/RDD_KEY_89), never converted to Allman.
      */
     private static final class OneLinerCandidate {
 
@@ -259,16 +259,16 @@ public class JavaSpecificRule {
 
     /**
      * True iff no {@code NEWLINE} token appears between {@code braceIdx} and {@code closeBraceIdx}
-     *  inclusive -- the whole `{ ... }` span is one physical line -- AND the body isn't predicted
-     *  to be broken across lines later by {@code MiscRuleCurly.enforceCallLineBreaking} (Phase 1, later
-     *  in the pipeline) anyway. Without that second condition, a fresh format sees the body still
-     *  on one physical line (still short, pre-call-breaking) and keeps `{` K&amp;R inline, but
-     *  reformatting that already-broken output sees a genuinely multi-line body and moves `{` to
-     *  Allman -- a pass-ordering idempotency bug identical in shape to the one already documented
-     *  on {@code GetterSetterRuleCurly.parseOneLinerMember}. The prediction only has to agree with
-     *  {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once this
-     *  method predicts "too long" and goes Allman, the body only ever grows more lines after that
-     *  (never re-collapses), so every later pass keeps agreeing.
+     * inclusive -- the whole `{ ... }` span is one physical line -- AND the body isn't predicted
+     * to be broken across lines later by {@code MiscRuleCurly.enforceCallLineBreaking} (Phase 1, later
+     * in the pipeline) anyway. Without that second condition, a fresh format sees the body still
+     * on one physical line (still short, pre-call-breaking) and keeps `{` K&amp;R inline, but
+     * reformatting that already-broken output sees a genuinely multi-line body and moves `{` to
+     * Allman -- a pass-ordering idempotency bug identical in shape to the one already documented
+     * on {@code GetterSetterRuleCurly.parseOneLinerMember}. The prediction only has to agree with
+     * {@code enforceCallLineBreaking}'s own verdict well enough to avoid flip-flopping: once this
+     * method predicts "too long" and goes Allman, the body only ever grows more lines after that
+     * (never re-collapses), so every later pass keeps agreeing.
      */
     private boolean isSingleLineBody(
         final List<Token> tokens,
@@ -334,11 +334,11 @@ public class JavaSpecificRule {
 
     /**
      * True if {@code [from, to]} contains at least one {@code name(args)} call with a non-empty
-     *  argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break across
-     *  lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
-     *  comment). Duplicated from {@code GetterSetterRuleCurly}'s identical helper -- same "each rule
-     *  class matches its own local conventions" precedent as {@code isSingleLineBody} itself,
-     *  already duplicated across this class and {@code CppSpecificRule}.
+     * argument list -- the shape {@code MiscRuleCurly.enforceCallLineBreaking} may later break across
+     * lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
+     * comment). Duplicated from {@code GetterSetterRuleCurly}'s identical helper -- same "each rule
+     * class matches its own local conventions" precedent as {@code isSingleLineBody} itself,
+     * already duplicated across this class and {@code CppSpecificRule}.
      */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
     {
@@ -392,8 +392,8 @@ public class JavaSpecificRule {
 
     /**
      * True iff the token immediately before {@code openIdx} is an IDENTIFIER not itself preceded
-     *  by `new` -- the candidate-method-name signal, mirroring
-     *  {@code CppSpecificRule.isCandidateSignatureName}.
+     * by `new` -- the candidate-method-name signal, mirroring
+     * {@code CppSpecificRule.isCandidateSignatureName}.
      */
     private boolean isCandidateMethodName(final List<Token> tokens, final int openIdx)
     {
@@ -407,7 +407,7 @@ public class JavaSpecificRule {
 
     /**
      * Access modifiers legal on a compact canonical constructor -- the only keywords that may
-     *  sit between a member boundary and the constructor's own name
+     * sit between a member boundary and the constructor's own name
      */
     private static final Set<String> COMPACT_CTOR_MODIFIERS = new HashSet<>( Arrays.asList(
         "public", "private", "protected"
@@ -452,9 +452,9 @@ public class JavaSpecificRule {
 
     /**
      * True iff the `{` at {@code braceIdx} is an enum constant's anonymous constant-body --
-     *  detected via its matching `}` being immediately followed by `,` or `;`, the universal
-     *  enum-constant-list separator/terminator (see this method's caller's doc comment for the
-     *  residual gap this heuristic doesn't cover)
+     * detected via its matching `}` being immediately followed by `,` or `;`, the universal
+     * enum-constant-list separator/terminator (see this method's caller's doc comment for the
+     * residual gap this heuristic doesn't cover)
      */
     private boolean isEnumConstantBody(final List<Token> tokens, final int braceIdx)
     {
@@ -531,8 +531,8 @@ public class JavaSpecificRule {
 
     /**
      * Finds every Java enum body's constant-list-terminating `;` that has at least one more
-     *  member after it before the enum's own `}` -- keyed by token index, valued by the indent
-     *  string of the enum body's member lines (derived from its first member's own line)
+     * member after it before the enum's own `}` -- keyed by token index, valued by the indent
+     * string of the enum body's member lines (derived from its first member's own line)
      */
     private Map<Integer, String> findEnumConstantListTerminators(final List<Token> tokens)
     {
@@ -578,8 +578,8 @@ public class JavaSpecificRule {
 
     /**
      * True iff the `{` at {@code braceIdx} opens a Java enum's body -- scans backward past the
-     *  enum's name and any `implements`/generic-bound clause tokens until it finds the `enum`
-     *  keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely)
+     * enum's name and any `implements`/generic-bound clause tokens until it finds the `enum`
+     * keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely)
      */
     private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
     {
@@ -596,8 +596,8 @@ public class JavaSpecificRule {
 
     /**
      * The indentation of the physical line containing token {@code idx} -- the whitespace run
-     *  immediately after the nearest preceding {@code NEWLINE} (or the start of the file), taken
-     *  regardless of whether {@code idx} itself is that line's first token
+     * immediately after the nearest preceding {@code NEWLINE} (or the start of the file), taken
+     * regardless of whether {@code idx} itself is that line's first token
      */
     private String lineIndentAt(final List<Token> tokens, final int idx)
     {
@@ -818,8 +818,8 @@ public class JavaSpecificRule {
 
     /**
      * True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token exists anywhere in
-     *  {@code tokens[fromInclusive, toExclusive)} -- used to detect a floating comment between two
-     *  otherwise-clean import statements, which would otherwise be silently dropped by reordering
+     * {@code tokens[fromInclusive, toExclusive)} -- used to detect a floating comment between two
+     * otherwise-clean import statements, which would otherwise be silently dropped by reordering
      */
     private boolean hasCommentBetween(
         final List<Token> tokens,
@@ -837,9 +837,9 @@ public class JavaSpecificRule {
 
     /**
      * Reads the first {@code package a.b.c;} declaration in {@code tokens} (best-effort -- this
-     *  is a non-destructive lookup, not a rewrite, so a malformed/commented package line just
-     *  yields whatever IDENTIFIER tokens are found rather than bailing) and returns its top
-     *  {@code importDepth} dot-components. Empty list if no `package` declaration exists.
+     * is a non-destructive lookup, not a rewrite, so a malformed/commented package line just
+     * yields whatever IDENTIFIER tokens are found rather than bailing) and returns its top
+     * {@code importDepth} dot-components. Empty list if no `package` declaration exists.
      */
     private List<String> findLocalPrefix(final List<Token> tokens, final int importDepth)
     {
@@ -865,7 +865,7 @@ public class JavaSpecificRule {
 
     /**
      * Classification priority: static &gt; local &gt; java/javax &gt; org &gt; com &gt; other --
-     *  see {@link #enforceImportOrdering}'s doc comment
+     * see {@link #enforceImportOrdering}'s doc comment
      */
     private String classifyImportGroup(final ParsedImport imp, final List<String> localPrefix)
     {
@@ -959,8 +959,8 @@ public class JavaSpecificRule {
 
     /**
      * Derives the one-indent-level unit from the gap between the declaration's own indent and its
-     *  body's first member's indent (same precedent as {@code SwitchRule.deriveUnit}), falling back
-     *  to {@link #defaultIndentUnit}.
+     * body's first member's indent (same precedent as {@code SwitchRule.deriveUnit}), falling back
+     * to {@link #defaultIndentUnit}.
      */
     private String renderPermitsWrapped(
         final List<Token>  tokens,
@@ -1014,11 +1014,11 @@ public class JavaSpecificRule {
 
     /**
      * Splits {@code tokens[fromInclusive, toExclusive)} on top-level commas (depth-tracked across
-     *  `&lt;...&gt;` generic argument lists) into one collapsed-to-one-line, trimmed string per
-     *  permitted type. Returns {@code null} if the list is empty -- an unparseable/empty shape this
-     *  method never guesses past. Multi-char OPs like `&gt;&gt;` that close two nested generic levels
-     *  at once are a known, accepted residual gap (permitted-type lists are realistically always
-     *  simple class names, never deeply nested generics).
+     * `&lt;...&gt;` generic argument lists) into one collapsed-to-one-line, trimmed string per
+     * permitted type. Returns {@code null} if the list is empty -- an unparseable/empty shape this
+     * method never guesses past. Multi-char OPs like `&gt;&gt;` that close two nested generic levels
+     * at once are a known, accepted residual gap (permitted-type lists are realistically always
+     * simple class names, never deeply nested generics).
      */
     private List<String> parsePermittedTypes(
         final List<Token> tokens,
@@ -1062,8 +1062,8 @@ public class JavaSpecificRule {
 
     /**
      * Collapses {@code tokens[fromInclusive, toInclusive]} to one physical line by replacing every
-     *  WHITESPACE/NEWLINE run between significant tokens with a single space -- used only to measure
-     *  the would-be-inline rendering length, never emitted verbatim
+     * WHITESPACE/NEWLINE run between significant tokens with a single space -- used only to measure
+     * the would-be-inline rendering length, never emitted verbatim
      */
     private String collapseToOneLine(
         final List<Token> tokens,
@@ -1086,13 +1086,13 @@ public class JavaSpecificRule {
 
     /**
      * Sentinel returned by {@link #findCaseArrowOrColon} when a label's top-level `:` is found
-     *  instead of `->` -- the switch is colon-form, owned by {@code SwitchRule}, never touched here
+     * instead of `->` -- the switch is colon-form, owned by {@code SwitchRule}, never touched here
      */
     private static final int COLON_FOUND = -2;
 
     /**
      * Sentinel returned by {@link #findCaseArrowOrColon} when neither terminator is found before
-     *  hitting a depth-0 `;`/`{` boundary first -- a malformed/unrecognized label shape
+     * hitting a depth-0 `;`/`{` boundary first -- a malformed/unrecognized label shape
      */
     private static final int ARROW_NOT_FOUND = -1;
 
@@ -1160,7 +1160,7 @@ public class JavaSpecificRule {
 
     /**
      * One `case <label> ->` / `default ->` arrow-form case found directly (brace depth 0 relative
-     *  to the switch's own `{`) inside an arrow-labeled switch body
+     * to the switch's own `{`) inside an arrow-labeled switch body
      */
     private static final class ArrowCase {
 
@@ -1230,7 +1230,7 @@ public class JavaSpecificRule {
 
     /**
      * The top-level (paren/bracket-depth 0) `->` terminating a `case`/`default` label starting at
-     *  {@code kwIdx}, or {@link #COLON_FOUND}/{@link #ARROW_NOT_FOUND} -- see {@link #findArrowCases}
+     * {@code kwIdx}, or {@link #COLON_FOUND}/{@link #ARROW_NOT_FOUND} -- see {@link #findArrowCases}
      */
     private int findCaseArrowOrColon(final List<Token> tokens, final int kwIdx, final int limit)
     {
@@ -1249,8 +1249,8 @@ public class JavaSpecificRule {
 
     /**
      * Pads every case's label to the widest in {@code cases} (trailing-cell trick, same precedent
-     *  as {@code SwitchRule.applyInlineAlignment}'s label cell) and rewrites only the label span --
-     *  body content from {@code bodyStartIdx} onward is left completely untouched.
+     * as {@code SwitchRule.applyInlineAlignment}'s label cell) and rewrites only the label span --
+     * body content from {@code bodyStartIdx} onward is left completely untouched.
      */
     private void applyArrowAlignment(
         final List<Token>          tokens,
@@ -1290,8 +1290,8 @@ public class JavaSpecificRule {
 
     /**
      * Total text length of the run of WHITESPACE tokens immediately preceding {@code idx} --
-     *  the leading indentation of {@code idx}'s own physical line (0 if {@code idx} isn't first
-     *  on its line, i.e. no WHITESPACE token directly precedes it).
+     * the leading indentation of {@code idx}'s own physical line (0 if {@code idx} isn't first
+     * on its line, i.e. no WHITESPACE token directly precedes it).
      */
     private int lineIndentWidth(final List<Token> tokens, final int idx)
     {
@@ -1307,7 +1307,7 @@ public class JavaSpecificRule {
 
     /**
      * Renders {@code tokens} with each entry in {@code overrides} substituted for that token's
-     *  own text -- same minimal-touch rendering precedent as {@code SwitchRule.render}.
+     * own text -- same minimal-touch rendering precedent as {@code SwitchRule.render}.
      */
     private String render(final List<Token> tokens, final Map<Integer, String> overrides)
     {
@@ -1322,7 +1322,7 @@ public class JavaSpecificRule {
 
     /**
      * Nearest preceding {@code class}/{@code interface} KEYWORD token, or -1 -- bounded-effort,
-     *  no depth tracking, same posture as the rest of this codebase's non-AST heuristics
+     * no depth tracking, same posture as the rest of this codebase's non-AST heuristics
      */
     private int prevClassOrInterfaceKeyword(final List<Token> tokens, final int fromExclusive)
     {
@@ -1376,8 +1376,8 @@ public class JavaSpecificRule {
 
     /**
      * True iff {@code t} is an OP token consisting solely of `.`/`*` characters -- covers a plain
-     *  `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.* ` multi-char
-     *  pointer-to-member OP token (see {@link #parseImportStatement}'s doc comment).
+     * `.` separator, a plain `*` wildcard, and {@code TokenizerCurly}'s combined `.* ` multi-char
+     * pointer-to-member OP token (see {@link #parseImportStatement}'s doc comment).
      */
     private boolean isPathOp(final Token t)
     {
@@ -1393,7 +1393,7 @@ public class JavaSpecificRule {
 
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that
-     *  line has no leading whitespace (column-0 start)
+     * line has no leading whitespace (column-0 start)
      */
     private String lineIndent(final List<Token> tokens, final int idx)
     {

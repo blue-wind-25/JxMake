@@ -9,10 +9,10 @@ package com.jxmake.formatter.classifier;
 
 /**
  * Entry point for the comment-normalization classifier: {@code (feature vector) -> YES/NO/
- *  ABSTAIN}, nothing else, per STATE_COMMENT_GRAMMAR.md's hard architectural constraint. Callers
- *  (the two {@code MiscRuleCore} funnel points, once wired -- see that file's "Suggested order" step
- *  2) must treat {@link CommentDecision#ABSTAIN} exactly as {@code normalize-comment-*}
- *  {@code off} for that one comment. Not yet wired into {@code MiscRuleCore}.
+ * ABSTAIN}, nothing else, per STATE_COMMENT_GRAMMAR.md's hard architectural constraint. Callers
+ * (the two {@code MiscRuleCore} funnel points, once wired -- see that file's "Suggested order" step
+ * 2) must treat {@link CommentDecision#ABSTAIN} exactly as {@code normalize-comment-*}
+ * {@code off} for that one comment. Not yet wired into {@code MiscRuleCore}.
  */
 public final class CommentClassifier {
 

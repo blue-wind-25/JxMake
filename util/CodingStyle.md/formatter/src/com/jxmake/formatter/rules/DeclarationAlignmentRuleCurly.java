@@ -59,10 +59,10 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * Statement keywords that can never legitimately begin a real type -- used to reject a
-     *  cast-and-parenthesized-expression statement (e.g. {@code return (T)(cond ? a : b);}) from
-     *  being misparsed as the function-pointer declarator shape ({@code Type (*name)(params);}).
-     *  Same rationale/precedent as {@code GetterSetterRuleCurly.STATEMENT_KEYWORDS}, but scoped
-     *  narrowly to the one call site that actually needs it here -- see its own guard comment.
+     * cast-and-parenthesized-expression statement (e.g. {@code return (T)(cond ? a : b);}) from
+     * being misparsed as the function-pointer declarator shape ({@code Type (*name)(params);}).
+     * Same rationale/precedent as {@code GetterSetterRuleCurly.STATEMENT_KEYWORDS}, but scoped
+     * narrowly to the one call site that actually needs it here -- see its own guard comment.
      */
     private static final Set<String> STATEMENT_LEADING_KEYWORDS = new HashSet<>( Arrays.asList(
         "if",
@@ -322,8 +322,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * True if {@code decl} is a function forward declaration with a trailing `const`
-     *  qualifier -- the shape only a C++ member function can have (see comment at the
-     *  {@code isMemberFunctionForwardDecl} call site in {@link #groupDeclarations})
+     * qualifier -- the shape only a C++ member function can have (see comment at the
+     * {@code isMemberFunctionForwardDecl} call site in {@link #groupDeclarations})
      */
     private boolean isMemberFunctionForwardDecl(final Declaration decl)
     {
@@ -548,8 +548,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * Renders a leading `template<...>` clause with no space around the outer angle brackets
-     *  (STYLE_C_CPP.md: template parameter lists are always tight, unlike template argument
-     *  usages such as `std::unique_ptr< T >`).
+     * (STYLE_C_CPP.md: template parameter lists are always tight, unlike template argument
+     * usages such as `std::unique_ptr< T >`).
      */
     private String renderTemplatePrefix(final List<Token> templatePrefix)
     {
@@ -662,7 +662,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,
-     *  `= default`) rather than a true variable initializer
+     * `= default`) rather than a true variable initializer
      */
     private static boolean isFuncDeclSpecifier(final List<Token> initTokens)
     {
@@ -678,14 +678,14 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * True iff a comment or preprocessor-directive token appears in {@code stmt}'s leading gap,
-     *  before the first significant (code) token -- by construction (see
-     *  {@link #pullTrailingSameLine}) this can only be a standalone comment/directive on its own
-     *  line, never a same-line trailing comment left over from the previous statement. A leading
-     *  `#ifdef`/`#elif`/`#else`/`#endif`/etc. directive must break the group the same way a
-     *  standalone comment does: {@code render(group)} only re-emits each {@code Declaration}'s own
-     *  fields, so a directive's raw text embedded mid-group (not caught by
-     *  {@code applyDeclarationsPass}'s leading-gap capture, which only covers the group's very
-     *  first statement) would otherwise be silently dropped.
+     * before the first significant (code) token -- by construction (see
+     * {@link #pullTrailingSameLine}) this can only be a standalone comment/directive on its own
+     * line, never a same-line trailing comment left over from the previous statement. A leading
+     * `#ifdef`/`#elif`/`#else`/`#endif`/etc. directive must break the group the same way a
+     * standalone comment does: {@code render(group)} only re-emits each {@code Declaration}'s own
+     * fields, so a directive's raw text embedded mid-group (not caught by
+     * {@code applyDeclarationsPass}'s leading-gap capture, which only covers the group's very
+     * first statement) would otherwise be silently dropped.
      */
 
 
@@ -721,18 +721,18 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * True iff {@code initTokens} contains any `{`...`}` pair (at any nesting depth, matched by a
-     *  simple depth counter -- exact partner matching isn't needed, only "some brace pair's
-     *  interior held a NEWLINE token in the original source") whose interior originally spanned
-     *  more than one physical source line AND contains a top-level `;` inside that same brace
-     *  pair (a real multi-statement body -- a lambda/anonymous-class block, never a flat
-     *  aggregate-init element list, which has no statement terminator at all). Used by
-     *  {@link #parseDeclaration} to bail out of column-aligning a declaration whose initializer
-     *  embeds a multi-line lambda/anonymous-class body mid-expression (e.g. a `.map(x -> {
-     *  ...multi-statement... })` call in a stream chain) -- this class's
-     *  {@link DeclarationAlignmentRuleCore#renderInitTokens} has no multi-line render path and
-     *  would otherwise flatten such a body onto one, arbitrarily long physical line that no later
-     *  pass can safely re-wrap. See the call site's own comment for the real-code-testing history
-     *  (`jenkinsci/jenkins`'s `PluginManager.doPluginsSearch`).
+     * simple depth counter -- exact partner matching isn't needed, only "some brace pair's
+     * interior held a NEWLINE token in the original source") whose interior originally spanned
+     * more than one physical source line AND contains a top-level `;` inside that same brace
+     * pair (a real multi-statement body -- a lambda/anonymous-class block, never a flat
+     * aggregate-init element list, which has no statement terminator at all). Used by
+     * {@link #parseDeclaration} to bail out of column-aligning a declaration whose initializer
+     * embeds a multi-line lambda/anonymous-class body mid-expression (e.g. a `.map(x -> {
+     * ...multi-statement... })` call in a stream chain) -- this class's
+     * {@link DeclarationAlignmentRuleCore#renderInitTokens} has no multi-line render path and
+     * would otherwise flatten such a body onto one, arbitrarily long physical line that no later
+     * pass can safely re-wrap. See the call site's own comment for the real-code-testing history
+     * (`jenkinsci/jenkins`'s `PluginManager.doPluginsSearch`).
      *
      *  <p>The `;`-inside requirement (RDD_KEY, openrewrite/rewrite `Pep508RequirementTest.java`
      *  idempotency fix) narrows the original (2026-08-05) any-multi-line-brace bail: a top-level
@@ -783,9 +783,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * Estimates the rendered width of a flat `{ a, b, c }` aggregate init on its own, as
-     *  `render(group)` would emit it: `{`/`}` padded with one space, elements comma-separated
-     *  with one space after each comma. Does not include the declaration's own type/name/`=`
-     *  prefix -- callers only need this as a lower-bound check against `lineLengthLimit`.
+     * `render(group)` would emit it: `{`/`}` padded with one space, elements comma-separated
+     * with one space after each comma. Does not include the declaration's own type/name/`=`
+     * prefix -- callers only need this as a lower-bound check against `lineLengthLimit`.
      */
     private int flatAggregateInitRenderedWidth(final List<Token> rawInit)
     {
@@ -804,16 +804,16 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * Finds {@code openTok}/{@code closeTok} (by identity -- they come from {@code stmt} itself,
-     *  just filtered through {@code significantOnly}) within {@code stmt} and returns the raw
-     *  inclusive slice between them, comments and all. Returns {@code null} if either token
-     *  can't be located (should not happen given the identity precondition, but the caller has a
-     *  safe fallback).
+     * just filtered through {@code significantOnly}) within {@code stmt} and returns the raw
+     * inclusive slice between them, comments and all. Returns {@code null} if either token
+     * can't be located (should not happen given the identity precondition, but the caller has a
+     * safe fallback).
      */
     /**
      * Same open/close-token-identity lookup as {@link #rawSliceBetween}, but returns the
-     *  completely unfiltered inclusive slice (WHITESPACE/NEWLINE tokens included) -- needed by
-     *  {@link #containsMultilineBraceBody}'s caller, which must see real NEWLINE tokens to detect
-     *  a brace body that originally spanned more than one physical source line
+     * completely unfiltered inclusive slice (WHITESPACE/NEWLINE tokens included) -- needed by
+     * {@link #containsMultilineBraceBody}'s caller, which must see real NEWLINE tokens to detect
+     * a brace body that originally spanned more than one physical source line
      */
     private List<Token> rawSliceBetweenUnfiltered(
         final List<Token> stmt,
@@ -873,9 +873,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * True iff {@code stmt} (a whole raw statement, trailing {@code ;} included) is literally
-     *  one or more comma-separated {@code IDENT} or {@code IDENT ( ... )} segments followed by
-     *  {@code ;} and nothing else -- the shape of a Java enum constant list. See the call site in
-     *  {@link #groupDeclarations} for why this must be isolated into its own singleton group.
+     * one or more comma-separated {@code IDENT} or {@code IDENT ( ... )} segments followed by
+     * {@code ;} and nothing else -- the shape of a Java enum constant list. See the call site in
+     * {@link #groupDeclarations} for why this must be isolated into its own singleton group.
      */
     private boolean isJavaEnumConstantListShape(final List<Token> stmt)
     {
@@ -1431,17 +1431,17 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * Parses the C++11 alias-declaration shape `using Name = Type;` (STYLE_CPP.md, RDD_KEY_283)
-     *  -- inverted grammar vs. every other Declaration shape (`Type name = init;`): the alias
-     *  NAME sits right after the `using` keyword, before the `=`, and the aliased TYPE sits on
-     *  the right of the `=`. Modeled on top of the existing `Declaration` fields rather than
-     *  adding a new type: `name` is the alias name, `initTokens` holds the aliased type's
-     *  tokens (reusing the existing "thing after `=`" field), `typeTokens`/`sizeTokens` stay
-     *  empty, and `isUsingAlias` flags the shape for `groupDeclarations`'/`render`'s dedicated
-     *  handling. Returns null (falls through to the normal parsing path -- never mutates
-     *  anything before returning a real `Declaration`) for anything not matching this exact
-     *  shape, including a template alias's own `template<...> using Name = Type;` (the
-     *  `template<...>` prefix was already peeled off into `templatePrefix` by the caller before
-     *  `i` is passed in here, so this method only ever sees the `using ...` remainder).
+     * -- inverted grammar vs. every other Declaration shape (`Type name = init;`): the alias
+     * NAME sits right after the `using` keyword, before the `=`, and the aliased TYPE sits on
+     * the right of the `=`. Modeled on top of the existing `Declaration` fields rather than
+     * adding a new type: `name` is the alias name, `initTokens` holds the aliased type's
+     * tokens (reusing the existing "thing after `=`" field), `typeTokens`/`sizeTokens` stay
+     * empty, and `isUsingAlias` flags the shape for `groupDeclarations`'/`render`'s dedicated
+     * handling. Returns null (falls through to the normal parsing path -- never mutates
+     * anything before returning a real `Declaration`) for anything not matching this exact
+     * shape, including a template alias's own `template<...> using Name = Type;` (the
+     * `template<...>` prefix was already peeled off into `templatePrefix` by the caller before
+     * `i` is passed in here, so this method only ever sees the `using ...` remainder).
      */
     private Declaration parseUsingAlias(
         final List<Token> stmt,
@@ -1679,31 +1679,31 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
     /**
      * True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
-     *  {@code NEWLINE} token, anywhere after {@code afterToken} (found by identity, since
-     *  {@code stmt} and the caller's filtered {@code sig}/{@code initTokens} share the same
-     *  {@code Token} objects), that is either (a) inside a `{`...`}` brace body (brace depth > 0
-     *  relative to {@code afterToken}) -- a genuine multi-line block/lambda body
-     *  (`Thread({ ...multi-line... }, "name")`, `if(...) { ... } else { ... }`) that must never
-     *  be flattened onto one line by this group's rendering -- or (b) at paren/bracket depth 0
-     *  *and* brace depth 0 -- a top-level newline with nothing to explain it away. A newline that
-     *  is neither -- i.e. sitting strictly inside a call's parens with no enclosing brace, depth
-     *  tracking mirroring {@code ScopePipeline.hasTopLevelNewline}'s own "ignore newlines inside
-     *  a call's parens" idiom -- is treated as single-line for grouping purposes: it only means a
-     *  brace-free initializer's own nested call argument list was wrapped across lines by a
-     *  previous run of {@code MiscRule.enforceCallLineBreaking} (e.g. `if(cond)
-     *  full.substring(\n    0, N\n) + "..."  else full`, braceless, one logical expression).
-     *  Without the paren-depth carve-out, such an initializer bailed out of its alignment group
-     *  only on a *second* format pass (intact on a fresh input, since the wrapping newlines don't
-     *  exist yet when this check first runs there) -- an idempotency bug where a sibling
-     *  declaration's own column padding silently shrank between passes. Without the brace-depth
-     *  override on top of it, a `{`-bodied trailing-lambda argument's *own* internal
-     *  statement-separating newlines would also be swallowed as "inside a call's parens" --
-     *  caught only via `make test` regressing the RDD_KEY_134 fixture (`real_code_regressions_17`)
-     *  after adding the paren-depth carve-out alone, not reasoned out in advance; a single-line
-     *  lambda (`x?.let { it + 1 } ?: 0`, `kt_combined_out.kt`) has no newline inside its braces at
-     *  all and so is correctly unaffected by either carve-out. Shared by every curly-family
-     *  declaration-alignment subclass that needs this bailout (originally Kotlin-only, then
-     *  duplicated verbatim into the JS/TS sibling -- pulled up here).
+     * {@code NEWLINE} token, anywhere after {@code afterToken} (found by identity, since
+     * {@code stmt} and the caller's filtered {@code sig}/{@code initTokens} share the same
+     * {@code Token} objects), that is either (a) inside a `{`...`}` brace body (brace depth > 0
+     * relative to {@code afterToken}) -- a genuine multi-line block/lambda body
+     * (`Thread({ ...multi-line... }, "name")`, `if(...) { ... } else { ... }`) that must never
+     * be flattened onto one line by this group's rendering -- or (b) at paren/bracket depth 0
+     * *and* brace depth 0 -- a top-level newline with nothing to explain it away. A newline that
+     * is neither -- i.e. sitting strictly inside a call's parens with no enclosing brace, depth
+     * tracking mirroring {@code ScopePipeline.hasTopLevelNewline}'s own "ignore newlines inside
+     * a call's parens" idiom -- is treated as single-line for grouping purposes: it only means a
+     * brace-free initializer's own nested call argument list was wrapped across lines by a
+     * previous run of {@code MiscRule.enforceCallLineBreaking} (e.g. `if(cond)
+     * full.substring(\n    0, N\n) + "..."  else full`, braceless, one logical expression).
+     * Without the paren-depth carve-out, such an initializer bailed out of its alignment group
+     * only on a *second* format pass (intact on a fresh input, since the wrapping newlines don't
+     * exist yet when this check first runs there) -- an idempotency bug where a sibling
+     * declaration's own column padding silently shrank between passes. Without the brace-depth
+     * override on top of it, a `{`-bodied trailing-lambda argument's *own* internal
+     * statement-separating newlines would also be swallowed as "inside a call's parens" --
+     * caught only via `make test` regressing the RDD_KEY_134 fixture (`real_code_regressions_17`)
+     * after adding the paren-depth carve-out alone, not reasoned out in advance; a single-line
+     * lambda (`x?.let { it + 1 } ?: 0`, `kt_combined_out.kt`) has no newline inside its braces at
+     * all and so is correctly unaffected by either carve-out. Shared by every curly-family
+     * declaration-alignment subclass that needs this bailout (originally Kotlin-only, then
+     * duplicated verbatim into the JS/TS sibling -- pulled up here).
      */
     protected boolean spansMultipleLines(final List<Token> stmt, final Token afterToken)
     {

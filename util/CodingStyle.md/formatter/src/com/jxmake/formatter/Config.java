@@ -61,13 +61,13 @@ public final class Config {
 
     /**
      * Default {@code gru-weights-path} value for the Step 3 GRU classifier (STATE_AI.md): empty,
-     *  meaning "not explicitly configured". {@code GruAbstainResolver} treats an empty value as an
-     *  instruction to derive the weights file location from the running program's own directory
-     *  (the jar's parent directory when run via {@code -jar}, or the classes directory itself for
-     *  a dev/test run against {@code $(CLASS_DIR)}) instead of a fixed path -- see
-     *  {@code GruAbstainResolver.WEIGHTS_FILENAME}/{@code resolveWeightsPath}. Harmless if the
-     *  derived file is absent, since a missing/unreadable/corrupt weights file is already a
-     *  fail-safe ABSTAIN path.
+     * meaning "not explicitly configured". {@code GruAbstainResolver} treats an empty value as an
+     * instruction to derive the weights file location from the running program's own directory
+     * (the jar's parent directory when run via {@code -jar}, or the classes directory itself for
+     * a dev/test run against {@code $(CLASS_DIR)}) instead of a fixed path -- see
+     * {@code GruAbstainResolver.WEIGHTS_FILENAME}/{@code resolveWeightsPath}. Harmless if the
+     * derived file is absent, since a missing/unreadable/corrupt weights file is already a
+     * fail-safe ABSTAIN path.
      */
     public static final String DEFAULT_GRU_WEIGHTS_PATH = "";
 
@@ -82,20 +82,20 @@ public final class Config {
     private int    serverPort            = 17173;
     /**
      * {@code server-concurrency} -- thread-pool size {@code ServerMode.start} uses for the
-     *  HTTP server's executor. Default 1: today's implicit single-threaded {@code HttpServer}
-     *  default executor, unchanged/opt-in, matching the project's risk-averse rollout pattern for
-     *  {@code curly-general-scope-reindent}/{@code html5-tc-gap-level}. When explicitly raised
-     *  above 1, {@code ServerMode.start} installs a fixed thread pool of this size instead. Same
-     *  process/server-invocation-scoped category as {@code server-port} -- cannot be set per-file
-     *  via {@code JXM_CFMT_CFG} (see {@code InFileConfig.isPerFileApplicable}).
+     * HTTP server's executor. Default 1: today's implicit single-threaded {@code HttpServer}
+     * default executor, unchanged/opt-in, matching the project's risk-averse rollout pattern for
+     * {@code curly-general-scope-reindent}/{@code html5-tc-gap-level}. When explicitly raised
+     * above 1, {@code ServerMode.start} installs a fixed thread pool of this size instead. Same
+     * process/server-invocation-scoped category as {@code server-port} -- cannot be set per-file
+     * via {@code JXM_CFMT_CFG} (see {@code InFileConfig.isPerFileApplicable}).
      */
     private int serverConcurrency = 1;
     /**
      * {@code client-read-ahead} -- how many requests {@code Main.delegateToServerBatch} (the
-     *  one-by-one CLI-delegation path) keeps in flight at once, instead of today's strict
-     *  request/response/request serial dispatch. Default 1: today's strict serial behavior,
-     *  unchanged/opt-in. Same process-scoped category as {@code server-port}/
-     *  {@code server-concurrency} -- cannot be set per-file via {@code JXM_CFMT_CFG}.
+     * one-by-one CLI-delegation path) keeps in flight at once, instead of today's strict
+     * request/response/request serial dispatch. Default 1: today's strict serial behavior,
+     * unchanged/opt-in. Same process-scoped category as {@code server-port}/
+     * {@code server-concurrency} -- cannot be set per-file via {@code JXM_CFMT_CFG}.
      */
     private int     clientReadAhead           = 1;
     private int     closingCommentMinLines    = 5;
@@ -117,11 +117,11 @@ public final class Config {
     private boolean commentNormalizationClassifier = true;
     /**
      * {@code normalize-comment-start-case-multiline} -- gates capitalizing sentence 2+ within a
-     *  comment group/chain (today's {@code normalize-comment-start-case} only ever touches
-     *  sentence 1). Default off, following the same "land behind its own flag, off by default"
-     *  posture as {@code curly-general-scope-reindent}/{@code html5-tc-gap-level} -- see
-     *  STATE_COMMON.md's "Multi-sentence comment capitalization" section for full design
-     *  rationale/history. No effect when {@code normalize-comment-start-case} is itself off.
+     * comment group/chain (today's {@code normalize-comment-start-case} only ever touches
+     * sentence 1). Default off, following the same "land behind its own flag, off by default"
+     * posture as {@code curly-general-scope-reindent}/{@code html5-tc-gap-level} -- see
+     * STATE_COMMON.md's "Multi-sentence comment capitalization" section for full design
+     * rationale/history. No effect when {@code normalize-comment-start-case} is itself off.
      */
     private boolean      normalizeCommentMultiSentenceCase = false;
     private boolean      headerGuardRename                 = false;
@@ -145,78 +145,78 @@ public final class Config {
 
     /**
      * {@code python-import-sort} -- toggles STYLE_PYTHON3.md §3.1's alphabetical sort (both the
-     *  cross-statement group reordering and a `from X import ...` clause's own within-clause
-     *  name-list reordering) applied by {@code ScopePipelineIndent#applyImportSort}. Python has no
-     *  stdlib/third-party/local tier classification to configure (see STATE_PYTHON3.md's Config
-     *  section), so unlike Java/Kotlin/JS/TS there is no companion {@code -order}/{@code -depth}
-     *  key. Default on, mirroring {@code java-import-sort}/{@code js-import-sort}'s own default.
+     * cross-statement group reordering and a `from X import ...` clause's own within-clause
+     * name-list reordering) applied by {@code ScopePipelineIndent#applyImportSort}. Python has no
+     * stdlib/third-party/local tier classification to configure (see STATE_PYTHON3.md's Config
+     * section), so unlike Java/Kotlin/JS/TS there is no companion {@code -order}/{@code -depth}
+     * key. Default on, mirroring {@code java-import-sort}/{@code js-import-sort}'s own default.
      */
     private boolean pythonImportSort = true;
 
     /**
      * {@code python-import-blank-lines} -- STYLE_PYTHON3.md §3.2's import groups (a blank line,
-     *  comment, depth change, or non-import statement each break a group) get exactly this many
-     *  blank lines between two adjacent same-depth groups separated only by blank line(s), mirroring
-     *  {@code java-import-blank-lines}/{@code js-import-blank-lines}'s shape. Default 1, matching
-     *  those two keys' own default.
+     * comment, depth change, or non-import statement each break a group) get exactly this many
+     * blank lines between two adjacent same-depth groups separated only by blank line(s), mirroring
+     * {@code java-import-blank-lines}/{@code js-import-blank-lines}'s shape. Default 1, matching
+     * those two keys' own default.
      */
     private int pythonImportBlankLines = 1;
 
     /**
      * Step 3 GRU classifier gate (STATE_AI.md) -- default off: evaluated against the 62
-     *  hand-labeled keyword-ambiguity examples in {@code tools/classifier_weights/examples_*.md} (the genuinely-ambiguous
-     *  cases the linear {@code KeywordAmbiguityGate} is tuned for) on 2026-07-30 and found to predict
-     *  YES on every single example (0/43 NO correct, 30.6% overall precision) -- worse than the
-     *  linear classifier's own 67.7% on the same set. Root cause: {@code sample_default.txt} (the
-     *  GRU's training corpus) is auto-labeled *by the linear classifier itself* via
-     *  {@code GenerateSampleDefault}, which only keeps its own high-confidence YES/NO decisions, so
-     *  the GRU never saw the hard ambiguous-keyword NO cases and learned to default to YES instead.
-     *  {@code GruAbstainResolver} reads this to decide whether to even attempt loading a weights
-     *  file; when off (or when the file is missing/unreadable), no filesystem access is attempted /
-     *  the resolver fails safe to the rule-based result alone.
+     * hand-labeled keyword-ambiguity examples in {@code tools/classifier_weights/examples_*.md} (the genuinely-ambiguous
+     * cases the linear {@code KeywordAmbiguityGate} is tuned for) on 2026-07-30 and found to predict
+     * YES on every single example (0/43 NO correct, 30.6% overall precision) -- worse than the
+     * linear classifier's own 67.7% on the same set. Root cause: {@code sample_default.txt} (the
+     * GRU's training corpus) is auto-labeled *by the linear classifier itself* via
+     * {@code GenerateSampleDefault}, which only keeps its own high-confidence YES/NO decisions, so
+     * the GRU never saw the hard ambiguous-keyword NO cases and learned to default to YES instead.
+     * {@code GruAbstainResolver} reads this to decide whether to even attempt loading a weights
+     * file; when off (or when the file is missing/unreadable), no filesystem access is attempted /
+     * the resolver fails safe to the rule-based result alone.
      */
     private boolean gruClassifier  = true;
     private String  gruWeightsPath = DEFAULT_GRU_WEIGHTS_PATH;
 
     /**
      * {@code curly-general-scope-reindent} -- gates the isolated GDR (general scope-depth
-     *  reindentation) pre-pass, see {@code STATE_CURLY_GDR.md}. Default off: the pre-pass never
-     *  runs unless a caller explicitly opts in, so the existing pipeline's output is byte-for-byte
-     *  unchanged on the default path.
+     * reindentation) pre-pass, see {@code STATE_CURLY_GDR.md}. Default off: the pre-pass never
+     * runs unless a caller explicitly opts in, so the existing pipeline's output is byte-for-byte
+     * unchanged on the default path.
      */
     private boolean curlyGeneralScopeReindent = false;
 
     /**
      * {@code curly-general-scope-reindent-multipass} -- see {@code STATE_CURLY_GDR.md}'s "Open
-     *  design proposal: bounded multi-pass remediation for RDD_KEY_229" section and
-     *  {@code RDD_KEY_233}/{@code RDD_KEY_234}. Only takes effect when
-     *  {@code curly-general-scope-reindent} is also on; runs a fixed 4-stage sequence (GDR,
-     *  pipeline, GDR, pipeline) instead of the base feature's single pre-pass-then-pipeline order.
-     *  Default off. Per {@code RDD_KEY_234}, turning this on while the base flag is off is a
-     *  silent no-op, not an error -- lets a project stage this flag ahead of flipping the base one.
+     * design proposal: bounded multi-pass remediation for RDD_KEY_229" section and
+     * {@code RDD_KEY_233}/{@code RDD_KEY_234}. Only takes effect when
+     * {@code curly-general-scope-reindent} is also on; runs a fixed 4-stage sequence (GDR,
+     * pipeline, GDR, pipeline) instead of the base feature's single pre-pass-then-pipeline order.
+     * Default off. Per {@code RDD_KEY_234}, turning this on while the base flag is off is a
+     * silent no-op, not an error -- lets a project stage this flag ahead of flipping the base one.
      */
     private boolean curlyGeneralScopeReindentMultipass = false;
 
     /**
      * {@code html5-tc-gap-level} -- gates the "tc gap" job's HTML5 deep tree-construction-gap
-     *  fixes (see {@code STATE_HTML5_TCG.md}, {@code RDD_KEY_230}). Cumulative levels 0-4: 0 =
-     *  off (default, current behavior unchanged), 1 = implicit {@code <body>} start-tag
-     *  insertion, 2 = + foster-parenting tree reshaping, 3 = + misnested {@code <form>}
-     *  reconstruction, 4 = + adoption agency algorithm. Only levels 0-1 have landed real effect
-     *  so far.
+     * fixes (see {@code STATE_HTML5_TCG.md}, {@code RDD_KEY_230}). Cumulative levels 0-4: 0 =
+     * off (default, current behavior unchanged), 1 = implicit {@code <body>} start-tag
+     * insertion, 2 = + foster-parenting tree reshaping, 3 = + misnested {@code <form>}
+     * reconstruction, 4 = + adoption agency algorithm. Only levels 0-1 have landed real effect
+     * so far.
      */
     private int html5TcGapLevel = 0;
 
     /**
      * {@code jsx-in-ts} -- `.ts`-scoped opt-in for the JSX boundary-finding pre-pass
-     *  ({@code TokenizerCurly.findJsxSpans}, gated by {@code Lang.isJsxSyntax}). `.jsx`/`.tsx`
-     *  always run the pre-pass (unchanged); `.js`/`.mjs`/`.cjs` now also run it unconditionally
-     *  (see `STATE_JS_TS.md`'s 2026-08-13 implementation section) since plain JS has no competing
-     *  ambiguous syntax. `.ts` deliberately stays off by default -- legacy `<Type>value` angle-
-     *  bracket casts are real, non-rare TS syntax that collides with JSX's own open-tag shape (same
-     *  reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx`) -- this key lets a user
-     *  force it on for one legacy `.ts`-with-embedded-JSX file that isn't renamed to `.tsx`. No
-     *  effect on any other language/extension.
+     * ({@code TokenizerCurly.findJsxSpans}, gated by {@code Lang.isJsxSyntax}). `.jsx`/`.tsx`
+     * always run the pre-pass (unchanged); `.js`/`.mjs`/`.cjs` now also run it unconditionally
+     * (see `STATE_JS_TS.md`'s 2026-08-13 implementation section) since plain JS has no competing
+     * ambiguous syntax. `.ts` deliberately stays off by default -- legacy `<Type>value` angle-
+     * bracket casts are real, non-rare TS syntax that collides with JSX's own open-tag shape (same
+     * reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx`) -- this key lets a user
+     * force it on for one legacy `.ts`-with-embedded-JSX file that isn't renamed to `.tsx`. No
+     * effect on any other language/extension.
      */
     private boolean jsxInTs = false;
 
@@ -1018,8 +1018,8 @@ public final class Config {
 
     /**
      * Plain free-form string value, no choice-list validation -- used for the one config key
-     *  (Step 3 GRU's {@code gru-weights-path}) whose value is a filesystem path rather than a
-     *  constrained enum-like choice or a string list
+     * (Step 3 GRU's {@code gru-weights-path}) whose value is a filesystem path rather than a
+     * constrained enum-like choice or a string list
      */
     private static String parseString(
         final Map<String, String> raw,

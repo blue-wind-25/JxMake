@@ -68,11 +68,11 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                                   // -- rendering uses `nameText` instead, see below
         /**
          * Rendered LHS text for this row's name column. For a plain identifier declarator this
-         *  is just {@code name.text}; for a destructuring-pattern LHS (RDD_KEY_182) this is the
-         *  whole `{...}`/`[...]` pattern rendered as one unit via {@code renderTokens} (never
-         *  re-split token by token -- the pattern's own internal spacing is already correct from
-         *  earlier bracket-padding/comma-spacing passes, this method only decides the `=` column
-         *  alignment).
+         * is just {@code name.text}; for a destructuring-pattern LHS (RDD_KEY_182) this is the
+         * whole `{...}`/`[...]` pattern rendered as one unit via {@code renderTokens} (never
+         * re-split token by token -- the pattern's own internal spacing is already correct from
+         * earlier bracket-padding/comma-spacing passes, this method only decides the `=` column
+         * alignment).
          */
         public final String      nameText;
         public final List<Token> typeTokens; // TS only; always empty for plain JS
@@ -82,8 +82,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
         public final Token lastAnchor;      // Splice-back end (inclusive)
         /**
          * True for a `type X = ...;` alias row (RDD_KEY_183) -- such rows only group with other
-         *  type-alias rows, never with a plain `let`/`const`/`var` declarator, see {@link
-         *  #groupAlignableDeclarations}.
+         * type-alias rows, never with a plain `let`/`const`/`var` declarator, see {@link
+         * #groupAlignableDeclarations}.
          */
         public final boolean isTypeAlias;
 
@@ -118,8 +118,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
 
     /**
      * `type` is only a declaration-alignment keyword here when immediately followed by an
-     *  identifier and then `=` (a type-alias statement, RDD_KEY_183) -- `type` is not a reserved
-     *  word in JS/TS, so this must not fire on an identifier merely named `type`
+     * identifier and then `=` (a type-alias statement, RDD_KEY_183) -- `type` is not a reserved
+     * word in JS/TS, so this must not fire on an identifier merely named `type`
      */
     private boolean isTypeAliasKeyword(final List<Token> sig)
     {
@@ -432,8 +432,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
 
     /**
      * Scans the raw (comment-bearing) {@code stmt} for any comment token between {@code from}
-     *  and {@code to} inclusive (matched by identity, since both come from a {@code
-     *  significantOnly}-filtered sublist of the same token objects)
+     * and {@code to} inclusive (matched by identity, since both come from a {@code
+     * significantOnly}-filtered sublist of the same token objects)
      */
     private boolean hasCommentWithin(final List<Token> stmt, final Token from, final Token to)
     {
@@ -449,9 +449,9 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
 
     /**
      * Same "embedded comment inside the initializer would be silently dropped" bailout as
-     *  {@code KotlinDeclarationAlignmentRule.hasCommentAfter} -- a trailing end-of-line comment
-     *  (after {@code stmt}'s own last significant token) is excluded, since that one is already
-     *  carried separately via {@link #findTrailingComment}.
+     * {@code KotlinDeclarationAlignmentRule.hasCommentAfter} -- a trailing end-of-line comment
+     * (after {@code stmt}'s own last significant token) is excluded, since that one is already
+     * carried separately via {@link #findTrailingComment}.
      */
     private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken)
     {

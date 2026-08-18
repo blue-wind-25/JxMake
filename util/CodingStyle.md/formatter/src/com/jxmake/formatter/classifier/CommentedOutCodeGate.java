@@ -11,14 +11,14 @@ import java.util.regex.Pattern;
 
 /**
  * Detects a comment that reads as commented-out code -- a trailing {@code ;} (the comment's own
- *  last non-whitespace character) combined with a second, independent code-shape signal
- *  (assignment/call/increment-decrement/typed-declaration). Per STATE_AI.md's 2026-07-30
- *  disagreement-sampling pass: a bare trailing {@code ;} alone is unsafe -- a ~8% false-positive
- *  rate was measured against real English prose that happens to end a clause with a semicolon
- *  (e.g. "...cannot be expressed in RFC 3339's 4-digit form;"). Requiring a second confirming
- *  signal is the mitigation that finding called for; unlike the reverted leading-hyphen gate (see
- *  STATE_AI.md's "Bug 2" 2026-07-30 note), this is deliberately a *combination* of two independent
- *  signals, not a single common-in-prose one.
+ * last non-whitespace character) combined with a second, independent code-shape signal
+ * (assignment/call/increment-decrement/typed-declaration). Per STATE_AI.md's 2026-07-30
+ * disagreement-sampling pass: a bare trailing {@code ;} alone is unsafe -- a ~8% false-positive
+ * rate was measured against real English prose that happens to end a clause with a semicolon
+ * (e.g. "...cannot be expressed in RFC 3339's 4-digit form;"). Requiring a second confirming
+ * signal is the mitigation that finding called for; unlike the reverted leading-hyphen gate (see
+ * STATE_AI.md's "Bug 2" 2026-07-30 note), this is deliberately a *combination* of two independent
+ * signals, not a single common-in-prose one.
  *
  *  <p>Presence-based like {@link DecorativeSeparatorGate}, not scored: any one of the four
  *  code-shape sub-patterns firing anywhere in the comment, together with a trailing {@code ;}, is

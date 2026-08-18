@@ -11,19 +11,19 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Increment-1 scaffolding for STATE_JS_TS.md's Step 2 ("context 11" scoping session) -- NOT
- *  user-facing, NOT part of any formatting output. This is the "detect-and-measure-only slice"
- *  called for by that scoping session's suggested 5-increment breakdown, step (1): confirm a
- *  {@code JSX_SPAN}'s opening tag is over-width, with no line-breaking emitted yet. Consulted only
- *  by {@code FormatterCurly.formatOne} (records a measurement) and this job's own test fixtures/
- *  future increments (read the counters back). No other pass reads or writes these counters, and
- *  nothing here ever mutates a token's {@code text} -- purely observational.
+ * user-facing, NOT part of any formatting output. This is the "detect-and-measure-only slice"
+ * called for by that scoping session's suggested 5-increment breakdown, step (1): confirm a
+ * {@code JSX_SPAN}'s opening tag is over-width, with no line-breaking emitted yet. Consulted only
+ * by {@code FormatterCurly.formatOne} (records a measurement) and this job's own test fixtures/
+ * future increments (read the counters back). No other pass reads or writes these counters, and
+ * nothing here ever mutates a token's {@code text} -- purely observational.
  *
  * <p>Increment-1 approximation, documented rather than silently assumed: {@link
- *  #recordOpeningTagMeasurement} measures only the opening tag's own raw width (
- *  {@code Token#jsxOpeningTagEndOffset}), not the tag's actual rendered column position (current
- *  indentation plus any preceding same-line tokens) -- a real column-aware fits-check is exactly
- *  the kind of rendering-time machinery a future wrap-implementing increment needs, and is
- *  deliberately out of scope for this detect-only slice.
+ * #recordOpeningTagMeasurement} measures only the opening tag's own raw width (
+ * {@code Token#jsxOpeningTagEndOffset}), not the tag's actual rendered column position (current
+ * indentation plus any preceding same-line tokens) -- a real column-aware fits-check is exactly
+ * the kind of rendering-time machinery a future wrap-implementing increment needs, and is
+ * deliberately out of scope for this detect-only slice.
  */
 public final class JsxWrapDiagnostics {
 
@@ -53,9 +53,9 @@ public final class JsxWrapDiagnostics {
 
     /**
      * Records one opening-tag width measurement. {@code openingTagWidth} is expected to be a
-     *  {@code JSX_SPAN} token's {@code jsxOpeningTagEndOffset} (the opening tag's own raw
-     *  character width, `<` through `>`/`/>` inclusive) -- see this class's own doc comment for
-     *  the documented column-position approximation this increment accepts.
+     * {@code JSX_SPAN} token's {@code jsxOpeningTagEndOffset} (the opening tag's own raw
+     * character width, `<` through `>`/`/>` inclusive) -- see this class's own doc comment for
+     * the documented column-position approximation this increment accepts.
      */
     public static void recordOpeningTagMeasurement(
         final int openingTagWidth,

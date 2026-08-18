@@ -38,10 +38,10 @@ import com.jxmake.formatter.classifier.gru.Vocabulary;
 
 /**
  * Training entry point for the Step 3 GRU comment-classifier, per STATE_AI.md's "GRU
- *  implementation design". Deliberately lives outside {@code src/} -- the runtime JAR must never
- *  bundle training code; this writes a weights file for
- *  {@code com.jxmake.formatter.classifier.gru.GruClassifier}/{@code GruWeights} to read at
- *  runtime, it does not generate or overwrite any {@code .java} source.
+ * implementation design". Deliberately lives outside {@code src/} -- the runtime JAR must never
+ * bundle training code; this writes a weights file for
+ * {@code com.jxmake.formatter.classifier.gru.GruClassifier}/{@code GruWeights} to read at
+ * runtime, it does not generate or overwrite any {@code .java} source.
  *
  *  <p><b>Current behavior:</b> a real training loop -- random (Xavier/Glorot-style) weight
  *  initialization, per-example forward pass via {@link GruClassifier#forward}, backprop-through-
@@ -101,9 +101,9 @@ public final class GruTrainer {
     private static final double ABSTAIN_THRESHOLD = 0.76;
     /**
      * Global L2-norm gradient clipping threshold. Prevents exploding gradients in the
-     *  recurrent layers while leaving ordinary updates unchanged. A value around 5 is a
-     *  conventional starting point for GRU/LSTM training and can later become a
-     *  --clip=<value> hyperparameter if needed.
+     * recurrent layers while leaving ordinary updates unchanged. A value around 5 is a
+     * conventional starting point for GRU/LSTM training and can later become a
+     * --clip=<value> hyperparameter if needed.
      */
     private static final double GRADIENT_CLIP_NORM = 5.0;
     private static final String DEFAULT_VOCAB_PATH = "tools/gru/explicit_vocab.txt";
@@ -706,10 +706,10 @@ public final class GruTrainer {
 
     /**
      * Reloads the just-written best-validation-loss weights file and reports a binary confusion
-     *  matrix (positive class = YES) plus precision/recall/F1 against the held-out validation split.
-     *  Ground truth is always YES or NO (ABSTAIN is never a training label -- see the class javadoc),
-     *  but the trained softmax has a third ABSTAIN output slot per {@link GruClassifier#CLASS_ORDER},
-     *  so a prediction landing on ABSTAIN is counted here as simply "not predicted YES".
+     * matrix (positive class = YES) plus precision/recall/F1 against the held-out validation split.
+     * Ground truth is always YES or NO (ABSTAIN is never a training label -- see the class javadoc),
+     * but the trained softmax has a third ABSTAIN output slot per {@link GruClassifier#CLASS_ORDER},
+     * so a prediction landing on ABSTAIN is counted here as simply "not predicted YES".
      */
     private static void printConfusionMatrix(
         File          weightsFile,
@@ -764,12 +764,12 @@ public final class GruTrainer {
 
     /**
      * Diagnostic-only gradient check (see {@code --check-gradients} in {@link #main}): picks one
-     *  random labeled example, runs forward+backward once to get {@link GruClassifier.Gradients},
-     *  then for a representative sample of weight arrays (dense layer, output layer, one direction's
-     *  Wz, and the embedding rows the example actually touches) perturbs each sampled entry by
-     *  +/-epsilon, recomputes the loss, and compares the resulting numeric derivative against
-     *  backward()'s analytic one. Never used during normal training -- exists purely to build
-     *  confidence in backward() before further changes rely on it.
+     * random labeled example, runs forward+backward once to get {@link GruClassifier.Gradients},
+     * then for a representative sample of weight arrays (dense layer, output layer, one direction's
+     * Wz, and the embedding rows the example actually touches) perturbs each sampled entry by
+     * +/-epsilon, recomputes the loss, and compares the resulting numeric derivative against
+     * backward()'s analytic one. Never used during normal training -- exists purely to build
+     * confidence in backward() before further changes rely on it.
      */
     private static void checkGradients(
         GruWeights    weights,
@@ -945,7 +945,7 @@ public final class GruTrainer {
 
     /**
      * One example's computed loss + gradients, or the outcome of skipping an out-of-range
-     *  {@code targetWordIndex} (never constructed for those -- see {@link #computeBatch})
+     * {@code targetWordIndex} (never constructed for those -- see {@link #computeBatch})
      */
     private static final class ComputedGradient {
 
@@ -980,11 +980,11 @@ public final class GruTrainer {
 
     /**
      * Computes forward+backward for one batch of examples, in parallel across {@code executor}'s
-     *  worker threads when non-null (all against the same {@code weights} snapshot -- safe since
-     *  {@link GruClassifier#forward}/{@link GruClassifier#backward} only read {@code weights}, never
-     *  mutate it), sequentially otherwise. Result order matches {@code batch}'s order; entries for
-     *  examples with an out-of-range {@code targetWordIndex} are {@code null} (skipped, matching the
-     *  pre-existing single-threaded behavior of not computing anything for them).
+     * worker threads when non-null (all against the same {@code weights} snapshot -- safe since
+     * {@link GruClassifier#forward}/{@link GruClassifier#backward} only read {@code weights}, never
+     * mutate it), sequentially otherwise. Result order matches {@code batch}'s order; entries for
+     * examples with an out-of-range {@code targetWordIndex} are {@code null} (skipped, matching the
+     * pre-existing single-threaded behavior of not computing anything for them).
      */
     private static List<ComputedGradient> computeBatch(
         ExecutorService executor,
@@ -1036,8 +1036,8 @@ public final class GruTrainer {
 
     /**
      * Same parallelization strategy as {@link #computeBatch}, but for validation (loss only, no
-     *  gradients/Adam application) -- see the call site's comment on why this carries no staleness
-     *  tradeoff, unlike training
+     * gradients/Adam application) -- see the call site's comment on why this carries no staleness
+     * tradeoff, unlike training
      */
     private static List<Double> computeValidationBatch(
         ExecutorService executor,
@@ -1096,16 +1096,16 @@ public final class GruTrainer {
 
     /**
      * Averages (not sums) the non-null {@link ComputedGradient}s of one mini-batch into a single
-     *  {@link GruClassifier.Gradients}, mutating and returning the first non-null entry's own
-     *  gradients object as the accumulator (cheaper than allocating a fresh one -- {@code
-     *  GruClassifier.Gradients}'s constructor is package-private and not callable from here anyway).
-     *  Entries skipped by {@link #computeBatch} (out-of-range {@code targetWordIndex}) are excluded
-     *  from both the sum and the divisor, so a mini-batch containing one or more skipped examples
-     *  still averages correctly over its real example count -- the same logic naturally handles the
-     *  last, possibly-partial batch of an epoch (divides by however many examples it actually
-     *  contains, never a hardcoded {@code batchSize}). Returns {@code null} if every entry in the
-     *  batch was skipped, matching the pre-mini-batch behavior of applying no Adam step for an
-     *  all-skipped batch.
+     * {@link GruClassifier.Gradients}, mutating and returning the first non-null entry's own
+     * gradients object as the accumulator (cheaper than allocating a fresh one -- {@code
+     * GruClassifier.Gradients}'s constructor is package-private and not callable from here anyway).
+     * Entries skipped by {@link #computeBatch} (out-of-range {@code targetWordIndex}) are excluded
+     * from both the sum and the divisor, so a mini-batch containing one or more skipped examples
+     * still averages correctly over its real example count -- the same logic naturally handles the
+     * last, possibly-partial batch of an epoch (divides by however many examples it actually
+     * contains, never a hardcoded {@code batchSize}). Returns {@code null} if every entry in the
+     * batch was skipped, matching the pre-mini-batch behavior of applying no Adam step for an
+     * all-skipped batch.
      */
     private static GruClassifier.Gradients averageGradients(List<ComputedGradient> computed)
     {
@@ -1163,7 +1163,7 @@ public final class GruTrainer {
 
     /**
      * Same field walk as {@link #clipGradients}'s scaling half, reused here to divide a summed
-     *  mini-batch gradient by its example count
+     * mini-batch gradient by its example count
      */
     private static void scaleGradients(GruClassifier.Gradients g, double factor)
     {
@@ -1179,14 +1179,14 @@ public final class GruTrainer {
 
     /**
      * Learning-rate warmup + cosine decay schedule (see {@code --warmup-steps}/{@code --lr-min} in
-     *  {@link #main}). {@code warmupSteps <= 0} disables the schedule entirely -- returns {@code
-     *  baseLr} unconditionally, byte-for-byte the pre-schedule flat-lr behavior, so an unmodified
-     *  invocation (default {@code --warmup-steps=0}) is unaffected. Otherwise: linear ramp from 0 to
-     *  {@code baseLr} over {@code [1, warmupSteps]}, then a cosine decay from {@code baseLr} down to
-     *  {@code lrMin} over the remaining steps up to {@code totalSteps} (clamped to {@code lrMin} past
-     *  {@code totalSteps}, e.g. if early stopping never reaches it). {@code step} is the 1-based Adam
-     *  step counter (same counter used for bias-correction), so this is step-granular, matching
-     *  mini-batch training's one-Adam-step-per-batch granularity rather than per-epoch.
+     * {@link #main}). {@code warmupSteps <= 0} disables the schedule entirely -- returns {@code
+     * baseLr} unconditionally, byte-for-byte the pre-schedule flat-lr behavior, so an unmodified
+     * invocation (default {@code --warmup-steps=0}) is unaffected. Otherwise: linear ramp from 0 to
+     * {@code baseLr} over {@code [1, warmupSteps]}, then a cosine decay from {@code baseLr} down to
+     * {@code lrMin} over the remaining steps up to {@code totalSteps} (clamped to {@code lrMin} past
+     * {@code totalSteps}, e.g. if early stopping never reaches it). {@code step} is the 1-based Adam
+     * step counter (same counter used for bias-correction), so this is step-granular, matching
+     * mini-batch training's one-Adam-step-per-batch granularity rather than per-epoch.
      */
     private static double computeScheduledLr(
         double baseLr,
@@ -1207,11 +1207,11 @@ public final class GruTrainer {
 
     /**
      * Mid-epoch progress line: examples-seen/total, running average train loss so far this epoch,
-     *  elapsed time this epoch, and a rough estimated-time-remaining for the epoch based on the
-     *  average per-example rate observed so far. Printed via {@code System.out.println}, which
-     *  auto-flushes on newline for the console/redirected-file stdout case this is meant for (a
-     *  human tailing the process's own manual invocation, per the 2026-07-29 request), so no
-     *  explicit {@code System.out.flush()} is needed.
+     * elapsed time this epoch, and a rough estimated-time-remaining for the epoch based on the
+     * average per-example rate observed so far. Printed via {@code System.out.println}, which
+     * auto-flushes on newline for the console/redirected-file stdout case this is meant for (a
+     * human tailing the process's own manual invocation, per the 2026-07-29 request), so no
+     * explicit {@code System.out.flush()} is needed.
      */
     private static void printProgress(
         int    epoch,
@@ -1241,8 +1241,8 @@ public final class GruTrainer {
         final String text;
         /**
          * Tokenized once at load time (and truncated to {@code SEQUENCE_CAP}, matching what the
-         *  per-epoch code previously recomputed on every pass) rather than re-tokenized on every
-         *  epoch -- the text/tokenization never changes across epochs, only the weights do
+         * per-epoch code previously recomputed on every pass) rather than re-tokenized on every
+         * epoch -- the text/tokenization never changes across epochs, only the weights do
          */
         final List<String> tokens;
 
@@ -1263,9 +1263,9 @@ public final class GruTrainer {
 
     /**
      * Parses RDD_EXT_20/RDD_EXT_21's labeled-examples schema:
-     *  {@code <lang>\t<label:YES|NO>\t<targetWordIndex>\t<escaped-text>}. Lines starting with
-     *  {@code #} (comments) and blank lines are skipped, matching {@code sample_examples.txt}'s
-     *  own illustrative-shape convention.
+     * {@code <lang>\t<label:YES|NO>\t<targetWordIndex>\t<escaped-text>}. Lines starting with
+     * {@code #} (comments) and blank lines are skipped, matching {@code sample_examples.txt}'s
+     * own illustrative-shape convention.
      */
     private static List<Example> readExamples(File examplesFile) throws IOException
     {
@@ -1433,9 +1433,9 @@ public final class GruTrainer {
 
     /**
      * Clips the entire gradient set to the specified global L2 norm. This is the
-     *  standard "global norm" clipping used by most GRU/LSTM implementations rather
-     *  than clipping each tensor independently, since it preserves the direction of
-     *  the update while only reducing its magnitude when necessary.
+     * standard "global norm" clipping used by most GRU/LSTM implementations rather
+     * than clipping each tensor independently, since it preserves the direction of
+     * the update while only reducing its magnitude when necessary.
      */
     private static void clipGradients(GruClassifier.Gradients gradients, double maxNorm)
     {
@@ -1515,11 +1515,11 @@ public final class GruTrainer {
 
     /**
      * Adam optimizer state (first/second moment estimates), one pair of accumulator arrays per
-     *  trained-weight array, mirroring {@link GruWeights}'s field layout exactly so each weight
-     *  array's update can be applied in lockstep with its gradient. Embedding-row moments are kept
-     *  densely (one row per vocab+hash-bucket slot) even though any single example's gradient only
-     *  touches a handful of rows -- the corpora here are small enough that this is simpler than a
-     *  sparse moment table, and moment state must persist across examples/epochs regardless.
+     * trained-weight array, mirroring {@link GruWeights}'s field layout exactly so each weight
+     * array's update can be applied in lockstep with its gradient. Embedding-row moments are kept
+     * densely (one row per vocab+hash-bucket slot) even though any single example's gradient only
+     * touches a handful of rows -- the corpora here are small enough that this is simpler than a
+     * sparse moment table, and moment state must persist across examples/epochs regardless.
      */
     private static final class AdamState {
 
@@ -1705,9 +1705,9 @@ public final class GruTrainer {
 
     /**
      * {@code weightsOut}-relative path where the current-weights checkpoint's sibling best-weights
-     *  checkpoint lives, given the current-weights checkpoint's own {@code File}. Both are always
-     *  written together from the same {@code weightsOut} base path (see the constant block above), so
-     *  this is a plain suffix swap, not a search.
+     * checkpoint lives, given the current-weights checkpoint's own {@code File}. Both are always
+     * written together from the same {@code weightsOut} base path (see the constant block above), so
+     * this is a plain suffix swap, not a search.
      */
     private static File deriveBestCheckpointFile(File currentCheckpointFile)
     {
@@ -1807,8 +1807,8 @@ public final class GruTrainer {
 
     /**
      * Both checkpoint kinds share this block: schema/architecture scalars, the vocab (needed to
-     *  reconstruct a {@link Vocabulary}), and every {@link GruWeights} array {@code toJsonFields}
-     *  already enumerates -- same field list, not a separately-invented one
+     * reconstruct a {@link Vocabulary}), and every {@link GruWeights} array {@code toJsonFields}
+     * already enumerates -- same field list, not a separately-invented one
      */
     private static void writeWeightsBlock(
         DataOutputStream out,
@@ -1836,8 +1836,8 @@ public final class GruTrainer {
 
     /**
      * Loaded {@link GruWeights} plus the {@code explicitVocab} list it was built from -- {@code
-     *  GruWeights} itself only exposes the vocab as a {@code String[]}; callers here generally want
-     *  the {@code List<String>} shape {@link #toJson} etc. already take.
+     * GruWeights} itself only exposes the vocab as a {@code String[]}; callers here generally want
+     * the {@code List<String>} shape {@link #toJson} etc. already take.
      */
     private static final class LoadedWeights {
 
@@ -1911,9 +1911,9 @@ public final class GruTrainer {
 
     /**
      * Writes the best-weights checkpoint (weights + vocab only, plus the validation loss that earned
-     *  it, for human inspection -- no Adam/run state, this is "give me the best model so far", not a
-     *  resume target on its own). Overwritten only when validation loss improves. Temp-file-then-
-     *  atomic-rename, see the constant block's javadoc.
+     * it, for human inspection -- no Adam/run state, this is "give me the best model so far", not a
+     * resume target on its own). Overwritten only when validation loss improves. Temp-file-then-
+     * atomic-rename, see the constant block's javadoc.
      */
     private static void writeBestCheckpoint(
         File         file,
@@ -1939,10 +1939,10 @@ public final class GruTrainer {
 
     /**
      * Forces {@code f}'s content to durable storage before the caller's atomic rename -- without
-     *  this, the temp file's bytes (and, separately, the rename itself -- see
-     *  {@link #fsyncParentDirectory}) can still be sitting in the OS page cache and lost on a real
-     *  power failure, even though a plain process kill can never corrupt the file (temp-file-then-
-     *  atomic-rename, see the constant block's javadoc)
+     * this, the temp file's bytes (and, separately, the rename itself -- see
+     * {@link #fsyncParentDirectory}) can still be sitting in the OS page cache and lost on a real
+     * power failure, even though a plain process kill can never corrupt the file (temp-file-then-
+     * atomic-rename, see the constant block's javadoc)
      */
     private static void fsyncFile(File f) throws IOException
     {
@@ -1953,8 +1953,8 @@ public final class GruTrainer {
 
     /**
      * Forces the directory entry (the rename itself) to durable storage -- Linux-only (opening a
-     *  directory as a {@link FileChannel} is not portable to Windows), acceptable here since this
-     *  tool only runs on this project's own Linux dev/build hosts
+     * directory as a {@link FileChannel} is not portable to Windows), acceptable here since this
+     * tool only runs on this project's own Linux dev/build hosts
      */
     private static void fsyncParentDirectory(File file) throws IOException
     {
@@ -2056,9 +2056,9 @@ public final class GruTrainer {
 
     /**
      * Allocates a fresh {@link AdamState} sized to {@code weights} (all-zero moments, same as
-     *  {@code new AdamState(weights)} at the start of a fresh run), then overwrites its arrays'
-     *  contents in place from {@code in} -- the moment arrays are {@code final} references, so this
-     *  fills them rather than reassigning
+     * {@code new AdamState(weights)} at the start of a fresh run), then overwrites its arrays'
+     * contents in place from {@code in} -- the moment arrays are {@code final} references, so this
+     * fills them rather than reassigning
      */
     private static AdamState readAdamStateInto(
         DataInputStream in, GruWeights weights
@@ -2083,10 +2083,10 @@ public final class GruTrainer {
 
     /**
      * Writes the current-weights checkpoint: full resumable state (weights, vocab, Adam optimizer
-     *  moment arrays -- not just the raw weight arrays, since resuming without them would restart the
-     *  optimizer's momentum from scratch and defeat the point of a faithful resume -- and scalar run
-     *  state). Overwritten once per epoch, after that epoch's Adam updates + validation-loss
-     *  computation. Temp-file-then-atomic-rename, see the constant block's javadoc.
+     * moment arrays -- not just the raw weight arrays, since resuming without them would restart the
+     * optimizer's momentum from scratch and defeat the point of a faithful resume -- and scalar run
+     * state). Overwritten once per epoch, after that epoch's Adam updates + validation-loss
+     * computation. Temp-file-then-atomic-rename, see the constant block's javadoc.
      *
      *  <p><b>Resume fidelity caveat</b> (documented here and at the {@code --resume} call site): the
      *  RNG seed is persisted, not {@code java.util.Random}'s internal state -- resuming reproduces the
@@ -2139,8 +2139,8 @@ public final class GruTrainer {
 
     /**
      * {@link #writeCurrentCheckpoint} wrapper for the per-epoch call sites in {@code main}: a failed
-     *  checkpoint write must never abort a real training run (it's a safety net, not the run's actual
-     *  deliverable), so this catches and warns instead of propagating
+     * checkpoint write must never abort a real training run (it's a safety net, not the run's actual
+     * deliverable), so this catches and warns instead of propagating
      */
     private static void writeCurrentCheckpointQuietly(
         File         file,
@@ -2174,9 +2174,9 @@ public final class GruTrainer {
 
     /**
      * Full state restored by {@code --resume=<path>}: weights, vocab, Adam optimizer moments, and
-     *  every scalar the epoch loop needs to continue faithfully (epoch/patience bookkeeping, the
-     *  hyperparameters that were in effect, and the Adam step counter -- needed for bias-correction
-     *  continuity, not just cosmetic)
+     * every scalar the epoch loop needs to continue faithfully (epoch/patience bookkeeping, the
+     * hyperparameters that were in effect, and the Adam step counter -- needed for bias-correction
+     * continuity, not just cosmetic)
      */
     private static final class ResumeState {
 
@@ -2272,10 +2272,10 @@ public final class GruTrainer {
 
     /**
      * Builder for {@link GruWeights} -- its own constructor is package-private (only
-     *  {@code GruWeights.load} normally builds instances), so this class hand-assembles the same
-     *  JSON {@code GruWeights.load} parses instead of trying to call that constructor directly.
-     *  Kept as a builder (rather than one giant constructor call) only to keep {@link #randomInit}
-     *  readable given how many fields {@link GruWeights} now has.
+     * {@code GruWeights.load} normally builds instances), so this class hand-assembles the same
+     * JSON {@code GruWeights.load} parses instead of trying to call that constructor directly.
+     * Kept as a builder (rather than one giant constructor call) only to keep {@link #randomInit}
+     * readable given how many fields {@link GruWeights} now has.
      */
     private static final class GruWeightsBuilder {
 

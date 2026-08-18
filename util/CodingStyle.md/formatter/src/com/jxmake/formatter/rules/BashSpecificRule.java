@@ -606,8 +606,8 @@ public final class BashSpecificRule {
 
     /**
      * A `#` starts a comment only at a token boundary (start of content, or preceded by
-     *  whitespace/`;`/`|`/`&`/`(`/`)`/`{`/`\n`) -- excludes `${#arr[@]}` (length operator, preceded
-     *  by `{` which is itself preceded by `$`) and `$#` (positional-param-count variable)
+     * whitespace/`;`/`|`/`&`/`(`/`)`/`{`/`\n`) -- excludes `${#arr[@]}` (length operator, preceded
+     * by `{` which is itself preceded by `$`) and `$#` (positional-param-count variable)
      */
     private static boolean isCommentStart(final String content, final int i)
     {
@@ -699,11 +699,11 @@ public final class BashSpecificRule {
 
     /**
      * Locates a case-arm pattern's terminating `)` in a trimmed line, honoring backslash escapes
-     *  (e.g. `\(\))` -- a pattern literally matching a shell subshell/function marker) so an escaped
-     *  `\)` is never mistaken for the real pattern-closing paren. Mirrors the previous
-     *  `^([^()][^)]*)\)\s*(.*)$` regex's contract (group[0] = pattern text before `)`, group[1] =
-     *  trimmed remainder after `)`) but scans char-by-char instead of relying on regex backtracking,
-     *  which always stopped at the *first* `)` regardless of any preceding backslash escape.
+     * (e.g. `\(\))` -- a pattern literally matching a shell subshell/function marker) so an escaped
+     * `\)` is never mistaken for the real pattern-closing paren. Mirrors the previous
+     * `^([^()][^)]*)\)\s*(.*)$` regex's contract (group[0] = pattern text before `)`, group[1] =
+     * trimmed remainder after `)`) but scans char-by-char instead of relying on regex backtracking,
+     * which always stopped at the *first* `)` regardless of any preceding backslash escape.
      */
     private static String[] matchCaseArm(final String trimmed)
     {
@@ -843,8 +843,8 @@ public final class BashSpecificRule {
     /** §2.4: pattern lines at the case's own indent, arm bodies + `;;` at one level deeper */
     /**
      * Result of a (possibly nested) case-body scan: where it ended, and whether its terminating
-     *  `esac` line also carried a trailing `;;` that closes an *enclosing* case arm on the same line
-     *  (e.g. a nested `case ... in ... esac ;;` used as one outer arm's entire body).
+     * `esac` line also carried a trailing `;;` that closes an *enclosing* case arm on the same line
+     * (e.g. a nested `case ... in ... esac ;;` used as one outer arm's entire body).
      */
     private static final class CaseBodyEnd {
 
@@ -950,9 +950,9 @@ public final class BashSpecificRule {
 
     /**
      * A line is "pure" (eligible for structural rules 2.1/2.3/2.4) if its first non-whitespace
-     *  character is real code -- this correctly excludes heredoc-body lines and full comment lines
-     *  (both start with an 'O' character) without over-rejecting normal code lines that merely
-     *  *contain* a quoted string later on (e.g. `case "$x" in`, whose first char 'c' is 'C').
+     * character is real code -- this correctly excludes heredoc-body lines and full comment lines
+     * (both start with an 'O' character) without over-rejecting normal code lines that merely
+     * *contain* a quoted string later on (e.g. `case "$x" in`, whose first char 'c' is 'C').
      */
     private static boolean[] computeLinePurity(
         final String content,
@@ -996,11 +996,11 @@ public final class BashSpecificRule {
 
     /**
      * Preserves a body line's own authored indentation (relative to {@code basePrefix}) instead of
-     *  forcing a brace-depth-derived level, snapping up to the next {@code indentWidth} multiple when
-     *  it isn't already one -- avoids flattening non-brace nesting (bash `if`/`then`/`fi`,
-     *  `for`/`do`/`done` have no braces to count) while still normalizing onto the indent grid.
-     *  {@code minLevels} is the structurally-required floor (from literal brace/case-arm depth) that
-     *  the snapped result must never fall below.
+     * forcing a brace-depth-derived level, snapping up to the next {@code indentWidth} multiple when
+     * it isn't already one -- avoids flattening non-brace nesting (bash `if`/`then`/`fi`,
+     * `for`/`do`/`done` have no braces to count) while still normalizing onto the indent grid.
+     * {@code minLevels} is the structurally-required floor (from literal brace/case-arm depth) that
+     * the snapped result must never fall below.
      */
     private String snapIndent(final String rawLine, final String basePrefix, final int minLevels)
     {

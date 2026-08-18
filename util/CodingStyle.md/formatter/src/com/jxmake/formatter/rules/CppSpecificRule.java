@@ -1845,19 +1845,19 @@ public class CppSpecificRule {
             if(runFrozen) continue;
               int                  maxNameLen = 0;
         final Map<Integer, String> names      = new HashMap<>();
+        final Map<Integer, String> values     = new HashMap<>();
             for(final int idx : run) {
                 final Matcher m = VALUE_DEFINE.matcher( tokens.get(idx).text );
                 m.matches();
                 names.put( idx, m.group(1) );
+                values.put( idx, m.group(2) );
                 maxNameLen = Math.max( maxNameLen, m.group(1).length() );
             }
             for(final int idx : run) {
-                final Matcher m = VALUE_DEFINE.matcher( tokens.get(idx).text );
-                m.matches();
                 final String        name    = names.get(idx);
                 final StringBuilder padding = new StringBuilder();
                 for( int p = 0; p < maxNameLen - name.length() + 1; ++p ) padding.append(' ');
-                replacements.put( idx, "#define " + name + padding + m.group(2) );
+                replacements.put( idx, "#define " + name + padding + values.get(idx) );
             } // for idx
         } // for run
 

@@ -151,7 +151,7 @@ public class JavaSpecificRule {
                 // definition / compact-constructor shape and would be wrongly re-broken here.
                 continue;
             } // if
-            final int prevIdx = prevSignificantIndex(tokens, i);
+            final int prevIdx = prevSignificantIndexBefore(tokens, i);
             if(prevIdx < 0) continue;
             if( !isPunct( tokens.get(prevIdx), ")" ) ) {
                 // Check for Java `throws` clause: `void foo() throws IOException {`
@@ -163,7 +163,7 @@ public class JavaSpecificRule {
                     final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
                     if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) {
                         final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, throwsCloseParen);
-                        final int nameIdx      = prevSignificantIndex(tokens, openParenIdx);
+                        final int nameIdx      = prevSignificantIndexBefore(tokens, openParenIdx);
                         oneLiners.add(
                             new OneLinerCandidate(nameIdx, throwsCloseParen, i, closeBraceIdx)
                         );
@@ -188,7 +188,7 @@ public class JavaSpecificRule {
             final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
             if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) {
                 final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
-                final int nameIdx      = prevSignificantIndex(tokens, openParenIdx);
+                final int nameIdx      = prevSignificantIndexBefore(tokens, openParenIdx);
                 oneLiners.add( new OneLinerCandidate(nameIdx, closeParenIdx, i, closeBraceIdx) );
                 continue;
             }
@@ -327,11 +327,11 @@ public class JavaSpecificRule {
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type != TokenType.IDENTIFIER) continue;
-            final int parenIdx = nextSignificantIndex(tokens, i);
+            final int parenIdx = nextSignificantIndexAfter(tokens, i);
             if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
             final int closeIdx = MiscRuleCore.matchParenForward(tokens, parenIdx);
             if(closeIdx < 0 || closeIdx > to) continue;
-            final int argsFrom = nextSignificantIndex(tokens, parenIdx);
+            final int argsFrom = nextSignificantIndexAfter(tokens, parenIdx);
             if(argsFrom >= 0 && argsFrom < closeIdx) return true;
         } // for
 
@@ -358,8 +358,8 @@ public class JavaSpecificRule {
         if( i < 0 || tokens.get(i).type != TokenType.IDENTIFIER ) return -1;
         while(i >= 0) {
             final Token t = tokens.get(i);
-                 if(t.type == TokenType.IDENTIFIER) i = prevSignificantIndex(tokens, i - 1);
-            else if( isPunct(t, ",") )              i = prevSignificantIndex(tokens, i - 1);
+                 if(t.type == TokenType.IDENTIFIER) i = prevSignificantIndexBefore(tokens, i - 1);
+            else if( isPunct(t, ",") )              i = prevSignificantIndexBefore(tokens, i - 1);
             else                                    break;
         }
         if( i < 0 || tokens.get(
@@ -367,7 +367,7 @@ public class JavaSpecificRule {
         ).type != TokenType.KEYWORD || !"throws".equals(
             tokens.get(i).text
         ) ) return -1;
-        final int closeParen = prevSignificantIndex(tokens, i - 1);
+        final int closeParen = prevSignificantIndexBefore(tokens, i - 1);
 
         return ( closeParen >= 0 && isPunct( tokens.get(closeParen), ")" ) ) ? closeParen : -1;
     }
@@ -379,9 +379,9 @@ public class JavaSpecificRule {
      */
     private boolean isCandidateMethodName(final List<Token> tokens, final int openIdx)
     {
-        final int nameIdx = prevSignificantIndex(tokens, openIdx);
+        final int nameIdx = prevSignificantIndexBefore(tokens, openIdx);
         if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) return false;
-        final int beforeName = prevSignificantIndex(tokens, nameIdx);
+        final int beforeName = prevSignificantIndexBefore(tokens, nameIdx);
 
         return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
                 || !"new".equals( tokens.get(beforeName).text );
@@ -419,12 +419,12 @@ public class JavaSpecificRule {
     {
         if( tokens.get(identIdx).type != TokenType.IDENTIFIER ) return false;
         if( isEnumConstantBody(tokens, braceIdx) ) return false;
-        int i = prevSignificantIndex(tokens, identIdx);
+        int i = prevSignificantIndexBefore(tokens, identIdx);
         while( i >= 0 && tokens.get(
             i
         ).type == TokenType.KEYWORD && COMPACT_CTOR_MODIFIERS.contains(
             tokens.get(i).text
-        ) ) i = prevSignificantIndex(
+        ) ) i = prevSignificantIndexBefore(
             tokens, i - 1
         );
 
@@ -442,7 +442,7 @@ public class JavaSpecificRule {
     {
         final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, braceIdx);
         if(closeBraceIdx < 0) return false;
-        final int next = nextSignificantIndex(tokens, closeBraceIdx);
+        final int next = nextSignificantIndexAfter(tokens, closeBraceIdx);
 
         return next >= 0 && ( isPunct(
             tokens.get(next), ","
@@ -523,7 +523,7 @@ public class JavaSpecificRule {
             if( !isPunct( tokens.get(i), "{" ) || !isEnumBodyBrace(tokens, i) ) continue;
             final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
             if(closeBraceIdx < 0) continue;
-            final int firstMember = nextSignificantIndex(tokens, i + 1);
+            final int firstMember = nextSignificantIndexAfter(tokens, i + 1);
             if(firstMember < 0 || firstMember >= closeBraceIdx) continue;
             // Derived from the enum body's own opening-brace line indent plus one indent unit,
             // NOT from `lineIndentAt(tokens, firstMember)`'s own current line: on a reformat, the
@@ -544,7 +544,7 @@ public class JavaSpecificRule {
                     --depth;
                 }
                 else if( depth == 0 && isPunct(t, ";") ) {
-                    final int next = nextSignificantIndex(tokens, p + 1);
+                    final int next = nextSignificantIndexAfter(tokens, p + 1);
                     if( next >= 0 && next < closeBraceIdx && !MiscRuleCore.anyFrozen(
                         tokens, firstMember, closeBraceIdx
                     ) ) result.put(
@@ -565,12 +565,12 @@ public class JavaSpecificRule {
      */
     private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
     {
-        int p = prevSignificantIndex(tokens, braceIdx - 1);
+        int p = prevSignificantIndexBefore(tokens, braceIdx - 1);
         while(p >= 0) {
             final Token t = tokens.get(p);
             if( t.type == TokenType.KEYWORD && "enum".equals(t.text) ) return true;
             if( isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";") ) return false;
-            p = prevSignificantIndex(tokens, p - 1);
+            p = prevSignificantIndexBefore(tokens, p - 1);
         }
 
         return false;
@@ -899,7 +899,7 @@ public class JavaSpecificRule {
             if(openBraceIdx < 0) continue;
             final int declStart = lineStartIndex(tokens, classIdx);
             if( hasCommentBetween(tokens, declStart, openBraceIdx + 1) ) continue;
-            final int prevSigIdx = prevSignificantIndex(tokens, i);
+            final int prevSigIdx = prevSignificantIndexBefore(tokens, i);
             if(prevSigIdx < 0) continue;
             final List<String> types = parsePermittedTypes(tokens, i + 1, openBraceIdx);
             if(types == null) continue;
@@ -974,7 +974,7 @@ public class JavaSpecificRule {
         final int         openBraceIdx
     )
     {
-        final int firstBodySig = nextSignificantIndex(tokens, openBraceIdx);
+        final int firstBodySig = nextSignificantIndexAfter(tokens, openBraceIdx);
         if(firstBodySig < 0) return defaultIndentUnit;
         final String bodyIndent = lineIndent(tokens, firstBodySig);
         if( bodyIndent.length() > baseIndent.length() && bodyIndent.startsWith(
@@ -1111,11 +1111,11 @@ public class JavaSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( t.type != TokenType.KEYWORD || !"switch".equals(t.text) ) continue;
-            final int openParenIdx = nextSignificantIndex(tokens, i);
+            final int openParenIdx = nextSignificantIndexAfter(tokens, i);
             if( openParenIdx < 0 || !isPunct( tokens.get(openParenIdx), "(" ) ) continue;
             final int closeParenIdx = MiscRuleCore.matchParenForward(tokens, openParenIdx);
             if(closeParenIdx < 0) continue;
-            final int openBraceIdx = nextSignificantIndex(tokens, closeParenIdx);
+            final int openBraceIdx = nextSignificantIndexAfter(tokens, closeParenIdx);
             if( openBraceIdx < 0 || !isPunct( tokens.get(openBraceIdx), "{" ) ) continue;
             final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, openBraceIdx);
             if(closeBraceIdx < 0) continue;
@@ -1192,7 +1192,7 @@ public class JavaSpecificRule {
                     && ( "case".equals(t.text) || "default".equals(t.text) ) ) {
                 final int arrowIdx = findCaseArrowOrColon(tokens, i, closeBraceIdx);
                 if(arrowIdx == COLON_FOUND || arrowIdx == ARROW_NOT_FOUND) return null;
-                final int bodyStartIdx = nextSignificantIndex(tokens, arrowIdx);
+                final int bodyStartIdx = nextSignificantIndexAfter(tokens, arrowIdx);
                 if(bodyStartIdx < 0) return null;
                 final String label = collapseToOneLine(tokens, i, arrowIdx - 1);
                 cases.add(
@@ -1340,7 +1340,7 @@ public class JavaSpecificRule {
                 break;
             }
         }
-        final int firstSig = nextSignificantIndex(tokens, newlineIdx);
+        final int firstSig = nextSignificantIndexAfter(tokens, newlineIdx);
 
         return firstSig < 0 ? idx : firstSig;
     }
@@ -1396,7 +1396,12 @@ public class JavaSpecificRule {
         return "";
     }
 
-    private int prevSignificantIndex(final List<Token> tokens, final int from)
+    /**
+     * Index of the nearest significant token strictly before {@code from} ({@code from} itself is
+     * never returned, unlike {@code MiscRuleCore.prevSignificantIndex}'s at-or-before scan), or
+     * {@code -1} if none.
+     */
+    private int prevSignificantIndexBefore(final List<Token> tokens, final int from)
     {
         for(int i = from - 1; i >= 0; --i) {
             if( !isGapToken( tokens.get(i) ) ) return i;
@@ -1405,7 +1410,12 @@ public class JavaSpecificRule {
         return -1;
     }
 
-    private int nextSignificantIndex(final List<Token> tokens, final int from)
+    /**
+     * Index of the nearest significant token strictly after {@code from} ({@code from} itself is
+     * never returned, unlike {@code MiscRuleCore.nextSignificantIndex}'s at-or-after scan), or
+     * {@code -1} if none.
+     */
+    private int nextSignificantIndexAfter(final List<Token> tokens, final int from)
     {
         for( int i = from + 1; i < tokens.size(); ++i ) {
             if( !isGapToken( tokens.get(i) ) ) return i;

@@ -2001,11 +2001,11 @@ public class BlockStructureRule {
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type != TokenType.IDENTIFIER) continue;
-            final int parenIdx = nextSignificantIndexLocal(tokens, i);
+            final int parenIdx = nextSignificantIndexAfter(tokens, i);
             if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
             final int closeIdx = matchParenForwardLocal(tokens, parenIdx);
             if(closeIdx < 0 || closeIdx > to) continue;
-            final int argsFrom = nextSignificantIndexLocal(tokens, parenIdx);
+            final int argsFrom = nextSignificantIndexAfter(tokens, parenIdx);
             if(argsFrom >= 0 && argsFrom < closeIdx) return true;
         } // for
 
@@ -2013,10 +2013,14 @@ public class BlockStructureRule {
     }
 
     /**
-     * Index of the next non-whitespace/non-newline token after {@code from}, or {@code -1} if
-     * none -- local copy, see {@link #hasBreakableCall}'s own duplication note
+     * Index of the next non-whitespace/non-newline token strictly after {@code from} ({@code
+     * from} itself is never returned, unlike {@code MiscRuleCore.nextSignificantIndex}'s
+     * at-or-after scan), or {@code -1} if none -- local copy, see {@link #hasBreakableCall}'s
+     * own duplication note. Same {@code ...After}/{@code ...Before} naming and exclusive-start
+     * scan convention as {@code CppSpecificRule}/{@code JavaSpecificRule}'s own
+     * {@code nextSignificantIndexAfter}/{@code prevSignificantIndexBefore} copies.
      */
-    private int nextSignificantIndexLocal(final List<Token> tokens, final int from)
+    private int nextSignificantIndexAfter(final List<Token> tokens, final int from)
     {
         for( int i = from + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
@@ -2156,11 +2160,11 @@ public class BlockStructureRule {
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type != TokenType.IDENTIFIER) continue;
-            final int parenIdx = nextSignificantIndexLocal(tokens, i);
+            final int parenIdx = nextSignificantIndexAfter(tokens, i);
             if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
             final int closeIdx = matchParenForwardLocal(tokens, parenIdx);
             if(closeIdx < 0 || closeIdx > to) continue;
-            final int argsFrom = nextSignificantIndexLocal(tokens, parenIdx);
+            final int argsFrom = nextSignificantIndexAfter(tokens, parenIdx);
             if(argsFrom < 0 || argsFrom >= closeIdx) continue;
             for(int j = argsFrom; j < closeIdx; ++j) savings += tokens.get(j).text.length();
         } // for

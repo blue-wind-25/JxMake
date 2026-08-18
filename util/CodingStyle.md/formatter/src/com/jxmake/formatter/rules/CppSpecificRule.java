@@ -152,18 +152,18 @@ public class CppSpecificRule {
      */
     private boolean isCandidateSignatureName(final List<Token> tokens, final int openIdx)
     {
-        final int nameIdx = prevSignificantIndex(tokens, openIdx);
+        final int nameIdx = prevSignificantIndexBefore(tokens, openIdx);
         if(nameIdx < 0) return false;
         final Token nameTok = tokens.get(nameIdx);
         if(nameTok.type == TokenType.IDENTIFIER) {
-            final int beforeName = prevSignificantIndex(tokens, nameIdx);
+            final int beforeName = prevSignificantIndexBefore(tokens, nameIdx);
             return beforeName < 0 || tokens.get(beforeName).type != TokenType.KEYWORD
                     || !"new".equals( tokens.get(beforeName).text );
         }
         // Operator overloads: `operator<=>`, `operator==`, etc. — the OP token before `(` is
         // the operator symbol; the token before that must be the `operator` keyword.
         if(nameTok.type == TokenType.OP) {
-            final int beforeOp = prevSignificantIndex(tokens, nameIdx);
+            final int beforeOp = prevSignificantIndexBefore(tokens, nameIdx);
             return beforeOp >= 0 && tokens.get(beforeOp).type == TokenType.KEYWORD
                     && "operator".equals( tokens.get(beforeOp).text );
         }
@@ -177,7 +177,7 @@ public class CppSpecificRule {
      */
     private boolean isFollowedByFunctionBody(final List<Token> tokens, final int closeIdx)
     {
-        final int next = nextSignificantIndex(tokens, closeIdx);
+        final int next = nextSignificantIndexAfter(tokens, closeIdx);
 
         return next >= 0 && isPunct( tokens.get(next), "{" );
     }
@@ -194,7 +194,7 @@ public class CppSpecificRule {
      */
     private boolean isFollowedByOpenParen(final List<Token> tokens, final int closeIdx)
     {
-        final int next = nextSignificantIndex(tokens, closeIdx);
+        final int next = nextSignificantIndexAfter(tokens, closeIdx);
 
         return next >= 0 && isPunct( tokens.get(next), "(" );
     }
@@ -301,10 +301,10 @@ public class CppSpecificRule {
             if( !isPunct( tokens.get(i), "{" ) ) continue;
             // Walk past post-paren qualifiers (const, volatile, noexcept, override, final)
             // so that e.g. `func() const {` is handled the same as `func() {`.
-            int closeParenIdx = prevSignificantIndex(tokens, i);
+            int closeParenIdx = prevSignificantIndexBefore(tokens, i);
             while( closeParenIdx >= 0 && isDefinitionQualifier(
                 tokens.get(closeParenIdx)
-            ) ) closeParenIdx = prevSignificantIndex(
+            ) ) closeParenIdx = prevSignificantIndexBefore(
                 tokens, closeParenIdx
             );
             if( closeParenIdx < 0 || !isPunct( tokens.get(closeParenIdx), ")" ) ) {
@@ -330,7 +330,7 @@ public class CppSpecificRule {
             if( !isFunctionDefinitionCloseParen(tokens, funcCloseParen) ) continue;
             // GapStart: first token after the last qualifier (or after ")"), so qualifiers
             // before "{" are preserved in the output and only the trailing whitespace is replaced
-            final int lastBeforeBrace = prevSignificantIndex(tokens, i);
+            final int lastBeforeBrace = prevSignificantIndexBefore(tokens, i);
             // Idempotency: already on own line if there is a newline between the IMMEDIATE
             // preceding token (qualifier or last-initializer ")") and "{"
             if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, lastBeforeBrace, i) ) continue;
@@ -393,7 +393,7 @@ public class CppSpecificRule {
             }
             else if( depth == 0 && isOp(t, ":") ) {
                 // Found the initializer-list colon. The function's own `)` is just before this.
-                final int funcCloseParen = prevSignificantIndex(tokens, i);
+                final int funcCloseParen = prevSignificantIndexBefore(tokens, i);
                 return ( funcCloseParen >= 0 && isPunct( tokens.get(funcCloseParen), ")" ) )
                         ? funcCloseParen : candidate;
             }
@@ -445,10 +445,10 @@ public class CppSpecificRule {
             }
             else if( depth == 0 && isOp(t, "->") ) {
                 // Found the trailing return type arrow; skip any qualifiers and find `)`
-                int beforeArrow = prevSignificantIndex(tokens, i);
+                int beforeArrow = prevSignificantIndexBefore(tokens, i);
                 while( beforeArrow >= 0 && isDefinitionQualifier(
                     tokens.get(beforeArrow)
-                ) ) beforeArrow = prevSignificantIndex(
+                ) ) beforeArrow = prevSignificantIndexBefore(
                     tokens, beforeArrow
                 );
                 return ( beforeArrow >= 0 && isPunct(
@@ -485,7 +485,7 @@ public class CppSpecificRule {
             else if( isPunct(t, ")") ) { ++depth; }
             else if( isPunct(t, "(") ) { --depth; }
             else if( depth == 0 && t.type == TokenType.KEYWORD && "requires".equals(t.text) ) {
-                final int closeParen = prevSignificantIndex(tokens, i);
+                final int closeParen = prevSignificantIndexBefore(tokens, i);
                 return ( closeParen >= 0 && isPunct(
                     tokens.get(closeParen), ")"
                 ) ) ? closeParen : -1;
@@ -691,7 +691,7 @@ public class CppSpecificRule {
         final Set<Integer> ellipsisBeforeBracket = new HashSet<>();
         for(int i = 0; i < n; ++i) {
             if( !isOp( tokens.get(i), "..." ) ) continue;
-            final int nextIdx = nextSignificantIndex(tokens, i);
+            final int nextIdx = nextSignificantIndexAfter(tokens, i);
             if( nextIdx >= 0 && isPunct( tokens.get(nextIdx), "[" ) ) ellipsisBeforeBracket.add(i);
         }
         if( ellipsisBeforeBracket.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
@@ -760,7 +760,7 @@ public class CppSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( t.type != TokenType.KEYWORD || !"requires".equals(t.text) ) continue;
-            final int closeParenIdx = prevSignificantIndex(tokens, i);
+            final int closeParenIdx = prevSignificantIndexBefore(tokens, i);
             if( closeParenIdx < 0 || !isPunct( tokens.get(closeParenIdx), ")" ) ) continue;
             final int clauseEndIdx = findRequiresClauseEnd(tokens, i);
             if(clauseEndIdx < 0 || clauseEndIdx <= i + 1) continue;
@@ -807,14 +807,14 @@ public class CppSpecificRule {
             // reproduce the same class of instability this fix is for.
             int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
             while(openParenIdx >= 0) {
-                final int beforeOpen = prevSignificantIndex(tokens, openParenIdx);
+                final int beforeOpen = prevSignificantIndexBefore(tokens, openParenIdx);
                 if( beforeOpen >= 0 && isPunct( tokens.get(beforeOpen), ")" ) ) {
                     openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeOpen);
                     continue;
                 }
                 if( beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
                         && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
-                    final int beforeSpecifier = prevSignificantIndex(tokens, beforeOpen);
+                    final int beforeSpecifier = prevSignificantIndexBefore(tokens, beforeOpen);
                     if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
                         openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeSpecifier);
                         continue;
@@ -893,7 +893,7 @@ public class CppSpecificRule {
             ) || "post".equals(
                 t.text
             ) ) ) continue;
-            final int anchorCloseParenIdx = prevSignificantIndex(tokens, i);
+            final int anchorCloseParenIdx = prevSignificantIndexBefore(tokens, i);
             if( anchorCloseParenIdx < 0 || !isPunct(
                 tokens.get(anchorCloseParenIdx), ")"
             ) || consumedCloseParens.contains(
@@ -907,7 +907,7 @@ public class CppSpecificRule {
                   boolean       bad              = false;
             while(true) {
                 clauseKeywordIdx.add(cursor);
-                final int openParenIdx = nextSignificantIndex(tokens, cursor);
+                final int openParenIdx = nextSignificantIndexAfter(tokens, cursor);
                 if( openParenIdx < 0 || !isPunct( tokens.get(openParenIdx), "(" ) ) {
                     bad = true;
                     break;
@@ -929,7 +929,7 @@ public class CppSpecificRule {
                 clauseParenSpans.add( new int[] { openParenIdx, closeParenIdx } );
                 consumedCloseParens.add(closeParenIdx);
 
-                final int afterClose = nextSignificantIndex(tokens, closeParenIdx);
+                final int afterClose = nextSignificantIndexAfter(tokens, closeParenIdx);
                 if( afterClose >= 0 && tokens.get(afterClose).type == TokenType.IDENTIFIER
                         && ( "pre".equals(
                             tokens.get(afterClose).text
@@ -949,14 +949,14 @@ public class CppSpecificRule {
             // stable baseIndent.
             int openParenForIndent = MiscRuleCore.matchParenBackward(tokens, anchorCloseParenIdx);
             while(openParenForIndent >= 0) {
-                final int beforeOpen = prevSignificantIndex(tokens, openParenForIndent);
+                final int beforeOpen = prevSignificantIndexBefore(tokens, openParenForIndent);
                 if( beforeOpen >= 0 && isPunct( tokens.get(beforeOpen), ")" ) ) {
                     openParenForIndent = MiscRuleCore.matchParenBackward(tokens, beforeOpen);
                     continue;
                 }
                 if( beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
                         && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
-                    final int beforeSpecifier = prevSignificantIndex(tokens, beforeOpen);
+                    final int beforeSpecifier = prevSignificantIndexBefore(tokens, beforeOpen);
                     if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
                         openParenForIndent = MiscRuleCore.matchParenBackward(tokens, beforeSpecifier);
                         continue;
@@ -1065,7 +1065,7 @@ public class CppSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( t.type != TokenType.IDENTIFIER || !"contract_assert".equals(t.text) ) continue;
-            final int openParenIdx = nextSignificantIndex(tokens, i);
+            final int openParenIdx = nextSignificantIndexAfter(tokens, i);
             if( openParenIdx < 0 || !isPunct( tokens.get(openParenIdx), "(" ) ) continue;
             final int closeParenIdx = MiscRuleCore.matchParenForward(tokens, openParenIdx);
             if(closeParenIdx < 0) continue;
@@ -1171,8 +1171,8 @@ public class CppSpecificRule {
             final boolean loose      = ATTRIBUTE_COMPLEXITY_EVALUATOR.isLoose(content);
             final String  desiredPad = loose ? " " : "";
 
-            final int           firstSigIdx = nextSignificantIndex(tokens, openIdx);
-            final int           lastSigIdx  = prevSignificantIndex(tokens, closeIdx);
+            final int           firstSigIdx = nextSignificantIndexAfter(tokens, openIdx);
+            final int           lastSigIdx  = prevSignificantIndexBefore(tokens, closeIdx);
             final StringBuilder render      = new StringBuilder();
             render.append( tokens.get(openIdx).text );
             render.append(desiredPad);
@@ -1393,7 +1393,7 @@ public class CppSpecificRule {
                 break;
             }
         }
-        final int firstSig = nextSignificantIndex(tokens, newlineIdx);
+        final int firstSig = nextSignificantIndexAfter(tokens, newlineIdx);
 
         return firstSig < 0 ? idx : firstSig;
     }
@@ -1748,7 +1748,12 @@ public class CppSpecificRule {
         return -1;
     }
 
-    private int prevSignificantIndex(final List<Token> tokens, final int from)
+    /**
+     * Index of the nearest significant token strictly before {@code from} ({@code from} itself is
+     * never returned, unlike {@code MiscRuleCore.prevSignificantIndex}'s at-or-before scan), or
+     * {@code -1} if none.
+     */
+    private int prevSignificantIndexBefore(final List<Token> tokens, final int from)
     {
         for(int i = from - 1; i >= 0; --i) {
             if( !isGapToken( tokens.get(i) ) ) return i;
@@ -1757,7 +1762,12 @@ public class CppSpecificRule {
         return -1;
     }
 
-    private int nextSignificantIndex(final List<Token> tokens, final int from)
+    /**
+     * Index of the nearest significant token strictly after {@code from} ({@code from} itself is
+     * never returned, unlike {@code MiscRuleCore.nextSignificantIndex}'s at-or-after scan), or
+     * {@code -1} if none.
+     */
+    private int nextSignificantIndexAfter(final List<Token> tokens, final int from)
     {
         for( int i = from + 1; i < tokens.size(); ++i ) {
             if( !isGapToken( tokens.get(i) ) ) return i;

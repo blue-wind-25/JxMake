@@ -57,7 +57,7 @@ All others   : any file type recognised by Pygments (C, C++, Python, Java, shell
 Caching
 ----------------------------------------------------------------------------------------------------
 
-All HTML responses are sent with Cache-Control: no-store.  This ensures that every browser
+All HTML responses are sent with Cache-Control: no-store. This ensures that every browser
 (including Firefox's back-forward cache) always fetches the current version of a file from disk
 rather than serving a stale cached copy after edits.
 

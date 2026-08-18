@@ -333,7 +333,7 @@ public class CppSpecificRule {
             final int lastBeforeBrace = prevSignificantIndex(tokens, i);
             // Idempotency: already on own line if there is a newline between the IMMEDIATE
             // preceding token (qualifier or last-initializer ")") and "{"
-            if( hasNewlineOrCommentBetween(tokens, lastBeforeBrace, i) ) continue;
+            if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, lastBeforeBrace, i) ) continue;
             final int gapStart = lastBeforeBrace + 1;
             // Keep single-line bodies K&R -- never Allman-convert a one-liner (RDD_KEY_75)
             final int closeBraceIdx = matchBraceForward(tokens, i);
@@ -531,19 +531,6 @@ public class CppSpecificRule {
         return openParenIdx >= 0 && isCandidateSignatureName(tokens, openParenIdx);
     }
 
-    private boolean hasNewlineOrCommentBetween(
-        final List<Token> tokens,
-        final int         fromExclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
-            final TokenType type = tokens.get(i).type;
-            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
-        }
-
-        return false;
-    }
 
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that

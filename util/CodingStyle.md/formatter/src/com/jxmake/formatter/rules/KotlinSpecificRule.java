@@ -1541,7 +1541,7 @@ public class KotlinSpecificRule {
             if( closeParenIdx < 0 || !isFunctionOrConstructorCloseParen(
                 tokens, closeParenIdx
             ) ) continue;
-            if( hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
+            if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
             if( MiscRuleCore.anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) continue;
@@ -1713,19 +1713,6 @@ public class KotlinSpecificRule {
         return -1;
     }
 
-    private boolean hasNewlineOrCommentBetween(
-        final List<Token> tokens,
-        final int         fromExclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
-            final TokenType type = tokens.get(i).type;
-            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
-        }
-
-        return false;
-    }
 
     /**
      * True iff no {@code NEWLINE} appears between {@code braceIdx} and {@code closeBraceIdx}

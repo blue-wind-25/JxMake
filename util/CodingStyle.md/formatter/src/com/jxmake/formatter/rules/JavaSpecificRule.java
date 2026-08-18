@@ -174,7 +174,7 @@ public class JavaSpecificRule {
             if( !isPunct( tokens.get(prevIdx), ")" ) ) {
                 // Check for Java `throws` clause: `void foo() throws IOException {`
                 final int throwsCloseParen = findCloseParenBeforeThrows(tokens, prevIdx);
-                if( throwsCloseParen >= 0 && !hasNewlineOrCommentBetween(tokens, prevIdx, i)
+                if( throwsCloseParen >= 0 && !MiscRuleCore.hasNewlineOrCommentBetween(tokens, prevIdx, i)
                         && isMethodDefinitionCloseParen(tokens, throwsCloseParen)
                         && !isEnumConstantBody(tokens, i)
                         && !MiscRuleCore.anyFrozen(tokens, throwsCloseParen, i + 1) ) {
@@ -192,7 +192,7 @@ public class JavaSpecificRule {
                     }
                 } // if
                 else if( isCompactConstructorBrace(tokens, prevIdx, i)
-                        && !hasNewlineOrCommentBetween(tokens, prevIdx, i)
+                        && !MiscRuleCore.hasNewlineOrCommentBetween(tokens, prevIdx, i)
                         && !MiscRuleCore.anyFrozen(tokens, prevIdx, i + 1) ) {
                     gapToBrace.put(prevIdx + 1, i);
                 }
@@ -200,7 +200,7 @@ public class JavaSpecificRule {
             } // if
             final int closeParenIdx = prevIdx;
             if( !isMethodDefinitionCloseParen(tokens, closeParenIdx) ) continue;
-            if( hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
+            if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, closeParenIdx, i) ) continue;
             if( isEnumConstantBody(tokens, i) ) continue;
             if( MiscRuleCore.anyFrozen(tokens, closeParenIdx, i + 1) ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
@@ -1406,19 +1406,6 @@ public class JavaSpecificRule {
         return true;
     }
 
-    private boolean hasNewlineOrCommentBetween(
-        final List<Token> tokens,
-        final int         fromExclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
-            final TokenType type = tokens.get(i).type;
-            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
-        }
-
-        return false;
-    }
 
     /**
      * Line-leading whitespace of the physical line containing token {@code idx} -- "" if that

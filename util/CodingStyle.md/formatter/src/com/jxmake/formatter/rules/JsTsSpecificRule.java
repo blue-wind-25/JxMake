@@ -1193,7 +1193,7 @@ public final class JsTsSpecificRule {
             }
             final int nameIdx = beforeParenIdx;
             if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
-            if( hasNewlineOrCommentBetween(tokens, lastHeaderTokenIdx, i) ) continue;
+            if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, lastHeaderTokenIdx, i) ) continue;
             if( MiscRuleCore.anyFrozen(tokens, nameIdx, i + 1) ) continue;
             final Integer closeBraceIdx = braceOpenToClose.get(i);
             if(closeBraceIdx == null) continue;
@@ -1289,7 +1289,7 @@ public final class JsTsSpecificRule {
     )
     {
         return nextSignificantIndex(tokens, braceIdx + 1) == closeBraceIdx
-                && !hasNewlineOrCommentBetween(tokens, braceIdx, closeBraceIdx);
+                && !MiscRuleCore.hasNewlineOrCommentBetween(tokens, braceIdx, closeBraceIdx);
     }
 
     /**
@@ -1309,19 +1309,6 @@ public final class JsTsSpecificRule {
         return true;
     }
 
-    private boolean hasNewlineOrCommentBetween(
-        final List<Token> tokens,
-        final int         fromExclusive,
-        final int         toExclusive
-    )
-    {
-        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
-            final TokenType type = tokens.get(i).type;
-            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
-        }
-
-        return false;
-    }
 
     /**
      * Second pass: given the set of `{` indices approved for Allman conversion (keyed by the
@@ -1763,7 +1750,7 @@ public final class JsTsSpecificRule {
             if(prevIdx < 0) continue;
             final Token prev = tokens.get(prevIdx);
             if(prev.type != TokenType.IDENTIFIER || prev.frozen) continue;
-            if( hasNewlineOrCommentBetween(tokens, prevIdx, i) ) continue;
+            if( MiscRuleCore.hasNewlineOrCommentBetween(tokens, prevIdx, i) ) continue;
             // TS explicit return-type annotation (`(node: Node): node is Function => {...}`,
             // `(a): SomeType => {...}`) -- the identifier immediately before `=>` is the tail of
             // the return type, not a bare single arrow parameter (a real bare-param arrow can

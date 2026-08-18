@@ -2772,4 +2772,18 @@ public static final class Assignment {
         return false;
     }
 
+    protected static boolean hasNewlineOrCommentBetween(
+        final List<Token> tokens,
+        final int         fromExclusive,
+        final int         toExclusive
+    )
+    {
+        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
+            final TokenType type = tokens.get(i).type;
+            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
+        }
+
+        return false;
+    }
+
 } // class MiscRuleCore

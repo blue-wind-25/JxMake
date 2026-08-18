@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Copyright (C) 2022-2026 Aloysius Indrayanto
 #
-# This file is part of the JxMake build system and is distributed under the Apache License, Version 2.0.
-# See the LICENSE file in the formatter root directory for the full Apache License, Version 2.0 text.
+# This file is distributed under the Apache License, Version 2.0.
+# See the LICENSE_APACHEv2.txt file in the project root directory for the full license text.
 
 # Automates Step 3 GRU training-data ACQUISITION + EXTRACTION only (STATE_AI.md
 # open item "a larger real corpus"), per RDD_EXT_16's source policy (own

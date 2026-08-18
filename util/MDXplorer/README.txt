@@ -64,7 +64,7 @@ rather than serving a stale cached copy after edits.
 ====================================================================================================
 
 MDXplorer is free software; you can redistribute it and/or modify it under the terms of the
-GNU Lesser General Public License as published by the Free Software Foundation, either
-version 3 of the License, or (at your option) any later version.
+Apache License, Version 2.0. See the LICENSE_APACHEv2.txt file in the project root directory for
+the full license text.
 
 ====================================================================================================

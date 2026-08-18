@@ -223,15 +223,14 @@ Use sub-agent. This can be a substantial work.
 === TIER 9: May not worth pursuing -- [Feature] ===
 
 - [DATA_FORMATS] XML general scope-depth reindentation ordering work. HIGH risk (same
-  architecture class as CURLY_GDR above), lower value (XML rarely needs deep reindent vs.
-  curly-brace nesting). Worst value/risk ratio in this tier — listed last accordingly.
+  architecture class as CURLY_GDR), lower value (XML rarely needs deep reindent vs.
+  curly-brace nesting).
 
 - [JS_TS] JSX full embedding-aware dispatcher (real grammar parsing of children/attribute
-  values, vs. today's opaque-preservation + opening-tag-attribute-wrap approach) — explicitly
-  out of scope of the 2026-08-13 JSX/TSX landing, a distinct larger future job. Blockers:
+  values, vs. today's opaque-preservation + opening-tag-attribute-wrap approach). Blockers:
   unbounded recursion into `{}` holes, HTML5-tree-construction pass unverified for JSX's
   HTML-divergent grammar, no grammar-position-aware parser in this codebase to inherit `<`
-  disambiguation from. See STATE_JS_TS.md's "JSX/TSX implementation" section.
+  disambiguation from.
 
 Use sub-agent. This can be a substantial work.
 
@@ -246,12 +245,12 @@ Use sub-agent. This can be a substantial work.
 
 === TIER X: Dead ===
 
-- [PYTHON3] §5 f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
+- [PYTHON3] f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
   2026-08-12: matches `black`/`ruff format` convention (both also leave f-string interiors alone),
-  so this is intentional scope, not a missed feature. Fixing it would need a real
-  Python-expression tokenizer/spacer — reusing the C-family `needsSpaceBetween` risks silent
-  semantic corruption (`*` multiplication, `**`/`//`/`:=`, keyword operators, comprehension
-  `for`/`if`), not just a style miss. See `STATE_PYTHON3.md` §5.
+  so this is intentional scope, not a missed feature. Fixing it would need a real Python-expression
+  tokenizer/spacer — reusing the C-family `needsSpaceBetween` risks silent semantic corruption
+  (`*` multiplication, `**`/`//`/`:=`, keyword operators, comprehension `for`/`if`), not just
+  a style miss. See `STATE_PYTHON3.md` §5.
 
 - [AI] Dedicated GRU for non-Latin/mixed-language comments (currently always ABSTAIN via
   `NonLatinScriptGate`). Assessed, not planned (2026-08-10): would need its own training corpus

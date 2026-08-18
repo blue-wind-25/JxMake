@@ -2,7 +2,8 @@
 #
 # Copyright (C) 2022-2026 Aloysius Indrayanto
 #
-# This file is part of the JxMake program, see LICENSE file for the license details.
+# This file is distributed under the Apache License, Version 2.0.
+# See the LICENSE_APACHEv2.txt file in the project root directory for the full license text.
 #
 
 """Simple directory browser with Markdown rendering and source code syntax highlighting HTTP server."""

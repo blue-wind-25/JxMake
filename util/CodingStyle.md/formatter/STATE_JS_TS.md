@@ -195,6 +195,17 @@ JS/TS fixtures are active in the Makefile and passing.
   and why (unbounded recursion into `{}` holes, HTML5-tree-construction
   pass not verified for JSX's HTML-divergent grammar, no grammar-position-
   aware parser in this codebase to inherit `<` disambiguation from for free).
+  **2026-08-19 risk assessment (discussion only, no code):** of the three
+  blockers, recursive `{}`-hole parsing is the lowest-risk one to attempt
+  first — it can reuse the existing recursive-dispatch precedent
+  (`XmlSpecificRule.renderScriptOrStyle`'s embed-out/splice-back pattern for
+  `<script>`/`<style>`) with a depth guard, rather than needing new
+  grammar-position machinery. The other two blockers are deeper: HTML5-
+  tree-construction verification is entangled with `STATE_HTML5_TCG.md`'s
+  already-flagged-high-risk state-machine work, and the missing grammar-
+  position-aware `<` disambiguation is foundational — it would touch every
+  dispatch point, not just JSX. Not scoped into a checklist yet; still a
+  future job, not concrete increments.
 
 - **Unrelated bug found, not fixed (out of this job's scope):**
   `ruanyf/react-demos`'s `demo13/app.js` (compiled, non-JSX, minified

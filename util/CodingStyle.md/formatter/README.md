@@ -1073,6 +1073,14 @@ section above) is left byte-identical by design, not as a gap.
    fallback for no-shebang content is deliberately permissive rather than content-sniffed; this
    is a known, accepted limitation, not planned to be closed.
 
+2. **A Makefile recipe's `\` line continuations are never touched, including their alignment,
+   even when §1.2 would realign an equivalent assignment-value continuation.** Recipe lines (any
+   line starting with a literal tab) are excluded from formatting entirely, not just from §1.2 —
+   Make is whitespace-sensitive there (a line not starting with a literal tab isn't a recipe at
+   all), and a recipe's exact whitespace can affect the invoked shell's own parsing (e.g. an
+   embedded heredoc), so reformatting risks changing program behavior, not just layout. Deliberate
+   design choice, not planned to change.
+
 ### AI-assist (GRU)
 
 1. **Non-Latin/mixed-language comments always `ABSTAIN` from the rule-based classifier

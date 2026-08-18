@@ -222,9 +222,6 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-When aligning `\` in Makefile, Bash, etc. does `indent-size` is taken account to convert a tab to the space width?
-
-From these 3 blockers, which one can be implemented with minimal risk with the current formatter architecture?
 - [JS_TS] JSX full embedding-aware dispatcher (real grammar parsing of children/attribute
   values, vs. today's opaque-preservation + opening-tag-attribute-wrap approach). Blockers:
   unbounded recursion into `{}` holes, HTML5-tree-construction pass unverified for JSX's

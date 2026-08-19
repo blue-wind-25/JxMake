@@ -100,6 +100,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_275 | Tier-3 shape #4 (closing `}` non-idempotently gains a stale `// if` comment), FIXED as a verified side effect of RDD_KEY_273 (no separate code change; A/B bisection proved it). Fixture `real_code_regressions_197` (CRLF) |
 | RDD_KEY_276 | Tier-3 shape #3 (interface intersection-type closing brace shifts column on round2), FIXED: a field literally named `class` made `classBraceKind`'s backward KEYWORD scan misclassify its own nested object-type-literal brace as a class body. Fixed via `isFieldNameKeywordUsage` (skip a `class`/`interface` token immediately followed by `:`/`?`). Fixture `real_code_regressions_198` |
 | RDD_KEY_294 | `hasBreakableCall` under-approximation (XL.txt Tier 9, RDD_KEY_245/246/248/249/250 family), FIXED: `refuseUnrescuableCollapse` now also refuses a braceless-if/else collapse when the one rescuable call's own best-case arg-removal still can't clear `lineLengthLimit` (`maxRescueSavings`), gated off whenever an array/object literal is present in the scanned span (`containsListLiteral`) to preserve `real_code_regressions_81`/`_93`'s already-accepted "over limit is fine, rejoin anyway" behavior (2nd attempt; 1st, an ungated width gate, regressed `_81`). Fixture `real_code_regressions_209` |
+| RDD_KEY_312 | Narrow JSX-scoped child-indentation parser (`reindentJsxChildren`/`rewriteJsxChildIndentation`), superseding the 2026-08-20 general-HTML5-reuse rejection (which still stands for that specific approach). Re-derives only tag/fragment-boundary lines' own leading indentation from JSX nesting depth; never touches text/hole/quoted content. See "JSX/TSX implementation" section below for full design/bug-fix narrative |
 
 ---
 
@@ -245,6 +246,98 @@ JS/TS fixtures are active in the Makefile and passing.
   2026-08-19's framing) rather than force a partial/risky landing. No
   source file touched this session; `make test` unaffected (no change to
   verify against).
+
+  **SUPERSEDED 2026-08-20 (later, follow-up session): narrow JSX-scoped
+  child-indentation parser IMPLEMENTED.** The 2026-08-20 entry above
+  correctly rejected reusing/building a general HTML5-tree-construction-
+  aware engine for JSX children — that reasoning is unchanged and still
+  applies to that specific approach. This follow-up session instead
+  implemented a much narrower, JSX-only, non-reusable pass:
+  `JsTsSpecificRule.reindentJsxChildren`/`rewriteJsxChildIndentation`,
+  wired into `FormatterCurly.java` right after `spliceJsxExpressionHoles`
+  and before `enforceJsxSelfClosingAttributeWrap` inside the
+  `lang.isJsxSyntax` block. Unlike the rejected approach, this is not a
+  grammar-position lexer and does not attempt real HTML5-style tree
+  construction; it walks a JSX_SPAN's children text once, character by
+  character, tracking only `{`/`}` brace depth (to ignore `<`/`>` inside
+  expression holes and their nested string/template-literal quoting) and
+  a name stack of open tag/fragment names (pushed on every non-self-
+  closing top-level `<Name ...>` or `<>` open, popped on every matching
+  `</Name>`/`</>` close) purely to compute each JSX-nesting depth. It
+  rewrites ONLY the leading whitespace of lines whose first non-
+  whitespace character is `<` (a tag/fragment boundary line), re-deriving
+  that whitespace as `baseIndent + depth * indentUnit` where `baseIndent`
+  is the JSX_SPAN's own line indentation (via the existing `lineIndent`
+  helper) and `depth` is the tag's nesting depth relative to the root.
+  Text runs, `{...}` expression holes (already handled by the existing
+  hole-splice pass), string/template-literal contents, and any whitespace
+  that isn't a tag-opening line's own leading indentation are never
+  touched — this is what keeps the JSX-whitespace-is-significant hazard
+  (Step 2's sub-context 2) out of play: only whitespace this codebase's
+  own formatter placed via prior indentation is ever a rewrite candidate,
+  never content between tags. Self-closing tags, JSX fragments
+  (`<>...</>`, empty tag name), and nested child elements/components are
+  all handled by the same push/pop logic (self-closing tags never push).
+  JSX comments (`{/* ... */}`) need no special handling — they're already
+  interior to a `{}` hole, so `braceDepth > 0` during the comment's text
+  keeps the tag scanner from ever looking at them.
+
+  Two bugs found and fixed during implementation, both via hand-tracing
+  real fixture failures rather than blind guessing: (1) an off-by-one in
+  the depth formula — the first attempt computed a direct child's depth
+  as `stack.size()` with an empty stack (0), one level too shallow; fixed
+  by seeding the stack with a sentinel empty-string entry representing
+  the already-consumed root tag, and using a single `stack.size()`
+  formula (no special-casing) for both the open and close branches, with
+  the close branch popping (including the sentinel) before reading the
+  size — this makes the root's own closing tag naturally land back at
+  depth 0. (2) A real architectural gap, not just an off-by-one: the
+  original scan only ran tag-boundary detection (and therefore stack
+  push/pop) when a `<` was the first non-whitespace character on its
+  line, so an inline same-line open+close pair (e.g.
+  `<span>Hello {name}</span>` all on one line) pushed its open tag but
+  silently skipped popping its close tag — permanently desyncing the
+  stack for every subsequent line-initial tag after it. Fixed by
+  decoupling detection from the rewrite decision: tag boundaries (and
+  stack push/pop) are now recognized for every top-level (`braceDepth ==
+  0`) `<...>` the scan encounters regardless of line position; only the
+  "rewrite this line's leading whitespace" side effect stays gated on the
+  tag being line-initial (a `lineInitial` flag captured per tag). This
+  fix was necessary for correctness even though only one of the 6
+  originally-failing fixtures happened to visibly exercise the inline-
+  pair case — the pre-fix code would have silently produced wrong
+  indentation on any future fixture/real file with an inline child pair
+  followed by more nested structure.
+
+  **Testing:** `make test` clean at **329/329 forward + 329/329
+  idempotency** (up from the pre-existing 323/329 that motivated this
+  session — the 6 failures were exactly the JSX/TSX fixtures this pass
+  targets: `jsx_tsx_return_context`, `jsx_tsx_combined_sanity`,
+  `jsx_tsx_self_closing_wrap`, `jsx_tsx_fragment_shorthand`,
+  `jsx_in_plain_js`, `ts_jsx_optin` — all pre-existing fixtures; no new
+  fixture files were needed since the existing corpus already exercised
+  exactly this gap once the pass was wired in). No external dogfood
+  corpus (react-tutorial/react-demos/reactstrap/TypeScript-React-Starter/
+  react-typescript-samples/excalidraw, per `STATE_DOGFOOD.md`'s JSX/TSX
+  rows) was available locally in this sandbox to re-clone for a fresh
+  re-validation sweep this session; the 329-fixture suite (which already
+  encodes prior dogfood findings as regression fixtures, including the
+  fragment-shorthand and template-hole-wrap bugs from the 2026-08-14
+  dogfood sessions referenced in those rows) is the regression gate that
+  was used, per the task's guardrails. A fresh dogfood re-sweep against
+  those external corpora remains a reasonable follow-up if/when they're
+  available again, but is not required to consider this increment done.
+
+  **Remaining scope, unchanged from before this session:** the general,
+  reusable HTML5-tree-construction-aware JSX child parser (grammar-
+  position lexer, HTML5-vs-JSX divergence audit) is still explicitly out
+  of scope and not designed — this session's narrow parser is
+  purpose-built for JSX's own explicit-closing-tag grammar (no implicit
+  tag closing, no HTML5 parse-error recovery to emulate) and is NOT a
+  step toward, nor a substitute design for, that general engine. If a
+  future need arises for real HTML5-aware JSX parsing, treat it as its
+  own from-scratch design job per the 2026-08-20 (earlier session)
+  reasoning above, which still holds.
 
 - **Unrelated bug found, not fixed (out of this job's scope):**
   `ruanyf/react-demos`'s `demo13/app.js` (compiled, non-JSX, minified

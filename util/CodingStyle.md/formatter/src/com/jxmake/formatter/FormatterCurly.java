@@ -479,6 +479,12 @@ public final class FormatterCurly extends FormatterCore {
             // so it never disturbs the opening-tag region the wrap pass below measures/rewrites,
             // and can safely run first.
             text = jsTsRule.spliceJsxExpressionHoles( tokenizer.apply(text) );
+            // STATE_JS_TS.md's narrow JSX-scoped child parser (2026-08-20 approach) -- re-derives
+            // each direct child tag/fragment boundary line's own indentation from unambiguous JSX
+            // nesting depth. Must run after the hole splice above (hole interiors need to already
+            // be in final form) and is safe on either side of the wrap pass below (that pass never
+            // touches anything at/after jsxOpeningTagEndOffset).
+            text = jsTsRule.reindentJsxChildren( tokenizer.apply(text) );
             // STATE_JS_TS.md's Step 2 "context 11" scoping session, Increment 2 -- self-closing-tag
             // attribute wrap only (tags with children remain out of scope, see that method's own
             // doc comment). Runs after every earlier width-affecting pass has settled, same

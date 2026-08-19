@@ -1024,16 +1024,22 @@ end-to-end against six real-world corpora spanning both JSX-in-`.js` and TSX
 template-literal `${...}` holes; a residual risk of an unseen JSX-adjacent edge case not exercised
 by these corpora remains, as with any real-world testing.
 
-#### 4. JSX/TSX-syntax-aware reformatting is limited to one wrap rule plus `{}`-hole recursion
+#### 4. JSX/TSX-syntax-aware reformatting is limited to a few targeted rules
 
 Real JSX tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte as
-opaque, unformatted spans. Two content-aware transforms run on top of that: wrapping an overlong
-JSX opening tag's attribute list, and recursively reformatting each top-level `{...}` expression
-hole (in both *children* position and an opening tag's *attribute value* position — spread
-attributes, `{...props}`, are left untouched) through the normal JS/TS pipeline, spliced back in
-place. Beyond those two, there is no reflowing of JSX children, no attribute reordering, and no
-other JSX-specific line-breaking — a JSX span's internal whitespace/line breaks are whatever the
-author wrote, unchanged, except at those two points.
+opaque, unformatted spans, with a small number of content-aware transforms layered on top:
+wrapping an overlong JSX opening tag's attribute list; recursively reformatting each top-level
+`{...}` expression hole (in both *children* position and an opening tag's *attribute value*
+position — spread attributes, `{...props}`, are left untouched) through the normal JS/TS
+pipeline, spliced back in place; and re-deriving the leading indentation of each direct child
+tag/fragment's own opening line from its JSX nesting depth (fragments, self-closing tags, and
+nested components are all tracked). That last pass only ever rewrites a tag-opening line's
+leading whitespace — it never touches text runs, `{...}` hole interiors, string/template-literal
+contents, or any other inline content, so it cannot change what a JSX tree renders, only how a
+tag-opening line the author placed on its own line is indented. Beyond these, there is no
+reflowing of text runs onto/off of their own lines, no attribute reordering, and no other
+JSX-specific line-breaking — everything else about a JSX span's internal whitespace/line breaks is
+whatever the author wrote, unchanged.
 
 A hole whose interior contains deeply-nested, inconsistently-hand-indented object/array literals
 can retain a non-idempotent relative indentation on the deepest line(s) across repeated format

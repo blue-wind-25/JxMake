@@ -1686,6 +1686,232 @@ public final class JsTsSpecificRule {
         return trimmed.substring(parenIdx + 1, closeIdx);
     }
 
+    // ── JSX-scoped child indentation (narrow, non-HTML5, tag-boundary-driven) ────────
+    /**
+     * STATE_JS_TS.md's "JSX full embedding-aware dispatcher" job, narrowed 2026-08-20 approach:
+     * NOT a reuse of the general HTML5 tree-construction pass (JSX has no implicit tag closing or
+     * parse-error recovery to model, so that engine's complexity isn't needed) -- instead, a small
+     * JSX-scoped structural walk of a {@code JSX_SPAN}'s children region that re-derives each
+     * DIRECT child tag/fragment boundary's own line indentation from its unambiguous nesting depth
+     * (every JSX open has an explicit, required close/self-close -- no HTML5-style implicit
+     * closing ambiguity to resolve). Deliberately narrow: only rewrites a line's LEADING
+     * whitespace when that line's first non-whitespace character is a top-level {@code <}
+     * (children-position, not inside a {@code {...}} hole) -- text runs, hole interiors (already
+     * independently reformatted by {@link #spliceJsxExpressionHoles}), and any tag that shares a
+     * line with other content are left completely untouched, honoring the JSX-whitespace-is-
+     * significant hazard the same way every other increment in this job has. Must run AFTER
+     * {@link #spliceJsxExpressionHoles} (hole interiors need to already be in their final form
+     * before their brace/quote boundaries are walked here) and is safe to run either side of
+     * {@link #enforceJsxSelfClosingAttributeWrap} (that pass only ever rewrites the opening tag
+     * itself, never anything at or after {@link Token#jsxOpeningTagEndOffset}).
+     */
+    public String reindentJsxChildren(final List<Token> tokens)
+    {
+        if(!lang.isJsxSyntax) return render( tokens, new HashMap<>() );
+        final Map<Integer, String> overrides = new HashMap<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0 ) {
+                final String baseIndent = lineIndent(tokens, i);
+                final String rewritten  = rewriteJsxChildIndentation(
+                    t.text, t.jsxOpeningTagEndOffset, baseIndent
+                );
+                if( rewritten != null && !rewritten.equals(t.text) ) overrides.put(i, rewritten);
+            }
+        } // for
+
+        return render(tokens, overrides);
+    }
+
+    /**
+     * Character allowed in a JSX tag/fragment name (identifier chars plus {@code .}/{@code -} for
+     * namespaced/dashed component and DOM tag names).
+     */
+    private boolean isJsxNameChar(final char c)
+    {
+        return Character.isLetterOrDigit(c) || c == '.' || c == '-' || c == '_' || c == '$';
+    }
+
+    /**
+     * {@code count} copies of {@link #defaultIndentUnit} concatenated -- one indent level per
+     * nesting depth below {@code baseIndent}.
+     */
+    private String repeatIndentUnit(final int count)
+    {
+        final StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < count; ++i) sb.append(defaultIndentUnit);
+
+        return sb.toString();
+    }
+
+    /**
+     * Walks {@code text}'s children region (from {@code tagEnd}, i.e. the root opening tag's own
+     * {@code >}/{@code />} offset, to the end of {@code text}) rewriting the leading whitespace of
+     * every line whose first non-whitespace character is a top-level {@code <} (a direct child's
+     * open/close/self-close tag or the root's own closing tag) to {@code baseIndent} plus one
+     * {@link #defaultIndentUnit} per nesting level. Returns {@code null} for no change (single-line
+     * children, or every child tag already at its expected indentation) or when the scan can't find
+     * a tag's terminating {@code >} (defensive -- shouldn't happen for a well-formed
+     * {@code JSX_SPAN}; bails rather than guess). Brace-depth- and quote-aware so a {@code {...}}
+     * hole's own {@code <}/{@code >} characters (nested JSX inside an expression, already
+     * independently reformatted) are never mistaken for a direct child boundary, and a JSX
+     * attribute's quoted value can safely contain {@code >} without ending the tag scan early.
+     */
+    private String rewriteJsxChildIndentation(
+        final String text, final int tagEnd, final String baseIndent
+    )
+    {
+        if(tagEnd < 0 || tagEnd >= text.length()) return null;
+        final String tail = text.substring(tagEnd);
+        if(tail.indexOf('\n') < 0) return null; // Single-line children -- nothing to reindent
+
+        final int           n   = tail.length();
+        final StringBuilder out = new StringBuilder( text.length() + 16 );
+        out.append(text, 0, tagEnd);
+
+        final Deque<String> stack      = new ArrayDeque<>();
+        int                 braceDepth = 0;
+        char                quote      = 0; // 0 = not inside a quoted expression-hole string
+        boolean             escape     = false;
+        boolean             changed    = false;
+        int                 lineStart  = 0; // Index into `tail` where the current line began
+        boolean             sawNonWs   = false; // Non-whitespace already seen on the current line?
+
+        stack.push(""); // Sentinel representing the root tag itself (already consumed before
+                        // `tagEnd`) -- lets the root's own closing tag naturally pop back to an
+                        // empty stack at depth 0, with no separate root-vs-child special case.
+
+        int i = 0;
+        while(i < n) {
+            final char c = tail.charAt(i);
+
+            if(c == '\n') {
+                out.append(c);
+                lineStart = i + 1;
+                sawNonWs  = false;
+                ++i;
+                continue;
+            }
+            if(quote != 0) {
+                out.append(c);
+                if(escape) escape = false;
+                else if(c == '\\') escape = true;
+                else if(c == quote) quote = 0;
+                ++i;
+                continue;
+            }
+            if( braceDepth > 0 && ( c == '"' || c == '\'' || c == '`' ) ) {
+                quote = c;
+                out.append(c);
+                sawNonWs = true;
+                ++i;
+                continue;
+            }
+            if(c == '{') {
+                ++braceDepth;
+                out.append(c);
+                sawNonWs = true;
+                ++i;
+                continue;
+            }
+            if(c == '}') {
+                if(braceDepth > 0) --braceDepth;
+                out.append(c);
+                sawNonWs = true;
+                ++i;
+                continue;
+            }
+            if( ( c == ' ' || c == '\t' ) && !sawNonWs ) {
+                out.append(c);
+                ++i;
+                continue;
+            }
+            if(c == '<' && braceDepth == 0) {
+                final boolean lineInitial = !sawNonWs;
+                final int tagStart = i;
+                int       j         = i + 1;
+                boolean   closing   = false;
+                if( j < n && tail.charAt(j) == '/' ) {
+                    closing = true;
+                    ++j;
+                }
+                final int nameStart = j;
+                while( j < n && isJsxNameChar( tail.charAt(j) ) ) ++j;
+                final String name = tail.substring(nameStart, j);
+
+                int     k            = j;
+                int     localBrace   = 0;
+                char    localQuote   = 0;
+                boolean localEscape  = false;
+                boolean selfClosing  = false;
+                boolean found        = false;
+                while(k < n) {
+                    final char cc = tail.charAt(k);
+                    if(localQuote != 0) {
+                        if(localEscape) localEscape = false;
+                        else if(cc == '\\') localEscape = true;
+                        else if(cc == localQuote) localQuote = 0;
+                        ++k;
+                        continue;
+                    }
+                    if(cc == '"' || cc == '\'' || cc == '`') {
+                        localQuote = cc;
+                        ++k;
+                        continue;
+                    }
+                    if(cc == '{') {
+                        ++localBrace;
+                        ++k;
+                        continue;
+                    }
+                    if(cc == '}') {
+                        if(localBrace > 0) --localBrace;
+                        ++k;
+                        continue;
+                    }
+                    if(cc == '>' && localBrace == 0) {
+                        selfClosing = k > j && tail.charAt(k - 1) == '/';
+                        found       = true;
+                        break;
+                    }
+                    ++k;
+                } // while
+                if(!found) return null; // Unterminated tag -- bail, don't guess
+
+                final int depth;
+                if(closing) {
+                    if(!stack.isEmpty()) stack.pop(); // Popping the sentinel is what makes the
+                                                        // root's own closing tag land at depth 0
+                    depth = stack.size();
+                }
+                else {
+                    depth = stack.size();
+                    if(!selfClosing) stack.push(name);
+                }
+
+                if(lineInitial) {
+                    final String want = baseIndent + repeatIndentUnit(depth);
+                    final String have = tail.substring(lineStart, tagStart);
+                    if(!have.equals(want)) {
+                        out.setLength( out.length() - have.length() );
+                        out.append(want);
+                        changed = true;
+                    }
+                }
+                out.append(tail, tagStart, k + 1);
+                i        = k + 1;
+                sawNonWs = true;
+                continue;
+            }
+
+            out.append(c);
+            sawNonWs = true;
+            ++i;
+        } // while
+
+        return changed ? out.toString() : null;
+    }
+
     // ── Step 2 "context 11" Increment 2: self-closing-tag attribute wrap ─────────────
     /**
      * STATE_JS_TS.md's Step 2 "context 11" scoping session, Increments 2-3 of the suggested

@@ -24,6 +24,10 @@ Files in this directory
   1.0.1 with your built version) handles all Tier-1 and Tier-2 rules
   mechanically for C, C++, Java, Kotlin, JSON/JSON5, CSS, YAML, TOML, XML,
   HTML5, JavaScript, TypeScript, Python 3, E-INI, JxMakeFile, Makefile, Bash, and PowerShell.
+  (Tier-1 is plain deterministic rule application; Tier-2 is also fully built
+  into the JAR, but resolves a handful of ambiguous comment-capitalization
+  cases via an on-device linear-classifier + GRU stack -- see formatter/
+  README.md's "Comment classifier (GRU)" section.)
   Run it first for those languages. The AI workflows described here cover the
   remaining Tier-3 aesthetic decisions the JAR intentionally leaves untouched
   (data formats and the five tooling languages have no equivalent

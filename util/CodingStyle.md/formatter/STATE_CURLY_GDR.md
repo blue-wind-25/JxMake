@@ -785,10 +785,31 @@ Do the above checklist one by one. Test, commit, and ask me whether to continue 
 
 ## Open Questions
 
-None currently open. (The prior "how to fix the base single-pass
-`RDD_KEY_229` bug" question was resolved 2026-08-06 as a documentation-only
-fix — see `RDD_KEY_243` above. Option (B), a direct change to
-`MiscRuleCurly`'s wrap fits-check, remains un-attempted.
+**New, not yet investigated (2026-08-19):** a one-line/one-statement-body
+function *expression* passed as a call argument (e.g. `items.map(function
+(x){doA(x);doB(x);return x;})`) is never reformatted to one-statement-
+per-line, **even with both `curly-general-scope-reindent` and
+`-multipass` turned on** — unlike a top-level `function foo(a,b){...}`
+*declaration*, which GDR does reformat (see the `demo13/app.js`
+Babel-helper fixture above). Found while investigating a JS_TS session's
+JSX `return(...)`-wrap hole-splicing report (`STATE_JS_TS.md`) — traced
+to this same GDR gap, not a hole-recursion bug: the identical shape,
+formatted completely outside any JSX context as a plain top-level
+statement, reproduces byte-for-byte the same un-reformatted body. Root
+cause not yet diagnosed — plausibly the GDR pre-pass's scope-walk only
+descends into statement-position function bodies (declarations, and
+presumably named/anonymous functions used as statements), not into a
+function expression nested inside a call's argument list, but this is
+inference, not verified against the pre-pass's actual walk logic. Not
+scoped into a checklist item yet — flagging for a future session; no fix
+attempted here (would need a source change, which is exactly the class of
+work this job's default-off gate exists to contain, so it should follow
+this job's normal checklist-and-fixture workflow, not be patched ad hoc).
+
+None else currently open beyond the above. (The prior "how to fix the base
+single-pass `RDD_KEY_229` bug" question was resolved 2026-08-06 as a
+documentation-only fix — see `RDD_KEY_243` above. Option (B), a direct
+change to `MiscRuleCurly`'s wrap fits-check, remains un-attempted.
 
 **Disposition (2026-08-10): removed from `XL.txt` TIER 4 entirely, not
 demoted to TIER 9.** Option (B) was an alternative fix for the same

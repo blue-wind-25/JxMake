@@ -842,6 +842,23 @@ re-run in full for this narrower follow-up change (see this file's
 "Recursive `{}`-hole parsing implementation" section above for their
 results on the shared architecture).
 
+**`return(...)`-wrap body-not-reformatted finding — RE-FILED, not a
+hole-recursion bug (2026-08-19).** A follow-up review flagged
+`formatJsxHoleInterior`'s `"return (" + interior + ");"` synthetic-dispatch
+trick as not reformatting a function/arrow-function block body that is a
+hole's sole content (e.g. `{function(e){doA(e);doB(e);}}`). Investigated
+before attempting any fix: the identical shape, formatted completely
+outside any JSX context as a plain top-level statement
+(`items.map(function(x){doA(x);doB(x);return x;});`), reproduces
+byte-for-byte the same un-reformatted body — confirming the hole/wrap
+dispatch mechanism is working correctly and faithfully reproducing
+whatever the plain JS/TS pipeline itself would do with that exact
+statement. Re-filed as a `STATE_CURLY_GDR.md` open question instead (a
+one-line function-*expression* call-argument body isn't reformatted even
+with `curly-general-scope-reindent`/`-multipass` both on, unlike a
+top-level function *declaration*, which GDR does handle) — not this job's
+bug to fix, not attempted here.
+
 ---
 
 ## Related investigation history — pass-ordering / stale-width bug family

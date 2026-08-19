@@ -932,6 +932,18 @@ here if and when it actually gains a documented gap.
    differently) but round-trips cleanly with both `curly-general-scope-reindent` and
    `curly-general-scope-reindent-multipass` turned on.
 
+   A related but distinct gap (found 2026-08-19, not yet fixed): a one-line/one-statement-body
+   function *expression* passed as a call argument, e.g.:
+
+   ```js
+   items.map(function (x) { doA(x); doB(x); return x; });
+   ```
+
+   is **not** reformatted to one-statement-per-line even with both
+   `curly-general-scope-reindent` and `curly-general-scope-reindent-multipass` turned on —
+   unlike a top-level `function foo(a,b){...}` *declaration*, which GDR does reformat. See
+   `STATE_CURLY_GDR.md`'s Open Questions for investigation notes; no fix attempted yet.
+
 2. **Multi-line-call/condition wrap decision can flap across repeated formatting passes,
    affecting C/C++/Java/JS/TS.** Whether a small call or condition nested inside a
    longer expression stays on one line or gets wrapped is, in one code path, decided by

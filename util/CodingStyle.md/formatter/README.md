@@ -1046,6 +1046,11 @@ can retain a non-idempotent relative indentation on the deepest line(s) across r
 rounds — the same already-tracked general-scope-depth-reindentation gap (item 1 above), not
 specific to JSX holes.
 
+A JSX tree whose root tag's own leading indentation mixes tabs and spaces is intentionally left
+untouched by the child-indentation pass (it bails out rather than rewriting children against an
+ambiguous base indent), so such a file may still need two formatting passes instead of one to
+reach a stable result, rather than converging in a single pass like every other case.
+
 #### 5. JS/TS import ordering misclassifies bundler/tsconfig path-mapped absolute imports as third-party
 
 Local-import detection (§15) is syntactic only: an import specifier is `local` iff it starts with

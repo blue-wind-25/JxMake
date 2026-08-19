@@ -46,6 +46,9 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 `.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3,
 `.ini` → E-INI (Extended INI), `JxMakeFile`/`.jxm` → JxMakeFile,
 `Makefile`/`GNUmakefile`/`.mk` → Makefile, `.sh`/`.bash` → Bash, `.ps1`/`.psm1` → PowerShell).
+Makefile detection is also basename-based (`Makefile`, `GNUmakefile`) for extensionless Make
+files.
+
 `.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts`. A boundary-finding
 pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
 so a file containing real JSX tag syntax is safe to run through the formatter — the JSX/TSX
@@ -54,7 +57,9 @@ top-level `{...}` expression hole — whether in a JSX tree's *children* (e.g.
 `{items.map(x => <li>{x}</li>)}`) or in an opening tag's *attribute value* (e.g.
 `onClick={handler}`, `className={cond ? "a" : "b"}`) — is recursively formatted through the same
 JS/TS pipeline and spliced back in; spread attributes (`{...props}`) are left untouched, as are any
-other bytes of the span outside a hole. The pre-pass runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs`
+other bytes of the span outside a hole.
+
+The pre-pass runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs`
 (mirrors Prettier's own default — real-world `.js` files with embedded JSX, e.g. older
 Create-React-App projects, are common enough that gating on extension alone caused genuine content
 corruption). `.ts` deliberately stays gated off by
@@ -62,10 +67,10 @@ default — a `.ts` file's legacy `<Type>expr` angle-bracket cast syntax collide
 tag, the same reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx` — but a `.ts` file
 that genuinely embeds JSX can opt in per-file with the `jsx-in-ts` [`JXM_CFMT_CFG`
 directive](#in-file-config-overrides) (or the equivalent CLI flag/env var/config-file key).
+
 Beyond children-position hole recursion and one specific attribute-wrap rule, JSX/TSX-syntax-*aware*
 reformatting (e.g. reflowing/reordering attributes, HTML5-tree-construction-aware child parsing)
-does not exist yet — see `STYLE_JS_TS.md`. Makefile detection is also basename-based (`Makefile`,
-`GNUmakefile`) for extensionless Make files.
+does not exist yet — see `STYLE_JS_TS.md`.
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -78,18 +83,21 @@ java -jar code-formatter-1.0.1.jar --lang cpp Module.inc
 `--lang` accepts exactly one of `c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`, `yaml`,
 `toml`, `xml`, `html5`, `js`, `ts`, `python3`, `eini`, `jxmake`, `makefile`, `bash`, `powershell`, and applies to
 every file given on that command line (mixing file types with a single forced `--lang` in one
-invocation isn't supported — run the formatter once per language instead).
-Without `--lang`, a file whose extension can't be recognized is an error. `--lang` also works
-with server mode (below) — the client sends the chosen language to the server, which uses it
-in place of its own extension-based guess for that request. There is no separate `jsx`/`tsx`
-`--lang` value — both are covered by `js`/`ts`. However, whether the JSX/TSX boundary-finding
-pre-pass runs is decided independently of `--lang`, purely from the actual filename's extension
-(`Lang.isJsxSyntax`) plus, for `.ts` only, the `jsx-in-ts` opt-in described above; forcing
-`--lang js`/`--lang ts` on a file whose name doesn't match one of those rules selects the JS/TS
-pipeline but does not itself enable JSX detection. For a per-file override instead
-of a per-invocation one (so mixed-language file lists and templated sources like `.java.in`/
-`.java.inc` don't need a separate invocation each), see the `--lang` form of the in-file
-[`JXM_CFMT_CFG` directive](#in-file-config-overrides) below.
+invocation isn't supported — run the formatter once per language instead). Without `--lang`, a
+file whose extension can't be recognized is an error.
+
+`--lang` also works with server mode (below) — the client sends the chosen language to the server,
+which uses it in place of its own extension-based guess for that request. There is no separate
+`jsx`/`tsx` `--lang` value — both are covered by `js`/`ts`.
+
+However, whether the JSX/TSX boundary-finding pre-pass runs is decided independently of `--lang`,
+purely from the actual filename's extension (`Lang.isJsxSyntax`) plus, for `.ts` only, the
+`jsx-in-ts` opt-in described above; forcing `--lang js`/`--lang ts` on a file whose name doesn't
+match one of those rules selects the JS/TS pipeline but does not itself enable JSX detection.
+
+For a per-file override instead of a per-invocation one (so mixed-language file lists and
+templated sources like `.java.in`/`.java.inc` don't need a separate invocation each), see the
+`--lang` form of the in-file [`JXM_CFMT_CFG` directive](#in-file-config-overrides) below.
 
 ### Output modes
 
@@ -155,17 +163,20 @@ client-read-ahead  = 6
 
 `server-concurrency` controls the thread-pool size the server's own HTTP executor uses;
 when raising it, `Runtime.getRuntime().availableProcessors()` (the number of CPU cores
-available to the JVM) is a reasonable value to start from. `client-read-ahead` controls
-how many requests the CLI keeps in flight at once instead of waiting for each response
-before sending the next; it is read and applied by whichever process is doing the
-delegating, independently of what `server-concurrency` the server it's talking to is
-running with (you may not control that server's own setting). As a tuning guideline
-only — not an enforced relationship, and each is a genuinely independent config value —
-a `client-read-ahead` of roughly `server-concurrency + 2` keeps a couple of requests
-queued beyond what the server can immediately work on in parallel, so its thread pool
-stays continuously fed instead of idling between bursts. Both are process/server-
-invocation-scoped settings, same category as `server-port` — see the In-file config
-overrides section below for why they cannot be set per-file via `JXM_CFMT_CFG`.
+available to the JVM) is a reasonable value to start from.
+
+`client-read-ahead` controls how many requests the CLI keeps in flight at once instead of
+waiting for each response before sending the next; it is read and applied by whichever process
+is doing the delegating, independently of what `server-concurrency` the server it's talking to
+is running with (you may not control that server's own setting).
+
+As a tuning guideline only — not an enforced relationship, and each is a genuinely independent
+config value — a `client-read-ahead` of roughly `server-concurrency + 2` keeps a couple of
+requests queued beyond what the server can immediately work on in parallel, so its thread pool
+stays continuously fed instead of idling between bursts.
+
+Both are process/server-invocation-scoped settings, same category as `server-port` — see the
+In-file config overrides section below for why they cannot be set per-file via `JXM_CFMT_CFG`.
 
 ### Disabling formatting for part or all of a file
 
@@ -446,7 +457,9 @@ endfunction
 ## Configuration
 
 The formatter reads configuration from the following sources, in order of increasing
-precedence (later sources override earlier ones):
+precedence (later sources override earlier ones). Each numbered source below is called a
+"tier" elsewhere in this document — e.g. "tier 2" means source 2, the user global config
+file:
 
 1. Built-in class defaults
 2. `~/.config/jxmake-code-formatter/config` — user global config
@@ -459,17 +472,21 @@ precedence (later sources override earlier ones):
 
 **Server mode note on tiers 2/3:** server mode is `localhost`-only (see "Server Wire Protocol"
 below) — the server process reads its own `~/.config/jxmake-code-formatter/config` (tier 2) and
-its own process environment (tier 3), not the CLI-invoking client's. For tier 2 this is
-transparent as long as client and server run as the same OS user on the same machine (the
-intended, and only supported, deployment shape), since the server re-reads that file fresh from
-disk on every request. Tier 3 is different: a JVM's environment variables are fixed at process
-start, so a long-running server's env-var tier can go stale relative to the client's *current*
-shell environment if the client's env changed after the server was launched. To avoid this, the
-bundled CLI's `delegateToServer` path forwards its own live `JXMAKE_CODE_FORMATTER_*` env-var
-snapshot to the server as inline query-param overrides (tier 6) on every delegated request, so
-the effective result matches what a fresh standalone run in the client's own environment would
-have produced, regardless of how long the server has been running or what it originally started
-with.
+its own process environment (tier 3), not the CLI-invoking client's.
+
+For tier 2 this is transparent as long as client and server run as the same OS user on the same
+machine (the intended, and only supported, deployment shape), since the server re-reads that
+file fresh from disk on every request.
+
+Tier 3 is different: a JVM's environment variables are fixed at process start, so a long-running
+server's env-var tier can go stale relative to the client's *current* shell environment if the
+client's env changed after the server was launched.
+
+To avoid this, the bundled CLI's `delegateToServer` path forwards its own live
+`JXMAKE_CODE_FORMATTER_*` env-var snapshot to the server as inline query-param overrides (tier 6)
+on every delegated request, so the effective result matches what a fresh standalone run in the
+client's own environment would have produced, regardless of how long the server has been running
+or what it originally started with.
 
 **Server mode note on `indent-style = auto`:** resolved server-side too, the same way as
 standalone mode (below) — the server samples the *target file's own directory tree* on disk
@@ -829,10 +846,13 @@ the JVM internally). The following limitations apply on Windows:
 
 ## AI Workflow for Tier-3 Aesthetic Decisions
 
-The JAR handles all deterministic formatting. A small class of aesthetic decisions
-— function argument list layout and non-standard getter/setter grouping — can be
-handled by a capable AI model (Claude Sonnet / Opus, GPT-4o, etc.) in a separate
-pass. The JAR may be extended with built-in AI assist in a future version.
+"Tier" here is unrelated to the config-precedence tiers in [Configuration](#configuration)
+above — it instead classifies how confidently a formatting decision can be automated. Tier-1
+and Tier-2 cover every rule this JAR applies mechanically (structural rules and rule-based/GRU
+comment decisions); Tier-3 is the small remaining class of aesthetic decisions — function
+argument list layout and non-standard getter/setter grouping — that can instead be handled by a
+capable AI model (Claude Sonnet / Opus, GPT-4o, etc.) in a separate pass. The JAR may be extended
+with built-in AI assist in a future version.
 
 See [`../README.txt`](../README.txt) for the full workflow, including two pass modes:
 - **Layout judgment pass** (recommended) — post-JAR, targets only aesthetic decisions
@@ -1072,7 +1092,9 @@ above for the full mechanism and its mechanical pre-filter.
 // TODO: re-enable this test
 // import './rxjs/rxjs.spec';
 ```
-->
+
+With `normalize-comment-start-case-multiline = on`, this becomes:
+
 ```
 // TODO: re-enable this test
 // Import './rxjs/rxjs.spec';

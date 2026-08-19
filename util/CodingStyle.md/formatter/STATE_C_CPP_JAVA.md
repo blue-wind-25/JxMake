@@ -825,6 +825,20 @@ RDD_KEY_88.
 
 ## Known Gaps — Fixed
 
+- **`MiscRuleCore.groupAssignments` (STYLE.md §6 consecutive bare-assignment alignment) silently
+  deleted an own-line comment sitting between two grouped assignment statements — FIXED 2026-08-19
+  (`RDD_KEY_311`).** Found while dogfooding the formatter's own today-changed `FormatterCurly.java`:
+  a real leading comment between two `jsTsRule.*(tokenizer.apply(text));` statements was deleted
+  outright, not just reflowed. Root cause: `groupAssignments` only broke an alignment group on a
+  blank line or an unparseable statement, never on a comment-only gap, despite its own doc comment
+  already claiming that case was handled. `ScopePipelineCurly.applyAssignmentsPass` only preserves
+  the *first* row's leading gap for a group's replacement text — every interior row is joined with a
+  hardcoded `"\n" + indent`, so any leading comment on a non-first row had nowhere to survive. Fixed
+  by adding `MiscRuleCore.hasCommentBeforeStmt` (mirrors `DeclarationAlignmentRuleCore.hasCommentBefore`'s
+  exact precedent) and wiring it into `groupAssignments`'s existing `blankBefore`-triggered
+  group-break alongside `blankBefore` itself. New fixture `real_code_regressions_217`. `make test`
+  329/329 forward + idempotency, zero regressions.
+
 - **`javaparser/javaparser`'s `ASTParser.java` non-idempotent if/else reindent — CLOSED 2026-08-16
   (documentation-only, `RDD_KEY_301`).** Same resolution shape as `RDD_KEY_299`/`RDD_KEY_243`: no
   source change. The item (16) dogfood session's "1 gap ACCEPTED not fixed" was re-tested this

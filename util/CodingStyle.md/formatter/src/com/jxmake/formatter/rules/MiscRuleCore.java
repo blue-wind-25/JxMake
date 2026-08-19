@@ -892,8 +892,9 @@ public static final class Assignment {
               List<Assignment>       current    = new ArrayList<>();
 
         for(final List<Token> stmt : statements) {
-            final boolean    blankBefore = hasBlankLineBeforeStmt(stmt);
-            final Assignment a           = parseAssignment(stmt, blankBefore);
+            final boolean    blankBefore   = hasBlankLineBeforeStmt(stmt);
+            final boolean    commentBefore = hasCommentBeforeStmt(stmt);
+            final Assignment a             = parseAssignment(stmt, blankBefore);
             if(a == null) {
                 if( !current.isEmpty() ) {
                     groups.add(current);
@@ -901,7 +902,7 @@ public static final class Assignment {
                 }
                 continue;
             } // if
-            if( blankBefore && !current.isEmpty() ) {
+            if( (blankBefore || commentBefore) && !current.isEmpty() ) {
                 groups.add(current);
                 current = new ArrayList<>();
             }
@@ -1345,6 +1346,24 @@ public static final class Assignment {
         } // while
 
         return idx;
+    }
+    /**
+     * Same leading-comment detection as `DeclarationAlignmentRuleCore.hasCommentBefore` -- a
+     * statement whose raw leading gap carries an own-line comment must start a fresh group
+     * (STYLE.md §6's "comment-only gap" break, same precedent as a blank line): `render`'s
+     * grid only re-emits each row's rendered code plus an optional trailing-comment column, so a
+     * LEADING comment sitting between two grouped assignments has nowhere to survive -- without
+     * this check the comment was silently dropped when the group's interior rows were joined by
+     * a bare `"\n" + indent` (RDD_KEY -- see STATE_C_CPP_JAVA.md).
+     */
+    protected boolean hasCommentBeforeStmt(final List<Token> stmt)
+    {
+        for(final Token t : stmt) {
+            if(t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) return true;
+            if(t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) break;
+        }
+
+        return false;
     }
     /** Same blank-line-before detection as `DeclarationAlignmentRule.hasBlankLineBefore`. */
     protected boolean hasBlankLineBeforeStmt(final List<Token> stmt)

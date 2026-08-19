@@ -116,6 +116,27 @@ Compact (don't use sub-agent because I will end this session soon) the narration
     to   `...`
 [DONE]
 
+Use sub-agent. This can be a substantial work.
+
+----------------------------------------------------------------------------------------------------
+
+Try to implement the ... for:
+...
+
+If the new code causes too much regression with `make test` (more than 20 or so lines), revert and
+try another approach.
+
+If it only causes few regression, try to fix the regression. If after ~3 tries and the regression
+is still not improved/somewhat fixed, revert and try another approach, otherwise continue for a bit.
+
+If after ~3 approaches, the feature still cannot be properly implemented, then judge whether to
+simplify the feature, divide the feature into smaller increments, or stop and cancel the feature.
+
+If the feature is successfully implemented and re-dogfood is needed, only execute the full
+re-dogfood once for each dogfood repo. In case there is further error in one/more of the dogfood
+repos, fix the bug(s), and only reformat the failed files. Reformatting an entire dogfood repo
+after each bug fix is wasting time.
+
 ####################################################################################################
 ####################################################################################################
 ####################################################################################################
@@ -313,20 +334,3 @@ echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
-
-Try to implement the blocker for:
-
-[JS_TS] JSX full embedding-aware dispatcher — real HTML5-tree-construction-aware JSX child parsing — actually parsing children with proper HTML5-tree-construction semantics.
-
------
-
-If the new code causes too much regression with `make test` (more than 20 or so lines), revert and try another approach.
-
-If it only causes few regression, try to fix the regression. If after 2-3 tries and the regression is not improved, revert and try another approach.
-
-If after ~3 approaches, the feature cannot be properly implemented, then judge whether to simplify the feature, divide the feature into smaller increments, or stop.and cancel the feature.
-
------
-
-If the feature is successfully implemented and re-dogfood is needed, only execute the full re-dogfood once. In case there is further error in one of the re-dogfood repo,.fix the bug, and only reformat the failed files. Reformatting an entire dogfood repo after each bug fix is wasting time.
-

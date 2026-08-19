@@ -459,10 +459,8 @@ endfunction
 
 ## Configuration
 
-The formatter reads configuration from the following sources, in order of increasing
-precedence (later sources override earlier ones). Each numbered source below is called a
-"tier" elsewhere in this document — e.g. "tier 2" means source 2, the user global config
-file:
+The formatter reads configuration from the following sources, numbered here in order of
+increasing precedence (later sources override earlier ones):
 
 1. Built-in class defaults
 2. `~/.config/jxmake-code-formatter/config` — user global config
@@ -473,22 +471,22 @@ file:
 7. A file's own `JXM_CFMT_CFG` directive (see [In-file config overrides](#in-file-config-overrides)) — always wins,
    including its `--lang` pseudo-key, which overrides the CLI `--lang` flag / server `lang` param too
 
-**Server mode note on tiers 2/3:** server mode is `localhost`-only (see "Server Wire Protocol"
-below) — the server process reads its own `~/.config/jxmake-code-formatter/config` (tier 2) and
-its own process environment (tier 3), not the CLI-invoking client's.
+**Server mode note on sources 2/3:** server mode is `localhost`-only (see "Server Wire Protocol"
+below) — the server process reads its own `~/.config/jxmake-code-formatter/config` (source 2) and
+its own process environment (source 3), not the CLI-invoking client's.
 
-For tier 2 this is transparent as long as client and server run as the same OS user on the same
-machine (the intended, and only supported, deployment shape), since the server re-reads that
-file fresh from disk on every request.
+For source 2 this is transparent as long as client and server run as the same OS user on the
+same machine (the intended, and only supported, deployment shape), since the server re-reads
+that file fresh from disk on every request.
 
-Tier 3 is different: a JVM's environment variables are fixed at process start, so a long-running
-server's env-var tier can go stale relative to the client's *current* shell environment if the
-client's env changed after the server was launched.
+Source 3 is different: a JVM's environment variables are fixed at process start, so a
+long-running server's env-var source can go stale relative to the client's *current* shell
+environment if the client's env changed after the server was launched.
 
 To avoid this, the bundled CLI's `delegateToServer` path forwards its own live
-`JXMAKE_CODE_FORMATTER_*` env-var snapshot to the server as inline query-param overrides (tier 6)
-on every delegated request, so the effective result matches what a fresh standalone run in the
-client's own environment would have produced, regardless of how long the server has been running
+`JXMAKE_CODE_FORMATTER_*` env-var snapshot to the server as inline query-param overrides
+(source 6) on every delegated request, so the effective result matches what a fresh standalone
+run in the client's own environment would have produced, regardless of how long the server has been running
 or what it originally started with.
 
 **Server mode note on `indent-style = auto`:** resolved server-side too, the same way as
@@ -606,12 +604,12 @@ any of these should reuse `line-length-with-comment` rather than inventing a
 new key.
 
 **`--lang` vs. `jsx-in-ts`.** These two look similar (both influence JS/TS-family
-language handling) but sit at different tiers. `--lang` is *not* a config-file
-key at all — it's a CLI flag / server `lang` query param, with a matching
+language handling) but sit at different points in the precedence list above. `--lang` is *not*
+a config-file key at all — it's a CLI flag / server `lang` query param, with a matching
 `JXM_CFMT_CFG` pseudo-key as its only in-file form; it has no env var and
 cannot appear in `.jxmake-code-formatter`. `jsx-in-ts` (JS/TS group above) is
 an ordinary config key like any other in this list, so it works through every
-tier: built-in default (`off`), `~/.config/jxmake-code-formatter/config`,
+source: built-in default (`off`), `~/.config/jxmake-code-formatter/config`,
 `JXMAKE_CODE_FORMATTER_JSX_IN_TS`, `.jxmake-code-formatter`, CLI flag / server
 query param, and `JXM_CFMT_CFG` — see "Configuration" above for the full
 precedence order.
@@ -849,9 +847,8 @@ the JVM internally). The following limitations apply on Windows:
 
 ## AI Workflow for Tier-3 Aesthetic Decisions
 
-"Tier" here is unrelated to the config-precedence tiers in [Configuration](#configuration)
-above — it instead classifies how confidently a formatting decision can be automated. Tier-1
-and Tier-2 cover every rule this JAR applies mechanically (structural rules and rule-based/GRU
+"Tier" here classifies how confidently a formatting decision can be automated. Tier-1 and
+Tier-2 cover every rule this JAR applies mechanically (structural rules and rule-based/GRU
 comment decisions); Tier-3 is the small remaining class of aesthetic decisions — function
 argument list layout and non-standard getter/setter grouping — that can instead be handled by a
 capable AI model (Claude Sonnet / Opus, GPT-4o, etc.) in a separate pass. The JAR may be extended

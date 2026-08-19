@@ -107,8 +107,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_215_inp/out.jxm`
-    to   `real_code_regressions_216_inp/out.jxm`
+    from `real_code_regressions_217_inp/out.java`
+    to   `real_code_regressions_217_inp/out.java`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -216,17 +216,21 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-NONE FOR NOW
+- [CURLY_GDR] Function-expression-in-call-argument body not reformatted even with
+  `curly-general-scope-reindent`(-multipass) on. See `STATE_CURLY_GDR.md` Open Questions.
 
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-- [JS_TS] JSX full embedding-aware dispatcher (real grammar parsing of children/attribute
-  values, vs. today's opaque-preservation + opening-tag-attribute-wrap approach). Blockers:
-  unbounded recursion into `{}` holes, HTML5-tree-construction pass unverified for JSX's
-  HTML-divergent grammar, no grammar-position-aware parser in this codebase to inherit `<`
-  disambiguation from.
+- [JS_TS] JSX full embedding-aware dispatcher (real grammar parsing, vs. today's
+  opaque-preservation + opening-tag-attribute-wrap + hole-recursion approach). Remaining
+  blockers:
+    - Real HTML5-tree-construction-aware JSX child parsing — actually parsing children
+      with proper HTML5-tree-construction semantics (JSX's grammar diverges from HTML5's),
+      instead of today's opaque-preservation approach.
+    - General grammar-position-aware < disambiguation — a foundation parser capability
+      the codebase doesn't have at all - NOT WORTH PURSUING.
 
 Use sub-agent. This can be a substantial work.
 
@@ -242,38 +246,25 @@ Use sub-agent. This can be a substantial work.
 === TIER X: Dead ===
 
 - [PYTHON3] f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
-  2026-08-12: matches `black`/`ruff format` convention (both also leave f-string interiors alone),
-  so this is intentional scope, not a missed feature. Fixing it would need a real Python-expression
-  tokenizer/spacer — reusing the C-family `needsSpaceBetween` risks silent semantic corruption
-  (`*` multiplication, `**`/`//`/`:=`, keyword operators, comprehension `for`/`if`), not just
-  a style miss. See `STATE_PYTHON3.md` §5.
+  2026-08-12, intentional scope. See `STATE_PYTHON3.md` §5.
 
-- [AI] Dedicated GRU for non-Latin/mixed-language comments (currently always ABSTAIN via
-  `NonLatinScriptGate`). Assessed, not planned (2026-08-10): would need its own training corpus
-  (no dogfood corpus for any non-Latin/mixed-language script exists), and the ambiguity problem
-  Step 3 solves mostly doesn't apply to non-Latin text anyway. See `STATE_AI.md`.
+- [AI] Dedicated GRU for non-Latin/mixed-language comments. Assessed, not planned
+  (2026-08-10). See `STATE_AI.md`.
 
-- [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping
-  (`MiscRuleCore.stripSoleTrailingPeriod`'s `dotCount != 1` case). CLOSED 2026-08-11: the
-  task-separation path (second model/weights file, or a schema/task field on the shared
-  abstain-resolution pipeline) is decided against permanently — cross-cutting correctness risk to
-  the main GRU classifier's 92%+ precision outweighs closing this narrow gap. See `STATE_AI.md`.
+- [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping. CLOSED
+  2026-08-11. See `STATE_AI.md`.
 
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
-  NOT FEASIBLE, no tractable grouping-intent heuristic exists at any small model size tested.
+  NOT FEASIBLE.
 
 === TIER Z: Closed, revisit only if new evidence surfaces ===
 
-- [CURLY_GDR] GDR-2 (second multipass cycle) risk of silently mis-scoping deeper/adjacent
-  regions — NOT REPRODUCED across 6 synthetic adversarial shapes (TS switch-in-if, TS
-  ternary-wrap, Kotlin when-in-if, Kotlin ternary-wrap, 2 combined/deep-nesting variants), all
-  survive correctly. Synthetic-only, not exhaustive — see STATE_CURLY_GDR.md. Revisit if a real
-  case surfaces.
+- [CURLY_GDR] GDR-2 (second multipass cycle) mis-scoping risk — NOT REPRODUCED. See
+  `STATE_CURLY_GDR.md`.
 
-- [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" — resolved
-  2026-08-15 (RDD_KEY_295) as a documented limitation, no code change (needs two *simultaneous*
-  misnestings, never observed in any dogfood corpus). Revisit if a future case surfaces. See
-  `STATE_HTML5_TCG.md`'s Open Questions.
+- [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
+  resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s
+  Open Questions.
 
 ####################################################################################################
 ####################################################################################################

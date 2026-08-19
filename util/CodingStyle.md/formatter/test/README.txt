@@ -4164,18 +4164,14 @@ Real-code regressions:
                                                         next code line (the `function` opener) instead of
                                                         keeping its own original leading whitespace unchanged.
 
-  real_code_regressions_217_inp/out.java             -- own-line comment sitting between two grouped bare
-                                                        assignment statements (`text = 1; // comment; text =
-                                                        2;`) was being silently deleted:
-                                                        `MiscRuleCore.groupAssignments` didn't break the
-                                                        alignment group on a comment-only gap the way
-                                                        `DeclarationAlignmentRuleCore.hasCommentBefore` does
-                                                        for declarations, so `applyAssignmentsPass` spliced
-                                                        the group's interior rows together with a bare `"\n" +
-                                                        indent`, discarding the second row's leading comment
-                                                        entirely. Fixed by adding the same comment-before
-                                                        check (`hasCommentBeforeStmt`) used to force a group
-                                                        break, same precedent as a blank line.
+  real_code_regressions_217_inp/out.java             -- own-line comment between two grouped bare assignments
+                                                        (`text = 1; // comment; text = 2;`) was silently
+                                                        deleted: `groupAssignments` failed to break on a
+                                                        comment-only gap, so `applyAssignmentsPass` spliced
+                                                        the rows with a bare `"\n" + indent`, discarding the
+                                                        comment. Fixed by breaking on `hasCommentBeforeStmt`,
+                                                        matching declaration alignment and blank-line
+                                                        behavior.
 
 How Tests Are Run
 -----------------

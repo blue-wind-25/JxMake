@@ -1762,6 +1762,23 @@ public final class JsTsSpecificRule {
     )
     {
         if(tagEnd < 0 || tagEnd >= text.length()) return null;
+        // Defensive bail (2026-08-20 dogfood finding, RDD_KEY_312 follow-up): `baseIndent` is
+        // this JSX_SPAN's own preceding-whitespace token text, read *before* whatever later
+        // general-indent pass normalizes that same line's tabs/spaces. When `baseIndent` still
+        // contains a raw tab, rewriting children off of it bakes that raw tab into every child
+        // line this pass touches -- and the root tag's own line then gets independently
+        // renormalized to spaces by the later pass, so the parent and its children end up on
+        // mismatched indentation styles (and, across rounds, mismatched widths -- confirmed via
+        // the `lemoncode` corpus's `old_class_components_samples/15 Lazy Loading/.../memberForm.tsx`,
+        // minimally reproduced as a tab+space-mixed `<form>` root line). This pass has no
+        // visibility into what the later pass will finally render for that line, so it can't
+        // compute a correct target here; bailing (same "don't guess" contract as every other
+        // rejection in this method) avoids baking in a wrong/unstable indentation, at the cost of
+        // leaving such a span's children at their original (possibly ugly) indentation until a
+        // second format pass -- once the root line's own tabs are gone, this pass fires normally
+        // and settles. See STATE_JS_TS.md's RDD_KEY_312 entry for the full writeup; this is an
+        // accepted, documented residual gap, not a silent miss.
+        if(baseIndent.indexOf('\t') >= 0) return null;
         final String tail = text.substring(tagEnd);
         if(tail.indexOf('\n') < 0) return null; // Single-line children -- nothing to reindent
 

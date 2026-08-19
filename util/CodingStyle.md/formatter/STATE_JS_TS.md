@@ -101,6 +101,7 @@ convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_276 | Tier-3 shape #3 (interface intersection-type closing brace shifts column on round2), FIXED: a field literally named `class` made `classBraceKind`'s backward KEYWORD scan misclassify its own nested object-type-literal brace as a class body. Fixed via `isFieldNameKeywordUsage` (skip a `class`/`interface` token immediately followed by `:`/`?`). Fixture `real_code_regressions_198` |
 | RDD_KEY_294 | `hasBreakableCall` under-approximation (XL.txt Tier 9, RDD_KEY_245/246/248/249/250 family), FIXED: `refuseUnrescuableCollapse` now also refuses a braceless-if/else collapse when the one rescuable call's own best-case arg-removal still can't clear `lineLengthLimit` (`maxRescueSavings`), gated off whenever an array/object literal is present in the scanned span (`containsListLiteral`) to preserve `real_code_regressions_81`/`_93`'s already-accepted "over limit is fine, rejoin anyway" behavior (2nd attempt; 1st, an ungated width gate, regressed `_81`). Fixture `real_code_regressions_209` |
 | RDD_KEY_312 | Narrow JSX-scoped child-indentation parser (`reindentJsxChildren`/`rewriteJsxChildIndentation`), superseding the 2026-08-20 general-HTML5-reuse rejection (which still stands for that specific approach). Re-derives only tag/fragment-boundary lines' own leading indentation from JSX nesting depth; never touches text/hole/quoted content. See "JSX/TSX implementation" section below for full design/bug-fix narrative |
+| RDD_KEY_313 | RDD_KEY_312 follow-up: full 6-corpus external dogfood validation. `reactstrap`/`excalidraw` diffs confirmed pre-existing (unrelated hole-recursion instability) via disable-and-retest. `lemoncode`'s `memberForm.tsx` (tab+space-mixed JSX-root indentation) found a real bug in this pass; fixed with a tab-in-`baseIndent` bail in `rewriteJsxChildIndentation` (real improvement, stops tab corruption) but full one-pass idempotency for that narrow shape remains an accepted, documented residual gap (converges after 2 passes). `make test` 329/329 forward + idempotency after the fix. See "JSX/TSX implementation" section below for full narrative |
 
 ---
 
@@ -327,6 +328,89 @@ JS/TS fixtures are active in the Makefile and passing.
   was used, per the task's guardrails. A fresh dogfood re-sweep against
   those external corpora remains a reasonable follow-up if/when they're
   available again, but is not required to consider this increment done.
+
+  **2026-08-20 follow-up dogfood validation (this session):** all 6
+  `STATE_DOGFOOD.md` JSX/TSX corpora were found already checked out locally
+  (`/tmp/dogfood_react_tutorial`, `/tmp/reactstrap_dogfood`,
+  `/tmp/react_demos_dogfood`, `/tmp/ts_react_starter_dogfood`,
+  `/tmp/lemoncode_dogfood`, `/tmp/excalidraw_dogfood`) and were run once
+  through the round1/round2 idempotency methodology
+  (`STATE_COMMON.md`'s preferred real-code test), ~1127 JSX/TSX files
+  total (5 + 468 + 12 + 10 + 329 + 303). Findings:
+  - `dogfood_react_tutorial`, `ts_react_starter_dogfood`: clean, no diffs.
+  - `reactstrap_dogfood`, `excalidraw_dogfood`: diffs found, but confirmed
+    via disable-and-retest (temporarily removing the `reindentJsxChildren`
+    call, rebuilding, re-running) to reproduce identically with this
+    pass **disabled** — i.e. pre-existing non-idempotency in the
+    attribute-value-hole recursive-dispatch mechanism
+    (`formatJsxHoleInterior`, 2026-08-19 feature) cascading into
+    inconsistent nested-array/object-literal or nested-JSX-in-array
+    placement across rounds. Two `excalidraw` files
+    (`PasteChartDialog.tsx`, `TTDChatPanel.tsx`) showed diffs that
+    happened to include tag-boundary (`<`) lines, but disable-and-retest
+    confirmed the same shift reproduces without this pass — the whole
+    subtree (tag lines and attribute lines together) is shifted by the
+    pre-existing hole-recursion instability, not by
+    `rewriteJsxChildIndentation`. **Not caused by, and out of scope for,
+    RDD_KEY_312** — same already-documented gap class as the
+    "General scope-depth reindentation" job. No fix attempted (confirmed
+    pre-existing via evidence, not by assumption).
+  - `react_demos_dogfood`: only the already-documented `demo13/app.js`/
+    `server.js` non-JSX minified one-liner gap (see below); no new JSX
+    finding.
+  - `lemoncode_dogfood`: one genuine bug **caused by** this pass, found in
+    `old_class_components_samples/15 Lazy Loading/.../memberForm.tsx`
+    (and its structurally-identical sibling under
+    `16 Custom Middleware/`): the source's JSX root tag's own line has
+    pre-existing tab+space-mixed indentation (`\t\t    <form>`). This
+    pass read that raw, still-tab-containing whitespace as `baseIndent`
+    and baked literal tabs into every rewritten child line — before a
+    later, independent general-indent-engine pass separately renormalized
+    the root tag's own line to pure spaces, leaving parent and children
+    on mismatched indentation styles, and non-idempotent besides (round 2
+    baseIndent, now tab-free, causes a full correct rewrite that round 1
+    didn't produce). Root cause confirmed via disable-and-retest (bug
+    disappears with the pass off) and via direct inspection of `baseIndent`
+    across rounds. **Fix applied and kept:** `rewriteJsxChildIndentation`
+    now bails (`return null`, no rewrite) whenever `baseIndent` contains a
+    raw tab, rather than rewriting off of a value it has no way to
+    correctly predict (the later general-indent pass's own eventual
+    output isn't visible to this pass). This avoids the tab-corruption and
+    is consistent with the method's existing "don't guess, bail" style.
+    **Two fix attempts were made** before landing this one: (1) this same
+    tab-bail — verified it stops the tab-corruption but round 1 (bail, so
+    children keep their original raw indentation) still differs from
+    round 2 (root line now tab-free, so the pass fires and rewrites
+    correctly) — i.e. the file still isn't idempotent in exactly one
+    format pass, though it *converges* to correct output after a second
+    pass and no longer has mismatched tab/space styles; (2) removing the
+    bail entirely — made things strictly worse (round 1 then bakes literal
+    tabs straight into every child line, a real corruption, not just an
+    indentation-width mismatch). Per the "2-3 attempts then keep the safer
+    partial mitigation and document" guardrail, the tab-bail (attempt 1)
+    was kept as the final state — it is a **real, verified improvement**
+    (no tab corruption ships) but does **not** achieve full one-pass
+    idempotency for this specific tab-mixed-source shape. Documented as an
+    accepted, known residual gap below rather than left unresolved.
+    `make test` reconfirmed clean at 329/329 forward + 329/329 idempotency
+    after the fix (existing fixture corpus doesn't happen to exercise
+    tab-mixed JSX root indentation, so no fixture regressed or was added
+    for this narrow shape — adding one was considered but skipped because
+    it would itself fail the suite's idempotency check by design, per the
+    finding above).
+
+  **Known residual gap (accepted, not silently missed):** a JSX root tag
+  whose own source line mixes tabs and spaces in its leading indentation
+  can take two `code-formatter` passes (not one) to settle into fully
+  clean, consistently-indented children — the first pass leaves children
+  at their original (possibly ugly) indentation rather than corrupting
+  them with baked-in tabs; the second pass (once the root line itself has
+  been tab-normalized by the general engine) rewrites children correctly.
+  This is a narrow, low-likelihood shape (hand-written tab/space-mixed
+  indentation on a JSX root tag specifically) and matches the same
+  general class of gap as `STATE_COMMON.md`'s already-accepted "General
+  scope-depth reindentation" limitation — not something to force-fix under
+  this narrow pass's own scope.
 
   **Remaining scope, unchanged from before this session:** the general,
   reusable HTML5-tree-construction-aware JSX child parser (grammar-

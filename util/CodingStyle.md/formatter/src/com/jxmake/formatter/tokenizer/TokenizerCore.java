@@ -105,7 +105,7 @@ public class TokenizerCore {
         // holes it doesn't interpret), consumed only by
         // `JsTsSpecificRule#spliceJsxExpressionHoles`. `null`/empty for every non-`JSX_SPAN` token
         // and for a span with no children-position holes at all.
-        public List<int[]>   jsxHoleSpans           = null;
+        public List<int[]> jsxHoleSpans = null;
 
         public Token(
             final TokenType type,

@@ -958,7 +958,9 @@ public class CppSpecificRule {
                         && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
                     final int beforeSpecifier = prevSignificantIndexBefore(tokens, beforeOpen);
                     if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
-                        openParenForIndent = MiscRuleCore.matchParenBackward(tokens, beforeSpecifier);
+                        openParenForIndent = MiscRuleCore.matchParenBackward(
+                            tokens, beforeSpecifier
+                        );
                         continue;
                     }
                 } // if
@@ -1862,7 +1864,7 @@ public class CppSpecificRule {
                 names.put( idx, m.group(1) );
                 values.put( idx, m.group(2) );
                 maxNameLen = Math.max( maxNameLen, m.group(1).length() );
-            }
+            } // for idx
             for(final int idx : run) {
                 final String        name    = names.get(idx);
                 final StringBuilder padding = new StringBuilder();

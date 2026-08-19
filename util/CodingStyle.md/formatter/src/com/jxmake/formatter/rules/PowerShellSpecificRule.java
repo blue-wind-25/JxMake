@@ -1218,7 +1218,7 @@ public final class PowerShellSpecificRule {
 
     private static boolean isControlHeader(final String pattern)
     {
-        final String  t = pattern.trim();
+        final String t = pattern.trim();
         // Word-at-start check against control keywords (case-insensitive)
         final Matcher m = CONTROL_HEADER_KEYWORD.matcher(t);
 

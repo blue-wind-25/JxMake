@@ -1425,10 +1425,7 @@ public final class XmlSpecificRule {
         return n;
     }
 
-    private int indexOfIgnoreCase(
-        final String needleLower,
-        final int    from
-    )
+    private int indexOfIgnoreCase(final String needleLower, final int from)
     {
         return sLower.indexOf(needleLower, from);
     }
@@ -1512,10 +1509,7 @@ public final class XmlSpecificRule {
      * at `from`, requiring a tag-boundary character (whitespace, `>`, `/`, or end-of-string)
      * immediately after the match so `"<ruby"` doesn't false-match inside `"<rubytag"`.
      */
-    private int indexOfTagBoundary(
-        final String tokenLower,
-        final int    from
-    )
+    private int indexOfTagBoundary(final String tokenLower, final int from)
     {
         int idx = from;
         while(true) {

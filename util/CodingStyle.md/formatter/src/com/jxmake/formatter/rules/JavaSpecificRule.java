@@ -156,13 +156,17 @@ public class JavaSpecificRule {
             if( !isPunct( tokens.get(prevIdx), ")" ) ) {
                 // Check for Java `throws` clause: `void foo() throws IOException {`
                 final int throwsCloseParen = findCloseParenBeforeThrows(tokens, prevIdx);
-                if( throwsCloseParen >= 0 && !MiscRuleCore.hasNewlineOrCommentBetween(tokens, prevIdx, i)
+                if( throwsCloseParen >= 0 && !MiscRuleCore.hasNewlineOrCommentBetween(
+                    tokens, prevIdx, i
+                )
                         && isMethodDefinitionCloseParen(tokens, throwsCloseParen)
                         && !isEnumConstantBody(tokens, i)
                         && !MiscRuleCore.anyFrozen(tokens, throwsCloseParen, i + 1) ) {
                     final int closeBraceIdx = MiscRuleCore.matchBraceForward(tokens, i);
                     if( closeBraceIdx >= 0 && isSingleLineBody(tokens, i, closeBraceIdx) ) {
-                        final int openParenIdx = MiscRuleCore.matchParenBackward(tokens, throwsCloseParen);
+                        final int openParenIdx = MiscRuleCore.matchParenBackward(
+                            tokens, throwsCloseParen
+                        );
                         final int nameIdx      = prevSignificantIndexBefore(tokens, openParenIdx);
                         oneLiners.add(
                             new OneLinerCandidate(nameIdx, throwsCloseParen, i, closeBraceIdx)
@@ -288,7 +292,9 @@ public class JavaSpecificRule {
             // just the significant-token span starting at `lineStart` (which is the first
             // *significant* token, excluding leading whitespace). Omitting it undercounted every
             // indented one-liner's width by its indent depth.
-            int     width        = MiscRuleCore.expandedIndentWidth( lineIndent(tokens, lineStart), indentWidth );
+            int     width        = MiscRuleCore.expandedIndentWidth(
+                lineIndent(tokens, lineStart), indentWidth
+            );
             boolean lastWasSpace = false;
             for(int k = lineStart; k <= lineEnd; ++k) {
                 final Token t = tokens.get(k);

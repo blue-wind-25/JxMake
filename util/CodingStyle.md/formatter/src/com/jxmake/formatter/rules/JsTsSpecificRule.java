@@ -1434,7 +1434,7 @@ public final class JsTsSpecificRule {
      * no depth parameter of its own to thread through.
      */
     private static final ThreadLocal<Integer> JSX_HOLE_RECURSION_DEPTH = ThreadLocal.withInitial(
-        () -> 0
+        ()->0
     );
 
     /**
@@ -1460,7 +1460,9 @@ public final class JsTsSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( t.type == TokenType.JSX_SPAN && t.jsxHoleSpans != null && !t.jsxHoleSpans.isEmpty() ) {
-                final String rewritten = rewriteJsxHoles(t.text, t.jsxHoleSpans, t.jsxOpeningTagEndOffset);
+                final String rewritten = rewriteJsxHoles(
+                    t.text, t.jsxHoleSpans, t.jsxOpeningTagEndOffset
+                );
                 if( rewritten != null && !rewritten.equals(t.text) ) overrides.put(i, rewritten);
             }
         } // for
@@ -1476,11 +1478,15 @@ public final class JsTsSpecificRule {
      * spliced back byte-for-byte unchanged -- one bad/deep hole never blocks a sibling hole
      * elsewhere in the same span from being formatted.
      */
-    private String rewriteJsxHoles(final String text, final List<int[]> holes, final int jsxOpeningTagEndOffset)
+    private String rewriteJsxHoles(
+        final String      text,
+        final List<int[]> holes,
+        final int         jsxOpeningTagEndOffset
+    )
     {
         final StringBuilder out     = new StringBuilder();
-              int            pos     = 0;
-              boolean        changed = false;
+              int           pos     = 0;
+              boolean       changed = false;
         // An attribute-value hole (hs < jsxOpeningTagEndOffset) that lives inside an opening tag
         // whose raw text ALREADY spans multiple physical lines is, in practice, always re-wrapped by
         // the later enforceJsxSelfClosingAttributeWrap pass to one-attribute-per-line at
@@ -1490,26 +1496,31 @@ public final class JsTsSpecificRule {
         // the hole's stale pre-wrap line indent) keeps the width budget used to decide whether the
         // hole's own interior needs to wrap consistent between this pass and the later wrap pass, and
         // therefore stable/idempotent across repeated formatting rounds.
-        final boolean tagAlreadyMultiline = jsxOpeningTagEndOffset > 0 && jsxOpeningTagEndOffset <= text.length()
-            && text.substring(0, jsxOpeningTagEndOffset).indexOf('\n') >= 0;
-        final String tagIndent = tagAlreadyMultiline ? lineIndentAt(text, 0) : null;
-        for(final int[] h : holes) {
+        final boolean tagAlreadyMultiline = jsxOpeningTagEndOffset > 0 && jsxOpeningTagEndOffset <= text.length() && text.substring(
+            0, jsxOpeningTagEndOffset
+        ).indexOf(
+            '\n'
+        ) >= 0;
+        final String  tagIndent           = tagAlreadyMultiline ? lineIndentAt(text, 0) : null;
+        for( final int[] h : holes ) {
             final int hs = h[0];
             final int he = h[1];
             if( hs < pos || he > text.length() || hs >= he ) continue; // Defensive -- shouldn't happen
-            out.append( text, pos, hs );
-            final String interior  = text.substring(hs + 1, he - 1); // Strip the braces themselves
+            out.append(text, pos, hs);
+            final String  interior   = text.substring(
+                hs + 1, he - 1
+            );                                                               // Strip the braces themselves
             final boolean isAttrHole = hs < jsxOpeningTagEndOffset;
-            final String indent    = ( isAttrHole && tagAlreadyMultiline )
-                ? tagIndent + defaultIndentUnit
-                : lineIndentAt(text, hs);
-            final String formatted = formatJsxHoleInterior(interior, indent);
+            final String  indent     = (isAttrHole && tagAlreadyMultiline) ? tagIndent + defaultIndentUnit : lineIndentAt(
+                text, hs
+            );
+            final String  formatted  = formatJsxHoleInterior(interior, indent);
             if(formatted != null) {
                 out.append('{').append(formatted).append('}');
                 changed = true;
             }
             else {
-                out.append( text, hs, he ); // Unchanged -- byte-for-byte frozen fallback
+                out.append(text, hs, he); // Unchanged -- byte-for-byte frozen fallback
             }
             pos = he;
         } // for
@@ -1522,12 +1533,12 @@ public final class JsTsSpecificRule {
      * The leading whitespace of the physical line containing raw {@code text} offset
      * {@code offset} -- same notion as {@link #lineIndent(List, int)} but operating on a raw
      * string (a {@code JSX_SPAN}'s frozen {@code text}) rather than a token list, since a hole's
-     * position inside a multi-line span has no {@code NEWLINE} token of its own to walk from.
+     * position inside a multi-line span has no {@code NEWLINE} token of its own to walk from
      */
     private String lineIndentAt(final String text, final int offset)
     {
         int lineStart = text.lastIndexOf('\n', offset - 1) + 1;
-        int i          = lineStart;
+        int i         = lineStart;
         while( i < offset && ( text.charAt(i) == ' ' || text.charAt(i) == '\t' ) ) ++i;
 
         return text.substring(lineStart, i);
@@ -1538,24 +1549,28 @@ public final class JsTsSpecificRule {
      * its first (the first line's own leading whitespace was already trimmed off by the caller,
      * along with the hole's own opening brace) -- same purpose and shape as {@code
      * XmlSpecificRule#dedent}, needed for the same idempotency reason (see
-     * {@link #formatJsxHoleInterior}'s own javadoc).
+     * {@link #formatJsxHoleInterior}'s own javadoc)
      */
     private String dedentHoleInterior(final String text)
     {
-        final String[] lines     = text.split("\n", -1);
+        final String[] lines = text.split("\n", -1);
         if(lines.length <= 1) return text;
-              int      minIndent = Integer.MAX_VALUE;
-        for( int i = 1; i < lines.length; ++i ) {
+                int minIndent = Integer.MAX_VALUE;
+        for(int i = 1; i < lines.length; ++i) {
             final String line = lines[i];
             if( line.trim().isEmpty() ) continue;
             int i2 = 0;
-            while( i2 < line.length() && ( line.charAt(i2) == ' ' || line.charAt(i2) == '\t' ) ) ++i2;
+            while( i2 < line.length() && ( line.charAt(
+                i2
+            ) == ' ' || line.charAt(
+                i2
+            ) == '\t' ) ) ++i2;
             minIndent = Math.min(minIndent, i2);
         } // for
         if(minIndent == Integer.MAX_VALUE || minIndent == 0) return text;
 
         final StringBuilder sb = new StringBuilder( lines[0] );
-        for( int i = 1; i < lines.length; ++i ) {
+        for(int i = 1; i < lines.length; ++i) {
             sb.append('\n');
             final String line = lines[i];
             sb.append( line.length() >= minIndent ? line.substring(minIndent) : line.trim() );
@@ -1609,24 +1624,26 @@ public final class JsTsSpecificRule {
 
         JSX_HOLE_RECURSION_DEPTH.set(depth + 1);
         try {
-            final String        language      = lang.isTs ? "ts" : "js";
-            final String        syntheticPath = "jsx-hole." + ( lang.isTs ? "tsx" : "jsx" );
-            final int           indentWidth   = Math.max( 1, defaultIndentUnit.length() );
+            final String language      = lang.isTs ? "ts" : "js";
+            final String syntheticPath = "jsx-hole." + (lang.isTs ? "tsx" : "jsx");
+            final int    indentWidth   = Math.max( 1, defaultIndentUnit.length() );
             // The recursive dispatch below has no idea it's about to be spliced back in at
             // `indent` columns of leading whitespace -- without shrinking its own line-length
             // budget by that much, it will happily keep a line "fitting" at column 0 that
             // actually overflows once `indent` is prepended on every line at the end of this
             // method, which was found (empirically, via the reactstrap dogfood corpus) to
-            // produce a call left un-wrapped that should have broken onto multiple lines.
-            final int           effectiveLineLength = Math.max( 20, lineLengthLimit - indent.length() );
-            final Map<String, String> cfgOverrides = new HashMap<>();
+            // produce a call left un-wrapped that should have broken onto multiple lines
+            final int                 effectiveLineLength = Math.max(
+                20, lineLengthLimit - indent.length()
+            );
+            final Map<String, String> cfgOverrides        = new HashMap<>();
             cfgOverrides.put( "line-length", Integer.toString(effectiveLineLength) );
             cfgOverrides.put( "indent-size", Integer.toString(indentWidth) );
             cfgOverrides.put("indent-style", "spaces");
-            final Config config      = Config.resolve(null, cfgOverrides);
-            final String wrapped     = "return (" + trimmed + ");";
-            final String gdrSource   = GdrPipelineGate.apply(wrapped, language, config);
-            final String rawResult   = FormatterCore.forLanguage(
+            final Config config    = Config.resolve(null, cfgOverrides);
+            final String wrapped   = "return (" + trimmed + ");";
+            final String gdrSource = GdrPipelineGate.apply(wrapped, language, config);
+            final String rawResult = FormatterCore.forLanguage(
                 language, syntheticPath
             ).formatOne(
                 gdrSource, syntheticPath, config, false
@@ -1638,7 +1655,7 @@ public final class JsTsSpecificRule {
             if( result.isEmpty() ) return null;
             if( indent.isEmpty() ) return result;
 
-            return result.replace( "\n", "\n" + indent );
+            return result.replace("\n", "\n" + indent);
         }
         catch(final RuntimeException e) {
             return null; // Unparseable/malformed interior -- leave this hole frozen, not guessed at
@@ -1659,12 +1676,12 @@ public final class JsTsSpecificRule {
      */
     private String unwrapReturnParen(final String formatted)
     {
-        final String trimmed   = formatted.trim();
+        final String trimmed = formatted.trim();
         if( !trimmed.startsWith("return") ) return null;
-        final int    parenIdx  = trimmed.indexOf( '(' );
+        final int parenIdx = trimmed.indexOf('(');
         if(parenIdx < 0) return null;
-        final int    closeIdx  = trimmed.lastIndexOf( ')' );
-        if( closeIdx <= parenIdx ) return null;
+        final int closeIdx = trimmed.lastIndexOf(')');
+        if(closeIdx <= parenIdx) return null;
 
         return trimmed.substring(parenIdx + 1, closeIdx);
     }
@@ -1743,10 +1760,13 @@ public final class JsTsSpecificRule {
         final StringBuilder wrapped = new StringBuilder( openingTagText.substring(0, tagOpenEnd) );
         for( int a = 0; a < b.size() - 1; ++a ) {
             final String seg = reindentMultilineAttrSegment(
-                openingTagText.substring( b.get(a), b.get(a + 1) ).trim(), text, b.get(a), attrIndent
+                openingTagText.substring( b.get(a), b.get(a + 1) ).trim(),
+                text,
+                b.get(a),
+                attrIndent
             );
             wrapped.append('\n').append(attrIndent).append(seg);
-        }
+        } // for
         wrapped.append('\n').append(attrIndent).append(
             reindentMultilineAttrSegment( lastAttrText, text, b.get( b.size() - 1 ), attrIndent )
         );
@@ -1778,10 +1798,10 @@ public final class JsTsSpecificRule {
     {
         if( trimmedSeg.indexOf('\n') < 0 ) return trimmedSeg;
 
-        final String   oldIndent = lineIndentAt(fullSpanText, rawStartOffset);
-        final String[] lines     = trimmedSeg.split("\n", -1);
-        final StringBuilder out  = new StringBuilder( lines[0] );
-        for( int i = 1; i < lines.length; ++i ) {
+        final String        oldIndent = lineIndentAt(fullSpanText, rawStartOffset);
+        final String[]      lines     = trimmedSeg.split("\n", -1);
+        final StringBuilder out       = new StringBuilder( lines[0] );
+        for(int i = 1; i < lines.length; ++i) {
             final String line = lines[i];
             out.append('\n').append(newIndent);
             out.append(

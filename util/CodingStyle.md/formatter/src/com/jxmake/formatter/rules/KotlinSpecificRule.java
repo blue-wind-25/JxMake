@@ -145,7 +145,9 @@ public class KotlinSpecificRule {
             if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;
             final int openBrace  = j;
             final int closeBrace = matchBraceForward(tokens, openBrace);
-            if( closeBrace < 0 || MiscRuleCore.anyFrozen(tokens, openBrace, closeBrace + 1) ) continue;
+            if( closeBrace < 0 || MiscRuleCore.anyFrozen(
+                tokens, openBrace, closeBrace + 1
+            ) ) continue;
 
             final List<WhenBranch> branches = findWhenBranches(tokens, openBrace, closeBrace);
             if( branches == null || branches.isEmpty() ) continue;

@@ -385,7 +385,9 @@ public class BlockStructureRule {
                 // gui_frontend_android's Optimizer.kt: an `else -> { var x = ...; for(...) {...};
                 // x }` block-bodied arm got flattened to one line, a Kotlin parse error).
                 final boolean isWhenArrow = next < n && isOp( tokens.get(next), "->" );
-                if( !isElseIf && !isBraced && !isWhenArrow && !MiscRuleCore.anyFrozen(tokens, i, i + 1) ) {
+                if( !isElseIf && !isBraced && !isWhenArrow && !MiscRuleCore.anyFrozen(
+                    tokens, i, i + 1
+                ) ) {
                     final int[]  bodyEnd   = new int[1];
                     final String collapsed = collapseBracelessBody(
                         tokens, i, i + 1, "else", bodyEnd
@@ -424,7 +426,11 @@ public class BlockStructureRule {
                         }
                         if(depth == 0) {
                             final List<Token> contents = tokens.subList(next + 1, j - 1);
-                            if( isSingleStatementBody(contents) && !MiscRuleCore.anyFrozen(tokens, i, j) ) {
+                            if( isSingleStatementBody(
+                                contents
+                            ) && !MiscRuleCore.anyFrozen(
+                                tokens, i, j
+                            ) ) {
                                 final String candidate = "else " + renderInline(contents);
                                 // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/
                                 // scoping pass") -- same gate as `tryCollapse`/

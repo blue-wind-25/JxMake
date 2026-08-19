@@ -388,6 +388,174 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     }
 
     /**
+     * C/C++/Java/Kotlin analog of {@link #findNestedFunctionExpressionBraces} (RDD_KEY_315's
+     * still-accepted gap, attempted here): finds every `depth > 0` `{` directly inside
+     * {@code [spanStart, spanEnd)} that opens a C++ lambda body, a Java anonymous-class body, or a
+     * Kotlin lambda-literal/anonymous-function body used as a call argument -- e.g. the `{` in
+     * `std::sort(v.begin(), v.end(), [](int a, int b) { ... });`,
+     * `foo(new Runnable() { ... });`, or `foo(x, { y -> ... });`. Same outermost-only /
+     * caller-recurses-for-nesting contract as the JS/TS version. No-ops for JS/TS/every other
+     * language (each language's own detector below already gates itself).
+     */
+    private List<int[]> findNestedLambdaOrAnonClassBraces(
+        final List<Token> tokens,
+        final int         spanStart,
+        final int         spanEnd
+    )
+    {
+        final List<int[]> result = new ArrayList<>();
+        // Java deliberately excluded (RDD_KEY_317/RDD_KEY_318): an anonymous-class body's own
+        // method declaration confuses a downstream call-argument line-wrap pass that this side
+        // channel doesn't protect the spliced content from -- see STATE_C_CPP_JAVA.md's Known Gaps.
+        if( !lang.isCpp && !lang.isC && !lang.isKotlin ) return result;
+
+        int depth = 0;
+        int idx   = spanStart;
+        while(idx < spanEnd) {
+            final Token t = tokens.get(idx);
+            if( isPunct(t, "{") ) {
+                if( depth > 0 && isLambdaOrAnonClassBrace(tokens, spanStart, idx) ) {
+                    final int closeBraceIdx = matchBraceForward(tokens, idx);
+                    if(closeBraceIdx > idx && closeBraceIdx < spanEnd) {
+                        result.add( new int[] { idx, closeBraceIdx } );
+                        idx = closeBraceIdx + 1;
+                        continue;
+                    }
+                } // if
+                ++depth;
+                ++idx;
+                continue;
+            } // if
+            if( isPunct(t, "(") || isPunct(t, "[") ) {
+                ++depth;
+                ++idx;
+                continue;
+            } // if
+            if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
+                --depth;
+                ++idx;
+                continue;
+            } // if
+            ++idx;
+        } // while
+
+        return result;
+    }
+
+    /** Dispatches to the current language's own narrow lambda/anonymous-class-brace detector. */
+    private boolean isLambdaOrAnonClassBrace(
+        final List<Token> tokens,
+        final int         spanStart,
+        final int         braceIdx
+    )
+    {
+        if(lang.isCpp || lang.isC)   return isCppLambdaBrace(tokens, spanStart, braceIdx);
+        if(lang.isJava)              return isJavaAnonClassBrace(tokens, spanStart, braceIdx);
+        if(lang.isKotlin)            return isKotlinLambdaBrace(tokens, spanStart, braceIdx);
+        return false;
+    }
+
+    /**
+     * True iff the `{` at {@code braceIdx} is immediately headed by a C++ lambda introducer's
+     * closing `)` or `]` -- i.e. `[capture](params) {` or the no-parameter-list form `[capture]{`.
+     * Deliberately narrow, mirrors {@link #isFunctionExpressionBrace}'s direct-adjacency-only
+     * contract: a trailing `mutable`/`constexpr`/`noexcept`/`-> ReturnType` specifier between `)`
+     * and `{` defeats the match and is left as an accepted gap, same posture as JS/TS's
+     * unrecognized TS return-type-annotation tail.
+     */
+    private boolean isCppLambdaBrace(
+        final List<Token> tokens,
+        final int         spanStart,
+        final int         braceIdx
+    )
+    {
+        int closeIdx = prevSignificantIndex(tokens, braceIdx);
+        if(closeIdx < spanStart) return false;
+
+        if( isPunct( tokens.get(closeIdx), ")" ) ) {
+            final int openParenIdx = matchParenBackward(tokens, closeIdx);
+            if(openParenIdx < spanStart) return false;
+            closeIdx = prevSignificantIndex(tokens, openParenIdx);
+            if(closeIdx < spanStart) return false;
+        } // if
+
+        if( !isPunct( tokens.get(closeIdx), "]" ) ) return false;
+        final int openBracketIdx = matchBracketBackward(tokens, closeIdx);
+
+        return openBracketIdx >= spanStart;
+    }
+
+    /** Backward `]`/`[` matcher, mirrors {@link ScopePipelineCore#matchParenBackward}. */
+    private int matchBracketBackward(final List<Token> tokens, final int closeIdx)
+    {
+        int depth = 0;
+        for(int i = closeIdx; i >= 0; --i) {
+            if( isPunct( tokens.get(i), "]" ) ) {
+                ++depth;
+            } // if
+            else if( isPunct( tokens.get(i), "[" ) ) {
+                --depth;
+                if(depth == 0) return i;
+            } // if
+        } // for
+
+        return -1;
+    }
+
+    /**
+     * True iff the `{` at {@code braceIdx} is a Java anonymous-class body -- `new Type(args) {` or
+     * `new pkg.Qualified.Type(args) {`. Deliberately narrow, mirrors
+     * {@link #isFunctionExpressionBrace}'s direct-adjacency contract: a generic type-argument list
+     * (`new Comparator<String>() { ... }`) is not recognized and left as an accepted gap, same
+     * posture as this side channel's other per-language narrowings.
+     */
+    private boolean isJavaAnonClassBrace(
+        final List<Token> tokens,
+        final int         spanStart,
+        final int         braceIdx
+    )
+    {
+        final int closeParenIdx = prevSignificantIndex(tokens, braceIdx);
+        if(closeParenIdx < spanStart || !isPunct( tokens.get(closeParenIdx), ")" ) ) return false;
+        final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+        if(openParenIdx < spanStart) return false;
+
+        int i = prevSignificantIndex(tokens, openParenIdx);
+        while(i >= spanStart) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.KEYWORD && "new".equals(t.text)) return true;
+            if( t.type == TokenType.IDENTIFIER || isPunct(t, ".") ) {
+                i = prevSignificantIndex(tokens, i);
+                continue;
+            } // if
+            return false;
+        } // while
+
+        return false;
+    }
+
+    /**
+     * True iff the `{` at {@code braceIdx} is a Kotlin lambda-literal body used as an explicit,
+     * non-trailing call argument -- `foo(x, { y -> ... })` -- recognized as a "bare" `{` in
+     * argument position (immediately preceded by `(` or `,`), since a lambda literal is the only
+     * expression shape a bare `{` can start there. Kotlin's ordinary trailing-lambda call syntax
+     * (`items.forEach { ... }`) is unaffected by RDD_KEY_315's gap in the first place -- that
+     * `{` sits at {@code depth == 0} for its own statement and {@code splitTopLevelSpans} already
+     * records it directly, same as any other statement-position body.
+     */
+    private boolean isKotlinLambdaBrace(
+        final List<Token> tokens,
+        final int         spanStart,
+        final int         braceIdx
+    )
+    {
+        final int before = prevSignificantIndex(tokens, braceIdx);
+        if(before < spanStart) return false;
+
+        return isPunct( tokens.get(before), "(" ) || isPunct( tokens.get(before), "," );
+    }
+
+    /**
      * True iff {@code text} starts a named construct -- ported from
      * {@code BlockStructureRule.isNamedConstructStartKeyword}.
      */
@@ -1903,10 +2071,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // only (`findNestedFunctionExpressionBraces` itself no-ops for every other
                 // language) -- C/C++/Java/Kotlin's analogous shapes (lambdas, anonymous classes)
                 // are a documented, deliberately out-of-scope gap; see STATE_C_CPP_JAVA.md.
-                if(lang.isJs || lang.isTs) {
-                    for( final int[] pair : findNestedFunctionExpressionBraces(
-                        current, span.start, span.end
-                    ) ) {
+                if(lang.isJs || lang.isTs || lang.isCpp || lang.isC || lang.isKotlin) {
+                    final List<int[]> nestedPairs = (lang.isJs || lang.isTs)
+                        ? findNestedFunctionExpressionBraces(current, span.start, span.end)
+                        : findNestedLambdaOrAnonClassBraces(current, span.start, span.end);
+                    for( final int[] pair : nestedPairs ) {
                         final int openBraceIdx  = pair[0];
                         final int closeBraceIdx = pair[1];
                         // Mirrors the ordinary one-liner-body exception below (§ "One-liner

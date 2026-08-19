@@ -1002,10 +1002,22 @@ fix applies: only declaration statements inside the reformatted body get their i
 normalized; a plain non-declaration statement line (e.g. a fluent method-chain continuation) keeps
 whatever indentation it already had in the source.
 
-**Still an accepted, unfixed gap for C/C++/Java/Kotlin** — the same structural shape (a lambda
-passed as a call argument in C++, an anonymous class passed as a call argument in Java, etc.)
-is not addressed by this fix and behaves as before. Fixing it for those languages requires
-extending the same shared scope-recursion pass, a broader change not undertaken this round.
+**Fixed for C/C++ and Kotlin** (2026-08-20): the same structural shape — a lambda passed as a call
+argument in C/C++ (`std::sort(v.begin(), v.end(), [](int a, int b) {...});`), or a lambda literal
+passed as a non-trailing call argument in Kotlin (`bar(1, { x -> ... });`) — is now recursed into
+and reformatted the same way. Kotlin's ordinary trailing-lambda call syntax
+(`items.forEach { ... }`) was never affected by this gap in the first place. Same narrowing and
+same known limitation as the JS/TS fix above: a C/C++ lambda with a trailing `mutable`/`noexcept`/
+return-type specifier between its parameter list and its body is not yet recognized, and only
+declaration statements inside a reformatted body get their indentation normalized — a plain
+non-declaration statement line keeps whatever indentation it already had.
+
+**Still an accepted, unfixed gap for Java** — an anonymous class passed as a call argument
+(`run(new Runnable() { public void run() { ... } });`) is not addressed by this fix and behaves as
+before: its body is left completely untouched. Unlike the other languages' equivalents, a Java
+anonymous class's body is itself a full member declaration (not just ordinary statements), which
+an attempted fix found conflicts with a downstream call-argument line-wrap step; fixing it requires
+more invasive changes than the other languages needed.
 
 #### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

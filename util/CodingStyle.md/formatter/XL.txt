@@ -108,7 +108,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_218_inp/out.js`
-    to   `real_code_regressions_218_inp/out.js`
+    to   `real_code_regressions_220_inp/out.kt`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -242,21 +242,15 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [C_CPP_JAVA job, shared scope-recursion pipeline, NOT a GDR bug] Function-expression-in-
-  call-argument body not reformatted. STATUS: investigated 2026-08-20 by the C_CPP_JAVA job
-  (RDD_KEY_315), precise root cause confirmed --
-  `ScopePipelineCurly.splitTopLevelSpans` only treats a `{` as a recursable child scope at
-  `depth == 0`; a call argument's function-expression `{` is always `depth >= 1`, so it's
-  never recognized as a scope at all. FIXED FOR JS/TS ONLY 2026-08-20 (RDD_KEY_316): a
-  `lang.isJs || lang.isTs`-gated side channel in `ScopePipelineCurly.processScope`
-  (`findNestedFunctionExpressionBraces`) now recurses into an already-multi-line call-argument
-  function-expression body, without touching `splitTopLevelSpans`'s shared span model --
-  C/C++/Java/Kotlin untouched, `make test` 330/330 (was 329/329), zero non-JS/TS regressions.
-  One residual JS/TS-only gap left documented, not fixed: a non-declaration statement line
-  inside the newly-recursed body isn't force-reindented (pre-existing recursion behavior,
-  newly exposed by this fix). C/C++/Java/Kotlin's own analogous shapes (lambda/anonymous-class
-  as call argument) remain ACCEPTED, not fixed -- a real fix for those needs a broader,
-  dedicated session. See `STATE_C_CPP_JAVA.md` "Known Gaps" and RDD_KEY_314/315/316.
+- [C_CPP_JAVA job, shared scope-recursion pipeline] Lambda/anonymous-class-as-call-argument
+  body not reformatted. STATUS 2026-08-20: FIXED for C/C++ lambdas and Kotlin lambda-literal
+  call arguments (RDD_KEY_317), same side-channel approach as JS/TS's RDD_KEY_316 fix, no
+  change to `ScopePipelineCurly.splitTopLevelSpans`'s shared span model needed after all.
+  Java anonymous-class-as-call-argument attempted and REVERTED (RDD_KEY_318) -- its body is a
+  full member declaration, not just statements, and conflicts with a downstream call-wrap
+  pass once spliced in this way; left an accepted gap for a future, more invasive session.
+  `make test` 330/330 -> 332/332, zero regressions. See `STATE_C_CPP_JAVA.md` "Known Gaps",
+  RDD_KEY_315/317/318.
 
 Use sub-agent. This can be a substantial work.
 

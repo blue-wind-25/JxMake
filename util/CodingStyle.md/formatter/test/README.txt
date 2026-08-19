@@ -4179,6 +4179,18 @@ Real-code regressions:
                                                         identical body at statement/declaration position,
                                                         instead of being left completely untouched.
 
+  real_code_regressions_219_inp/out.cpp              -- a C++ lambda body passed as a call argument
+                                                        (`std::sort(..., [](int a, int b) { ... })`) is now
+                                                        recursed into and its declaration lines reindented,
+                                                        the same C/C++/Java/Kotlin fix as
+                                                        real_code_regressions_220 below, for C++ specifically.
+
+  real_code_regressions_220_inp/out.kt               -- a Kotlin lambda-literal body passed as a non-trailing
+                                                        call argument (`bar(1, { ... })`) is now recursed into
+                                                        and its declaration lines reindented the same as an
+                                                        identical body at statement position, instead of being
+                                                        left completely untouched.
+
 How Tests Are Run
 -----------------
 

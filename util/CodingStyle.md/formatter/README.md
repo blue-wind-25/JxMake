@@ -2,9 +2,10 @@
 
 A deterministic code formatter for C, C++, Java, Kotlin, JSON/JSON5, CSS,
 YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, E-INI (Extended
-INI), Makefile, Bash, and PowerShell, implementing the
-[CodingStyle.md](../STYLE.md) style guide (tooling languages follow
-[`STYLE_TOOLING.md`](../STYLE_TOOLING.md)). No AI, no AST — tokenizer plus
+INI), JxMakeFile, Makefile, Bash, and PowerShell, implementing the
+[CodingStyle.md](../STYLE.md) style guide (E-INI/Makefile/Bash/PowerShell
+follow [`STYLE_TOOLING.md`](../STYLE_TOOLING.md), JxMakeFile follows
+[`STYLE_JXMAKE.md`](../STYLE_JXMAKE.md)). No AI, no AST — tokenizer plus
 recursive descent on bounded token slices.
 
 ---
@@ -389,8 +390,13 @@ Formatting applied:
 
 1. **Line-comment normalization** — `#...` line comments are chain-grouped and
    normalized via the same first-letter-capitalization / sole-trailing-period
-   rules as every other language (standalone comment lines keep their original
-   leading whitespace, not reindented). Block comments (`(* ... *)`) are not
+   rules as every other language. A standalone `#` comment chain takes the
+   indentation depth of the next non-blank, non-comment code line that follows
+   it — the comment attaches to what it comments on, so it tracks that line's
+   depth under rule 2's forced reindent even when the comment's own line
+   didn't itself change block nesting (falling back to the depth already in
+   effect at that point if no code line follows, e.g. separated by a blank
+   line or at end of file/block). Block comments (`(* ... *)`) are not
    normalized — their interior is byte-identical — but shift as one unit by the
    opening `(*` line's indent delta, preserving any hand-alignment inside.
 2. **Forced reindentation** by block-keyword nesting depth: `function`/
@@ -566,9 +572,10 @@ trailing same-line comment's width, so only that family reads
 | CSS | not used -- `STYLE_DATA_FORMATS.md` §3 defines no line-length-driven wrap rule for CSS at all | not used |
 | TOML | not used -- `STYLE_DATA_FORMATS.md` §6.3/§6.4 define array/inline-table (un)wrapping by content type and grammar constraint, not by length | not used |
 | E-INI, Makefile, Bash, PowerShell | not used -- `STYLE_TOOLING.md` scopes these four to a fixed, narrow beautification list with "no general reindentation/re-wrapping fallback" of any kind | not used |
+| JxMakeFile | not used -- `STYLE_JXMAKE.md` scopes it to a fixed, narrow beautification list with the same "no general reindentation/re-wrapping fallback" as the tooling family above | not used |
 
 This reflects genuinely different architectures per language, not gaps to be
-filled in: CSS/TOML/E-INI/Makefile/Bash/PowerShell have no line-length-driven wrap
+filled in: CSS/TOML/E-INI/JxMakeFile/Makefile/Bash/PowerShell have no line-length-driven wrap
 rule specified at all, and Python3/JSON5/XML/HTML5/YAML each structurally
 exclude a trailing comment from their own wrap decision (skip the decision
 entirely, or measure before the comment is appended) rather than folding it
@@ -632,7 +639,7 @@ capitalization decision (mechanical/linear/GRU classifier stack when
 used for the first word. A candidate that the decision doesn't clearly approve is left untouched,
 same as today's first-word-only behavior when it abstains or says no. Applies to both the
 curly-brace family (C/C++/Java/Kotlin/JS/TS) and the `#`-comment tooling family
-(Makefile/Bash/PowerShell) as well as YAML/TOML.
+(E-INI/JxMakeFile/Makefile/Bash/PowerShell) as well as YAML/TOML.
 
 Before offering a candidate boundary to that decision at all, a narrow mechanical pre-filter
 rejects shapes that are structurally never a real sentence start regardless of what the
@@ -847,15 +854,17 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_KOTLIN2.md`](../STYLE_KOTLIN2.md) — Kotlin 2.0/2.1 constructs
   (guard conditions, `data object`), read after `STYLE_KOTLIN.md`
 - [`../STYLE_DATA_FORMATS.md`](../STYLE_DATA_FORMATS.md) — JSON/JSON5/CSS/YAML/
-  TOML/XML/HTML5 (all implemented, including HTML5's `<script>` dispatch to
-  JS/TS)
-- [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (implemented;
-  JSX/TSX tag trees are preserved byte-for-byte, not JSX-aware-reformatted, see Usage above)
+  TOML/XML/HTML5, including HTML5's `<script>` dispatch to JS/TS
+- [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (JSX/TSX tag
+  trees are preserved byte-for-byte, not JSX-aware-reformatted, see Usage above)
 - [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3
+- [`../STYLE_JXMAKE.md`](../STYLE_JXMAKE.md) — JxMakeFile, JxMake's own
+  build-scripting language (narrow beautification-only rule list — see
+  [JxMakeFile](#jxmakefile) above)
 - [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — E-INI, Makefile, Bash, and
-  PowerShell (implemented; narrow beautification-only rule lists — recipe
-  lines, quoting/heredocs/here-strings/comments are left byte-identical
-  outside each language's fixed transforms)
+  PowerShell (narrow beautification-only rule lists — recipe lines,
+  quoting/heredocs/here-strings/comments are left byte-identical outside
+  each language's fixed transforms)
 
 ---
 
@@ -910,163 +919,235 @@ third-party client only needs to speak this HTTP protocol, not link against the 
 ## Known Limitations
 
 Grouped by which language family each limitation affects (curly-brace family, then
-tag-based/markup family, then indent-based Python 3, then build/dev-tooling scripts, then
-AI-assist), then by effect size within each group. A family with no currently documented
-limitations is omitted rather than listed with an empty placeholder — add a new family heading
-here if and when it actually gains a documented gap.
+tag-based/markup family, then indent-based Python 3, then E-INI, then JxMakeFile, then
+build/dev-tooling scripts, then AI-assist), then by effect size within each group. A family with
+no currently documented limitations is still given its own heading with an explicit "no known
+limitations" note rather than being omitted, whenever that itself is useful information — e.g. a
+narrow, fixed-rule-scope language where anything outside its rules is left untouched by design,
+not a gap that happens to be empty today.
+
+Each item below follows the same shape: a title, a short description, a code example of the
+limitation, a workaround where one exists, and any further explanation of the *why* that doesn't
+fit in the first four.
 
 ### Curly-brace family (C/C++/Java/Kotlin/JS/TS)
 
-1. **General scope-depth reindentation is opt-in, not the default, and has a known joined-brace
-   non-idempotency gap.** See "Config file format" → [General scope-depth reindentation
-   (GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent) above for what the
-   `curly-general-scope-reindent` key does, its scope, the joined-one-true-brace-style gap, and
-   the `curly-general-scope-reindent-multipass` workaround. The same default-off gap also affects
-   minified/compiled JS with one-liner function bodies, e.g.:
+#### 1. General scope-depth reindentation is opt-in and has a known joined-brace non-idempotency gap
 
-   ```js
-   function foo(a,b){if(a){return b;}else{return a;}}
-   ```
+`curly-general-scope-reindent` (default `off`) is required to correctly reindent badly-indented
+or flush-left source — see "Config file format" → [General scope-depth reindentation
+(GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent) above. With it off,
+minified/compiled JS with one-liner function bodies is not idempotent:
 
-   which is not idempotent under the default config (a second formatting pass re-breaks it
-   differently) but round-trips cleanly with both `curly-general-scope-reindent` and
-   `curly-general-scope-reindent-multipass` turned on.
+```js
+function foo(a,b){if(a){return b;}else{return a;}}
+```
 
-   A related but distinct gap (found 2026-08-19, not yet fixed): a one-line/one-statement-body
-   function *expression* passed as a call argument, e.g.:
+**Workaround:** turn on both `curly-general-scope-reindent` and
+`curly-general-scope-reindent-multipass` — the example above then round-trips cleanly. See
+[General scope-depth reindentation (GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent)
+above for what the joined-one-true-brace-style gap is and why multipass fixes it.
 
-   ```js
-   items.map(function (x) { doA(x); doB(x); return x; });
-   ```
+A related but distinct gap (found 2026-08-19, not yet fixed): a one-line/one-statement-body
+function *expression* passed as a call argument is **not** reformatted to one-statement-per-line,
+even with both of the keys above turned on:
 
-   is **not** reformatted to one-statement-per-line even with both
-   `curly-general-scope-reindent` and `curly-general-scope-reindent-multipass` turned on —
-   unlike a top-level `function foo(a,b){...}` *declaration*, which GDR does reformat. See
-   `STATE_CURLY_GDR.md`'s Open Questions for investigation notes; no fix attempted yet.
+```js
+items.map(function (x) { doA(x); doB(x); return x; });
+```
 
-2. **Multi-line-call/condition wrap decision can flap across repeated formatting passes,
-   affecting C/C++/Java/JS/TS.** Whether a small call or condition nested inside a
-   longer expression stays on one line or gets wrapped is, in one code path, decided by
-   measuring the length of its entire surrounding source line rather than just the
-   candidate's own rendered content:
+No workaround yet — unlike a top-level `function foo(a,b){...}` *declaration*, which GDR does
+reformat. Root cause not yet diagnosed; plausibly the GDR pre-pass's scope-walk only descends into
+statement-position function bodies (declarations, and named/anonymous functions used as
+statements), not into a function expression nested inside a call's argument list.
 
-   ```java
-   // Short nested call, but the enclosing line is long -- may wrap unnecessarily:
-   someVeryLongVariableNameHere = anotherLongIdentifier + shortCall(a, b);
-   ```
+#### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 
-   For a short nested call sitting inside a long enclosing line, this can wrap it
-   unnecessarily. Because the measurement is based on the surrounding line's physical layout
-   rather than the candidate's own logical content, the same input can format differently the
-   first time versus if the already-formatted output is fed back in and formatted again — i.e.
-   formatting is not always idempotent for this narrow shape. This is a known,
-   currently-unresolved gap for C/C++/Java/JS/TS — no workaround exists short of avoiding
-   deeply nested short calls inside very long lines. **Kotlin is no longer affected**: as of
-   2026-08-16, `FormatterCurly.formatOne` re-runs itself for Kotlin files specifically (up to
-   5 passes) until two consecutive passes produce byte-identical output, converging on a fixed
-   point instead of flapping.
+Whether a small call or condition nested inside a longer expression stays on one line or gets
+wrapped is, in one code path, decided by measuring the length of its entire surrounding source
+line rather than just the candidate's own rendered content:
 
-3. **`.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in.** The JSX/TSX
-   boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but
-   deliberately stays off by default on plain `.ts` (see "Language & path handling" above for
-   why) — a legacy `.ts` file with real embedded JSX and no `jsx-in-ts` directive will have its
-   JSX mis-tokenized as ordinary angle-bracket/comparison syntax rather than preserved as an
-   opaque span. Separately, the `.js`/`.mjs`/`.cjs`/`.jsx`/`.tsx` pre-pass and downstream
-   formatting rules have now been validated end-to-end against five real-world corpora spanning
-   both JSX-in-`.js` and TSX (`taniarascia/react-tutorial`, `ruanyf/react-demos`,
-   `reactstrap/reactstrap`, `microsoft/TypeScript-React-Starter`,
-   `Lemoncode/react-typescript-samples`, `excalidraw/excalidraw`), including JSX fragment
-   shorthand (`<>...</>`) and multi-line template-literal `${...}` holes; a residual risk of an
-   unseen JSX-adjacent edge case not exercised by these corpora remains, as with any real-world
-   testing.
+```java
+// Short nested call, but the enclosing line is long -- may wrap unnecessarily:
+someVeryLongVariableNameHere = anotherLongIdentifier + shortCall(a, b);
+```
 
-4. **JSX/TSX-syntax-aware reformatting is limited to one wrap rule plus `{}`-hole recursion.**
-   Real JSX tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte
-   as opaque, unformatted spans. Two content-aware transforms are implemented on top of that:
-   wrapping an overlong JSX opening tag's attribute list (self-closing and children-bearing
-   tags, all attribute kinds), and recursively reformatting each top-level `{...}` expression
-   hole found in a JSX tree — both in *children* position and in an opening tag's *attribute
-   value* position (spread attributes, `{...props}`, are left untouched) — through the normal
-   JS/TS pipeline, spliced back in place (depth-guarded against arbitrarily deep nested
-   JSX-in-holes). Beyond those two, there is no reflowing of JSX children, no attribute
-   reordering, and no other JSX-specific line-breaking; a JSX span's internal whitespace/line
-   breaks are whatever the author wrote, unchanged, except at those two points. A hole whose
-   interior contains deeply-nested, inconsistently-hand-indented object/array literals can
-   retain a non-idempotent relative indentation on the deepest line(s) across repeated format
-   rounds — the same already-tracked general-scope-depth-reindentation gap (`curly-general-
-   scope-reindent`, default off) as elsewhere in this codebase, not specific to JSX holes.
+Because the measurement is based on the surrounding line's physical layout rather than the
+candidate's own logical content, the same input can format differently the first time versus if
+the already-formatted output is fed back in and formatted again — i.e. formatting is not always
+idempotent for this narrow shape. No workaround exists short of avoiding deeply nested short calls
+inside very long lines.
 
-5. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
-   imports as third-party.** Local-import detection is syntactic only: an import specifier
-   is `local` iff it starts with `./` or `../`. A genuinely first-party import resolved via
-   a bundler or tsconfig `baseUrl`/`paths` mechanism (e.g. `import { Widget } from
-   "components/Widget"` pointing at the project's own source tree, not a `node_modules`
-   package) is classified `third-party` instead, since this formatter has no config concept
-   for a project's source root and no `tsconfig.json`/bundler-config resolution logic. This
-   is a known, accepted simplification — no source-root config key is planned.
+**Kotlin is no longer affected**: as of 2026-08-16, `FormatterCurly.formatOne` re-runs itself for
+Kotlin files specifically (up to 5 passes) until two consecutive passes produce byte-identical
+output, converging on a fixed point instead of flapping. This is a known, currently-unresolved gap
+for C/C++/Java/JS/TS only.
 
-6. **`normalize-comment-start-case-multiline` (opt-in, off by default) can capitalize
-   commented-out code inside a multi-line comment group; affects C/C++/Java/Kotlin/JS/TS and
-   also the `#`-comment tooling family (Makefile/Bash/PowerShell) and YAML/TOML.** See "Config
-   file format" → [Multi-sentence comment
-   capitalization](#multi-sentence-comment-capitalization-normalize-comment-start-case-multiline)
-   above for the full mechanism, its mechanical pre-filter, and the concrete `// import
-   '...'` → `// Import '...'` example. Left off by default; enabling it is a judgment call for
-   codebases that keep a lot of commented-out code inside otherwise-prose comment groups.
+#### 3. `.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in
 
-7. **`.h` files default to C inference, so any C++-only rule — not just C++26 §5 reflection
-   rules (`^^`, `[: :]` splice brackets), but every C++-specific behavior across the whole `cpp`
-   pipeline (e.g. empty-parameter-list rendering, `template`/`requires` handling, and every other
-   C++20/C++23/C++26 rule this formatter implements) — never applies to a `.h` file's content
-   unless explicitly overridden.** `Lang.infer` maps the `.h` extension to `"c"` by default (C is
-   by far the more common real-world case for a bare `.h` file). This is a deliberate design
-   decision, not an oversight: blanket-treating every `.h` as C++ would risk misapplying
-   C++-only rules to genuine C headers, and content-sniffing heuristics to auto-detect C vs. C++
-   were judged too fragile to trust for a correctness-sensitive rewrite like this. If you have a
-   `.h` file that is actually C++ content (e.g. a header-only library shipping `.h` instead of
-   `.hpp`) and want the full C++ pipeline applied, pass an explicit language override: `--lang
-   cpp` on the CLI, the `lang=cpp` query parameter in server mode, or (to avoid having to
-   remember the flag on every invocation) a per-file `//% JXM_CFMT_CFG --lang=cpp` /
-   `/*% JXM_CFMT_CFG --lang=cpp */` directive at the top of the file itself — see [In-file config
-   overrides](#in-file-config-overrides) above. The override takes priority over extension-based
-   inference for `.h` files specifically — e.g. `^^`/`[: :]` are left untouched under default
-   `.h` inference and correctly rewritten under `--lang cpp`.
+The JSX/TSX boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but
+deliberately stays off by default on plain `.ts` (see "Single file" above for why) —
+a legacy `.ts` file with real embedded JSX and no `jsx-in-ts` directive will have its JSX
+mis-tokenized as ordinary angle-bracket/comparison syntax rather than preserved as an opaque span.
+
+**Workaround:** opt in per file with the `jsx-in-ts` [`JXM_CFMT_CFG`
+directive](#in-file-config-overrides) (or the equivalent CLI flag/env var/config-file key).
+
+The `.js`/`.mjs`/`.cjs`/`.jsx`/`.tsx` pre-pass and downstream formatting rules have been validated
+end-to-end against six real-world corpora spanning both JSX-in-`.js` and TSX
+(`taniarascia/react-tutorial`, `ruanyf/react-demos`, `reactstrap/reactstrap`,
+`microsoft/TypeScript-React-Starter`, `Lemoncode/react-typescript-samples`,
+`excalidraw/excalidraw`), including JSX fragment shorthand (`<>...</>`) and multi-line
+template-literal `${...}` holes; a residual risk of an unseen JSX-adjacent edge case not exercised
+by these corpora remains, as with any real-world testing.
+
+#### 4. JSX/TSX-syntax-aware reformatting is limited to one wrap rule plus `{}`-hole recursion
+
+Real JSX tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte as
+opaque, unformatted spans. Two content-aware transforms run on top of that: wrapping an overlong
+JSX opening tag's attribute list, and recursively reformatting each top-level `{...}` expression
+hole (in both *children* position and an opening tag's *attribute value* position — spread
+attributes, `{...props}`, are left untouched) through the normal JS/TS pipeline, spliced back in
+place. Beyond those two, there is no reflowing of JSX children, no attribute reordering, and no
+other JSX-specific line-breaking — a JSX span's internal whitespace/line breaks are whatever the
+author wrote, unchanged, except at those two points.
+
+A hole whose interior contains deeply-nested, inconsistently-hand-indented object/array literals
+can retain a non-idempotent relative indentation on the deepest line(s) across repeated format
+rounds — the same already-tracked general-scope-depth-reindentation gap (item 1 above), not
+specific to JSX holes.
+
+#### 5. JS/TS import ordering misclassifies bundler/tsconfig path-mapped absolute imports as third-party
+
+Local-import detection (§15) is syntactic only: an import specifier is `local` iff it starts with
+`./` or `../`.
+
+```js
+import { Widget } from "components/Widget";   // resolves to the project's own source tree via
+                                                // tsconfig `baseUrl`/`paths`, but is classified
+                                                // "third-party", not "local"
+```
+
+No workaround: this formatter has no config concept for a project's source root and no
+`tsconfig.json`/bundler-config resolution logic. Known, accepted simplification — no
+source-root config key is planned.
+
+#### 6. `.h` files default to C inference, so C++-only rules never apply unless overridden
+
+`Lang.infer` maps the `.h` extension to `"c"` by default (C is by far the more common real-world
+case for a bare `.h` file), so every C++-specific behavior across the whole `cpp` pipeline — not
+just C++26 §5 reflection rules (`^^`, `[: :]` splice brackets), but empty-parameter-list
+rendering, `template`/`requires` handling, and every other C++20/C++23/C++26 rule — never applies
+to a `.h` file's content by default:
+
+```cpp
+// Module.h -- inferred as C by default, so `^^`/`[: :]` splice syntax is left untouched
+auto r = ^^int;
+```
+
+**Workaround:** pass an explicit language override — `--lang cpp` on the CLI, the `lang=cpp` query
+parameter in server mode, or a per-file directive that doesn't need to be remembered on every
+invocation:
+
+```cpp
+//% JXM_CFMT_CFG --lang=cpp
+auto r = ^^int;   // now correctly recognized and reformatted as C++
+```
+
+This is a deliberate design decision, not an oversight: blanket-treating every `.h` as C++ would
+risk misapplying C++-only rules to genuine C headers, and content-sniffing heuristics to
+auto-detect C vs. C++ were judged too fragile to trust for a correctness-sensitive rewrite like
+this. The override takes priority over extension-based inference for `.h` files specifically — see
+[In-file config overrides](#in-file-config-overrides) above.
+
+#### 7. `normalize-comment-start-case-multiline` can capitalize commented-out code inside a multi-line comment group
+
+Affects the curly-brace family (C/C++/Java/Kotlin/JS/TS), the `#`-comment tooling family
+(E-INI/JxMakeFile/Makefile/Bash/PowerShell), and YAML/TOML. See "Config file format" → [Multi-sentence
+comment capitalization](#multi-sentence-comment-capitalization-normalize-comment-start-case-multiline)
+above for the full mechanism and its mechanical pre-filter.
+
+```
+// TODO: re-enable this test
+// import './rxjs/rxjs.spec';
+```
+->
+```
+// TODO: re-enable this test
+// Import './rxjs/rxjs.spec';
+```
+
+**Workaround:** leave this key off (the default) for codebases that keep a lot of commented-out
+code inside otherwise-prose comment groups; enabling it elsewhere is a judgment call.
 
 ### Tag-based family (XML/HTML5)
 
-1. **HTML5 deep tree-construction gap coverage (`html5-tc-gap-level`) is a narrow, documented
-   approximation of each corresponding HTML5 spec algorithm, not a full spec-faithful
-   implementation.** See "Config file format" → [HTML5 tree-construction gap
-   levels](#html5-tree-construction-gap-levels-html5-tc-gap-level) above for what the key is,
-   what each level enables, and each level's own documented gap.
+#### 1. HTML5 deep tree-construction gap coverage is a narrow, documented approximation, not a full spec-faithful implementation
 
-2. **HTML/XML single-word comments are never capitalized, even when they're genuine one-word
-   prose.** See "Config file format" → [Comment capitalization
-   exceptions](#comment-capitalization-exceptions-normalize-comment-start-case) above for what
-   `normalize-comment-start-case` skips and why (e.g. `<!--more-->`-style directive comments).
-   The accepted risk: a codebase with a real one-word prose comment (e.g. `<!--fixme-->`,
-   `<!--todo-->`) will keep it lowercase instead of capitalizing it — a false negative, not a
-   false positive (no comment is ever wrongly rewritten by this rule, only possibly left
-   as-is).
+`html5-tc-gap-level` (default `0`) enables an increasing, cumulative set of narrow approximations
+of the HTML5 spec's tree-construction algorithms. See "Config file format" → [HTML5
+tree-construction gap levels](#html5-tree-construction-gap-levels-html5-tc-gap-level) above for
+what each level enables and each level's own documented gap.
 
-3. **XML has no text reflow — only attribute wrapping.** A long text node's own content is never
-   rewrapped/reflowed onto multiple lines; only an element's attribute list wraps when the
-   element's own line exceeds the width limit. Intentionally out of scope: XML text content
-   (unlike HTML5 prose) commonly carries meaningful whitespace, so reflowing it would risk
-   changing document meaning, not just layout. Not planned.
+#### 2. HTML/XML single-word comments are never capitalized, even when they're genuine one-word prose
+
+```html
+<!--more-->
+```
+
+This case is deliberately skipped by `normalize-comment-start-case` because a single-word
+HTML/XML comment is often a content-splitting directive a third-party tool parses literally and
+must never be rewritten (the motivating case: WordPress's magic comments like `<!--more-->`,
+`<!--nextpage-->`, `<!--noteaser-->`). See "Config file format" → [Comment capitalization
+exceptions](#comment-capitalization-exceptions-normalize-comment-start-case) above.
+
+No workaround: the accepted risk is that a codebase with a real one-word prose comment (e.g.
+`<!--fixme-->`, `<!--todo-->`) keeps it lowercase instead of being capitalized — a false negative,
+not a false positive (no comment is ever wrongly rewritten by this rule, only possibly left
+as-is).
+
+#### 3. XML has no text reflow — only attribute wrapping
+
+A long text node's own content is never rewrapped/reflowed onto multiple lines; only an element's
+attribute list wraps when the element's own line exceeds the width limit. Intentionally out of
+scope: XML text content (unlike HTML5 prose) commonly carries meaningful whitespace, so reflowing
+it would risk changing document meaning, not just layout. Not planned.
+
+#### 4. `<script>`/`<style>` CDATA re-wrap can be broken by a literal `]]>` in the formatted output
+
+An XHTML-compatibility `<![CDATA[ ... ]]>`-wrapped `<script>` or `<style>` block has its CDATA
+markers unwrapped, its interior dispatched to the JS/TS or CSS pipeline, and the result re-wrapped
+in fresh CDATA markers:
+
+```html
+<style><![CDATA[
+  .a { content: "x"; }
+]]></style>
+```
+
+No workaround: if the *formatted* interior happens to contain the literal three-character sequence
+`]]>` (e.g. inside a string literal or comment), re-wrapping it prematurely terminates the CDATA
+section at that point, since CDATA has no escape mechanism of its own for its own closing
+delimiter. Accepted as an extremely rare edge case, not worth building escaping machinery for.
 
 ### Indent-based family (Python 3)
 
-1. **A replacement field nested inside an f-string's format spec is not recursively
-   sub-tokenized, so it never receives §5 (f-strings) spacing normalization.** In
-   `f"{x:{width}}"`, the outer `{x:...}` field is tokenized and spacing-normalized normally, but
-   the tokenizer emits the entire `:{width}` format-spec tail as one opaque token rather than
-   recursively re-tokenizing the nested `{width}` field into its own sub-tokens. Any whitespace
-   inside that nested field (e.g. `f"{x:{ width }}"`) is left exactly as written — never
-   corrupted, just not normalized. Accepted: a full CPython dogfood run (2343 files, including
-   `Lib/test/test_fstring.py`, which specifically exercises this shape) found zero real instances
-   of this actually mattering — nested format-spec fields are almost always bare identifiers with
-   no internal whitespace to normalize. Not planned unless a real corpus turns up a concrete case.
+#### 1. A replacement field nested inside an f-string's format spec is not recursively sub-tokenized
+
+```python
+f"{x:{ width }}"
+```
+
+The outer `{x:...}` field is tokenized and spacing-normalized normally, but the tokenizer emits
+the entire `:{ width }` format-spec tail as one opaque token rather than recursively
+re-tokenizing the nested `{ width }` field into its own sub-tokens, so the extra interior spaces
+above are left exactly as written — never corrupted, just not normalized (§5 f-string spacing
+normalization never reaches it).
+
+No workaround needed in practice: a full CPython dogfood run (2343 files, including
+`Lib/test/test_fstring.py`, which specifically exercises this shape) found zero real instances of
+this actually mattering — nested format-spec fields are almost always bare identifiers with no
+internal whitespace to normalize. Not planned unless a real corpus turns up a concrete case.
 
 ### E-INI (Extended INI)
 
@@ -1082,60 +1163,91 @@ section above) is left byte-identical by design, not as a gap.
 
 ### Build/dev-tooling scripts (Makefile/Bash/PowerShell)
 
-1. **Bash's pipe-spacing rule can't distinguish a real pipe from a zsh extended-glob
-   alternation, e.g. `(|.git)` → `( | .git)`, when zsh-only syntax appears under a `.sh`/`.bash`
-   extension.** This formatter has one fixed bash-grammar transform list, not a general zsh
-   dialect parser. To avoid this, a file is skipped entirely (left byte-for-byte unchanged) when
-   its shebang names an interpreter other than `bash`/`sh`/`dash`/`ksh` — including the `env`
-   indirection form:
-   ```sh
-   #!/usr/bin/env zsh   # skipped: not a bash-compatible interpreter
-   #!/bin/zsh           # skipped: not a bash-compatible interpreter
-   #!/bin/bash          # formatted normally
-   ```
-   Files with no shebang at all fall through and are formatted as bash, deliberately permissive.
-   Residual accepted gap: a shebang-less file using genuine zsh-only syntax (rare — sourced
-   helper scripts are typically shebang-less) is still not caught by this method, since the
-   fallback for no-shebang content is deliberately permissive rather than content-sniffed; this
-   is a known, accepted limitation, not planned to be closed.
+#### 1. Bash's pipe-spacing rule can't distinguish a real pipe from a zsh extended-glob alternation
 
-2. **A Makefile recipe's `\` line continuations are never touched, including their alignment,
-   even when §1.2 would realign an equivalent assignment-value continuation.** Recipe lines (any
-   line starting with a literal tab) are excluded from formatting entirely, not just from §1.2 —
-   Make is whitespace-sensitive there (a line not starting with a literal tab isn't a recipe at
-   all), and a recipe's exact whitespace can affect the invoked shell's own parsing (e.g. an
-   embedded heredoc), so reformatting risks changing program behavior, not just layout. Deliberate
-   design choice, not planned to change.
+```
+(|.git)
+```
+
+This formatter has one fixed bash-grammar transform list, not a general zsh dialect parser, so
+under `.sh`/`.bash` it would otherwise misread the zsh alternation above as a pipe and rewrite it
+to `( | .git)`.
+
+**Workaround (already applied by default):** a file is skipped entirely (left byte-for-byte
+unchanged) when its shebang names an interpreter other than `bash`/`sh`/`dash`/`ksh`, including
+the `env` indirection form:
+
+```sh
+#!/usr/bin/env zsh   # skipped: not a bash-compatible interpreter
+#!/bin/zsh           # skipped: not a bash-compatible interpreter
+#!/bin/bash          # formatted normally
+```
+
+Files with no shebang at all fall through and are formatted as bash, deliberately permissive.
+Residual accepted gap: a shebang-less file using genuine zsh-only syntax (rare — sourced helper
+scripts are typically shebang-less) is still not caught by this method, since the fallback for
+no-shebang content is deliberately permissive rather than content-sniffed; known, accepted, not
+planned to be closed.
+
+#### 2. A Makefile recipe's `\` line continuations are never touched, including their alignment
+
+```makefile
+build:
+	gcc -c a.c \
+	       -o a.o
+```
+
+Recipe lines (any line starting with a literal tab) are excluded from formatting entirely, even
+where §1.2 would otherwise realign an equivalent assignment-value continuation. No workaround: Make
+is whitespace-sensitive there (a line not starting with a literal tab isn't a recipe at all), and a
+recipe's exact whitespace can affect the invoked shell's own parsing (e.g. an embedded heredoc), so
+reformatting risks changing program behavior, not just layout. Deliberate design choice, not
+planned to change.
 
 ### AI-assist (GRU)
 
-1. **Non-Latin/mixed-language comments always `ABSTAIN` from the rule-based classifier
-   (`NonLatinScriptGate`) and never reach the GRU.** The gate disables classification entirely for
-   any comment containing a non-Latin codepoint, leaving it untouched rather than attempting a
-   capitalize/trailing-period decision. A dedicated GRU trained specifically on non-Latin/mixed-
-   language examples is a distinct, unexplored idea, but not planned: it would need its own
-   training corpus (a language/script this project has no dogfood corpus for), its own weights
-   file, and a second model to load/maintain — cost disproportionate to the benefit, since the
-   affected decision (leading-keyword/trailing-period ambiguity) is an English-prose-vs-code-
-   keyword distinction that mostly doesn't apply to non-Latin text in the first place. Accepted:
-   no crash/malformed output, just no normalization on these comments.
+#### 1. Non-Latin/mixed-language comments always `ABSTAIN` from the rule-based classifier and never reach the GRU
 
-2. **A trailing period next to more than one `.` in the same comment (`dotCount != 1`,
-   e.g. `.hpp`, `e.g.`, an ellipsis) is always left as-is, even when the GRU already ran and
-   produced a real answer.** `MiscRuleCore.stripSoleTrailingPeriod` calls the classifier first,
-   then discards its result via a mechanical dot-count bail-out — distinguishing a mid-word/
-   mid-token dot from a true sentence-ending dot is a separate judgment call the shared model
-   was never trained on (no `task` dimension in the training schema to keep it from degrading
-   the model's main "is this substantive prose" job). Canceled, not merely deferred: reliably
-   telling a true sentence-ending dot apart from a mid-word one would need a second,
-   separately-trained model (its own corpus and weights file) dedicated to that one narrow
-   judgment call, which isn't planned given the limited benefit.
+```java
+// 修复构建路径
+```
 
-3. **The GRU's residual false-positive rate on `NO` cases is accepted, not further reduced.**
-   Lowering the threshold recovers more `YES` resolutions but raises this rate; `0.76` was
-   chosen as the best trade-off found so far (see
-   [`DESIGN_NOTES.md`](DESIGN_NOTES.md)). Not planned to change further unless a future corpus
-   expansion or held-out measurement moves the curve.
+The gate (`NonLatinScriptGate`) disables classification entirely for any comment containing a
+non-Latin codepoint, leaving it untouched rather than attempting a capitalize/trailing-period
+decision. No crash/malformed output, just no normalization on these comments.
+
+No workaround: a dedicated GRU trained specifically on non-Latin/mixed-language examples is a
+distinct, unexplored idea, but not planned — it would need its own training corpus (a
+language/script this project has no dogfood corpus for), its own weights file, and a second model
+to load/maintain, a cost disproportionate to the benefit, since the affected decision
+(leading-keyword/trailing-period ambiguity) is an English-prose-vs-code-keyword distinction that
+mostly doesn't apply to non-Latin text in the first place.
+
+#### 2. A trailing period next to more than one `.` in the same comment is always left as-is
+
+```
+// see the .hpp file, e.g. Widget.hpp
+```
+
+`MiscRuleCore.stripSoleTrailingPeriod` calls the classifier first, then discards its result via a
+mechanical dot-count bail-out (`dotCount != 1`) whenever a comment contains more than one `.` — a
+file extension, an abbreviation like `e.g.`, or an ellipsis — even when the GRU already ran and
+produced a real answer.
+
+No workaround: distinguishing a mid-word/mid-token dot from a true sentence-ending dot is a
+separate judgment call the shared model was never trained on (no `task` dimension in the training
+schema, to keep it from degrading the model's main "is this substantive prose" job). Canceled, not
+merely deferred — reliably telling the two apart would need a second, separately-trained model
+(its own corpus and weights file) dedicated to that one narrow judgment call, which isn't planned
+given the limited benefit.
+
+#### 3. The GRU's residual false-positive rate on `NO` cases is accepted, not further reduced
+
+Lowering `abstainThreshold` below its shipped `0.76` recovers more `YES` resolutions (ambiguous
+comments the classifier confidently capitalizes) but raises the rate of wrongly capitalizing a
+comment that was actually a real code reference. `0.76` was chosen as the best trade-off found so
+far — see [`DESIGN_NOTES.md`](DESIGN_NOTES.md). No workaround: not planned to change further
+unless a future corpus expansion or held-out measurement moves the curve.
 
 ---
 

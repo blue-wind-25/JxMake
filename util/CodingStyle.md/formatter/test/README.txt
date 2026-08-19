@@ -626,6 +626,18 @@ JSX/TSX:
                                                         single-expression multi-line hole. Both idempotent,
                                                         no semicolon ever inserted inside either hole.
 
+  jsx_tsx_hyphenated_attr_wrap_inp/out.tsx           -- Regression fixture for a hyphenated JSX attribute
+                                                        name (`data-foo`, `aria-label`) getting corrupted by
+                                                        the opening-tag wrap logic. Root cause: a hyphenated
+                                                        name tokenizes as IDENTIFIER/-/IDENTIFIER, and
+                                                        parseJsxTag's attribute-boundary scan treated every
+                                                        top-level IDENTIFIER as a fresh attribute start, so
+                                                        wrapping split the name across two lines
+                                                        (`data-\nfoo={value}`). Fixed with a guard: an
+                                                        IDENTIFIER immediately following a top-level `-` is a
+                                                        name continuation, never a new boundary. Verified
+                                                        idempotent.
+
   jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
                                                         (recommendation 1): plain `.js` now gets the same JSX
                                                         boundary-finding pre-pass as `.jsx`/`.tsx`

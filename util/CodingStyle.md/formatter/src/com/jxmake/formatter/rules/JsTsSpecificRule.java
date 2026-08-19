@@ -1460,7 +1460,7 @@ public final class JsTsSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( t.type == TokenType.JSX_SPAN && t.jsxHoleSpans != null && !t.jsxHoleSpans.isEmpty() ) {
-                final String rewritten = rewriteJsxHoles(t.text, t.jsxHoleSpans);
+                final String rewritten = rewriteJsxHoles(t.text, t.jsxHoleSpans, t.jsxOpeningTagEndOffset);
                 if( rewritten != null && !rewritten.equals(t.text) ) overrides.put(i, rewritten);
             }
         } // for
@@ -1476,18 +1476,33 @@ public final class JsTsSpecificRule {
      * spliced back byte-for-byte unchanged -- one bad/deep hole never blocks a sibling hole
      * elsewhere in the same span from being formatted.
      */
-    private String rewriteJsxHoles(final String text, final List<int[]> holes)
+    private String rewriteJsxHoles(final String text, final List<int[]> holes, final int jsxOpeningTagEndOffset)
     {
         final StringBuilder out     = new StringBuilder();
               int            pos     = 0;
               boolean        changed = false;
+        // An attribute-value hole (hs < jsxOpeningTagEndOffset) that lives inside an opening tag
+        // whose raw text ALREADY spans multiple physical lines is, in practice, always re-wrapped by
+        // the later enforceJsxSelfClosingAttributeWrap pass to one-attribute-per-line at
+        // (tagIndent + defaultIndentUnit) -- that pass's width check counts the tag's raw text length
+        // (embedded newlines included), which for any nontrivial multi-line attribute list virtually
+        // always exceeds the line-length limit. Predicting that final column HERE (rather than using
+        // the hole's stale pre-wrap line indent) keeps the width budget used to decide whether the
+        // hole's own interior needs to wrap consistent between this pass and the later wrap pass, and
+        // therefore stable/idempotent across repeated formatting rounds.
+        final boolean tagAlreadyMultiline = jsxOpeningTagEndOffset > 0 && jsxOpeningTagEndOffset <= text.length()
+            && text.substring(0, jsxOpeningTagEndOffset).indexOf('\n') >= 0;
+        final String tagIndent = tagAlreadyMultiline ? lineIndentAt(text, 0) : null;
         for(final int[] h : holes) {
             final int hs = h[0];
             final int he = h[1];
             if( hs < pos || he > text.length() || hs >= he ) continue; // Defensive -- shouldn't happen
             out.append( text, pos, hs );
             final String interior  = text.substring(hs + 1, he - 1); // Strip the braces themselves
-            final String indent    = lineIndentAt(text, hs);
+            final boolean isAttrHole = hs < jsxOpeningTagEndOffset;
+            final String indent    = ( isAttrHole && tagAlreadyMultiline )
+                ? tagIndent + defaultIndentUnit
+                : lineIndentAt(text, hs);
             final String formatted = formatJsxHoleInterior(interior, indent);
             if(formatted != null) {
                 out.append('{').append(formatted).append('}');
@@ -1727,14 +1742,54 @@ public final class JsTsSpecificRule {
 
         final StringBuilder wrapped = new StringBuilder( openingTagText.substring(0, tagOpenEnd) );
         for( int a = 0; a < b.size() - 1; ++a ) {
-            final String seg = openingTagText.substring( b.get(a), b.get(a + 1) ).trim();
+            final String seg = reindentMultilineAttrSegment(
+                openingTagText.substring( b.get(a), b.get(a + 1) ).trim(), text, b.get(a), attrIndent
+            );
             wrapped.append('\n').append(attrIndent).append(seg);
         }
-        wrapped.append('\n').append(attrIndent).append(lastAttrText);
+        wrapped.append('\n').append(attrIndent).append(
+            reindentMultilineAttrSegment( lastAttrText, text, b.get( b.size() - 1 ), attrIndent )
+        );
         wrapped.append('\n').append(indent).append(closeMarker);
         wrapped.append(tail);
 
         return wrapped.toString();
+    }
+
+    /**
+     * A `name={...}` attribute-value hole recorded on {@code Token#jsxHoleSpans} (see
+     * STATE_JS_TS.md's "JSX full embedding-aware dispatcher" attribute-value hole recursion job)
+     * can already carry a real, multi-line, correctly-indented body by the time this wrap pass
+     * runs (it runs after {@code spliceJsxExpressionHoles}) -- every continuation line's own
+     * leading whitespace was baked in relative to the attribute's ORIGINAL line indent, not the
+     * new {@code newIndent} this wrap pass is about to move the attribute's first line to. Without
+     * this adjustment, only the segment's first line moves to the new column while every
+     * continuation line stays at its stale absolute indentation -- the same pass-ordering hazard
+     * class already fixed for stale line-length budgets on children-hole splicing, here affecting
+     * indentation instead of width. No-op (returns {@code trimmedSeg} unchanged) for a
+     * single-line segment (the overwhelmingly common case, and every pre-existing fixture's shape).
+     */
+    private String reindentMultilineAttrSegment(
+        final String trimmedSeg,
+        final String fullSpanText,
+        final int    rawStartOffset,
+        final String newIndent
+    )
+    {
+        if( trimmedSeg.indexOf('\n') < 0 ) return trimmedSeg;
+
+        final String   oldIndent = lineIndentAt(fullSpanText, rawStartOffset);
+        final String[] lines     = trimmedSeg.split("\n", -1);
+        final StringBuilder out  = new StringBuilder( lines[0] );
+        for( int i = 1; i < lines.length; ++i ) {
+            final String line = lines[i];
+            out.append('\n').append(newIndent);
+            out.append(
+                line.startsWith(oldIndent) ? line.substring( oldIndent.length() ) : line.trim()
+            );
+        } // for
+
+        return out.toString();
     }
 
     // ── §11.1 Union/intersection type continuation-line alignment ────────────────────

@@ -2022,8 +2022,9 @@ public class TokenizerCurly extends TokenizerCore {
             );
             if(!isJsxContext) continue;
 
-            final List<int[]> rawHoles   = new ArrayList<>();
-            final int         endTokenIdx = findJsxSpanEnd(tokens, sig, s, rawHoles);
+            final List<int[]> rawHoles     = new ArrayList<>();
+            final List<int[]> rawAttrHoles = new ArrayList<>();
+            final int         endTokenIdx  = findJsxSpanEnd(tokens, sig, s, rawHoles, rawAttrHoles);
             if(endTokenIdx < 0) continue; // Unbalanced/not real JSX here -- leave tokens untouched
 
             final StringBuilder text = new StringBuilder();
@@ -2034,12 +2035,21 @@ public class TokenizerCurly extends TokenizerCore {
             );
             span.frozen = true;
 
-            // Convert `rawHoles`' raw `tokens`-index ranges into offsets into the span's own
-            // `text` (same 0-based scheme as `jsxOpeningTagEndOffset`) -- "JSX full
-            // embedding-aware dispatcher" recursive `{}`-hole-parsing job (STATE_JS_TS.md).
-            if( !rawHoles.isEmpty() ) {
+            // Convert both `rawHoles` (children-position holes) and `rawAttrHoles`
+            // (`name={...}` attribute-value holes, per-tag, any nesting depth of this tree) raw
+            // `tokens`-index ranges into offsets into the span's own `text` (same 0-based scheme
+            // as `jsxOpeningTagEndOffset`), merged into one ascending-offset list -- both kinds are
+            // spliced identically by `JsTsSpecificRule#spliceJsxExpressionHoles`, which only cares
+            // about non-overlapping `[start, end)` ranges in source order, not which kind produced
+            // each one. "JSX full embedding-aware dispatcher" recursive `{}`-hole-parsing job
+            // (STATE_JS_TS.md).
+            final List<int[]> allRawHoles = new ArrayList<>(rawHoles.size() + rawAttrHoles.size());
+            allRawHoles.addAll(rawHoles);
+            allRawHoles.addAll(rawAttrHoles);
+            allRawHoles.sort( (a, b) -> Integer.compare(a[0], b[0]) );
+            if( !allRawHoles.isEmpty() ) {
                 final List<int[]> holeSpans = new ArrayList<>();
-                for(final int[] raw : rawHoles) {
+                for(final int[] raw : allRawHoles) {
                     int off0 = 0;
                     for(int k = idx; k < raw[0]; ++k) off0 += tokens.get(k).text.length();
                     int off1 = off0;
@@ -2149,7 +2159,7 @@ public class TokenizerCurly extends TokenizerCore {
      */
     private int findJsxSpanEnd(final List<Token> tokens, final List<Integer> sig, final int s0)
     {
-        return findJsxSpanEnd(tokens, sig, s0, null);
+        return findJsxSpanEnd(tokens, sig, s0, null, null);
     }
 
     /**
@@ -2171,7 +2181,8 @@ public class TokenizerCurly extends TokenizerCore {
         final List<Token>   tokens,
         final List<Integer> sig,
         final int           s0,
-        final List<int[]>   holesOut
+        final List<int[]>   holesOut,
+        final List<int[]>   attrHolesOut
     )
     {
         final java.util.Deque<String> openNames = new java.util.ArrayDeque<String>();
@@ -2196,6 +2207,7 @@ public class TokenizerCurly extends TokenizerCore {
 
             final JsxTagResult r = parseJsxTag(tokens, sig, s);
             if(r == null) return -1;
+            if( attrHolesOut != null ) attrHolesOut.addAll(r.attrValueHoleRawRanges);
             final int newS = r.newSigPos;
             final int kind = r.kind;      // 0 = open, 1 = close, 2 = self-close
 
@@ -2235,24 +2247,38 @@ public class TokenizerCurly extends TokenizerCore {
         final int           newSigPos;
         final int           kind;
         final String        tagName;
-        final List<Integer> attrRawTokenIndices; // Raw `tokens` indices where each attribute in an
-                                                   // open/self-close tag begins, in source order --
-                                                   // empty for a closing tag (kind == 1). See
-                                                   // STATE_JS_TS.md's Step 2 "context 11" scoping
-                                                   // session, sub-context 1 -- consumed only by
-                                                   // findJsxSpans to populate Token#jsxAttrBoundaries.
+
+        final List<Integer> attrRawTokenIndices;    // Raw `tokens` indices where each attribute in an
+                                                    // open/self-close tag begins, in source order --
+                                                    // empty for a closing tag (kind == 1). See
+                                                    // STATE_JS_TS.md's Step 2 "context 11" scoping
+                                                    // session, sub-context 1 -- consumed only by
+                                                    // findJsxSpans to populate Token#jsxAttrBoundaries.
+
+        final List<int[]>   attrValueHoleRawRanges; // Raw `tokens` index [openIdx, closeIdxExclusive)
+                                                    // ranges of each top-level `name={...}` attribute
+                                                    // VALUE hole (e.g. `onClick={handler}`) in this
+                                                    // tag -- deliberately excludes spread attributes
+                                                    // (`{...props}`, not a name=value shape; a spread
+                                                    // expression isn't valid standalone dispatch
+                                                    // content, see STATE_JS_TS.md's attribute-value
+                                                    // hole recursion job). Empty for a closing tag.
+                                                    // Consumed only by findJsxSpans to populate
+                                                    // Token#jsxHoleSpans alongside children holes.
 
         JsxTagResult(
             final int           newSigPos,
             final int           kind,
             final String        tagName,
-            final List<Integer> attrRawTokenIndices
+            final List<Integer> attrRawTokenIndices,
+            final List<int[]>   attrValueHoleRawRanges
         )
         {
-            this.newSigPos           = newSigPos;
-            this.kind                = kind;
-            this.tagName             = tagName;
-            this.attrRawTokenIndices = attrRawTokenIndices;
+            this.newSigPos              = newSigPos;
+            this.kind                   = kind;
+            this.tagName                = tagName;
+            this.attrRawTokenIndices    = attrRawTokenIndices;
+            this.attrValueHoleRawRanges = attrValueHoleRawRanges;
         }
 
     } // class JsxTagResult
@@ -2315,9 +2341,16 @@ public class TokenizerCurly extends TokenizerCore {
             tagNameStr = tagName.toString();
         }
 
-        final List<Integer> attrRawTokenIndices = new ArrayList<>();
-              int           localBrace          = 0;
-              boolean       selfClosing         = false;
+        final List<Integer> attrRawTokenIndices     = new ArrayList<>();
+        final List<int[]>   attrValueHoleRawRanges  = new ArrayList<>();
+              int           localBrace              = 0;
+              boolean       selfClosing             = false;
+              int           valueHoleOpenRawIdx     = -1; // Raw idx of the currently-open value
+                                                          // hole's own `{`, or -1 when the
+                                                          // localBrace==0->1 transition in
+                                                          // progress isn't a value hole (e.g. a
+                                                          // spread attribute) -- see
+                                                          // attrValueHoleRawRanges' own javadoc.
         while(s < n) {
             final Token t = tokens.get( sig.get(s) );
             if( localBrace == 0 && Token.isOp(t, "/") && s + 1 < n
@@ -2342,8 +2375,21 @@ public class TokenizerCurly extends TokenizerCore {
             ) ) ) attrRawTokenIndices.add(
                 sig.get(s)
             );
-            if( Token.isPunct(t, "{") ) { ++localBrace; ++s; continue; }
-            if( Token.isPunct(t, "}") ) { if(localBrace > 0) --localBrace; ++s; continue; }
+            if( Token.isPunct(t, "{") ) {
+                if( localBrace == 0 && isValueHoleOpenBrace ) valueHoleOpenRawIdx = sig.get(s);
+                ++localBrace;
+                ++s;
+                continue;
+            }
+            if( Token.isPunct(t, "}") ) {
+                if(localBrace > 0) --localBrace;
+                if( localBrace == 0 && valueHoleOpenRawIdx >= 0 ) {
+                    attrValueHoleRawRanges.add( new int[]{valueHoleOpenRawIdx, sig.get(s) + 1} );
+                    valueHoleOpenRawIdx = -1;
+                }
+                ++s;
+                continue;
+            }
             ++s;
         } // while
 
@@ -2351,7 +2397,8 @@ public class TokenizerCurly extends TokenizerCore {
         ++s; // Consume '>'
 
         return new JsxTagResult(
-            s, closing ? 1 : (selfClosing ? 2 : 0), tagNameStr, attrRawTokenIndices
+            s, closing ? 1 : (selfClosing ? 2 : 0), tagNameStr, attrRawTokenIndices,
+            attrValueHoleRawRanges
         );
     }
 

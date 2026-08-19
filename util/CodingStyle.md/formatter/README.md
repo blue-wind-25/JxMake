@@ -49,10 +49,11 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
 so a file containing real JSX tag syntax is safe to run through the formatter — the JSX/TSX
 portions round-trip unchanged while surrounding plain JS/TS gets normal formatting, except that any
-top-level `{...}` expression hole in a JSX tree's *children* (e.g. `{items.map(x => <li>{x}</li>)}`)
-is recursively formatted through the same JS/TS pipeline and spliced back in — attribute-value
-`{...}` embeds are not (yet) reformatted, and stay byte-for-byte preserved like the rest of the
-span. The pre-pass runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs`
+top-level `{...}` expression hole — whether in a JSX tree's *children* (e.g.
+`{items.map(x => <li>{x}</li>)}`) or in an opening tag's *attribute value* (e.g.
+`onClick={handler}`, `className={cond ? "a" : "b"}`) — is recursively formatted through the same
+JS/TS pipeline and spliced back in; spread attributes (`{...props}`) are left untouched, as are any
+other bytes of the span outside a hole. The pre-pass runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs`
 (mirrors Prettier's own default — real-world `.js` files with embedded JSX, e.g. older
 Create-React-App projects, are common enough that gating on extension alone caused genuine content
 corruption). `.ts` deliberately stays gated off by
@@ -967,17 +968,21 @@ here if and when it actually gains a documented gap.
    unseen JSX-adjacent edge case not exercised by these corpora remains, as with any real-world
    testing.
 
-4. **JSX/TSX-syntax-aware reformatting is limited to one wrap rule plus children-position
-   `{}`-hole recursion.** Real JSX tag trees are located by the boundary-finding pre-pass and
-   preserved byte-for-byte as opaque, unformatted spans. Two content-aware transforms are
-   implemented on top of that: wrapping an overlong JSX opening tag's attribute list
-   (self-closing and children-bearing tags, all attribute kinds), and recursively reformatting
-   each top-level `{...}` expression hole found in a JSX tree's *children* (not attribute values)
-   through the normal JS/TS pipeline, spliced back in place (depth-guarded against arbitrarily
-   deep nested JSX-in-holes). Beyond those two, there is no reflowing of JSX children, no
-   attribute reordering, no attribute-value `{...}` embed reformatting, and no other JSX-specific
-   line-breaking; a JSX span's internal whitespace/line breaks are whatever the author wrote,
-   unchanged, except at those two points.
+4. **JSX/TSX-syntax-aware reformatting is limited to one wrap rule plus `{}`-hole recursion.**
+   Real JSX tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte
+   as opaque, unformatted spans. Two content-aware transforms are implemented on top of that:
+   wrapping an overlong JSX opening tag's attribute list (self-closing and children-bearing
+   tags, all attribute kinds), and recursively reformatting each top-level `{...}` expression
+   hole found in a JSX tree — both in *children* position and in an opening tag's *attribute
+   value* position (spread attributes, `{...props}`, are left untouched) — through the normal
+   JS/TS pipeline, spliced back in place (depth-guarded against arbitrarily deep nested
+   JSX-in-holes). Beyond those two, there is no reflowing of JSX children, no attribute
+   reordering, and no other JSX-specific line-breaking; a JSX span's internal whitespace/line
+   breaks are whatever the author wrote, unchanged, except at those two points. A hole whose
+   interior contains deeply-nested, inconsistently-hand-indented object/array literals can
+   retain a non-idempotent relative indentation on the deepest line(s) across repeated format
+   rounds — the same already-tracked general-scope-depth-reindentation gap (`curly-general-
+   scope-reindent`, default off) as elsewhere in this codebase, not specific to JSX holes.
 
 5. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
    imports as third-party.** Local-import detection is syntactic only: an import specifier

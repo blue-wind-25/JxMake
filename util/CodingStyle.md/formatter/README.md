@@ -971,18 +971,21 @@ function foo(a,b){if(a){return b;}else{return a;}}
 [General scope-depth reindentation (GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent)
 above for what the joined-one-true-brace-style gap is and why multipass fixes it.
 
-A related but distinct gap (found 2026-08-19, not yet fixed): a one-line/one-statement-body
-function *expression* passed as a call argument is **not** reformatted to one-statement-per-line,
-even with both of the keys above turned on:
+A related but distinct gap (found 2026-08-19, diagnosed 2026-08-20, not fixed — accepted gap): a
+one-line/one-statement-body function *expression* passed as a call argument is **not** reformatted
+to one-statement-per-line, even with both of the keys above turned on:
 
 ```js
 items.map(function (x) { doA(x); doB(x); return x; });
 ```
 
-No workaround yet — unlike a top-level `function foo(a,b){...}` *declaration*, which GDR does
-reformat. Root cause not yet diagnosed; plausibly the GDR pre-pass's scope-walk only descends into
-statement-position function bodies (declarations, and named/anonymous functions used as
-statements), not into a function expression nested inside a call's argument list.
+No workaround. **Not a GDR bug** — it reproduces identically with `curly-general-scope-reindent`
+completely off, which rules out the pre-pass as the cause. The actual root cause is the shared
+formatter pipeline's own call-argument line-wrap/relocation logic, which relocates a function-
+expression argument as an opaque text blob without recursing into brace-placement/statement
+formatting for its interior — unlike a top-level `function foo(a,b){...}` *declaration*, which goes
+through the pipeline's normal statement-position brace-placement path. See `STATE_CURLY_GDR.md`'s
+Open Questions (`RDD_KEY_314`) for the full diagnosis.
 
 #### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 
@@ -1058,8 +1061,8 @@ Local-import detection (§15) is syntactic only: an import specifier is `local` 
 
 ```js
 import { Widget } from "components/Widget";   // resolves to the project's own source tree via
-                                                // tsconfig `baseUrl`/`paths`, but is classified
-                                                // "third-party", not "local"
+                                              // tsconfig `baseUrl`/`paths`, but is classified
+                                              // "third-party", not "local"
 ```
 
 No workaround: this formatter has no config concept for a project's source root and no

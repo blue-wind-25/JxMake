@@ -240,6 +240,16 @@ Executed — see Checklist's fixture items below.
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_314` — Diagnosed the 2026-08-19 Open Question (function
+  *expression* as call argument never reformatted to one-statement-
+  per-line): **not a GDR bug** — reproduces identically with GDR fully off,
+  so the pre-pass cannot be the cause. Real root cause is the shared
+  pipeline's call-argument line-wrap/relocation logic treating a function-
+  expression argument as an opaque text blob (same code family as
+  `MiscRuleCurly`'s call-candidate wrapping, D3/`RDD_KEY_235`), never
+  recursing into brace-placement for its interior — unlike statement-
+  position function declarations. Out of this job's scope; documentation-
+  only, no code change. Full text: `RDD_KEY_314`.
 - `RDD_KEY_298` — **Fixed** D3 (Kotlin multi-line-call/condition wrap-
   decision flap), seventh attempt, landed. `FormatterCurly.formatOne`
   renamed to private `formatOnePass`; new public `formatOne` re-runs it
@@ -785,26 +795,66 @@ Do the above checklist one by one. Test, commit, and ask me whether to continue 
 
 ## Open Questions
 
-**New, not yet investigated (2026-08-19):** a one-line/one-statement-body
-function *expression* passed as a call argument (e.g. `items.map(function
+**Diagnosed 2026-08-20, disposition: NOT a GDR bug, out of this job's scope
+(accepted gap, documentation-only, no code change).** Follow-up to the
+2026-08-19 entry below: a one-line/one-statement-body function *expression*
+passed as a call argument (e.g. `items.map(function
 (x){doA(x);doB(x);return x;})`) is never reformatted to one-statement-
-per-line, **even with both `curly-general-scope-reindent` and
-`-multipass` turned on** — unlike a top-level `function foo(a,b){...}`
-*declaration*, which GDR does reformat (see the `demo13/app.js`
-Babel-helper fixture above). Found while investigating a JS_TS session's
-JSX `return(...)`-wrap hole-splicing report (`STATE_JS_TS.md`) — traced
-to this same GDR gap, not a hole-recursion bug: the identical shape,
-formatted completely outside any JSX context as a plain top-level
-statement, reproduces byte-for-byte the same un-reformatted body. Root
-cause not yet diagnosed — plausibly the GDR pre-pass's scope-walk only
-descends into statement-position function bodies (declarations, and
-presumably named/anonymous functions used as statements), not into a
-function expression nested inside a call's argument list, but this is
-inference, not verified against the pre-pass's actual walk logic. Not
-scoped into a checklist item yet — flagging for a future session; no fix
-attempted here (would need a source change, which is exactly the class of
-work this job's default-off gate exists to contain, so it should follow
-this job's normal checklist-and-fixture workflow, not be patched ad hoc).
+per-line, even with both `curly-general-scope-reindent` and `-multipass`
+turned on. Root cause traced directly (not inferred) via a minimal
+direct-harness repro comparing a top-level `function foo(...) {...}`
+*declaration* against the identical body used as a call argument
+(`items.map(function (...) {...})`), both long enough to force line-
+wrapping, tested with GDR on, and — critically — **also with GDR fully off
+(no directive at all)**:
+
+- With GDR off (default path): the declaration's over-long line gets its
+  inner over-long call wrapped (existing call-line-wrap rule) but the
+  function body's own `{`/`}` are not split onto their own lines — matching
+  the call-argument case exactly. Both shapes behave identically off.
+- With GDR on (+ multipass): the declaration additionally gets full Allman
+  brace-placement (`{` moved to its own line, matching ordinary
+  statement-position brace-placement treatment) — but the call-argument
+  case does **not**: the whole `function (...) { ... }` expression is
+  treated as a single opaque unit by the call-argument line-wrap/relocation
+  logic (it gets moved onto its own indented line between `map(` and `)`,
+  but its interior is never independently brace-placed or reindented).
+
+**Conclusion: this is not a GDR pre-pass scope-walk gap at all — it
+reproduces byte-for-byte identically with `curly-general-scope-reindent`
+completely off**, which only touches indentation of already-present lines
+and cannot be the cause of a difference that also exists on the default-off
+path. The actual root cause is in the shared pipeline's own call-argument
+line-wrap/relocation logic (the same code family as `MiscRuleCurly`'s
+call-candidate wrapping discussed under D3/`RDD_KEY_235` above), which
+relocates a function-expression argument as an opaque text blob without
+recursively invoking brace-placement/statement formatting on its interior —
+whereas statement-position function bodies (declarations) go through the
+pipeline's normal per-statement brace-placement path. This is a base-
+pipeline behavior gap present identically whether GDR is on or off, so it
+is **explicitly out of this job's scope** per the Scoping section above (no
+change to `MiscRuleCurly.java`/`ScopePipelineCurly.java`/`FormatterCurly.java`
+is expected or permitted, and this job's own default-off gate has nothing
+to do with this gap's presence or absence). Full text: `RDD_KEY_314`.
+
+**Disposition:** documentation-only — `README.md`'s existing "Known
+Limitations" entry for this gap (added 2026-08-19) corrected to state the
+verified root cause (base call-argument-wrap pipeline behavior, not a GDR
+scope-walk gap) instead of the prior unverified inference. No code change;
+this does not belong on this job's checklist. If ever fixed, it belongs to
+whichever job owns `MiscRuleCurly`'s call-wrap logic (C/C++/Java or JS/TS
+base pipeline), not this one — do not attempt a fix here.
+
+**Original entry (2026-08-19, superseded by the diagnosis above):** flagged
+while investigating a JS_TS session's JSX `return(...)`-wrap hole-splicing
+report (`STATE_JS_TS.md`) — traced to this same shape, not a hole-recursion
+bug: the identical shape, formatted completely outside any JSX context as a
+plain top-level statement, reproduces byte-for-byte the same
+un-reformatted body. At the time, root cause was inferred (not verified) as
+"plausibly the GDR pre-pass's scope-walk only descends into statement-
+position function bodies" — **this inference is now confirmed wrong** by
+the 2026-08-20 direct-harness repro above (the gap exists identically with
+GDR off).
 
 None else currently open beyond the above. (The prior "how to fix the base
 single-pass `RDD_KEY_229` bug" question was resolved 2026-08-06 as a

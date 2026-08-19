@@ -451,8 +451,18 @@ public final class ServerMode {
         public void handle(final HttpExchange exchange) throws IOException
         {
             respond(exchange, 200, "shutting down");
-            final Thread shutdownThread = new Thread( ()-> { httpServer.stop(1) ; try { Files.deleteIfExists(lockfilePath) ; }
-catch(final IOException e) { System.err.println( "jxmake-code-formatter: warning: could not delete lockfile: " + e.getMessage() ) ; } System.exit(0) ; } );
+            final Thread shutdownThread = new Thread( () -> {
+                httpServer.stop(1);
+                try {
+                    Files.deleteIfExists(lockfilePath);
+                }
+                catch(final IOException e) {
+                    System.err.println(
+                        "jxmake-code-formatter: warning: could not delete lockfile: " + e.getMessage()
+                    );
+                }
+                System.exit(0);
+            } );
             shutdownThread.setDaemon(true);
             shutdownThread.start();
         }

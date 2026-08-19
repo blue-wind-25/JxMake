@@ -1,7 +1,7 @@
 To reduce quota usage and prevent regressions on `(PASS)` tests and previous bug fixes, prefer
 evidence over reasoning. Keep static analysis minimal—only enough to identify where to insert debug
 prints. Use debug prints and `make test` to diagnose and validate fixes. Do not use static analysis
-as the primary method of bug diagnosis or regression checking. After the fix is verified with
+as the primary method of bug diagnosis and regression checking. After the fix is verified with
 `make test`, remove all debug prints and then commit the files you have modified (ignore files you
 have not modified). If unsure ask me.
 
@@ -70,6 +70,28 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
+Compact by priority:
+    STATE_JS_TS.md
+    STATE_C_CPP_JAVA.md
+    STATE_CURLY_GDR.md
+    STATE_COMMON.md
+    STATE_AI.md
+Use sub-agents in parallel as needed - balance the job between the sub-agents based on the
+file sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.
+`STATE_COMMON.md` needs extra care: compact its narrative/history sections only; leave the
+process rule text and the job table word-for-word, not paraphrased. Be careful not to lose important
+information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
+exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
+`RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
+There is no size/percentage target -- judge by content (merge redundant narrative, cut
+resolved back-and-forth, keep the final answer not the discussion that led to it); if a
+section is already dense, leave it alone rather than cutting to hit a number. Commit each
+file's compaction separately so a bad pass is easy to isolate/revert. Before and after each
+file, run `grep -c 'RDD_KEY_' <file>` and confirm the count is unchanged. Since sub-agents run
+in parallel with no coordination and some `RDD_KEY_n` chains span files, if a cross-file
+wording/job-pointer inconsistency is noticed, leave it as-is and note it in the commit message
+rather than editing the other file.
+
 Compact all `STATE_*.md` files (NOT `RDD_LOG.md` -- it's the canonical full-text
 store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
 Use at most 5 sub-agents in parallel - balance the job between the sub-agents based on the
@@ -79,6 +101,14 @@ process rule text and the job table word-for-word, not paraphrased. Be careful n
 information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
 exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
 `RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
+There is no size/percentage target -- judge by content (merge redundant narrative, cut
+resolved back-and-forth, keep the final answer not the discussion that led to it); if a
+section is already dense, leave it alone rather than cutting to hit a number. Commit each
+file's compaction separately so a bad pass is easy to isolate/revert. Before and after each
+file, run `grep -c 'RDD_KEY_' <file>` and confirm the count is unchanged. Since sub-agents run
+in parallel with no coordination and some `RDD_KEY_n` chains span files, if a cross-file
+wording/job-pointer inconsistency is noticed, leave it as-is and note it in the commit message
+rather than editing the other file.
 
 Compact all `STATE_*.md` files that were modified today (NOT `RDD_LOG.md` -- it's the canonical
 full-text store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
@@ -89,6 +119,14 @@ process rule text and the job table word-for-word, not paraphrased. Be careful n
 information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
 exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
 `RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
+There is no size/percentage target -- judge by content (merge redundant narrative, cut
+resolved back-and-forth, keep the final answer not the discussion that led to it); if a
+section is already dense, leave it alone rather than cutting to hit a number. Commit each
+file's compaction separately so a bad pass is easy to isolate/revert. Before and after each
+file, run `grep -c 'RDD_KEY_' <file>` and confirm the count is unchanged. Since sub-agents run
+in parallel with no coordination and some `RDD_KEY_n` chains span files, if a cross-file
+wording/job-pointer inconsistency is noticed, leave it as-is and note it in the commit message
+rather than editing the other file.
 
 Compact (use one sub-agent) `STATE_COMMON.md`.
 Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`.
@@ -98,6 +136,8 @@ Compact (use one sub-agent) `STATE_DATA_FORMATS.md`.
 Compact (use one sub-agent) `STATE_JS_TS.md`.
 Compact (use one sub-agent) `STATE_PYTHON3.md`.
 Compact (use one sub-agent) `STATE_TOOLING.md`.
+Compact (use one sub-agent) `STATE_EINI.md`.
+Compact (use one sub-agent) `STATE_JXMAKE.md`.
 Compact (use one sub-agent) `STATE_AI.md`.
 Compact (use one sub-agent) `STATE_CURLY_GDR.md`.
 Compact (use one sub-agent) `STATE_HTML5_TCG.md`.
@@ -123,10 +163,10 @@ Use sub-agent. This can be a substantial work.
 Try to implement the ... for:
 ...
 
-If the new code causes too much regression with `make test` (more than 20 or so lines), revert and
+If the new code causes too much regressions with `make test` (more than 20 or so lines), revert and
 try another approach.
 
-If it only causes few regression, try to fix the regression. If after ~3 tries and the regression
+If it only causes few regressions, try to fix the regressions. If after ~3 tries and the regressions
 is still not improved/somewhat fixed, revert and try another approach, otherwise continue for a bit.
 
 If after ~3 approaches, the feature still cannot be properly implemented, then judge whether to
@@ -160,12 +200,15 @@ after each bug fix is wasting time.
    Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
    subdirectories. Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform
    idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
-   formatter's `src/**/` subdirectories.
+   formatter's `src/**/` subdirectories. Perform some eyeballing as needed. Running the test
+   fixtures from the formatter JAR may produce regressions due to missing GRU weights.
 
    Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
    subdirectories (ONLY the files that were modified/edited by today's jobs). Output the result
    to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform idempotency check and content-diff
    check. If all OK, copy back the formatted round1 to the formatter's `src/**/` subdirectories.
+   Perform some eyeballing as needed. Running the test fixtures from the formatter JAR may
+   produce regressions due to missing GRU weights.
 
    Find and fix accidentally flushed-left line and dedented lines in the formatter's `*.java`
    source files inside `src/**/*.java`, e.g.:

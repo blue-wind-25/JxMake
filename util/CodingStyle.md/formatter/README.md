@@ -4,8 +4,8 @@ A deterministic code formatter for C, C++, Java, Kotlin, JSON/JSON5, CSS,
 YAML, TOML, XML, HTML5, JavaScript, TypeScript, Python 3, E-INI (Extended
 INI), JxMakeFile, Makefile, Bash, and PowerShell. Implements the common
 rules in [`STYLE.md`](../STYLE.md) plus each language's own derivative
-style guide — e.g. C/C++ also follows `STYLE_C_CPP.md`, JS/TS follows
-`STYLE_JS_TS.md`, E-INI/Makefile/Bash/PowerShell follow
+style guide (e.g. C/C++ also follows `STYLE_C_CPP.md`, JS/TS follows
+`STYLE_JS_TS.md`), E-INI/Makefile/Bash/PowerShell follow
 [`STYLE_TOOLING.md`](../STYLE_TOOLING.md), and JxMakeFile follows
 [`STYLE_JXMAKE.md`](../STYLE_JXMAKE.md) — see [Style Guide
 Reference](#style-guide-reference) below for the full per-language list.

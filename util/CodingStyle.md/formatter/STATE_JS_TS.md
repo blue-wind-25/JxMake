@@ -209,6 +209,43 @@ JS/TS fixtures are active in the Makefile and passing.
   feature; not fixed here, out of scope per this job's own routing. Not
   scoped into a checklist yet.
 
+  **2026-08-20 assessment session (no code, decision: DEFERRED, not
+  attempted this session).** Evaluated as the tracked blocker item ("JSX
+  full embedding-aware dispatcher — real HTML5-tree-construction-aware JSX
+  child parsing"). Before writing any code, re-read this file's own
+  "Rejected alternative design (2026-08-07 discussion)" section above,
+  which already analyzed and rejected reusing the HTML5 tree-construction
+  pass for JSX children, for reasons that still hold unchanged: (1) JSX
+  structurally diverges from real HTML5 (self-closing tags on arbitrary
+  elements, case-sensitive component names used to distinguish
+  DOM-vs-component, fragments `<>...</>`, attribute-valued embeds like
+  `onClick={handler}`) in ways the HTML5 tree-construction pass has never
+  been verified to tolerate; (2) real JSX/HTML parsers resolve tag-open
+  ambiguity via grammar-position lexer modes, which this codebase's flat,
+  regex/character-level `TokenizerCurly` has no equivalent of anywhere,
+  not just for JSX — building one is a foundational, cross-cutting change,
+  not a JS/TS-job-scoped increment; (3) the JSX-whitespace-is-significant
+  hazard (documented under Step 2's own sub-context 2 above) means any
+  real re-parse-and-reformat of children text risks an actual behavior
+  change, not just cosmetic drift, unlike every other increment landed so
+  far, which achieved real behavior (hole recursion) while leaving
+  non-hole children text byte-identical by construction. No new
+  information since the 2026-08-07 rejection changes this calculus — the
+  codebase gained hole recursion (children-position and attribute-value),
+  not a grammar-position lexer or an HTML5-JSX compatibility audit.
+  **Decision (per this job's own narrow-increment, dogfood-validated
+  precedent, and STATE_COMMON.md's ambiguity/scope-judgment guidance):
+  abandon full HTML5-tree-construction-aware JSX child parsing as a
+  distinct job for now**, rather than attempt a blind implementation this
+  session — a genuine, safe version needs its own design session (grammar-
+  position lexer design, an HTML5-vs-JSX divergence audit, incremental
+  landing, multi-corpus dogfood validation) at the same scale as the
+  Step 1/Step 2 work above, not a single-session attempt. Left as an
+  explicitly-out-of-scope, not-designed future job (unchanged from
+  2026-08-19's framing) rather than force a partial/risky landing. No
+  source file touched this session; `make test` unaffected (no change to
+  verify against).
+
 - **Unrelated bug found, not fixed (out of this job's scope):**
   `ruanyf/react-demos`'s `demo13/app.js` (compiled, non-JSX, minified
   one-liner function bodies) is not idempotent at default config — a

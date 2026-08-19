@@ -859,13 +859,13 @@ See [`../README.txt`](../README.txt) for the full workflow, including two pass m
 - [`../STYLE_JS_TS.md`](../STYLE_JS_TS.md) — JavaScript/TypeScript (JSX/TSX tag
   trees are preserved byte-for-byte, not JSX-aware-reformatted, see Usage above)
 - [`../STYLE_PYTHON3.md`](../STYLE_PYTHON3.md) — Python 3
-- [`../STYLE_JXMAKE.md`](../STYLE_JXMAKE.md) — JxMakeFile, JxMake's own
-  build-scripting language (narrow beautification-only rule list — see
-  [JxMakeFile](#jxmakefile) above)
 - [`../STYLE_TOOLING.md`](../STYLE_TOOLING.md) — E-INI, Makefile, Bash, and
   PowerShell (narrow beautification-only rule lists — recipe lines,
   quoting/heredocs/here-strings/comments are left byte-identical outside
   each language's fixed transforms)
+- [`../STYLE_JXMAKE.md`](../STYLE_JXMAKE.md) — JxMakeFile, JxMake's own
+  build-scripting language (narrow beautification-only rule list — see
+  [JxMakeFile](#jxmakefile) above)
 
 ---
 

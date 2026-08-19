@@ -249,7 +249,8 @@ error (nonzero exit, no output), not a "last one wins" merge.
 **Language override (`--lang`):** alongside ordinary `key=value` config entries, the
 directive also accepts a `--lang` pseudo-key, matching the CLI flag of the same name
 and accepting the same values (`c`, `cpp`, `java`, `kotlin`, `json`, `json5`, `css`,
-`yaml`, `toml`, `xml`, `html5`, `js`, `ts`, `python3`, `eini`, `makefile`, `bash`, `powershell`):
+`yaml`, `toml`, `xml`, `html5`, `js`, `ts`, `python3`, `eini`, `jxmake`, `makefile`, `bash`,
+`powershell`):
 
 ```java
 //% JXM_CFMT_CFG --lang=cpp
@@ -415,7 +416,7 @@ Formatting applied:
    reindents as a whole to the depth of its first statement only.
 3. **Backslash continuation-line alignment** — for assignment statements, a
    `\`-continued value's wrapped lines align under the value's start column
-   (same mechanism as Makefile/E-INI continuation alignment); for anything
+   (same mechanism as E-INI/Makefile continuation alignment); for anything
    else, `(depth + 1) * indent-size`.
 4. **Assignment-operator alignment** — a contiguous run of same-depth,
    single-statement assignment lines (direct `[local] [const] var-name
@@ -565,18 +566,18 @@ trailing same-line comment's width, so only that family reads
 | Language(s) | `line-length` | `line-length-with-comment` |
 |---|---|---|
 | C, C++, Java, Kotlin, JS, TS (curly-brace family) | used (code-only wrap decisions) | used (wrap decisions on a line carrying a trailing same-line comment) |
-| Python3 | used (signature/case/single-statement-body join decisions) | not used -- a line carrying a trailing comment is conservatively left unjoined rather than measured, so there is no comment-inclusive decision point to plug into |
 | JSON, JSON5 | used (array/object tight-vs-loose decision) | not used -- a node with a trailing comment is excluded from tight-candidacy before any width is measured |
-| XML, HTML5 | used (tight-element/attribute-wrap decision) | not used -- width is measured before a trailing comment is appended, so the comment never enters the measured span |
-| YAML | used (flow-vs-block conversion) | not used -- the flow-fit check only ever measures a node's own flow-tight rendering, never a trailing comment |
 | CSS | not used -- `STYLE_DATA_FORMATS.md` §3 defines no line-length-driven wrap rule for CSS at all | not used |
+| YAML | used (flow-vs-block conversion) | not used -- the flow-fit check only ever measures a node's own flow-tight rendering, never a trailing comment |
 | TOML | not used -- `STYLE_DATA_FORMATS.md` §6.3/§6.4 define array/inline-table (un)wrapping by content type and grammar constraint, not by length | not used |
+| XML, HTML5 | used (tight-element/attribute-wrap decision) | not used -- width is measured before a trailing comment is appended, so the comment never enters the measured span |
+| Python3 | used (signature/case/single-statement-body join decisions) | not used -- a line carrying a trailing comment is conservatively left unjoined rather than measured, so there is no comment-inclusive decision point to plug into |
 | E-INI, Makefile, Bash, PowerShell | not used -- `STYLE_TOOLING.md` scopes these four to a fixed, narrow beautification list with "no general reindentation/re-wrapping fallback" of any kind | not used |
 | JxMakeFile | not used -- `STYLE_JXMAKE.md` scopes it to a fixed, narrow beautification list with the same "no general reindentation/re-wrapping fallback" as the tooling family above | not used |
 
 This reflects genuinely different architectures per language, not gaps to be
 filled in: CSS/TOML/E-INI/JxMakeFile/Makefile/Bash/PowerShell have no line-length-driven wrap
-rule specified at all, and Python3/JSON5/XML/HTML5/YAML each structurally
+rule specified at all, and JSON5/YAML/XML/HTML5/Python3 each structurally
 exclude a trailing comment from their own wrap decision (skip the decision
 entirely, or measure before the comment is appended) rather than folding it
 into the measured width the way the curly-brace family's shared pipeline

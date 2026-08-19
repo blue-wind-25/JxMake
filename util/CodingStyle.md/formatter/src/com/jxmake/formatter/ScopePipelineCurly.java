@@ -319,7 +319,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     )
     {
         final List<int[]> result = new ArrayList<>();
-        if( !lang.isJs && !lang.isTs ) return result;
+        if(!lang.isJs && !lang.isTs) return result;
 
         int depth = 0;
         int idx   = spanStart;
@@ -407,7 +407,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         // Java deliberately excluded (RDD_KEY_317/RDD_KEY_318): an anonymous-class body's own
         // method declaration confuses a downstream call-argument line-wrap pass that this side
         // channel doesn't protect the spliced content from -- see STATE_C_CPP_JAVA.md's Known Gaps.
-        if( !lang.isCpp && !lang.isC && !lang.isKotlin ) return result;
+        if(!lang.isCpp && !lang.isC && !lang.isKotlin) return result;
 
         int depth = 0;
         int idx   = spanStart;
@@ -442,7 +442,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         return result;
     }
 
-    /** Dispatches to the current language's own narrow lambda/anonymous-class-brace detector. */
+    /** Dispatches to the current language's own narrow lambda/anonymous-class-brace detector */
     private boolean isLambdaOrAnonClassBrace(
         final List<Token> tokens,
         final int         spanStart,
@@ -452,6 +452,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         if(lang.isCpp || lang.isC)   return isCppLambdaBrace(tokens, spanStart, braceIdx);
         if(lang.isJava)              return isJavaAnonClassBrace(tokens, spanStart, braceIdx);
         if(lang.isKotlin)            return isKotlinLambdaBrace(tokens, spanStart, braceIdx);
+
         return false;
     }
 
@@ -485,7 +486,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         return openBracketIdx >= spanStart;
     }
 
-    /** Backward `]`/`[` matcher, mirrors {@link ScopePipelineCore#matchParenBackward}. */
+    /** Backward `]`/`[` matcher, mirrors {@link ScopePipelineCore#matchParenBackward} */
     private int matchBracketBackward(final List<Token> tokens, final int closeIdx)
     {
         int depth = 0;
@@ -516,14 +517,14 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     )
     {
         final int closeParenIdx = prevSignificantIndex(tokens, braceIdx);
-        if(closeParenIdx < spanStart || !isPunct( tokens.get(closeParenIdx), ")" ) ) return false;
+        if( closeParenIdx < spanStart || !isPunct( tokens.get(closeParenIdx), ")" ) ) return false;
         final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
         if(openParenIdx < spanStart) return false;
 
         int i = prevSignificantIndex(tokens, openParenIdx);
         while(i >= spanStart) {
             final Token t = tokens.get(i);
-            if(t.type == TokenType.KEYWORD && "new".equals(t.text)) return true;
+            if( t.type == TokenType.KEYWORD && "new".equals(t.text) ) return true;
             if( t.type == TokenType.IDENTIFIER || isPunct(t, ".") ) {
                 i = prevSignificantIndex(tokens, i);
                 continue;
@@ -2072,34 +2073,36 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // language) -- C/C++/Java/Kotlin's analogous shapes (lambdas, anonymous classes)
                 // are a documented, deliberately out-of-scope gap; see STATE_C_CPP_JAVA.md.
                 if(lang.isJs || lang.isTs || lang.isCpp || lang.isC || lang.isKotlin) {
-                    final List<int[]> nestedPairs = (lang.isJs || lang.isTs)
-                        ? findNestedFunctionExpressionBraces(current, span.start, span.end)
-                        : findNestedLambdaOrAnonClassBraces(current, span.start, span.end);
+                    final List<int[]> nestedPairs = (lang.isJs || lang.isTs) ? findNestedFunctionExpressionBraces(
+                        current, span.start, span.end
+                    ) : findNestedLambdaOrAnonClassBraces(
+                        current, span.start, span.end
+                    );
                     for( final int[] pair : nestedPairs ) {
                         final int openBraceIdx  = pair[0];
                         final int closeBraceIdx = pair[1];
                         // Mirrors the ordinary one-liner-body exception below (§ "One-liner
                         // non-named body"): a body that is still entirely on one physical line is
                         // left exactly as written -- recursing would wrongly run it through the
-                        // statement-grouping passes meant for a real multi-line block.
-                        if( !hasTopLevelNewline(current, openBraceIdx + 1, closeBraceIdx) ) continue;
+                        // statement-grouping passes meant for a real multi-line block
+                        if( !hasTopLevelNewline(
+                            current, openBraceIdx + 1, closeBraceIdx
+                        ) ) continue;
                         if( anyFrozen(current, openBraceIdx, closeBraceIdx + 1) ) continue;
                         final boolean nestedStartFrozen = current.get(openBraceIdx).frozen;
-                        final String  nestedSource       = joinText(
+                        final String  nestedSource      = joinText(
                             current, openBraceIdx + 1, closeBraceIdx
                         );
-                        final String  nestedIndent       = braceLineIndent(current, openBraceIdx);
-                        final String  nestedChildIndent  = (
-                            nestedIndent != null ? nestedIndent : inheritedIndent
-                        ) + indentUnit();
-                        final String  rawNestedResult    = processScope(
+                        final String  nestedIndent      = braceLineIndent(current, openBraceIdx);
+                        final String  nestedChildIndent = (nestedIndent != null ? nestedIndent : inheritedIndent) + indentUnit();
+                        final String  rawNestedResult   = processScope(
                             tokenize(nestedSource, nestedStartFrozen),
                             depth + 1,
                             nestedStartFrozen,
                             nestedChildIndent,
                             reRunMode
                         );
-                        final String nestedResult;
+                        final String  nestedResult;
                         if( nestedIndent == null
                                 || trailingGapHasComment(current, closeBraceIdx)
                                 || rawNestedResult.trim().isEmpty() ) {
@@ -2110,7 +2113,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                                 1, trailingRunNewlineCount(rawNestedResult)
                             );
                             final StringBuilder nestedNewlines         = new StringBuilder();
-                            for(int nlI = 0; nlI < nestedTrailingNewlines; ++nlI) nestedNewlines.append('\n');
+                            for(int nlI = 0; nlI < nestedTrailingNewlines; ++nlI) nestedNewlines.append(
+                                '\n'
+                            );
                             nestedResult = trimTrailingWhitespace(
                                 rawNestedResult
                             ) + nestedNewlines + nestedIndent;
@@ -2118,7 +2123,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         replacements.add(
                             new Replacement(openBraceIdx + 1, closeBraceIdx, nestedResult)
                         );
-                    } // for
+                    } // for pair
                 } // if
                 continue;
             } // if
@@ -2362,7 +2367,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             );
             prevCloseBraceIdx       = span.closeBraceIdx;
             prevEffectiveSpanIndent = effectiveSpanIndent;
-        } // for
+        } // for span
 
         return splice(current, replacements);
     }

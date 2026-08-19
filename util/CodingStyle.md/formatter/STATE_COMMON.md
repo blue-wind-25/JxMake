@@ -925,3 +925,48 @@ exercises it), or it needs a real-code corpus/input shape this session's
 own source tree doesn't contain. No fix attempted since no concrete repro
 was found; flagged in the final report rather than force a fix against a
 non-repro.
+
+**2026-08-20: re-ran against real `src/` (explicitly requested after a
+session's changes to `ScopePipelineCurly.java`, shared scope-recursion
+infrastructure used by C/C++/Java/Kotlin/JS/TS), adopted.** Fresh
+`/tmp/fmt_ref` copy (99 files under `src/`). Round1/round2 `diff -rq` empty
+(idempotency clean). Only 2 files differed from committed `src/`:
+`ScopePipelineCurly.java`, `rules/JsTsSpecificRule.java`. Both reviewed by
+hand line-by-line per this session's explicit ask to check for (a)
+flushed-left/dedented body lines and (b) lost comment content — **neither
+found**: every indentation change was ordinary alignment-column
+widening/narrowing (declaration-block alignment, ternary/call wrap width),
+never a collapse to column 0 or any other structurally-inconsistent shallow
+indent. One genuine minor comment-content issue found: in
+`JsTsSpecificRule.java`, a two-line wrapped trailing comment ("`// Popping
+the sentinel is what makes the` / `// root's own closing tag land at depth
+0`") had its second line's leading word capitalized (`root's` ->
+`Root's`) — the sentence-initial-capitalization heuristic treated the
+wrap-continuation line as a new sentence start rather than recognizing it
+as a continuation of the prior line's comment. No text was deleted, only
+mis-capitalized; flagged here rather than fixed inline since it's a
+narrow heuristic gap in the same family as previously-fixed Gate 1c/1c-2
+cases, not something to patch blind mid-dogfood-pass. All other diff
+hunks were routine cosmetic re-style (paren/`!`-spacing normalization,
+trailing-Javadoc-period stripping, ternary/nested-call line-wrap
+reflow, `// for` -> `// for pair`/`// for span` closing-brace
+loop-variable naming). Trial JAR built from round1 to `/tmp/output.jar`
+(never overwrote the committed `target/`-built jar); `make _test_serial
+JAR_FILE=/tmp/output.jar` came back 330/332 forward — the two failures
+(`test/cpp_comments_inp.cpp`, `test/real_code_regressions_217_inp.java`)
+were verified pre-existing and unrelated: built a second isolated JAR
+straight from the *unmodified, pre-adopt* committed `src/` and got
+byte-identical `--diff` output for both files, confirming the same
+GRU-classifier/`gru-sync-weights` drift already noted in the 2026-08-16
+entry (an isolated `javac`+`jar` trial build skips the `gru-sync-weights`
+Makefile dependency that a normal `make test` run performs), not
+introduced by this pass. round1b/round2b fixed-point check (reformatting
+the original `/tmp/fmt_ref` copy again with the trial JAR) came back
+fully empty on all three comparisons: r1b vs r2b, round1 vs r1b, round2 vs
+r2b — confirms a true fixed point. Adopted (round1 copied over `src/`);
+`make clean && make test` came back **332/332 forward + idempotency,
+fully green** (both trial-JAR-only failures gone once run through the
+normal Makefile build path, confirming the drift diagnosis). `make
+test-server` and `make bench` both passed. No `RDD_KEY` added — no
+functional source bug found or fixed, only cosmetic re-style adopted plus
+one flagged (not fixed) comment-capitalization heuristic gap.

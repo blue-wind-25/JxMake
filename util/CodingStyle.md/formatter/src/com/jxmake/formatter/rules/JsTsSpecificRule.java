@@ -1711,13 +1711,13 @@ public final class JsTsSpecificRule {
         final Map<Integer, String> overrides = new HashMap<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( t.type == TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0 ) {
+            if(t.type == TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) {
                 final String baseIndent = lineIndent(tokens, i);
                 final String rewritten  = rewriteJsxChildIndentation(
                     t.text, t.jsxOpeningTagEndOffset, baseIndent
                 );
                 if( rewritten != null && !rewritten.equals(t.text) ) overrides.put(i, rewritten);
-            }
+            } // if
         } // for
 
         return render(tokens, overrides);
@@ -1734,7 +1734,7 @@ public final class JsTsSpecificRule {
 
     /**
      * {@code count} copies of {@link #defaultIndentUnit} concatenated -- one indent level per
-     * nesting depth below {@code baseIndent}.
+     * nesting depth below {@code baseIndent}
      */
     private String repeatIndentUnit(final int count)
     {
@@ -1758,10 +1758,12 @@ public final class JsTsSpecificRule {
      * attribute's quoted value can safely contain {@code >} without ending the tag scan early.
      */
     private String rewriteJsxChildIndentation(
-        final String text, final int tagEnd, final String baseIndent
+        final String text,
+        final int    tagEnd,
+        final String baseIndent
     )
     {
-        if(tagEnd < 0 || tagEnd >= text.length()) return null;
+        if( tagEnd < 0 || tagEnd >= text.length() ) return null;
         // Defensive bail (2026-08-20 dogfood finding, RDD_KEY_312 follow-up): `baseIndent` is
         // this JSX_SPAN's own preceding-whitespace token text, read *before* whatever later
         // general-indent pass normalizes that same line's tabs/spaces. When `baseIndent` still
@@ -1778,25 +1780,25 @@ public final class JsTsSpecificRule {
         // second format pass -- once the root line's own tabs are gone, this pass fires normally
         // and settles. See STATE_JS_TS.md's RDD_KEY_312 entry for the full writeup; this is an
         // accepted, documented residual gap, not a silent miss.
-        if(baseIndent.indexOf('\t') >= 0) return null;
+        if( baseIndent.indexOf('\t') >= 0 ) return null;
         final String tail = text.substring(tagEnd);
-        if(tail.indexOf('\n') < 0) return null; // Single-line children -- nothing to reindent
+        if( tail.indexOf('\n') < 0 ) return null; // Single-line children -- nothing to reindent
 
         final int           n   = tail.length();
         final StringBuilder out = new StringBuilder( text.length() + 16 );
         out.append(text, 0, tagEnd);
 
         final Deque<String> stack      = new ArrayDeque<>();
-        int                 braceDepth = 0;
-        char                quote      = 0; // 0 = not inside a quoted expression-hole string
-        boolean             escape     = false;
-        boolean             changed    = false;
-        int                 lineStart  = 0; // Index into `tail` where the current line began
-        boolean             sawNonWs   = false; // Non-whitespace already seen on the current line?
+              int           braceDepth = 0;
+              char          quote      = 0;                  // 0 = not inside a quoted expression-hole string
+              boolean       escape     = false;
+              boolean       changed    = false;
+              int           lineStart  = 0;                  // Index into `tail` where the current line began
+              boolean       sawNonWs   = false;              // Non-whitespace already seen on the current line?
 
         stack.push(""); // Sentinel representing the root tag itself (already consumed before
                         // `tagEnd`) -- lets the root's own closing tag naturally pop back to an
-                        // empty stack at depth 0, with no separate root-vs-child special case.
+                        // empty stack at depth 0, with no separate root-vs-child special case
 
         int i = 0;
         while(i < n) {
@@ -1808,46 +1810,46 @@ public final class JsTsSpecificRule {
                 sawNonWs  = false;
                 ++i;
                 continue;
-            }
+            } // if
             if(quote != 0) {
                 out.append(c);
-                if(escape) escape = false;
-                else if(c == '\\') escape = true;
+                     if(escape)     escape = false;
+                else if(c == '\\')  escape = true;
                 else if(c == quote) quote = 0;
                 ++i;
                 continue;
-            }
-            if( braceDepth > 0 && ( c == '"' || c == '\'' || c == '`' ) ) {
+            } // if
+            if( braceDepth > 0 && (c == '"' || c == '\'' || c == '`') ) {
                 quote = c;
                 out.append(c);
                 sawNonWs = true;
                 ++i;
                 continue;
-            }
+            } // if
             if(c == '{') {
                 ++braceDepth;
                 out.append(c);
                 sawNonWs = true;
                 ++i;
                 continue;
-            }
+            } // if
             if(c == '}') {
                 if(braceDepth > 0) --braceDepth;
                 out.append(c);
                 sawNonWs = true;
                 ++i;
                 continue;
-            }
-            if( ( c == ' ' || c == '\t' ) && !sawNonWs ) {
+            } // if
+            if( (c == ' ' || c == '\t') && !sawNonWs ) {
                 out.append(c);
                 ++i;
                 continue;
             }
             if(c == '<' && braceDepth == 0) {
                 final boolean lineInitial = !sawNonWs;
-                final int tagStart = i;
-                int       j         = i + 1;
-                boolean   closing   = false;
+                final int     tagStart    = i;
+                      int     j           = i + 1;
+                      boolean closing     = false;
                 if( j < n && tail.charAt(j) == '/' ) {
                     closing = true;
                     ++j;
@@ -1856,21 +1858,21 @@ public final class JsTsSpecificRule {
                 while( j < n && isJsxNameChar( tail.charAt(j) ) ) ++j;
                 final String name = tail.substring(nameStart, j);
 
-                int     k            = j;
-                int     localBrace   = 0;
-                char    localQuote   = 0;
-                boolean localEscape  = false;
-                boolean selfClosing  = false;
-                boolean found        = false;
+                int     k           = j;
+                int     localBrace  = 0;
+                char    localQuote  = 0;
+                boolean localEscape = false;
+                boolean selfClosing = false;
+                boolean found       = false;
                 while(k < n) {
                     final char cc = tail.charAt(k);
                     if(localQuote != 0) {
-                        if(localEscape) localEscape = false;
-                        else if(cc == '\\') localEscape = true;
+                             if(localEscape)      localEscape = false;
+                        else if(cc == '\\')       localEscape = true;
                         else if(cc == localQuote) localQuote = 0;
                         ++k;
                         continue;
-                    }
+                    } // if
                     if(cc == '"' || cc == '\'' || cc == '`') {
                         localQuote = cc;
                         ++k;
@@ -1897,8 +1899,8 @@ public final class JsTsSpecificRule {
 
                 final int depth;
                 if(closing) {
-                    if(!stack.isEmpty()) stack.pop(); // Popping the sentinel is what makes the
-                                                        // root's own closing tag land at depth 0
+                    if( !stack.isEmpty() ) stack.pop(); // Popping the sentinel is what makes the
+                                                        // Root's own closing tag land at depth 0
                     depth = stack.size();
                 }
                 else {
@@ -1909,17 +1911,17 @@ public final class JsTsSpecificRule {
                 if(lineInitial) {
                     final String want = baseIndent + repeatIndentUnit(depth);
                     final String have = tail.substring(lineStart, tagStart);
-                    if(!have.equals(want)) {
+                    if( !have.equals(want) ) {
                         out.setLength( out.length() - have.length() );
                         out.append(want);
                         changed = true;
                     }
-                }
+                } // if
                 out.append(tail, tagStart, k + 1);
                 i        = k + 1;
                 sawNonWs = true;
                 continue;
-            }
+            } // if
 
             out.append(c);
             sawNonWs = true;

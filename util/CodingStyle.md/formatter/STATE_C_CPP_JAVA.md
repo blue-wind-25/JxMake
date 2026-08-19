@@ -860,6 +860,13 @@ RDD_KEY_88.
   after 2-3 attempts); left for a future session with explicit go-ahead, same posture as
   `RDD_KEY_235`'s `renderCallCandidate` fits-check gap.
 
+  **2026-08-20 bounded follow-up attempt (RDD_KEY_319), also reverted, corrected diagnostic:** the
+  corruption is actually caused by an UPSTREAM pass (`applySignaturePass`/`applyGetterSetterPass`,
+  not fully isolated), which collapses the anonymous class's nested method body before the side
+  channel's own recursive splice ever runs -- not a downstream call-wrap-pass interaction as
+  originally framed above. See `RDD_KEY_319` in `RDD_LOG.md` for the full repro/diagnosis. No source
+  change landed; still an accepted, open gap.
+
 ## Known Gaps — Fixed
 
 - **C/C++ lambda and Kotlin lambda-literal call-argument bodies never split to

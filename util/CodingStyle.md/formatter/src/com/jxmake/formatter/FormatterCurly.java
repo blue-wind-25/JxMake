@@ -473,6 +473,12 @@ public final class FormatterCurly extends FormatterCore {
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );
         text = switchRule.formatNonInlineSwitches( tokenizer.apply(text) );
         if(lang.isJsxSyntax) {
+            // "JSX full embedding-aware dispatcher" recursive `{}`-hole-parsing job
+            // (STATE_JS_TS.md) -- must run BEFORE enforceJsxSelfClosingAttributeWrap: every hole
+            // it splices lives at an offset >= jsxOpeningTagEndOffset (children-position only),
+            // so it never disturbs the opening-tag region the wrap pass below measures/rewrites,
+            // and can safely run first.
+            text = jsTsRule.spliceJsxExpressionHoles( tokenizer.apply(text) );
             // STATE_JS_TS.md's Step 2 "context 11" scoping session, Increment 2 -- self-closing-tag
             // attribute wrap only (tags with children remain out of scope, see that method's own
             // doc comment). Runs after every earlier width-affecting pass has settled, same

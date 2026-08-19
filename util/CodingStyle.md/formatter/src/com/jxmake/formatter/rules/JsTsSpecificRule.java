@@ -17,8 +17,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.jxmake.formatter.Config;
+import com.jxmake.formatter.FormatterCore;
 import com.jxmake.formatter.FormatterSimpleBraced;
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.gdr.GdrPipelineGate;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
@@ -1410,6 +1413,245 @@ public final class JsTsSpecificRule {
         ).text.length();
 
         return col;
+    }
+
+    // ── JSX full embedding-aware dispatcher: recursive `{}`-hole parsing ─────────────
+    /**
+     * Bound on recursive {@code {}}-hole formatting depth (STATE_JS_TS.md's "JSX full
+     * embedding-aware dispatcher" job, 2026-08-19 risk-assessment recommendation) -- a hole can
+     * contain nested JSX which can contain more holes, arbitrarily deep in adversarial/generated
+     * source. Once the depth guard trips, {@link #formatJsxHoleInterior} bails, leaving that
+     * hole's interior (and everything nested inside it) exactly as byte-for-byte frozen as the
+     * pre-existing whole-span behavior -- never an infinite loop or stack overflow.
+     */
+    private static final int MAX_JSX_HOLE_RECURSION_DEPTH = 30;
+
+    /**
+     * Per-thread recursion-depth counter for {@link #formatJsxHoleInterior} -- threaded this way
+     * (rather than a parameter) because the recursive call re-enters through the *public*
+     * {@link FormatterCore#forLanguage} dispatch (mirroring {@code XmlSpecificRule
+     * .renderScriptOrStyle}'s embed-out/splice-back pattern for `<script>`/`<style>`), which has
+     * no depth parameter of its own to thread through.
+     */
+    private static final ThreadLocal<Integer> JSX_HOLE_RECURSION_DEPTH = ThreadLocal.withInitial(
+        () -> 0
+    );
+
+    /**
+     * STATE_JS_TS.md's "JSX full embedding-aware dispatcher" job -- reformats each top-level
+     * children-position `{...}` expression hole recorded on every {@code JSX_SPAN} token (see
+     * {@code TokenizerCurly#findJsxSpans}/{@code Token#jsxHoleSpans}) by extracting its interior
+     * expression text and dispatching it back through this codebase's own JS/TS formatting
+     * pipeline (recursive-dispatch precedent: {@code XmlSpecificRule.renderScriptOrStyle}'s
+     * embed-out/splice-back pattern for `<script>`/`<style>`), then splicing the formatted result
+     * back into the span's own frozen text at the hole's original location. Attribute-value
+     * embeds are explicitly out of scope (children holes only, per the job's own scoping). Runs
+     * BEFORE {@link #enforceJsxSelfClosingAttributeWrap} -- every hole this pass discovers lives
+     * at an offset {@code >= jsxOpeningTagEndOffset} (holes are children-position only, by
+     * construction of how {@code findJsxSpanEnd} discovers them), so splicing here never touches
+     * the opening-tag region that wrap pass measures/rewrites, and the wrap pass's own
+     * {@code jsxOpeningTagEndOffset}/{@code jsxAttrBoundaries} offsets (both {@code < any hole's
+     * own start offset}) stay valid against this pass's output unchanged.
+     */
+    public String spliceJsxExpressionHoles(final List<Token> tokens)
+    {
+        if(!lang.isJsxSyntax) return render( tokens, new HashMap<>() );
+        final Map<Integer, String> overrides = new HashMap<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.JSX_SPAN && t.jsxHoleSpans != null && !t.jsxHoleSpans.isEmpty() ) {
+                final String rewritten = rewriteJsxHoles(t.text, t.jsxHoleSpans);
+                if( rewritten != null && !rewritten.equals(t.text) ) overrides.put(i, rewritten);
+            }
+        } // for
+
+        return render(tokens, overrides);
+    }
+
+    /**
+     * Splices each hole in {@code holes} (offset pairs into {@code text}, braces included -- see
+     * {@code Token#jsxHoleSpans}) with its own reformatted interior, or returns {@code null} for
+     * no change at all (every hole bailed, or the list was empty). A single hole that fails to
+     * reformat (recursion-depth guard tripped, unparseable interior, or any dispatch exception) is
+     * spliced back byte-for-byte unchanged -- one bad/deep hole never blocks a sibling hole
+     * elsewhere in the same span from being formatted.
+     */
+    private String rewriteJsxHoles(final String text, final List<int[]> holes)
+    {
+        final StringBuilder out     = new StringBuilder();
+              int            pos     = 0;
+              boolean        changed = false;
+        for(final int[] h : holes) {
+            final int hs = h[0];
+            final int he = h[1];
+            if( hs < pos || he > text.length() || hs >= he ) continue; // Defensive -- shouldn't happen
+            out.append( text, pos, hs );
+            final String interior  = text.substring(hs + 1, he - 1); // Strip the braces themselves
+            final String indent    = lineIndentAt(text, hs);
+            final String formatted = formatJsxHoleInterior(interior, indent);
+            if(formatted != null) {
+                out.append('{').append(formatted).append('}');
+                changed = true;
+            }
+            else {
+                out.append( text, hs, he ); // Unchanged -- byte-for-byte frozen fallback
+            }
+            pos = he;
+        } // for
+        out.append( text.substring(pos) );
+
+        return changed ? out.toString() : null;
+    }
+
+    /**
+     * The leading whitespace of the physical line containing raw {@code text} offset
+     * {@code offset} -- same notion as {@link #lineIndent(List, int)} but operating on a raw
+     * string (a {@code JSX_SPAN}'s frozen {@code text}) rather than a token list, since a hole's
+     * position inside a multi-line span has no {@code NEWLINE} token of its own to walk from.
+     */
+    private String lineIndentAt(final String text, final int offset)
+    {
+        int lineStart = text.lastIndexOf('\n', offset - 1) + 1;
+        int i          = lineStart;
+        while( i < offset && ( text.charAt(i) == ' ' || text.charAt(i) == '\t' ) ) ++i;
+
+        return text.substring(lineStart, i);
+    }
+
+    /**
+     * Strips the common leading whitespace shared by every non-blank line of {@code text} after
+     * its first (the first line's own leading whitespace was already trimmed off by the caller,
+     * along with the hole's own opening brace) -- same purpose and shape as {@code
+     * XmlSpecificRule#dedent}, needed for the same idempotency reason (see
+     * {@link #formatJsxHoleInterior}'s own javadoc).
+     */
+    private String dedentHoleInterior(final String text)
+    {
+        final String[] lines     = text.split("\n", -1);
+        if(lines.length <= 1) return text;
+              int      minIndent = Integer.MAX_VALUE;
+        for( int i = 1; i < lines.length; ++i ) {
+            final String line = lines[i];
+            if( line.trim().isEmpty() ) continue;
+            int i2 = 0;
+            while( i2 < line.length() && ( line.charAt(i2) == ' ' || line.charAt(i2) == '\t' ) ) ++i2;
+            minIndent = Math.min(minIndent, i2);
+        } // for
+        if(minIndent == Integer.MAX_VALUE || minIndent == 0) return text;
+
+        final StringBuilder sb = new StringBuilder( lines[0] );
+        for( int i = 1; i < lines.length; ++i ) {
+            sb.append('\n');
+            final String line = lines[i];
+            sb.append( line.length() >= minIndent ? line.substring(minIndent) : line.trim() );
+        } // for
+
+        return sb.toString();
+    }
+
+    /**
+     * Reformats one hole's interior expression text by dispatching it back through this
+     * codebase's own JS/TS formatting pipeline as a fresh, isolated source fragment -- the actual
+     * embed-out/splice-back step. Returns {@code null} (caller leaves that hole byte-for-byte
+     * untouched) on: an empty/blank interior, the recursion-depth guard tripping, or any exception
+     * from the recursive formatting call (a malformed/partial expression the isolated pipeline
+     * can't parse standalone -- safe to bail rather than risk corrupting content this pass can't
+     * actually understand).
+     *
+     * <p>A JSX child hole's interior can itself start with a bare `&lt;` (nested JSX, e.g.
+     * {@code {items.map(x => <li>{x}</li>)}}, or even {@code {<b>...</b>}} directly) -- but
+     * {@code findJsxSpans}'s own JSX-open detection is entirely context-anchored (a recognized
+     * expression-start context must immediately precede the `<`, e.g. "after `return`"); a bare
+     * top-level fragment with no such preceding context would never be recognized as JSX by a
+     * fresh, isolated tokenize of the interior alone. To give the isolated fragment the exact same
+     * "after `return`" context {@code findJsxSpans} already recognizes (also true for {@code
+     * TEMPLATE_HOLE_OPEN}'s own carve-out, i.e. matches how this same interior would have been
+     * seen if left in place), the interior is wrapped as {@code "return (" + trimmed + ");"}
+     * before dispatch, then the wrapper is stripped back off the formatted result afterward (the
+     * first `(` after `return` and the matching last `)` before the trailing `;` are always the
+     * literal wrapper's own grouping parens -- reformatting never removes/relocates a semantically
+     * load-bearing grouping paren, so textual stripping at those two fixed positions is safe). The
+     * result is re-indented to {@code indent} (the hole's own line-leading whitespace) for every
+     * line after its first, since the isolated fragment was formatted starting at column 0.
+     */
+    private String formatJsxHoleInterior(final String interior, final String indent)
+    {
+        // Idempotency (dedent-before-dispatch, mirroring XmlSpecificRule#dedent's precedent for
+        // <script>/<style> re-embedding): a hole reformatted on a prior round already carries
+        // that round's own absolute indentation baked into its interior text (this codebase
+        // preserves original relative indentation rather than re-deriving it from brace depth,
+        // STATE_COMMON.md's "General scope-depth reindentation" gap). Without stripping the
+        // hole's own baked common leading whitespace first, re-dispatching would format on top of
+        // already-indented lines, then this method's own trailing re-indent-to-`indent` step
+        // would add a second layer on top -- compounding wider on every round (found empirically:
+        // a multi-line `{items.map(function (x) {...})}` hole's body grew one indent level per
+        // round-trip until fixed here).
+        final String trimmed = dedentHoleInterior( interior.trim() );
+        if( trimmed.isEmpty() ) return null;
+
+        final int depth = JSX_HOLE_RECURSION_DEPTH.get();
+        if(depth >= MAX_JSX_HOLE_RECURSION_DEPTH) return null;
+
+        JSX_HOLE_RECURSION_DEPTH.set(depth + 1);
+        try {
+            final String        language      = lang.isTs ? "ts" : "js";
+            final String        syntheticPath = "jsx-hole." + ( lang.isTs ? "tsx" : "jsx" );
+            final int           indentWidth   = Math.max( 1, defaultIndentUnit.length() );
+            // The recursive dispatch below has no idea it's about to be spliced back in at
+            // `indent` columns of leading whitespace -- without shrinking its own line-length
+            // budget by that much, it will happily keep a line "fitting" at column 0 that
+            // actually overflows once `indent` is prepended on every line at the end of this
+            // method, which was found (empirically, via the reactstrap dogfood corpus) to
+            // produce a call left un-wrapped that should have broken onto multiple lines.
+            final int           effectiveLineLength = Math.max( 20, lineLengthLimit - indent.length() );
+            final Map<String, String> cfgOverrides = new HashMap<>();
+            cfgOverrides.put( "line-length", Integer.toString(effectiveLineLength) );
+            cfgOverrides.put( "indent-size", Integer.toString(indentWidth) );
+            cfgOverrides.put("indent-style", "spaces");
+            final Config config      = Config.resolve(null, cfgOverrides);
+            final String wrapped     = "return (" + trimmed + ");";
+            final String gdrSource   = GdrPipelineGate.apply(wrapped, language, config);
+            final String rawResult   = FormatterCore.forLanguage(
+                language, syntheticPath
+            ).formatOne(
+                gdrSource, syntheticPath, config, false
+            );
+            final String unwrapped = unwrapReturnParen(rawResult);
+            if(unwrapped == null) return null; // Wrapper shape not found -- bail, don't guess
+
+            String result = unwrapped.trim();
+            if( result.isEmpty() ) return null;
+            if( indent.isEmpty() ) return result;
+
+            return result.replace( "\n", "\n" + indent );
+        }
+        catch(final RuntimeException e) {
+            return null; // Unparseable/malformed interior -- leave this hole frozen, not guessed at
+        }
+        finally {
+            JSX_HOLE_RECURSION_DEPTH.set(depth);
+        }
+    }
+
+    /**
+     * Strips the {@code "return (" ... ");"} wrapper {@link #formatJsxHoleInterior} adds before
+     * dispatch, given the already-formatted result. Locates the first `(` following the leading
+     * `return` keyword and the LAST `)` in the text (the wrapper's own closing paren always ends
+     * the formatted output, since nothing can follow a top-level `return` statement's own
+     * semicolon) -- returns {@code null} if that basic shape isn't found (defensive; the pipeline
+     * should never actually change the wrapper keyword/paren, but a malformed/rejected fragment
+     * could come back as something else entirely).
+     */
+    private String unwrapReturnParen(final String formatted)
+    {
+        final String trimmed   = formatted.trim();
+        if( !trimmed.startsWith("return") ) return null;
+        final int    parenIdx  = trimmed.indexOf( '(' );
+        if(parenIdx < 0) return null;
+        final int    closeIdx  = trimmed.lastIndexOf( ')' );
+        if( closeIdx <= parenIdx ) return null;
+
+        return trimmed.substring(parenIdx + 1, closeIdx);
     }
 
     // ── Step 2 "context 11" Increment 2: self-closing-tag attribute wrap ─────────────

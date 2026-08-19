@@ -19,6 +19,6 @@ function MultiChildFragment()
 function NestedFragmentInsideElement()
 {
     return <div>
-        <>{items.map(x => <span key={x.id}>{x.label}</span>)}</>
+        <>{items.map( (x) => <span key={x.id}>{x.label}</span> )}</>
     </div>;
 }

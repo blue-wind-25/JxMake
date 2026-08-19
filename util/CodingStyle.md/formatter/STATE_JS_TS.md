@@ -188,24 +188,17 @@ JS/TS fixtures are active in the Makefile and passing.
   not a bare integer depth); a mismatch safely returns -1 (same fallback
   contract as every other rejection), never throws/silently accepts.
 
-- **JSX full embedding-aware dispatcher** (real grammar parsing of children/
-  attribute values, not just opaque preservation + opening-tag-attribute
-  wrap) remains explicitly out of scope — a distinct, larger future job. See
-  "JSX/TSX implementation" below for the rejected 3-step alternative design
-  and why (unbounded recursion into `{}` holes, HTML5-tree-construction
-  pass not verified for JSX's HTML-divergent grammar, no grammar-position-
-  aware parser in this codebase to inherit `<` disambiguation from for free).
-  **2026-08-19 risk assessment (discussion only, no code):** of the three
-  blockers, recursive `{}`-hole parsing is the lowest-risk one to attempt
-  first — it can reuse the existing recursive-dispatch precedent
-  (`XmlSpecificRule.renderScriptOrStyle`'s embed-out/splice-back pattern for
-  `<script>`/`<style>`) with a depth guard, rather than needing new
-  grammar-position machinery. The other two blockers are deeper: HTML5-
-  tree-construction verification is entangled with `STATE_HTML5_TCG.md`'s
-  already-flagged-high-risk state-machine work, and the missing grammar-
-  position-aware `<` disambiguation is foundational — it would touch every
-  dispatch point, not just JSX. Not scoped into a checklist yet; still a
-  future job, not concrete increments.
+- **JSX full embedding-aware dispatcher — children-position `{}`-hole
+  recursion IMPLEMENTED 2026-08-19** (see "JSX/TSX implementation" below,
+  "Recursive `{}`-hole parsing implementation" section, for design/code
+  detail). What remains out of scope, still a distinct future job: real
+  HTML5-tree-construction-aware JSX child parsing, and attribute-VALUE
+  `{...}` embeds (only children-position holes are handled — attribute
+  embeds were a stretch goal, not attempted). The general grammar-position-
+  aware `<` disambiguation problem (beyond what `findJsxSpans`/
+  `isJsxContext`'s 11 enumerable contexts already cover) is also still out
+  of scope; it's foundational and would touch every dispatch point, not
+  just JSX. Not scoped into a checklist yet.
 
 - **Unrelated bug found, not fixed (out of this job's scope):**
   `ruanyf/react-demos`'s `demo13/app.js` (compiled, non-JSX, minified
@@ -661,6 +654,71 @@ whitespace-stripped diff confirms entirely legitimate style transforms
 (arrow-parens, semicolons, closing comments), no lost/garbled JSX: a
 documented `js_ts_content_diff.js` JSX-non-awareness limitation, not a
 formatter bug. `STATE_DOGFOOD.md` row updated.
+
+---
+
+### Recursive `{}`-hole parsing implementation (2026-08-19)
+
+Children-position `{...}` holes inside a frozen `JSX_SPAN` are now found,
+extracted, run back through the JS/TS pipeline, and spliced back in —
+attribute-value embeds and real HTML5-tree-construction-aware child parsing
+remain out of scope (see the Open Questions bullet above).
+
+**Detection** (`TokenizerCurly#findJsxSpanEnd`): reused, rather than
+duplicated, the existing hole-balance-skip logic that already walks past
+every `{...}` at any nesting depth without interpreting it. An optional
+`holesOut` param records each top-level children-position hole's raw
+`[openIdx, closeIdxExclusive)` token range as it's skipped; `findJsxSpans`
+converts those into `text`-relative `[start, end)` offset pairs
+(`Token.jsxHoleSpans`, `JSX_SPAN`-only, `null`/empty when there are none).
+
+**Splicing** (`JsTsSpecificRule#spliceJsxExpressionHoles`, wired into
+`FormatterCurly`'s Phase-4 JSX block *before*
+`enforceJsxSelfClosingAttributeWrap`, since every hole lives at an offset
+`>= jsxOpeningTagEndOffset` and can never be disturbed by that pass): each
+hole's interior is dedented (`dedentHoleInterior`, mirrors
+`XmlSpecificRule#dedent` — needed to stop indentation from compounding
+across rounds, an idempotency bug found and fixed during implementation),
+wrapped as `"return (" + trimmed + ");"` (gives a bare top-level nested-JSX
+interior the "after `return`" context `isJsxContext` requires — a bare `<`
+with no such preceding token is otherwise never recognized as JSX; this
+was also a bug found and fixed during implementation), and dispatched
+through `FormatterCore.forLanguage(...).formatOne(...)` via
+`GdrPipelineGate.apply(...)`, following `XmlSpecificRule.renderScriptOrStyle`'s
+embed-out/splice-back precedent. The recursive dispatch's own `line-length`
+override is shrunk by the splice-back `indent` width (`effectiveLineLength`)
+so it doesn't under-wrap a line that only overflows once re-indented back
+into place — a real bug found via the `reactstrap` dogfood corpus (a
+multi-line `classNames(...)` call was wrongly collapsed to one line).
+
+**Depth guard**: a `ThreadLocal<Integer>` counter
+(`JSX_HOLE_RECURSION_DEPTH`, cap `MAX_JSX_HOLE_RECURSION_DEPTH = 30`) is
+needed because re-entry happens through the public `FormatterCore
+.forLanguage` dispatch, which has no depth parameter of its own. Verified
+empirically: depth 5 formats correctly, depth 35 (over the cap) safely
+bails/freezes rather than hanging or overflowing the stack.
+
+**Testing**: `make test` 327/327 forward + idempotency (2 pre-existing
+fixtures, `jsx_tsx_self_closing_wrap`/`jsx_tsx_fragment_shorthand`, updated
+to reflect holes now being correctly reformatted instead of frozen).
+Dogfood: all 6 corpora named in this job
+(`taniarascia/react-tutorial`, `ruanyf/react-demos`,
+`reactstrap/reactstrap`, `microsoft/TypeScript-React-Starter`,
+`Lemoncode/react-typescript-samples`, `excalidraw/excalidraw`) —
+forward-formatted, round-tripped for idempotency, `js_ts_syntax_check.sh`
+run on every output file (601/602 pass; the one failure,
+`react-demos/build/jquery.min.js`, reproduces identically against the
+pre-change baseline JAR, confirmed unrelated). Diffed every changed file
+against a pre-change baseline JAR's output on the same inputs: every
+non-trivial diff traced to one of (a) the intended feature — holes now
+correctly reformatted per this codebase's existing conventions (arrow-
+paren wrapping, call-arg spacing, comment capitalization now applied
+inside previously-frozen hole text), or (b) a pre-existing bug reproduced
+byte-for-byte on the baseline JAR with no hole/JSX involved at all (e.g.
+`reactstrap/src/Alert.js`'s `aria-label` attribute name getting mis-split
+by `enforceJsxSelfClosingAttributeWrap`'s own width logic —
+pre-existing, not a regression; filed here for the record, not otherwise
+tracked). No unexplained regression found in any corpus.
 
 ---
 

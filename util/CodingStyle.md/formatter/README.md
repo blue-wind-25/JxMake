@@ -48,17 +48,22 @@ Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.c
 `.jsx`/`.tsx` are dispatched to the same JS/TS pipeline as `.js`/`.ts`. A boundary-finding
 pre-pass detects JSX/TSX tag trees and preserves them byte-for-byte as opaque, unformatted spans,
 so a file containing real JSX tag syntax is safe to run through the formatter — the JSX/TSX
-portions round-trip unchanged while surrounding plain JS/TS gets normal formatting. The pre-pass
-runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs` (mirrors Prettier's own
-default — real-world `.js` files with embedded JSX, e.g. older Create-React-App projects, are
-common enough that gating on extension alone caused genuine content corruption). `.ts` deliberately stays gated off by
+portions round-trip unchanged while surrounding plain JS/TS gets normal formatting, except that any
+top-level `{...}` expression hole in a JSX tree's *children* (e.g. `{items.map(x => <li>{x}</li>)}`)
+is recursively formatted through the same JS/TS pipeline and spliced back in — attribute-value
+`{...}` embeds are not (yet) reformatted, and stay byte-for-byte preserved like the rest of the
+span. The pre-pass runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs`
+(mirrors Prettier's own default — real-world `.js` files with embedded JSX, e.g. older
+Create-React-App projects, are common enough that gating on extension alone caused genuine content
+corruption). `.ts` deliberately stays gated off by
 default — a `.ts` file's legacy `<Type>expr` angle-bracket cast syntax collides with a JSX open
 tag, the same reasoning `tsc`/Prettier use to gate `.ts` separately from `.tsx` — but a `.ts` file
 that genuinely embeds JSX can opt in per-file with the `jsx-in-ts` [`JXM_CFMT_CFG`
 directive](#in-file-config-overrides) (or the equivalent CLI flag/env var/config-file key).
-JSX/TSX-syntax-*aware* reformatting (e.g. reflowing attributes/children) does not exist yet — see
-`STYLE_JS_TS.md`. Makefile detection is also basename-based (`Makefile`, `GNUmakefile`) for
-extensionless Make files.
+Beyond children-position hole recursion and one specific attribute-wrap rule, JSX/TSX-syntax-*aware*
+reformatting (e.g. reflowing/reordering attributes, HTML5-tree-construction-aware child parsing)
+does not exist yet — see `STYLE_JS_TS.md`. Makefile detection is also basename-based (`Makefile`,
+`GNUmakefile`) for extensionless Make files.
 
 For a file with a non-standard extension (e.g. `.java.in`, `.txt`, no extension at all),
 override detection with `--lang`:
@@ -962,13 +967,17 @@ here if and when it actually gains a documented gap.
    unseen JSX-adjacent edge case not exercised by these corpora remains, as with any real-world
    testing.
 
-4. **JSX/TSX-syntax-aware reformatting doesn't exist, beyond one specific wrap rule.** Real JSX
-   tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte as opaque,
-   unformatted spans — the only content-aware transform implemented is wrapping an overlong JSX
-   opening tag's attribute list (self-closing and children-bearing tags, all attribute kinds).
-   There is no reflowing of JSX children, no attribute reordering, and no other JSX-specific
+4. **JSX/TSX-syntax-aware reformatting is limited to one wrap rule plus children-position
+   `{}`-hole recursion.** Real JSX tag trees are located by the boundary-finding pre-pass and
+   preserved byte-for-byte as opaque, unformatted spans. Two content-aware transforms are
+   implemented on top of that: wrapping an overlong JSX opening tag's attribute list
+   (self-closing and children-bearing tags, all attribute kinds), and recursively reformatting
+   each top-level `{...}` expression hole found in a JSX tree's *children* (not attribute values)
+   through the normal JS/TS pipeline, spliced back in place (depth-guarded against arbitrarily
+   deep nested JSX-in-holes). Beyond those two, there is no reflowing of JSX children, no
+   attribute reordering, no attribute-value `{...}` embed reformatting, and no other JSX-specific
    line-breaking; a JSX span's internal whitespace/line breaks are whatever the author wrote,
-   unchanged, except at that one wrap point.
+   unchanged, except at those two points.
 
 5. **JS/TS import ordering (§15) misclassifies bundler/tsconfig path-mapped absolute
    imports as third-party.** Local-import detection is syntactic only: an import specifier

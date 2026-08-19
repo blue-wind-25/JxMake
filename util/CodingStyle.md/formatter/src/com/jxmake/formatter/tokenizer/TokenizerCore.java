@@ -96,6 +96,17 @@ public class TokenizerCore {
         public int           jsxOpeningTagEndOffset = -1;
         public List<Integer> jsxAttrBoundaries      = null;
 
+        // JSX_SPAN-only, STATE_JS_TS.md's "JSX full embedding-aware dispatcher" recursive
+        // `{}`-hole-parsing job. Each entry is a `[start, end)` offset pair into `text` (same
+        // 0-based scheme as `jsxOpeningTagEndOffset`) spanning one top-level children-position
+        // `{...}` expression hole -- braces included, i.e. `text.substring(h[0], h[1])` is exactly
+        // `"{" + <interior> + "}"`. Populated only by `TokenizerCurly#findJsxSpans` (reusing the
+        // hole boundaries `findJsxSpanEnd`'s own tag-walk already discovers while balance-skipping
+        // holes it doesn't interpret), consumed only by
+        // `JsTsSpecificRule#spliceJsxExpressionHoles`. `null`/empty for every non-`JSX_SPAN` token
+        // and for a span with no children-position holes at all.
+        public List<int[]>   jsxHoleSpans           = null;
+
         public Token(
             final TokenType type,
             final String    text,

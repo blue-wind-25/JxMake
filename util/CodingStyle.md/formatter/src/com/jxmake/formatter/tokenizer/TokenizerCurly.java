@@ -2022,7 +2022,8 @@ public class TokenizerCurly extends TokenizerCore {
             );
             if(!isJsxContext) continue;
 
-            final int endTokenIdx = findJsxSpanEnd(tokens, sig, s);
+            final List<int[]> rawHoles   = new ArrayList<>();
+            final int         endTokenIdx = findJsxSpanEnd(tokens, sig, s, rawHoles);
             if(endTokenIdx < 0) continue; // Unbalanced/not real JSX here -- leave tokens untouched
 
             final StringBuilder text = new StringBuilder();
@@ -2032,6 +2033,21 @@ public class TokenizerCurly extends TokenizerCore {
                 TokenType.JSX_SPAN, text.toString(), cur.braceDepth, cur.parenDepth, null
             );
             span.frozen = true;
+
+            // Convert `rawHoles`' raw `tokens`-index ranges into offsets into the span's own
+            // `text` (same 0-based scheme as `jsxOpeningTagEndOffset`) -- "JSX full
+            // embedding-aware dispatcher" recursive `{}`-hole-parsing job (STATE_JS_TS.md).
+            if( !rawHoles.isEmpty() ) {
+                final List<int[]> holeSpans = new ArrayList<>();
+                for(final int[] raw : rawHoles) {
+                    int off0 = 0;
+                    for(int k = idx; k < raw[0]; ++k) off0 += tokens.get(k).text.length();
+                    int off1 = off0;
+                    for(int k = raw[0]; k < raw[1]; ++k) off1 += tokens.get(k).text.length();
+                    holeSpans.add( new int[]{off0, off1} );
+                } // for
+                span.jsxHoleSpans = holeSpans;
+            } // if
 
             // STATE_JS_TS.md's Step 2 "context 11" scoping session, sub-context 1 (Increment 1,
             // detect-and-measure-only) -- re-parse this same span's own root/opening tag (already
@@ -2133,14 +2149,45 @@ public class TokenizerCurly extends TokenizerCore {
      */
     private int findJsxSpanEnd(final List<Token> tokens, final List<Integer> sig, final int s0)
     {
+        return findJsxSpanEnd(tokens, sig, s0, null);
+    }
+
+    /**
+     * Same as {@link #findJsxSpanEnd(List, List, int)}, additionally recording each top-level
+     * children-position `{...}` hole's raw `[openIdx, closeIdxExclusive)` token-index range into
+     * {@code holesOut} (raw indices into {@code tokens}, {@code closeIdxExclusive} one past the
+     * hole's own closing `}`) when non-null -- for the "JSX full embedding-aware dispatcher"
+     * recursive `{}`-hole-parsing job (STATE_JS_TS.md). A hole recorded here is, by construction,
+     * always a children-position hole at ANY nesting depth of the tree being walked (an
+     * attribute-value hole is consumed entirely inside {@link #parseJsxTag}'s own call, never seen
+     * by this method's own loop) -- see that method's javadoc for why. Nested holes inside a
+     * recorded hole's own interior are deliberately NOT walked into here (this method only
+     * balance-skips a hole's interior, never interprets it) -- recursion into a hole's own nested
+     * JSX/holes is instead handled by re-running the full formatting pipeline on that hole's
+     * extracted interior text (see {@code JsTsSpecificRule#spliceJsxExpressionHoles}), which
+     * naturally re-discovers any nested span the same way this pass does.
+     */
+    private int findJsxSpanEnd(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           s0,
+        final List<int[]>   holesOut
+    )
+    {
         final java.util.Deque<String> openNames = new java.util.ArrayDeque<String>();
         int s = s0;
         while( s < sig.size() ) {
             final Token cur = tokens.get( sig.get(s) );
             if( !Token.isOp(cur, "<") ) {
                 if( Token.isPunct(cur, "{") ) {
-                    s = skipBalancedBraceHole(tokens, sig, s);
-                    if(s < 0) return -1;
+                    final int holeOpenRawIdx = sig.get(s);
+                    final int newS           = skipBalancedBraceHole(tokens, sig, s);
+                    if(newS < 0) return -1;
+                    if(holesOut != null) {
+                        final int holeCloseRawIdx = sig.get(newS - 1); // The hole's own closing `}`
+                        holesOut.add( new int[]{holeOpenRawIdx, holeCloseRawIdx + 1} );
+                    }
+                    s = newS;
                     continue;
                 }
                 ++s;

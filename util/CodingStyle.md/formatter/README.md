@@ -971,24 +971,41 @@ function foo(a,b){if(a){return b;}else{return a;}}
 [General scope-depth reindentation (GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent)
 above for what the joined-one-true-brace-style gap is and why multipass fixes it.
 
-A related but distinct gap (found 2026-08-19, diagnosed 2026-08-20, not fixed — accepted gap): a
-one-line/one-statement-body function *expression* passed as a call argument is **not** reformatted
-to one-statement-per-line, even with both of the keys above turned on:
+A related but distinct gap (found 2026-08-19, diagnosed 2026-08-20): a function *expression*
+passed as a call argument, with a body already spanning multiple physical lines, was **not**
+reformatted the same way an identical body at declaration/statement position already is:
 
 ```js
-items.map(function (x) { doA(x); doB(x); return x; });
+items.map(function (x) {
+    doA(x);
+    doB(x);
+    return x;
+});
 ```
 
-No workaround. **Not a GDR bug** — it reproduces identically with `curly-general-scope-reindent`
-completely off, which rules out the pre-pass as the cause. The actual root cause is structural: the
-formatter's scope-recursion pass only treats a `{`/`}` pair as a formattable child scope when it
-sits at the top level of its enclosing statement; a function-expression body passed inside a call's
-own parentheses sits one level deeper, so it is never recognized as a scope at all and none of the
-normal brace-placement/statement-splitting logic ever runs on it — unlike a top-level
-`function foo(a,b){...}` *declaration*, which is a top-level scope and goes through that logic
-normally. Fixing this requires extending the scope-recursion pass itself, shared by every curly-
-brace-family language (C/C++/Java/Kotlin/JS/TS) — accepted as a known gap rather than risking a
-broad change to that shared logic.
+The root cause is structural: the formatter's scope-recursion pass only treats a `{`/`}` pair as a
+formattable child scope when it sits at the top level of its enclosing statement; a
+function-expression body passed inside a call's own parentheses sits one level deeper, so it was
+never recognized as a scope at all and none of the normal brace-placement/statement-splitting
+logic ever ran on it — unlike a top-level `function foo(a,b){...}` *declaration*, which is a
+top-level scope and goes through that logic normally.
+
+**Fixed for JavaScript/TypeScript** (2026-08-20): a call-argument function-expression body like
+the example above is now recursed into and reformatted the same as an identical body at
+declaration/assignment-statement position. A body that is still entirely on one physical line
+(e.g. `items.map(function (x) { doA(x); doB(x); return x; });` with no line breaks in the body)
+is deliberately left as-is, matching the same one-liner-stays-compact behavior an identical body
+already has at declaration position. A function expression with an explicit TypeScript return-type
+annotation immediately before its body (`function (x): number { ... }`) is not yet recognized by
+this fix and keeps the old, unrecursed-into behavior. One further known limitation even where the
+fix applies: only declaration statements inside the reformatted body get their indentation
+normalized; a plain non-declaration statement line (e.g. a fluent method-chain continuation) keeps
+whatever indentation it already had in the source.
+
+**Still an accepted, unfixed gap for C/C++/Java/Kotlin** — the same structural shape (a lambda
+passed as a call argument in C++, an anonymous class passed as a call argument in Java, etc.)
+is not addressed by this fix and behaves as before. Fixing it for those languages requires
+extending the same shared scope-recursion pass, a broader change not undertaken this round.
 
 #### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

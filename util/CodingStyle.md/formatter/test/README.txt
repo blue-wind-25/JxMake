@@ -4173,6 +4173,12 @@ Real-code regressions:
                                                         matching declaration alignment and blank-line
                                                         behavior.
 
+  real_code_regressions_218_inp/out.js               -- a function-expression body passed as a call argument
+                                                        (`items.map(function (x) { ... })`) is now recursed
+                                                        into and reformatted (JS/TS only) the same as an
+                                                        identical body at statement/declaration position,
+                                                        instead of being left completely untouched.
+
 How Tests Are Run
 -----------------
 

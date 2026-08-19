@@ -258,6 +258,17 @@ Executed — see Checklist's fixture items below.
   risky to fix speculatively in one session (shared curly-family
   span-discovery infrastructure); accepted as an open gap, see
   `STATE_C_CPP_JAVA.md`'s "Known Gaps — Open". Full text: `RDD_KEY_315`.
+  **Follow-up (RDD_KEY_316, C_CPP_JAVA job, 2026-08-20):** fixed for JS/TS
+  only, via a `lang.isJs || lang.isTs`-gated side channel in
+  `ScopePipelineCurly.processScope` (not by changing
+  `splitTopLevelSpans`'s shared span model) — a call-argument
+  function-expression body that already spans multiple physical lines now
+  recurses and reformats the same as an identical body at statement/
+  declaration position. C/C++/Java/Kotlin's own code paths untouched, still
+  an accepted open gap for those languages. A residual JS/TS-only gap (a
+  non-declaration statement line inside the newly-recursed body isn't
+  force-reindented) is documented separately, not fixed. Full text:
+  `RDD_KEY_316`; full narrative in `STATE_C_CPP_JAVA.md`'s Known Gaps.
 - `RDD_KEY_298` — **Fixed** D3 (Kotlin multi-line-call/condition wrap-
   decision flap), seventh attempt, landed. `FormatterCurly.formatOne`
   renamed to private `formatOnePass`; new public `formatOne` re-runs it

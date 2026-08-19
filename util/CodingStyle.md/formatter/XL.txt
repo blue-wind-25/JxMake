@@ -107,8 +107,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_217_inp/out.java`
-    to   `real_code_regressions_217_inp/out.java`
+    from `real_code_regressions_218_inp/out.js`
+    to   `real_code_regressions_218_inp/out.js`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -244,12 +244,19 @@ Use sub-agent. This can be a substantial work.
 
 - [C_CPP_JAVA job, shared scope-recursion pipeline, NOT a GDR bug] Function-expression-in-
   call-argument body not reformatted. STATUS: investigated 2026-08-20 by the C_CPP_JAVA job
-  (RDD_KEY_315), precise root cause confirmed and ACCEPTED as an open gap, not fixed --
+  (RDD_KEY_315), precise root cause confirmed --
   `ScopePipelineCurly.splitTopLevelSpans` only treats a `{` as a recursable child scope at
   `depth == 0`; a call argument's function-expression `{` is always `depth >= 1`, so it's
-  never recognized as a scope at all. A real fix needs to extend that shared scope-discovery
-  pass (used by C/C++/Java/Kotlin/JS/TS alike) -- judged too risky to attempt without a
-  dedicated session. See `STATE_C_CPP_JAVA.md` "Known Gaps -- Open" and RDD_KEY_314/315.
+  never recognized as a scope at all. FIXED FOR JS/TS ONLY 2026-08-20 (RDD_KEY_316): a
+  `lang.isJs || lang.isTs`-gated side channel in `ScopePipelineCurly.processScope`
+  (`findNestedFunctionExpressionBraces`) now recurses into an already-multi-line call-argument
+  function-expression body, without touching `splitTopLevelSpans`'s shared span model --
+  C/C++/Java/Kotlin untouched, `make test` 330/330 (was 329/329), zero non-JS/TS regressions.
+  One residual JS/TS-only gap left documented, not fixed: a non-declaration statement line
+  inside the newly-recursed body isn't force-reindented (pre-existing recursion behavior,
+  newly exposed by this fix). C/C++/Java/Kotlin's own analogous shapes (lambda/anonymous-class
+  as call argument) remain ACCEPTED, not fixed -- a real fix for those needs a broader,
+  dedicated session. See `STATE_C_CPP_JAVA.md` "Known Gaps" and RDD_KEY_314/315/316.
 
 Use sub-agent. This can be a substantial work.
 
@@ -264,25 +271,26 @@ Use sub-agent. This can be a substantial work.
 - [C_CPP_JAVA] `gcc-mirror/gcc`, `llvm/llvm-project` dogfood — NOT STARTED, TOO MASSIVE to even
   LOC-count, let alone dogfood in one pass.
 
-- [JS] `nodejs/node` dogfood — same, TOO MASSIVE.
+- [JS] `nodejs/node` dogfood — NOT STARTED, TOO MASSIVE to even LOC-count, let alone dogfood in
+  one pass.
 
 Use sub-agent. This can be a substantial work.
 
 === TIER X: Dead ===
 
 - [JS_TS] JSX full embedding-aware dispatcher. General HTML5-tree-construction reuse and
-  grammar-position `<` disambiguation. CLOSED.
+  grammar-position `<` disambiguation. CLOSED — NOT FEASIBLE.
 
 - [PYTHON3] f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
   2026-08-12, intentional scope. See `STATE_PYTHON3.md` §5.
 
-- [AI] Dedicated GRU for non-Latin/mixed-language comments. Assessed, not planned
-  (2026-08-10). See `STATE_AI.md`.
-
 - [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping. CLOSED
   2026-08-11. See `STATE_AI.md`.
 
-- [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM) — permanently
+- [AI] Dedicated GRU for non-Latin/mixed-language comments. Assessed, not planned. CLOSED
+  2026-08-10. See `STATE_AI.md`.
+
+- [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM). CLOSED — permanently
   NOT FEASIBLE.
 
 === TIER Z: Closed, revisit only if new evidence surfaces ===

@@ -300,6 +300,94 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     }
 
     /**
+     * JS/TS only (RDD_KEY_315/RDD_KEY_320): finds every `depth > 0` `{` directly inside
+     * {@code [spanStart, spanEnd)} that opens a function-expression body used as a call argument
+     * (or any other depth >= 1 position) -- e.g. the `{` in `items.map(function (x) { ... })`.
+     * Returns `{openBraceIdx, closeBraceIdx}` pairs for only the OUTERMOST such braces found;
+     * a nested function expression inside one of these bodies is left for the recursive
+     * {@code processScope} call on the outer body's own extracted text to find in its own right
+     * (that call re-tokenizes a standalone substring, so it re-runs this same scan from scratch
+     * with correctly-relative indices -- avoids the index-bookkeeping complexity of collecting
+     * nested matches directly against the parent's own token indices here). No-ops (returns
+     * empty) for every non-JS/TS language -- deliberately narrow, does not attempt the analogous
+     * C/C++ lambda-as-call-argument or Java anonymous-class-as-call-argument shapes.
+     */
+    private List<int[]> findNestedFunctionExpressionBraces(
+        final List<Token> tokens,
+        final int         spanStart,
+        final int         spanEnd
+    )
+    {
+        final List<int[]> result = new ArrayList<>();
+        if( !lang.isJs && !lang.isTs ) return result;
+
+        int depth = 0;
+        int idx   = spanStart;
+        while(idx < spanEnd) {
+            final Token t = tokens.get(idx);
+            if( isPunct(t, "{") ) {
+                if( depth > 0 && isFunctionExpressionBrace(tokens, spanStart, idx) ) {
+                    final int closeBraceIdx = matchBraceForward(tokens, idx);
+                    if(closeBraceIdx > idx && closeBraceIdx < spanEnd) {
+                        result.add( new int[] { idx, closeBraceIdx } );
+                        idx = closeBraceIdx + 1;
+                        continue;
+                    }
+                } // if
+                ++depth;
+                ++idx;
+                continue;
+            } // if
+            if( isPunct(t, "(") || isPunct(t, "[") ) {
+                ++depth;
+                ++idx;
+                continue;
+            } // if
+            if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
+                --depth;
+                ++idx;
+                continue;
+            } // if
+            ++idx;
+        } // while
+
+        return result;
+    }
+
+    /**
+     * True iff the `{` at {@code braceIdx} is immediately headed by a function-expression's
+     * `function [NAME] ( ... )` -- the anonymous-or-named call-argument shape
+     * {@link #findNestedFunctionExpressionBraces} looks for. Deliberately narrow: only the plain
+     * `)` -> `{` direct-adjacency shape is recognized (no TS return-type-annotation tail, unlike
+     * {@code JsTsSpecificRule.findHeaderCloseParen}'s statement-position equivalent) -- a
+     * call-argument function expression with an explicit TS return type is rare enough that this
+     * session's scope accepted leaving it unrecognized rather than risk a broader match.
+     */
+    private boolean isFunctionExpressionBrace(
+        final List<Token> tokens,
+        final int         spanStart,
+        final int         braceIdx
+    )
+    {
+        final int closeParenIdx = prevSignificantIndex(tokens, braceIdx);
+        if( closeParenIdx < spanStart || !isPunct( tokens.get(closeParenIdx), ")" ) ) return false;
+        final int openParenIdx = matchParenBackward(tokens, closeParenIdx);
+        if(openParenIdx < spanStart) return false;
+        int before = prevSignificantIndex(tokens, openParenIdx);
+        if(before < spanStart) return false;
+        Token beforeTok = tokens.get(before);
+        if(beforeTok.type == TokenType.IDENTIFIER) {
+            // Named function expression (`const f = something(function foo(x) {...})`) -- step
+            // back one more token past the name to find `function` itself.
+            before = prevSignificantIndex(tokens, before);
+            if(before < spanStart) return false;
+            beforeTok = tokens.get(before);
+        } // if
+
+        return beforeTok.type == TokenType.KEYWORD && "function".equals(beforeTok.text);
+    }
+
+    /**
      * True iff {@code text} starts a named construct -- ported from
      * {@code BlockStructureRule.isNamedConstructStartKeyword}.
      */
@@ -1801,7 +1889,70 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
               int               prevCloseBraceIdx       = -1;
               String            prevEffectiveSpanIndent = null;
         for(final Span span : spans) {
-            if(span.openBraceIdx < 0) continue;
+            if(span.openBraceIdx < 0) {
+                // RDD_KEY_315/RDD_KEY_320, JS/TS only: a call-argument function-expression body
+                // (`items.map(function (x) { ... })`) sits inside the call's own `(...)`, so its
+                // `{` is at depth >= 1 and `splitTopLevelSpans` never records it as this span's
+                // own `openBraceIdx` -- the whole call statement is one opaque span with no child
+                // scope, and `processScope` would otherwise never recurse into it at all. Handled
+                // as an independent side-channel here (not by teaching `splitTopLevelSpans` a
+                // second `braceIdx` per span, which would require reworking `Span`/every other
+                // family's assumption of at most one owned brace per span) -- find every such
+                // nested brace directly inside this span's own text and recurse into each exactly
+                // like an ordinary child scope, splicing the result back in place. Gated to JS/TS
+                // only (`findNestedFunctionExpressionBraces` itself no-ops for every other
+                // language) -- C/C++/Java/Kotlin's analogous shapes (lambdas, anonymous classes)
+                // are a documented, deliberately out-of-scope gap; see STATE_C_CPP_JAVA.md.
+                if(lang.isJs || lang.isTs) {
+                    for( final int[] pair : findNestedFunctionExpressionBraces(
+                        current, span.start, span.end
+                    ) ) {
+                        final int openBraceIdx  = pair[0];
+                        final int closeBraceIdx = pair[1];
+                        // Mirrors the ordinary one-liner-body exception below (§ "One-liner
+                        // non-named body"): a body that is still entirely on one physical line is
+                        // left exactly as written -- recursing would wrongly run it through the
+                        // statement-grouping passes meant for a real multi-line block.
+                        if( !hasTopLevelNewline(current, openBraceIdx + 1, closeBraceIdx) ) continue;
+                        if( anyFrozen(current, openBraceIdx, closeBraceIdx + 1) ) continue;
+                        final boolean nestedStartFrozen = current.get(openBraceIdx).frozen;
+                        final String  nestedSource       = joinText(
+                            current, openBraceIdx + 1, closeBraceIdx
+                        );
+                        final String  nestedIndent       = braceLineIndent(current, openBraceIdx);
+                        final String  nestedChildIndent  = (
+                            nestedIndent != null ? nestedIndent : inheritedIndent
+                        ) + indentUnit();
+                        final String  rawNestedResult    = processScope(
+                            tokenize(nestedSource, nestedStartFrozen),
+                            depth + 1,
+                            nestedStartFrozen,
+                            nestedChildIndent,
+                            reRunMode
+                        );
+                        final String nestedResult;
+                        if( nestedIndent == null
+                                || trailingGapHasComment(current, closeBraceIdx)
+                                || rawNestedResult.trim().isEmpty() ) {
+                            nestedResult = rawNestedResult;
+                        } // if
+                        else {
+                            final int           nestedTrailingNewlines = Math.max(
+                                1, trailingRunNewlineCount(rawNestedResult)
+                            );
+                            final StringBuilder nestedNewlines         = new StringBuilder();
+                            for(int nlI = 0; nlI < nestedTrailingNewlines; ++nlI) nestedNewlines.append('\n');
+                            nestedResult = trimTrailingWhitespace(
+                                rawNestedResult
+                            ) + nestedNewlines + nestedIndent;
+                        }
+                        replacements.add(
+                            new Replacement(openBraceIdx + 1, closeBraceIdx, nestedResult)
+                        );
+                    } // for
+                } // if
+                continue;
+            } // if
             // A child scope extracted as raw text below may not textually contain the
             // JXM_CFMT_DIS marker that caused its own `{` to already be frozen on entry (the
             // marker can live outside this span entirely) -- re-tokenizing it must seed that

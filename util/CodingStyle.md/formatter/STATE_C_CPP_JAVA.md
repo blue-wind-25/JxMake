@@ -164,6 +164,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_286 | `JXM_CFMT_CFG` directive gained a `--lang` pseudo-key (`//% JXM_CFMT_CFG --lang=cpp`) for a per-file language override, highest-priority (wins over CLI `--lang`/server `lang` param too) -- addresses the `.h`-defaults-to-C Open Question below (an explicit per-file fix, not a change to the default) and templated sources (`.java.in`/`.java.inc`) whose extension can't be inferred at all. `InFileConfig.parse` special-cases the key, validates via `Lang.isRecognized`; `Main.processFile`/`ServerMode.FormatHandler` reordered to read the file/body before deciding language. New fixture `in_file_config_lang_{inp,out}.h`. `make test`/`make test-server`: 285/285 -> 286/286, zero regressions. `README.md` updated (new subsection, precedence list, Known Limitations item 6 broadened from C++26-only to the whole C++ pipeline). |
 | RDD_KEY_299 | Re-confirmed and closed `apache/ant`'s `JikesOutputParser.java` non-idempotent if/else reindent gap (documentation-only, same resolution shape as `RDD_KEY_243`) -- a prior recheck only tested `curly-general-scope-reindent=on` alone; with BOTH that flag AND `curly-general-scope-reindent-multipass=on` on, round1==round2 (idempotent) and round1 compiles clean under `javac`. See "Known Gaps -- Fixed", `test/real_code_regressions_214` fixture, `RDD_KEY_299` in `RDD_LOG.md` for full detail. `make test`: 322/322 -> 323/323 forward + idempotency, zero regressions. |
 | RDD_KEY_315 | Deeper root-cause + accepted-gap disposition for RDD_KEY_314's call-argument function-expression body gap -- `ScopePipelineCurly.splitTopLevelSpans` only records a `{` as a recursable child-scope-owning brace when hit at `depth == 0`; a `function(...) { ... }` call argument's `{` is always hit at `depth >= 1` (inside the call's own parens), so it's never recorded as a span at all -- the whole call statement is one opaque top-level span, invisible to `processScope`'s recursion from the start (not merely "treated as opaque" during later call-wrap relocation, as RDD_KEY_314 framed it). A real fix needs `splitTopLevelSpans` (or an equivalent pre-pass) to detect and independently recurse into a `depth > 0` function-expression `{`, a genuine architectural extension shared by the whole curly family -- judged too risky to attempt speculatively this session; left as an accepted gap for a future session with explicit go-ahead. No source changed, `make test` not re-run. See "Known Gaps -- Open". |
+| RDD_KEY_316 | JS/TS-only fix for RDD_KEY_315's call-argument function-expression body gap, without touching `splitTopLevelSpans`'s shared span model. `processScope`'s main span loop gained a `lang.isJs \|\| lang.isTs`-gated side channel: for a span with `openBraceIdx < 0`, `findNestedFunctionExpressionBraces` scans the span's own token range for a `depth > 0` `{` headed by `function [NAME] (...)` (direct `)` -> `{` adjacency only, no TS return-type tail) and recurses into each match the same way an ordinary child scope recurses (indent via `braceLineIndent` + one `indentUnit()`, same trailing-gap force-reindent logic), splicing the result back via the existing `Replacement`/`splice` mechanism. Same `hasTopLevelNewline` one-liner-stays-K&R gate as every other recursed scope, so a still-single-line call-argument body is deliberately left untouched. C/C++/Java/Kotlin's own `splitTopLevelSpans`/`processScope` paths are byte-for-byte unchanged (new code fully gated, cannot execute for other languages). One pre-existing fixture, `test/real_code_regressions_77_out.js`, regressed and was updated -- a call-argument body's interior `var app = ...` declaration line, previously left at its stale unnormalized 2sp indent (body was invisible to recursion), now correctly reindents to 4sp via the same `applyDeclarationsPass` every other recursed declaration gets; judged a genuine bug fix, not a regression. New fixture `test/real_code_regressions_218_{inp,out}.js`. **Residual, explicitly NOT fixed:** a plain non-declaration statement line inside a newly-recursed body is still passed through verbatim (not force-reindented) -- pre-existing general recursion behavior, newly exposed to this shape rather than introduced by this fix; documented as its own follow-on gap. C/C++/Java/Kotlin remain unaffected/still-accepted (RDD_KEY_315 unchanged for those languages). `make test`: 329/329 -> 330/330 forward + idempotency, zero non-JS/TS regressions. See "Known Gaps -- Open" (updated in place, not moved to "Fixed" since the C/C++/Java/Kotlin portion is still open). |
 
 ---
 
@@ -825,25 +826,39 @@ RDD_KEY_88.
 
 
 - **Call-argument function-expression body never split to one-statement-per-line/Allman
-  placement (RDD_KEY_314/RDD_KEY_315), ACCEPTED, not fixed.** A one-line/one-statement-body
-  `function (x) { doA(x); doB(x); return x; }` passed as a call argument (e.g.
-  `items.map(function (x) {...})`) never gets Allman brace placement or statement splitting,
-  unlike the identical body at declaration/statement position -- confirmed via direct-harness
-  repro (`function foo(x) {...}` vs. the same body as `items.map(function (x) {...})`, both with
-  an already-multi-line body, GDR on). Root cause (RDD_KEY_315): `ScopePipelineCurly.
-  splitTopLevelSpans` only records a `{` as a recursable child-scope-owning brace at `depth ==
-  0`; a call argument's function-expression `{` is always at `depth >= 1` (inside the call's own
-  parens), so the entire call statement is captured as one opaque top-level span with no child
-  scope -- `processScope` never recurses into it at all, regardless of GDR. A real fix requires
-  extending `splitTopLevelSpans` (or an equivalent pre-pass) to detect and independently recurse
-  into a `depth > 0` function-expression `{` as its own child scope -- shared curly-family
-  scope-discovery infrastructure (C/C++/Java/Kotlin/JS/TS), high blast radius. Not attempted this
-  session (judged too risky to prototype speculatively against the shared span-discovery
-  algorithm within a single session); left for a future session with explicit go-ahead, same
-  posture as `RDD_KEY_235`'s `renderCallCandidate` fits-check gap. Affects JS/TS most visibly
-  (function-expression call arguments are idiomatic there); a C/C++ lambda-as-call-argument or
-  Java anonymous-class-as-call-argument equivalent was not separately confirmed to exist as a
-  distinct repro this session.
+  placement (RDD_KEY_314/RDD_KEY_315), FIXED for JS/TS 2026-08-20 (RDD_KEY_316); still ACCEPTED,
+  not fixed for C/C++/Java/Kotlin.** A `function (x) { doA(x); doB(x); return x; }` passed as a
+  call argument (e.g. `items.map(function (x) {...})`), with an already-multi-line body, never
+  got recursed into -- unlike the identical body at declaration/statement position. Root cause
+  (RDD_KEY_315), unchanged: `ScopePipelineCurly.splitTopLevelSpans` only records a `{` as a
+  recursable child-scope-owning `braceIdx` at `depth == 0`; a call argument's function-expression
+  `{` is always at `depth >= 1` (inside the call's own parens), so the entire call statement is
+  captured as one opaque top-level span with no child scope.
+  **JS/TS fix (RDD_KEY_316):** rather than teaching `splitTopLevelSpans` a second `braceIdx` per
+  span (a change that would touch every curly-family language's shared span model),
+  `processScope`'s main span loop gained a JS/TS-gated (`lang.isJs || lang.isTs`) side-channel:
+  for a span with `openBraceIdx < 0`, a new `findNestedFunctionExpressionBraces` scans the span's
+  own token range for a `depth > 0` `{` headed by `function [NAME] (...)` and recurses into each
+  match the same way an ordinary child scope is recursed into (see full write-up in RDD_KEY_316).
+  C/C++/Java/Kotlin's `ScopePipelineCurly.splitTopLevelSpans`/`processScope` code paths are
+  byte-for-byte unchanged (the new code is fully gated behind `lang.isJs || lang.isTs` and cannot
+  execute for any other language) -- confirmed via `make test`: 330/330 forward + idempotency,
+  zero C/C++/Java/Kotlin fixture diffs. **Residual gap even for JS/TS, not fixed, flagged
+  explicitly:** within a newly-recursed call-argument body, only declaration-statement lines get
+  reindented (`applyDeclarationsPass`, as always); a plain non-declaration statement line is
+  passed through verbatim, so a body with pre-existing inconsistent indentation can render with a
+  visually inconsistent mix of reindented and untouched lines (see `test/real_code_regressions_77_out.js`,
+  whose `var app = ...` line now reindents to 4sp while the following `request(app).get(...)`
+  chain lines stay at their original 2sp) -- this is pre-existing general recursion behavior
+  (identical for a standalone `const foo = function (x) {...};`), newly exposed to the
+  call-argument shape rather than introduced by this fix; left as its own accepted, documented
+  follow-on gap for a future session. **C/C++/Java/Kotlin: still ACCEPTED, not fixed** -- a real
+  fix requires extending `splitTopLevelSpans` (or an equivalent pre-pass) to detect and
+  independently recurse into a `depth > 0` function-expression/lambda/anonymous-class `{` for
+  those languages too; not attempted (a C/C++ lambda-as-call-argument or Java
+  anonymous-class-as-call-argument equivalent was not separately confirmed to exist as a distinct
+  repro). Left for a future session with explicit go-ahead, same posture as `RDD_KEY_235`'s
+  `renderCallCandidate` fits-check gap.
 
 ## Known Gaps — Fixed
 

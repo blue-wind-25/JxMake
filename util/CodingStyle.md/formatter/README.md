@@ -847,10 +847,11 @@ the JVM internally). The following limitations apply on Windows:
 
 ## AI Workflow for Tier-3 Aesthetic Decisions
 
-"Tier" here classifies how confidently a formatting decision can be automated. Tier-1 and
-Tier-2 cover every rule this JAR applies mechanically (structural rules and rule-based/GRU
-comment decisions); Tier-3 is the small remaining class of aesthetic decisions — function
-argument list layout and non-standard getter/setter grouping — that can instead be handled by a
+"Tier" here classifies how confidently a formatting decision can be automated. "Tier-1/Tier-2"
+is used as one combined bucket for every rule this JAR applies mechanically (there's no
+documented split between the two — don't read them as separate categories); the only boundary
+that matters for choosing a workflow is Tier-3, the small remaining class of aesthetic decisions
+— function argument list layout and non-standard getter/setter grouping — that instead need a
 capable AI model (Claude Sonnet / Opus, GPT-4o, etc.) in a separate pass. The JAR may be extended
 with built-in AI assist in a future version.
 

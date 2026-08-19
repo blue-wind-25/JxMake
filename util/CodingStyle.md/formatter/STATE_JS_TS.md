@@ -727,7 +727,25 @@ byte-for-byte on the baseline JAR with no hole/JSX involved at all (e.g.
 `reactstrap/src/Alert.js`'s `aria-label` attribute name getting mis-split
 by `enforceJsxSelfClosingAttributeWrap`'s own width logic —
 pre-existing, not a regression; filed here for the record, not otherwise
-tracked). No unexplained regression found in any corpus.
+tracked, **FIXED 2026-08-19, see below**). No unexplained regression found
+in any corpus.
+
+**Hyphenated attribute-name wrap corruption — FIXED (2026-08-19).** Root
+cause: a hyphenated attribute name (`data-foo`, `aria-label`) tokenizes as
+IDENTIFIER/`-`/IDENTIFIER, and `TokenizerCurly#parseJsxTag`'s
+attribute-boundary scan (populating `attrRawTokenIndices`) treated every
+top-level IDENTIFIER as a fresh attribute start — so the second half of a
+hyphenated name was wrongly recorded as its own attribute, and
+`enforceJsxSelfClosingAttributeWrap` would split it across two lines
+(`data-\nfoo={1+2}`) whenever the tag needed wrapping. Fixed with a
+one-line guard (`isHyphenatedNameContinuation`): an IDENTIFIER immediately
+following a top-level `-` is a name continuation, never a new boundary — a
+bare top-level `-` can't legally separate two real JSX attributes any
+other way, so this is unambiguous, no grammar-position machinery needed.
+Cheap, narrow fix (single guard condition in the existing attribute-scan
+loop). Verified: `make test` 327/327 forward + idempotency (no fixture
+regressions); manual repro (`data-foo`/`aria-label` on an
+overlong-tag-wrap case) confirmed fixed and idempotent.
 
 ### Attribute-value hole recursion (2026-08-19, follow-up session)
 

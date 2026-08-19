@@ -2370,7 +2370,16 @@ public class TokenizerCurly extends TokenizerCore {
             ) && s > 0 && Token.isOp(
                 tokens.get( sig.get(s - 1) ), "="
             );
-            if( localBrace == 0 && !closing && !isValueHoleOpenBrace && ( t.type == TokenType.IDENTIFIER || Token.isPunct(
+            // A hyphenated attribute name (`data-foo`, `aria-label`) tokenizes as
+            // IDENTIFIER/`-`/IDENTIFIER -- a top-level `-` can never legally separate two real
+            // JSX attributes any other way, so an IDENTIFIER immediately following one is always
+            // a name continuation, not a fresh boundary (previously mis-split into two
+            // "attributes", corrupting the wrap output -- see STATE_JS_TS.md).
+            final boolean isHyphenatedNameContinuation = s > 0 && Token.isOp(
+                tokens.get( sig.get(s - 1) ), "-"
+            );
+            if( localBrace == 0 && !closing && !isValueHoleOpenBrace && !isHyphenatedNameContinuation
+                    && ( t.type == TokenType.IDENTIFIER || Token.isPunct(
                 t, "{"
             ) ) ) attrRawTokenIndices.add(
                 sig.get(s)

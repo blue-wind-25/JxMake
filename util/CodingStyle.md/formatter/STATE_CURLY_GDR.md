@@ -249,7 +249,15 @@ Executed — see Checklist's fixture items below.
   `MiscRuleCurly`'s call-candidate wrapping, D3/`RDD_KEY_235`), never
   recursing into brace-placement for its interior — unlike statement-
   position function declarations. Out of this job's scope; documentation-
-  only, no code change. Full text: `RDD_KEY_314`.
+  only, no code change. Full text: `RDD_KEY_314`. **Follow-up (RDD_KEY_315,
+  C_CPP_JAVA job):** precise root cause confirmed —
+  `ScopePipelineCurly.splitTopLevelSpans` only records a `{` as a
+  recursable child scope at `depth == 0`; a call argument's
+  function-expression `{` is always `depth >= 1`, so it's never a span at
+  all, invisible to `processScope`'s recursion from the start. Judged too
+  risky to fix speculatively in one session (shared curly-family
+  span-discovery infrastructure); accepted as an open gap, see
+  `STATE_C_CPP_JAVA.md`'s "Known Gaps — Open". Full text: `RDD_KEY_315`.
 - `RDD_KEY_298` — **Fixed** D3 (Kotlin multi-line-call/condition wrap-
   decision flap), seventh attempt, landed. `FormatterCurly.formatOne`
   renamed to private `formatOnePass`; new public `formatOne` re-runs it

@@ -980,12 +980,15 @@ items.map(function (x) { doA(x); doB(x); return x; });
 ```
 
 No workaround. **Not a GDR bug** — it reproduces identically with `curly-general-scope-reindent`
-completely off, which rules out the pre-pass as the cause. The actual root cause is the shared
-formatter pipeline's own call-argument line-wrap/relocation logic, which relocates a function-
-expression argument as an opaque text blob without recursing into brace-placement/statement
-formatting for its interior — unlike a top-level `function foo(a,b){...}` *declaration*, which goes
-through the pipeline's normal statement-position brace-placement path. See `STATE_CURLY_GDR.md`'s
-Open Questions (`RDD_KEY_314`) for the full diagnosis.
+completely off, which rules out the pre-pass as the cause. The actual root cause is structural: the
+formatter's scope-recursion pass only treats a `{`/`}` pair as a formattable child scope when it
+sits at the top level of its enclosing statement; a function-expression body passed inside a call's
+own parentheses sits one level deeper, so it is never recognized as a scope at all and none of the
+normal brace-placement/statement-splitting logic ever runs on it — unlike a top-level
+`function foo(a,b){...}` *declaration*, which is a top-level scope and goes through that logic
+normally. Fixing this requires extending the scope-recursion pass itself, shared by every curly-
+brace-family language (C/C++/Java/Kotlin/JS/TS) — accepted as a known gap rather than risking a
+broad change to that shared logic.
 
 #### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

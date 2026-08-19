@@ -163,6 +163,7 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_289 | Self-hosting dogfood (`JsTsSpecificRule.java`/`TokenizerCurly.java`): 2 bugs, combined fixture `real_code_regressions_205`. (a) `BlockStructureRule.extractSingleIdentifier`'s negated-single-identifier case (`while(!closed)`) dropped the leading `!` when building a same-kind-nested-loop closing-comment label, inverting an existing `} // while !closed` comment's meaning to `} // while closed` -- fixed to preserve the `!`. (b) `alignBracelessElseIfChain`'s chain detection is purely line-text-pattern-based with no check that a matched `if`/`else if` member's body is actually braceless -- a hand-written mixed chain (braceless `if` immediately followed by a genuinely braced `else if(...) { ... }`) got its `if` keyword left-padded by the keyword-length delta anyway, corrupting a correctly flush-aligned pair's indentation every reformat -- fixed by bailing the whole chain untouched, before any mutation, the moment any non-bare-else member's body is braced (bare terminal `else { ... }` remains supported, per `real_code_regressions_172_out.ts`). `make test`: 313/313 -> 314/314, zero regressions. |
 | RDD_KEY_286 | `JXM_CFMT_CFG` directive gained a `--lang` pseudo-key (`//% JXM_CFMT_CFG --lang=cpp`) for a per-file language override, highest-priority (wins over CLI `--lang`/server `lang` param too) -- addresses the `.h`-defaults-to-C Open Question below (an explicit per-file fix, not a change to the default) and templated sources (`.java.in`/`.java.inc`) whose extension can't be inferred at all. `InFileConfig.parse` special-cases the key, validates via `Lang.isRecognized`; `Main.processFile`/`ServerMode.FormatHandler` reordered to read the file/body before deciding language. New fixture `in_file_config_lang_{inp,out}.h`. `make test`/`make test-server`: 285/285 -> 286/286, zero regressions. `README.md` updated (new subsection, precedence list, Known Limitations item 6 broadened from C++26-only to the whole C++ pipeline). |
 | RDD_KEY_299 | Re-confirmed and closed `apache/ant`'s `JikesOutputParser.java` non-idempotent if/else reindent gap (documentation-only, same resolution shape as `RDD_KEY_243`) -- a prior recheck only tested `curly-general-scope-reindent=on` alone; with BOTH that flag AND `curly-general-scope-reindent-multipass=on` on, round1==round2 (idempotent) and round1 compiles clean under `javac`. See "Known Gaps -- Fixed", `test/real_code_regressions_214` fixture, `RDD_KEY_299` in `RDD_LOG.md` for full detail. `make test`: 322/322 -> 323/323 forward + idempotency, zero regressions. |
+| RDD_KEY_315 | Deeper root-cause + accepted-gap disposition for RDD_KEY_314's call-argument function-expression body gap -- `ScopePipelineCurly.splitTopLevelSpans` only records a `{` as a recursable child-scope-owning brace when hit at `depth == 0`; a `function(...) { ... }` call argument's `{` is always hit at `depth >= 1` (inside the call's own parens), so it's never recorded as a span at all -- the whole call statement is one opaque top-level span, invisible to `processScope`'s recursion from the start (not merely "treated as opaque" during later call-wrap relocation, as RDD_KEY_314 framed it). A real fix needs `splitTopLevelSpans` (or an equivalent pre-pass) to detect and independently recurse into a `depth > 0` function-expression `{`, a genuine architectural extension shared by the whole curly family -- judged too risky to attempt speculatively this session; left as an accepted gap for a future session with explicit go-ahead. No source changed, `make test` not re-run. See "Known Gaps -- Open". |
 
 ---
 
@@ -822,6 +823,27 @@ RDD_KEY_88.
   (idempotency-only, no invalid-syntax risk — the `java_syntax_check` full-tree baseline stayed
   3510/3510 clean both before and after).
 
+
+- **Call-argument function-expression body never split to one-statement-per-line/Allman
+  placement (RDD_KEY_314/RDD_KEY_315), ACCEPTED, not fixed.** A one-line/one-statement-body
+  `function (x) { doA(x); doB(x); return x; }` passed as a call argument (e.g.
+  `items.map(function (x) {...})`) never gets Allman brace placement or statement splitting,
+  unlike the identical body at declaration/statement position -- confirmed via direct-harness
+  repro (`function foo(x) {...}` vs. the same body as `items.map(function (x) {...})`, both with
+  an already-multi-line body, GDR on). Root cause (RDD_KEY_315): `ScopePipelineCurly.
+  splitTopLevelSpans` only records a `{` as a recursable child-scope-owning brace at `depth ==
+  0`; a call argument's function-expression `{` is always at `depth >= 1` (inside the call's own
+  parens), so the entire call statement is captured as one opaque top-level span with no child
+  scope -- `processScope` never recurses into it at all, regardless of GDR. A real fix requires
+  extending `splitTopLevelSpans` (or an equivalent pre-pass) to detect and independently recurse
+  into a `depth > 0` function-expression `{` as its own child scope -- shared curly-family
+  scope-discovery infrastructure (C/C++/Java/Kotlin/JS/TS), high blast radius. Not attempted this
+  session (judged too risky to prototype speculatively against the shared span-discovery
+  algorithm within a single session); left for a future session with explicit go-ahead, same
+  posture as `RDD_KEY_235`'s `renderCallCandidate` fits-check gap. Affects JS/TS most visibly
+  (function-expression call arguments are idiomatic there); a C/C++ lambda-as-call-argument or
+  Java anonymous-class-as-call-argument equivalent was not separately confirmed to exist as a
+  distinct repro this session.
 
 ## Known Gaps — Fixed
 

@@ -461,22 +461,20 @@ a bigger, riskier shared-utility-class move.
 `FormatterIndent`/`FormatterTags`, `ScopePipelineCurly`/`ScopePipelineIndent`/
 `ScopePipelineTags`, `MiscRuleCurly`/`MiscRuleIndent`/`MiscRuleTags`,
 `IndentationDetector`, and `gdr/` for unused private methods/fields/imports
-(repo-wide grep, not just single-file). Found and removed one dead method,
-`MiscRuleCurly.lineEndIndex` (RDD_KEY_163 already documents its former call
-site was replaced by `effectiveLineEndIndex`; the superseded method was left
-behind unused), plus its now-unused `HashSet`/`Set`/`CommentDecision`
-imports (double-checked zero remaining references file-wide). Two
-low-reference-count hits investigated and left alone as false positives:
-`MiscRuleIndent.isCommentChainLink`/`isCommentRewritable` are legitimate
-`@Override`s of `MiscRuleCore` methods called polymorphically. No other
-unused private methods/constants or new safe duplication-consolidation
-candidates found. `make test`: confirmed the single pre-existing
+(repo-wide grep). Removed one dead method, `MiscRuleCurly.lineEndIndex`
+(RDD_KEY_163 already documents its call site was replaced by
+`effectiveLineEndIndex`, leaving this one unused), plus its now-unused
+`HashSet`/`Set`/`CommentDecision` imports. Two low-reference-count hits were
+false positives, left alone: `MiscRuleIndent.isCommentChainLink`/
+`isCommentRewritable` are legitimate `@Override`s of `MiscRuleCore` methods
+called polymorphically. No other unused methods/constants or new
+consolidation candidates found. `make test`: the single pre-existing
 `test/cpp_comments_inp.cpp` failure (GRU comment-classifier capitalization
-verdict differs from a prior committed run) predated this session's edits
-(verified by reverting `MiscRuleCurly.java` and re-running) — left
-uninvestigated as out of scope for a dead-code sweep; a future AI-assist
-session should check `STATE_AI.md`/classifier weight provenance for why a
-checked-in fixture doesn't match a fresh build deterministically.
+verdict differs from a prior committed run) predated this session (confirmed
+by reverting `MiscRuleCurly.java` and re-running) — left uninvestigated as
+out of scope for a dead-code sweep; a future AI-assist session should check
+`STATE_AI.md`/classifier weight provenance for why a checked-in fixture
+doesn't match a fresh build deterministically.
 
 ---
 
@@ -580,10 +578,11 @@ new). E.g. `// import './rxjs/rxjs.spec';` mid-group can be capitalized to
 acceptable by the user, documented in README.md rather than chased with
 another mechanical rule.
 
-**Naming:** user asked mid-task whether a different key name would be
-better than `normalize-comment-start-case-multiline`; left as-is (matches
-the pre-approved design), flagged in the final report, not unilaterally
-renamed — revisit only if the user says they'd prefer the rename.
+**Naming:** user asked mid-task about renaming
+`normalize-comment-start-case-multiline`; left as-is (matches the
+pre-approved design) and flagged in the final report rather than
+unilaterally renamed — revisit only if the user says they'd prefer the
+rename.
 
 <details>
 <summary>Original pre-implementation plan (superseded, kept for history)</summary>
@@ -630,23 +629,22 @@ and `STATE_HTML5_TCG.md`. The other four needed no change.
 **2026-08-12 cleanup-pass follow-up (XL.txt TIER 0 item 1):** re-swept all
 of `src/` for unused private methods/fields (per-file grep-count script,
 flagging same-file reference count ≤1) and re-checked the 2026-07-28 `setOf`
-consolidation. Found and removed one dead method: `JsonSpecificRule.
-isSignificant` (zero call sites repo-wide). No unused fields found (the only
-≤1-reference hit, `UnsupportedLanguageException.serialVersionUID`, is a
-normal `Serializable` field, correctly left alone). Re-confirmed
-`TokenizerCurly`/`TokenizerIndent`'s `setOf` calls correctly route through
-the 2026-07-28 promotion; the three other same-named `setOf` copies remain
-intentionally unconsolidated (unchanged conclusion). Checked the
-`Lang.SCAFFOLD_ONLY_LANGUAGES`-guarded conditionals across `FormatterIndent.
-java`/`InFileConfig.java`/`Main.java`/`ServerMode.java` — already-dead-but-
-safe now the constant is `""`, but CLAUDE.md says it's "kept only for
-documentation/compatibility", so left alone as intentional. Did not attempt
-a new `*Curly`/`*Indent`/`*Tags` cross-family consolidation this pass (token-
-rendering primitives, bracket-depth tracking) — scope not covered this
-session (across json/json5/css/yaml/toml/xml/html5/js-ts/python3/tooling
-`*SpecificRule` files, none flagged unused but not compared to each other
-for near-identical logic); a future pass should pick this up specifically.
-`make test`: 290/290 forward + idempotency, clean.
+consolidation. Removed one dead method, `JsonSpecificRule.isSignificant`
+(zero call sites repo-wide); no unused fields found (the only ≤1-reference
+hit, `UnsupportedLanguageException.serialVersionUID`, is a normal
+`Serializable` field, correctly left alone). Confirmed
+`TokenizerCurly`/`TokenizerIndent`'s `setOf` calls still route through the
+2026-07-28 promotion; the other three same-named `setOf` copies remain
+intentionally unconsolidated. The `Lang.SCAFFOLD_ONLY_LANGUAGES`-guarded
+conditionals (across `FormatterIndent.java`/`InFileConfig.java`/`Main.java`/
+`ServerMode.java`) are dead-but-safe now the constant is `""`, but
+CLAUDE.md says it's kept for documentation/compatibility, so left alone. Did
+not attempt a new `*Curly`/`*Indent`/`*Tags` cross-family consolidation
+(token-rendering primitives, bracket-depth tracking) — out of scope this
+session across json/json5/css/yaml/toml/xml/html5/js-ts/python3/tooling
+`*SpecificRule` files (none flagged unused, not compared to each other for
+near-identical logic); a future pass should pick this up. `make test`:
+290/290 forward + idempotency, clean.
 
 **2026-08-16 cleanup pass (full 5-area sweep):**
 
@@ -873,58 +871,54 @@ Adopted; `make clean && make test` 276/276, `make test-server` passed.
 **2026-08-16: re-ran against real `src/` (explicitly requested, combined
 with a targeted hunt for a user-reported flushed-left/dedented-body-line
 bug shape), adopted.** Fresh `/tmp/fmt_ref` copy (prior copy was stale, 95
-files out of sync — re-copied per step 1). Round1/round2 `diff -rq` empty
-(idempotency clean). Only 6 files differed from committed `src/`:
-`FormatterBash.java`, `FormatterCurly.java`,
-`rules/{BashSpecificRule,PowerShellSpecificRule,YamlSpecificRule,
-YamlTomlSharedRule}.java` — all reviewed by hand, every diff a legitimate
-cosmetic re-style (spacing around parens/`!`, param-list wrap width,
-alignment column width, one comment's trailing period), zero content/token
-loss. Trial JAR built from round1 to `/tmp/output.jar` (never overwrote the
-committed `target/`-built jar); `make _test_serial JAR_FILE=/tmp/output.jar`
-came back 322/323 forward — the single failure (`test/cpp_comments_inp.cpp`)
-was verified pre-existing and unrelated: a fresh JAR built straight from
-the *unmodified, pre-adopt* committed `src/` hits the exact same failure,
-confirming it's the same GRU-classifier/committed-jar drift already noted
-in the 2026-08-10 entry, not introduced here. round1b/round2b fixed-point
-check (reformatting the original `/tmp/fmt_ref` again with the trial JAR)
-came back fully empty on all three comparisons: r1b vs r2b, round1 vs r1b,
-round2 vs r2b — confirms a true fixed point. Adopted (round1 copied over
-`src/`); `make clean && make test` came back **323/323 forward +
-idempotency, fully green** (the `cpp_comments` failure that appeared
-against the isolated trial JAR doesn't reproduce via the Makefile's normal
-build path, which runs `gru-sync-weights` as a dependency of
-`_test_serial` — resyncs the classifier weights the isolated trial JAR
-skipped). See `CLAUDE.md`'s task history/commit log for the
-flushed-left/dedent bug-hunt outcome (not found — see below); no `RDD_KEY`
-added since no source bug was found or fixed, only cosmetic re-style
-adopted.
+files out of sync). Round1/round2 `diff -rq` empty (idempotency clean).
+Only 6 files differed from committed `src/`: `FormatterBash.java`,
+`FormatterCurly.java`, `rules/{BashSpecificRule,PowerShellSpecificRule,
+YamlSpecificRule,YamlTomlSharedRule}.java` — all reviewed by hand and
+confirmed legitimate cosmetic re-style (spacing around parens/`!`,
+param-list wrap width, alignment column width, one comment's trailing
+period), zero content/token loss. Trial JAR built from round1 to
+`/tmp/output.jar` (never overwrote the committed `target/` jar); `make
+_test_serial JAR_FILE=/tmp/output.jar` came back 322/323 forward — the
+single failure (`test/cpp_comments_inp.cpp`) was confirmed pre-existing: a
+fresh JAR built straight from the unmodified, pre-adopt committed `src/`
+hits the identical failure, the same GRU-classifier/committed-jar drift
+noted in the 2026-08-10 entry. round1b/round2b fixed-point check
+(reformatting the original `/tmp/fmt_ref` again with the trial JAR) came
+back fully empty on all three comparisons — confirms a true fixed point.
+Adopted (round1 copied over `src/`); `make clean && make test` came back
+**323/323 forward + idempotency, fully green** (the `cpp_comments` failure
+doesn't reproduce via the Makefile's normal build path, which runs
+`gru-sync-weights` as a dependency of `_test_serial` and resyncs the
+classifier weights the isolated trial JAR skipped). See `CLAUDE.md`'s task
+history/commit log for the flushed-left/dedent bug-hunt outcome (not
+found — see below); no `RDD_KEY` added since no source bug was found or
+fixed, only cosmetic re-style adopted.
 
 **Flushed-left/dedented-body-line bug hunt (2026-08-16, same session):**
-user reported seeing a shape like a correctly-indented `if(...) {` /
-correctly-indented closing `}` with an in-between body statement dedented
-to column 0 (or another structurally-inconsistent shallow indent). Searched
-for precedent first (`RDD_KEY_228`'s flush-left GDR/HTML `<script>` fix,
-`RDD_KEY_297`'s Bash non-brace-nesting flattening fix — both real but
+user reported a shape like a correctly-indented `if(...) {` / closing `}`
+with an in-between body statement dedented to column 0 (or another
+structurally-inconsistent shallow indent). Checked precedent first —
+`RDD_KEY_228` (flush-left GDR/HTML `<script>` fix) and
+`RDD_KEY_297` (Bash non-brace-nesting flattening fix) are both real but
 different bug classes, already fixed, not a match for a plain curly-family
-`.java` body line). Two-pronged search across `src/`, round1, and round2
-(all `.java`, ~500 files each): (1) a broad heuristic (any line right after
-an indented `{`-ending line, dedented relative to that opener) produced
-~110 hits, all confirmed false positives on manual review — ordinary
-"wrapped multi-line signature, body at signature's base indent + 1 level"
-shapes, not bugs; (2) a strict heuristic matching the user's exact
-description (indentation collapsing all the way to column 0 immediately
-after an indented `{`-opening line, excluding comments/closing braces) —
-**zero hits** across `src/` (pre-adopt), round1, and round2. **Conclusion:
-not reproduced.** Either this bug class doesn't occur in this codebase's own
-source under default config (most likely, given `curly-general-scope-reindent`
-— the pass family with prior history of exactly this shape,
-RDD_KEY_228/RDD_KEY_240/RDD_KEY_297 — stays `off` by default per
+`.java` body line.
+Searched `src/`, round1, and round2 (~500 `.java` files each) with two
+heuristics: a broad one (any line right after an indented `{`-ending line,
+dedented relative to that opener) produced ~110 hits, all confirmed false
+positives on manual review (ordinary wrapped-multi-line-signature-plus-body
+shapes, not bugs); a strict one matching the user's exact description
+(indentation collapsing all the way to column 0 immediately after an
+indented `{`-opening line, excluding comments/closing braces) found **zero
+hits** across `src/` (pre-adopt), round1, and round2. **Conclusion: not
+reproduced** — either this bug class doesn't occur in this codebase's own
+source under default config (most likely, since `curly-general-scope-reindent`,
+the pass family with prior history of exactly this shape
+(RDD_KEY_228/RDD_KEY_240/RDD_KEY_297), stays `off` by default per
 `RDD_KEY_244`'s permanently-opt-in decision, so this dogfood pass never
 exercises it), or it needs a real-code corpus/input shape this session's
-own source tree doesn't contain. No fix attempted since no concrete repro
-was found; flagged in the final report rather than force a fix against a
-non-repro.
+own source tree doesn't contain. No fix attempted; flagged in the final
+report rather than forced against a non-repro.
 
 **2026-08-20: re-ran against real `src/` (explicitly requested after a
 session's changes to `ScopePipelineCurly.java`, shared scope-recursion
@@ -932,41 +926,38 @@ infrastructure used by C/C++/Java/Kotlin/JS/TS), adopted.** Fresh
 `/tmp/fmt_ref` copy (99 files under `src/`). Round1/round2 `diff -rq` empty
 (idempotency clean). Only 2 files differed from committed `src/`:
 `ScopePipelineCurly.java`, `rules/JsTsSpecificRule.java`. Both reviewed by
-hand line-by-line per this session's explicit ask to check for (a)
-flushed-left/dedented body lines and (b) lost comment content — **neither
-found**: every indentation change was ordinary alignment-column
-widening/narrowing (declaration-block alignment, ternary/call wrap width),
-never a collapse to column 0 or any other structurally-inconsistent shallow
-indent. One genuine minor comment-content issue found: in
+hand per this session's explicit ask to check for (a) flushed-left/dedented
+body lines and (b) lost comment content — **neither found**: every
+indentation change was ordinary alignment-column widening/narrowing
+(declaration-block alignment, ternary/call wrap width), never a collapse to
+column 0. One genuine minor comment-content issue found: in
 `JsTsSpecificRule.java`, a two-line wrapped trailing comment ("`// Popping
 the sentinel is what makes the` / `// root's own closing tag land at depth
-0`") had its second line's leading word capitalized (`root's` ->
-`Root's`) — the sentence-initial-capitalization heuristic treated the
-wrap-continuation line as a new sentence start rather than recognizing it
-as a continuation of the prior line's comment. No text was deleted, only
-mis-capitalized; flagged here rather than fixed inline since it's a
-narrow heuristic gap in the same family as previously-fixed Gate 1c/1c-2
-cases, not something to patch blind mid-dogfood-pass. All other diff
-hunks were routine cosmetic re-style (paren/`!`-spacing normalization,
-trailing-Javadoc-period stripping, ternary/nested-call line-wrap
-reflow, `// for` -> `// for pair`/`// for span` closing-brace
-loop-variable naming). Trial JAR built from round1 to `/tmp/output.jar`
-(never overwrote the committed `target/`-built jar); `make _test_serial
-JAR_FILE=/tmp/output.jar` came back 330/332 forward — the two failures
-(`test/cpp_comments_inp.cpp`, `test/real_code_regressions_217_inp.java`)
-were verified pre-existing and unrelated: built a second isolated JAR
-straight from the *unmodified, pre-adopt* committed `src/` and got
-byte-identical `--diff` output for both files, confirming the same
-GRU-classifier/`gru-sync-weights` drift already noted in the 2026-08-16
-entry (an isolated `javac`+`jar` trial build skips the `gru-sync-weights`
-Makefile dependency that a normal `make test` run performs), not
-introduced by this pass. round1b/round2b fixed-point check (reformatting
-the original `/tmp/fmt_ref` copy again with the trial JAR) came back
-fully empty on all three comparisons: r1b vs r2b, round1 vs r1b, round2 vs
-r2b — confirms a true fixed point. Adopted (round1 copied over `src/`);
-`make clean && make test` came back **332/332 forward + idempotency,
-fully green** (both trial-JAR-only failures gone once run through the
-normal Makefile build path, confirming the drift diagnosis). `make
-test-server` and `make bench` both passed. No `RDD_KEY` added — no
-functional source bug found or fixed, only cosmetic re-style adopted plus
-one flagged (not fixed) comment-capitalization heuristic gap.
+0`") had its second line's leading word capitalized (`root's` -> `Root's`)
+— the sentence-initial-capitalization heuristic treated the
+wrap-continuation line as a new sentence start rather than a continuation
+of the prior line's comment. No text deleted, only mis-capitalized;
+flagged rather than fixed inline since it's a narrow heuristic gap in the
+same family as the previously-fixed Gate 1c/1c-2 cases, not something to
+patch blind mid-dogfood-pass. All other diff hunks were routine cosmetic
+re-style (paren/`!`-spacing normalization, trailing-Javadoc-period
+stripping, ternary/nested-call line-wrap reflow, `// for` -> `// for
+pair`/`// for span` closing-brace loop-variable naming). Trial JAR built
+from round1 to `/tmp/output.jar` (never overwrote the committed `target/`
+jar); `make _test_serial JAR_FILE=/tmp/output.jar` came back 330/332
+forward — the two failures (`test/cpp_comments_inp.cpp`,
+`test/real_code_regressions_217_inp.java`) were confirmed pre-existing: a
+second isolated JAR built straight from the unmodified, pre-adopt `src/`
+gave byte-identical `--diff` output for both files, the same
+GRU-classifier/`gru-sync-weights` drift noted in the 2026-08-16 entry (an
+isolated `javac`+`jar` trial build skips the `gru-sync-weights` Makefile
+dependency a normal `make test` run performs). round1b/round2b fixed-point
+check (reformatting the original `/tmp/fmt_ref` copy again with the trial
+JAR) came back fully empty on all three comparisons — confirms a true
+fixed point. Adopted (round1 copied over `src/`); `make clean && make
+test` came back **332/332 forward + idempotency, fully green** (both
+trial-JAR-only failures gone once run through the normal Makefile build
+path, confirming the drift diagnosis). `make test-server` and `make bench`
+both passed. No `RDD_KEY` added — no functional source bug found, only
+cosmetic re-style adopted plus one flagged (not fixed)
+comment-capitalization heuristic gap.

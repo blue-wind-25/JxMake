@@ -919,6 +919,21 @@ RDD_KEY_88.
   remains open, now with a precise two-part diagnosis instead of "root cause not isolated." Full
   write-up: `RDD_LOG.md`'s `RDD_KEY_322`.
 
+  **2026-08-20 (same session), user-suggested GDR re-test, RDD_KEY_323 (also reverted, no net
+  source change):** re-tested `curly-general-scope-reindent`/`-multipass` (GDR) against the same
+  re-enabled-side-channel setup, since RDD_KEY_319's earlier "GDR makes no difference" finding
+  predates the RDD_KEY_321 corruption fix (GDR only rewrites already-present physical lines, and
+  the body was still collapsed onto one line back then). With the corruption fixed, GDR + multipass
+  DOES now activate -- but still doesn't produce a correct result, just a different one: it
+  correctly reindents the method body's statements one level deeper than its own opening `{`
+  (16sp -> 20sp), but reindents that SAME body's closing `}` to only 12sp -- a mismatched,
+  structurally-inconsistent brace pair (confirmed via exact byte inspection). Stable/idempotent,
+  but not a fix; a third moving part beyond RDD_KEY_322's two (GDR's own independent, line-based
+  brace-depth pre-pass mis-tracking this specific compound shape), not isolated further. Confirms
+  GDR is not a ready-made answer here -- and GDR is itself an off-by-default, documented-high-risk
+  feature (`STATE_CURLY_GDR.md`), not something to make a prerequisite for another feature without
+  its own dedicated investigation. Gap remains open. Full write-up: `RDD_LOG.md`'s `RDD_KEY_323`.
+
 ## Known Gaps — Fixed
 
 - **C/C++ lambda and Kotlin lambda-literal call-argument bodies never split to

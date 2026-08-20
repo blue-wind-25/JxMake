@@ -230,10 +230,9 @@ AI_PREAMBLE_FULL.md §15):
 `.hpp` and the trailing `C.` both count as dots, so `dotCount != 1`, leaving
 the genuinely sentence-ending period in place (expected: stripped).
 Distinguishing a mid-word/mid-token dot from a true sentence-ending dot is a
-natural-language judgment call with no tractable mechanical heuristic —
-permanently accepted as this limitation (`dotCount != 1` → leave as-is); see
-the 2026-08-11 disposition above for why the GRU task-separation fix isn't
-being pursued.
+natural-language judgment call with no tractable mechanical heuristic — see
+the 2026-08-11 disposition above for why the permanent limitation stands and
+the GRU task-separation fix isn't being pursued.
 
 ---
 
@@ -250,13 +249,13 @@ being pursued.
 
   **2026-08-04 — persistence plumbing built (user-commissioned)** so
   confirmed corrections survive `make gru-acquire-corpus` regenerating
-  `sample_default.txt` from scratch every run. New committed file
+  `sample_default.txt` from scratch every run: new committed file
   `tools/gru/disagreement_corrections.txt` (named exception to RDD_EXT_19,
   same footing as `sample_default.txt`/`code-formatter-ai-assist-weights.json`
   per RDD_KEY_217), empty until a disagreement-sampling pass produces
-  confirmed rows. New `tools/gru/apply_disagreement_corrections.py`, wired
+  confirmed rows; new `tools/gru/apply_disagreement_corrections.py`, wired
   into `gru-acquire-corpus` right after the `classifier_weights_examples.tsv`
-  append and before final dedup: *override* merge keyed on
+  append and before final dedup — *override* merge keyed on
   `<lang>/<targetWordIndex>/<escaped-comment-text>` (everything but
   `<label>`), dropping the conflicting auto-labeled row instead of leaving
   both present (plain-append dedup can't collapse a same-text/different-label
@@ -272,29 +271,29 @@ being pursued.
   every disagreement: 44 confirmed genuine corrections (43 YES, 1 NO)
   appended to `disagreement_corrections.txt`; the other 30 were too ambiguous
   or confirmed the original label. Applying the 44 against the real corpus
-  verified clean (44/44 matched, 0 mismatches). Production already clears
+  verified clean (44/44 matched, 0 mismatches). Production already cleared
   both bars (92.4% mean held-out CV precision at `abstainThreshold=0.7`, 2.7%
   NO FP rate), so this pass was optional polish; measuring the resulting
-  precision delta was left as a next step.
+  precision delta was left as the next step.
 
   **2026-08-04 — retrained on the corrections, checked, then reverted pending
   a real corpus-level CV.** After `make gru-acquire-corpus` (44/44 applied)
-  and a user retrain: (1) `GruEval` training-fit on the 522-row bench went
-  99.8%→99.4% (1→3 NO FPs) — noise from a 44-row/93k-line perturbation, not a
-  real signal; (2) a CV run was accidentally pointed at
-  `classifier_weights_examples.tsv` (the 522-row bench itself, never touching
-  `sample_default.txt`/corrections) — it only re-measured the bench's own
-  held-out generalization at its now-522-row size (mean=88.78%, stdev=4.81%,
-  down from the 474-row 92.4%±2.1%, i.e. the grown bench is
-  harder/higher-variance) — unrelated to the corrections. Neither check
-  isolates the 44 corrections' effect; that needs a CV run against the full
-  `sample_default.txt` (~2700-4050s/round). Added `make gru-cv-corpus`
-  (`GRU_CV_ROUNDS`/`GRU_CV_WORK_DIR`/`GRU_CV_LOG`/`GRU_CV_ARGS`) for the user
-  to run unattended on CM5. **Reverted the retrained production artifacts**
-  (`code-formatter-ai-assist-weights.json`, `tools/gru/sample_default.txt` —
-  `git checkout --`'d) pending that measurement, preserved as untracked
-  snapshots for restore if CM5 showed improvement:
-  `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json`,
+  and a user retrain, two checks came back inconclusive: (1) `GruEval`
+  training-fit on the 522-row bench went 99.8%→99.4% (1→3 NO FPs) — noise
+  from a 44-row/93k-line perturbation, not a real signal; (2) a CV run was
+  accidentally pointed at `classifier_weights_examples.tsv` (the 522-row
+  bench itself, never touching `sample_default.txt`/corrections), so it only
+  re-measured the bench's own held-out generalization at its now-522-row
+  size (mean=88.78%, stdev=4.81%, down from the 474-row 92.4%±2.1% — the
+  grown bench is harder/higher-variance) — unrelated to the corrections.
+  Neither isolates the 44 corrections' effect; that needs a CV run against
+  the full `sample_default.txt` (~2700-4050s/round). Added `make
+  gru-cv-corpus` (`GRU_CV_ROUNDS`/`GRU_CV_WORK_DIR`/`GRU_CV_LOG`/
+  `GRU_CV_ARGS`) for the user to run unattended on CM5. **Reverted the
+  retrained production artifacts** (`code-formatter-ai-assist-weights.json`,
+  `tools/gru/sample_default.txt` — `git checkout --`'d) pending that
+  measurement, preserved as untracked snapshots for restore if CM5 showed
+  improvement: `code-formatter-ai-assist-weights.2026-08-04-grok-corrections.json`,
   `tools/gru/sample_default.2026-08-04-grok-corrections.txt`.
 
   **2026-08-05 — CLOSED via the CM5 `gru-cv-corpus` run.** Confirmed the CM5
@@ -316,14 +315,14 @@ being pursued.
   hand-labeled bench, not real corpus distribution) — confirms the shipped,
   without-Grok-corrections weights/corpus already clears production bars by a
   wide margin. Also swept `abstainThreshold` 0.7/0.75/0.8 against the same
-  cached weights (no retrain): NO FP rate only drifted
-  12.43%→12.22%→11.94% while abstains grew ~48% — flatter trade-off than the
-  hand-labeled-bench sweep, so `abstainThreshold` stays `0.7`.
+  cached weights (no retrain): NO FP rate only drifted 12.43%→12.22%→11.94%
+  while abstains grew ~48% — flatter trade-off than the hand-labeled-bench
+  sweep, so `abstainThreshold` stays `0.7`.
 
   **Decision: do not adopt the Grok-corrections weights/corpus** — the
-  un-corrected corpus already clearing bars answers the question this thread
-  was blocked on (is the 44-row batch a real improvement), no reason to pull
-  in the reverted snapshot. Moved the two `*-2026-08-04-grok-corrections.*`
+  un-corrected corpus already clearing bars answers the blocking question
+  (is the 44-row batch a real improvement), no reason to pull in the
+  reverted snapshot. Moved the two `*-2026-08-04-grok-corrections.*`
   snapshots and the archived 44-row batch
   (`tools/gru/unused/disagreement_corrections.2026-08-04-grok.txt`) to
   `tools/gru/unused/` (see its README); live
@@ -472,8 +471,7 @@ stray-period strip — `CommentFeatureExtractor.extract` always computed
 `targetWordIndex`-aware `extract` overload.
 
 Both fixes → `Config.commentNormalizationClassifier` default `true`:
-**219/219 forward, 219/219 idempotency**. Both classifiers `true` briefly
-(partially reverted same day).
+**219/219 forward, 219/219 idempotency**.
 
 **`gru-classifier` flipped back to default `off`.** Shipped weights on 62
 hand-labeled: `total=62 abstain=0 decided=62 correct=19 precision=30.6%
@@ -987,13 +985,13 @@ consistent with RDD_EXT_18's original 20-50-epoch starting guidance.
 `Makefile` only; no training this session per user ("do not retrain, I will
 do that later").
 
-**`GRU_HAND_LABELED_REPEAT` left at 3, not increased.** User asked whether to
-raise alongside epochs/patience. Recommendation: no — training-fit/held-out
-gap this session (98.7% training vs 86.3% held-out, same hand-labeled rows)
-is direct symptom of over-weighting those rows; raising repeat would fit exact
-hand-labeled sentences harder, not generalize pattern, risks widening gap.
-Leave at 3 unless future CV (after this corpus growth folded in) still misses
-this pattern — then revisit.
+**`GRU_HAND_LABELED_REPEAT` left at 3, not increased** (user asked whether to
+raise it alongside epochs/patience). Recommendation: no — the 98.7%-training
+vs 86.3%-held-out gap this session (same hand-labeled rows) is a direct
+symptom of over-weighting those rows already; raising repeat would fit exact
+hand-labeled sentences harder, not generalize the pattern, and risks widening
+the gap. Revisit only if a future CV (after this corpus growth is folded in)
+still misses this pattern.
 
 **User re-ran `make gru-acquire-corpus`** to fold grown 522-row hand-labeled
 into training corpus; retrain deferred to user's session tomorrow

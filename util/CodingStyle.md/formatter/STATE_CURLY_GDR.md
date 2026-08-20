@@ -552,15 +552,14 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       below (seventh attempt, landed, `RDD_KEY_298`).**
 
       **2026-08-03, negative result:** turning on GDR (alone, then with
-      multipass) does not resolve D3 as a side effect. Both
+      multipass) does not resolve D3 as a side effect — both
       `/tmp/d3_test.kt` (grounded repro) and the real
       `EqualityAndComparisonCallsTransformer.kt` stay non-idempotent under
-      all three configurations — GDR only runs *between* whole pipeline
+      all three configurations, since GDR only runs *between* whole pipeline
       passes and can't see `renderCallCandidate`'s mid-pass sibling-candidate
-      volatility (`RDD_KEY_221`). Confirms the D3-fold conclusion still
-      holds — a real fix needs a direct change to `renderCallCandidate`'s
-      own fits-check. Full writeup: `RDD_KEY_235`. No source changed;
-      `make test` unaffected (237/237).
+      volatility (`RDD_KEY_221`). Confirms a real fix needs a direct change
+      to `renderCallCandidate`'s own fits-check. Full writeup: `RDD_KEY_235`.
+      No source changed; `make test` unaffected (237/237).
 
       **2026-08-07, third attempt (two sub-attempts, both reverted):** a
       Kotlin-gated `kotlinStatementStartIndex` backward token scan to
@@ -603,38 +602,37 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       infrastructure with sibling-candidate visibility (`RDD_KEY_235`).
 
       **2026-08-09, requested "one or two more tries," concluded without a
-      new code attempt:** re-read the full six-attempt history first.
-      Considered anchoring off GDR's existing `GdrLineBraceDepth`/
+      new code attempt:** re-read the full six-attempt history, then
+      considered anchoring off GDR's existing `GdrLineBraceDepth`/
       `GdrParenBracketDepthCounter` data instead of a fresh backward scan,
       but rejected by inspection — GDR's counters record brace-*nesting
       depth*, not brace-*kind* (lambda-body open vs. control-flow/
-      declaration-block open vs. plain grouping), and kind classification is
-      the actual ambiguity every prior attempt tripped on; reusing the
-      counters would not supply construct-kind awareness. No source
-      touched; `make test` reconfirmed at 263/263. Per `STATE_COMMON.md`'s
-      evidence-over-reasoning guidance, treats the six-attempt record as
-      already answering "try once or twice more" — `README.md`'s Known
-      Limitations already documents this gap. Genuinely closing D3 still
-      needs one of the two directions named above, not piecemeal retries.
+      declaration-block open vs. plain grouping), which is the actual
+      ambiguity every prior attempt tripped on, so the counters wouldn't
+      supply construct-kind awareness. No source touched; `make test`
+      reconfirmed at 263/263. Per `STATE_COMMON.md`'s evidence-over-
+      reasoning guidance, treats the six-attempt record as already
+      answering "try once or twice more" — `README.md`'s Known Limitations
+      already documents this gap. Closing D3 still needs one of the two
+      directions named above, not piecemeal retries.
 
       **2026-08-16, seventh attempt (landed, RDD_KEY_298)** — mechanism/
       validation numbers: see RDD_KEY_298 in Resolved Design Decisions
       above. Sidestepped needing a stable statement-boundary measurement
-      entirely (rather than another backward-scan/token-lookup-table
-      variant, explicitly excluded above); unlike GDR's own convergence
-      loop, does not throw on non-convergence (silently returns the last
-      pass) since this now runs unconditionally for every Kotlin file, not
-      behind an opt-in flag. Root cause reconfirmed precisely via debug
-      prints against the real `EqualityAndComparisonCallsTransformer.kt`: a
-      single over-limit original source line with two call/condition
-      candidates both wrap on a fresh format, but re-tokenizing that output
-      shortens the physical line the second candidate is measured against,
-      un-wrapping it — confirmed non-idempotent pre-fix, idempotent
-      post-fix. Also validated on the 188-file real Kotlin corpus
-      (`JetBrains/kotlin`'s `compiler/ir/backend.js/src`, the repro's own
-      subtree), 188/188 idempotent and syntax-clean; `GdrPipelineGate`'s own
-      convergence loop confirmed to compose safely (opaque call to
-      `formatOne`, no correctness interaction).
+      entirely (rather than another excluded backward-scan/token-lookup-
+      table variant); unlike GDR's own convergence loop, does not throw on
+      non-convergence (silently returns the last pass), since this now
+      runs unconditionally for every Kotlin file, not behind an opt-in
+      flag. Root cause reconfirmed via debug prints against the real
+      `EqualityAndComparisonCallsTransformer.kt`: a single over-limit
+      source line with two call/condition candidates both wraps on a fresh
+      format, but re-tokenizing that output shortens the physical line the
+      second candidate is measured against, un-wrapping it — non-idempotent
+      pre-fix, idempotent post-fix. Also validated on the 188-file real
+      Kotlin corpus (`JetBrains/kotlin`'s `compiler/ir/backend.js/src`),
+      188/188 idempotent and syntax-clean; `GdrPipelineGate`'s convergence
+      loop confirmed to compose safely (opaque call to `formatOne`, no
+      correctness interaction).
 - [x] **Adversarial stress-test of the bounded 4-stage multipass loop**
       (2026-08-05, dedicated hardening/validation task, not new
       functionality or a default flip). Goal: hunt for a genuine
@@ -645,7 +643,7 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       zero non-idempotency; this session deliberately targeted new shapes).
 
       **Mechanism confirmed first:** `GdrPipelineGate.applyAndFormat`'s "4
-      stages" was a hardcoded, unconditional 4-call sequence with no
+      stages" was a hardcoded, unconditional 4-call sequence — no
       comparison between any two stages' output, no iteration beyond
       exactly 4, no non-convergence detection at all.
 
@@ -679,7 +677,7 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       to end." Root cause: the same circular dependency `RDD_KEY_229`
       diagnosed, one level deeper than the 4-stage bound accounts for.
       Reproduces in plain JS/TS at depth 1 and in Kotlin at much deeper
-      nesting (30 levels); did not reproduce in the equivalent Java shape at
+      nesting (30 levels); not reproduced in the equivalent Java shape at
       any depth.
 
       **No source code changed this session** — fixing the bounded-loop
@@ -689,8 +687,8 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       demonstrating this bug would need to encode a known failure as
       expected output, wrong for a documented not-yet-fixed gap).
 
-      **Honest confidence assessment:** this is evidence the 4-stage bound
-      is insufficient for at least one real (if narrow/synthetic) shape, not
+      **Honest confidence assessment:** evidence the 4-stage bound is
+      insufficient for at least one real (if narrow/synthetic) shape, not
       just "unproven" — but not evidence every real-world file is at risk:
       every real-code corpus tested so far (700+ files, Java/C++/TS) still
       cleared cleanly, and the triggering shape (a wrapped fluent/arrow
@@ -710,44 +708,42 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       own relative-delta reindenters"). Built synthetic repros in `/tmp` via
       `JXM_CFMT_CFG curly-general-scope-reindent=on;curly-general-
       scope-reindent-multipass=on`, formatted with `code-formatter.sh`, and
-      — critically — compared each against the same input with
-      `multipass=off` to isolate exactly what GDR-2 (the second GDR
-      application in the multipass sequence) changes relative to
-      GDR-1-only output, not just idempotency. All four named shapes — TS
-      `switch`-in-`if` (`case`/`break` bodies via
-      `SwitchRule.applyNonInlineCaseIndent`), TS wrapped/nested ternary
-      chain (STYLE.md §8 continuation-indent renderer), Kotlin `when`-in-`if`
-      (Kotlin's switch-case equivalent), and Kotlin nested `if`-expression
-      ternary-equivalent wrap — came back idempotent (round1==round2==round3)
-      and showed the identical pattern vs. the multipass-off baseline: GDR-2
-      changed *only* a pre-existing `RDD_KEY_229`-shape else-brace mis-indent,
-      leaving the case/ternary/when/wrap region byte-for-byte identical to
-      the multipass-off baseline. **All four PASS.** Two harder
-      combined/deep-nesting variants built to push further — a
-      15-level-deep nested Kotlin `if`/`else` with a `when`-in-`if` plus a
-      nested `if`-expression wrap at the bottom, and a TS `switch`-in-`if`
-      whose `case` body contains both a wrapped fluent chain
-      (`.filter().map().forEach()` — the exact shape `RDD_KEY_240`
-      exploited) and a nested ternary in a sibling `case` — were also fully
-      idempotent, same pattern. **Both PASS.**
+      compared each against the same input with `multipass=off` to isolate
+      exactly what GDR-2 (the second GDR application in the multipass
+      sequence) changes relative to GDR-1-only output, not just
+      idempotency. All four named shapes — TS `switch`-in-`if` (`case`/
+      `break` bodies via `SwitchRule.applyNonInlineCaseIndent`), TS
+      wrapped/nested ternary chain (STYLE.md §8 continuation-indent
+      renderer), Kotlin `when`-in-`if` (Kotlin's switch-case equivalent),
+      and Kotlin nested `if`-expression ternary-equivalent wrap — came back
+      idempotent (round1==round2==round3) and showed the identical pattern
+      vs. the multipass-off baseline: GDR-2 changed *only* a pre-existing
+      `RDD_KEY_229`-shape else-brace mis-indent, leaving the case/ternary/
+      when/wrap region byte-for-byte identical to the multipass-off
+      baseline. **All four PASS.** Two harder combined/deep-nesting
+      variants built to push further — a 15-level-deep nested Kotlin
+      `if`/`else` with a `when`-in-`if` plus a nested `if`-expression wrap
+      at the bottom, and a TS `switch`-in-`if` whose `case` body contains
+      both a wrapped fluent chain (`.filter().map().forEach()` — the exact
+      shape `RDD_KEY_240` exploited) and a nested ternary in a sibling
+      `case` — were also fully idempotent, same pattern. **Both PASS.**
 
-      **Disposition: NOT REPRODUCED.** Across all four originally-named
-      untried shapes plus the two harder combined/deep-nesting variants
-      built to stress the same `RDD_KEY_240`-family fluent-chain/
-      deep-nesting triggers, GDR-2 never touched a line inside a
+      **Disposition: NOT REPRODUCED.** Across all six shapes tested —
+      including the two harder combined/deep-nesting variants built to
+      stress the same `RDD_KEY_240`-family fluent-chain/deep-nesting
+      triggers — GDR-2 never touched a line inside a
       `SwitchRule.applyNonInlineCaseIndent`/`when`-arm/STYLE.md §8
-      ternary-continuation region — it only ever corrected the already-
-      documented `RDD_KEY_229`-shape closing-brace mis-indent that
-      GDR-1-only leaves behind. No evidence GDR-2 clobbers the pipeline's
-      own relative-delta reindent decisions, for any shape tried. **Not an
-      exhaustive proof** (synthetic repros only, no dedicated real-code
-      TS/Kotlin corpus pull — judged out of scope given six shapes already
-      cleared cleanly and every real-code corpus this job has separately
-      tested under multipass — `javaparser-core(-generators)`, `angular` TS
-      cluster-5, `serge-sans-paille/frozen` — already showing zero
-      non-idempotency). No fixture added — session scoped to
-      `STATE_CURLY_GDR.md`/`XL.txt` edits only (ran concurrently alongside
-      another session's unrelated work elsewhere in the repo), all testing
+      ternary-continuation region — it only ever
+      corrected the already-documented `RDD_KEY_229`-shape closing-brace
+      mis-indent that GDR-1-only leaves behind. No evidence GDR-2 clobbers
+      the pipeline's own relative-delta reindent decisions, for any shape
+      tried. **Not an exhaustive proof** (synthetic repros only, no
+      dedicated real-code TS/Kotlin corpus pull — judged out of scope given
+      six shapes already cleared cleanly and every real-code corpus this
+      job has separately tested under multipass — `javaparser-core
+      (-generators)`, `angular` TS cluster-5, `serge-sans-paille/frozen` —
+      already showing zero non-idempotency). No fixture added — session
+      scoped to `STATE_CURLY_GDR.md`/`XL.txt` edits only, all testing
       `/tmp`-only, no `test/` writes. `XL.txt` TIER 9's `GDR-2` bullet
       updated to reflect this result.
 - [x] **Fix `RDD_KEY_240`'s confirmed second-order-oscillation
@@ -864,16 +860,14 @@ this does not belong on this job's checklist. If ever fixed, it belongs to
 whichever job owns `MiscRuleCurly`'s call-wrap logic (C/C++/Java or JS/TS
 base pipeline), not this one — do not attempt a fix here.
 
-**Original entry (2026-08-19, superseded by the diagnosis above):** flagged
-while investigating a JS_TS session's JSX `return(...)`-wrap hole-splicing
-report (`STATE_JS_TS.md`) — traced to this same shape, not a hole-recursion
-bug: the identical shape, formatted completely outside any JSX context as a
-plain top-level statement, reproduces byte-for-byte the same
-un-reformatted body. At the time, root cause was inferred (not verified) as
+**Original entry (2026-08-19, superseded above):** flagged while
+investigating a JS_TS session's JSX `return(...)`-wrap hole-splicing report
+(`STATE_JS_TS.md`) — traced to this same shape, not a hole-recursion bug
+(reproduces byte-for-byte identically outside any JSX context, as a plain
+top-level statement). At the time root cause was inferred (not verified) as
 "plausibly the GDR pre-pass's scope-walk only descends into statement-
-position function bodies" — **this inference is now confirmed wrong** by
-the 2026-08-20 direct-harness repro above (the gap exists identically with
-GDR off).
+position function bodies" — **confirmed wrong** by the 2026-08-20
+direct-harness repro above (the gap exists identically with GDR off).
 
 None else currently open beyond the above. (The prior "how to fix the base
 single-pass `RDD_KEY_229` bug" question was resolved 2026-08-06 as a

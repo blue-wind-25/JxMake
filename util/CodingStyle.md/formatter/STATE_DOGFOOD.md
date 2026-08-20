@@ -146,15 +146,15 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Java/Python3/JS/Bash | STATE_COMMON.md | recurring self-format pass (tools/*, XL.txt TIER 0 item 2, 2026-08-12) | DONE - BUG FOUND, FIXED | 69 files (.java/.py/.js/.sh); round1/round2 idempotent; content-diff clean on all 6 files with actual changes; syntax-checked clean. Surfaced a real formatter bug in `tools/gru/FilterAbstain.java`'s output (flush-left `catch`, see src/** row below); after fix, re-ran and re-adopted that one file. Round1 adopted over real `tools/*` |
 
 **Note on `microsoft/TypeScript`'s status**: cluster #3's shared
-braceless-collapse root cause (same as `angular/angular` cluster 4) is
-fixed, as is the `applyAssignmentsPass` vs. `enforceCallLineBreaking`
-ordering issue that was the residual cause here — shared-curly-pipeline
-scope, not JS/TS-specific (see STATE_C_CPP_JAVA.md Open Questions,
+braceless-collapse root cause (same as `angular/angular` cluster 4) and the
+residual `applyAssignmentsPass` vs. `enforceCallLineBreaking` ordering
+issue are both fixed — shared-curly-pipeline scope, not JS/TS-specific
+(see STATE_C_CPP_JAVA.md Open Questions,
 `ScopePipelineCurly.reapplyAssignmentsPassOnly`). The 2026-08-09
-reconfirmation found 5 residual shapes, all now fixed: `watchPublic.ts`'s
-nested-array-literal corruption plus the 4 Tier-3 shapes (RDD_KEY_273-276)
-— see the table row above and `STATE_JS_TS.md`'s "Dogfood:
-microsoft/TypeScript" section for per-shape detail.
+reconfirmation's 5 residual shapes (`watchPublic.ts` plus the 4 Tier-3
+shapes, RDD_KEY_273-276) are all fixed too — see the table row above and
+`STATE_JS_TS.md`'s "Dogfood: microsoft/TypeScript" section for per-shape
+detail.
 
 Corpus scope: `src/` only (601 real `.ts` files, 379045 lines) — excluded
 `tests/cases/**` (20089 hand-authored compiler fixtures, incl.

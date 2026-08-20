@@ -4191,6 +4191,18 @@ Real-code regressions:
                                                         identical body at statement position, instead of being
                                                         left completely untouched.
 
+  real_code_regressions_221_inp/out.java             -- a Java anonymous-class-as-call-argument body (`run(new
+                                                        Runnable() { public void run() {...} });`) no longer
+                                                        has its nested method body collapsed onto one line
+                                                        (RDD_KEY_321 -- see STATE_C_CPP_JAVA.md). Still left
+                                                        unreformatted (a separate, still-open gap).
+
+  real_code_regressions_222_inp/out.cpp              -- same RDD_KEY_321 fix, C++ side: a lambda-as-call-
+                                                        argument body with no preceding `.`/`->` in the call
+                                                        chain (`invoke([]() {...});`) no longer collapses onto
+                                                        one line either -- the same `parseDeclaration` bug,
+                                                        just not caught by RDD_KEY_317/219's own repro.
+
 How Tests Are Run
 -----------------
 

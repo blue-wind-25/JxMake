@@ -404,9 +404,15 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     )
     {
         final List<int[]> result = new ArrayList<>();
-        // Java deliberately excluded (RDD_KEY_317/RDD_KEY_318): an anonymous-class body's own
-        // method declaration confuses a downstream call-argument line-wrap pass that this side
-        // channel doesn't protect the spliced content from -- see STATE_C_CPP_JAVA.md's Known Gaps.
+        // Java deliberately excluded here too (mirrors the outer guard in processScope's span
+        // loop, below) -- NOT because of the corruption RDD_KEY_317/318 originally found when
+        // this was first attempted (that turned out to be an unrelated, already-fixed bug:
+        // DeclarationAlignmentRuleCurly.parseDeclaration's non-depth-aware `eqIdx` scan, fixed by
+        // RDD_KEY_321 with no change to this method), but because re-enabling Java here on top of
+        // that fix still produces wrong -- just differently wrong -- output: the recursed body's
+        // own indentation comes out mismatched (RDD_KEY_322/323 in RDD_LOG.md have the full
+        // diagnosis and what a real fix would need). `isJavaAnonClassBrace` below is kept,
+        // unreachable, for whoever picks this up next -- see its own doc comment.
         if(!lang.isCpp && !lang.isC && !lang.isKotlin) return result;
 
         int depth = 0;
@@ -509,6 +515,26 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * {@link #isFunctionExpressionBrace}'s direct-adjacency contract: a generic type-argument list
      * (`new Comparator<String>() { ... }`) is not recognized and left as an accepted gap, same
      * posture as this side channel's other per-language narrowings.
+     *
+     * <p><b>Currently unreachable.</b> Both {@code lang.isJava} guards that would dispatch here
+     * ({@link #findNestedLambdaOrAnonClassBraces}'s own top-of-method guard, and {@code
+     * processScope}'s outer span-loop guard) deliberately exclude Java. Kept in source rather than
+     * deleted so a future session re-attempting Java's "anonymous-class-as-call-argument body not
+     * reformatted" gap (RDD_KEY_314/315) doesn't have to re-derive this detection pattern from
+     * scratch -- this method itself was never the problem. Full history: RDD_KEY_317 (implemented
+     * alongside the working C++/Kotlin fix) -> RDD_KEY_318 (enabled, produced garbled output,
+     * reverted) -> RDD_KEY_319 (relocated the failure point, still reverted) -> RDD_KEY_321
+     * (found and fixed the ACTUAL cause -- an unrelated `parseDeclaration` bug, nothing to do with
+     * this method) -> RDD_KEY_322/323 (re-enabling Java on top of that fix no longer corrupts, but
+     * still renders with wrong indentation; two more root causes found, GDR doesn't help either).
+     * Re-enabling Java at both guard sites is necessary but not sufficient on its own -- at
+     * minimum, RDD_KEY_322's two indentation-derivation causes (`applyDeclarationsPass`/
+     * `applyAssignmentsPass` never use depth-derived indent, only round-normalize a statement's
+     * own raw source indent; this side channel's own closing-brace force-reindent goes stale once
+     * a later pass Allman-converts the recursed-into method signature) would need fixing first, or
+     * the recursed body will render with wrong -- though at least no longer corrupted --
+     * indentation. See `RDD_LOG.md`'s `RDD_KEY_318`/`RDD_KEY_319`/`RDD_KEY_321`/`RDD_KEY_322`/
+     * `RDD_KEY_323` for the full writeups.
      */
     private boolean isJavaAnonClassBrace(
         final List<Token> tokens,
@@ -2069,9 +2095,14 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // family's assumption of at most one owned brace per span) -- find every such
                 // nested brace directly inside this span's own text and recurse into each exactly
                 // like an ordinary child scope, splicing the result back in place. Gated to JS/TS
-                // only (`findNestedFunctionExpressionBraces` itself no-ops for every other
-                // language) -- C/C++/Java/Kotlin's analogous shapes (lambdas, anonymous classes)
-                // are a documented, deliberately out-of-scope gap; see STATE_C_CPP_JAVA.md.
+                // (`findNestedFunctionExpressionBraces`) and C/C++/Kotlin (`findNestedLambdaOr
+                // AnonClassBraces`, RDD_KEY_317) -- `lang.isJava` is deliberately absent from this
+                // list: re-enabling it here (together with `findNestedLambdaOrAnonClassBraces`'s
+                // own guard) currently renders a Java anonymous-class-as-call-argument body with
+                // wrong indentation rather than leaving it untouched -- not corrupted any more
+                // (RDD_KEY_321 fixed that, an unrelated bug), but not correctly reformatted either
+                // (RDD_KEY_322/323 have the diagnosis and what a real fix needs). See
+                // `isJavaAnonClassBrace`'s own doc comment for the full history/reuse notes.
                 if(lang.isJs || lang.isTs || lang.isCpp || lang.isC || lang.isKotlin) {
                     final List<int[]> nestedPairs = (lang.isJs || lang.isTs) ? findNestedFunctionExpressionBraces(
                         current, span.start, span.end

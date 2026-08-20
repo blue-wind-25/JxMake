@@ -287,8 +287,18 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [C_CPP_JAVA] Java anonymous-class-as-call-argument body not reformatted (C/C++/Kotlin's
-  lambda equivalent already fixed). See `STATE_C_CPP_JAVA.md` "Known Gaps".
+- [C_CPP_JAVA] Java anonymous-class-as-call-argument body not reformatted (C/C++/Kotlin's lambda
+  equivalent already fixed). Corruption fixed (RDD_KEY_321/322/323); this "not reformatted" part
+  stays open. See `STATE_C_CPP_JAVA.md` "Known Gaps".
+
+- [C_CPP_JAVA] TOMORROW (re-dogfood after RDD_KEY_321's `eqIdx` fix): `jenkinsci/jenkins` (Java,
+  primary) and `NVIDIA/stdexec` (C++, optional) -- see `STATE_C_CPP_JAVA.md` "Known Gaps",
+  RDD_KEY_321.
+
+- [C_CPP_JAVA] GDR idea (unverified, needs its own investigation before attempting): run
+  `curly-general-scope-reindent` a second time as a genuine POST-pass (after the rest of the
+  pipeline, not just as today's pre-pass), so it isn't immediately overwritten by the anon-class
+  side channel's own closing-brace reindent. See `RDD_LOG.md`'s `RDD_KEY_323`.
 
 Use sub-agent. This can be a substantial work.
 

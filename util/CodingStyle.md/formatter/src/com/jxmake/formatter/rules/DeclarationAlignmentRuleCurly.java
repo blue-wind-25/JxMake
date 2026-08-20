@@ -1074,9 +1074,27 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             modifiers, body, i, colonIdx, trailingComment, blankBefore
         );
 
-        int eqIdx = -1;
+        // RDD_KEY_321 -- depth-aware, same reasoning/shape as the colonIdx scan just above: a
+        // non-depth-aware scan can lock onto a `=` nested inside a call-argument's brace body
+        // (e.g. a Java anonymous-class-as-call-argument's own `int x = 1;` field/local --
+        // RDD_KEY_318/319's corruption) well before any genuine top-level `=` (or with none at
+        // all, as in a plain call statement like `run(new Runnable() { public void run() { int x
+        // = 1; ... } });`) -- misreading everything up to that nested `=` as this statement's
+        // "type" (dangling unmatched `{` tokens included) and everything after it as its
+        // "initializer" (dangling unmatched `}` tokens included), bypassing every brace-balance
+        // safety check below since each assumes a brace pair stays fully on one side of `eqIdx`
+        // or the other.
+        int eqIdx       = -1;
+        int eqScanDepth = 0;
         for( int j = i; j < body.size(); ++j ) {
-            if( isOp( body.get(j), "=" ) ) {
+            final Token et = body.get(j);
+            if( isPunct(et, "(") || isPunct(et, "[") || isPunct(et, "{") ) {
+                ++eqScanDepth;
+            }
+            else if( isPunct(et, ")") || isPunct(et, "]") || isPunct(et, "}") ) {
+                --eqScanDepth;
+            }
+            else if( eqScanDepth == 0 && isOp(et, "=") ) {
                 eqIdx = j;
                 break;
             }

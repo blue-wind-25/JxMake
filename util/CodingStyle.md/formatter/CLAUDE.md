@@ -59,6 +59,20 @@ own `STATE_COMMENT_GRAMMAR.md` — shipped, folded into
 `STATE_C_CPP_JAVA.md`'s "H" section; see that section and `RDD_LOG.md`'s
 `RDD_KEY_94`–`RDD_KEY_98` for history.)
 
+**`README.md` is strictly user-facing, for every job.** It must never leak this directory's
+internal process/implementation vocabulary: no `RDD_KEY_n`, no `STATE_*.md`/`RDD_LOG.md`
+references, no `test/` fixture names, no internal Java class/method names (e.g. `Config.java`,
+`FormatterCurly.formatOne`, `ServerMode.findRunningServerPort()`), and no internal build/test-
+process detail (`make test`, Makefile target names, `_test_serial`). Describe only observable
+behavior, in plain language a reader with no access to this directory could follow; use an inline
+code snippet instead of naming an internal type/method when illustrating a limitation (see
+`STATE_COMMON.md`'s rule on updating `README.md` alongside any user-visible fix). Before finishing
+any task that touches `README.md`, grep it for these patterns rather than assuming a small,
+localized edit couldn't have introduced one — a 2026-08-20 session found and fixed a dozen such
+leaks that had silently accumulated across prior sessions despite this rule already existing in
+`STATE_COMMON.md`; this file states it again, prominently, since `STATE_COMMON.md`'s version alone
+wasn't enough to keep it from recurring.
+
 After any `/compact` or context summarization, re-read the relevant state
 file in full before continuing — a summary may omit or compress exact
 resolved-decision or checklist details that only the on-disk file has

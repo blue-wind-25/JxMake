@@ -194,9 +194,9 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   "Finished dogfood / real-code testing" below. Full narrative: `RDD_KEY_169` in `RDD_LOG.md`.
 
 - **[Shared with STATE_JS_TS.md family] Java assignment-alignment trailing-comment padding vs.
-  `enforceCallLineBreaking` ordering — FIXED 2026-08-09 (four sessions/attempts).** Same
-  architectural bug family as above (`ScopePipelineCurly.processScope`'s outer-first-then-recurse
-  double-pass), same mechanism RDD_KEY_248/RDD_KEY_270 fixed for JS/TS via a narrow
+  `enforceCallLineBreaking` ordering — FIXED 2026-08-09 (four attempts).** Same architectural bug
+  family as above (`ScopePipelineCurly.processScope`'s outer-first-then-recurse double-pass), same
+  mechanism RDD_KEY_248/RDD_KEY_270 fixed for JS/TS via a narrow
   `reapplyClosingBraceAndDeclarationsPass` re-run — here for **Java**. Found via self-format
   dogfood on `rules/PowerShellSpecificRule.java`'s `format()`: a run of
   `s = someCall(s); // §N.n comment` assignments forms an `applyAssignmentsPass` alignment group;
@@ -204,27 +204,23 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   trailing-comment column stays padded to the pre-wrap width — round1 keeps stale wide padding,
   round2 recomputes and collapses to one space — non-idempotent.
 
-  **Attempt 1 (reverted):** widen the JS/TS-only re-run gate to all curly languages. Broke 8
-  fixtures — re-running `applyOversizedAggregateInitClosingBracePass` a second time re-collapsed
-  already-correct C/C++/Java output (RDD_KEY_246's "Attempt 2" failure mode).
-
-  **Attempt 2 (reverted):** narrow the gate to JS/TS/Java, also skip
-  `applyOversizedAggregateInitClosingBracePass` for Java. Narrowed the regression to 3 fixtures,
+  Three approaches tried and rejected before landing: (1) widen the JS/TS-only re-run gate to all
+  curly languages — broke 8 fixtures, re-running `applyOversizedAggregateInitClosingBracePass` a
+  second time re-collapsed already-correct C/C++/Java output (RDD_KEY_246's "Attempt 2" failure
+  mode). (2) narrow the gate to JS/TS/Java and also skip
+  `applyOversizedAggregateInitClosingBracePass` for Java — narrowed the regression to 3 fixtures,
   but `applyDeclarationsPass`/`applyAssignmentsPass` still re-collapsed Java's enum-constant-list
-  `;`-separator (RDD_KEY_89) — not isolated further.
+  `;`-separator (RDD_KEY_89), not isolated further. (3) target the wrap *decision* instead of
+  re-running passes — `MiscRuleCurly.flushCollapseGap` collapses the gap before a trailing comment
+  to one canonical space so `enforceCallLineBreaking`'s fits-check ignores alignment padding; safe
+  alone (261/261 clean) but insufficient — stabilizes the wrap decision, not
+  `applyAssignmentsPass`'s stale padding on non-wrapped siblings, repro still diverged.
 
-  **Attempt 3 (reverted):** target the wrap *decision* instead of re-running passes —
-  `MiscRuleCurly.flushCollapseGap` collapses the gap before a trailing comment to one canonical
-  space so `enforceCallLineBreaking`'s fits-check ignores alignment padding. Safe alone (261/261
-  clean) but insufficient — stabilizes the wrap decision, not `applyAssignmentsPass`'s stale
-  padding on non-wrapped siblings; repro still diverged.
-
-  **Attempt 4 (LANDED, FIXED):** new, narrower re-run mode re-deriving ONLY
-  `applyAssignmentsPass`'s output instead of the whole three-pass bundle (attempts 1/2's failure
-  mode). `ScopePipelineCurly.processScope`'s old `closingBraceAndDeclarationsOnly boolean`
-  generalized to `int reRunMode` (`RERUN_MODE_FULL`,
-  `RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS` = existing JS/TS bundle unchanged, new
-  `RERUN_MODE_ASSIGNMENTS_ONLY`). New entry point
+  **Landed (attempt 4):** new, narrower re-run mode re-deriving ONLY `applyAssignmentsPass`'s
+  output instead of the whole three-pass bundle (attempts 1/2's failure mode).
+  `ScopePipelineCurly.processScope`'s old `closingBraceAndDeclarationsOnly boolean` generalized to
+  `int reRunMode` (`RERUN_MODE_FULL`, `RERUN_MODE_CLOSING_BRACE_AND_DECLARATIONS` = existing JS/TS
+  bundle unchanged, new `RERUN_MODE_ASSIGNMENTS_ONLY`). New entry point
   `ScopePipelineCurly.reapplyAssignmentsPassOnly(String)`; `FormatterCurly.format` gained an
   `else if(lang.isJava)` branch. `applyAssignmentsPass` only touches genuine assignment groups
   (`MiscRuleCurly.groupAssignments`), so re-running it alone structurally can't touch an
@@ -236,13 +232,11 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   `test/real_code_regressions_193_{inp,out}.java`. `README.md`'s Known Limitations item 5
   (curly-brace family) removed as no longer applicable. Also resolves the
   `PowerShellSpecificRule.java` self-format trigger (its 2026-08-08 blank-line workaround no
-  longer required but left in place).
-
-  **2026-08-10: workaround removed, confirmed safe.** Blank lines between the `format()` method's
-  `s = applyX(s); // comment` chain in `PowerShellSpecificRule.java` deleted; manual round1/round2
-  `--out` re-format (`--lang` auto-inferred java) round1 == round2 byte-for-byte (confirms Attempt
-  4's fix holds). `make jar` + `make test`: 275/275, clean. Not adopted back over `src/` as a
-  formal dogfood-and-adopt pass — only the manual workaround was removed.
+  longer required but left in place; workaround removed 2026-08-10 after confirming safe — blank
+  lines between the `format()` method's `s = applyX(s); // comment` chain deleted, manual
+  round1/round2 `--out` re-format round1 == round2 byte-for-byte, `make jar` + `make test`:
+  275/275 clean; not adopted back over `src/` as a formal dogfood-and-adopt pass, only the manual
+  workaround was removed).
 
 - **NOT REPRODUCED, 2026-08-03 — closed as unconfirmed/stale.** Ran every registered
   `test/*_out.cpp`/`test/*_out.hpp` fixture (37 files) through `g++ -std=c++20 -fsyntax-only` and
@@ -832,40 +826,40 @@ RDD_KEY_88.
   2026-08-20, RDD_KEY_318). C/C++ lambda and Kotlin lambda-literal call-argument bodies are FIXED
   -- see "Known Gaps -- Fixed", RDD_KEY_317.** Root cause (RDD_KEY_315), unchanged for Java:
   `ScopePipelineCurly.splitTopLevelSpans` only records a `{` as a recursable child-scope-owning
-  `braceIdx` at `depth == 0`; a call argument's `new Runnable() { ... }` anonymous-class body's
-  `{` is always at `depth >= 1` (inside the call's own parens), so the entire call statement is
-  captured as one opaque top-level span with no child scope, and it's never recursed into --
-  unlike the identical body at declaration/statement position (e.g. `Runnable r = new Runnable()
-  { ... };`, which already recurses today). **Attempted 2026-08-20 alongside the C/C++/Kotlin fix
-  (RDD_KEY_317), reverted (RDD_KEY_318):** an `isJavaAnonClassBrace` detector (`new Type(args) {`,
-  direct `)`->`(` adjacency, `new` keyword backward scan) was implemented using the same side-
-  channel shape as the working C++/Kotlin/JS-TS fixes, but direct-harness repro produced visibly
-  WORSE/garbled output than the pre-existing baseline: an anonymous class body's own nested method
-  declaration (`public void run() { ... }`) got merged onto the preceding line and the whole
-  multi-line body collapsed with stray brace placement by a downstream call-argument line-wrap
-  pass, rather than being cleanly reindented. Unlike a JS/TS function-expression or a C++/Kotlin
-  lambda body (which contain only ordinary statements), a Java anonymous-class body's content is
-  itself a full member declaration (a method signature + its own nested brace body) -- structurally
-  different from every other language's version of this shape, and the downstream pass doesn't
-  appear to recognize the side-channel-spliced content as a legitimate child scope the way the
-  ordinary (non-side-channel) per-span `isNamedScope`-aware recursion path does. Confirmed the
-  garbled output is NOT itself a new regression (restored pre-session `ScopePipelineCurly.java` via
-  `git show HEAD:...`, rebuilt, byte-identical output to the shipped build's Java-excluded output)
-  -- reverted by excluding Java from `findNestedLambdaOrAnonClassBraces`'s language guard (the
-  `isJavaAnonClassBrace` detector/dispatch branch is left in source but dead/unreachable, rather
-  than deleted, so a future session doesn't have to re-derive the detection pattern from scratch).
-  A real fix likely needs either running the ordinary per-span `isNamedScope`-aware handling on the
-  spliced Java case too, or protecting the spliced region from the downstream call-wrap pass's
-  re-processing -- not attempted further this session per the session's own guardrails (judge scope
-  after 2-3 attempts); left for a future session with explicit go-ahead, same posture as
-  `RDD_KEY_235`'s `renderCallCandidate` fits-check gap.
+  `braceIdx` at `depth == 0`; a call argument's `new Runnable() { ... }` anonymous-class body's `{`
+  is always at `depth >= 1` (inside the call's own parens), so the entire call statement is one
+  opaque top-level span with no child scope, never recursed into -- unlike the identical body at
+  declaration/statement position (`Runnable r = new Runnable() { ... };`, which already recurses
+  today).
 
-  **2026-08-20 bounded follow-up attempt (RDD_KEY_319), also reverted, corrected diagnostic:** the
+  **Attempted 2026-08-20 alongside the C/C++/Kotlin fix (RDD_KEY_317), reverted (RDD_KEY_318):** an
+  `isJavaAnonClassBrace` detector (`new Type(args) {`, direct `)`->`(` adjacency, `new` keyword
+  backward scan) was implemented using the same side-channel shape as the working C++/Kotlin/JS-TS
+  fixes, but direct-harness repro produced visibly WORSE/garbled output than the pre-existing
+  baseline: an anonymous class body's own nested method declaration (`public void run() { ... }`)
+  got merged onto the preceding line and the whole multi-line body collapsed with stray brace
+  placement. Unlike a JS/TS function-expression or a C++/Kotlin lambda body (which contain only
+  ordinary statements), a Java anonymous-class body's content is itself a full member declaration
+  (a method signature + its own nested brace body) -- structurally different from every other
+  language's version of this shape; the downstream pass doesn't recognize the side-channel-spliced
+  content as a legitimate child scope the way the ordinary per-span `isNamedScope`-aware recursion
+  path does. Confirmed the garbled output is NOT itself a new regression (restored pre-session
+  `ScopePipelineCurly.java` via `git show HEAD:...`, rebuilt, byte-identical to the shipped build's
+  Java-excluded output). Reverted by excluding Java from
+  `findNestedLambdaOrAnonClassBraces`'s language guard, leaving the `isJavaAnonClassBrace`
+  detector/dispatch branch in source but dead/unreachable (so a future session doesn't have to
+  re-derive the detection pattern). A real fix likely needs either running the ordinary per-span
+  `isNamedScope`-aware handling on the spliced Java case too, or protecting the spliced region from
+  the downstream call-wrap pass's re-processing -- not attempted further this session per the
+  session's own guardrails (judge scope after 2-3 attempts); left for a future session with
+  explicit go-ahead, same posture as `RDD_KEY_235`'s `renderCallCandidate` fits-check gap.
+
+  **2026-08-20 bounded follow-up (RDD_KEY_319), also reverted, corrected diagnostic:** the
   corruption is actually caused by an UPSTREAM pass (`applySignaturePass`/`applyGetterSetterPass`,
-  not fully isolated), which collapses the anonymous class's nested method body before the side
+  not fully isolated) that collapses the anonymous class's nested method body before the side
   channel's own recursive splice ever runs -- not a downstream call-wrap-pass interaction as
-  originally framed above. See `RDD_KEY_319` in `RDD_LOG.md` for the full repro/diagnosis. No source
-  change landed; still an accepted, open gap.
+  originally framed above. Full repro/diagnosis in `RDD_LOG.md`'s `RDD_KEY_319`. No source change
+  landed; still an accepted, open gap.
 
 ## Known Gaps — Fixed
 

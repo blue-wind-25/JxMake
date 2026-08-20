@@ -2048,14 +2048,23 @@ public class TokenizerCurly extends TokenizerCore {
             allRawHoles.addAll(rawAttrHoles);
             allRawHoles.sort( (a, b) -> Integer.compare( a[0], b[0] ) );
             if( !allRawHoles.isEmpty() ) {
-                final List<int[]> holeSpans = new ArrayList<>();
-                for( final int[] raw : allRawHoles ) {
-                    int off0 = 0;
-                    for( int k = idx; k < raw[0]; ++k ) off0 += tokens.get(k).text.length();
-                    int off1 = off0;
-                    for( int k = raw[0]; k < raw[1]; ++k ) off1 += tokens.get(k).text.length();
-                    holeSpans.add( new int[]{off0, off1} );
-                } // for raw
+                // Single forward pass carrying a running offset, instead of restarting a sum from
+                // `idx` for every hole -- relies on `allRawHoles` being sorted ascending and
+                // non-overlapping (guaranteed above/by findJsxSpanEnd's comment), so each hole's
+                // [raw[0], raw[1]) is visited in increasing order exactly once.
+                final List<int[]> holeSpans = new ArrayList<>( allRawHoles.size() );
+                int offset  = 0;
+                int holeIdx = 0;
+                int off0    = 0;
+                for( int k = idx; k <= endTokenIdx && holeIdx < allRawHoles.size(); ++k ) {
+                    final int[] raw = allRawHoles.get(holeIdx);
+                    if( k == raw[0] ) off0 = offset;
+                    if( k == raw[1] ) {
+                        holeSpans.add( new int[]{off0, offset} );
+                        ++holeIdx;
+                    }
+                    offset += tokens.get(k).text.length();
+                } // for k
                 span.jsxHoleSpans = holeSpans;
             } // if
 

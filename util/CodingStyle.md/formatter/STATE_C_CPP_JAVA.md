@@ -825,6 +825,19 @@ RDD_KEY_88.
   re-run mode, same gate as `RDD_KEY_248`; `make test` 259/259 -> 260/260, zero regressions.
   **Already tracked in `XL.txt` TIER 8 as a watch-list item** (2026-08-21) — do not re-add; only
   update that entry if a new concrete unresolved instance surfaces.
+  **2026-08-21 update, RDD_KEY_330:** an audit of every `processScope` recursion site for this
+  same shape found one genuine un-gated instance — the `openBraceIdx < 0` side channel (nested
+  call-argument function-expression/lambda/anonymous-class bodies, RDD_KEY_315/316/317/325) was
+  force-reindenting its recursed body's trailing gap unconditionally, with no `reRunMode !=
+  RERUN_MODE_FULL` gate unlike the main span loop's own equivalent step. Fixed for JS/TS/C++/
+  Kotlin (Java excluded — its own unconditional `RERUN_MODE_ASSIGNMENTS_ONLY` re-run needs this
+  force-reindent every time, not just on a stale re-derivation; blanket-gating it regressed
+  `real_code_regressions_29/221/223`). `make test`: 337/337, zero regressions, no new fixture (the
+  gate only changes behavior under a non-full re-run combined with this side channel, a
+  combination no existing fixture happens to visibly differ under). **The underlying risk class
+  itself remains open** — this closes one previously-un-audited instance of the existing narrow
+  mitigation pattern, not the architecture. Still no concrete unresolved instance named as of this
+  update.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch and

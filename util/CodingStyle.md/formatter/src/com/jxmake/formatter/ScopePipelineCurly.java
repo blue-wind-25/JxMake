@@ -2243,7 +2243,20 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         // never legitimately wants a blank line of its own immediately after it.
                         if(lang.isJava) rawNestedResult = collapseLeadingBlankLines(rawNestedResult);
                         final String  nestedResult;
-                        if( nestedIndent == null
+                        // Same re-run-mode gate as the main span loop's own trailing-gap
+                        // force-reindent below (RDD_KEY_248/270): on a non-full re-run,
+                        // `nestedIndent` is re-derived from THIS round's already-formatted
+                        // physical text, not the shape the first `process()` call saw -- skip
+                        // the force-reindent here too rather than risk the same disagreement.
+                        // Java excluded: unlike JS/TS's call-wrap-fixup re-run (an occasional
+                        // repro-driven second pass), Java's own `RERUN_MODE_ASSIGNMENTS_ONLY`
+                        // re-run happens unconditionally on every file's normal format pipeline
+                        // (see `FormatterCurly.format`'s `reapplyAssignmentsPassOnly` call), and
+                        // this side channel's force-reindent is load-bearing there -- skipping it
+                        // for Java regressed `real_code_regressions_{29,221,223}` (RDD_KEY_325's
+                        // own anon-class-as-call-argument fixtures) to a flush-left closing `}`.
+                        if( ( reRunMode != RERUN_MODE_FULL && !lang.isJava )
+                                || nestedIndent == null
                                 || trailingGapHasComment(current, closeBraceIdx)
                                 || rawNestedResult.trim().isEmpty() ) {
                             nestedResult = rawNestedResult;

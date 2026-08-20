@@ -384,9 +384,9 @@ host = localhost
 port : 8080
 name = 'John Doe'
 
-; comment about the timeout
-timeout   = 30
-retries   = 3
+; Comment about the timeout
+timeout = 30
+retries = 3
 ```
 
 ---

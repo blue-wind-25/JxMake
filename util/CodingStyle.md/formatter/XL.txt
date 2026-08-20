@@ -70,28 +70,6 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
-Compact by priority:
-    STATE_JS_TS.md
-    STATE_C_CPP_JAVA.md
-    STATE_CURLY_GDR.md
-    STATE_COMMON.md
-    STATE_AI.md
-Use sub-agents in parallel as needed - balance the job between the sub-agents based on the
-file sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.
-`STATE_COMMON.md` needs extra care: compact its narrative/history sections only; leave the
-process rule text and the job table word-for-word, not paraphrased. Be careful not to lose important
-information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
-exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
-`RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
-There is no size/percentage target -- judge by content (merge redundant narrative, cut
-resolved back-and-forth, keep the final answer not the discussion that led to it); if a
-section is already dense, leave it alone rather than cutting to hit a number. Commit each
-file's compaction separately so a bad pass is easy to isolate/revert. Before and after each
-file, run `grep -c 'RDD_KEY_' <file>` and confirm the count is unchanged. Since sub-agents run
-in parallel with no coordination and some `RDD_KEY_n` chains span files, if a cross-file
-wording/job-pointer inconsistency is noticed, leave it as-is and note it in the commit message
-rather than editing the other file.
-
 Compact all `STATE_*.md` files (NOT `RDD_LOG.md` -- it's the canonical full-text
 store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
 Use at most 5 sub-agents in parallel - balance the job between the sub-agents based on the
@@ -185,10 +163,34 @@ after each bug fix is wasting time.
 
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-   Perform "project refactoring/cleanup" sweep — unused boilerplate, duplicated
-   `*Curly`/`*Indent`/`*Tags/*SimpleBraced` helper logic, etc.
+   Process the formatter Java source code (especially the files that are modified after
+   commit `ff2cd04`) and make improvements in this priority order:
+     1. Refactor duplicated/common code (you can search for existing helper functions that
+        already exist before commit `ff2cd04`).
+     2. If a clear opportunity arises, optimize for execution speed.
+     3. Perform other useful code clean-ups as needed.
 
-   Use sub-agent. This can be a substantial work.
+   Prioritize changes that are:
+     - Small and focused.
+     - Low-risk and behavior-preserving
+     - Consistent with the existing code style and architecture.
+     - Related to the stated tasks; avoid unrelated changes.
+
+   For optimizations, do not make speculative changes. Prefer optimizations where the
+   performance benefit is reasonably clear from the code.
+
+   After several trivial changes, or after completing one substantial change, run `make test`.
+   Fix any failures before continuing.
+
+   Commit completed changes incrementally. Do NOT accumulate all changes and make one large
+   commit. Each commit should contain a coherent set of related changes and have an appropriate
+   commit message.
+
+   You may launch up to two research sub-agents simultaneously.
+   You may launch only one code-writer sub-agent at a time.
+   If a code-writing task is simple and mechanical, use Haiku instead of Sonnet.
+
+   NEVER launch Opus or any more expensive sub-agent..
 
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 

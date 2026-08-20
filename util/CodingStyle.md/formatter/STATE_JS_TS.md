@@ -335,7 +335,10 @@ JS/TS fixtures are active in the Makefile and passing.
     **Not caused by, and out of scope for, RDD_KEY_312** — same
     already-documented gap class as the "General scope-depth
     reindentation" job. No fix attempted (confirmed pre-existing via
-    evidence, not by assumption).
+    evidence, not by assumption). **Already user-facing documented** in
+    `README.md`'s `## Known Limitations` §5 ("hole whose interior contains
+    deeply-nested, inconsistently-hand-indented object/array literals") —
+    not a gap missing from any tracker; do not re-add to `XL.txt`.
   - `react_demos_dogfood`: only the already-documented `demo13/app.js`/
     `server.js` non-JSX minified one-liner gap (see below); no new JSX
     finding.
@@ -386,7 +389,9 @@ JS/TS fixtures are active in the Makefile and passing.
   on a JSX root tag specifically), matching the same general class of gap
   as `STATE_COMMON.md`'s already-accepted "General scope-depth
   reindentation" limitation — not force-fixed under this narrow pass's own
-  scope.
+  scope. **Already user-facing documented** in `README.md`'s
+  `## Known Limitations` §5 (last paragraph) — not a gap missing from any
+  tracker; do not re-add to `XL.txt`.
 
   **Remaining scope, unchanged from before this session:** the general,
   reusable HTML5-tree-construction-aware JSX child parser (grammar-

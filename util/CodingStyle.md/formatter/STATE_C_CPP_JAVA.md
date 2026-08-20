@@ -823,6 +823,8 @@ RDD_KEY_88.
   `microsoft/TypeScript`'s `harness/collectionsImpl.ts`. **FIXED, RDD_KEY_270**: added
   `applyAssignmentsPass` as a third pass inside the existing `closingBraceAndDeclarationsOnly`
   re-run mode, same gate as `RDD_KEY_248`; `make test` 259/259 -> 260/260, zero regressions.
+  **Already tracked in `XL.txt` TIER 8 as a watch-list item** (2026-08-21) — do not re-add; only
+  update that entry if a new concrete unresolved instance surfaces.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch and
@@ -846,13 +848,16 @@ RDD_KEY_88.
   fixture (none ever existed for this occurrence).
 
 - **`openrewrite/rewrite` full-tree re-verification (2026-08-09), 4 residual idempotency diffs —
-  1 remains ACCEPTED, not fixed; 3 FIXED (2026-08-15, see "Known Gaps — Fixed",
-  `RDD_KEY_290`/`RDD_KEY_291`/`RDD_KEY_293`).** Found during item (17)'s deferred full-tree
-  round1/round2 re-run (see that entry for the run's own detail — this only records the 4
-  unresolved diffs left over after that session's one real bug, the primitive-type-declaration
-  collapse, was fixed and fixtured as `real_code_regressions_187`). All 4 are cosmetic
-  (idempotency-only, no invalid-syntax risk — the `java_syntax_check` full-tree baseline stayed
-  3510/3510 clean both before and after).
+  ALL 4 now resolved (3 FIXED 2026-08-15 via `RDD_KEY_290`/`RDD_KEY_291`/`RDD_KEY_293`; the 4th,
+  the `ASTParser.java` if/else-reindent instance, CLOSED 2026-08-16 documentation-only via
+  `RDD_KEY_301` — re-tested with both `curly-general-scope-reindent` and its `-multipass` flag
+  together, round1 byte-identical to round2). No longer an open item; see "Known Gaps — Fixed"
+  below for the 3 code fixes, and this file's `RDD_KEY_301` entry for the 4th's closure.** Found
+  during item (17)'s deferred full-tree round1/round2 re-run (see that entry for the run's own
+  detail — this only records the 4 diffs left over after that session's one real bug, the
+  primitive-type-declaration collapse, was fixed and fixtured as `real_code_regressions_187`). All
+  4 were cosmetic (idempotency-only, no invalid-syntax risk — the `java_syntax_check` full-tree
+  baseline stayed 3510/3510 clean throughout).
 
 
 ## Known Gaps — Fixed

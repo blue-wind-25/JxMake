@@ -982,11 +982,11 @@ passed as a call argument, with a body already spanning multiple physical lines,
 reformatted the same way an identical body at declaration/statement position already is:
 
 ```js
-items.map(function (x) {
+items.map( function (x) {
     doA(x);
     doB(x);
     return x;
-});
+} );
 ```
 
 The root cause is structural: the formatter's scope-recursion pass only treats a `{`/`}` pair as a
@@ -1039,9 +1039,9 @@ reindents by structural brace/paren depth alone and doesn't understand that a wr
 continuation's closer is meant to dedent back to match the call's own indentation level:
 
 ```kotlin
-if (a?.b?.isSomething(
+if( a?.b?.isSomething(
     context
-) == true) { ... }
+) == true ) { ... }
 ```
 
 Without the postpass, `context` and the closing `) == true` line up with the call's own indent

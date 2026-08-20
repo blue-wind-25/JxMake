@@ -292,6 +292,11 @@ Executed — see Checklist's fixture items below.
   non-declaration statement line inside the newly-recursed body isn't
   force-reindented) is documented separately, not fixed. Full text:
   `RDD_KEY_316`; full narrative in `STATE_C_CPP_JAVA.md`'s Known Gaps.
+  **All of the above (JS/TS fix RDD_KEY_316, C/C++/Kotlin fix RDD_KEY_317,
+  Java fix RDD_KEY_325) plus
+  their residual limitations are already user-facing documented** in
+  `README.md`'s `## Known Limitations` §1 — not open items missing from any
+  tracker; do not re-add to `XL.txt`.
 - `RDD_KEY_298` — **Fixed** D3 (Kotlin multi-line-call/condition wrap-
   decision flap), seventh attempt, landed. `FormatterCurly.formatOne`
   renamed to private `formatOnePass`; new public `formatOne` re-runs it

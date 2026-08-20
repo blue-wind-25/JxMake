@@ -684,11 +684,13 @@ public final class Config {
             case "curly-general-scope-reindent-multipass":
                 defaultValue  = defaults.curlyGeneralScopeReindentMultipass ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
+                note          = "Only takes effect when curly-general-scope-reindent is also on";
                 break;
 
             case "curly-general-scope-reindent-postpass":
                 defaultValue  = defaults.curlyGeneralScopeReindentPostpass ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
+                note          = "(EXPERIMENTAL) Only takes effect when curly-general-scope-reindent is also on";
                 break;
 
             case "header-guard-rename":

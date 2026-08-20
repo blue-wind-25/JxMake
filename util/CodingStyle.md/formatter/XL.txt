@@ -126,7 +126,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_221_inp/out.java`
-    to   `real_code_regressions_222_inp/out.cpp`
+    to   `real_code_regressions_224_inp/out.java`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -163,34 +163,34 @@ after each bug fix is wasting time.
 
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-   Process the formatter Java source code (especially the files that are modified after
-   commit `ff2cd04`) and make improvements in this priority order:
+    Process the formatter's Java source code (especially the files that are modified after
+    commit `ff2cd04`) and make improvements in this priority order:
      1. Refactor duplicated/common code (you can search for existing helper functions that
         already exist before commit `ff2cd04`).
      2. If a clear opportunity arises, optimize for execution speed.
      3. Perform other useful code clean-ups as needed.
 
-   Prioritize changes that are:
+    Prioritize changes that are:
      - Small and focused.
      - Low-risk and behavior-preserving
      - Consistent with the existing code style and architecture.
      - Related to the stated tasks; avoid unrelated changes.
 
-   For optimizations, do not make speculative changes. Prefer optimizations where the
-   performance benefit is reasonably clear from the code.
+    For optimizations, do not make speculative changes. Prefer optimizations where the
+    performance benefit is reasonably clear from the code.
 
-   After several trivial changes, or after completing one substantial change, run `make test`.
-   Fix any failures before continuing.
+    After several trivial changes, or after completing one substantial change, run `make test`.
+    Fix any failures before continuing.
 
-   Commit completed changes incrementally. Do NOT accumulate all changes and make one large
-   commit. Each commit should contain a coherent set of related changes and have an appropriate
-   commit message.
+    Commit completed changes incrementally. Do NOT accumulate all changes and make one large
+    commit. Each commit should contain a coherent set of related changes and have an appropriate
+    commit message.
 
-   You may launch up to two research sub-agents simultaneously.
-   You may launch only one code-writer sub-agent at a time.
-   If a code-writing task is simple and mechanical, use Haiku instead of Sonnet.
+    You may launch up to two research sub-agents simultaneously.
+    You may launch only one code-writer sub-agent at a time.
+    If a code-writing task is simple and mechanical, use Haiku instead of Sonnet.
 
-   NEVER launch Opus or any more expensive sub-agent.
+    NEVER launch Opus or any more expensive sub-agent.
 
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
@@ -275,7 +275,14 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-NONE FOR NOW
+- [C_CPP_JAVA / CURLY_GDR] Promote `curly-general-scope-reindent-postpass` out of EXPERIMENTAL.
+  Landed (RDD_KEY_324) as isolated, default-off infrastructure but not yet validated as a fix for
+  anything: tested against RDD_KEY_322/323's Java anon-class-as-call-argument repro and only
+  relocated the brace-pair mismatch (method body now aligned, outer anon-class body now
+  mismatched) rather than eliminating it. Needs the real `GdrBraceDepthCounter`/`GdrReindenter`
+  root-cause tracing for this compound brace shape that RDD_KEY_323 already scoped, then a
+  validated real-corpus win (direct-harness repro or dogfood) before dropping the EXPERIMENTAL
+  label. See `RDD_KEY_323`/`RDD_KEY_324` in `RDD_LOG.md`, `STATE_CURLY_GDR.md`'s Resolved Design Decisions.
 
 Use sub-agent. This can be a substantial work.
 
@@ -287,18 +294,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [C_CPP_JAVA] Java anonymous-class-as-call-argument body not reformatted (C/C++/Kotlin's lambda
-  equivalent already fixed). Corruption fixed (RDD_KEY_321/322/323); this "not reformatted" part
-  stays open. See `STATE_C_CPP_JAVA.md` "Known Gaps".
-
-- [C_CPP_JAVA] TOMORROW (re-dogfood after RDD_KEY_321's `eqIdx` fix): `jenkinsci/jenkins` (Java,
-  primary) and `NVIDIA/stdexec` (C++, optional) -- see `STATE_C_CPP_JAVA.md` "Known Gaps",
-  RDD_KEY_321.
-
-- [C_CPP_JAVA] GDR idea (unverified, needs its own investigation before attempting): run
-  `curly-general-scope-reindent` a second time as a genuine POST-pass (after the rest of the
-  pipeline, not just as today's pre-pass), so it isn't immediately overwritten by the anon-class
-  side channel's own closing-brace reindent. See `RDD_LOG.md`'s `RDD_KEY_323`.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 

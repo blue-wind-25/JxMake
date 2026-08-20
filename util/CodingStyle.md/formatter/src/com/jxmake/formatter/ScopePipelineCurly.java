@@ -10,6 +10,7 @@ package com.jxmake.formatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.IntPredicate;
 
 import com.jxmake.formatter.rules.DeclarationAlignmentRuleCurly;
 import com.jxmake.formatter.rules.DeclarationAlignmentRuleCurly.Declaration;
@@ -318,15 +319,32 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final int         spanEnd
     )
     {
+        if(!lang.isJs && !lang.isTs) return new ArrayList<>();
+
+        return findNestedBraces( tokens, spanStart, spanEnd, idx -> isFunctionExpressionBrace(tokens, spanStart, idx) );
+    }
+
+    /**
+     * Shared outermost-`depth > 0`-brace scan used by both {@link #findNestedFunctionExpressionBraces}
+     * (JS/TS) and {@link #findNestedLambdaOrAnonClassBraces} (C/C++/Java/Kotlin) -- identical
+     * bracket-depth tracking / outermost-match-and-skip walk, differing only in which single-brace
+     * predicate decides whether a given `{` is the target shape.
+     */
+    private List<int[]> findNestedBraces(
+        final List<Token>  tokens,
+        final int          spanStart,
+        final int          spanEnd,
+        final IntPredicate isTargetBrace
+    )
+    {
         final List<int[]> result = new ArrayList<>();
-        if(!lang.isJs && !lang.isTs) return result;
 
         int depth = 0;
         int idx   = spanStart;
         while(idx < spanEnd) {
             final Token t = tokens.get(idx);
             if( isPunct(t, "{") ) {
-                if( depth > 0 && isFunctionExpressionBrace(tokens, spanStart, idx) ) {
+                if( depth > 0 && isTargetBrace.test(idx) ) {
                     final int closeBraceIdx = matchBraceForward(tokens, idx);
                     if(closeBraceIdx > idx && closeBraceIdx < spanEnd) {
                         result.add( new int[] { idx, closeBraceIdx } );
@@ -403,44 +421,13 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final int         spanEnd
     )
     {
-        final List<int[]> result = new ArrayList<>();
         // Java re-enabled RDD_KEY_325 on top of RDD_KEY_321's corruption fix, together with a
         // Java-only pre-reindent of the recursed nested source (see the `lang.isJava` branch in
         // `processScope`'s span loop, below) that addresses RDD_KEY_322's cause (1) -- see
         // `isJavaAnonClassBrace`'s doc comment for the full history.
-        if(!lang.isCpp && !lang.isC && !lang.isKotlin && !lang.isJava) return result;
+        if(!lang.isCpp && !lang.isC && !lang.isKotlin && !lang.isJava) return new ArrayList<>();
 
-        int depth = 0;
-        int idx   = spanStart;
-        while(idx < spanEnd) {
-            final Token t = tokens.get(idx);
-            if( isPunct(t, "{") ) {
-                if( depth > 0 && isLambdaOrAnonClassBrace(tokens, spanStart, idx) ) {
-                    final int closeBraceIdx = matchBraceForward(tokens, idx);
-                    if(closeBraceIdx > idx && closeBraceIdx < spanEnd) {
-                        result.add( new int[] { idx, closeBraceIdx } );
-                        idx = closeBraceIdx + 1;
-                        continue;
-                    }
-                } // if
-                ++depth;
-                ++idx;
-                continue;
-            } // if
-            if( isPunct(t, "(") || isPunct(t, "[") ) {
-                ++depth;
-                ++idx;
-                continue;
-            } // if
-            if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
-                --depth;
-                ++idx;
-                continue;
-            } // if
-            ++idx;
-        } // while
-
-        return result;
+        return findNestedBraces( tokens, spanStart, spanEnd, idx -> isLambdaOrAnonClassBrace(tokens, spanStart, idx) );
     }
 
     /** Dispatches to the current language's own narrow lambda/anonymous-class-brace detector */

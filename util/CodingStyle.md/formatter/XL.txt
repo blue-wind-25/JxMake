@@ -125,8 +125,8 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc.
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
-    from `real_code_regressions_218_inp/out.js`
-    to   `real_code_regressions_220_inp/out.kt`
+    from `real_code_regressions_221_inp/out.java`
+    to   `real_code_regressions_222_inp/out.cpp`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:

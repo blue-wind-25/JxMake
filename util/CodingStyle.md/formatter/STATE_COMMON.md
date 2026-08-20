@@ -269,10 +269,11 @@ bugs are only observable at a non-default `indent-size` (e.g. `= 2`).
 **When a bug is found and fixed, add a new permanent fixture pair:**
 `test/real_code_regressions_N_{inp,out}.<ext>` (next available `N`)
 reproducing it minimally, register in the `Makefile`'s `INP_FILES` and
-`test/README.txt` — unless the bug is a no-op at the test harness's own
-default config (then document the fix + non-default-config verification in
-the state file instead, without a fixture indistinguishable from a no-op at
-default settings). Try to combine multiple bugs in one fixture if possible.
+`test/README.txt` (use terse description for the fixture) — unless the
+bug is a no-op at the test harness's own default config (then document the
+fix + non-default-config verification in the state file instead, without
+a fixture indistinguishable from a no-op at default settings). Try to
+combine multiple bugs in one fixture if possible.
 
 Standard copyright header for every new test fixture file:
 

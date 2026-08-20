@@ -1046,8 +1046,17 @@ if( a?.b?.isSomething(
 
 Without the postpass, `context` and the closing `) == true` line up with the call's own indent
 level (correct). With the postpass on, both lines can shift one level deeper than shown above.
-Leave this key off; it exists as a building block for future work on this pre-pass, not as a
-routine addition to an existing `curly-general-scope-reindent` configuration.
+
+The postpass isn't purely negative, though: it can also *fix* a genuine indentation mistake that
+the base pass leaves behind — specifically, a declaration that an earlier alignment step left
+mis-indented relative to its own sibling declarations (e.g. one declaration in a same-scope group
+sitting one level shallower than the rest, an unrelated pre-existing alignment quirk). The
+postpass's structural-depth-based reindent corrects that kind of "sibling declaration at the
+wrong depth" mistake, at the cost of the wrapped-call over-indentation risk shown above. In
+real-code testing across one large corpus, the postpass changed roughly 4 in 10 files, and the
+two effects appeared roughly comparably often, with no simple predictor of which case a given
+file will hit. Leave this key off; it exists as a building block for future work on this
+pre-pass, not as a routine addition to an existing `curly-general-scope-reindent` configuration.
 
 #### 3. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

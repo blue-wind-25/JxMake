@@ -264,9 +264,6 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass architecture rewrite. See
-  `STATE_C_CPP_JAVA.md`'s Known Gaps — Open and RDD_KEY_330.
-
 - [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL. See
   RDD_KEY_328 in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
@@ -283,6 +280,11 @@ Use sub-agent. This can be a substantial work.
 Use sub-agent. This can be a substantial work.
 
 === TIER X: Dead ===
+
+- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass architecture rewrite. CLOSED
+  — 4 separate sessions (RDD_KEY_248/270/315/330) each found and fixed only narrow instance-level
+  gate extensions; no session ever scoped a concrete design for the full rewrite. See
+  `STATE_C_CPP_JAVA.md`'s Known Gaps — Open and RDD_KEY_330.
 
 - [JS_TS] JSX full embedding-aware dispatcher. General HTML5-tree-construction reuse and
   grammar-position `<` disambiguation. CLOSED — NOT FEASIBLE.

@@ -190,7 +190,7 @@ after each bug fix is wasting time.
    You may launch only one code-writer sub-agent at a time.
    If a code-writing task is simple and mechanical, use Haiku instead of Sonnet.
 
-   NEVER launch Opus or any more expensive sub-agent..
+   NEVER launch Opus or any more expensive sub-agent.
 
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 

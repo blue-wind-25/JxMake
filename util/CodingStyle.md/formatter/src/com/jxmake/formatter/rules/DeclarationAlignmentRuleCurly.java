@@ -661,6 +661,41 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
 
 
     /**
+     * Depth-aware scan of {@code body} from {@code from}, looking for a bracket-depth-0 {@code
+     * targetOp}. If a depth-0 {@code stopOp} (may be {@code null} to disable) is hit first, the
+     * scan stops early and returns -1 -- {@code targetOp} is only ever reported when it precedes
+     * any {@code stopOp} occurrence. Shared shape behind both the bitfield-colon scan (target `:`,
+     * stop `=` -- a bitfield's colon always precedes any initializer `=`) and the initializer-`=`
+     * scan (target `=`, no stop) in the caller just below.
+     */
+    private static int findTopLevelOp(
+        final List<Token> body,
+        final int         from,
+        final String      targetOp,
+        final String      stopOp
+    )
+    {
+        int depth = 0;
+        for( int j = from; j < body.size(); ++j ) {
+            final Token t = body.get(j);
+            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) {
+                ++depth;
+            }
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
+                --depth;
+            }
+            else if( depth == 0 && stopOp != null && isOp(t, stopOp) ) {
+                return -1;
+            }
+            else if( depth == 0 && isOp(t, targetOp) ) {
+                return j;
+            }
+        } // for
+
+        return -1;
+    }
+
+    /**
      * True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,
      * `= default`) rather than a true variable initializer
      */
@@ -1052,24 +1087,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // otherwise a ternary `:` inside an initializer expression (`int x = cond ? a : b;`)
         // gets misdetected as a bitfield-width colon and the whole declaration is misrouted
         // into parseBitfield, corrupting its rendering.
-        int colonIdx       = -1;
-        int colonScanDepth = 0;
-        for( int j = i; j < body.size(); ++j ) {
-            final Token bt = body.get(j);
-            if( isPunct(bt, "(") || isPunct(bt, "[") || isPunct(bt, "{") ) {
-                ++colonScanDepth;
-            }
-            else if( isPunct(bt, ")") || isPunct(bt, "]") || isPunct(bt, "}") ) {
-                --colonScanDepth;
-            }
-            else if( colonScanDepth == 0 && isOp(bt, "=") ) {
-                break;
-            }
-            else if( colonScanDepth == 0 && isOp(bt, ":") ) {
-                colonIdx = j;
-                break;
-            }
-        } // for
+        final int colonIdx = findTopLevelOp(body, i, ":", "=");
         if(colonIdx >= 0) return parseBitfield(
             modifiers, body, i, colonIdx, trailingComment, blankBefore
         );
@@ -1084,21 +1102,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // "initializer" (dangling unmatched `}` tokens included), bypassing every brace-balance
         // safety check below since each assumes a brace pair stays fully on one side of `eqIdx`
         // or the other.
-        int eqIdx       = -1;
-        int eqScanDepth = 0;
-        for( int j = i; j < body.size(); ++j ) {
-            final Token et = body.get(j);
-            if( isPunct(et, "(") || isPunct(et, "[") || isPunct(et, "{") ) {
-                ++eqScanDepth;
-            }
-            else if( isPunct(et, ")") || isPunct(et, "]") || isPunct(et, "}") ) {
-                --eqScanDepth;
-            }
-            else if( eqScanDepth == 0 && isOp(et, "=") ) {
-                eqIdx = j;
-                break;
-            }
-        }
+        final int eqIdx = findTopLevelOp(body, i, "=", null);
         List<Token> initTokens;
         int         end;
         if(eqIdx >= 0) {

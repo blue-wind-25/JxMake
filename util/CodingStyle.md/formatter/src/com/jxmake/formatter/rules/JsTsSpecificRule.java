@@ -1553,30 +1553,7 @@ public final class JsTsSpecificRule {
      */
     private String dedentHoleInterior(final String text)
     {
-        final String[] lines = text.split("\n", -1);
-        if(lines.length <= 1) return text;
-                int minIndent = Integer.MAX_VALUE;
-        for(int i = 1; i < lines.length; ++i) {
-            final String line = lines[i];
-            if( line.trim().isEmpty() ) continue;
-            int i2 = 0;
-            while( i2 < line.length() && ( line.charAt(
-                i2
-            ) == ' ' || line.charAt(
-                i2
-            ) == '\t' ) ) ++i2;
-            minIndent = Math.min(minIndent, i2);
-        } // for
-        if(minIndent == Integer.MAX_VALUE || minIndent == 0) return text;
-
-        final StringBuilder sb = new StringBuilder( lines[0] );
-        for(int i = 1; i < lines.length; ++i) {
-            sb.append('\n');
-            final String line = lines[i];
-            sb.append( line.length() >= minIndent ? line.substring(minIndent) : line.trim() );
-        } // for
-
-        return sb.toString();
+        return MiscRuleCore.dedentLines(text, 1);
     }
 
     /**
@@ -1730,18 +1707,6 @@ public final class JsTsSpecificRule {
     private boolean isJsxNameChar(final char c)
     {
         return Character.isLetterOrDigit(c) || c == '.' || c == '-' || c == '_' || c == '$';
-    }
-
-    /**
-     * {@code count} copies of {@link #defaultIndentUnit} concatenated -- one indent level per
-     * nesting depth below {@code baseIndent}
-     */
-    private String repeatIndentUnit(final int count)
-    {
-        final StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < count; ++i) sb.append(defaultIndentUnit);
-
-        return sb.toString();
     }
 
     /**
@@ -1909,7 +1874,7 @@ public final class JsTsSpecificRule {
                 }
 
                 if(lineInitial) {
-                    final String want = baseIndent + repeatIndentUnit(depth);
+                    final String want = baseIndent + FormatterSimpleBraced.indent(depth, defaultIndentUnit);
                     final String have = tail.substring(lineStart, tagStart);
                     if( !have.equals(want) ) {
                         out.setLength( out.length() - have.length() );

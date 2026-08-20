@@ -2023,23 +2023,7 @@ public final class XmlSpecificRule {
      */
     private String dedent(final String text)
     {
-        final String[] lines     = text.split("\n", -1);
-              int      minIndent = Integer.MAX_VALUE;
-        for(final String line : lines) {
-            if( line.trim().isEmpty() ) continue;
-            int i = 0;
-            while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) i++;
-            minIndent = Math.min(minIndent, i);
-        }
-        if(minIndent == Integer.MAX_VALUE || minIndent == 0) return text;
-        final StringBuilder sb = new StringBuilder();
-        for(int i = 0; i < lines.length; ++i) {
-            final String line = lines[i];
-            sb.append( line.length() >= minIndent ? line.substring(minIndent) : line.trim() );
-            if(i < lines.length - 1) sb.append('\n');
-        }
-
-        return sb.toString();
+        return MiscRuleCore.dedentLines(text, 0);
     }
 
     /**

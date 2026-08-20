@@ -1082,6 +1082,38 @@ public static final class Assignment {
         return sb.toString();
     }
     /**
+     * Strips the common leading whitespace shared by every non-blank line of {@code text} at index
+     * {@code startLine} or later, leaving any earlier lines untouched. Shared by {@code
+     * XmlSpecificRule#dedent} ({@code startLine = 0}, dedents the whole block) and {@code
+     * JsTsSpecificRule#dedentHoleInterior} ({@code startLine = 1}, first line's leading whitespace
+     * was already trimmed by the caller) -- both need this for the same idempotency reason: without
+     * it, reformatting an already-spliced embedded block would feed its formatter content that
+     * already carries the previous round's baked absolute indentation, compounding on every round.
+     */
+    protected static String dedentLines(final String text, final int startLine)
+    {
+        final String[] lines     = text.split("\n", -1);
+              int      minIndent = Integer.MAX_VALUE;
+        for(int i = startLine; i < lines.length; ++i) {
+            final String line = lines[i];
+            if( line.trim().isEmpty() ) continue;
+            int i2 = 0;
+            while( i2 < line.length() && ( line.charAt(i2) == ' ' || line.charAt(i2) == '\t' ) ) i2++;
+            minIndent = Math.min(minIndent, i2);
+        }
+        if(minIndent == Integer.MAX_VALUE || minIndent == 0) return text;
+
+        final StringBuilder sb = new StringBuilder();
+        for(int i = 0; i < lines.length; ++i) {
+            final String line = lines[i];
+            if(i < startLine) sb.append(line);
+            else sb.append( line.length() >= minIndent ? line.substring(minIndent) : line.trim() );
+            if(i < lines.length - 1) sb.append('\n');
+        }
+
+        return sb.toString();
+    }
+    /**
      * Parses the shape `target op value ;` (STYLE.md §6), either entirely on one source line, or
      * spanning exactly two (STYLE.md §6's "Multi-line right-hand sides", see {@link
      * #classifyMultiLineBreak}). `target` must be a single bare `IDENTIFIER` -- a member access

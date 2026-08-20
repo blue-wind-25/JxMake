@@ -901,6 +901,7 @@ public class JavaSpecificRule {
             if( t.type != TokenType.KEYWORD || !"permits".equals(t.text) ) continue;
             final int classIdx = prevClassOrInterfaceKeyword(tokens, i);
             if(classIdx < 0) continue;
+            if( hasPunctBetween(tokens, classIdx, i, "{") ) continue;
             final int openBraceIdx = nextPunct(tokens, i, "{");
             if(openBraceIdx < 0) continue;
             final int declStart = lineStartIndex(tokens, classIdx);
@@ -1324,6 +1325,28 @@ public class JavaSpecificRule {
         } // for
 
         return -1;
+    }
+
+    /**
+     * True iff a PUNCT token matching {@code text} appears strictly between {@code fromExclusive}
+     * and {@code toExclusive} -- used by {@link #enforcePermitsClauseLineBreaking} to reject a
+     * {@code permits} KEYWORD token that isn't actually part of the class/interface header it
+     * appears to follow (e.g. a method named {@code permits} deep inside that class's body): a
+     * genuine {@code permits} clause always sits between the {@code class}/{@code interface}
+     * keyword and that declaration's own body-opening {@code {}, with no {@code {} in between.
+     */
+    private boolean hasPunctBetween(
+        final List<Token> tokens,
+        final int         fromExclusive,
+        final int         toExclusive,
+        final String      text
+    )
+    {
+        for( int i = fromExclusive + 1; i < toExclusive; ++i ) {
+            if( isPunct( tokens.get(i), text ) ) return true;
+        }
+
+        return false;
     }
 
     /** Nearest following PUNCT token matching {@code text}, or -1 */

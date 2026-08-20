@@ -4209,6 +4209,12 @@ Real-code regressions:
                                                         confirms the RDD_KEY_325 fix also reformats a multi-
                                                         member anonymous-class body correctly.
 
+  real_code_regressions_224_inp/out.java             -- RDD_KEY_326 dogfood-found fix: two overloaded
+                                                        `permits` methods, one calling the other -- `permits`
+                                                        is only a contextual Java keyword (sealed- class
+                                                        clause) but was previously matched unconditionally,
+                                                        corrupting a plain method of that name.
+
 How Tests Are Run
 -----------------
 

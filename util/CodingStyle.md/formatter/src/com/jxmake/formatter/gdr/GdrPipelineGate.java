@@ -90,30 +90,21 @@ public final class GdrPipelineGate {
         final String finalOutput;
         if(!multipass) {
             finalOutput = pipeline1;
-        } else {
+        }
+        else {
             String previous  = pipeline1;
             String converged = null;
             for(int cycle = 2; cycle <= MAX_MULTIPASS_CYCLES && converged == null; ++cycle) {
                 final String gdrN      = apply(previous, language, config);
                 final String pipelineN = formatter.formatOne(gdrN, filePath, config, formatOff);
 
-                if( pipelineN.equals(previous) ) {
-                    converged = pipelineN;
-                } else {
-                    previous = pipelineN;
-                } // if/else
+                if( pipelineN.equals(previous) ) converged = pipelineN;
+                else                             previous = pipelineN; // if/else
             } // for
 
-            if(converged == null) {
-                throw new IllegalStateException(
-                    "GDR multipass reindentation failed to converge to a stable fixed point within "
-                        + MAX_MULTIPASS_CYCLES + " cycles for file: " + filePath
-                        + " -- curly-general-scope-reindent-multipass is oscillating rather than "
-                        + "stabilizing; this indicates a genuine non-convergent input, not a "
-                        + "transient or safe-to-ignore condition. See RDD_KEY_240/RDD_KEY_241 in "
-                        + "RDD_LOG.md."
-                );
-            } // if
+            if(converged == null) throw new IllegalStateException(
+                "GDR multipass reindentation failed to converge to a stable fixed point within " + MAX_MULTIPASS_CYCLES + " cycles for file: " + filePath + " -- curly-general-scope-reindent-multipass is oscillating rather than " + "stabilizing; this indicates a genuine non-convergent input, not a " + "transient or safe-to-ignore condition. See RDD_KEY_240/RDD_KEY_241 in " + "RDD_LOG.md."
+            ); // If
 
             finalOutput = converged;
         } // if/else

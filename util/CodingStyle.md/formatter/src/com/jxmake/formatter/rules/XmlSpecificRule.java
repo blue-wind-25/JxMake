@@ -1889,7 +1889,9 @@ public final class XmlSpecificRule {
             // `onlyChild` may itself carry a same-line trailing comment (e.g. `<td>text<!-- c
             // --></td>`) -- this inline fast path bypasses renderNode(onlyChild), so that comment
             // must be spliced in here too or it's silently dropped (found via apache/ant dogfood).
-            final String childSuffix = onlyChild.trailingComment != null ? " " + wrapComment(onlyChild.trailingComment) : "";
+            final String childSuffix = onlyChild.trailingComment != null ? " " + wrapComment(
+                onlyChild.trailingComment
+            ) : "";
             final String inline      = indent(
                 depth
             ) + openTightNoAngle + ">" + onlyChild.raw + childSuffix + "</" + n.tagName + ">";
@@ -2091,7 +2093,7 @@ public final class XmlSpecificRule {
      * like, see {@link #isSingleWordDirective}) renders tight -- padding would rewrite the exact
      * literal byte sequence such a directive's third-party consumer requires just as surely as
      * capitalizing it would, defeating the whole point of {@code isSingleWordDirective} already
-     * skipping capitalization for this shape.
+     * skipping capitalization for this shape
      */
     private static String wrapComment(final String text)
     {

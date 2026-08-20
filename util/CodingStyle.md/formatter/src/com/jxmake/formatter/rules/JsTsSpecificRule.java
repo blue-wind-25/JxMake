@@ -1874,7 +1874,9 @@ public final class JsTsSpecificRule {
                 }
 
                 if(lineInitial) {
-                    final String want = baseIndent + FormatterSimpleBraced.indent(depth, defaultIndentUnit);
+                    final String want = baseIndent + FormatterSimpleBraced.indent(
+                        depth, defaultIndentUnit
+                    );
                     final String have = tail.substring(lineStart, tagStart);
                     if( !have.equals(want) ) {
                         out.setLength( out.length() - have.length() );

@@ -2051,11 +2051,11 @@ public class TokenizerCurly extends TokenizerCore {
                 // Single forward pass carrying a running offset, instead of restarting a sum from
                 // `idx` for every hole -- relies on `allRawHoles` being sorted ascending and
                 // non-overlapping (guaranteed above/by findJsxSpanEnd's comment), so each hole's
-                // [raw[0], raw[1]) is visited in increasing order exactly once.
+                // [raw[0], raw[1]) is visited in increasing order exactly once
                 final List<int[]> holeSpans = new ArrayList<>( allRawHoles.size() );
-                int offset  = 0;
-                int holeIdx = 0;
-                int off0    = 0;
+                      int         offset    = 0;
+                      int         holeIdx   = 0;
+                      int         off0      = 0;
                 for( int k = idx; k <= endTokenIdx && holeIdx < allRawHoles.size(); ++k ) {
                     final int[] raw = allRawHoles.get(holeIdx);
                     if( k == raw[0] ) off0 = offset;

@@ -678,18 +678,10 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         int depth = 0;
         for( int j = from; j < body.size(); ++j ) {
             final Token t = body.get(j);
-            if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) {
-                ++depth;
-            }
-            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
-                --depth;
-            }
-            else if( depth == 0 && stopOp != null && isOp(t, stopOp) ) {
-                return -1;
-            }
-            else if( depth == 0 && isOp(t, targetOp) ) {
-                return j;
-            }
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) ++depth;
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) --depth;
+            else if( depth == 0 && stopOp != null && isOp(t, stopOp) ) return -1;
+            else if( depth == 0 && isOp(t, targetOp) ) return j;
         } // for
 
         return -1;
@@ -1102,9 +1094,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // "initializer" (dangling unmatched `}` tokens included), bypassing every brace-balance
         // safety check below since each assumes a brace pair stays fully on one side of `eqIdx`
         // or the other.
-        final int eqIdx = findTopLevelOp(body, i, "=", null);
-        List<Token> initTokens;
-        int         end;
+        final int         eqIdx = findTopLevelOp(body, i, "=", null);
+              List<Token> initTokens;
+              int         end;
         if(eqIdx >= 0) {
             initTokens = new ArrayList<>( body.subList( eqIdx + 1, body.size() ) );
             end        = eqIdx;

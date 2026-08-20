@@ -1342,7 +1342,7 @@ public class JavaSpecificRule {
         final String      text
     )
     {
-        for( int i = fromExclusive + 1; i < toExclusive; ++i ) {
+        for(int i = fromExclusive + 1; i < toExclusive; ++i) {
             if( isPunct( tokens.get(i), text ) ) return true;
         }
 

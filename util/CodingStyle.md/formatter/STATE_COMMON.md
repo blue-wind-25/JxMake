@@ -972,3 +972,29 @@ path, confirming the drift diagnosis). `make test-server` and `make bench`
 both passed. No `RDD_KEY` added — no functional source bug found, only
 cosmetic re-style adopted plus one flagged (not fixed)
 comment-capitalization heuristic gap.
+
+**2026-08-21: full recurring pass — `tools/*` (82 files), real `src/`
+(99 files), and the four external dogfood-and-adopt corpora, all in one
+session.** `tools/*`: round1/round2 idempotent, content-diff clean, only 1
+file changed (`verifiers/js_ts_content_diff.js`, a single mis-indented
+line corrected to match its surrounding block) — adopted. `src/`: fresh
+copy, round1/round2 idempotent; 9/99 files differed from committed `src/`
+(the same handful touched by this session's other work) — all reviewed by
+hand, ordinary cosmetic re-style (if/else collapse, call-wrap width,
+declaration-alignment column width, trailing-period comment stripping),
+zero content loss, and an explicit grep for any added line starting flush
+at column 0 found none. Trial JAR from round1: `make _test_serial` came
+back 335/337 — the 2 failures were the same known
+GRU-classifier/`gru-sync-weights` drift class as the 2026-08-16/2026-08-20
+entries above (confirmed via byte-identical `--diff` output against an
+isolated JAR built straight from unmodified committed `src/`).
+round1b/round2b fixed-point check fully empty on all three comparisons.
+Adopted; `make clean && make test` came back **337/337 forward +
+idempotency, fully green**. External corpora (`../../JCS`, `../../MDXplorer`,
+`../../../3rd_party/tools/pcpp_java`, `../../../3rd_party/tools/colordiff/
+colordiff.py`, 61 files, `.cmd` files skipped — no formatter language
+support for Windows batch files): round1/round2 idempotent, and every
+formatted file came back byte-identical to its committed original (already
+at the fixed point the 2026-08-14 adopt left them at) — nothing to copy
+back. No `RDD_KEY` added — no functional source bug found. See
+`STATE_DOGFOOD.md` for the corresponding summary rows.

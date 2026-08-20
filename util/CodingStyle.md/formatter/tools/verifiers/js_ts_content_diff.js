@@ -182,7 +182,7 @@ function canonicalize(node)
     } // if
     const kids = n.getChildren();
     if(kids.length === 0) {
-      const t = n.getText();
+        const t = n.getText();
       if(t.length > 0) parts.push(t);
     }
     else {

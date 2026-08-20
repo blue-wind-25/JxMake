@@ -1098,9 +1098,13 @@ public static final class Assignment {
             final String line = lines[i];
             if( line.trim().isEmpty() ) continue;
             int i2 = 0;
-            while( i2 < line.length() && ( line.charAt(i2) == ' ' || line.charAt(i2) == '\t' ) ) i2++;
+            while( i2 < line.length() && ( line.charAt(
+                i2
+            ) == ' ' || line.charAt(
+                i2
+            ) == '\t' ) ) i2++;
             minIndent = Math.min(minIndent, i2);
-        }
+        } // for
         if(minIndent == Integer.MAX_VALUE || minIndent == 0) return text;
 
         final StringBuilder sb = new StringBuilder();

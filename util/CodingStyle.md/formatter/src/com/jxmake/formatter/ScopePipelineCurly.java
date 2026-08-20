@@ -321,14 +321,16 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     {
         if(!lang.isJs && !lang.isTs) return new ArrayList<>();
 
-        return findNestedBraces( tokens, spanStart, spanEnd, idx -> isFunctionExpressionBrace(tokens, spanStart, idx) );
+        return findNestedBraces(
+            tokens, spanStart, spanEnd, idx -> isFunctionExpressionBrace(tokens, spanStart, idx)
+        );
     }
 
     /**
      * Shared outermost-`depth > 0`-brace scan used by both {@link #findNestedFunctionExpressionBraces}
      * (JS/TS) and {@link #findNestedLambdaOrAnonClassBraces} (C/C++/Java/Kotlin) -- identical
      * bracket-depth tracking / outermost-match-and-skip walk, differing only in which single-brace
-     * predicate decides whether a given `{` is the target shape.
+     * predicate decides whether a given `{` is the target shape
      */
     private List<int[]> findNestedBraces(
         final List<Token>  tokens,
@@ -427,7 +429,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         // `isJavaAnonClassBrace`'s doc comment for the full history.
         if(!lang.isCpp && !lang.isC && !lang.isKotlin && !lang.isJava) return new ArrayList<>();
 
-        return findNestedBraces( tokens, spanStart, spanEnd, idx -> isLambdaOrAnonClassBrace(tokens, spanStart, idx) );
+        return findNestedBraces(
+            tokens, spanStart, spanEnd, idx -> isLambdaOrAnonClassBrace(tokens, spanStart, idx)
+        );
     }
 
     /**
@@ -1018,19 +1022,21 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     {
         final String[]      lines = source.split("\n", -1);
         final StringBuilder out   = new StringBuilder();
-        int                 depth = 0;
+              int           depth = 0;
         // Always start with a newline, even for line 0: the splice site (right after the outer
         // `{`) has no separator of its own, and the original single-line-K&R-style source (`new
         // Runnable() { public void run() {`) packs the body's first line onto the SAME physical
         // line as the outer `{` -- without this, that first reindented line would be appended
         // directly after the outer `{` with only its own leading-indent spaces in between,
-        // landing on the same line instead of its own.
+        // landing on the same line instead of its own
         for(int li = 0; li < lines.length; ++li) {
             out.append('\n');
             final String trimmed = lines[li].trim();
             if( trimmed.isEmpty() ) continue;
             int leadingCloses = 0;
-            while( leadingCloses < trimmed.length() && trimmed.charAt(leadingCloses) == '}' ) ++leadingCloses;
+            while( leadingCloses < trimmed.length() && trimmed.charAt(
+                leadingCloses
+            ) == '}' ) ++leadingCloses;
             final int lineDepth = Math.max(0, depth - leadingCloses);
             out.append(baseIndent);
             for(int d = 0; d < lineDepth; ++d) out.append( indentUnit() );
@@ -1048,25 +1054,25 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      */
     private int braceDeltaIgnoringStringsAndComments(final String line)
     {
-        int     delta    = 0;
-        boolean inStr    = false;
-        boolean inChar   = false;
-        for(int i = 0; i < line.length(); ++i) {
+        int     delta  = 0;
+        boolean inStr  = false;
+        boolean inChar = false;
+        for( int i = 0; i < line.length(); ++i ) {
             final char c = line.charAt(i);
             if(inStr) {
-                if(c == '\\') ++i;
-                else if(c == '"') inStr = false;
+                     if(c == '\\') ++i;
+                else if(c == '"')  inStr = false;
                 continue;
             } // if
             if(inChar) {
-                if(c == '\\') ++i;
+                     if(c == '\\') ++i;
                 else if(c == '\'') inChar = false;
                 continue;
             } // if
-            if( c == '"' )  { inStr  = true; continue; }
-            if( c == '\'' ) { inChar = true; continue; }
+            if(c == '"') { inStr  = true; continue; }
+            if(c == '\'') { inChar = true; continue; }
             if( c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '/' ) break;
-            if(c == '{') ++delta;
+                 if(c == '{') ++delta;
             else if(c == '}') --delta;
         } // for
 
@@ -1082,7 +1088,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     {
         int lastNewline = -1;
         int i           = 0;
-        while( i < text.length() && ( text.charAt(i) == ' ' || text.charAt(i) == '\t' || text.charAt(
+        while( i < text.length() && ( text.charAt(
+            i
+        ) == ' ' || text.charAt(
+            i
+        ) == '\t' || text.charAt(
             i
         ) == '\r' || text.charAt(i) == '\n' ) ) {
             if( text.charAt(i) == '\n' ) lastNewline = i;
@@ -2204,8 +2214,8 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         if( anyFrozen(current, openBraceIdx, closeBraceIdx + 1) ) continue;
                         final boolean nestedStartFrozen = current.get(openBraceIdx).frozen;
                               String  nestedSource      = joinText(
-                            current, openBraceIdx + 1, closeBraceIdx
-                        );
+                                  current, openBraceIdx + 1, closeBraceIdx
+                              );
                         final String  nestedIndent      = braceLineIndent(current, openBraceIdx);
                         final String  nestedChildIndent = (nestedIndent != null ? nestedIndent : inheritedIndent) + indentUnit();
                         // RDD_KEY_325, Java only: `applyDeclarationsPass`/`applyAssignmentsPass`
@@ -2223,14 +2233,16 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         // `normalizeIndent` has nothing to fix. Java-only: C++/Kotlin's existing
                         // working case is left untouched to avoid disturbing already-verified
                         // behavior.
-                        if(lang.isJava) nestedSource = reindentSourceByBraceDepth(nestedSource, nestedChildIndent);
-                              String  rawNestedResult   = processScope(
-                            tokenize(nestedSource, nestedStartFrozen),
-                            depth + 1,
-                            nestedStartFrozen,
-                            nestedChildIndent,
-                            reRunMode
+                        if(lang.isJava) nestedSource = reindentSourceByBraceDepth(
+                            nestedSource, nestedChildIndent
                         );
+                                String rawNestedResult = processScope(
+                                    tokenize(nestedSource, nestedStartFrozen),
+                                    depth + 1,
+                                    nestedStartFrozen,
+                                    nestedChildIndent,
+                                    reRunMode
+                                );
                         // RDD_KEY_325, Java only: the recursive `processScope` call above treats
                         // `nestedSource` as its own fresh top-level scope, and (for reasons not
                         // isolated further within this session's bounded attempt -- possibly a
@@ -2241,8 +2253,10 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         // the root cause further, since this splices in right after the OUTER
                         // anonymous-class-body `{` (its own separate physical line already), and
                         // never legitimately wants a blank line of its own immediately after it.
-                        if(lang.isJava) rawNestedResult = collapseLeadingBlankLines(rawNestedResult);
-                        final String  nestedResult;
+                        if(lang.isJava) rawNestedResult = collapseLeadingBlankLines(
+                            rawNestedResult
+                        );
+                        final String nestedResult;
                         // Same re-run-mode gate as the main span loop's own trailing-gap
                         // force-reindent below (RDD_KEY_248/270): on a non-full re-run,
                         // `nestedIndent` is re-derived from THIS round's already-formatted
@@ -2255,14 +2269,16 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         // this side channel's force-reindent is load-bearing there -- skipping it
                         // for Java regressed `real_code_regressions_{29,221,223}` (RDD_KEY_325's
                         // own anon-class-as-call-argument fixtures) to a flush-left closing `}`.
-                        if( ( reRunMode != RERUN_MODE_FULL && !lang.isJava )
+                        if( (reRunMode != RERUN_MODE_FULL && !lang.isJava)
                                 || nestedIndent == null
                                 || trailingGapHasComment(current, closeBraceIdx)
                                 || rawNestedResult.trim().isEmpty() ) {
                             nestedResult = rawNestedResult;
                         } // if
                         else {
-                            nestedResult = spliceWithTrailingNewlinesAndIndent(rawNestedResult, nestedIndent);
+                            nestedResult = spliceWithTrailingNewlinesAndIndent(
+                                rawNestedResult, nestedIndent
+                            );
                         }
                         replacements.add(
                             new Replacement(openBraceIdx + 1, closeBraceIdx, nestedResult)
@@ -2496,7 +2512,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     // pass after the first) -- without this blank-line rescue, blank line(s) right
                     // before such a closing brace survived round1 only to be silently dropped (or
                     // reduced) on round2 (found via `javaparser/javaparser`'s `TypeExtractor.java`).
-                    childResult = spliceWithTrailingNewlinesAndIndent(rawChildResult, effectiveSpanIndent);
+                    childResult = spliceWithTrailingNewlinesAndIndent(
+                        rawChildResult, effectiveSpanIndent
+                    );
                 }
             }
             replacements.add(

@@ -264,10 +264,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-- [CURLY_GDR] `curly-general-scope-reindent-postpass` stays EXPERIMENTAL (RDD_KEY_328): its
-  original motivating repro (RDD_KEY_322/323) was independently fixed by RDD_KEY_325, and a
-  188-file Kotlin dogfood found the postpass regresses real wrapped-call indentation elsewhere.
-  Not a live TODO — see RDD_KEY_328 in `RDD_LOG.md` / `STATE_CURLY_GDR.md` if revisiting.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -287,6 +284,9 @@ Use sub-agent. This can be a substantial work.
 
 - [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass architecture rewrite. See
   `STATE_C_CPP_JAVA.md`'s Known Gaps — Open and RDD_KEY_330.
+
+- [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL. See
+  RDD_KEY_328 in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
 Use sub-agent. This can be a substantial work.
 

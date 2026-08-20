@@ -255,20 +255,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
 
-- [C_CPP_JAVA] Call-argument function-expression body (`foo(function() {...})`-shape, or the
-  C/C++/Java/Kotlin equivalent) is never recursed into for reformatting — `splitTopLevelSpans`
-  only records `{` as a recursable span at `depth == 0`, so a call-argument's function-expression
-  `{` (always `depth >= 1`) is invisible to `processScope`'s recursion. Fixed for JS/TS only
-  (RDD_KEY_316); still fully open for C/C++/Java/Kotlin — judged too risky to fix in the shared
-  span-discovery infrastructure in one session. See `STATE_C_CPP_JAVA.md`'s Known Gaps — Open,
-  RDD_KEY_315.
-
-- [JS_TS] Attribute-value `{}`-hole recursive dispatch (`formatJsxHoleInterior`, 2026-08-19) is
-  non-idempotent on nested array/object-literal or nested-JSX-in-array placement inside a hole —
-  confirmed pre-existing via disable-and-retest during the 2026-08-20 6-corpus JSX dogfood
-  (`reactstrap_dogfood`, `excalidraw_dogfood` both showed diffs that persisted with the newer
-  `reindentJsxChildren` pass disabled). Not caused by, or scoped to, RDD_KEY_312. See
-  `STATE_JS_TS.md`'s Open Questions, 2026-08-20 dogfood entry.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -290,16 +277,6 @@ Use sub-agent. This can be a substantial work.
   risk class (an outer pass's decisions vs. an inner pass's re-derivation of the same span from
   different intermediate text) is nominally still open with no currently-named unresolved
   instance. See `STATE_C_CPP_JAVA.md`'s Known Gaps — Open.
-
-- [JS_TS] Non-declaration statement line inside a newly-recursed call-argument function-expression
-  body (RDD_KEY_316's fix) is passed through verbatim, not force-reindented — pre-existing general
-  recursion behavior, just newly visible for this shape. See `STATE_JS_TS.md`'s Resolved Design
-  Decisions, RDD_KEY_316, and `test/real_code_regressions_218`.
-
-- [JS_TS] JSX root tag with tab+space-mixed leading indentation needs 2 formatter passes (not 1)
-  to settle `reindentJsxChildren`'s children indentation — accepted residual gap, tab-bail fix
-  already landed (2026-08-20) to prevent tab corruption; not a live TODO to fix further, just a
-  documented narrow limitation (`lemoncode_dogfood`). See `STATE_JS_TS.md`'s Open Questions.
 
 Use sub-agent. This can be a substantial work.
 

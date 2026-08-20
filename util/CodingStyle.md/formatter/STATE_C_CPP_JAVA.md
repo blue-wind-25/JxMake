@@ -823,8 +823,6 @@ RDD_KEY_88.
   `microsoft/TypeScript`'s `harness/collectionsImpl.ts`. **FIXED, RDD_KEY_270**: added
   `applyAssignmentsPass` as a third pass inside the existing `closingBraceAndDeclarationsOnly`
   re-run mode, same gate as `RDD_KEY_248`; `make test` 259/259 -> 260/260, zero regressions.
-  **Already tracked in `XL.txt` TIER 8 as a watch-list item** (2026-08-21) — do not re-add; only
-  update that entry if a new concrete unresolved instance surfaces.
   **2026-08-21 update, RDD_KEY_330:** an audit of every `processScope` recursion site for this
   same shape found one genuine un-gated instance — the `openBraceIdx < 0` side channel (nested
   call-argument function-expression/lambda/anonymous-class bodies, RDD_KEY_315/316/317/325) was
@@ -838,6 +836,12 @@ RDD_KEY_88.
   itself remains open** — this closes one previously-un-audited instance of the existing narrow
   mitigation pattern, not the architecture. Still no concrete unresolved instance named as of this
   update.
+  **2026-08-21, CLOSED as a rewrite candidate:** across all four sessions above (RDD_KEY_248/270/
+  315/330), every one that found a concrete instance fixed it with a narrow gate extension; none
+  ever scoped a concrete design for a full architecture rewrite. Moved to `XL.txt` TIER X (dead) —
+  do not re-add to any tier as a rewrite item. A new concrete unresolved instance, if one surfaces,
+  should still be logged and fixed narrowly here, same as the four above — that does not reopen
+  the rewrite question.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch and

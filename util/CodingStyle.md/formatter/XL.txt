@@ -282,9 +282,8 @@ Use sub-agent. This can be a substantial work.
 === TIER X: Dead ===
 
 - [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass architecture rewrite. CLOSED
-  — 4 separate sessions (RDD_KEY_248/270/315/330) each found and fixed only narrow instance-level
-  gate extensions; no session ever scoped a concrete design for the full rewrite. See
-  `STATE_C_CPP_JAVA.md`'s Known Gaps — Open and RDD_KEY_330.
+  — 4 sessions each fixed only a narrow instance, none ever scoped the rewrite itself. See
+  `STATE_C_CPP_JAVA.md`, `RDD_KEY_330`.
 
 - [JS_TS] JSX full embedding-aware dispatcher. General HTML5-tree-construction reuse and
   grammar-position `<` disambiguation. CLOSED — NOT FEASIBLE.

@@ -862,6 +862,11 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       further this session (would need the same paren/bracket-axis tracing already called for
       in `RDD_KEY_323`/`RDD_KEY_324`, applied to this different trigger shape). No source
       changed (validation-only); `make test`: 336/336 unaffected. Full text: `RDD_KEY_328`.
+      **Default-off decision:** given the confirmed real-corpus regressions above (not just
+      "unvalidated"), `curly-general-scope-reindent-postpass = off` is the permanent default
+      even if the flag is ever promoted out of EXPERIMENTAL later — same posture as
+      `RDD_KEY_244`'s base-flag decision, extended to this key specifically. Do not flip this
+      default without first fixing the wrap-continuation regression this entry documents.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

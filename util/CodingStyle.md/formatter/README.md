@@ -1027,7 +1027,29 @@ onto one garbled line instead of reformatting correctly — an unrelated declara
 that also affected some C++ lambda-as-call-argument shapes with no preceding `.`/`->` in the call
 chain — was fixed earlier, 2026-08-20.)
 
-#### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
+#### 2. `curly-general-scope-reindent-postpass` is experimental and can regress already-correct indentation
+
+`curly-general-scope-reindent-postpass` (default `off`, only takes effect when
+`curly-general-scope-reindent` is also `on`) runs one extra reindentation pass directly on the
+final formatted output, with no further formatting pass afterward — unlike
+`curly-general-scope-reindent-multipass`, which always alternates a reindent pass with a full
+formatting pass. Real-code testing found this extra pass can push a previously-correct wrapped
+call's continuation line and closing bracket a level deeper than they should be, since it
+reindents by structural brace/paren depth alone and doesn't understand that a wrapped
+continuation's closer is meant to dedent back to match the call's own indentation level:
+
+```kotlin
+if (a?.b?.isSomething(
+    context
+) == true) { ... }
+```
+
+Without the postpass, `context` and the closing `) == true` line up with the call's own indent
+level (correct). With the postpass on, both lines can shift one level deeper than shown above.
+Leave this key off; it exists as a building block for future work on this pre-pass, not as a
+routine addition to an existing `curly-general-scope-reindent` configuration.
+
+#### 3. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 
 Whether a small call or condition nested inside a longer expression stays on one line or gets
 wrapped is, in one code path, decided by measuring the length of its entire surrounding source
@@ -1049,7 +1071,7 @@ itself (up to 5 passes) until two consecutive passes produce byte-identical outp
 a fixed point instead of flapping. This is a known, currently-unresolved gap
 for C/C++/Java/JS/TS only.
 
-#### 3. `.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in
+#### 4. `.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in
 
 The JSX/TSX boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but
 deliberately stays off by default on plain `.ts` (see "Single file" above for why) —
@@ -1067,7 +1089,7 @@ end-to-end against six real-world corpora spanning both JSX-in-`.js` and TSX
 template-literal `${...}` holes; a residual risk of an unseen JSX-adjacent edge case not exercised
 by these corpora remains, as with any real-world testing.
 
-#### 4. JSX/TSX-syntax-aware reformatting is limited to a few targeted rules
+#### 5. JSX/TSX-syntax-aware reformatting is limited to a few targeted rules
 
 Real JSX tag trees are located by the boundary-finding pre-pass and preserved byte-for-byte as
 opaque, unformatted spans, with a small number of content-aware transforms layered on top:
@@ -1094,7 +1116,7 @@ untouched by the child-indentation pass (it bails out rather than rewriting chil
 ambiguous base indent), so such a file may still need two formatting passes instead of one to
 reach a stable result, rather than converging in a single pass like every other case.
 
-#### 5. JS/TS import ordering misclassifies bundler/tsconfig path-mapped absolute imports as third-party
+#### 6. JS/TS import ordering misclassifies bundler/tsconfig path-mapped absolute imports as third-party
 
 Local-import detection (§15) is syntactic only: an import specifier is `local` iff it starts with
 `./` or `../`.
@@ -1109,7 +1131,7 @@ No workaround: this formatter has no config concept for a project's source root 
 `tsconfig.json`/bundler-config resolution logic. Known, accepted simplification — no
 source-root config key is planned.
 
-#### 6. `.h` files default to C inference, so C++-only rules never apply unless overridden
+#### 7. `.h` files default to C inference, so C++-only rules never apply unless overridden
 
 The `.h` extension maps to `"c"` by default (C is by far the more common real-world
 case for a bare `.h` file), so every C++-specific behavior across the whole `cpp` pipeline — not
@@ -1137,7 +1159,7 @@ auto-detect C vs. C++ were judged too fragile to trust for a correctness-sensiti
 this. The override takes priority over extension-based inference for `.h` files specifically — see
 [In-file config overrides](#in-file-config-overrides) above.
 
-#### 7. `normalize-comment-start-case-multiline` can capitalize commented-out code inside a multi-line comment group
+#### 8. `normalize-comment-start-case-multiline` can capitalize commented-out code inside a multi-line comment group
 
 Affects the curly-brace family (C/C++/Java/Kotlin/JS/TS), the `#`-comment tooling family
 (E-INI/JxMakeFile/Makefile/Bash/PowerShell), and YAML/TOML. See "Config file format" → [Multi-sentence

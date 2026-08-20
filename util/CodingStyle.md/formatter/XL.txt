@@ -164,9 +164,9 @@ after each bug fix is wasting time.
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
     Process the formatter's Java source code (especially the files that are modified after
-    commit `ff2cd04`) and make improvements in this priority order:
+    commit `4c91011`) and make improvements in this priority order:
      1. Refactor duplicated/common code (you can search for existing helper functions that
-        already exist before commit `ff2cd04`).
+        already exist before commit `4c91011`).
      2. If a clear opportunity arises, optimize for execution speed.
      3. Perform other useful code clean-ups as needed.
 
@@ -197,7 +197,7 @@ after each bug fix is wasting time.
    Apply the formatter to all `*.java/py/js/sh` source files inside `tools/*` subdirectories.
    Output the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency
    check and content-diff check. If all OK, copy back the formatted round1 to the `tools/*`
-   subdirectories.
+   subdirectories. Perform some eyeballing as needed.
 
    Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
    subdirectories. Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform
@@ -205,22 +205,8 @@ after each bug fix is wasting time.
    formatter's `src/**/` subdirectories. Perform some eyeballing as needed. Running the test
    fixtures from the formatter JAR may produce regressions due to missing GRU weights.
 
-   Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
-   subdirectories (ONLY the files that were modified/edited by today's jobs). Output the result
-   to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform idempotency check and content-diff
-   check. If all OK, copy back the formatted round1 to the formatter's `src/**/` subdirectories.
-   Perform some eyeballing as needed. Running the test fixtures from the formatter JAR may
-   produce regressions due to missing GRU weights.
-
-   Find and fix accidentally flushed-left line and dedented lines in the formatter's `*.java`
-   source files inside `src/**/*.java`, e.g.:
-   ```
-   if( ... long_expression ... ) {
-expression
-   }
-   ```
-   The `expression` lose its indentation. This may indicates formatter bug either in the
-   current pass or previous pass.
+   Find and fix accidentally flushed-left line and dedented lines because this may indicates
+   formatter bug.
 
    Next, apply the formatter to:
        `../../JCS/*`
@@ -229,10 +215,10 @@ expression
        `../../../3rd_party/tools/colordiff/colordiff.py`
    Output the result to `/tmp/something_round1` and then `/tmp/something_round2`. Perform
    idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
-   original subdirectories.
+   original subdirectories. Perform some eyeballing as needed.
 
-   Update and fix `CLAUDE.md`, `STATE_DOGFOOD.md`, `README.md`, `../README.txt`,
-   `../AI_PREAMBLE_FULL.md`, `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
+   Update `CLAUDE.md`, `STATE_DOGFOOD.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
+   `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
 
    Use sub-agent. This can be a substantial work.
 
@@ -275,14 +261,10 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 4: Architectural, cross-pass-ordering — high risk, prior attempts regressed fixtures ===
 
-- [C_CPP_JAVA / CURLY_GDR] Promote `curly-general-scope-reindent-postpass` out of EXPERIMENTAL.
-  Landed (RDD_KEY_324) as isolated, default-off infrastructure but not yet validated as a fix for
-  anything: tested against RDD_KEY_322/323's Java anon-class-as-call-argument repro and only
-  relocated the brace-pair mismatch (method body now aligned, outer anon-class body now
-  mismatched) rather than eliminating it. Needs the real `GdrBraceDepthCounter`/`GdrReindenter`
-  root-cause tracing for this compound brace shape that RDD_KEY_323 already scoped, then a
-  validated real-corpus win (direct-harness repro or dogfood) before dropping the EXPERIMENTAL
-  label. See `RDD_KEY_323`/`RDD_KEY_324` in `RDD_LOG.md`, `STATE_CURLY_GDR.md`'s Resolved Design Decisions.
+- [CURLY_GDR] `curly-general-scope-reindent-postpass` stays EXPERIMENTAL (RDD_KEY_328): its
+  original motivating repro (RDD_KEY_322/323) was independently fixed by RDD_KEY_325, and a
+  188-file Kotlin dogfood found the postpass regresses real wrapped-call indentation elsewhere.
+  Not a live TODO — see RDD_KEY_328 in `RDD_LOG.md` / `STATE_CURLY_GDR.md` if revisiting.
 
 Use sub-agent. This can be a substantial work.
 

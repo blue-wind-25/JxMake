@@ -934,6 +934,15 @@ RDD_KEY_88.
   feature (`STATE_CURLY_GDR.md`), not something to make a prerequisite for another feature without
   its own dedicated investigation. Gap remains open. Full write-up: `RDD_LOG.md`'s `RDD_KEY_323`.
 
+  **2026-08-21, GDR job follow-up (RDD_KEY_324, also reverted, no net change to this job's own
+  files):** the Curly GDR job implemented a genuine GDR POST-pass (`curly-general-scope-reindent-
+  postpass`, EXPERIMENTAL, default off) and tested it against this exact repro (Java side channel
+  temporarily re-enabled, same posture as RDD_KEY_319/322/323). Still not a clean fix -- shifts
+  which brace pair GDR mismatches (the method-body pair is now correctly aligned; the outer
+  anonymous-class-body pair, previously fine, is now the one mismatched instead) rather than fixing
+  the mismatch class. Gap remains open. See `STATE_CURLY_GDR.md`'s checklist and `RDD_LOG.md`'s
+  `RDD_KEY_324` for the full write-up (owned by the GDR job, not this one).
+
 ## Known Gaps — Fixed
 
 - **C/C++ lambda and Kotlin lambda-literal call-argument bodies never split to

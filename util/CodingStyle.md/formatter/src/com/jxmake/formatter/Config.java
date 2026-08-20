@@ -42,6 +42,7 @@ public final class Config {
         "gru-classifier", "gru-weights-path",
         "curly-general-scope-reindent",
         "curly-general-scope-reindent-multipass",
+        "curly-general-scope-reindent-postpass",
         "html5-tc-gap-level",
         "jsx-in-ts"
     };
@@ -196,6 +197,17 @@ public final class Config {
      * silent no-op, not an error -- lets a project stage this flag ahead of flipping the base one.
      */
     private boolean curlyGeneralScopeReindentMultipass = false;
+
+    /**
+     * {@code curly-general-scope-reindent-postpass} -- EXPERIMENTAL, see {@code STATE_CURLY_GDR.md}'s
+     * `RDD_KEY_323` follow-up. Only takes effect when {@code curly-general-scope-reindent} is also
+     * on. Runs one additional GDR reindent directly on the final pipeline output -- a genuine
+     * post-pass with no further pipeline call after it, unlike every existing GDR application
+     * (base single-pass and every multipass cycle alike), which always immediately hands its
+     * output to another {@code formatOne} call. Default off. Same silent-no-op-if-base-off posture
+     * as {@code curly-general-scope-reindent-multipass} (RDD_KEY_234).
+     */
+    private boolean curlyGeneralScopeReindentPostpass = false;
 
     /**
      * {@code html5-tc-gap-level} -- gates the "tc gap" job's HTML5 deep tree-construction-gap
@@ -405,6 +417,11 @@ public final class Config {
         return curlyGeneralScopeReindentMultipass;
     }
 
+    public boolean isCurlyGeneralScopeReindentPostpass()
+    {
+        return curlyGeneralScopeReindentPostpass;
+    }
+
     public int html5TcGapLevel()
     {
         return html5TcGapLevel;
@@ -458,7 +475,8 @@ public final class Config {
                 "normalize-comment-start-case-multiline", "normalize-comment-end-period",
                 "comment-normalization-classifier",
                 "closing-comment-min-lines",
-                "curly-general-scope-reindent", "curly-general-scope-reindent-multipass"
+                "curly-general-scope-reindent", "curly-general-scope-reindent-multipass",
+                "curly-general-scope-reindent-postpass"
             }
         );
         groups.put( "C/C++", new String[] { "header-guard-rename", "format-macros" } );
@@ -665,6 +683,11 @@ public final class Config {
 
             case "curly-general-scope-reindent-multipass":
                 defaultValue  = defaults.curlyGeneralScopeReindentMultipass ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
+            case "curly-general-scope-reindent-postpass":
+                defaultValue  = defaults.curlyGeneralScopeReindentPostpass ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
 
@@ -976,6 +999,9 @@ public final class Config {
         );
         config.curlyGeneralScopeReindentMultipass = parseBoolean(
             raw, "curly-general-scope-reindent-multipass", config.curlyGeneralScopeReindentMultipass
+        );
+        config.curlyGeneralScopeReindentPostpass  = parseBoolean(
+            raw, "curly-general-scope-reindent-postpass", config.curlyGeneralScopeReindentPostpass
         );
         config.html5TcGapLevel                    = parseInt(
             raw, "html5-tc-gap-level", config.html5TcGapLevel

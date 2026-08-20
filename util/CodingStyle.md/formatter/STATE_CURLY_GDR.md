@@ -240,6 +240,22 @@ Executed — see Checklist's fixture items below.
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_324` — Implemented the "run GDR a second time as a genuine POST-pass" idea (user
+  suggestion, follow-up on `RDD_KEY_323`) as permanent, isolated GDR-job infrastructure: new
+  `curly-general-scope-reindent-postpass` config key (EXPERIMENTAL, default off, silent no-op
+  unless the base flag is also on, same posture as `-multipass`), applying GDR exactly once more
+  directly to the fully-finished pipeline output with no further pipeline call after it — unlike
+  every other GDR application (base single-pass and every multipass cycle), which is always
+  immediately followed by another `formatOne` call. `make test`: 334/334, zero regressions
+  (default off). Tested (temporary, reverted, no net source change) against `RDD_KEY_322/323`'s
+  Java anon-class-as-call-argument repro (with Java's side channel temporarily re-enabled on top
+  of the `RDD_KEY_321` corruption fix): still not a clean fix, but shifts WHICH brace pair GDR
+  mismatches rather than eliminating the mismatch — the method body's own brace pair is now
+  correctly aligned, but the outer anonymous-class-body brace pair (8sp open / 12sp close) becomes
+  the new mismatch. Confirms the real fix needs `GdrBraceDepthCounter`/`GdrReindenter` root-cause
+  tracing for this compound brace shape (already scoped by `RDD_KEY_323`), not just a pass-
+  ordering change. Full text: `RDD_KEY_324`. See `STATE_C_CPP_JAVA.md`'s Known Gaps — Open (Java
+  anon-class entry).
 - `RDD_KEY_314` — Diagnosed the 2026-08-19 Open Question (function
   *expression* as call argument never reformatted to one-statement-
   per-line): **not a GDR bug** — reproduces identically with GDR fully off,
@@ -805,6 +821,21 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       `curly-general-scope-reindent-multipass = on` is the fix for this
       gap — no source code changed. See `RDD_KEY_243` above and
       `README.md`'s "General scope-depth reindentation (GDR)" subsection.
+
+- [x] **Genuine POST-pass variant** (`curly-general-scope-reindent-postpass`, `RDD_KEY_324`,
+      2026-08-21, user-suggested per `RDD_KEY_323`'s follow-up note). Landed as isolated,
+      EXPERIMENTAL, default-off infrastructure in `GdrPipelineGate.applyAndFormat` — applies GDR
+      exactly once more directly to the final pipeline output with no further pipeline call after
+      it, unlike every other GDR application in this file (always immediately followed by another
+      `formatOne`). `make test`: 334/334, zero regressions on the default-off path. Tested against
+      `RDD_KEY_322/323`'s Java anon-class-as-call-argument repro (temporary Java side-channel
+      re-enable, reverted, no net source change beyond the new config key/wiring): does not
+      resolve that gap — shifts which specific brace pair GDR's line-based depth tracking
+      mismatches (method-body pair now aligned; outer anonymous-class-body pair now mismatched
+      instead) rather than eliminating the mismatch class. Not a ready-made fix for
+      `STATE_C_CPP_JAVA.md`'s Java anon-class "not reformatted" gap; kept as legitimate, harmless
+      opt-in infrastructure for whoever next attempts the real `GdrBraceDepthCounter`/
+      `GdrReindenter` root-cause fix `RDD_KEY_323` already scoped. Full text: `RDD_KEY_324`.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

@@ -86,25 +86,56 @@ public final class GdrPipelineGate {
         final boolean multipass = config.isCurlyGeneralScopeReindent() && config.isCurlyGeneralScopeReindentMultipass() && isCurlyFamily(
             language
         );
-        if(!multipass) return pipeline1;
 
-        String previous = pipeline1;
-        for(int cycle = 2; cycle <= MAX_MULTIPASS_CYCLES; ++cycle) {
-            final String gdrN      = apply(previous, language, config);
-            final String pipelineN = formatter.formatOne(gdrN, filePath, config, formatOff);
+        final String finalOutput;
+        if(!multipass) {
+            finalOutput = pipeline1;
+        } else {
+            String previous  = pipeline1;
+            String converged = null;
+            for(int cycle = 2; cycle <= MAX_MULTIPASS_CYCLES && converged == null; ++cycle) {
+                final String gdrN      = apply(previous, language, config);
+                final String pipelineN = formatter.formatOne(gdrN, filePath, config, formatOff);
 
-            if( pipelineN.equals(previous) ) return pipelineN;
+                if( pipelineN.equals(previous) ) {
+                    converged = pipelineN;
+                } else {
+                    previous = pipelineN;
+                } // if/else
+            } // for
 
-            previous = pipelineN;
-        } // for
+            if(converged == null) {
+                throw new IllegalStateException(
+                    "GDR multipass reindentation failed to converge to a stable fixed point within "
+                        + MAX_MULTIPASS_CYCLES + " cycles for file: " + filePath
+                        + " -- curly-general-scope-reindent-multipass is oscillating rather than "
+                        + "stabilizing; this indicates a genuine non-convergent input, not a "
+                        + "transient or safe-to-ignore condition. See RDD_KEY_240/RDD_KEY_241 in "
+                        + "RDD_LOG.md."
+                );
+            } // if
 
-        throw new IllegalStateException(
-            "GDR multipass reindentation failed to converge to a stable fixed point within "
-                + MAX_MULTIPASS_CYCLES + " cycles for file: " + filePath
-                + " -- curly-general-scope-reindent-multipass is oscillating rather than "
-                + "stabilizing; this indicates a genuine non-convergent input, not a transient "
-                + "or safe-to-ignore condition. See RDD_KEY_240/RDD_KEY_241 in RDD_LOG.md."
-        );
+            finalOutput = converged;
+        } // if/else
+
+        return applyPostpass(finalOutput, language, config);
+    }
+
+    /**
+     * {@code curly-general-scope-reindent-postpass} (EXPERIMENTAL, RDD_KEY_323 follow-up): applies
+     * GDR exactly once more directly to the fully-finished pipeline output, with no further
+     * {@code formatOne} call after it -- a genuine post-pass, unlike every GDR application above
+     * (base single-pass and every multipass cycle alike), which is always immediately followed by
+     * another pipeline pass that can rewrite structure GDR just reindented. No-op (returns
+     * {@code finalOutput} unchanged) unless both {@code curly-general-scope-reindent} and
+     * {@code curly-general-scope-reindent-postpass} are on for a curly-family language -- same
+     * silent-no-op-if-base-off posture as multipass (RDD_KEY_234).
+     */
+    private static String applyPostpass(String finalOutput, String language, Config config)
+    {
+        if( !config.isCurlyGeneralScopeReindentPostpass() ) return finalOutput;
+
+        return apply(finalOutput, language, config);
     }
 
     private static boolean isCurlyFamily(String language)

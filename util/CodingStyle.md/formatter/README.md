@@ -519,6 +519,7 @@ closing-comment-min-lines              = 5
 
 curly-general-scope-reindent           = off         # off | on
 curly-general-scope-reindent-multipass = off         # off | on, only takes effect when the above is also on
+curly-general-scope-reindent-postpass  = off         # off | on, EXPERIMENTAL, only takes effect when the base flag is also on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename                    = off         # off | on
@@ -721,6 +722,14 @@ Setting `curly-general-scope-reindent-multipass = on` (default `off`, only takes
 pass, it runs a bounded convergence loop (pre-pass + full pipeline, repeated and compared cycle
 to cycle, until two consecutive cycles are byte-identical, capped at a safety limit) — at the
 cost of extra formatting passes for any file that enables it.
+
+**Experimental (`curly-general-scope-reindent-postpass`):** default `off`, only takes effect when
+`curly-general-scope-reindent` is also `on`. Runs one extra reindent pass directly on the final
+formatted output, with no further formatting pass after it. This is not a general-purpose
+improvement over `curly-general-scope-reindent-multipass` — it can leave some brace pairs less
+correctly aligned than the base/multipass path on certain nested-call shapes — so it should only
+be turned on to test a specific narrow case, not as a routine addition to an existing
+`curly-general-scope-reindent` configuration.
 
 ### HTML5 tree-construction gap levels (`html5-tc-gap-level`)
 

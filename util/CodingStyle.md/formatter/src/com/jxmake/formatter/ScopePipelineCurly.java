@@ -404,16 +404,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     )
     {
         final List<int[]> result = new ArrayList<>();
-        // Java deliberately excluded here too (mirrors the outer guard in processScope's span
-        // loop, below) -- NOT because of the corruption RDD_KEY_317/318 originally found when
-        // this was first attempted (that turned out to be an unrelated, already-fixed bug:
-        // DeclarationAlignmentRuleCurly.parseDeclaration's non-depth-aware `eqIdx` scan, fixed by
-        // RDD_KEY_321 with no change to this method), but because re-enabling Java here on top of
-        // that fix still produces wrong -- just differently wrong -- output: the recursed body's
-        // own indentation comes out mismatched (RDD_KEY_322/323 in RDD_LOG.md have the full
-        // diagnosis and what a real fix would need). `isJavaAnonClassBrace` below is kept,
-        // unreachable, for whoever picks this up next -- see its own doc comment.
-        if(!lang.isCpp && !lang.isC && !lang.isKotlin) return result;
+        // Java re-enabled RDD_KEY_325 on top of RDD_KEY_321's corruption fix, together with a
+        // Java-only pre-reindent of the recursed nested source (see the `lang.isJava` branch in
+        // `processScope`'s span loop, below) that addresses RDD_KEY_322's cause (1) -- see
+        // `isJavaAnonClassBrace`'s doc comment for the full history.
+        if(!lang.isCpp && !lang.isC && !lang.isKotlin && !lang.isJava) return result;
 
         int depth = 0;
         int idx   = spanStart;
@@ -516,25 +511,19 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * (`new Comparator<String>() { ... }`) is not recognized and left as an accepted gap, same
      * posture as this side channel's other per-language narrowings.
      *
-     * <p><b>Currently unreachable.</b> Both {@code lang.isJava} guards that would dispatch here
+     * <p>Reachable since RDD_KEY_325: both {@code lang.isJava} guards that dispatch here
      * ({@link #findNestedLambdaOrAnonClassBraces}'s own top-of-method guard, and {@code
-     * processScope}'s outer span-loop guard) deliberately exclude Java. Kept in source rather than
-     * deleted so a future session re-attempting Java's "anonymous-class-as-call-argument body not
-     * reformatted" gap (RDD_KEY_314/315) doesn't have to re-derive this detection pattern from
-     * scratch -- this method itself was never the problem. Full history: RDD_KEY_317 (implemented
-     * alongside the working C++/Kotlin fix) -> RDD_KEY_318 (enabled, produced garbled output,
-     * reverted) -> RDD_KEY_319 (relocated the failure point, still reverted) -> RDD_KEY_321
-     * (found and fixed the ACTUAL cause -- an unrelated `parseDeclaration` bug, nothing to do with
-     * this method) -> RDD_KEY_322/323 (re-enabling Java on top of that fix no longer corrupts, but
-     * still renders with wrong indentation; two more root causes found, GDR doesn't help either).
-     * Re-enabling Java at both guard sites is necessary but not sufficient on its own -- at
-     * minimum, RDD_KEY_322's two indentation-derivation causes (`applyDeclarationsPass`/
-     * `applyAssignmentsPass` never use depth-derived indent, only round-normalize a statement's
-     * own raw source indent; this side channel's own closing-brace force-reindent goes stale once
-     * a later pass Allman-converts the recursed-into method signature) would need fixing first, or
-     * the recursed body will render with wrong -- though at least no longer corrupted --
-     * indentation. See `RDD_LOG.md`'s `RDD_KEY_318`/`RDD_KEY_319`/`RDD_KEY_321`/`RDD_KEY_322`/
-     * `RDD_KEY_323` for the full writeups.
+     * processScope}'s outer span-loop guard) now include Java. Full history: RDD_KEY_317
+     * (implemented alongside the working C++/Kotlin fix) -> RDD_KEY_318 (enabled, produced garbled
+     * output, reverted) -> RDD_KEY_319 (relocated the failure point, still reverted) -> RDD_KEY_321
+     * (found and fixed the ACTUAL corruption cause -- an unrelated `parseDeclaration` bug, nothing
+     * to do with this method) -> RDD_KEY_322/323/324 (re-enabling Java on top of that fix no longer
+     * corrupted, but rendered with wrong indentation across three different diagnosed/attempted
+     * shapes; GDR did not help) -> RDD_KEY_325 (real fix: a Java-only pre-reindent of the recursed
+     * source's raw text by brace depth in {@code processScope}'s side channel, addressing
+     * RDD_KEY_322's cause (1) directly, plus a leading-blank-line collapse on the recursive
+     * result). See `RDD_LOG.md`'s `RDD_KEY_318`/`RDD_KEY_319`/`RDD_KEY_321`/`RDD_KEY_322`/
+     * `RDD_KEY_323`/`RDD_KEY_324`/`RDD_KEY_325` for the full writeups.
      */
     private boolean isJavaAnonClassBrace(
         final List<Token> tokens,
@@ -1008,6 +997,98 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * statement's first line -- see the Kotlin `MainActivity._checkRecovery()` closing-brace
      * indentation drift bug (RDD_KEY_136).
      */
+    /**
+     * RDD_KEY_325, Java-only helper for {@code findNestedLambdaOrAnonClassBraces}'s recursion
+     * side channel: rewrites every physical line's leading whitespace in {@code source} to
+     * {@code baseIndent} plus one {@link #indentUnit()} per level of `{`/`}` brace nesting
+     * relative to {@code source}'s own start (a line starting with one or more `}` is dedented
+     * before its own indent is emitted, matching ordinary closing-brace placement). Deliberately
+     * narrow -- like this file's other brace-matching helpers, a `{`/`}` inside a string/char
+     * literal or comment is not distinguished from a real structural brace, so this can misfire
+     * on such content; acceptable for its single call site's narrow use (a freshly-extracted
+     * anonymous-class-body fragment about to be re-tokenized and passed back through {@code
+     * processScope} regardless, which will itself reject/ignore any resulting nonsense a
+     * subsequent parse can't make sense of).
+     */
+    private String reindentSourceByBraceDepth(final String source, final String baseIndent)
+    {
+        final String[]      lines = source.split("\n", -1);
+        final StringBuilder out   = new StringBuilder();
+        int                 depth = 0;
+        // Always start with a newline, even for line 0: the splice site (right after the outer
+        // `{`) has no separator of its own, and the original single-line-K&R-style source (`new
+        // Runnable() { public void run() {`) packs the body's first line onto the SAME physical
+        // line as the outer `{` -- without this, that first reindented line would be appended
+        // directly after the outer `{` with only its own leading-indent spaces in between,
+        // landing on the same line instead of its own.
+        for(int li = 0; li < lines.length; ++li) {
+            out.append('\n');
+            final String trimmed = lines[li].trim();
+            if( trimmed.isEmpty() ) continue;
+            int leadingCloses = 0;
+            while( leadingCloses < trimmed.length() && trimmed.charAt(leadingCloses) == '}' ) ++leadingCloses;
+            final int lineDepth = Math.max(0, depth - leadingCloses);
+            out.append(baseIndent);
+            for(int d = 0; d < lineDepth; ++d) out.append( indentUnit() );
+            out.append(trimmed);
+            depth += braceDeltaIgnoringStringsAndComments(trimmed);
+        } // for
+
+        return out.toString();
+    }
+
+    /**
+     * Net `{`/`}` count in {@code line}, skipping characters inside a `"..."`/`'...'` literal or
+     * a `//` line comment -- best-effort single-physical-line scan (no cross-line block-comment
+     * tracking), sufficient for {@link #reindentSourceByBraceDepth}'s narrow use.
+     */
+    private int braceDeltaIgnoringStringsAndComments(final String line)
+    {
+        int     delta    = 0;
+        boolean inStr    = false;
+        boolean inChar   = false;
+        for(int i = 0; i < line.length(); ++i) {
+            final char c = line.charAt(i);
+            if(inStr) {
+                if(c == '\\') ++i;
+                else if(c == '"') inStr = false;
+                continue;
+            } // if
+            if(inChar) {
+                if(c == '\\') ++i;
+                else if(c == '\'') inChar = false;
+                continue;
+            } // if
+            if( c == '"' )  { inStr  = true; continue; }
+            if( c == '\'' ) { inChar = true; continue; }
+            if( c == '/' && i + 1 < line.length() && line.charAt(i + 1) == '/' ) break;
+            if(c == '{') ++delta;
+            else if(c == '}') --delta;
+        } // for
+
+        return delta;
+    }
+
+    /**
+     * RDD_KEY_325 helper: strips any leading blank (whitespace-only) physical lines from {@code
+     * text}, leaving exactly one leading newline before the first line with real content (or the
+     * text unchanged if it has no leading newline at all). See the call site's comment for why.
+     */
+    private String collapseLeadingBlankLines(final String text)
+    {
+        int lastNewline = -1;
+        int i           = 0;
+        while( i < text.length() && ( text.charAt(i) == ' ' || text.charAt(i) == '\t' || text.charAt(
+            i
+        ) == '\r' || text.charAt(i) == '\n' ) ) {
+            if( text.charAt(i) == '\n' ) lastNewline = i;
+            ++i;
+        } // while
+        if(lastNewline < 0) return text;
+
+        return "\n" + text.substring(lastNewline + 1);
+    }
+
     private String braceLineIndent(final List<Token> tokens, final int idx)
     {
         int i = idx - 1;
@@ -2096,14 +2177,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // nested brace directly inside this span's own text and recurse into each exactly
                 // like an ordinary child scope, splicing the result back in place. Gated to JS/TS
                 // (`findNestedFunctionExpressionBraces`) and C/C++/Kotlin (`findNestedLambdaOr
-                // AnonClassBraces`, RDD_KEY_317) -- `lang.isJava` is deliberately absent from this
-                // list: re-enabling it here (together with `findNestedLambdaOrAnonClassBraces`'s
-                // own guard) currently renders a Java anonymous-class-as-call-argument body with
-                // wrong indentation rather than leaving it untouched -- not corrupted any more
-                // (RDD_KEY_321 fixed that, an unrelated bug), but not correctly reformatted either
-                // (RDD_KEY_322/323 have the diagnosis and what a real fix needs). See
+                // AnonClassBraces`, RDD_KEY_317). `lang.isJava` re-enabled RDD_KEY_325 on top of
+                // RDD_KEY_321's corruption fix, together with a Java-only pre-reindent of the
+                // recursed source below addressing RDD_KEY_322's cause (1) -- see
                 // `isJavaAnonClassBrace`'s own doc comment for the full history/reuse notes.
-                if(lang.isJs || lang.isTs || lang.isCpp || lang.isC || lang.isKotlin) {
+                if(lang.isJs || lang.isTs || lang.isCpp || lang.isC || lang.isKotlin || lang.isJava) {
                     final List<int[]> nestedPairs = (lang.isJs || lang.isTs) ? findNestedFunctionExpressionBraces(
                         current, span.start, span.end
                     ) : findNestedLambdaOrAnonClassBraces(
@@ -2121,18 +2199,45 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                         ) ) continue;
                         if( anyFrozen(current, openBraceIdx, closeBraceIdx + 1) ) continue;
                         final boolean nestedStartFrozen = current.get(openBraceIdx).frozen;
-                        final String  nestedSource      = joinText(
+                              String  nestedSource      = joinText(
                             current, openBraceIdx + 1, closeBraceIdx
                         );
                         final String  nestedIndent      = braceLineIndent(current, openBraceIdx);
                         final String  nestedChildIndent = (nestedIndent != null ? nestedIndent : inheritedIndent) + indentUnit();
-                        final String  rawNestedResult   = processScope(
+                        // RDD_KEY_325, Java only: `applyDeclarationsPass`/`applyAssignmentsPass`
+                        // (invoked by the recursive `processScope` call below) derive a
+                        // declaration/assignment group's indent purely from its own raw
+                        // source leading-whitespace (`normalizeIndent`, a round-up-only
+                        // operation), never from this side channel's own correctly-computed
+                        // `nestedChildIndent` -- see RDD_KEY_322's cause (1). `nestedSource` is
+                        // extracted verbatim from the ORIGINAL source, still at whatever
+                        // (possibly shallower/flush-left) indent the input had, so that
+                        // round-up is a no-op and statements stay at stale indent. Pre-reindent
+                        // the extracted text here, by brace depth relative to
+                        // `nestedChildIndent`, so every raw leading-whitespace run downstream
+                        // passes read is already the correct depth-derived value and
+                        // `normalizeIndent` has nothing to fix. Java-only: C++/Kotlin's existing
+                        // working case is left untouched to avoid disturbing already-verified
+                        // behavior.
+                        if(lang.isJava) nestedSource = reindentSourceByBraceDepth(nestedSource, nestedChildIndent);
+                              String  rawNestedResult   = processScope(
                             tokenize(nestedSource, nestedStartFrozen),
                             depth + 1,
                             nestedStartFrozen,
                             nestedChildIndent,
                             reRunMode
                         );
+                        // RDD_KEY_325, Java only: the recursive `processScope` call above treats
+                        // `nestedSource` as its own fresh top-level scope, and (for reasons not
+                        // isolated further within this session's bounded attempt -- possibly a
+                        // named-scope/first-member blank-line heuristic keying off `depth == 0`
+                        // relative to THIS recursive call rather than the whole file) ends up
+                        // with a spurious blank line right after the recursed method's own
+                        // opening `{`. Collapse any leading blank line(s) here rather than chase
+                        // the root cause further, since this splices in right after the OUTER
+                        // anonymous-class-body `{` (its own separate physical line already), and
+                        // never legitimately wants a blank line of its own immediately after it.
+                        if(lang.isJava) rawNestedResult = collapseLeadingBlankLines(rawNestedResult);
                         final String  nestedResult;
                         if( nestedIndent == null
                                 || trailingGapHasComment(current, closeBraceIdx)

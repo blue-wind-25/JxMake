@@ -4192,16 +4192,22 @@ Real-code regressions:
                                                         left completely untouched.
 
   real_code_regressions_221_inp/out.java             -- a Java anonymous-class-as-call-argument body (`run(new
-                                                        Runnable() { public void run() {...} });`) no longer
-                                                        has its nested method body collapsed onto one line
-                                                        (RDD_KEY_321 -- see STATE_C_CPP_JAVA.md). Still left
-                                                        unreformatted (a separate, still-open gap).
+                                                        Runnable() { public void run() {...} });`) now gets
+                                                        its one-statement-per-line/Allman body reformatted
+                                                        with correct depth-derived indentation, matching the
+                                                        C++/ Kotlin lambda-literal call-argument case
+                                                        (RDD_KEY_325 -- see STATE_C_CPP_JAVA.md).
 
   real_code_regressions_222_inp/out.cpp              -- same RDD_KEY_321 fix, C++ side: a lambda-as-call-
                                                         argument body with no preceding `.`/`->` in the call
                                                         chain (`invoke([]() {...});`) no longer collapses onto
                                                         one line either -- the same `parseDeclaration` bug,
                                                         just not caught by RDD_KEY_317/219's own repro.
+
+  real_code_regressions_223_inp/out.java             -- same shape as 221, a Java anonymous class with TWO
+                                                        methods (`compare`/`equals`) as a call argument --
+                                                        confirms the RDD_KEY_325 fix also reformats a multi-
+                                                        member anonymous-class body correctly.
 
 How Tests Are Run
 -----------------

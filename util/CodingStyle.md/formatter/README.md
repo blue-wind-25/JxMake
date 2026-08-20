@@ -1018,34 +1018,14 @@ return-type specifier between its parameter list and its body is not yet recogni
 declaration statements inside a reformatted body get their indentation normalized — a plain
 non-declaration statement line keeps whatever indentation it already had.
 
-**Still an accepted, unfixed gap for Java** — an anonymous class passed as a call argument
-(`run(new Runnable() { public void run() { ... } });`) is not addressed by this fix: its body is
-left completely untouched rather than reformatted. Unlike the other languages' equivalents, a Java
-anonymous class's body is itself a full member declaration (not just ordinary statements), which an
-attempted fix found conflicts with how a recursed-into body's indentation gets derived; fixing it
-requires more invasive changes than the other languages needed. (A separate bug that could make
-this shape's body collapse onto one garbled line instead of staying untouched — an unrelated,
-already-fixed declaration-parsing issue that also affected some C++ lambda-as-call-argument shapes
-with no preceding `.`/`->` in the call chain — was fixed 2026-08-20; this remaining gap is only
-about the body not being reformatted, not about it being corrupted.)
-
-Turning on `curly-general-scope-reindent` (with or without `curly-general-scope-reindent-multipass`)
-is **not** a workaround for this gap — it produces a differently-broken result rather than a
-correctly-indented one. The body's statements do land one level deeper than the body's own opening
-brace (correct), but that same brace's closing `}` lands at the wrong, shallower column instead of
-lining up with its own opener — a mismatched pair, e.g.:
-
-```java
-run( new Runnable() { public void run()
-            {
-                int x = 1;
-                int y = 2;
-        } } );
-```
-
-This mismatch is stable (reformatting the output again doesn't change it further, with or without
-multipass), so it will not "settle" into the correct shape no matter how many times the file is
-reformatted.
+**Fixed for Java** (2026-08-21): an anonymous class passed as a call argument
+(`run(new Runnable() { public void run() { ... } });`) is now recursed into and reformatted the
+same way as the other languages' equivalents above — each statement in its body onto its own line,
+with correct depth-based indentation and brace placement, however many anonymous classes or
+members are nested inside one another. (A separate bug that could make this shape's body collapse
+onto one garbled line instead of reformatting correctly — an unrelated declaration-parsing issue
+that also affected some C++ lambda-as-call-argument shapes with no preceding `.`/`->` in the call
+chain — was fixed earlier, 2026-08-20.)
 
 #### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

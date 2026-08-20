@@ -430,6 +430,23 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         return findNestedBraces( tokens, spanStart, spanEnd, idx -> isLambdaOrAnonClassBrace(tokens, spanStart, idx) );
     }
 
+    /**
+     * Trims trailing whitespace off {@code raw}, then appends its own original trailing-newline
+     * run (or one newline, whichever is greater -- never collapses a raw result that already ended
+     * flush against the closing brace down to zero newlines) plus {@code indent}. Shared splice-
+     * result assembly used by both the Java nested-lambda/anon-class-body splice path and the
+     * ordinary child-scope trailing-gap force-reindent path below, each behind its own differing
+     * guard condition -- only this common tail is factored out.
+     */
+    private String spliceWithTrailingNewlinesAndIndent(final String raw, final String indent)
+    {
+        final int           trailingNewlines = Math.max( 1, trailingRunNewlineCount(raw) );
+        final StringBuilder newlines         = new StringBuilder();
+        for(int i = 0; i < trailingNewlines; ++i) newlines.append('\n');
+
+        return trimTrailingWhitespace(raw) + newlines + indent;
+    }
+
     /** Dispatches to the current language's own narrow lambda/anonymous-class-brace detector */
     private boolean isLambdaOrAnonClassBrace(
         final List<Token> tokens,
@@ -2232,16 +2249,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                             nestedResult = rawNestedResult;
                         } // if
                         else {
-                            final int           nestedTrailingNewlines = Math.max(
-                                1, trailingRunNewlineCount(rawNestedResult)
-                            );
-                            final StringBuilder nestedNewlines         = new StringBuilder();
-                            for(int nlI = 0; nlI < nestedTrailingNewlines; ++nlI) nestedNewlines.append(
-                                '\n'
-                            );
-                            nestedResult = trimTrailingWhitespace(
-                                rawNestedResult
-                            ) + nestedNewlines + nestedIndent;
+                            nestedResult = spliceWithTrailingNewlinesAndIndent(rawNestedResult, nestedIndent);
                         }
                         replacements.add(
                             new Replacement(openBraceIdx + 1, closeBraceIdx, nestedResult)
@@ -2475,14 +2483,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     // pass after the first) -- without this blank-line rescue, blank line(s) right
                     // before such a closing brace survived round1 only to be silently dropped (or
                     // reduced) on round2 (found via `javaparser/javaparser`'s `TypeExtractor.java`).
-                    final int           trailingNewlines = Math.max(
-                        1, trailingRunNewlineCount(rawChildResult)
-                    );
-                    final StringBuilder newlines         = new StringBuilder();
-                    for(int nlI = 0; nlI < trailingNewlines; ++nlI) newlines.append('\n');
-                    childResult = trimTrailingWhitespace(
-                        rawChildResult
-                    ) + newlines + effectiveSpanIndent;
+                    childResult = spliceWithTrailingNewlinesAndIndent(rawChildResult, effectiveSpanIndent);
                 }
             }
             replacements.add(

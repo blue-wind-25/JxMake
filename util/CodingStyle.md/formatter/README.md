@@ -94,9 +94,9 @@ which uses it in place of its own extension-based guess for that request. There 
 `jsx`/`tsx` `--lang` value — both are covered by `js`/`ts`.
 
 However, whether the JSX/TSX boundary-finding pre-pass runs is decided independently of `--lang`,
-purely from the actual filename's extension (`Lang.isJsxSyntax`) plus, for `.ts` only, the
-`jsx-in-ts` opt-in described above; forcing `--lang js`/`--lang ts` on a file whose name doesn't
-match one of those rules selects the JS/TS pipeline but does not itself enable JSX detection.
+purely from the actual filename's extension (`.jsx`/`.tsx` vs. plain `.js`/`.ts`) plus, for `.ts`
+only, the `jsx-in-ts` opt-in described above; forcing `--lang js`/`--lang ts` on a file whose name
+doesn't match one of those rules selects the JS/TS pipeline but does not itself enable JSX detection.
 
 For a per-file override instead of a per-invocation one (so mixed-language file lists and
 templated sources like `.java.in`/`.java.inc` don't need a separate invocation each), see the
@@ -632,13 +632,10 @@ An `ABSTAIN` on a leading-keyword or trailing-period comment leaves that
 comment untouched, so whether the GRU is actually active changes real
 output: with it active, more ambiguous comments get resolved to a
 capitalize-first-letter/strip-trailing-period `YES` than with it inactive.
-`make test`'s fixtures assume the weights file is reachable (deployed next
-to `$(JAR_FILE)`, e.g. by `_test_serial`'s auto-copy from the repo-root
-`code-formatter-ai-assist-weights.json` into `$(BUILD_DIR)` — see the
-Makefile); running against a jar with no weights file next to it silently
-falls back to the less-aggressive `ABSTAIN`-only behavior instead of
-failing, so a missing-weights setup won't show up as a test failure on its
-own.
+Running the formatter against a copy of the jar with no weights file next to
+it (and no `gru-weights-path` override) silently falls back to the
+less-aggressive `ABSTAIN`-only behavior instead of failing — a missing
+weights file degrades gracefully rather than blocking formatting.
 
 `abstainThreshold = 0.76` is baked into the shipped weights file (not a
 separate config key): the GRU itself abstains below this softmax
@@ -665,7 +662,7 @@ rejects shapes that are structurally never a real sentence start regardless of w
 classifier might say: a run of 2+ punctuation marks (`...`, `?!`), a standalone symbol not
 attached to a preceding word (`` `! is` ``), a preceding word that's a single letter or a known
 abbreviation (`e.g.`, `i.e.`, `vs.`, `etc.`, `cf.`, `al.`), a following word with an internal
-uppercase letter (a camelCase/dotted code identifier, e.g. `processScope`), and a following word
+uppercase letter (a camelCase/dotted code identifier, e.g. `doSomething`), and a following word
 immediately followed by `:` with no trailing space (a URL scheme or directive comment, e.g.
 `https:`, `ftp:`, `tslint:`).
 
@@ -743,9 +740,9 @@ key). Default `0`: current, strictly preserve-as-written HTML5 parsing, unchange
   too.
 - **Level `2`** (+ level 1) — foster-parenting: content the spec requires relocated out of an
   open `<table>` and inserted immediately before it, rather than nested inside where the source
-  text placed it. Known gap: `isInTableInsertionMode()` is implemented as a single-level "direct
-  child of an open `<table>`" check, not a full ancestor scan (a full ancestor scan incorrectly
-  re-evaluates a fostered element's own already-relocated descendants).
+  text placed it. Known gap: the "are we inside an open `<table>`" check only looks at the
+  direct parent, not the full ancestor chain (a full ancestor scan would incorrectly re-evaluate
+  a fostered element's own already-relocated descendants).
 - **Level `3`** (+ levels 1-2) — misnested `<form>` reconstruction inside `<template>`: a
   single-slot "form element pointer," scoped per `<template>` boundary via plain Java
   call-stack local-variable save/restore. No known gap.
@@ -919,21 +916,21 @@ The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (
 - `POST /shutdown` — asks the server to stop; responds `200 shutting down` immediately, then
   terminates the process shortly after (deleting its lockfile first). Used by `--stop`.
 - `GET /properties` — no request parameters, empty request body. Response body (HTTP 200) is a
-  JSON array of section-group objects (`Config.describeAll()`), grouped and ordered exactly like
-  the `### Config file format` list below (`Structural constants`, `Behavior`, `C/C++`, `Java`,
-  `Kotlin`, `JS/TS`, `Python 3`, `HTML5`, `AI-assist (GRU)`): `[{"group": "<section-name>",
+  JSON array of section-group objects, grouped and ordered exactly like the `### Config file
+  format` list below (`Structural constants`, `Behavior`, `C/C++`, `Java`, `Kotlin`, `JS/TS`,
+  `Python 3`, `HTML5`, `AI-assist (GRU)`): `[{"group": "<section-name>",
   "properties": [{"key": "<config-key>", "default": "<default-value>", "allowedValues":
   ["choice1", "choice2", ...] | null}, ...]}, ...]`. `default` is always the value's raw string
   form (as it would appear in a config file/query param/env var), even for integer/boolean keys.
   `allowedValues` is a fixed list for `on`/`off` boolean keys and the few enum-like keys
   (`indent-style`, `line-endings`); `null` for free-form values (integers, paths, comma-separated
   import-order lists). Lets tooling introspect the formatter's config surface without parsing this
-  README. Reads live from `Config.java`, the runtime source of truth, so it cannot drift from
+  README. Always reflects the formatter's own actual live configuration, so it cannot drift from
   actual behavior the way a hand-maintained doc list can.
 
 Clients are expected to auto-detect a running server via the lockfile at
 `~/.config/jxmake-code-formatter/server.lock` (PID on line 1, port on line 2) rather than
-talking to a hardcoded port — see `ServerMode.findRunningServerPort()`. This is the same
+talking to a hardcoded port. This is the same
 protocol the bundled CLI's own auto-connect logic (`--standalone` to disable it) uses; a
 third-party client only needs to speak this HTTP protocol, not link against the JAR.
 
@@ -1058,9 +1055,9 @@ the already-formatted output is fed back in and formatted again — i.e. formatt
 idempotent for this narrow shape. No workaround exists short of avoiding deeply nested short calls
 inside very long lines.
 
-**Kotlin is no longer affected**: as of 2026-08-16, `FormatterCurly.formatOne` re-runs itself for
-Kotlin files specifically (up to 5 passes) until two consecutive passes produce byte-identical
-output, converging on a fixed point instead of flapping. This is a known, currently-unresolved gap
+**Kotlin is no longer affected**: as of 2026-08-16, formatting a Kotlin file internally re-runs
+itself (up to 5 passes) until two consecutive passes produce byte-identical output, converging on
+a fixed point instead of flapping. This is a known, currently-unresolved gap
 for C/C++/Java/JS/TS only.
 
 #### 3. `.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in
@@ -1125,7 +1122,7 @@ source-root config key is planned.
 
 #### 6. `.h` files default to C inference, so C++-only rules never apply unless overridden
 
-`Lang.infer` maps the `.h` extension to `"c"` by default (C is by far the more common real-world
+The `.h` extension maps to `"c"` by default (C is by far the more common real-world
 case for a bare `.h` file), so every C++-specific behavior across the whole `cpp` pipeline — not
 just C++26 §5 reflection rules (`^^`, `[: :]` splice brackets), but empty-parameter-list
 rendering, `template`/`requires` handling, and every other C++20/C++23/C++26 rule — never applies
@@ -1305,7 +1302,7 @@ planned to change.
 // 修复构建路径
 ```
 
-The gate (`NonLatinScriptGate`) disables classification entirely for any comment containing a
+A dedicated check disables classification entirely for any comment containing a
 non-Latin codepoint, leaving it untouched rather than attempting a capitalize/trailing-period
 decision. No crash/malformed output, just no normalization on these comments.
 
@@ -1322,9 +1319,9 @@ mostly doesn't apply to non-Latin text in the first place.
 // see the .hpp file, e.g. Widget.hpp
 ```
 
-`MiscRuleCore.stripSoleTrailingPeriod` calls the classifier first, then discards its result via a
-mechanical dot-count bail-out (`dotCount != 1`) whenever a comment contains more than one `.` — a
-file extension, an abbreviation like `e.g.`, or an ellipsis — even when the GRU already ran and
+The trailing-period stripper calls the classifier first, then discards its result via a mechanical
+bail-out whenever a comment contains more than one `.` — a file extension, an abbreviation like
+`e.g.`, or an ellipsis — even when the GRU already ran and
 produced a real answer.
 
 No workaround: distinguishing a mid-word/mid-token dot from a true sentence-ending dot is a

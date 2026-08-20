@@ -70,25 +70,7 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
-Compact all `STATE_*.md` files (NOT `RDD_LOG.md` -- it's the canonical full-text
-store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
-Use at most 5 sub-agents in parallel - balance the job between the sub-agents based on the
-file sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.
-`STATE_COMMON.md` needs extra care: compact its narrative/history sections only; leave the
-process rule text and the job table word-for-word, not paraphrased. Be careful not to lose important
-information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
-exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
-`RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
-There is no size/percentage target -- judge by content (merge redundant narrative, cut
-resolved back-and-forth, keep the final answer not the discussion that led to it); if a
-section is already dense, leave it alone rather than cutting to hit a number. Commit each
-file's compaction separately so a bad pass is easy to isolate/revert. Before and after each
-file, run `grep -c 'RDD_KEY_' <file>` and confirm the count is unchanged. Since sub-agents run
-in parallel with no coordination and some `RDD_KEY_n` chains span files, if a cross-file
-wording/job-pointer inconsistency is noticed, leave it as-is and note it in the commit message
-rather than editing the other file.
-
-Compact all `STATE_*.md` files that were modified today (NOT `RDD_LOG.md` -- it's the canonical
+Compact [all / all modified today] `STATE_*.md` files (NOT `RDD_LOG.md` -- it's the canonical
 full-text store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
 Use at most 5 sub-agents in parallel - balance the job between the sub-agents based on the
 file sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.

@@ -126,7 +126,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_221_inp/out.java`
-    to   `real_code_regressions_330_inp/out.ts`
+    to   `real_code_regressions_225_inp/out.html`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -273,18 +273,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` outer-first-then-recurse-into-child-spans
-  double-pass architecture — watch-list, not a concrete bug. Two named instances
-  (`commandLineParser.ts` RDD_KEY_248, `harness/collectionsImpl.ts` RDD_KEY_270) were fixed
-  narrowly (re-running specific passes) without touching the architecture itself; the underlying
-  risk class (an outer pass's decisions vs. an inner pass's re-derivation of the same span from
-  different intermediate text) is nominally still open with no currently-named unresolved
-  instance. See `STATE_C_CPP_JAVA.md`'s Known Gaps — Open.
-  2026-08-21 (RDD_KEY_330): audited every recursion site for this shape and found/fixed one
-  previously-un-gated instance in the nested call-argument function-expression/lambda/anon-class
-  side channel (JS/TS/C++/Kotlin; Java excluded, its own re-run needs the unconditional behavior).
-  Still watch-list — the architecture itself, and the general risk class, remain open with no new
-  concrete unresolved instance. Do not re-add as a separate item; update this entry only.
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -296,7 +285,8 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-NONE FOR NOW
+- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass architecture rewrite. See
+  `STATE_C_CPP_JAVA.md`'s Known Gaps — Open and RDD_KEY_330.
 
 Use sub-agent. This can be a substantial work.
 

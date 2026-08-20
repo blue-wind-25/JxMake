@@ -64,9 +64,19 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/RDD_LOG.md
   **not** reference `STATE_*.md`, `RDD_LOG.md` keys, `test/` fixtures, or
   any other implementation note or test corpus — write each bullet so it
   stands alone for a reader with no access to this directory's internal
-  process files or test suite. If a bullet needs to show what triggers a
-  limitation, use an inline code snippet instead of pointing at a fixture
-  file. Do not skip
+  process files or test suite. This also covers internal Java class/method
+  names (`Config.java`, `FormatterCurly.formatOne`, `ServerMode.
+  findRunningServerPort()`, ...) and internal build/test-process detail
+  (`make test`, Makefile target names, `_test_serial`) — describe
+  observable behavior only, never how the code or test suite achieves it.
+  If a bullet needs to show what triggers a limitation, use an inline code
+  snippet instead of pointing at a fixture file or naming an internal
+  type/method. A 2026-08-20 session found and fixed a dozen such leaks that
+  had silently accumulated across many prior small edits — this rule
+  existing wasn't enough on its own to prevent that, so `CLAUDE.md` now
+  states it again, prominently, and a full-file grep sweep before finishing
+  any `README.md`-touching task is the actual enforcement mechanism, not
+  just remembering the rule. Do not skip
   the update because the change feels small; a past session shipped a fix
   without touching `README.md` and the gap had to be found and backfilled
   later.

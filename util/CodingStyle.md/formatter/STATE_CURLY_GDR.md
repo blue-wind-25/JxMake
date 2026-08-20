@@ -240,6 +240,13 @@ Executed — see Checklist's fixture items below.
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_328` — Attempted to validate `curly-general-scope-reindent-postpass` (`RDD_KEY_324`)
+  against real code before promoting it out of EXPERIMENTAL: not promoted. The original
+  motivating target (Java anon-class compound-brace mismatch) turned out already fixed by an
+  unrelated mechanism (`RDD_KEY_325`); a fresh real-corpus comparison (188-file Kotlin corpus)
+  found a mixed result — some accidental improvements, but genuine new wrap-continuation
+  indentation regressions on previously-correct output. Stays EXPERIMENTAL/default-off. Full
+  text: `RDD_KEY_328`.
 - `RDD_KEY_324` — Implemented the "run GDR a second time as a genuine POST-pass" idea (user
   suggestion, follow-up on `RDD_KEY_323`) as permanent, isolated GDR-job infrastructure: new
   `curly-general-scope-reindent-postpass` config key (EXPERIMENTAL, default off, silent no-op
@@ -836,6 +843,25 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       `STATE_C_CPP_JAVA.md`'s Java anon-class "not reformatted" gap; kept as legitimate, harmless
       opt-in infrastructure for whoever next attempts the real `GdrBraceDepthCounter`/
       `GdrReindenter` root-cause fix `RDD_KEY_323` already scoped. Full text: `RDD_KEY_324`.
+
+- [x] **Attempt to promote `curly-general-scope-reindent-postpass` out of EXPERIMENTAL**
+      (2026-08-21, `RDD_KEY_328`) — **not promoted; stays EXPERIMENTAL.** First found the
+      postpass's original motivating target (`RDD_KEY_322`/`RDD_KEY_323`'s Java anon-class
+      compound-brace mismatch) is now moot: `RDD_KEY_325`, a separate later C_CPP_JAVA-job
+      session, already fixed that exact gap by an unrelated non-GDR mechanism (confirmed —
+      `make test` 336/336, `real_code_regressions_221` passes at default config, no GDR flags
+      needed at all). Then ran the checklist's own remaining ask — a real-corpus validation —
+      against the 188-file Kotlin corpus from `RDD_KEY_298` (`JetBrains/kotlin`'s
+      `compiler/ir/backend.js/src`), comparing `-multipass`-only output against
+      `-multipass`+`-postpass` output: **mixed result, not a clean win.** 81/188 files differ;
+      some differences are an accidental improvement (postpass force-reindents a line the base
+      pipeline's own declaration-alignment pass had mis-indented via an unrelated bug), but
+      others are genuine new regressions — a previously-correct STYLE.md §8 wrapped-call
+      continuation/closer alignment (e.g. `dce/Dce.kt`, `ic/ICUtils.kt`) gets over-indented by
+      postpass's re-application of GDR's structural-depth model. Root cause not isolated
+      further this session (would need the same paren/bracket-axis tracing already called for
+      in `RDD_KEY_323`/`RDD_KEY_324`, applied to this different trigger shape). No source
+      changed (validation-only); `make test`: 336/336 unaffected. Full text: `RDD_KEY_328`.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

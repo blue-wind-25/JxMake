@@ -1190,15 +1190,17 @@ of the HTML5 spec's tree-construction algorithms. See "Config file format" → [
 tree-construction gap levels](#html5-tree-construction-gap-levels-html5-tc-gap-level) above for
 what each level enables and each level's own documented gap.
 
-#### 2. HTML/XML single-word comments are never capitalized, even when they're genuine one-word prose
+#### 2. HTML/XML single-word comments are left byte-for-byte untouched, even when they're genuine one-word prose
 
 ```html
 <!--more-->
 ```
 
-This case is deliberately skipped by `normalize-comment-start-case` because a single-word
-HTML/XML comment is often a content-splitting directive a third-party tool parses literally and
-must never be rewritten (the motivating case: WordPress's magic comments like `<!--more-->`,
+A single-word HTML/XML comment renders exactly as written — no capitalization, and no interior
+padding around the `<!--`/`-->` markers either (an ordinary multi-word comment does get one space
+of padding on each side, e.g. `<!-- some comment -->`). This is deliberate: a single-word HTML/XML
+comment is often a content-splitting directive a third-party tool parses literally and must never
+be rewritten in any way (the motivating case: WordPress's magic comments like `<!--more-->`,
 `<!--nextpage-->`, `<!--noteaser-->`). See "Config file format" → [Comment capitalization
 exceptions](#comment-capitalization-exceptions-normalize-comment-start-case) above.
 

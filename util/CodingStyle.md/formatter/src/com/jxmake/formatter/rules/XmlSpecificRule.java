@@ -1801,15 +1801,7 @@ public final class XmlSpecificRule {
                 ).append(
                     "-->\n"
                 );
-                else out.append(
-                    indent(depth)
-                ).append(
-                    "<!-- "
-                ).append(
-                    n.commentText
-                ).append(
-                    " -->\n"
-                );
+                else out.append( indent(depth) ).append( wrapComment(n.commentText) ).append('\n');
                 return;
 
             case CDATA:
@@ -1880,7 +1872,7 @@ public final class XmlSpecificRule {
                 }
                 if(n.trailingComment != null) {
                     out.setLength( out.length() - 1 );
-                    out.append(" <!-- ").append(n.trailingComment).append(" -->\n");
+                    out.append(' ').append( wrapComment(n.trailingComment) ).append('\n');
                 }
             }
             return;
@@ -1897,7 +1889,7 @@ public final class XmlSpecificRule {
             // `onlyChild` may itself carry a same-line trailing comment (e.g. `<td>text<!-- c
             // --></td>`) -- this inline fast path bypasses renderNode(onlyChild), so that comment
             // must be spliced in here too or it's silently dropped (found via apache/ant dogfood).
-            final String childSuffix = onlyChild.trailingComment != null ? " <!-- " + onlyChild.trailingComment + " -->" : "";
+            final String childSuffix = onlyChild.trailingComment != null ? " " + wrapComment(onlyChild.trailingComment) : "";
             final String inline      = indent(
                 depth
             ) + openTightNoAngle + ">" + onlyChild.raw + childSuffix + "</" + n.tagName + ">";
@@ -2093,6 +2085,19 @@ public final class XmlSpecificRule {
         }
     }
 
+    /**
+     * Renders a comment's `<!--`/`-->` markers with the normal one-space padding, except a
+     * single-word directive (WordPress's `<!--more-->`/`<!--nextpage-->`/`<!--noteaser-->` and the
+     * like, see {@link #isSingleWordDirective}) renders tight -- padding would rewrite the exact
+     * literal byte sequence such a directive's third-party consumer requires just as surely as
+     * capitalizing it would, defeating the whole point of {@code isSingleWordDirective} already
+     * skipping capitalization for this shape.
+     */
+    private static String wrapComment(final String text)
+    {
+        return isSingleWordDirective(text) ? "<!--" + text + "-->" : "<!-- " + text + " -->";
+    }
+
     private void appendWithTrailing(
         final StringBuilder out,
         final String        line,
@@ -2100,7 +2105,7 @@ public final class XmlSpecificRule {
     )
     {
         out.append(line);
-        if(trailingComment != null) out.append(" <!-- ").append(trailingComment).append(" -->");
+        if(trailingComment != null) out.append(' ').append( wrapComment(trailingComment) );
         out.append('\n');
     }
 

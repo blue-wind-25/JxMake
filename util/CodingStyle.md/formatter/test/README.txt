@@ -4215,6 +4215,13 @@ Real-code regressions:
                                                         clause) but was previously matched unconditionally,
                                                         corrupting a plain method of that name.
 
+  real_code_regressions_225_inp/out.html             -- RDD_KEY_329 fix: WordPress magic-comment padding.
+                                                        `isSingleWordDirective` already skipped capitalizing
+                                                        single-word comments like `<!--more-->`, but the
+                                                        render layer still padded them (`<!-- more -->`),
+                                                        rewriting the exact literal byte sequence a third-
+                                                        party consumer requires. Now rendered byte-identical.
+
 How Tests Are Run
 -----------------
 

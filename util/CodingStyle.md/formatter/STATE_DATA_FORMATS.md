@@ -371,6 +371,23 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   now also stays lowercase), documented in `README.md`'s Known Limitations.
   `make test`: 219/219 forward, 219/219 idempotency.
 
+- **WordPress magic-comment padding — RESOLVED (RDD_KEY_329, 2026-08-21).**
+  Found: even after the capitalization fix above, `isSingleWordDirective`
+  comments were still being padded with interior spaces at render time
+  (`<!--more-->` -> `<!-- more -->`), rewriting the exact literal byte
+  sequence the capitalization exception was meant to preserve — same
+  third-party-consumer breakage, just via padding instead of case. Root
+  cause was in `XmlSpecificRule`'s render layer (four separate hardcoded
+  `" <!-- " + text + " -->"` call sites), not `normComment` (which only
+  ever controlled text content, never padding). Fix: added a single
+  `wrapComment(String)` helper that reuses the existing
+  `isSingleWordDirective` check and renders such comments tight
+  (`<!--more-->`), routed all four render sites through it. Fixture:
+  `test/real_code_regressions_225_{inp,out}.html`. `make test`: 336/336
+  forward + 336/336 idempotency, zero regressions. `README.md`'s Known
+  Limitations §2 updated to reflect that these comments are now genuinely
+  byte-identical, not just uncapitalized.
+
 - **HTML5 optional/implied end tags — RESOLVED in stages (RDD_KEY_198/199/
   200; `alexandersandberg/html5-elements-tester` dogfood, 3 sequential
   blockers, user decisions 2026-07-24).** (1) RDD_KEY_198:

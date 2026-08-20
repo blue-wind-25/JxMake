@@ -287,66 +287,18 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- [C_CPP_JAVA] Java anonymous-class-as-call-argument body not reformatted (C/C++/Kotlin's
-  lambda equivalent already fixed). See `STATE_C_CPP_JAVA.md` "Known Gaps".
-  UPDATE 2026-08-20: the ACTIVE CORRUPTION this bug's fix attempts kept tripping over
-  (RDD_KEY_318/RDD_KEY_319 -- body was collapsing onto one garbled line, not just staying
-  unreformatted) is now FIXED (RDD_KEY_321): the real culprit was
-  `DeclarationAlignmentRuleCurly.parseDeclaration`'s `eqIdx` scan having no depth-tracking
-  (unlike the `colonIdx` scan beside it), so it could lock onto a `=` nested deep inside a call
-  argument's brace body before any genuine top-level `=`. Fixed by making it depth-aware. Body
-  is once again cleanly left untouched (not garbled) -- matches the behavior this bullet
-  describes. The underlying "not reformatted" gap itself is UNCHANGED/still open (re-enabling
-  the RDD_KEY_317 side channel for Java on top of this fix produces a different bug, wrong
-  indentation, not pursued further -- see `STATE_C_CPP_JAVA.md`'s Known Gaps, RDD_KEY_321).
-  New fixture `test/real_code_regressions_221_{inp,out}.java`. `make test` 333/333, zero
-  regressions.
-  UPDATE 2026-08-20 (same day, later): confirmed RDD_KEY_321's fix is NOT Java-specific -- the
-  same `eqIdx` bug pre-existed for C++ too (a no-`.`/`->` lambda-as-call-argument repro,
-  `invoke([]() { int x = 1; ... });`, reproduced the identical corruption pre-fix; RDD_KEY_317's
-  own C++ repro just happened to dodge it via an unrelated existing `.`/`->` rejection guard).
-  New fixture `test/real_code_regressions_222_{inp,out}.cpp` alongside 221. `make test` 334/334.
-  ALSO tried (bounded, reverted, RDD_KEY_322): re-enabling Java in the RDD_KEY_317 side channel on
-  top of the eqIdx fix, to see if it also unblocks full reformatting. NOT easy -- no longer
-  corrupts, but produces a different, still-wrong result (statements stay at their original 8sp
-  indent instead of the correct 16sp; closing `}` misplaced), root-caused to TWO separate,
-  high-risk, shared-infrastructure causes (not one): `applyDeclarationsPass`/`applyAssignmentsPass`
-  never use depth-derived indent for a statement, only round-normalize its own raw source indent
-  (same known "column-alignment only" limitation already accepted for RDD_KEY_316/317, just more
-  visible on Java's double-brace nesting); AND the side channel's closing-brace force-reindent is
-  computed against the anon-class body's pre-Allman-conversion layout, going stale once
-  `JavaSpecificRule.enforceMethodDefinitionAllmanBraceStyle` runs later in the pipeline. Neither
-  fix attempted (each is a substantial, high-blast-radius change on its own -- see
-  `STATE_C_CPP_JAVA.md`'s Known Gaps, RDD_KEY_322, for the full two-part diagnosis). The
-  "not reformatted" gap (this bullet's original subject) stays open, unchanged, just with a
-  precise diagnosis now instead of "root cause not isolated."
-  UPDATE 2026-08-20 (later, user-suggested): re-tested with `curly-general-scope-reindent`/
-  `-multipass` (GDR) on top of the re-enabled side channel, since RDD_KEY_319's earlier "GDR makes
-  no difference" finding predates the corruption fix (GDR had nothing to act on back then -- the
-  body was one collapsed line). With the corruption fixed, GDR now DOES activate and change the
-  output -- but still not correctly: it reindents the body statements one level deeper than their
-  own opening `{` (correct, 16sp->20sp) but reindents that SAME brace's closing `}` to only 12sp,
-  a mismatched pair. Idempotent, but not a fix -- a third moving part (GDR's own line-based
-  brace-depth pre-pass mis-tracking this compound shape) on top of RDD_KEY_322's two. GDR is not a
-  ready-made answer, and is itself off-by-default/high-risk on its own -- not something to wire in
-  as a dependency without its own investigation. Reverted (no net source change). See
-  `STATE_C_CPP_JAVA.md`'s Known Gaps, `RDD_KEY_323`.
+- [C_CPP_JAVA] Java anonymous-class-as-call-argument body not reformatted (C/C++/Kotlin's lambda
+  equivalent already fixed). Corruption fixed (RDD_KEY_321/322/323); this "not reformatted" part
+  stays open. See `STATE_C_CPP_JAVA.md` "Known Gaps".
 
-  RE-DOGFOOD RECOMMENDED before considering the CORRUPTION FIX (RDD_KEY_321) fully closed --
-  NOT the whole repo list, just these two, since `eqIdx`'s fix only changes behavior for a
-  specific narrow shape (a nested `=` before any top-level one) and both already have a proven
-  track record surfacing bugs in this exact code:
-    1. `jenkinsci/jenkins` (Java) -- already found a `parseDeclaration` bug in this exact method
-       once before (RDD_KEY_225, `PluginManager.java`); Jenkins-style code makes heavy use of
-       anonymous Runnable/Listener-style call arguments, the shape this fix targets. Primary
-       candidate.
-    2. `NVIDIA/stdexec` (C++) -- heavy lambda-as-call-argument usage (executors/senders), a
-       plausible source of the "no preceding `.`/`->`" shape RDD_KEY_321 found doesn't get
-       caught by the existing guard. Secondary/optional candidate if time allows.
-  Reuse each repo's existing checkout from a prior session if still under `/tmp`, else re-clone.
-  Full round1/round2 dogfood pass (format, diff, syntax-check); look specifically for any output
-  diff touching a declaration/assignment statement nested inside a call-argument lambda/anonymous
-  class/function body -- that is the only shape this fix's behavior can have changed.
+- [C_CPP_JAVA] TOMORROW (re-dogfood after RDD_KEY_321's `eqIdx` fix): `jenkinsci/jenkins` (Java,
+  primary) and `NVIDIA/stdexec` (C++, optional) -- see `STATE_C_CPP_JAVA.md` "Known Gaps",
+  RDD_KEY_321.
+
+- [C_CPP_JAVA] GDR idea (unverified, needs its own investigation before attempting): run
+  `curly-general-scope-reindent` a second time as a genuine POST-pass (after the rest of the
+  pipeline, not just as today's pre-pass), so it isn't immediately overwritten by the anon-class
+  side channel's own closing-brace reindent. See `RDD_LOG.md`'s `RDD_KEY_323`.
 
 Use sub-agent. This can be a substantial work.
 

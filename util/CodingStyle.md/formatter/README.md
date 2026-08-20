@@ -1023,6 +1023,24 @@ already-fixed declaration-parsing issue that also affected some C++ lambda-as-ca
 with no preceding `.`/`->` in the call chain — was fixed 2026-08-20; this remaining gap is only
 about the body not being reformatted, not about it being corrupted.)
 
+Turning on `curly-general-scope-reindent` (with or without `curly-general-scope-reindent-multipass`)
+is **not** a workaround for this gap — it produces a differently-broken result rather than a
+correctly-indented one. The body's statements do land one level deeper than the body's own opening
+brace (correct), but that same brace's closing `}` lands at the wrong, shallower column instead of
+lining up with its own opener — a mismatched pair, e.g.:
+
+```java
+run( new Runnable() { public void run()
+            {
+                int x = 1;
+                int y = 2;
+        } } );
+```
+
+This mismatch is stable (reformatting the output again doesn't change it further, with or without
+multipass), so it will not "settle" into the correct shape no matter how many times the file is
+reformatted.
+
 #### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 
 Whether a small call or condition nested inside a longer expression stays on one line or gets

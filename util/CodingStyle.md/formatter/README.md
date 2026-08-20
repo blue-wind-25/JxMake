@@ -1013,11 +1013,14 @@ declaration statements inside a reformatted body get their indentation normalize
 non-declaration statement line keeps whatever indentation it already had.
 
 **Still an accepted, unfixed gap for Java** — an anonymous class passed as a call argument
-(`run(new Runnable() { public void run() { ... } });`) is not addressed by this fix and behaves as
-before: its body is left completely untouched. Unlike the other languages' equivalents, a Java
-anonymous class's body is itself a full member declaration (not just ordinary statements), which
-an attempted fix found conflicts with a downstream call-argument line-wrap step; fixing it requires
-more invasive changes than the other languages needed.
+(`run(new Runnable() { public void run() { ... } });`) is not addressed by this fix: its body is
+left completely untouched rather than reformatted. Unlike the other languages' equivalents, a Java
+anonymous class's body is itself a full member declaration (not just ordinary statements), which an
+attempted fix found conflicts with how a recursed-into body's indentation gets derived; fixing it
+requires more invasive changes than the other languages needed. (A separate bug that could make
+this shape's body collapse onto one garbled line instead of staying untouched — an unrelated,
+already-fixed declaration-parsing issue — was fixed 2026-08-20; this remaining gap is only about
+the body not being reformatted, not about it being corrupted.)
 
 #### 2. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

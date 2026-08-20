@@ -4191,6 +4191,22 @@ Real-code regressions:
                                                         identical body at statement position, instead of being
                                                         left completely untouched.
 
+  real_code_regressions_221_inp/out.java             -- a Java anonymous-class-as-call-argument body
+                                                        (`run(new Runnable() { public void run() { ... } });`)
+                                                        no longer has its multi-statement nested method body
+                                                        collapsed onto one line. Root cause:
+                                                        `DeclarationAlignmentRuleCurly.parseDeclaration`'s
+                                                        `eqIdx` scan (unlike the depth-aware `colonIdx` scan
+                                                        beside it) found the first `=` anywhere in the
+                                                        statement with no depth-tracking, locking onto a `=`
+                                                        nested inside the call argument's brace body and
+                                                        misparsing the whole call as a bogus declaration whose
+                                                        "initializer" swallowed the rest of the anonymous
+                                                        class body. The body is still left unreformatted
+                                                        (statement-per-line/Allman placement for this shape
+                                                        remains a documented gap -- see STATE_C_CPP_JAVA.md's
+                                                        Known Gaps), but it is no longer corrupted.
+
 How Tests Are Run
 -----------------
 

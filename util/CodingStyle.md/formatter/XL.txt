@@ -289,6 +289,26 @@ Use sub-agent. This can be a substantial work.
 
 - [C_CPP_JAVA] Java anonymous-class-as-call-argument body not reformatted (C/C++/Kotlin's
   lambda equivalent already fixed). See `STATE_C_CPP_JAVA.md` "Known Gaps".
+  UPDATE 2026-08-20: the ACTIVE CORRUPTION this bug's fix attempts kept tripping over
+  (RDD_KEY_318/RDD_KEY_319 -- body was collapsing onto one garbled line, not just staying
+  unreformatted) is now FIXED (RDD_KEY_321): the real culprit was
+  `DeclarationAlignmentRuleCurly.parseDeclaration`'s `eqIdx` scan having no depth-tracking
+  (unlike the `colonIdx` scan beside it), so it could lock onto a `=` nested deep inside a call
+  argument's brace body before any genuine top-level `=`. Fixed by making it depth-aware. Body
+  is once again cleanly left untouched (not garbled) -- matches the behavior this bullet
+  describes. The underlying "not reformatted" gap itself is UNCHANGED/still open (re-enabling
+  the RDD_KEY_317 side channel for Java on top of this fix produces a different bug, wrong
+  indentation, not pursued further -- see `STATE_C_CPP_JAVA.md`'s Known Gaps, RDD_KEY_321).
+  New fixture `test/real_code_regressions_221_{inp,out}.java`. `make test` 333/333, zero
+  regressions.
+  RE-DOGFOOD RECOMMENDED before considering this fully closed: RDD_KEY_321's fix changes the
+  `eqIdx` scan inside `parseDeclaration`, a core path shared by every C/C++/Java declaration
+  statement (Kotlin/JS/TS use their own separate declaration-parsing methods, unaffected).
+  Behavior only changes when a nested `=` appears somewhere before any genuine top-level `=`
+  (judged rare in real code), but this is widely-exercised shared infrastructure, so a fresh
+  C/C++/Java dogfood pass (reuse an existing large real-code checkout from a prior session if
+  still under `/tmp`, else pick a medium-size candidate) to confirm zero output-diff regressions
+  beyond `make test`'s own fixture corpus is worth doing tomorrow.
 
 Use sub-agent. This can be a substantial work.
 

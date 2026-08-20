@@ -126,7 +126,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_221_inp/out.java`
-    to   `real_code_regressions_224_inp/out.java`
+    to   `real_code_regressions_225_inp/out.html`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -148,12 +148,15 @@ If it only causes few regressions, try to fix the regressions. If after ~3 tries
 is still not improved/somewhat fixed, revert and try another approach, otherwise continue for a bit.
 
 If after ~3 approaches, the feature still cannot be properly implemented, then judge whether to
-simplify the feature, divide the feature into smaller increments, or stop and cancel the feature.
+simplify the feature, divide the feature into smaller increments, or stop and cancel the feature
+and add it to `## Known Limitations` in `README.md`.
 
 If the feature is successfully implemented and re-dogfood is needed, only execute the full
 re-dogfood once for each dogfood repo. In case there is further error in one/more of the dogfood
 repos, fix the bug(s), and only reformat the failed files. Reformatting an entire dogfood repo
 after each bug fix is wasting time.
+
+Use sub-agent. This can be a substantial work.
 
 ####################################################################################################
 ####################################################################################################

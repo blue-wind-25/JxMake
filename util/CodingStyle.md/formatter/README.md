@@ -1326,16 +1326,23 @@ to load/maintain, a cost disproportionate to the benefit, since the affected dec
 (leading-keyword/trailing-period ambiguity) is an English-prose-vs-code-keyword distinction that
 mostly doesn't apply to non-Latin text in the first place.
 
-#### 2. A trailing period next to more than one `.` in the same comment is always left as-is
+#### 2. A trailing period next to more than one `.` in the same comment always survives — but capitalization still applies independently
 
+```java
+// see the .hpp file, e.g. widget.hpp.
 ```
-// see the .hpp file, e.g. Widget.hpp
+
+becomes
+
+```java
+// See the .hpp file, e.g. widget.hpp.
 ```
 
 The trailing-period stripper calls the classifier first, then discards its result via a mechanical
 bail-out whenever a comment contains more than one `.` — a file extension, an abbreviation like
-`e.g.`, or an ellipsis — even when the GRU already ran and
-produced a real answer.
+`e.g.`, or an ellipsis — even when the GRU already ran and produced a real answer. This bail only
+affects period-stripping: comment-start capitalization is a separate step and still runs
+normally, so the comment above is not left fully as-is — only its trailing period survives.
 
 No workaround: distinguishing a mid-word/mid-token dot from a true sentence-ending dot is a
 separate judgment call the shared model was never trained on (no `task` dimension in the training

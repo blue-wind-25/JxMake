@@ -497,6 +497,14 @@ on the noted commits/fixtures)
      misidentified as scope-close; `#if`/`#endif` guard dropped by `splitStatements`;
      `tryCollapse` absorbing text past a `//` comment; already-collapsed one-liner misparsed as
      declaration. Verified (2). Fixtures: `_34`, `_35`, `_36`.
+
+     **2026-08-21, re-dogfood (RDD_KEY_327, user-requested)**: fresh clone, same 192-file
+     `include/` scope. Round1/round2: byte-identical, 0-file diff (fully idempotent). Baseline
+     `cpp20_syntax_check`: 921 pre-existing `error:`/`fatal error:` occurrences, all environment/
+     toolchain gaps (missing system TBB, clang libc++ missing `<version>`) unrelated to any
+     `stdexec`/`exec` source; re-checked against round1's output: identical count and per-type
+     distribution, zero new errors. Spot-checked 8 sampled files' content diffs: all expected
+     formatting transforms, no bug found. Remains DONE, no open gaps.
 (13) C++11 `boostorg/mp11` (34 `.hpp`) — no bug found, idempotent at default. Verified (2).
 (14) C++23 `basvas-jkj/cpp_modules` (7 files) — no bug found, idempotent. Verified (3)
      (pre-existing environment failures only, identical before/after).

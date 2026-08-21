@@ -1038,6 +1038,20 @@ General Scope-Depth Reindentation:
                                                         this real-world case, not just the synthetic
                                                         one-true-brace shapes the other GDR fixtures exercise.
 
+  curly_gdr_postpass_wrap_inp/out.java               -- curly-general-scope-reindent=on;
+                                                        curly-general-scope-reindent-postpass=on (no multipass)
+                                                        via in-file config. Proves RDD_KEY_331's postMode fix:
+                                                        an else-if branch's condition is long enough to force
+                                                        the pipeline's own STYLE.md §8 call-wrap, and the
+                                                        postpass leaves that wrapped continuation line and its
+                                                        closer exactly as the pipeline already aligned them
+                                                        (the RDD_KEY_328 wrap-continuation over-indentation
+                                                        regression this fix resolves), while the surrounding
+                                                        one-true-brace `} else if (...) {` / `} else {` joined
+                                                        chain (the same base single-pass RDD_KEY_229 shape as
+                                                        curly_gdr_multipass_inp.java) still gets its closing
+                                                        braces corrected by the postpass alone.
+
   java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
                                                         leading indentation at all), with
                                                         curly-general-scope-reindent=on via in-file config --

@@ -6,6 +6,12 @@
 import fs from "fs";
 import { readFile } from "node:fs/promises";
 
+import { WidgetX } from "components/Widget";   // Resolves to the project's own source tree via
+                                               // Tsconfig `baseUrl`/`paths`, but is classified
+                                               // "third-party", not "local"
+import { WidgetY } from "components/Widget";   /* resolves to the project's own source tree via
+                                                  tsconfig `baseUrl`/`paths`, but is classified
+                                                  "third-party", not "local" */
 import express from "express";
 import { debounce } from "lodash";
 

@@ -4569,19 +4569,44 @@ public final class JsTsSpecificRule {
      * own import through reordering rather than being (mis)treated as a floating comment between
      * imports that would otherwise segment the list. Returns {@code fromIdx} unchanged (no
      * trailing comment found) otherwise.
+     *
+     * <p>If that trailing comment is a `//` line comment, also swallows every immediately-
+     * following own-line continuation line -- a standalone `//` comment reached after exactly one
+     * NEWLINE (no blank line) and no other token in between -- since those lines are visual
+     * continuations of the same trailing comment (aligned under it), not a separate standalone
+     * comment that should segment the import list. Stops at the first line that isn't a bare
+     * `//` comment (code, a blank line, or EOF).
      */
     private int extendPastTrailingComment(final List<Token> tokens, final int fromIdx)
     {
           int idx = fromIdx;
     final int n   = tokens.size();
         while( idx < n && tokens.get(idx).type == TokenType.WHITESPACE ) idx++;
-        if( idx < n && ( tokens.get(
-            idx
-        ).type == TokenType.COMMENT_LINE || tokens.get(
-            idx
-        ).type == TokenType.COMMENT_BLOCK ) ) return idx + 1;
+        if( idx >= n ) return fromIdx;
+        if(tokens.get(idx).type == TokenType.COMMENT_BLOCK) return idx + 1;
+        if(tokens.get(idx).type != TokenType.COMMENT_LINE) return fromIdx;
 
-        return fromIdx;
+        idx++;
+        while(true) {
+            int p            = idx;
+            int newlineCount = 0;
+            while( p < n ) {
+                final TokenType type = tokens.get(p).type;
+                if(type == TokenType.WHITESPACE) {
+                    ++p;
+                }
+                else if(type == TokenType.NEWLINE) {
+                    ++newlineCount;
+                    if(newlineCount > 1) return idx;
+                    ++p;
+                }
+                else {
+                    break;
+                }
+            } // while
+            if( p >= n || newlineCount != 1 || tokens.get(p).type != TokenType.COMMENT_LINE ) return idx;
+            idx = p + 1;
+        } // while
     }
 
     /**

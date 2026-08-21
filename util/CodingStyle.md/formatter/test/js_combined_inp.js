@@ -9,6 +9,12 @@ import {debounce} from "lodash";
 import express from "express";
 import {Widget} from "../components";
 import {helper} from "./helper";
+import { WidgetX } from "components/Widget";   // resolves to the project's own source tree via
+                                               // tsconfig `baseUrl`/`paths`, but is classified
+                                               // "third-party", not "local"
+import { WidgetY } from "components/Widget";   /* resolves to the project's own source tree via
+                                                  tsconfig `baseUrl`/`paths`, but is classified
+                                                  "third-party", not "local" */
 
 @Component({selector: "app-widget"})
 export class Widget {

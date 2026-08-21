@@ -4257,6 +4257,16 @@ Real-code regressions:
                                                         only, leaving C/C++/Java/JS/TS's non-nesting scan
                                                         untouched.
 
+  real_code_regressions_228_inp/out.js               -- §15 import-ordering fix: a trailing `//` comment
+                                                        spanning multiple own-line continuation lines (each
+                                                        aligned under the first) is now recognized as one
+                                                        multi-line trailing comment and travels as a whole
+                                                        with its import through reordering, instead of only
+                                                        the comment's first line moving with the import while
+                                                        its continuation lines were left behind as a stray
+                                                        floating comment (corrupting both the moved import and
+                                                        the comment left behind).
+
 How Tests Are Run
 -----------------
 

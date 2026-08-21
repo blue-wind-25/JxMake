@@ -199,13 +199,14 @@ public final class Config {
     private boolean curlyGeneralScopeReindentMultipass = false;
 
     /**
-     * {@code curly-general-scope-reindent-postpass} -- EXPERIMENTAL, see {@code STATE_CURLY_GDR.md}'s
-     * `RDD_KEY_323` follow-up. Only takes effect when {@code curly-general-scope-reindent} is also
-     * on. Runs one additional GDR reindent directly on the final pipeline output -- a genuine
-     * post-pass with no further pipeline call after it, unlike every existing GDR application
-     * (base single-pass and every multipass cycle alike), which always immediately hands its
-     * output to another {@code formatOne} call. Default off. Same silent-no-op-if-base-off posture
-     * as {@code curly-general-scope-reindent-multipass} (RDD_KEY_234).
+     * {@code curly-general-scope-reindent-postpass} -- promoted out of EXPERIMENTAL, see
+     * {@code STATE_CURLY_GDR.md}'s `RDD_KEY_332`/`RDD_KEY_333`. Only takes effect when
+     * {@code curly-general-scope-reindent} is also on. Runs one additional GDR reindent directly
+     * on the final pipeline output -- a genuine post-pass with no further pipeline call after it,
+     * unlike every existing GDR application (base single-pass and every multipass cycle alike),
+     * which always immediately hands its output to another {@code formatOne} call. Default off,
+     * same permanently-opt-in posture as {@code curly-general-scope-reindent-multipass}
+     * (RDD_KEY_234) -- not a "default off until proven safe" state.
      */
     private boolean curlyGeneralScopeReindentPostpass = false;
 
@@ -690,7 +691,7 @@ public final class Config {
             case "curly-general-scope-reindent-postpass":
                 defaultValue  = defaults.curlyGeneralScopeReindentPostpass ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
-                note          = "(EXPERIMENTAL) Only takes effect when curly-general-scope-reindent is also on";
+                note          = "Only takes effect when curly-general-scope-reindent is also on";
                 break;
 
             case "header-guard-rename":

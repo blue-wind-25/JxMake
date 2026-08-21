@@ -131,14 +131,15 @@ public final class GdrPipelineGate {
     }
 
     /**
-     * {@code curly-general-scope-reindent-postpass} (EXPERIMENTAL, RDD_KEY_323 follow-up): applies
-     * GDR exactly once more directly to the fully-finished pipeline output, with no further
-     * {@code formatOne} call after it -- a genuine post-pass, unlike every GDR application above
-     * (base single-pass and every multipass cycle alike), which is always immediately followed by
-     * another pipeline pass that can rewrite structure GDR just reindented. No-op (returns
-     * {@code finalOutput} unchanged) unless both {@code curly-general-scope-reindent} and
-     * {@code curly-general-scope-reindent-postpass} are on for a curly-family language -- same
-     * silent-no-op-if-base-off posture as multipass (RDD_KEY_234).
+     * {@code curly-general-scope-reindent-postpass} (promoted out of EXPERIMENTAL, see
+     * {@code RDD_KEY_332}/{@code RDD_KEY_333}): applies GDR exactly once more directly to the
+     * fully-finished pipeline output, with no further {@code formatOne} call after it -- a genuine
+     * post-pass, unlike every GDR application above (base single-pass and every multipass cycle
+     * alike), which is always immediately followed by another pipeline pass that can rewrite
+     * structure GDR just reindented. No-op (returns {@code finalOutput} unchanged) unless both
+     * {@code curly-general-scope-reindent} and {@code curly-general-scope-reindent-postpass} are
+     * on for a curly-family language -- same permanently-opt-in, silent-no-op-if-base-off posture
+     * as multipass (RDD_KEY_234).
      *
      * <p><b>RDD_KEY_331:</b> calls the internal {@code postMode = true} form of {@link #apply}
      * rather than the ordinary public one, so any line inside (or closing) an open paren/bracket

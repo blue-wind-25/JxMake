@@ -51,4 +51,14 @@ final class ToolingSharedRule {
         return value;
     }
 
+    // Byte-identical leading-whitespace scanner, promoted from duplicate copies in
+    // MakefileSpecificRule/BashSpecificRule/PowerShellSpecificRule
+    static String leadingWhitespace(final String line)
+    {
+        int i = 0;
+        while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) ++i;
+
+        return line.substring(0, i);
+    }
+
 } // class ToolingSharedRule

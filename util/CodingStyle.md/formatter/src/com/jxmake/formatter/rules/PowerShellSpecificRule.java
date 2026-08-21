@@ -572,10 +572,7 @@ public final class PowerShellSpecificRule {
 
     private static String leadingWhitespace(final String line)
     {
-        int i = 0;
-        while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) ++i;
-
-        return line.substring(0, i);
+        return ToolingSharedRule.leadingWhitespace(line);
     }
 
     private String indent(final int depth)

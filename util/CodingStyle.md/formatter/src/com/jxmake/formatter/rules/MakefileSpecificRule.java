@@ -228,14 +228,12 @@ public final class MakefileSpecificRule {
 
     private static boolean endsWithContinuation(final String value)
     {
-        return value.endsWith("\\") && !value.endsWith("\\\\");
+        return ToolingSharedRule.endsWithContinuation(value);
     }
 
     private static String stripContinuation(final String value)
     {
-        if( endsWithContinuation(value) ) return value.substring( 0, value.length() - 1 ).trim();
-
-        return value;
+        return ToolingSharedRule.stripContinuation(value);
     }
 
     private String indent(final int depth)
@@ -245,10 +243,7 @@ public final class MakefileSpecificRule {
 
     private static String leadingWhitespace(final String line)
     {
-        int i = 0;
-        while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) ++i;
-
-        return line.substring(0, i);
+        return ToolingSharedRule.leadingWhitespace(line);
     }
 
     private static String repeatChar(final char c, final int count)

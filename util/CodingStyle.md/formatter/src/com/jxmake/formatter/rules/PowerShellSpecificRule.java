@@ -575,6 +575,26 @@ public final class PowerShellSpecificRule {
         return ToolingSharedRule.leadingWhitespace(line);
     }
 
+    // Trims only ' '/'\t' (not the broader Character.isWhitespace set rtrim() uses elsewhere in
+    // this codebase) -- must match the exact semantics of the "[ \\t]+$" / "^[ \\t]+" regexes this
+    // replaces, since these operate on already-line-split PowerShell source where only space/tab
+    // are meaningful trailing/leading filler.
+    private static String rtrimSpaceTab(final String s)
+    {
+        int end = s.length();
+        while( end > 0 && ( s.charAt(end - 1) == ' ' || s.charAt(end - 1) == '\t' ) ) end--;
+
+        return s.substring(0, end);
+    }
+
+    private static String ltrimSpaceTab(final String s)
+    {
+        int start = 0;
+        while( start < s.length() && ( s.charAt(start) == ' ' || s.charAt(start) == '\t' ) ) start++;
+
+        return s.substring(start);
+    }
+
     private String indent(final int depth)
     {
         return ToolingSharedRule.indent(depth, indentWidth);
@@ -921,10 +941,10 @@ public final class PowerShellSpecificRule {
     {
         final AssignItem item = new AssignItem();
         item.indent = line.substring(0, lead);
-        item.lhs    = line.substring(lead, opAt).replaceAll("[ \\t]+$", "");
+        item.lhs    = rtrimSpaceTab( line.substring(lead, opAt) );
         if( item.lhs.isEmpty() ) return null; // E.g. line starting with =
         item.op  = line.substring(opAt, opAt + opLen);
-        item.rhs = line.substring(opAt + opLen).replaceAll("^[ \\t]+", "");
+        item.rhs = ltrimSpaceTab( line.substring(opAt + opLen) );
 
         return item;
     }
@@ -1194,7 +1214,7 @@ public final class PowerShellSpecificRule {
             if(c == '{') {
                 // Hashtable opener `@{` is not a switch arm (would become `@ {` via the pad space)
                 if( i > 0 && line.charAt(i - 1) == '@' ) return null;
-                final String pattern = line.substring(lead, i).replaceAll("[ \\t]+$", "");
+                final String pattern = rtrimSpaceTab( line.substring(lead, i) );
                 if( pattern.isEmpty() ) return null;
                 if( isControlHeader(pattern) ) return null;
                 final ArmItem item = new ArmItem();

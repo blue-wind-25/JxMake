@@ -97,6 +97,7 @@ public final class GdrReindenter {
         List<Boolean>  excluded    = GdrExclusionZones.computeExcludedByLine(tokens);
         GdrTokenType[] leadingType = computeLeadingTokenTypes(tokens, totalLines);
         String[]       trailingSig = postMode ? computeTrailingSignificantText(tokens, totalLines) : null;
+        String[]       precedingSig = postMode ? computePrecedingSignificantText(trailingSig, totalLines) : null;
 
         List<GdrIndentTarget> result   = new ArrayList<>(totalLines);
         boolean               zoneOpen = false;
@@ -191,7 +192,7 @@ public final class GdrReindenter {
             // `==`/`!=`/`>=`/`<=`/`+=` etc. too (all end in the same character) -- deliberately
             // over-inclusive/conservative, since exempting a line only means leaving it exactly as
             // the pipeline already placed it, never mis-deriving a new value for it.
-            if(postMode && endsWithEquals( precedingSignificantText(trailingSig, line) )) {
+            if(postMode && endsWithEquals( precedingSig[line] )) {
                 if(!zoneOpen) {
                     zoneOpen  = true;
                     zoneFloor = brace.depthAtStart;
@@ -247,20 +248,23 @@ public final class GdrReindenter {
     }
 
     /**
-     * postMode helper (RDD_KEY_332): walks backward from {@code line - 1}
-     * over blank/content-free lines to find the nearest preceding line that
-     * actually had significant content, returning its trailing text (or
-     * {@code null} if none exists, e.g. {@code line} is the file's first
-     * line).
+     * postMode helper (RDD_KEY_332): precomputes, for every line index, the
+     * nearest preceding line's trailing significant text (or {@code null}
+     * if none exists, e.g. index 0). One forward pass over {@code
+     * trailingSig} replaces what used to be an O(n) backward rescan per
+     * call site -- {@code precedingSig[line]} is exactly what a
+     * per-call backward scan from {@code line - 1} would have found.
      */
-    private static String precedingSignificantText(String[] trailingSig, int line)
+    private static String[] computePrecedingSignificantText(String[] trailingSig, int totalLines)
     {
-        if(trailingSig == null) return null;
-        for( int i = line - 1; i >= 0; --i ) {
-            if(trailingSig[i] != null) return trailingSig[i];
+        String[] preceding = new String[totalLines];
+        String   lastSig   = null;
+        for( int i = 0; i < totalLines; ++i ) {
+            preceding[i] = lastSig;
+            if(trailingSig[i] != null) lastSig = trailingSig[i];
         }
 
-        return null;
+        return preceding;
     }
 
     private static boolean endsWithEquals(String trailingText)

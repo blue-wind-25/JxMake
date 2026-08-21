@@ -60,10 +60,14 @@ public final class GruClassifier {
     public static final CommentDecision[] CLASS_ORDER = { CommentDecision.YES, CommentDecision.NO, CommentDecision.ABSTAIN };
 
     private final GruWeights weights;
+    private final Vocabulary vocabulary;
 
     private GruClassifier(GruWeights weights)
     {
-        this.weights = weights;
+        this.weights    = weights;
+        this.vocabulary = weights.hasTrainedWeights()
+                ? new Vocabulary( java.util.Arrays.asList(weights.explicitVocab) )
+                : null;
     }
 
     /**
@@ -114,8 +118,7 @@ public final class GruClassifier {
         if( !weights.hasTrainedWeights() ) return null;
         if( tokens.size() > SEQUENCE_CAP ) tokens = tokens.subList(0, SEQUENCE_CAP);
         if( targetWordIndex < 0 || targetWordIndex >= tokens.size() ) return null;
-        Vocabulary   vocabulary = new Vocabulary( java.util.Arrays.asList(weights.explicitVocab) );
-        ForwardCache cache      = forward(weights, vocabulary, tokens, targetWordIndex);
+        ForwardCache cache = forward(weights, vocabulary, tokens, targetWordIndex);
 
         return softmax(cache.logits);
     }

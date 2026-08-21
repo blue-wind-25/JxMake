@@ -382,14 +382,13 @@ INP_FILES += in_file_config_lang_inp.h
 INP_FILES += behavior_flags_inp.js
 INP_FILES += collapse_trailing_blank_lines_inp.js
 
-# `indent-style = auto` directory-scoped (Main.resolveAutoIndentStyle/IndentationDetector.detect
-# voting a real .jxmake-code-formatter's boundary directory, as opposed to xml_indent_auto_*'s own
-# per-file-content IndentationDetector.detectFromContent path). The `_out` reference for each lives
-# alongside its `_inp`/`.jxmake-code-formatter` in the same subdirectory (not flat in $(TEST_DIR)
-# like every other fixture) -- `out=` above is derived from `$$inp`'s own directory precisely so
-# this idempotency-pass round2 re-format also resolves `auto` against the same
-# `.jxmake-code-formatter` boundary the forward pass used, instead of falling back to the
-# (spaces) default a flat $(TEST_DIR)-rooted `_out` copy would hit.
+# `indent-style = auto` directory-scoped (Main.resolveAutoIndentStyle/IndentationDetector.detect voting a real
+# `.jxmake-code-formatter`'s boundary directory, as opposed to `xml_indent_auto_*`'s own per-file-content
+# `IndentationDetector.detectFromContent` path). The `_out` reference for each lives  alongside its `_inp`
+# and `.jxmake-code-formatter` in the same subdirectory (not flat in `$(TEST_DIR)` like every other fixture) --
+# `out=` above is derived from `$$inp`'s own directory precisely so this idempotency-pass round2 re-format also
+# resolves `auto` against the same `.jxmake-code-formatter` boundary the forward pass used, instead of falling
+# back to the (spaces) default a flat `$(TEST_DIR)`-rooted `_out` copy would hit.
 INP_FILES += indent_style_auto_spaces/indent_style_auto_spaces_inp.c
 INP_FILES += indent_style_auto_tabs/indent_style_auto_tabs_inp.c
 

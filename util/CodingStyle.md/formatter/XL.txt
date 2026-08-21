@@ -148,12 +148,13 @@ Use sub-agent. This can be a substantial work.
 
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
-    Process the formatter's Java source code (especially the files that are modified after
-    commit `c5771f5`) and make improvements in this priority order:
-     1. Refactor duplicated/common code (you can search for existing helper functions that
-        already exist before commit `c5771f5`).
+    Process the formatter's Java source code and make improvements in this priority order:
+     1. Refactor duplicated/common code.
      2. If a clear opportunity arises, optimize for execution speed.
      3. Perform other useful code clean-ups as needed.
+
+    Prioritize the files that are modified after commit `c3fd8ee` but you can search for existing
+    helper functions that already exist before that commit.
 
     Prioritize changes that are:
      - Small and focused.
@@ -171,24 +172,39 @@ Use sub-agent. This can be a substantial work.
     commit. Each commit should contain a coherent set of related changes and have an appropriate
     commit message.
 
-    You may launch up to two research sub-agents simultaneously.
-    You may launch only one code-writer sub-agent at a time.
+    You may launch up to three research sub-agents simultaneously.
+
+    You may (but does not have to) launch only one code-writer sub-agent at a time.
     If a code-writing task is simple and mechanical, use Haiku instead of Sonnet.
 
     NEVER launch Opus or any more expensive sub-agent.
+
+    Session note (2026-08-22): investigated whether any of the per-rule-class helpers duplicated
+    across JavaSpecificRule/CppSpecificRule/KotlinSpecificRule/JsTsSpecificRule/MiscRuleCurly/
+    BlockStructureRule are safe to consolidate despite the documented no-shared-helpers-across-
+    rule-classes precedent (see MiscRuleCurly.hasCommentBetween's doc comment). Found and
+    consolidated 6 genuinely safe, byte-identical, purely algorithmic ones --
+    lineStartIndex/prevSignificantIndexBefore/nextSignificantIndexAfter (Java/Cpp),
+    isPathOp/matchesPrefix (Java/Kotlin), render (Java/JsTs) -- into new TokenNavigationRule.java
+    (commit e6fb770). The lineIndent/hasCommentBetween/appendRange/renderTokens cluster remains
+    intentionally duplicated per that precedent; Kotlin's lineStartIndex and isEnumBodyBrace were
+    checked and excluded due to real behavioral divergence, not just superficial dissimilarity.
+    Do not re-attempt merging any of those without new evidence. Next time this job runs, keep
+    checking newly-modified files for the same kind of safe-to-share opportunity.
 
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
    Apply the formatter to all `*.java/py/js/sh` source files inside `tools/*` subdirectories.
    Output the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency
    check and content-diff check. If all OK, copy back the formatted round1 to the `tools/*`
-   subdirectories. Perform some eyeballing as needed.
+   subdirectories. Perform some eyeballing as needed. Perform bug fixes as needed.
 
    Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
    subdirectories. Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform
    idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
    formatter's `src/**/` subdirectories. Perform some eyeballing as needed. Running the test
-   fixtures from the formatter JAR may produce regressions due to missing GRU weights.
+   fixtures from the formatter JAR may produce regressions due to missing GRU weights. Perform
+   bug fixes as needed.
 
    Find and fix accidentally flushed-left line and dedented lines because this may indicates
    formatter bug.
@@ -200,7 +216,7 @@ Use sub-agent. This can be a substantial work.
        `../../../3rd_party/tools/colordiff/colordiff.py`
    Output the result to `/tmp/something_round1` and then `/tmp/something_round2`. Perform
    idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
-   original subdirectories. Perform some eyeballing as needed.
+   original subdirectories. Perform some eyeballing as needed. Perform bug fixes as needed.
 
    Update `CLAUDE.md`, `STATE_DOGFOOD.md`, `README.md`, `../README.txt`, `../AI_PREAMBLE_FULL.md`,
    `../AI_PREAMBLE_AESTHETIC.md`, etc. as needed.
@@ -366,39 +382,3 @@ echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
-
-
-
-[COMMON/ALL]
-The formatter has:
-```
-line-endings                           = lf          # lf | crlf | preserve
-```
-
-Let's it extend to:
-```
-line-endings                           = lf          # lf | crlf | preserve
-append-new-line-at-eof                 = on          # on | off -- only if the last line does not have it
-collapse-new-line-at-eof               = on          # on | off -- only if the last line are followed by them
-remove-trailing-spaces                 = on          # on | off
-normalize-invisible-invalid-unicode    = on          # on | off
-```
-
-Ensure all are sorted like above, including in README.md, `Config.java` - `describeAll()`, etc.
-
-Do you have better name for `normalize-invisible-invalid-unicode`?
-For unicode, in comments write it to U+NNNN and U+NNNNN?
-In string write using the lang's specific escape code.
-
-Some exception may have to be made (maybe in Makefile recipe only?)
-
-Add the test fixtures for them as well as `indent-style = auto` before `Real-code regressions:`,.
-
-For `indent-style = auto` they will need at least two (one for spaces one for tabs) and must be in their own sub-dir inside the `test` dir
-with their own `.jxmake-code-formatter` override in each sub-dir.
-
-Discuss first before implementing.
-
-Finally README.md still has `2026-*`, that shouldn't because a user-facing document does not need to know the implementation history and state.
-
-Use sub-agent. This can be a substantial work.

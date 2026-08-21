@@ -4249,6 +4249,14 @@ Real-code regressions:
                                                         instead of being re-derived from GDR's own
                                                         brace/paren-bracket depth model.
 
+  real_code_regressions_227_inp/out.kt               -- RDD_KEY_333 fix: a KDoc comment whose own example text
+                                                        contains a nested `/*...*/` marker (e.g. illustrating
+                                                        `/*static*/`) no longer ends the GDR postpass's
+                                                        comment scan early -- Kotlin block comments genuinely
+                                                        nest, so the scan now counts nesting depth for Kotlin
+                                                        only, leaving C/C++/Java/JS/TS's non-nesting scan
+                                                        untouched.
+
 How Tests Are Run
 -----------------
 

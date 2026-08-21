@@ -240,6 +240,19 @@ Executed — see Checklist's fixture items below.
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_333` — Fixed the `RDD_KEY_332`-discovered `GdrTokenizer` gap: `scanBlockComment` used a
+  naive "stop at the first `*/`" scan, correct for C/C++/Java/JS/TS but wrong for Kotlin, whose own
+  lexical grammar lets block comments nest (confirmed with a direct minimal repro before touching
+  source: a Kotlin KDoc comment containing an illustrative nested `/*static*/` marker in its own
+  example text reproduces the mis-indentation only under `-postpass`, not under the base pass or
+  `-multipass` alone — matches `RDD_KEY_332`'s note that it only manifests when GDR reruns against
+  already-formatted code with no subsequent pipeline pass to repair it). Fixed by threading a new
+  `kotlinNestedBlockComments` boolean through `GdrPipelineGate.apply` → `GdrRewriter.rewrite` →
+  `GdrReindenter.compute` → `GdrTokenizer.tokenize`, set `true` only when `language.equals("kotlin")`;
+  `scanBlockComment` counts `/*`/`*/` nesting depth only in that mode. Verified C/C++/Java's
+  non-nesting behavior is byte-for-byte unchanged (same input/flags, pre-fix vs. post-fix jar,
+  identical output). New fixture: `test/real_code_regressions_227_{inp,out}.kt`. `make test`:
+  339/339 → 340/340.
 - `RDD_KEY_332` — Re-ran the exact real-corpus re-validation `RDD_KEY_331` itself flagged as
   still needed: the 188-file-scale `JetBrains/kotlin` `compiler/ir/backend.js/src` corpus (fresh
   clone, 191 `.kt` files), `-multipass`-only vs. `-multipass`+`-postpass`. Found `RDD_KEY_331`'s
@@ -943,8 +956,13 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       refinements (raw `pb.depthAtStart` gating, a compound-brace-closer check, a trailing-`=`
       continuation check, and zone propagation for that continuation's own nested closers) that
       brought the diff down to 12/191, all but 2 of which are accidental improvements; the
-      remaining 2 share a separate, out-of-scope `GdrTokenizer` nested-block-comment gap
-      (documented as a new Known Limitation, not fixed). Idempotency and batch syntax-check both
+      remaining 2 share a separate `GdrTokenizer` nested-block-comment gap, out of scope for that
+      session (documented as a new Known Limitation at the time). **Resolved 2026-08-21
+      (`RDD_KEY_333`):** fixed directly — `GdrTokenizer.scanBlockComment` now counts `/*`/`*/`
+      nesting depth for Kotlin only (gated on `language.equals("kotlin")`, threaded through
+      `GdrPipelineGate`/`GdrRewriter`/`GdrReindenter`), leaving C/C++/Java/JS/TS's non-nesting scan
+      byte-for-byte unchanged. See `RDD_KEY_333` for the full mechanism/verification writeup.
+      Idempotency and batch syntax-check both
       clean (the syntax check's 46/191 flagged files are a pre-existing parser-version limitation,
       identical against the untouched original corpus). New fixture
       `test/real_code_regressions_226_{inp,out}.kt`. **`curly-general-scope-reindent-postpass` is

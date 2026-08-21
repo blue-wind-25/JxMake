@@ -1097,16 +1097,12 @@ such as a declaration or closing brace that an earlier step left mis-indented re
 siblings.
 
 One separate, narrower gap turned up during that same validation, unrelated to the wrap-alignment
-fix above: a documentation comment (`/** ... */`) that itself contains an example of a *nested*
-comment marker (e.g. illustrating `/*static*/` as part of a code sample inside the doc) can have
-its content past that point mis-indented, because comment-boundary detection does not currently
-account for comments nested inside comments. This is rare in practice (only 2 files out of the
-validation corpus were affected, both by way of an illustrative code sample inside a doc comment)
-and does not corrupt or delete any text, only its indentation; it is not specific to this pass —
-the same underlying comment-boundary detection is shared by every reindentation mode — but it was
-only observed to actually change output in practice when this pass reruns reindentation a second
-time against already-formatted code. Left unfixed for now; avoid nesting a nested comment marker
-inside a documentation comment's own example text if this matters for a given file.
+fix above, and has since been fixed: a Kotlin documentation comment (`/** ... */`) that itself
+contains an example of a *nested* comment marker (e.g. illustrating `/*static*/` as part of a code
+sample inside the doc) could have its content past that point mis-indented, because
+comment-boundary detection previously did not account for Kotlin's own comments-can-nest rule.
+Kotlin doc comments containing a nested comment marker in their own example text now reindent
+correctly.
 
 #### 3. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

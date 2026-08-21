@@ -74,9 +74,21 @@ public final class GdrReindenter {
         return compute(source, indentSize, false);
     }
 
+    /**
+     * Equivalent to {@code compute(source, indentSize, postMode, false)} -- {@code
+     * kotlinNestedBlockComments} off. Kept so every caller besides {@link
+     * com.jxmake.formatter.gdr.GdrPipelineGate} is unaffected by the new parameter (RDD_KEY_333).
+     */
     public static List<GdrIndentTarget> compute(String source, int indentSize, boolean postMode)
     {
-        List<GdrToken>                 tokens      = GdrTokenizer.tokenize(source);
+        return compute(source, indentSize, postMode, false);
+    }
+
+    public static List<GdrIndentTarget> compute(
+        String source, int indentSize, boolean postMode, boolean kotlinNestedBlockComments
+    )
+    {
+        List<GdrToken>                 tokens      = GdrTokenizer.tokenize(source, kotlinNestedBlockComments);
         List<GdrLineBraceDepth>        braceDepths = GdrBraceDepthCounter.compute(tokens);
         List<GdrLineParenBracketDepth> pbDepths    = GdrParenBracketDepthCounter.compute(tokens);
         int                            totalLines  = braceDepths.size();

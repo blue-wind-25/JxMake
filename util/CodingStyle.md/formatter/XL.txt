@@ -310,6 +310,11 @@ Use sub-agent. This can be a substantial work.
   nested-comment gap now in README.md's Known Limitations. Stays default off. See `RDD_KEY_332`
   in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
+- [CURLY_GDR] `GdrTokenizer` nested-block-comment gap (the item above) — CLOSED, FIXED 2026-08-21.
+  Kotlin block comments genuinely nest; `scanBlockComment` now counts nesting depth for Kotlin
+  only (gated on language, C/C++/Java/JS/TS untouched). Fixture `real_code_regressions_227`. `make
+  test`: 339/339 → 340/340. See `RDD_KEY_333` in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
+
 - [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
   resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s
   Open Questions.

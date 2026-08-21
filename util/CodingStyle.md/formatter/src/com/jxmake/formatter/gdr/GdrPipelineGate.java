@@ -38,7 +38,11 @@ public final class GdrPipelineGate {
         if( !config.isCurlyGeneralScopeReindent() ) return source;
         if( !isCurlyFamily(language) ) return source;
 
-        return GdrRewriter.rewrite( source, config.indentSize(), postMode );
+        // RDD_KEY_333: Kotlin block comments nest; every other curly-family language does not.
+        // Gated by language so C/C++/Java/JS/TS keep their exact non-nesting scan untouched.
+        boolean kotlinNestedBlockComments = "kotlin".equals(language);
+
+        return GdrRewriter.rewrite( source, config.indentSize(), postMode, kotlinNestedBlockComments );
     }
 
     /**

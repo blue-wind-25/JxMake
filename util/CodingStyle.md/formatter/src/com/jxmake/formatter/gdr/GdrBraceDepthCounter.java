@@ -46,7 +46,7 @@ public final class GdrBraceDepthCounter {
                  if(t.type == GdrTokenType.BRACE_OPEN)  depth++;
             else if(t.type == GdrTokenType.BRACE_CLOSE) depth--;
 
-            int embeddedNewlines = countNewlines(t.text);
+            int embeddedNewlines = GdrTextUtil.countNewlines(t.text);
             for(int k = 0; k < embeddedNewlines; ++k) {
                 result.add( new GdrLineBraceDepth(line, startOfLineDepth, depth) );
                 ++line;
@@ -58,16 +58,6 @@ public final class GdrBraceDepthCounter {
         result.add( new GdrLineBraceDepth(line, startOfLineDepth, depth) );
 
         return result;
-    }
-
-    private static int countNewlines(String text)
-    {
-        int count = 0;
-        for( int i = 0; i < text.length(); ++i ) {
-            if( text.charAt(i) == '\n' ) count++;
-        }
-
-        return count;
     }
 
 } // class GdrBraceDepthCounter

@@ -42,7 +42,7 @@ public final class GdrParenBracketDepthCounter {
             if(t.type == GdrTokenType.PAREN_OPEN || t.type == GdrTokenType.BRACKET_OPEN) depth++;
             else if(t.type == GdrTokenType.PAREN_CLOSE || t.type == GdrTokenType.BRACKET_CLOSE) depth--;
 
-            int embeddedNewlines = countNewlines(t.text);
+            int embeddedNewlines = GdrTextUtil.countNewlines(t.text);
             for(int k = 0; k < embeddedNewlines; ++k) {
                 result.add( new GdrLineParenBracketDepth(line, startOfLineDepth, depth) );
                 ++line;
@@ -52,16 +52,6 @@ public final class GdrParenBracketDepthCounter {
         result.add( new GdrLineParenBracketDepth(line, startOfLineDepth, depth) );
 
         return result;
-    }
-
-    private static int countNewlines(String text)
-    {
-        int count = 0;
-        for( int i = 0; i < text.length(); ++i ) {
-            if( text.charAt(i) == '\n' ) count++;
-        }
-
-        return count;
     }
 
 } // class GdrParenBracketDepthCounter

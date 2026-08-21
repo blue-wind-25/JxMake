@@ -45,7 +45,7 @@ public final class GdrLineTouchability {
         Set<Integer> untouchable = new HashSet<>();
         for(GdrToken t : tokens) {
             if( !isPotentiallyMultiline(t.type) ) continue;
-            int newlineCount = countNewlines(t.text);
+            int newlineCount = GdrTextUtil.countNewlines(t.text);
             if(newlineCount == 0) continue;
             for(int k = 1; k <= newlineCount; ++k) untouchable.add(t.line + k);
         }
@@ -69,16 +69,6 @@ public final class GdrLineTouchability {
                 || type == GdrTokenType.CHAR
                 || type == GdrTokenType.BLOCK_COMMENT
                 || type == GdrTokenType.PREPROCESSOR;
-    }
-
-    private static int countNewlines(String text)
-    {
-        int count = 0;
-        for( int i = 0; i < text.length(); ++i ) {
-            if( text.charAt(i) == '\n' ) count++;
-        }
-
-        return count;
     }
 
 } // class GdrLineTouchability

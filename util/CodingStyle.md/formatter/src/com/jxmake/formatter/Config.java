@@ -100,16 +100,16 @@ public final class Config {
      * unchanged/opt-in. Same process-scoped category as {@code server-port}/
      * {@code server-concurrency} -- cannot be set per-file via {@code JXM_CFMT_CFG}.
      */
-    private int     clientReadAhead           = 1;
-    private int     closingCommentMinLines    = 5;
-    private boolean formatMacros              = false;
-    private String  lineEndings               = "lf";
+    private int     clientReadAhead        = 1;
+    private int     closingCommentMinLines = 5;
+    private boolean formatMacros           = false;
+    private String  lineEndings            = "lf";
     /**
      * {@code append-new-line-at-eof} -- default on: if the file's last line does not already end
      * with a newline, adds exactly one. Purely additive -- never removes or collapses existing
      * trailing blank lines.
      */
-    private boolean appendNewLineAtEof                  = true;
+    private boolean appendNewLineAtEof = true;
     /**
      * {@code collapse-trailing-blank-lines-at-eof} -- default off: collapses two or more
      * consecutive blank lines immediately before end-of-file down to zero (leaving exactly one
@@ -118,22 +118,22 @@ public final class Config {
      * only ever adds a missing final newline and never removes anything; this flag is the
      * separate, more destructive removal behavior, so it defaults off and requires explicit opt-in.
      */
-    private boolean collapseTrailingBlankLinesAtEof     = false;
+    private boolean collapseTrailingBlankLinesAtEof = false;
     /**
      * {@code remove-trailing-spaces} -- default on: strips trailing whitespace (spaces/tabs) at
      * the end of every line, except a Makefile recipe line (tab-prefixed), which this is always a
      * no-op on -- see {@code UnicodeAndWhitespaceNormalizer.stripTrailingSpaces}.
      */
-    private boolean removeTrailingSpaces                = true;
+    private boolean removeTrailingSpaces = true;
     /**
      * {@code normalize-invisible-invalid-unicode} -- default on: rewrites bidi-control, zero-width,
      * non-breaking-space-family, and invalid/unpaired-surrogate characters found inside comments
      * or string/text literal contents into a visible, unambiguous representation -- see
      * {@code UnicodeAndWhitespaceNormalizer}. Never touches identifiers or bare code structure.
      */
-    private boolean normalizeInvisibleInvalidUnicode     = true;
-    private boolean normalizeCommentStartCase = true;
-    private boolean normalizeCommentEndPeriod = true;
+    private boolean normalizeInvisibleInvalidUnicode = true;
+    private boolean normalizeCommentStartCase        = true;
+    private boolean normalizeCommentEndPeriod        = true;
     // Default on: this gates the rule-based comment-grammar classifier path (which the GRU stage
     // sits behind on ABSTAIN, see gruClassifier below) instead of the purely-deterministic
     // isCommentNoCapitalizeWord/dot-count heuristics. First tried on 2026-07-29 alongside

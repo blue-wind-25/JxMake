@@ -1055,3 +1055,41 @@ via a fresh checker fix since the full diff was small enough to read
 directly. Adopted; `make clean && make test` **340/340 forward +
 idempotency, fully green**. No `RDD_KEY` added — no functional source bug
 found.
+
+**2026-08-22: full recurring pass — `tools/*` (82 files) and real `src/`
+(99 files), external corpora part run separately (see below).**
+`tools/*`: round1/round2 idempotent; round1 came back **byte-identical to
+every committed original file** (`diff -rq tools /tmp/tools_round1` showed
+no source-file differences, only non-source artifacts already excluded from
+formatting, e.g. `.md`/`.txt`/`.json` sample/weights files) — nothing to
+adopt, no bugs found; batch content-diff (java/py/js) also came back all-OK
+(trivially, since output == input). `src/`: fresh `/tmp/fmt_ref` copy,
+round1/round2 `diff -rq` empty (idempotency clean). 8/99 files differed from
+committed `src/`: `Config.java`, `Main.java`,
+`UnicodeAndWhitespaceNormalizer.java`, `gdr/GdrTextUtil.java`,
+`rules/{JavaSpecificRule,JsTsSpecificRule,MiscRuleCore,
+PowerShellSpecificRule}.java` — all reviewed by hand, explicit hunt for (a)
+any line flushed/dedented to column 0 and (b) lost comment content: **neither
+found**. All hunks were ordinary cosmetic re-style (declaration-alignment
+column re-width, brace/paren spacing, `x++`/`start++` → `++x`/`++start`,
+one added blank line, one multi-line-call reflow, one Javadoc sentence
+losing its already-optional trailing period via
+`normalize-comment-end-period`, same class as the earlier-documented
+false-alarm). Trial JAR built from round1 to `/tmp/output.jar` (never
+overwrote committed `target/` jar); `make _test_serial JAR_FILE=/tmp/output.jar`
+came back 344/346 forward — the 2 failures (`test/cpp_comments_inp.cpp`,
+`test/real_code_regressions_217_inp.java`) confirmed pre-existing via
+byte-identical `--diff` output against an isolated JAR built straight from
+unmodified committed `src/` (same `gru-sync-weights` drift class as the
+2026-08-16/2026-08-20/2026-08-21 entries above). round1b/round2b
+fixed-point check (reformatting the original `/tmp/fmt_ref` copy again with
+the trial JAR) came back fully empty on all three comparisons. Adopted
+(round1 copied over `src/`); `make clean && make test` came back **346/346
+forward + idempotency, fully green** (both trial-JAR-only failures gone
+through the normal Makefile path, confirming the drift diagnosis). `make
+test-server` also passed. No `RDD_KEY` added — no functional source bug
+found, only cosmetic re-style adopted. (Note: `Makefile` and `XL.txt`
+appeared modified in the working tree at session start/during this session
+from prior, unrelated work not touched this session — left alone and
+excluded from this pass's commit, per the standing rule to never touch
+files outside a session's own changes.)

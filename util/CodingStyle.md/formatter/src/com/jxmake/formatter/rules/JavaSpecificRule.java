@@ -867,7 +867,7 @@ public class JavaSpecificRule {
 
         return "other";
     }
-    
+
     private boolean matchesPrefix(final String[] parts, final List<String> prefix)
     {
         return TokenNavigationRule.matchesPrefix(parts, prefix);

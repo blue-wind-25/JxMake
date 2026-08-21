@@ -590,7 +590,11 @@ public final class PowerShellSpecificRule {
     private static String ltrimSpaceTab(final String s)
     {
         int start = 0;
-        while( start < s.length() && ( s.charAt(start) == ' ' || s.charAt(start) == '\t' ) ) start++;
+        while( start < s.length() && ( s.charAt(
+            start
+        ) == ' ' || s.charAt(
+            start
+        ) == '\t' ) ) start++;
 
         return s.substring(start);
     }

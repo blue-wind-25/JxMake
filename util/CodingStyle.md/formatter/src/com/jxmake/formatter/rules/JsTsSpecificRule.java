@@ -4576,15 +4576,15 @@ public final class JsTsSpecificRule {
           int idx = fromIdx;
     final int n   = tokens.size();
         while( idx < n && tokens.get(idx).type == TokenType.WHITESPACE ) idx++;
-        if( idx >= n ) return fromIdx;
-        if(tokens.get(idx).type == TokenType.COMMENT_BLOCK) return idx + 1;
-        if(tokens.get(idx).type != TokenType.COMMENT_LINE) return fromIdx;
+        if(idx >= n) return fromIdx;
+        if( tokens.get(idx).type == TokenType.COMMENT_BLOCK ) return idx + 1;
+        if( tokens.get(idx).type != TokenType.COMMENT_LINE ) return fromIdx;
 
-        idx++;
+        ++idx;
         while(true) {
             int p            = idx;
             int newlineCount = 0;
-            while( p < n ) {
+            while(p < n) {
                 final TokenType type = tokens.get(p).type;
                 if(type == TokenType.WHITESPACE) {
                     ++p;
@@ -4598,7 +4598,9 @@ public final class JsTsSpecificRule {
                     break;
                 }
             } // while
-            if( p >= n || newlineCount != 1 || tokens.get(p).type != TokenType.COMMENT_LINE ) return idx;
+            if( p >= n || newlineCount != 1 || tokens.get(
+                p
+            ).type != TokenType.COMMENT_LINE ) return idx;
             idx = p + 1;
         } // while
     }

@@ -2054,7 +2054,7 @@ public static final class Assignment {
                         group.add(next);
                         j = next;
                     }
-                }
+                } // if
                 while( ( next = nextCommentChainLinkIfAdjacent(tokens, j) ) >= 0 ) {
                     group.add(next);
                     j = next;
@@ -2133,7 +2133,10 @@ public static final class Assignment {
      * fresh comment leading the very next statement) -- grouping the latter into the former's
      * sentence would wrongly capitalize its own leading word as if it were mid-sentence.
      */
-    protected int nextCommentChainLinkIfTrailingContinuation(final List<Token> tokens, final int idx)
+    protected int nextCommentChainLinkIfTrailingContinuation(
+        final List<Token> tokens,
+        final int         idx
+    )
     {
         if( isStandaloneCommentLine(tokens, idx) ) return -1;
         final int anchorColumn = columnOfToken(tokens, idx);

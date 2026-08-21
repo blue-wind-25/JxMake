@@ -27,6 +27,7 @@ final class UnicodeAndWhitespaceNormalizer {
     static String appendNewLineAtEof(final String text)
     {
         if( text.isEmpty() ) return text;
+
         return text.endsWith("\n") ? text : text + "\n";
     }
 
@@ -66,26 +67,24 @@ final class UnicodeAndWhitespaceNormalizer {
      */
     static String stripTrailingSpaces(final String text, final String language)
     {
-        final boolean       isMakefile = "makefile".equals(language);
-        final String[]      lines      = text.split("\n", -1);
-        final StringBuilder out        = new StringBuilder( text.length() );
-        boolean              inRawMultilineLiteral = false;
+        final boolean       isMakefile            = "makefile".equals(language);
+        final String[]      lines                 = text.split("\n", -1);
+        final StringBuilder out                   = new StringBuilder( text.length() );
+              boolean       inRawMultilineLiteral = false;
 
-        for( int i = 0; i < lines.length; ++i ) {
+        for(int i = 0; i < lines.length; ++i) {
             String line = lines[i];
 
             final boolean isRecipeLine = isMakefile && !line.isEmpty() && line.charAt(0) == '\t';
 
-            if( !isRecipeLine ) {
+            if(!isRecipeLine) {
                 final boolean entersOrExitsRaw = touchesRawMultilineLiteral(line, language);
-                if(!inRawMultilineLiteral) {
-                    line = stripTrailingWhitespace(line);
-                }
+                if(!inRawMultilineLiteral) line = stripTrailingWhitespace(line);
                 if(entersOrExitsRaw) inRawMultilineLiteral = !inRawMultilineLiteral;
             }
 
             out.append(line);
-            if( i < lines.length - 1 ) out.append('\n');
+            if(i < lines.length - 1) out.append('\n');
         } // for
 
         return out.toString();
@@ -95,6 +94,7 @@ final class UnicodeAndWhitespaceNormalizer {
     {
         int end = line.length();
         while( end > 0 && ( line.charAt(end - 1) == ' ' || line.charAt(end - 1) == '\t' ) ) --end;
+
         return end == line.length() ? line : line.substring(0, end);
     }
 
@@ -107,12 +107,21 @@ final class UnicodeAndWhitespaceNormalizer {
      */
     private static boolean touchesRawMultilineLiteral(final String line, final String language)
     {
-        if( "js".equals(language) || "ts".equals(language) ) {
-            return countOccurrences(line, '`') % 2 == 1;
-        }
-        if( "python3".equals(language) ) {
-            return ( countOccurrencesOf(line, "\"\"\"") + countOccurrencesOf(line, "'''") ) % 2 == 1;
-        }
+        if( "js".equals(
+            language
+        ) || "ts".equals(
+            language
+        ) ) return countOccurrences(
+            line, '`'
+        ) % 2 == 1;
+        if( "python3".equals(
+            language
+        ) ) return ( countOccurrencesOf(
+            line, "\"\"\""
+        ) + countOccurrencesOf(
+            line, "'''"
+        ) ) % 2 == 1;
+
         return false;
     }
 
@@ -120,6 +129,7 @@ final class UnicodeAndWhitespaceNormalizer {
     {
         int count = 0;
         for( int i = 0; i < s.length(); ++i ) if( s.charAt(i) == c ) ++count;
+
         return count;
     }
 
@@ -131,6 +141,7 @@ final class UnicodeAndWhitespaceNormalizer {
             ++count;
             idx += needle.length();
         }
+
         return count;
     }
 
@@ -144,7 +155,7 @@ final class UnicodeAndWhitespaceNormalizer {
         final String[] blockCommentStart;
         final String[] blockCommentEnd;
         final char[]   stringQuotes;
-        final boolean  nativeEscapeAvailable; // false => bracketed <U+XXXX> fallback everywhere
+        final boolean  nativeEscapeAvailable; // False => bracketed <U+XXXX> fallback everywhere
         final String   escapeStyle;           // "c" | "python" | "json" | "css" | "xml" | "none"
 
         LangProfile(
@@ -169,54 +180,75 @@ final class UnicodeAndWhitespaceNormalizer {
     private static LangProfile profileFor(final String language)
     {
         switch(language) {
-            case "c":
-            case "cpp":
-            case "java":
-            case "kotlin":
-            case "js":
+
+            case "c": /* FALL-THROUGH */
+            case "cpp": /* FALL-THROUGH */
+            case "java": /* FALL-THROUGH */
+            case "kotlin": /* FALL-THROUGH */
+            case "js": /* FALL-THROUGH */
             case "ts":
                 return new LangProfile(
                     "//", new String[] { "/*" }, new String[] { "*/" },
                     new char[] { '"', '\'', '`' }, true, "c"
                 );
+
             case "python3":
                 return new LangProfile(
                     "#", new String[0], new String[0], new char[] { '"', '\'' }, true, "python"
                 );
+
             case "json":
-                return new LangProfile("", new String[0], new String[0], new char[] { '"' }, true, "json");
+                return new LangProfile(
+                    "", new String[0], new String[0], new char[] { '"' }, true, "json"
+                );
+
             case "json5":
                 return new LangProfile(
                     "//", new String[] { "/*" }, new String[] { "*/" },
                     new char[] { '"', '\'' }, true, "json"
                 );
+
             case "css":
                 return new LangProfile(
                     "", new String[] { "/*" }, new String[] { "*/" },
                     new char[] { '"', '\'' }, true, "css"
                 );
+
             case "yaml":
-                return new LangProfile("#", new String[0], new String[0], new char[] { '"' }, true, "python");
+                return new LangProfile(
+                    "#", new String[0], new String[0], new char[] { '"' }, true, "python"
+                );
+
             case "toml":
-                return new LangProfile("#", new String[0], new String[0], new char[] { '"' }, true, "python");
-            case "xml":
+                return new LangProfile(
+                    "#", new String[0], new String[0], new char[] { '"' }, true, "python"
+                );
+
+            case "xml": /* FALL-THROUGH */
             case "html5":
                 return new LangProfile(
                     "", new String[] { "<!--" }, new String[] { "-->" }, new char[] { '"', '\'' }, true, "xml"
                 );
-            case "eini":
-            case "jxmake":
-            case "makefile":
-            case "bash":
+
+            case "eini": /* FALL-THROUGH */
+            case "jxmake": /* FALL-THROUGH */
+            case "makefile": /* FALL-THROUGH */
+            case "bash": /* FALL-THROUGH */
             case "powershell":
-                return new LangProfile("#", new String[0], new String[0], new char[] { '"', '\'' }, false, "none");
+                return new LangProfile(
+                    "#", new String[0], new String[0], new char[] { '"', '\'' }, false, "none"
+                );
+
             default:
-                return new LangProfile("", new String[0], new String[0], new char[0], false, "none");
+                return new LangProfile(
+                    "", new String[0], new String[0], new char[0], false, "none"
+                );
+
         } // switch
     }
 
     /**
-     * Set (a): explicit bidi-control format characters.
+     * Set (a): explicit bidi-control format characters
      */
     private static boolean isBidiControl(final int cp)
     {
@@ -226,7 +258,7 @@ final class UnicodeAndWhitespaceNormalizer {
 
     /**
      * Set (b): zero-width characters, plus a BOM found anywhere other than the very first
-     * character of the whole file (checked by the caller, not here).
+     * character of the whole file (checked by the caller, not here)
      */
     private static boolean isZeroWidth(final int cp)
     {
@@ -235,11 +267,12 @@ final class UnicodeAndWhitespaceNormalizer {
 
     /**
      * Set (c): non-breaking space and other Unicode space-separator lookalikes -- deliberately
-     * excludes plain ASCII space (0x20) and tab/newline, which are legitimate.
+     * excludes plain ASCII space (0x20) and tab/newline, which are legitimate
      */
     private static boolean isSpaceLookalike(final int cp)
     {
-        if( cp == 0x20 || cp == '\t' || cp == '\n' || cp == '\r' ) return false;
+        if(cp == 0x20 || cp == '\t' || cp == '\n' || cp == '\r') return false;
+
         return cp == 0x00A0 || Character.getType(cp) == Character.SPACE_SEPARATOR;
     }
 
@@ -250,12 +283,13 @@ final class UnicodeAndWhitespaceNormalizer {
 
     /**
      * Renders one flagged codepoint as {@code U+XXXX}, zero-padded to a minimum of 4 hex digits
-     * (natural width beyond that, per the feature's exact spec -- never a fixed 6-digit pad).
+     * (natural width beyond that, per the feature's exact spec -- never a fixed 6-digit pad)
      */
     private static String codepointNotation(final int cp)
     {
         String hex = Integer.toHexString(cp).toUpperCase(java.util.Locale.ROOT);
         while( hex.length() < 4 ) hex = "0" + hex;
+
         return "U+" + hex;
     }
 
@@ -272,39 +306,46 @@ final class UnicodeAndWhitespaceNormalizer {
      */
     private static String nativeStringEscape(final LangProfile profile, final int cp)
     {
-        if( !profile.nativeEscapeAvailable ) return bracketedComment(cp);
+        if(!profile.nativeEscapeAvailable) return bracketedComment(cp);
 
         switch(profile.escapeStyle) {
+
             case "c":
                 // JS/TS get the ES6 code-point escape for supplementary-plane values; every other
                 // curly-family language (C/C++/Java/Kotlin) and the BMP case for JS/TS use plain
-                // \\uXXXX (4 hex digits).
-                if( cp > 0xFFFF ) return "\\u{" + Integer.toHexString(cp) + "}";
+                // \\uXXXX (4 hex digits)
+                if(cp > 0xFFFF) return "\\u{" + Integer.toHexString(cp) + "}";
                 return String.format( "\\u%04x", Integer.valueOf(cp) );
+
             case "python":
                 // Python3: \\uXXXX (4 hex) BMP, \\UXXXXXXXX (8 hex) supplementary. YAML/TOML reuse
                 // this same shape -- both specs define \\uXXXX/\\UXXXXXXXX equivalently for their
                 // double-quoted/basic string forms.
-                if( cp > 0xFFFF ) return String.format( "\\U%08x", Integer.valueOf(cp) );
+                if(cp > 0xFFFF) return String.format( "\\U%08x", Integer.valueOf(cp) );
                 return String.format( "\\u%04x", Integer.valueOf(cp) );
+
             case "json":
                 // JSON only supports \\uXXXX (no supplementary-plane single-escape form outside a
-                // surrogate pair) -- JSON5 follows the same convention.
-                if( cp > 0xFFFF ) {
+                // surrogate pair) -- JSON5 follows the same convention
+                if(cp > 0xFFFF) {
                     final char[] pair = Character.toChars(cp);
-                    return String.format( "\\u%04x", Integer.valueOf(pair[0]) )
-                            + String.format( "\\u%04x", Integer.valueOf(pair[1]) );
+                    return String.format( "\\u%04x", Integer.valueOf( pair[0] ) )
+                            + String.format( "\\u%04x", Integer.valueOf( pair[1] ) );
                 }
                 return String.format( "\\u%04x", Integer.valueOf(cp) );
+
             case "css":
-                // CSS hex escape: backslash + hex digits + one trailing space (terminator).
+                // CSS hex escape: backslash + hex digits + one trailing space (terminator)
                 return "\\" + Integer.toHexString(cp) + " ";
+
             case "xml":
                 // XML/HTML5 numeric character reference -- valid in both element text and
-                // attribute values.
+                // attribute values
                 return "&#x" + Integer.toHexString(cp).toUpperCase(java.util.Locale.ROOT) + ";";
+
             default:
                 return bracketedComment(cp);
+
         } // switch
     }
 
@@ -318,18 +359,18 @@ final class UnicodeAndWhitespaceNormalizer {
      */
     static String normalizeInvisibleUnicode(final String text, final String language)
     {
-        final LangProfile  profile = profileFor(language);
-        final StringBuilder out    = new StringBuilder( text.length() );
+        final LangProfile   profile = profileFor(language);
+        final StringBuilder out     = new StringBuilder( text.length() );
 
-        int     i           = 0;
+        int     i              = 0;
         boolean inLineComment  = false;
         boolean inBlockComment = false;
         char    inStringQuote  = 0;
         boolean isFirstChar    = true;
 
         final int n = text.length();
-        while( i < n ) {
-            // Unpaired/invalid surrogate -- handled everywhere, unconditionally.
+        while(i < n) {
+            // Unpaired/invalid surrogate -- handled everywhere, unconditionally
             final char c = text.charAt(i);
             if( Character.isHighSurrogate(c) ) {
                 if( i + 1 >= n || !Character.isLowSurrogate( text.charAt(i + 1) ) ) {
@@ -341,10 +382,14 @@ final class UnicodeAndWhitespaceNormalizer {
                     isFirstChar = false;
                     ++i;
                     continue;
-                }
-            }
-            if( Character.isLowSurrogate(c) && ( i == 0 || !Character.isHighSurrogate( text.charAt(i - 1) ) ) ) {
-                out.append(bracketedComment(0xFFFD));
+                } // if
+            } // if
+            if( Character.isLowSurrogate(
+                c
+            ) && ( i == 0 || !Character.isHighSurrogate(
+                text.charAt(i - 1)
+            ) ) ) {
+                out.append( bracketedComment(0xFFFD) );
                 isFirstChar = false;
                 ++i;
                 continue;
@@ -354,102 +399,102 @@ final class UnicodeAndWhitespaceNormalizer {
             final int cpSize = Character.charCount(cp);
 
             if(inLineComment) {
-                if( cp == '\n' ) inLineComment = false;
+                if(cp == '\n') inLineComment = false;
                 else if( isFlaggable(cp) ) {
                     out.append( bracketedComment(cp) );
-                    i          += cpSize;
-                    isFirstChar = false;
+                    i           += cpSize;
+                    isFirstChar  = false;
                     continue;
                 }
                 out.appendCodePoint(cp);
-                i += cpSize;
-                isFirstChar = false;
+                i           += cpSize;
+                isFirstChar  = false;
                 continue;
-            }
+            } // if
 
             if(inBlockComment) {
                 if( matchesAt(text, i, profile.blockCommentEnd) != null ) {
                     final String end = matchesAt(text, i, profile.blockCommentEnd);
                     out.append(end);
-                    i += end.length();
-                    inBlockComment = false;
-                    isFirstChar    = false;
+                    i              += end.length();
+                    inBlockComment  = false;
+                    isFirstChar     = false;
                     continue;
-                }
+                } // if
                 if( isFlaggable(cp) ) {
                     out.append( bracketedComment(cp) );
-                    i          += cpSize;
-                    isFirstChar = false;
+                    i           += cpSize;
+                    isFirstChar  = false;
                     continue;
                 }
                 out.appendCodePoint(cp);
-                i += cpSize;
-                isFirstChar = false;
+                i           += cpSize;
+                isFirstChar  = false;
                 continue;
-            }
+            } // if
 
-            if( inStringQuote != 0 ) {
-                if( cp == '\\' && i + cpSize < n ) {
-                    // Preserve an existing escape sequence untouched (don't double-escape).
+            if(inStringQuote != 0) {
+                if(cp == '\\' && i + cpSize < n) {
+                    // Preserve an existing escape sequence untouched (don't double-escape)
                     out.appendCodePoint(cp);
-                    final int nextCp = text.codePointAt( i + cpSize );
+                    final int nextCp = text.codePointAt(i + cpSize);
                     out.appendCodePoint(nextCp);
-                    i          += cpSize + Character.charCount(nextCp);
-                    isFirstChar = false;
+                    i           += cpSize + Character.charCount(nextCp);
+                    isFirstChar  = false;
                     continue;
-                }
-                if( cp == inStringQuote ) {
+                } // if
+                if(cp == inStringQuote) {
                     out.appendCodePoint(cp);
-                    i          += cpSize;
-                    inStringQuote = 0;
-                    isFirstChar   = false;
+                    i             += cpSize;
+                    inStringQuote  = 0;
+                    isFirstChar    = false;
                     continue;
-                }
+                } // if
                 if( isFlaggable(cp) ) {
                     out.append( nativeStringEscape(profile, cp) );
-                    i          += cpSize;
-                    isFirstChar = false;
+                    i           += cpSize;
+                    isFirstChar  = false;
                     continue;
                 }
                 out.appendCodePoint(cp);
-                i += cpSize;
-                isFirstChar = false;
+                i           += cpSize;
+                isFirstChar  = false;
                 continue;
-            }
+            } // if
 
             // Plain code: only a BOM-not-at-file-start is flaggable here (bidi/space lookalikes in
-            // bare identifiers/code structure are explicitly out of scope for this flag).
+            // bare identifiers/code structure are explicitly out of scope for this flag)
             if( !profile.lineComment.isEmpty() && matchesLiteral(text, i, profile.lineComment) ) {
                 out.append(profile.lineComment);
                 i             += profile.lineComment.length();
                 inLineComment  = true;
                 isFirstChar    = false;
                 continue;
-            }
+            } // if
             final String blockStart = matchesAt(text, i, profile.blockCommentStart);
-            if( blockStart != null ) {
+            if(blockStart != null) {
                 out.append(blockStart);
                 i              += blockStart.length();
                 inBlockComment  = true;
                 isFirstChar     = false;
                 continue;
-            }
+            } // if
             if( isQuoteChar(profile, c) ) {
                 out.append(c);
                 inStringQuote = c;
                 ++i;
-                isFirstChar   = false;
+                isFirstChar = false;
                 continue;
-            }
-            if( cp == 0xFEFF && !isFirstChar ) {
+            } // if
+            if(cp == 0xFEFF && !isFirstChar) {
                 out.append( bracketedComment(cp) );
                 i += cpSize;
                 continue;
             }
 
             out.appendCodePoint(cp);
-            i          += cpSize;
-            isFirstChar = false;
+            i           += cpSize;
+            isFirstChar  = false;
         } // while
 
         return out.toString();
@@ -457,7 +502,8 @@ final class UnicodeAndWhitespaceNormalizer {
 
     private static boolean isQuoteChar(final LangProfile profile, final char c)
     {
-        for(final char q : profile.stringQuotes) if( q == c ) return true;
+        for(final char q : profile.stringQuotes) if(q == c) return true;
+
         return false;
     }
 
@@ -469,6 +515,7 @@ final class UnicodeAndWhitespaceNormalizer {
     private static String matchesAt(final String text, final int i, final String[] candidates)
     {
         for(final String c : candidates) if( matchesLiteral(text, i, c) ) return c;
+
         return null;
     }
 

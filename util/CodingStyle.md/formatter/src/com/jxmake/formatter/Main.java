@@ -509,18 +509,18 @@ public final class Main {
         );
 
         String result = applyLineEndings( formatted, original, config.lineEndings() );
-        if( config.isNormalizeInvisibleInvalidUnicode() ) {
-            result = UnicodeAndWhitespaceNormalizer.normalizeInvisibleUnicode(result, language);
-        }
-        if( config.isRemoveTrailingSpaces() ) {
-            result = UnicodeAndWhitespaceNormalizer.stripTrailingSpaces(result, language);
-        }
-        if( config.isCollapseTrailingBlankLinesAtEof() ) {
-            result = UnicodeAndWhitespaceNormalizer.collapseTrailingBlankLinesAtEof(result);
-        }
-        if( config.isAppendNewLineAtEof() ) {
-            result = UnicodeAndWhitespaceNormalizer.appendNewLineAtEof(result);
-        }
+        if( config.isNormalizeInvisibleInvalidUnicode() ) result = UnicodeAndWhitespaceNormalizer.normalizeInvisibleUnicode(
+            result, language
+        );
+        if( config.isRemoveTrailingSpaces() ) result = UnicodeAndWhitespaceNormalizer.stripTrailingSpaces(
+            result, language
+        );
+        if( config.isCollapseTrailingBlankLinesAtEof() ) result = UnicodeAndWhitespaceNormalizer.collapseTrailingBlankLinesAtEof(
+            result
+        );
+        if( config.isAppendNewLineAtEof() ) result = UnicodeAndWhitespaceNormalizer.appendNewLineAtEof(
+            result
+        );
 
         return result;
     }

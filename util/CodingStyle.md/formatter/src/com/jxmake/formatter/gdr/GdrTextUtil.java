@@ -9,7 +9,7 @@ package com.jxmake.formatter.gdr;
 
 /**
  * Tiny shared text-scan helpers used by more than one {@code gdr} sibling class -- kept here
- * instead of duplicated per-class.
+ * instead of duplicated per-class
  */
 final class GdrTextUtil {
 
@@ -17,7 +17,7 @@ final class GdrTextUtil {
     {
     }
 
-    /** Counts {@code '\n'} occurrences in {@code text} -- used to advance a line counter past a token spanning multiple lines. */
+    /** Counts {@code '\n'} occurrences in {@code text} -- used to advance a line counter past a token spanning multiple lines */
     static int countNewlines(String text)
     {
         int count = 0;

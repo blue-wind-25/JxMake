@@ -149,9 +149,9 @@ Use sub-agent. This can be a substantial work.
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
     Process the formatter's Java source code (especially the files that are modified after
-    commit `e484356`) and make improvements in this priority order:
+    commit `c5771f5`) and make improvements in this priority order:
      1. Refactor duplicated/common code (you can search for existing helper functions that
-        already exist before commit `e484356`).
+        already exist before commit `c5771f5`).
      2. If a clear opportunity arises, optimize for execution speed.
      3. Perform other useful code clean-ups as needed.
 

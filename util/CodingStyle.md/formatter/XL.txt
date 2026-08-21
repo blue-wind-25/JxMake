@@ -264,12 +264,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-- [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL. See
-  RDD_KEY_328 in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
-
-  It may help to have an internal flag `boolean postMode` (it could be set/passed when the
-  function is called) to make the GDR internal implementation behave slightly different,
-  depending on the pass mode (prepass or postpass).
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -308,6 +303,23 @@ Use sub-agent. This can be a substantial work.
 
 - [CURLY_GDR] GDR-2 (second multipass cycle) mis-scoping risk — NOT REPRODUCED. See
   `STATE_CURLY_GDR.md`.
+
+- [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL — the
+  suggested `boolean postMode` flag has been implemented (RDD_KEY_331 in `RDD_LOG.md` /
+  `STATE_CURLY_GDR.md`), fixing the RDD_KEY_328 wrap-continuation over-indentation regression: a
+  postMode-true call now leaves any line inside an open paren/bracket wrap (a wrapped-call/
+  condition continuation line and its closer) completely untouched instead of re-deriving its
+  indentation from GDR's own paren/bracket model, while still fixing the plain-brace-depth
+  "sibling declaration at the wrong depth" case the postpass originally targeted. Proven only at
+  fixture/hand-construction level (new `test/curly_gdr_postpass_wrap_{inp,out}.java`) — the
+  session that implemented this could not run any dogfood/corpus pull. `curly-general-scope-
+  reindent-postpass` stays EXPERIMENTAL/default-off. **Before considering this promoted or
+  otherwise "proven," re-run the RDD_KEY_298/RDD_KEY_328 188-file `JetBrains/kotlin`
+  `compiler/ir/backend.js/src` corpus comparison** (`-multipass`-only output vs.
+  `-multipass`+`-postpass` output, file-by-file diff) on a machine that can clone that corpus, and
+  confirm the wrap-continuation-over-indent regression class no longer appears anywhere in the
+  diff. Revisit (and reopen in TIER 9 if further work is warranted) once that re-validation has
+  actually been run.
 
 - [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
   resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s

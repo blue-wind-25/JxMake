@@ -1069,7 +1069,7 @@ onto one garbled line instead of reformatting correctly — an unrelated declara
 that also affected some C++ lambda-as-call-argument shapes with no preceding `.`/`->` in the call
 chain — was fixed earlier, 2026-08-20.)
 
-#### 2. `curly-general-scope-reindent-postpass`: validated at real-code scale; one narrow, separate comment-parsing gap found
+#### 2. `curly-general-scope-reindent-postpass`: validated at real-code scale
 
 `curly-general-scope-reindent-postpass` (default `off`, only takes effect when
 `curly-general-scope-reindent` is also `on`) runs one extra reindentation pass directly on the

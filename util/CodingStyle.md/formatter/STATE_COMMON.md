@@ -998,3 +998,28 @@ formatted file came back byte-identical to its committed original (already
 at the fixed point the 2026-08-14 adopt left them at) — nothing to copy
 back. No `RDD_KEY` added — no functional source bug found. See
 `STATE_DOGFOOD.md` for the corresponding summary rows.
+
+**2026-08-21 (later, same day): scoped pass — only the 4 GDR files touched
+this session** (`gdr/{GdrTokenizer,GdrReindenter,GdrRewriter,
+GdrPipelineGate}.java`), not a full `src/` sweep — the full-tree pass just
+above already confirmed the other 95 files clean earlier the same day, so
+re-running them found nothing new to re-scope for. Round1/round2 idempotent
+on all 4 files. Diff against committed source: ordinary cosmetic re-style
+(line-wrap reflow for over-length signatures/call sites, paren-spacing
+normalization, `x++`/`x--` → `++x`/`--x`, a closing-brace `// if` annotation,
+declaration-alignment column widening) — explicit eyeball for any line
+flushed to column 0 or otherwise dedented found none. One cosmetic
+comment-capitalization quirk noted, not fixed: `postMode` capitalized to
+`PostMode` at the start of several one-line comments — the already-
+documented `comment-normalization-classifier` behavior of not consulting
+the camelCase-identifier exception list, same accepted-limitation class as
+this file's "Multi-sentence comment capitalization" section above, not a
+new bug. Syntax-clean on all 4 files; content-diff clean on 3/4, the 4th
+(`GdrTokenizer.java`) flagged MISMATCH but traced by hand to the
+prefix/postfix-increment rewrite above (different AST node shape,
+identical behavior as a standalone statement) — the same class of checker
+false-positive already documented earlier in this section, not re-verified
+via a fresh checker fix since the full diff was small enough to read
+directly. Adopted; `make clean && make test` **340/340 forward +
+idempotency, fully green**. No `RDD_KEY` added — no functional source bug
+found.

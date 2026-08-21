@@ -108,7 +108,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_221_inp/out.java`
-    to   `real_code_regressions_225_inp/out.html`
+    to   `real_code_regressions_227_inp/out.kt`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -149,9 +149,9 @@ Use sub-agent. This can be a substantial work.
 1. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
     Process the formatter's Java source code (especially the files that are modified after
-    commit `e484356`) and make improvements in this priority order:
+    commit `c5771f5`) and make improvements in this priority order:
      1. Refactor duplicated/common code (you can search for existing helper functions that
-        already exist before commit `e484356`).
+        already exist before commit `c5771f5`).
      2. If a clear opportunity arises, optimize for execution speed.
      3. Perform other useful code clean-ups as needed.
 
@@ -264,12 +264,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-- [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL. See
-  RDD_KEY_328 in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
-
-  It may help to have an internal flag `boolean postMode` (it could be set/passed when the
-  function is called) to make the GDR internal implementation behave slightly different,
-  depending on the pass mode (prepass or postpass).
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -308,6 +303,17 @@ Use sub-agent. This can be a substantial work.
 
 - [CURLY_GDR] GDR-2 (second multipass cycle) mis-scoping risk — NOT REPRODUCED. See
   `STATE_CURLY_GDR.md`.
+
+- [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL — CLOSED,
+  PROMOTED 2026-08-21. Real-corpus re-validation found RDD_KEY_331's `postMode` fix incomplete;
+  four further refinements landed (RDD_KEY_332), plus a separate, unfixed `GdrTokenizer`
+  nested-comment gap now in README.md's Known Limitations. Stays default off. See `RDD_KEY_332`
+  in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
+
+- [CURLY_GDR] `GdrTokenizer` nested-block-comment gap (the item above) — CLOSED, FIXED 2026-08-21.
+  Kotlin block comments genuinely nest; `scanBlockComment` now counts nesting depth for Kotlin
+  only (gated on language, C/C++/Java/JS/TS untouched). Fixture `real_code_regressions_227`. `make
+  test`: 339/339 → 340/340. See `RDD_KEY_333` in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
 - [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
   resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s

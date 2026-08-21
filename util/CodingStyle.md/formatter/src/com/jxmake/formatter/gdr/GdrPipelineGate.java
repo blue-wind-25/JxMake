@@ -2,6 +2,7 @@ package com.jxmake.formatter.gdr;
 
 import com.jxmake.formatter.Config;
 import com.jxmake.formatter.FormatterCore;
+import com.jxmake.formatter.Lang;
 
 /**
  * The single decision point for whether the GDR pre-pass runs ahead of the existing formatter
@@ -24,10 +25,27 @@ public final class GdrPipelineGate {
 
     public static String apply(String source, String language, Config config)
     {
+        return apply(source, language, config, false);
+    }
+
+    /**
+     * Internal 4-arg form threading {@code postMode} through to {@link GdrRewriter#rewrite} -- see
+     * {@link GdrReindenter}'s {@code postMode} Javadoc (RDD_KEY_331). The public 3-arg {@link
+     * #apply} above always passes {@code postMode = false} (ordinary pre-pass behavior, unchanged);
+     * only {@link #applyPostpass} below passes {@code true}.
+     */
+    private static String apply(String source, String language, Config config, boolean postMode)
+    {
         if( !config.isCurlyGeneralScopeReindent() ) return source;
         if( !isCurlyFamily(language) ) return source;
 
-        return GdrRewriter.rewrite( source, config.indentSize() );
+        // RDD_KEY_333: Kotlin block comments nest; every other curly-family language does not.
+        // Gated by language so C/C++/Java/JS/TS keep their exact non-nesting scan untouched.
+        boolean kotlinNestedBlockComments = "kotlin".equals(language);
+
+        return GdrRewriter.rewrite(
+            source, config.indentSize(), postMode, kotlinNestedBlockComments
+        );
     }
 
     /**
@@ -113,27 +131,37 @@ public final class GdrPipelineGate {
     }
 
     /**
-     * {@code curly-general-scope-reindent-postpass} (EXPERIMENTAL, RDD_KEY_323 follow-up): applies
-     * GDR exactly once more directly to the fully-finished pipeline output, with no further
-     * {@code formatOne} call after it -- a genuine post-pass, unlike every GDR application above
-     * (base single-pass and every multipass cycle alike), which is always immediately followed by
-     * another pipeline pass that can rewrite structure GDR just reindented. No-op (returns
-     * {@code finalOutput} unchanged) unless both {@code curly-general-scope-reindent} and
-     * {@code curly-general-scope-reindent-postpass} are on for a curly-family language -- same
-     * silent-no-op-if-base-off posture as multipass (RDD_KEY_234).
+     * {@code curly-general-scope-reindent-postpass} (promoted out of EXPERIMENTAL, see
+     * {@code RDD_KEY_332}/{@code RDD_KEY_333}): applies GDR exactly once more directly to the
+     * fully-finished pipeline output, with no further {@code formatOne} call after it -- a genuine
+     * post-pass, unlike every GDR application above (base single-pass and every multipass cycle
+     * alike), which is always immediately followed by another pipeline pass that can rewrite
+     * structure GDR just reindented. No-op (returns {@code finalOutput} unchanged) unless both
+     * {@code curly-general-scope-reindent} and {@code curly-general-scope-reindent-postpass} are
+     * on for a curly-family language -- same permanently-opt-in, silent-no-op-if-base-off posture
+     * as multipass (RDD_KEY_234).
+     *
+     * <p><b>RDD_KEY_331:</b> calls the internal {@code postMode = true} form of {@link #apply}
+     * rather than the ordinary public one, so any line inside (or closing) an open paren/bracket
+     * wrap is left completely untouched instead of being re-targeted from GDR's own paren/bracket
+     * depth model -- fixes the wrap-continuation over-indentation regression class
+     * {@code RDD_KEY_328}'s real-corpus validation found (a previously-correct {@code STYLE.md} §8
+     * wrapped-call/condition continuation line and its closer, already correctly aligned by the
+     * pipeline's own relative-delta continuation-indent logic, got pushed one level deeper by an
+     * unrestricted postpass). Only plain {@code pbLevel == 0} lines (ordinary statements/
+     * declarations not nested inside any multi-line paren/bracket wrap) are still re-targeted by
+     * brace depth alone, which is exactly what this pass's original motivating fix needed.
      */
     private static String applyPostpass(String finalOutput, String language, Config config)
     {
         if( !config.isCurlyGeneralScopeReindentPostpass() ) return finalOutput;
 
-        return apply(finalOutput, language, config);
+        return apply(finalOutput, language, config, true);
     }
 
     private static boolean isCurlyFamily(String language)
     {
-        return "c".equals(language) || "cpp".equals(language)
-                || "java".equals(language) || "kotlin".equals(language)
-                || "js".equals(language) || "ts".equals(language);
+        return new Lang(language).isCurly;
     }
 
 } // class GdrPipelineGate

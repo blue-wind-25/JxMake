@@ -240,6 +240,67 @@ Executed — see Checklist's fixture items below.
 
 ## Resolved Design Decisions
 
+- `RDD_KEY_333` — Fixed the `RDD_KEY_332`-discovered `GdrTokenizer` gap: `scanBlockComment` used a
+  naive "stop at the first `*/`" scan, correct for C/C++/Java/JS/TS but wrong for Kotlin, whose own
+  lexical grammar lets block comments nest (confirmed with a direct minimal repro before touching
+  source: a Kotlin KDoc comment containing an illustrative nested `/*static*/` marker in its own
+  example text reproduces the mis-indentation only under `-postpass`, not under the base pass or
+  `-multipass` alone — matches `RDD_KEY_332`'s note that it only manifests when GDR reruns against
+  already-formatted code with no subsequent pipeline pass to repair it). Fixed by threading a new
+  `kotlinNestedBlockComments` boolean through `GdrPipelineGate.apply` → `GdrRewriter.rewrite` →
+  `GdrReindenter.compute` → `GdrTokenizer.tokenize`, set `true` only when `language.equals("kotlin")`;
+  `scanBlockComment` counts `/*`/`*/` nesting depth only in that mode. Verified C/C++/Java's
+  non-nesting behavior is byte-for-byte unchanged (same input/flags, pre-fix vs. post-fix jar,
+  identical output). New fixture: `test/real_code_regressions_227_{inp,out}.kt`. `make test`:
+  339/339 → 340/340.
+- `RDD_KEY_332` — Re-ran the exact real-corpus re-validation `RDD_KEY_331` itself flagged as
+  still needed: the 188-file-scale `JetBrains/kotlin` `compiler/ir/backend.js/src` corpus (fresh
+  clone, 191 `.kt` files), `-multipass`-only vs. `-multipass`+`-postpass`. Found `RDD_KEY_331`'s
+  `postMode` fix real but incomplete (63/191 files still differed) — a mixed paren+brace closer
+  on one line, a Kotlin scope-function reopen chain (`}.apply { ... }`), and an expression-bodied
+  declaration's wrapped-signature continuation (plus that continuation's own nested closers) were
+  all still being wrongly re-derived from GDR's brace/paren-bracket depth model instead of left
+  alone. Landed four further targeted `postMode` refinements, one per shape (raw
+  `pb.depthAtStart` gating, a compound-brace-closer check, a trailing-`=` continuation check, and
+  brace-depth "zone" propagation for that continuation's own nested closers), bringing the diff
+  down to 12/191 files: 10 genuine accidental improvements (unaffected, working as intended), 2
+  sharing one separate, newly-discovered, out-of-scope `GdrTokenizer` gap (a documentation
+  comment containing an illustrative *nested* comment marker in its own example text is
+  mis-parsed — not postpass-specific, but only observed to manifest under postpass in this
+  corpus; root-caused but deliberately not fixed, documented as a new `README.md` Known
+  Limitation instead). Idempotency clean; batch Kotlin syntax check clean modulo a pre-existing
+  parser-version limitation confirmed identical against the untouched original corpus (zero new
+  syntax errors from formatting). New fixture: `test/real_code_regressions_226_{inp,out}.kt`,
+  verified to actually exercise the fix against a trial jar built from the pre-`RDD_KEY_332`
+  source. `make test`: 338/338 → 339/339. **Disposition:
+  `curly-general-scope-reindent-postpass` promoted out of EXPERIMENTAL** — the specific
+  real-corpus regression class `EXPERIMENTAL` existed to guard against is now confirmed absent at
+  real-corpus scale. Stays `off` by default (same opt-in posture as every other GDR key per
+  `RDD_KEY_244`). Full text: `RDD_KEY_332`.
+- `RDD_KEY_331` — Implemented the `postMode` fix for `curly-general-scope-reindent-postpass`'s
+  `RDD_KEY_328` wrap-continuation over-indentation regression, matching the flag XL.txt's own TIER 9
+  CURLY_GDR item already suggested. Threaded a `boolean postMode` parameter through
+  `GdrReindenter.compute` → `GdrRewriter.rewrite` → `GdrPipelineGate`'s internal `apply` overload:
+  when true, any line whose paren/bracket-axis level (`pbLevel`) is nonzero is now left untouchable
+  instead of being re-targeted from `braceLevel + pbLevel`, so the postpass never re-derives a
+  wrapped-call/condition continuation line's (or its closer's) indentation from GDR's own
+  paren/bracket model — only plain `pbLevel == 0` lines are still re-targeted by brace depth alone.
+  Every existing two/three-arg overload is preserved and defaults to `postMode = false`; only
+  `applyPostpass` passes `true`. `make test`: 337/337 unaffected by the source change alone (postMode
+  is never reached unless both flags are explicitly on), then 337/337 → 338/338 once
+  `test/curly_gdr_postpass_wrap_{inp,out}.java` was added — one fixture proving both the fixed
+  regression (a wrapped-call continuation/closer left untouched) and the postpass's original
+  motivating benefit (a base-single-pass `RDD_KEY_229`-shape brace mis-indent still corrected,
+  `pbLevel == 0`). Verified the fix actually matters (not a no-op) by temporarily disabling the
+  `postMode` restriction, rebuilding a trial jar, and confirming the exact regression reproduces
+  without it. **Honest scope of what's proven:** fixture-level/evidence-from-construction only — this
+  session ran in an infrastructure-only environment explicitly barred from any dogfood/corpus pull,
+  so the fix has NOT been re-run against the 188-file `JetBrains/kotlin`
+  `compiler/ir/backend.js/src` corpus `RDD_KEY_298`/`RDD_KEY_328` used. Recommended before trusting
+  this at scale: re-run that exact `-multipass`-only vs. `-multipass`+`-postpass` comparison on a
+  machine that can clone the corpus and confirm the wrap-continuation-over-indent regression class no
+  longer appears. `curly-general-scope-reindent-postpass` stays EXPERIMENTAL/default-off pending that
+  re-validation — this fix alone is not grounds to flip the default. Full text: `RDD_KEY_331`.
 - `RDD_KEY_328` — Attempted to validate `curly-general-scope-reindent-postpass` (`RDD_KEY_324`)
   against real code before promoting it out of EXPERIMENTAL: not promoted. The original
   motivating target (Java anon-class compound-brace mismatch) turned out already fixed by an
@@ -872,6 +933,41 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       even if the flag is ever promoted out of EXPERIMENTAL later — same posture as
       `RDD_KEY_244`'s base-flag decision, extended to this key specifically. Do not flip this
       default without first fixing the wrap-continuation regression this entry documents.
+
+- [x] **Fix `RDD_KEY_328`'s wrap-continuation over-indentation regression via `postMode`**
+      (2026-08-21, `RDD_KEY_331`, follow-up to the item above — see Resolved Design Decisions for
+      the full mechanism/validation writeup). Threaded a `boolean postMode` parameter through
+      `GdrReindenter.compute` → `GdrRewriter.rewrite` → `GdrPipelineGate`'s internal `apply`
+      overload, restricting the postpass to leave any line with a nonzero paren/bracket-axis
+      level untouched (never re-derived from GDR's own model) — only plain `pbLevel == 0` lines
+      are still re-targeted by brace depth alone. `make test`: 337/337 unaffected by the source
+      change, then 337/337 → 338/338 with the new
+      `test/curly_gdr_postpass_wrap_{inp,out}.java` fixture, which proves both the fixed
+      regression (wrapped-call continuation/closer left untouched) and the postpass's original
+      motivating benefit (a base-single-pass `RDD_KEY_229`-shape brace mis-indent still
+      corrected) in one file. **Proven at fixture/construction level only** at landing time — that
+      session could not run any dogfood/corpus pull (infrastructure-only environment).
+
+      **RESOLVED 2026-08-21 (RDD_KEY_332) — the needed real-corpus re-validation is done.** Re-ran
+      the exact `-multipass`-only vs. `-multipass`+`-postpass` comparison against a fresh clone of
+      the same 188-file-scale `JetBrains/kotlin` `compiler/ir/backend.js/src` corpus and found
+      `RDD_KEY_331`'s fix was real but incomplete (63/191 files still differed, several genuine
+      new regressions beyond the one class it fixed). Landed four further targeted `postMode`
+      refinements (raw `pb.depthAtStart` gating, a compound-brace-closer check, a trailing-`=`
+      continuation check, and zone propagation for that continuation's own nested closers) that
+      brought the diff down to 12/191, all but 2 of which are accidental improvements; the
+      remaining 2 share a separate `GdrTokenizer` nested-block-comment gap, out of scope for that
+      session (documented as a new Known Limitation at the time). **Resolved 2026-08-21
+      (`RDD_KEY_333`):** fixed directly — `GdrTokenizer.scanBlockComment` now counts `/*`/`*/`
+      nesting depth for Kotlin only (gated on `language.equals("kotlin")`, threaded through
+      `GdrPipelineGate`/`GdrRewriter`/`GdrReindenter`), leaving C/C++/Java/JS/TS's non-nesting scan
+      byte-for-byte unchanged. See `RDD_KEY_333` for the full mechanism/verification writeup.
+      Idempotency and batch syntax-check both
+      clean (the syntax check's 46/191 flagged files are a pre-existing parser-version limitation,
+      identical against the untouched original corpus). New fixture
+      `test/real_code_regressions_226_{inp,out}.kt`. **`curly-general-scope-reindent-postpass` is
+      now promoted out of EXPERIMENTAL** (stays `off` by default, same opt-in posture as every
+      other GDR key) — see `RDD_KEY_332` for the full mechanism/validation writeup.
 
 Do the above checklist one by one. Test, commit, and ask me whether to continue or pause.
 

@@ -1038,6 +1038,21 @@ General Scope-Depth Reindentation:
                                                         this real-world case, not just the synthetic
                                                         one-true-brace shapes the other GDR fixtures exercise.
 
+  curly_gdr_postpass_wrap_inp/out.java               -- curly-general-scope-reindent=on;
+                                                        curly-general-scope-reindent-postpass=on (no
+                                                        multipass) via in-file config. Proves RDD_KEY_331's
+                                                        postMode fix: an else-if branch's condition is long
+                                                        enough to force the pipeline's own STYLE.md §8
+                                                        call-wrap, and the postpass leaves that wrapped
+                                                        continuation line and its closer exactly as the
+                                                        pipeline already aligned them (the RDD_KEY_328
+                                                        wrap-continuation over-indentation regression this fix
+                                                        resolves), while the surrounding one-true-brace `}
+                                                        else if (...) {` / `} else {` joined chain (the same
+                                                        base single-pass RDD_KEY_229 shape as
+                                                        curly_gdr_multipass_inp.java) still gets its closing
+                                                        braces corrected by the postpass alone.
+
   java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
                                                         leading indentation at all), with
                                                         curly-general-scope-reindent=on via in-file config --
@@ -4221,6 +4236,26 @@ Real-code regressions:
                                                         render layer still padded them (`<!-- more -->`),
                                                         rewriting the exact literal byte sequence a third-
                                                         party consumer requires. Now rendered byte-identical.
+
+  real_code_regressions_226_inp/out.kt               -- RDD_KEY_332 fix: three GDR postpass over-indentation
+                                                        regressions the 188-file JetBrains/kotlin real-corpus
+                                                        re-validation found, beyond RDD_KEY_331's original
+                                                        postMode fix -- a wrapped closer mixing a paren-close
+                                                        and a brace-close on one line (`) }`), a Kotlin
+                                                        scope-function reopen chain (`}.apply {`/`}.also {`),
+                                                        and a wrapped expression-bodied declaration signature
+                                                        ending in `=` with its own nested closing braces. All
+                                                        three are now left exactly as the pipeline placed them
+                                                        instead of being re-derived from GDR's own
+                                                        brace/paren-bracket depth model.
+
+  real_code_regressions_227_inp/out.kt               -- RDD_KEY_333 fix: a KDoc comment whose own example text
+                                                        contains a nested `/*...*/` marker (e.g. illustrating
+                                                        `/*static*/`) no longer ends the GDR postpass's
+                                                        comment scan early -- Kotlin block comments genuinely
+                                                        nest, so the scan now counts nesting depth for Kotlin
+                                                        only, leaving C/C++/Java/JS/TS's non-nesting scan
+                                                        untouched.
 
 How Tests Are Run
 -----------------

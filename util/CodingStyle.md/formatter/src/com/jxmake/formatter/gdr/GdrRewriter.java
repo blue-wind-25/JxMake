@@ -20,9 +20,35 @@ public final class GdrRewriter {
     {
     }
 
+    /**
+     * Equivalent to {@code rewrite(source, indentSize, false)} -- see {@link GdrReindenter}'s
+     * {@code postMode} Javadoc for what the extra parameter means
+     */
     public static String rewrite(String source, int indentSize)
     {
-        List<GdrIndentTarget> targets = GdrReindenter.compute(source, indentSize);
+        return rewrite(source, indentSize, false);
+    }
+
+    /**
+     * Equivalent to {@code rewrite(source, indentSize, postMode, false)} -- {@code
+     * kotlinNestedBlockComments} off, see {@link GdrReindenter}'s overload of the same name
+     * (RDD_KEY_333)
+     */
+    public static String rewrite(String source, int indentSize, boolean postMode)
+    {
+        return rewrite(source, indentSize, postMode, false);
+    }
+
+    public static String rewrite(
+        String  source,
+        int     indentSize,
+        boolean postMode,
+        boolean kotlinNestedBlockComments
+    )
+    {
+        List<GdrIndentTarget> targets = GdrReindenter.compute(
+            source, indentSize, postMode, kotlinNestedBlockComments
+        );
         String[]              lines   = source.split("\n", -1);
 
         StringBuilder result = new StringBuilder( source.length() );

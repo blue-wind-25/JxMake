@@ -29,16 +29,32 @@ public final class GdrTokenizer {
     private final StringBuilder  textBuf = new StringBuilder();
     private       int            textStartLine;
     private final List<GdrToken> tokens  = new ArrayList<>();
+    private final boolean        kotlinNestedBlockComments;
 
-    private GdrTokenizer(String source)
+    private GdrTokenizer(String source, boolean kotlinNestedBlockComments)
     {
-        this.source = source;
-        this.n      = source.length();
+        this.source                    = source;
+        this.n                         = source.length();
+        this.kotlinNestedBlockComments = kotlinNestedBlockComments;
     }
 
     public static List<GdrToken> tokenize(String source)
     {
-        GdrTokenizer t = new GdrTokenizer(source);
+        return tokenize(source, false);
+    }
+
+    /**
+     * {@code kotlinNestedBlockComments}: Kotlin's own lexical grammar allows block comments to
+     * nest (an inner opener starts a second level rather than being ordinary text, so only the
+     * matching outer closer ends the comment) -- unlike C/C++/Java/JS/TS, where the first closer
+     * always ends the comment regardless of any opener appearing inside. When {@code true},
+     * {@link #scanBlockComment} counts nesting depth instead of stopping at the first closer;
+     * every other language must keep passing {@code false} (via the single-arg overload above) so
+     * their non-nesting behavior is exactly unchanged. See {@code RDD_KEY_333}.
+     */
+    public static List<GdrToken> tokenize(String source, boolean kotlinNestedBlockComments)
+    {
+        GdrTokenizer t = new GdrTokenizer(source, kotlinNestedBlockComments);
 
         return t.run();
     }
@@ -193,12 +209,41 @@ public final class GdrTokenizer {
         int start     = i;
         int startLine = line;
         i += 2;
-        while( i < n && !( source.charAt(i) == '*' && i + 1 < n && source.charAt(i + 1) == '/' ) ) {
-            if( source.charAt(i) == '\n' ) line++;
-            ++i;
-        }
-        if(i < n) i += 2;
-        else      i = n;
+        if(kotlinNestedBlockComments) {
+            int depth = 1;
+            while(i < n && depth > 0) {
+                char cc = source.charAt(i);
+                if(cc == '\n') {
+                    ++line;
+                    ++i;
+                    continue;
+                }
+                if( cc == '/' && i + 1 < n && source.charAt(i + 1) == '*' ) {
+                    ++depth;
+                    i += 2;
+                    continue;
+                }
+                if( cc == '*' && i + 1 < n && source.charAt(i + 1) == '/' ) {
+                    --depth;
+                    i += 2;
+                    continue;
+                }
+                ++i;
+            } // while
+            if(depth > 0) i = n; // Unterminated: consume the rest of the source
+        } // if
+        else {
+            while( i < n && !( source.charAt(
+                i
+            ) == '*' && i + 1 < n && source.charAt(
+                i + 1
+            ) == '/' ) ) {
+                if( source.charAt(i) == '\n' ) line++;
+                ++i;
+            }
+            if(i < n) i += 2;
+            else      i = n;
+        } // if/else
         tokens.add(
             new GdrToken( GdrTokenType.BLOCK_COMMENT, source.substring(start, i), startLine )
         );
@@ -256,7 +301,6 @@ public final class GdrTokenizer {
         return true;
     }
 
-    /** Ordinary {@code "..."}/{@code '...'} literal; unterminated at a bare newline. */
     /**
      * JS/TS template literal ({@code `...`}), treated as a single opaque {@code STRING} token --
      * this deliberately does not parse {@code ${...}} interpolation (any brace/paren inside an
@@ -290,6 +334,7 @@ public final class GdrTokenizer {
         tokens.add( new GdrToken( GdrTokenType.STRING, source.substring(start, i), startLine ) );
     }
 
+    /** Ordinary {@code "..."}/{@code '...'} literal; unterminated at a bare newline. */
     private void scanQuoted(char quote, GdrTokenType type)
     {
         flushText();

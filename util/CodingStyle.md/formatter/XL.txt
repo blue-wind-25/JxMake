@@ -108,7 +108,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_221_inp/out.java`
-    to   `real_code_regressions_225_inp/out.html`
+    to   `real_code_regressions_226_inp/out.kt`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:

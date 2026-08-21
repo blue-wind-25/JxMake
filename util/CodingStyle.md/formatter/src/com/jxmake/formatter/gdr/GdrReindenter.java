@@ -46,6 +46,16 @@ import java.util.List;
  * pre-existing bug) needed. Every other caller (the pre-pass proper, including every multipass
  * cycle) always passes {@code postMode = false} and is unaffected -- see the two-arg overload
  * below.
+ *
+ * <p><b>RDD_KEY_332 refinement:</b> the "nonzero" check that gates {@code postMode}'s untouchable
+ * rule is based on each line's raw paren/bracket {@code depthAtStart}, not the leader-adjusted
+ * {@code pbLevel} used for actually retargeting a non-exempt line -- a mixed closer line (e.g.
+ * {@code ) }} that closes a call's paren and a lambda's brace on the same line) has {@code
+ * depthAtStart != 0} (the wrap was still open when the line began) even though its leader-adjusted
+ * {@code pbLevel} collapses to {@code 0} once the closer is accounted for. Using {@code pbLevel} for
+ * the gate (as originally landed by RDD_KEY_331) let exactly this closer shape slip through and get
+ * re-targeted from brace depth alone -- found via the 188-file real-Kotlin-corpus re-validation
+ * RDD_KEY_331 itself could not run. See {@code STATE_CURLY_GDR.md}'s RDD_KEY_332 entry.
  */
 public final class GdrReindenter {
 
@@ -74,8 +84,11 @@ public final class GdrReindenter {
         List<Boolean>  touchable   = GdrLineTouchability.computeTouchableByLine(tokens, totalLines);
         List<Boolean>  excluded    = GdrExclusionZones.computeExcludedByLine(tokens);
         GdrTokenType[] leadingType = computeLeadingTokenTypes(tokens, totalLines);
+        String[]       trailingSig = postMode ? computeTrailingSignificantText(tokens, totalLines) : null;
 
-        List<GdrIndentTarget> result = new ArrayList<>(totalLines);
+        List<GdrIndentTarget> result   = new ArrayList<>(totalLines);
+        boolean               zoneOpen = false;
+        int                   zoneFloor = 0;
         for(int line = 0; line < totalLines; ++line) {
             boolean lineExcluded = line < excluded.size() && excluded.get(line);
             if( !touchable.get(line) || lineExcluded ) {
@@ -85,6 +98,24 @@ public final class GdrReindenter {
             GdrLineBraceDepth        brace  = braceDepths.get(line);
             GdrLineParenBracketDepth pb     = pbDepths.get(line);
             GdrTokenType             leader = leadingType[line];
+
+            // postMode (RDD_KEY_332, fourth refinement -- "zone" propagation): once a line is
+            // exempted (below) because it directly continues a wrapped expression body, every
+            // line NESTED inside whatever it opens is, structurally, still part of that same
+            // continuation the pipeline already placed -- including that nested content's own
+            // closing brace, which GDR's plain brace-count model would otherwise re-derive
+            // relative to the WRONG reference point (the depth before the continuation's own
+            // brace opened, not the depth the continuation line itself visually sits at -- see
+            // STATE_CURLY_GDR.md's RDD_KEY_332 entry for the worked example). A zone starts the
+            // moment a line is exempted for any reason at brace depth `zoneFloor` and stays open
+            // for every subsequent line whose OWN depthAtStart is deeper than that floor; it
+            // closes itself as soon as depth returns to (or below) the floor, so a sibling
+            // statement immediately after the zone is unaffected.
+            if(postMode && zoneOpen && brace.depthAtStart <= zoneFloor) zoneOpen = false;
+            if(postMode && zoneOpen) {
+                result.add( new GdrIndentTarget(line, false, 0, 0) );
+                continue;
+            }
 
             int braceLevel = (leader == GdrTokenType.BRACE_CLOSE) ? brace.depthAtEnd : brace.depthAtStart;
             int pbLevel    = (leader == GdrTokenType.PAREN_CLOSE || leader == GdrTokenType.BRACKET_CLOSE) ? pb.depthAtEnd : pb.depthAtStart;
@@ -99,11 +130,60 @@ public final class GdrReindenter {
             if(braceLevel < 0) braceLevel = 0;
             if(pbLevel    < 0) pbLevel    = 0;
 
-            // postMode (RDD_KEY_331): leave any line inside (or closing) an open paren/bracket
-            // wrap completely untouched -- see the class Javadoc above for why pbLevel's naive
-            // model doesn't match the pipeline's own STYLE.md §8 continuation-indent convention
-            // once this runs as a postpass on already-finished pipeline output.
-            if(postMode && pbLevel != 0) {
+            // postMode (RDD_KEY_331/RDD_KEY_332): leave any line inside (or closing) an open
+            // paren/bracket wrap completely untouched -- see the class Javadoc above for why
+            // pbLevel's naive model doesn't match the pipeline's own STYLE.md §8
+            // continuation-indent convention once this runs as a postpass on already-finished
+            // pipeline output. Deliberately checks the RAW pb.depthAtStart here, not the
+            // leader-adjusted pbLevel above: pbLevel swaps to depthAtEnd for a line whose
+            // leading token is itself a paren/bracket closer (the "closer dedents to match its
+            // opening line" rule), which for a closer that fully closes the wrap on the same
+            // line reports depthAtEnd == 0 -- wrongly signaling "no wrap" for exactly the
+            // wrap-continuation closer line postMode most needs to leave alone (RDD_KEY_332:
+            // found via the 188-file JetBrains/kotlin corpus re-validation RDD_KEY_331 could not
+            // run; a mixed closer like `) }` -- paren-close then brace-close on one line -- was
+            // still being re-targeted from brace depth alone, over-indenting it). pb.depthAtStart
+            // reflects whether the wrap was already open when this line began, which is true for
+            // every continuation line AND every closer line of a multi-line wrap regardless of
+            // where the wrap's depth ends up by the line's own end.
+            if(postMode && pb.depthAtStart != 0) {
+                result.add( new GdrIndentTarget(line, false, 0, 0) );
+                continue;
+            }
+
+            // postMode (RDD_KEY_332, second refinement): leave a "compound" brace-closer line
+            // untouched too -- one whose leading `}` is immediately followed by more significant
+            // content that reopens a brace on the SAME line (Kotlin scope-function chains like
+            // `}.apply {`/`}.also {`/`}.let {`). depthAtEnd for a plain, bare closer equals
+            // depthAtStart - 1 exactly; anything else (a same-line reopen nets depthAtEnd back up
+            // toward depthAtStart, a double-close nets it down further) means this line isn't the
+            // simple "sibling declaration/closing-brace-only mis-indent" shape the postpass's
+            // brace-depth-alone retarget is meant for -- re-deriving it collides with the same
+            // wrap-continuation problem pb.depthAtStart already guards above, just on the brace
+            // axis instead of the paren/bracket axis. A bare `}` (optionally with a trailing
+            // comment) is unaffected -- depthAtEnd == depthAtStart - 1 there, so it's still
+            // retargeted, preserving the postpass's original motivating fix.
+            if(postMode && leader == GdrTokenType.BRACE_CLOSE && brace.depthAtEnd != brace.depthAtStart - 1) {
+                result.add( new GdrIndentTarget(line, false, 0, 0) );
+                continue;
+            }
+
+            // postMode (RDD_KEY_332, third refinement): leave a line untouched if the nearest
+            // preceding non-blank line ends (ignoring a trailing line/block comment) with `=` --
+            // an expression-body arrow or plain assignment continuation per STYLE.md §8's
+            // continuation-indent convention. GDR's brace/paren-bracket depth model has no
+            // visibility into this axis at all (both levels are legitimately 0 for, e.g., a
+            // top-level expression-bodied function's wrapped multi-line signature): the pipeline
+            // already indents such a body one extra level beyond raw brace depth, which
+            // brace-depth-alone retargeting would wrongly collapse back down. Matches trailing
+            // `==`/`!=`/`>=`/`<=`/`+=` etc. too (all end in the same character) -- deliberately
+            // over-inclusive/conservative, since exempting a line only means leaving it exactly as
+            // the pipeline already placed it, never mis-deriving a new value for it.
+            if(postMode && endsWithEquals( precedingSignificantText(trailingSig, line) )) {
+                if(!zoneOpen) {
+                    zoneOpen  = true;
+                    zoneFloor = brace.depthAtStart;
+                }
                 result.add( new GdrIndentTarget(line, false, 0, 0) );
                 continue;
             }
@@ -131,6 +211,53 @@ public final class GdrReindenter {
         }
 
         return leading;
+    }
+
+    /**
+     * postMode helper (RDD_KEY_332): last significant (non-comment,
+     * non-whitespace-only) token's raw text on each line, or {@code null}
+     * for a line with no such content. Mirrors {@link
+     * #computeLeadingTokenTypes} but keeps overwriting as it walks forward,
+     * so the value left standing after the scan is the LAST token on that
+     * line rather than the first.
+     */
+    private static String[] computeTrailingSignificantText(List<GdrToken> tokens, int totalLines)
+    {
+        String[] trailing = new String[totalLines];
+        for(GdrToken t : tokens) {
+            if( t.line < 0 || t.line >= totalLines ) continue;
+            if( t.type == GdrTokenType.NEWLINE || t.type == GdrTokenType.LINE_COMMENT || t.type == GdrTokenType.BLOCK_COMMENT ) continue;
+            if( t.type == GdrTokenType.TEXT && isAllWhitespace(t.text) ) continue;
+            trailing[t.line] = t.text;
+        }
+
+        return trailing;
+    }
+
+    /**
+     * postMode helper (RDD_KEY_332): walks backward from {@code line - 1}
+     * over blank/content-free lines to find the nearest preceding line that
+     * actually had significant content, returning its trailing text (or
+     * {@code null} if none exists, e.g. {@code line} is the file's first
+     * line).
+     */
+    private static String precedingSignificantText(String[] trailingSig, int line)
+    {
+        if(trailingSig == null) return null;
+        for( int i = line - 1; i >= 0; --i ) {
+            if(trailingSig[i] != null) return trailingSig[i];
+        }
+
+        return null;
+    }
+
+    private static boolean endsWithEquals(String trailingText)
+    {
+        if(trailingText == null) return false;
+        int end = trailingText.length();
+        while( end > 0 && Character.isWhitespace( trailingText.charAt(end - 1) ) ) --end;
+
+        return end > 0 && trailingText.charAt(end - 1) == '=';
     }
 
     private static boolean isAllWhitespace(String text)

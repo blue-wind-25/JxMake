@@ -502,6 +502,7 @@ INP_FILES += curly_gdr_multipass_inp.java
 INP_FILES += curly_gdr_js_regex_inp.ts
 INP_FILES += curly_gdr_multipass_oneliner_inp.js
 INP_FILES += curly_gdr_postpass_wrap_inp.java
+INP_FILES += real_code_regressions_226_inp.kt
 INP_FILES += java_flush_left_inp.java
 INP_FILES += html_js_flush_left_inp.html
 

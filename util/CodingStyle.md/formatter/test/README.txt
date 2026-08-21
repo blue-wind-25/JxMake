@@ -1052,6 +1052,22 @@ General Scope-Depth Reindentation:
                                                         curly_gdr_multipass_inp.java) still gets its closing
                                                         braces corrected by the postpass alone.
 
+  real_code_regressions_226_inp/out.kt               -- curly-general-scope-reindent=on;
+                                                        curly-general-scope-reindent-multipass=on;
+                                                        curly-general-scope-reindent-postpass=on via in-file
+                                                        config. Proves RDD_KEY_332, found via the 188-file
+                                                        JetBrains/kotlin real-corpus re-validation RDD_KEY_331
+                                                        itself could not run: a wrapped call/lambda closer that
+                                                        mixes a paren-close and a brace-close on one line (e.g.
+                                                        `) }`), a Kotlin scope-function reopen chain (`}.apply
+                                                        {`/`}.also {`), and a top-level or nested expression-
+                                                        bodied declaration whose wrapped signature ends in `=`
+                                                        with its body (and that body's own closing braces)
+                                                        starting on the next line, are all now left exactly as
+                                                        the pipeline already placed them instead of being
+                                                        re-derived (and over/under-indented) from GDR's own
+                                                        brace/paren-bracket depth model alone.
+
   java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
                                                         leading indentation at all), with
                                                         curly-general-scope-reindent=on via in-file config --

@@ -108,7 +108,7 @@ Update and fix `CLAUDE.md`, `DESIGN_NOTES.md`, `README.md`, `../README.txt`,
 
 Compact (use one sub-agent) the narration in `test/README.txt`:
     from `real_code_regressions_221_inp/out.java`
-    to   `real_code_regressions_227_inp/out.kt`
+    to   `real_code_regressions_229_inp/out.js`
 [DONE]
 
 Compact (don't use sub-agent because I will end this session soon) the narration in `test/README.txt`:
@@ -366,3 +366,38 @@ echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
+
+
+
+[COMMON/ALL]
+The formatter has:
+```
+line-endings                           = lf          # lf | crlf | preserve
+```
+
+Let's it extend to:
+```
+line-endings                           = lf          # lf | crlf | preserve
+append-new-line-at-eof                 = on          # on | off -- only if the last line does not have it
+remove-trailing-spaces                 = on          # on | off
+normalize-invisible-invalid-unicode    = on          # on | off
+```
+
+Ensure all are sorted like above, including in README.md, `Config.java` - `describeAll()`, etc.
+
+Do you have better name for `normalize-invisible-invalid-unicode`?
+For unicode, in comments write it to U+NNNN and U+NNNNN?
+In string write using the lang's specific escape code.
+
+Some exception may have to be made (maybe in Makefile recipe only?)
+
+Add the test fixtures for them as well as `indent-style = auto` before `Real-code regressions:`,.
+
+For `indent-style = auto` they will need at least two (one for spaces one for tabs) and must be in their own sub-dir inside the `test` dir
+with their own `.jxmake-code-formatter` override in each sub-dir.
+
+Discuss first before implementing.
+
+Finally README.md still has `2026-*`, that shouldn't because a user-facing document does not need to know the implementation history and state.
+
+Use sub-agent. This can be a substantial work.

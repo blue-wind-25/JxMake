@@ -379,6 +379,7 @@ Let's it extend to:
 ```
 line-endings                           = lf          # lf | crlf | preserve
 append-new-line-at-eof                 = on          # on | off -- only if the last line does not have it
+collapse-new-line-at-eof               = on          # on | off -- only if the last line are followed by them
 remove-trailing-spaces                 = on          # on | off
 normalize-invisible-invalid-unicode    = on          # on | off
 ```

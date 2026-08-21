@@ -70,3 +70,21 @@ it changes the cost profile of formatting (multiple pre-pass-plus-pipeline
 cycles per file instead of exactly one) — a tradeoff only worth paying for
 source that actually exercises the gap, not something to impose on every
 GDR-enabled file by default.
+
+## GDR postpass: why it only touches block-structure indentation, not continuation lines
+
+The experimental `curly-general-scope-reindent-postpass` key (see
+`README.md`'s Known Limitations) reuses GDR's own reindenter as a genuine
+post-pass, re-deriving indentation directly from the already-finished output
+rather than from source ahead of the pipeline. GDR's model for continuation
+indentation (a wrapped call or condition spanning multiple lines) is a
+simple "one indent level per open bracket" rule, while the main pipeline's
+own continuation-indent logic is more nuanced. Re-deriving a wrapped line's
+indentation from GDR's simpler model, on top of output the pipeline already
+settled on, could silently disagree with a placement the pipeline had
+already gotten right. Rather than trying to make GDR's continuation model
+match the pipeline's exactly, the postpass instead leaves any line that's
+part of such a wrap alone entirely, and only ever re-targets plain
+block-structure indentation that sits outside any wrap — the narrower rule
+is easier to reason about and to keep correct than chasing feature parity
+between two independent indentation models.

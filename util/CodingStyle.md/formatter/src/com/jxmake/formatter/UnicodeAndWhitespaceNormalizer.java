@@ -314,29 +314,29 @@ final class UnicodeAndWhitespaceNormalizer {
                 // JS/TS get the ES6 code-point escape for supplementary-plane values; every other
                 // curly-family language (C/C++/Java/Kotlin) and the BMP case for JS/TS use plain
                 // \\uXXXX (4 hex digits)
-                if(cp > 0xFFFF) return "\\u{" + Integer.toHexString(cp) + "}";
-                return String.format( "\\u%04x", Integer.valueOf(cp) );
+                if(cp > 0xFFFF) return "\\u{" + Integer.toHexString(cp).toUpperCase(java.util.Locale.ROOT) + "}";
+                return String.format( "\\u%04X", Integer.valueOf(cp) );
 
             case "python":
                 // Python3: \\uXXXX (4 hex) BMP, \\UXXXXXXXX (8 hex) supplementary. YAML/TOML reuse
                 // this same shape -- both specs define \\uXXXX/\\UXXXXXXXX equivalently for their
                 // double-quoted/basic string forms.
-                if(cp > 0xFFFF) return String.format( "\\U%08x", Integer.valueOf(cp) );
-                return String.format( "\\u%04x", Integer.valueOf(cp) );
+                if(cp > 0xFFFF) return String.format( "\\U%08X", Integer.valueOf(cp) );
+                return String.format( "\\u%04X", Integer.valueOf(cp) );
 
             case "json":
                 // JSON only supports \\uXXXX (no supplementary-plane single-escape form outside a
                 // surrogate pair) -- JSON5 follows the same convention
                 if(cp > 0xFFFF) {
                     final char[] pair = Character.toChars(cp);
-                    return String.format( "\\u%04x", Integer.valueOf( pair[0] ) )
-                            + String.format( "\\u%04x", Integer.valueOf( pair[1] ) );
+                    return String.format( "\\u%04X", Integer.valueOf( pair[0] ) )
+                            + String.format( "\\u%04X", Integer.valueOf( pair[1] ) );
                 }
-                return String.format( "\\u%04x", Integer.valueOf(cp) );
+                return String.format( "\\u%04X", Integer.valueOf(cp) );
 
             case "css":
                 // CSS hex escape: backslash + hex digits + one trailing space (terminator)
-                return "\\" + Integer.toHexString(cp) + " ";
+                return "\\" + Integer.toHexString(cp).toUpperCase(java.util.Locale.ROOT) + " ";
 
             case "xml":
                 // XML/HTML5 numeric character reference -- valid in both element text and

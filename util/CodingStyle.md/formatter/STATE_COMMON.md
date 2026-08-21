@@ -381,6 +381,10 @@ copy here; it drifts. This section only holds maintainer-facing notes:
   `Main.resolveAutoIndentStyle`'s real directory-vote path via the generic
   harness -- landing them fixed a real harness gap in `_test_serial`'s
   idempotency pass, see `RDD_KEY_336`).
+  **2026-08-22 follow-up (RDD_KEY_338):** `nativeStringEscape`'s hex-digit
+  casing made consistently uppercase across every `escapeStyle` branch
+  (`c`/`python`/`json`/`css`; `xml` was already uppercase) -- cosmetic-only,
+  every affected language accepts case-insensitive hex in its escape syntax.
 
 - `collapse-trailing-blank-lines-at-eof`: added 2026-08-22, default **off**
   (unlike its three RDD_KEY_336 siblings above) -- COMMON/ALL cross-cutting

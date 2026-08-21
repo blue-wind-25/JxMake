@@ -213,14 +213,14 @@ public class CmdPreprocessor extends Preprocessor {
                     new FileOutputStream(outputPath), args.output_encoding
                 );
                 else output = new FileWriter(outputPath);
-                if(args.write_bom) output.write('\ufeff');
+                if(args.write_bom) output.write('\uFEFF');
             } // if
             else {
                 if(args.output_encoding != null) output = new OutputStreamWriter(
                     System.out, args.output_encoding
                 );
                 else output = new OutputStreamWriter(System.out);
-                if(args.write_bom) output.write('\ufeff');
+                if(args.write_bom) output.write('\uFEFF');
             }
 
             if( args.inputPaths.isEmpty() || args.inputPaths.equals(

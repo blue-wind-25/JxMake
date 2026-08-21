@@ -29,6 +29,23 @@ import java.util.List;
  * {@link GdrLineTouchability} (content that can never safely be touched)
  * OR {@link GdrExclusionZones} (opt-in frozen/{@code JXM_CFMT_GDR}
  * exclusion zones) says so.
+ *
+ * <p><b>{@code postMode} (RDD_KEY_331):</b> when the GDR pre-pass logic is reused as a genuine
+ * POST-pass ({@code curly-general-scope-reindent-postpass}, see {@link GdrPipelineGate}) it runs
+ * directly on the already-fully-formatted pipeline output rather than on raw source ahead of the
+ * pipeline. The paren/bracket continuation axis ({@code pbLevel}) uses a naive "one indent level
+ * per open paren/bracket" model, which does not always match the pipeline's own, more nuanced
+ * {@code STYLE.md} §8 continuation-indent convention for a wrapped call/condition -- re-deriving a
+ * wrapped-call continuation line's indentation from {@code pbLevel} on top of output the pipeline
+ * already committed to can therefore land at a different (wrong) depth than what the pipeline
+ * itself decided. Passing {@code postMode = true} makes every line with a nonzero {@code pbLevel}
+ * (any line that is itself inside an open paren/bracket wrap, or that closes one) untouchable, so
+ * the postpass never re-derives such a line's indentation -- it only re-targets plain
+ * {@code pbLevel == 0} lines by brace depth alone, which is exactly the kind of line the postpass's
+ * original motivating fix (a plain sibling declaration left at the wrong depth by an unrelated
+ * pre-existing bug) needed. Every other caller (the pre-pass proper, including every multipass
+ * cycle) always passes {@code postMode = false} and is unaffected -- see the two-arg overload
+ * below.
  */
 public final class GdrReindenter {
 
@@ -36,7 +53,18 @@ public final class GdrReindenter {
     {
     }
 
+    /**
+     * Equivalent to {@code compute(source, indentSize, false)} -- the ordinary pre-pass behavior
+     * (full {@code braceLevel + pbLevel}, no postMode restriction). Kept as the default entry point
+     * so every existing caller (smoke tests, direct callers) is unaffected by the new
+     * {@code postMode} parameter.
+     */
     public static List<GdrIndentTarget> compute(String source, int indentSize)
+    {
+        return compute(source, indentSize, false);
+    }
+
+    public static List<GdrIndentTarget> compute(String source, int indentSize, boolean postMode)
     {
         List<GdrToken>                 tokens      = GdrTokenizer.tokenize(source);
         List<GdrLineBraceDepth>        braceDepths = GdrBraceDepthCounter.compute(tokens);
@@ -70,6 +98,15 @@ public final class GdrReindenter {
             // RDD_KEY_242 / GdrRewriter.spaces's NegativeArraySizeException.
             if(braceLevel < 0) braceLevel = 0;
             if(pbLevel    < 0) pbLevel    = 0;
+
+            // postMode (RDD_KEY_331): leave any line inside (or closing) an open paren/bracket
+            // wrap completely untouched -- see the class Javadoc above for why pbLevel's naive
+            // model doesn't match the pipeline's own STYLE.md §8 continuation-indent convention
+            // once this runs as a postpass on already-finished pipeline output.
+            if(postMode && pbLevel != 0) {
+                result.add( new GdrIndentTarget(line, false, 0, 0) );
+                continue;
+            }
 
             int level = braceLevel + pbLevel;
             result.add( new GdrIndentTarget(line, true, level, level * indentSize) );

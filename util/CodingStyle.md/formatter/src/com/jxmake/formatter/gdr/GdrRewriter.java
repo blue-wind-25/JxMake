@@ -20,9 +20,18 @@ public final class GdrRewriter {
     {
     }
 
+    /**
+     * Equivalent to {@code rewrite(source, indentSize, false)} -- see {@link GdrReindenter}'s
+     * {@code postMode} Javadoc for what the extra parameter means.
+     */
     public static String rewrite(String source, int indentSize)
     {
-        List<GdrIndentTarget> targets = GdrReindenter.compute(source, indentSize);
+        return rewrite(source, indentSize, false);
+    }
+
+    public static String rewrite(String source, int indentSize, boolean postMode)
+    {
+        List<GdrIndentTarget> targets = GdrReindenter.compute(source, indentSize, postMode);
         String[]              lines   = source.split("\n", -1);
 
         StringBuilder result = new StringBuilder( source.length() );

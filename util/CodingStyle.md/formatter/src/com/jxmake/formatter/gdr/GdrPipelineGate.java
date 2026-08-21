@@ -24,10 +24,21 @@ public final class GdrPipelineGate {
 
     public static String apply(String source, String language, Config config)
     {
+        return apply(source, language, config, false);
+    }
+
+    /**
+     * Internal 4-arg form threading {@code postMode} through to {@link GdrRewriter#rewrite} -- see
+     * {@link GdrReindenter}'s {@code postMode} Javadoc (RDD_KEY_331). The public 3-arg {@link
+     * #apply} above always passes {@code postMode = false} (ordinary pre-pass behavior, unchanged);
+     * only {@link #applyPostpass} below passes {@code true}.
+     */
+    private static String apply(String source, String language, Config config, boolean postMode)
+    {
         if( !config.isCurlyGeneralScopeReindent() ) return source;
         if( !isCurlyFamily(language) ) return source;
 
-        return GdrRewriter.rewrite( source, config.indentSize() );
+        return GdrRewriter.rewrite( source, config.indentSize(), postMode );
     }
 
     /**
@@ -121,12 +132,23 @@ public final class GdrPipelineGate {
      * {@code finalOutput} unchanged) unless both {@code curly-general-scope-reindent} and
      * {@code curly-general-scope-reindent-postpass} are on for a curly-family language -- same
      * silent-no-op-if-base-off posture as multipass (RDD_KEY_234).
+     *
+     * <p><b>RDD_KEY_331:</b> calls the internal {@code postMode = true} form of {@link #apply}
+     * rather than the ordinary public one, so any line inside (or closing) an open paren/bracket
+     * wrap is left completely untouched instead of being re-targeted from GDR's own paren/bracket
+     * depth model -- fixes the wrap-continuation over-indentation regression class
+     * {@code RDD_KEY_328}'s real-corpus validation found (a previously-correct {@code STYLE.md} §8
+     * wrapped-call/condition continuation line and its closer, already correctly aligned by the
+     * pipeline's own relative-delta continuation-indent logic, got pushed one level deeper by an
+     * unrestricted postpass). Only plain {@code pbLevel == 0} lines (ordinary statements/
+     * declarations not nested inside any multi-line paren/bracket wrap) are still re-targeted by
+     * brace depth alone, which is exactly what this pass's original motivating fix needed.
      */
     private static String applyPostpass(String finalOutput, String language, Config config)
     {
         if( !config.isCurlyGeneralScopeReindentPostpass() ) return finalOutput;
 
-        return apply(finalOutput, language, config);
+        return apply(finalOutput, language, config, true);
     }
 
     private static boolean isCurlyFamily(String language)

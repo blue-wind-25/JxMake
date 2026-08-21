@@ -304,22 +304,30 @@ Use sub-agent. This can be a substantial work.
 - [CURLY_GDR] GDR-2 (second multipass cycle) mis-scoping risk — NOT REPRODUCED. See
   `STATE_CURLY_GDR.md`.
 
-- [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL — the
-  suggested `boolean postMode` flag has been implemented (RDD_KEY_331 in `RDD_LOG.md` /
-  `STATE_CURLY_GDR.md`), fixing the RDD_KEY_328 wrap-continuation over-indentation regression: a
-  postMode-true call now leaves any line inside an open paren/bracket wrap (a wrapped-call/
-  condition continuation line and its closer) completely untouched instead of re-deriving its
-  indentation from GDR's own paren/bracket model, while still fixing the plain-brace-depth
-  "sibling declaration at the wrong depth" case the postpass originally targeted. Proven only at
-  fixture/hand-construction level (new `test/curly_gdr_postpass_wrap_{inp,out}.java`) — the
-  session that implemented this could not run any dogfood/corpus pull. `curly-general-scope-
-  reindent-postpass` stays EXPERIMENTAL/default-off. **Before considering this promoted or
-  otherwise "proven," re-run the RDD_KEY_298/RDD_KEY_328 188-file `JetBrains/kotlin`
-  `compiler/ir/backend.js/src` corpus comparison** (`-multipass`-only output vs.
-  `-multipass`+`-postpass` output, file-by-file diff) on a machine that can clone that corpus, and
-  confirm the wrap-continuation-over-indent regression class no longer appears anywhere in the
-  diff. Revisit (and reopen in TIER 9 if further work is warranted) once that re-validation has
-  actually been run.
+- [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL — CLOSED,
+  PROMOTED 2026-08-21 (RDD_KEY_332 in `RDD_LOG.md` / `STATE_CURLY_GDR.md`). The real-corpus
+  re-validation this entry previously called for has now actually been run: a fresh clone of the
+  same 188-file-scale `JetBrains/kotlin` `compiler/ir/backend.js/src` corpus (191 `.kt` files),
+  `-multipass`-only vs. `-multipass`+`-postpass`, file-by-file diff. Found RDD_KEY_331's `postMode`
+  flag was a real but incomplete fix (63/191 files still differed, including new regressions
+  beyond the one class RDD_KEY_331 closed — a mixed paren+brace closer on one line, a Kotlin
+  scope-function reopen chain like `}.apply { ... }`, and an expression-bodied declaration's
+  wrapped-signature continuation together with that continuation's own nested closing braces).
+  Landed four further targeted `postMode` refinements addressing each shape in turn, bringing the
+  diff down to 12/191 files, 10 of which are genuine accidental improvements (the postpass's
+  original motivating fix, unaffected) and 2 of which share a newly-discovered, separate,
+  out-of-scope `GdrTokenizer` gap (a documentation comment containing an illustrative *nested*
+  comment marker in its own example text is mis-parsed — not postpass-specific, but only observed
+  to manifest visibly under postpass in this corpus; documented as a new, narrow README.md Known
+  Limitation, not fixed this session). Idempotency clean; batch Kotlin syntax check clean modulo a
+  pre-existing parser-version limitation confirmed identical against the untouched original
+  corpus (zero new syntax errors from formatting). New fixture
+  `test/real_code_regressions_226_{inp,out}.kt`. `curly-general-scope-reindent-postpass` is now
+  promoted out of EXPERIMENTAL — stays `off` by default (same opt-in posture as every other GDR
+  key), but the specific real-corpus regression class `EXPERIMENTAL` existed to guard against is
+  confirmed absent at real-corpus scale, not merely unvalidated. See `RDD_KEY_332` for the full
+  writeup; the residual `GdrTokenizer` nested-comment gap is a candidate for a future,
+  separately-scoped GDR tokenizer session, not tracked here as a pending item.
 
 - [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
   resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s

@@ -519,7 +519,7 @@ closing-comment-min-lines              = 5
 
 curly-general-scope-reindent           = off         # off | on
 curly-general-scope-reindent-multipass = off         # off | on, only takes effect when the above is also on
-curly-general-scope-reindent-postpass  = off         # off | on, EXPERIMENTAL, only takes effect when the base flag is also on
+curly-general-scope-reindent-postpass  = off         # off | on, only takes effect when the base flag is also on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename                    = off         # off | on
@@ -723,17 +723,18 @@ pass, it runs a bounded convergence loop (pre-pass + full pipeline, repeated and
 to cycle, until two consecutive cycles are byte-identical, capped at a safety limit) — at the
 cost of extra formatting passes for any file that enables it.
 
-**Experimental (`curly-general-scope-reindent-postpass`):** default `off`, only takes effect when
+**`curly-general-scope-reindent-postpass`:** default `off`, only takes effect when
 `curly-general-scope-reindent` is also `on`. Runs one extra reindent pass directly on the final
-formatted output, with no further formatting pass after it. This pass now leaves any line that's
-part of a wrapped, multi-line call or condition completely alone — it never re-derives that
-line's indentation — and only re-targets plain block-structure indentation that sits outside any
-such wrap. That closes a known regression where this pass could previously push an
-already-correctly-aligned wrapped-call continuation line, and its closing bracket, one level
-deeper than the rest of the formatter had decided. It remains opt-in and has not yet been
-validated against a large real-code corpus, so it stays marked experimental for now — turn it on
-to test a specific narrow case, not as a routine addition to an existing
-`curly-general-scope-reindent` configuration.
+formatted output, with no further formatting pass after it. This pass leaves any line that's
+part of a wrapped, multi-line call, condition, or lambda/scope-function chain completely alone —
+it never re-derives that line's indentation, including a closing bracket that mixes a paren-close
+and a brace-close on one line, a `}.apply { ... }`-style reopened chain, or a wrapped
+expression-bodied declaration's continuation and its own nested closing braces — and only
+re-targets plain block-structure indentation that sits outside any such wrap. This pass has been
+validated against a large real-world Kotlin codebase (roughly 190 files) with no remaining
+instances of pushing an already-correctly-aligned wrapped continuation line, or its closer, to the
+wrong depth; it stays opt-in (off by default) since it is still a narrower, more aggressive
+reformat than the base pass, not because it is considered unproven.
 
 ### HTML5 tree-construction gap levels (`html5-tc-gap-level`)
 
@@ -1031,14 +1032,14 @@ onto one garbled line instead of reformatting correctly — an unrelated declara
 that also affected some C++ lambda-as-call-argument shapes with no preceding `.`/`->` in the call
 chain — was fixed earlier, 2026-08-20.)
 
-#### 2. `curly-general-scope-reindent-postpass` is experimental and not yet validated at real-code scale
+#### 2. `curly-general-scope-reindent-postpass`: validated at real-code scale; one narrow, separate comment-parsing gap found
 
 `curly-general-scope-reindent-postpass` (default `off`, only takes effect when
 `curly-general-scope-reindent` is also `on`) runs one extra reindentation pass directly on the
 final formatted output, with no further formatting pass afterward — unlike
 `curly-general-scope-reindent-multipass`, which always alternates a reindent pass with a full
-formatting pass. Earlier real-code testing found this extra pass could push a previously-correct
-wrapped call's continuation line and closing bracket a level deeper than they should be:
+formatting pass. Earlier testing found this extra pass could push a previously-correct wrapped
+call's continuation line and closing bracket a level deeper than they should be, in shapes such as:
 
 ```kotlin
 if( a?.b?.isSomething(
@@ -1046,16 +1047,29 @@ if( a?.b?.isSomething(
 ) == true ) { ... }
 ```
 
-That specific over-indentation has since been fixed: this pass now leaves every line that's part
-of a wrapped, multi-line call or condition — like `context` and the closing `) == true` above —
-completely alone, so `context` and `) == true` keep lining up with the call's own indent level
-whether or not this pass runs. The pass still keeps its other, positive behavior: it can *fix* a
-genuine indentation mistake the base pass leaves behind, such as a declaration that an earlier
-alignment step left mis-indented relative to its own sibling declarations.
+and, more subtly, a closing bracket that mixes a paren-close with a brace-close on one line, a
+`}.apply { ... }`/`}.also { ... }`-style reopened lambda chain, and a wrapped expression-bodied
+declaration's continuation (including that continuation's own nested closing braces). All of
+these have now been fixed: this pass leaves every line belonging to any such wrap or chain
+completely alone, so its indentation exactly matches whatever the rest of the formatter already
+decided. Validated by running this pass against a large real-world Kotlin codebase (roughly 190
+files): re-formatting is idempotent, introduces no new syntax errors, and no instance of any of
+the above over/under-indentation shapes remains anywhere in the result. The pass still keeps its
+positive behavior too: it can *fix* a genuine indentation mistake the base pass leaves behind,
+such as a declaration or closing brace that an earlier step left mis-indented relative to its own
+siblings.
 
-This fix has only been proven against small, hand-built examples, not against a large body of
-real-world code, so the key stays marked experimental and off by default until that broader
-validation happens. Leave it off for routine use; turn it on only to test a specific narrow case.
+One separate, narrower gap turned up during that same validation, unrelated to the wrap-alignment
+fix above: a documentation comment (`/** ... */`) that itself contains an example of a *nested*
+comment marker (e.g. illustrating `/*static*/` as part of a code sample inside the doc) can have
+its content past that point mis-indented, because comment-boundary detection does not currently
+account for comments nested inside comments. This is rare in practice (only 2 files out of the
+validation corpus were affected, both by way of an illustrative code sample inside a doc comment)
+and does not corrupt or delete any text, only its indentation; it is not specific to this pass —
+the same underlying comment-boundary detection is shared by every reindentation mode — but it was
+only observed to actually change output in practice when this pass reruns reindentation a second
+time against already-formatted code. Left unfixed for now; avoid nesting a nested comment marker
+inside a documentation comment's own example text if this matters for a given file.
 
 #### 3. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

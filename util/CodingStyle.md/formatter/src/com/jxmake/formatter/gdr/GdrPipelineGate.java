@@ -43,7 +43,9 @@ public final class GdrPipelineGate {
         // Gated by language so C/C++/Java/JS/TS keep their exact non-nesting scan untouched.
         boolean kotlinNestedBlockComments = "kotlin".equals(language);
 
-        return GdrRewriter.rewrite( source, config.indentSize(), postMode, kotlinNestedBlockComments );
+        return GdrRewriter.rewrite(
+            source, config.indentSize(), postMode, kotlinNestedBlockComments
+        );
     }
 
     /**

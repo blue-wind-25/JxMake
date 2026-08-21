@@ -211,29 +211,33 @@ public final class GdrTokenizer {
         i += 2;
         if(kotlinNestedBlockComments) {
             int depth = 1;
-            while( i < n && depth > 0 ) {
+            while(i < n && depth > 0) {
                 char cc = source.charAt(i);
                 if(cc == '\n') {
-                    line++;
+                    ++line;
                     ++i;
                     continue;
                 }
                 if( cc == '/' && i + 1 < n && source.charAt(i + 1) == '*' ) {
-                    depth++;
+                    ++depth;
                     i += 2;
                     continue;
                 }
                 if( cc == '*' && i + 1 < n && source.charAt(i + 1) == '/' ) {
-                    depth--;
+                    --depth;
                     i += 2;
                     continue;
                 }
                 ++i;
             } // while
             if(depth > 0) i = n; // Unterminated: consume the rest of the source
-        }
+        } // if
         else {
-            while( i < n && !( source.charAt(i) == '*' && i + 1 < n && source.charAt(i + 1) == '/' ) ) {
+            while( i < n && !( source.charAt(
+                i
+            ) == '*' && i + 1 < n && source.charAt(
+                i + 1
+            ) == '/' ) ) {
                 if( source.charAt(i) == '\n' ) line++;
                 ++i;
             }

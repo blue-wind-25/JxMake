@@ -85,22 +85,33 @@ public final class GdrReindenter {
     }
 
     public static List<GdrIndentTarget> compute(
-        String source, int indentSize, boolean postMode, boolean kotlinNestedBlockComments
+        String  source,
+        int     indentSize,
+        boolean postMode,
+        boolean kotlinNestedBlockComments
     )
     {
-        List<GdrToken>                 tokens      = GdrTokenizer.tokenize(source, kotlinNestedBlockComments);
+        List<GdrToken>                 tokens      = GdrTokenizer.tokenize(
+            source, kotlinNestedBlockComments
+        );
         List<GdrLineBraceDepth>        braceDepths = GdrBraceDepthCounter.compute(tokens);
         List<GdrLineParenBracketDepth> pbDepths    = GdrParenBracketDepthCounter.compute(tokens);
         int                            totalLines  = braceDepths.size();
 
-        List<Boolean>  touchable    = GdrLineTouchability.computeTouchableByLine(tokens, totalLines);
+        List<Boolean>  touchable    = GdrLineTouchability.computeTouchableByLine(
+            tokens, totalLines
+        );
         List<Boolean>  excluded     = GdrExclusionZones.computeExcludedByLine(tokens);
         GdrTokenType[] leadingType  = computeLeadingTokenTypes(tokens, totalLines);
-        String[]       trailingSig  = postMode ? computeTrailingSignificantText(tokens, totalLines) : null;
-        String[]       precedingSig = postMode ? computePrecedingSignificantText(trailingSig, totalLines) : null;
+        String[]       trailingSig  = postMode ? computeTrailingSignificantText(
+            tokens, totalLines
+        ) : null;
+        String[]       precedingSig = postMode ? computePrecedingSignificantText(
+            trailingSig, totalLines
+        ) : null;
 
-        List<GdrIndentTarget> result   = new ArrayList<>(totalLines);
-        boolean               zoneOpen = false;
+        List<GdrIndentTarget> result    = new ArrayList<>(totalLines);
+        boolean               zoneOpen  = false;
         int                   zoneFloor = 0;
         for(int line = 0; line < totalLines; ++line) {
             boolean lineExcluded = line < excluded.size() && excluded.get(line);
@@ -112,7 +123,7 @@ public final class GdrReindenter {
             GdrLineParenBracketDepth pb     = pbDepths.get(line);
             GdrTokenType             leader = leadingType[line];
 
-            // postMode (RDD_KEY_332, fourth refinement -- "zone" propagation): once a line is
+            // PostMode (RDD_KEY_332, fourth refinement -- "zone" propagation): once a line is
             // exempted (below) because it directly continues a wrapped expression body, every
             // line NESTED inside whatever it opens is, structurally, still part of that same
             // continuation the pipeline already placed -- including that nested content's own
@@ -143,7 +154,7 @@ public final class GdrReindenter {
             if(braceLevel < 0) braceLevel = 0;
             if(pbLevel    < 0) pbLevel    = 0;
 
-            // postMode (RDD_KEY_331/RDD_KEY_332): leave any line inside (or closing) an open
+            // PostMode (RDD_KEY_331/RDD_KEY_332): leave any line inside (or closing) an open
             // paren/bracket wrap completely untouched -- see the class Javadoc above for why
             // pbLevel's naive model doesn't match the pipeline's own STYLE.md §8
             // continuation-indent convention once this runs as a postpass on already-finished
@@ -164,7 +175,7 @@ public final class GdrReindenter {
                 continue;
             }
 
-            // postMode (RDD_KEY_332, second refinement): leave a "compound" brace-closer line
+            // PostMode (RDD_KEY_332, second refinement): leave a "compound" brace-closer line
             // untouched too -- one whose leading `}` is immediately followed by more significant
             // content that reopens a brace on the SAME line (Kotlin scope-function chains like
             // `}.apply {`/`}.also {`/`}.let {`). depthAtEnd for a plain, bare closer equals
@@ -181,7 +192,7 @@ public final class GdrReindenter {
                 continue;
             }
 
-            // postMode (RDD_KEY_332, third refinement): leave a line untouched if the nearest
+            // PostMode (RDD_KEY_332, third refinement): leave a line untouched if the nearest
             // preceding non-blank line ends (ignoring a trailing line/block comment) with `=` --
             // an expression-body arrow or plain assignment continuation per STYLE.md §8's
             // continuation-indent convention. GDR's brace/paren-bracket depth model has no
@@ -192,14 +203,14 @@ public final class GdrReindenter {
             // `==`/`!=`/`>=`/`<=`/`+=` etc. too (all end in the same character) -- deliberately
             // over-inclusive/conservative, since exempting a line only means leaving it exactly as
             // the pipeline already placed it, never mis-deriving a new value for it.
-            if(postMode && endsWithEquals( precedingSig[line] )) {
+            if( postMode && endsWithEquals( precedingSig[line] ) ) {
                 if(!zoneOpen) {
                     zoneOpen  = true;
                     zoneFloor = brace.depthAtStart;
                 }
                 result.add( new GdrIndentTarget(line, false, 0, 0) );
                 continue;
-            }
+            } // if
 
             int level = braceLevel + pbLevel;
             result.add( new GdrIndentTarget(line, true, level, level * indentSize) );
@@ -227,7 +238,7 @@ public final class GdrReindenter {
     }
 
     /**
-     * postMode helper (RDD_KEY_332): last significant (non-comment,
+     * PostMode helper (RDD_KEY_332): last significant (non-comment,
      * non-whitespace-only) token's raw text on each line, or {@code null}
      * for a line with no such content. Mirrors {@link
      * #computeLeadingTokenTypes} but keeps overwriting as it walks forward,
@@ -238,8 +249,8 @@ public final class GdrReindenter {
     {
         String[] trailing = new String[totalLines];
         for(GdrToken t : tokens) {
-            if( t.line < 0 || t.line >= totalLines ) continue;
-            if( t.type == GdrTokenType.NEWLINE || t.type == GdrTokenType.LINE_COMMENT || t.type == GdrTokenType.BLOCK_COMMENT ) continue;
+            if(t.line < 0 || t.line >= totalLines) continue;
+            if(t.type == GdrTokenType.NEWLINE || t.type == GdrTokenType.LINE_COMMENT || t.type == GdrTokenType.BLOCK_COMMENT) continue;
             if( t.type == GdrTokenType.TEXT && isAllWhitespace(t.text) ) continue;
             trailing[t.line] = t.text;
         }
@@ -248,7 +259,7 @@ public final class GdrReindenter {
     }
 
     /**
-     * postMode helper (RDD_KEY_332): precomputes, for every line index, the
+     * PostMode helper (RDD_KEY_332): precomputes, for every line index, the
      * nearest preceding line's trailing significant text (or {@code null}
      * if none exists, e.g. index 0). One forward pass over {@code
      * trailingSig} replaces what used to be an O(n) backward rescan per
@@ -259,9 +270,9 @@ public final class GdrReindenter {
     {
         String[] preceding = new String[totalLines];
         String   lastSig   = null;
-        for( int i = 0; i < totalLines; ++i ) {
+        for(int i = 0; i < totalLines; ++i) {
             preceding[i] = lastSig;
-            if(trailingSig[i] != null) lastSig = trailingSig[i];
+            if( trailingSig[i] != null ) lastSig = trailingSig[i];
         }
 
         return preceding;

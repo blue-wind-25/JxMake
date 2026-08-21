@@ -30,6 +30,7 @@ public final class Config {
         "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",
         "server-concurrency", "client-read-ahead",
         "closing-comment-min-lines", "format-macros", "line-endings",
+        "append-new-line-at-eof", "remove-trailing-spaces", "normalize-invisible-invalid-unicode",
         "normalize-comment-start-case", "normalize-comment-start-case-multiline",
         "normalize-comment-end-period", "comment-normalization-classifier",
         "header-guard-rename",
@@ -102,6 +103,25 @@ public final class Config {
     private int     closingCommentMinLines    = 5;
     private boolean formatMacros              = false;
     private String  lineEndings               = "lf";
+    /**
+     * {@code append-new-line-at-eof} -- default on: if the file's last line does not already end
+     * with a newline, adds exactly one. Purely additive -- never removes or collapses existing
+     * trailing blank lines.
+     */
+    private boolean appendNewLineAtEof                  = true;
+    /**
+     * {@code remove-trailing-spaces} -- default on: strips trailing whitespace (spaces/tabs) at
+     * the end of every line, except a Makefile recipe line (tab-prefixed), which this is always a
+     * no-op on -- see {@code UnicodeAndWhitespaceNormalizer.stripTrailingSpaces}.
+     */
+    private boolean removeTrailingSpaces                = true;
+    /**
+     * {@code normalize-invisible-invalid-unicode} -- default on: rewrites bidi-control, zero-width,
+     * non-breaking-space-family, and invalid/unpaired-surrogate characters found inside comments
+     * or string/text literal contents into a visible, unambiguous representation -- see
+     * {@code UnicodeAndWhitespaceNormalizer}. Never touches identifiers or bare code structure.
+     */
+    private boolean normalizeInvisibleInvalidUnicode     = true;
     private boolean normalizeCommentStartCase = true;
     private boolean normalizeCommentEndPeriod = true;
     // Default on: this gates the rule-based comment-grammar classifier path (which the GRU stage
@@ -308,6 +328,21 @@ public final class Config {
         return lineEndings;
     }
 
+    public boolean isAppendNewLineAtEof()
+    {
+        return appendNewLineAtEof;
+    }
+
+    public boolean isRemoveTrailingSpaces()
+    {
+        return removeTrailingSpaces;
+    }
+
+    public boolean isNormalizeInvisibleInvalidUnicode()
+    {
+        return normalizeInvisibleInvalidUnicode;
+    }
+
     public boolean isNormalizeCommentStartCase()
     {
         return normalizeCommentStartCase;
@@ -472,7 +507,8 @@ public final class Config {
         groups.put(
             "Behavior",
             new String[] {
-                "line-endings", "normalize-comment-start-case",
+                "line-endings", "append-new-line-at-eof", "remove-trailing-spaces",
+                "normalize-invisible-invalid-unicode", "normalize-comment-start-case",
                 "normalize-comment-start-case-multiline", "normalize-comment-end-period",
                 "comment-normalization-classifier",
                 "closing-comment-min-lines",
@@ -650,6 +686,21 @@ public final class Config {
             case "line-endings":
                 defaultValue  = defaults.lineEndings;
                 allowedValues = LINE_ENDINGS_CHOICES;
+                break;
+
+            case "append-new-line-at-eof":
+                defaultValue  = defaults.appendNewLineAtEof ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
+            case "remove-trailing-spaces":
+                defaultValue  = defaults.removeTrailingSpaces ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
+            case "normalize-invisible-invalid-unicode":
+                defaultValue  = defaults.normalizeInvisibleInvalidUnicode ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
                 break;
 
             case "normalize-comment-start-case":
@@ -932,6 +983,15 @@ public final class Config {
         );
         config.lineEndings                        = parseChoice(
             raw, "line-endings", config.lineEndings, LINE_ENDINGS_CHOICES
+        );
+        config.appendNewLineAtEof                 = parseBoolean(
+            raw, "append-new-line-at-eof", config.appendNewLineAtEof
+        );
+        config.removeTrailingSpaces               = parseBoolean(
+            raw, "remove-trailing-spaces", config.removeTrailingSpaces
+        );
+        config.normalizeInvisibleInvalidUnicode   = parseBoolean(
+            raw, "normalize-invisible-invalid-unicode", config.normalizeInvisibleInvalidUnicode
         );
         config.normalizeCommentStartCase          = parseBoolean(
             raw, "normalize-comment-start-case",

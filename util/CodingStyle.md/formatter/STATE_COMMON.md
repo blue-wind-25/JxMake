@@ -361,6 +361,27 @@ copy here; it drifts. This section only holds maintainer-facing notes:
   between the old 100-char limit and new 120-char default) — intended, left
   for the user to review/update.
 
+- `append-new-line-at-eof` / `remove-trailing-spaces` /
+  `normalize-invisible-invalid-unicode`: added 2026-08-22, all default `on`,
+  COMMON/ALL cross-cutting scope (every language) -- see `RDD_KEY_336`.
+  Implemented in `UnicodeAndWhitespaceNormalizer.java`, wired into
+  `Main.formatStandalone` right after `applyLineEndings` (unicode-normalize
+  → strip-trailing-spaces → append-eof-newline order). `remove-trailing-spaces`
+  is a no-op on a Makefile recipe line and skips JS/TS backtick / Python
+  triple-quoted raw multi-line literal bodies (known limitation, not full
+  tokenization). `normalize-invisible-invalid-unicode` only ever rewrites
+  characters inside a recognized comment/string span, never an identifier;
+  per-language string escape falls back to bracketed `<U+XXXX>` notation for
+  Bash/PowerShell/Makefile/E-INI/JxMakeFile (no native invisible-unicode
+  string escape exists) and for a single-quoted YAML scalar/TOML literal
+  string (left untouched, not even bracketed, since neither is tracked as a
+  string span). New fixtures: `test/behavior_flags_inp/out.js`,
+  `test/indent_style_auto_spaces/`, `test/indent_style_auto_tabs/` (the
+  latter two are the first fixtures to exercise
+  `Main.resolveAutoIndentStyle`'s real directory-vote path via the generic
+  harness -- landing them fixed a real harness gap in `_test_serial`'s
+  idempotency pass, see `RDD_KEY_336`).
+
 For every added, deleted, or modified configuration item, synchronize with
 `README.md` and the *In-file Config Support* implementation
 (`JXM_CFMT_CFG` directive, below).

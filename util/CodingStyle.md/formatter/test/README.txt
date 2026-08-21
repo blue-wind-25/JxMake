@@ -62,6 +62,43 @@ In-file config directive:
                                                         against, and would always show as a spurious FAIL. See
                                                         the file itself for how to exercise it manually.
 
+Behavior flags (append-new-line-at-eof / remove-trailing-spaces / normalize-invisible-invalid-unicode):
+  behavior_flags_inp/out.js                          -- One shared, language-agnostic fixture (JS chosen as
+                                                        vehicle) demonstrating all three new default-on
+                                                        "Behavior" config keys having a visible effect at
+                                                        once: the input has no trailing newline (added on
+                                                        output), trailing spaces after several lines
+                                                        (stripped), a zero-width space and a bidi
+                                                        right-to-left-override control character inside a `//`
+                                                        comment (each rewritten to bracketed `<U+XXXX>`
+                                                        notation), and a non-breaking space plus a zero-width
+                                                        joiner inside a string literal (each rewritten to
+                                                        their native `\uXXXX` JS escape so the string's
+                                                        runtime value is unchanged).
+
+  indent_style_auto_spaces_inp/out.c                 -- Each subdirectory carries its own
+                                                        indent_style_auto_tabs_inp/out.c
+                                                        `.jxmake-code-formatter` overriding `indent-style =
+                                                        auto`, exercising `Main.resolveAutoIndentStyle`/
+                                                        `IndentationDetector.detect`'s real directory-vote
+                                                        path (distinct from the existing `xml_indent_auto_*`
+                                                        fixtures, which exercise
+                                                        `IndentationDetector.detectFromContent`'s per-file-
+                                                        content path instead). Each subdirectory also carries
+                                                        its own `_out` reference (not flat in `test/` like
+                                                        every other fixture -- the Makefile's `_test_serial`
+                                                        derives `out=` from `$$inp`'s own directory precisely
+                                                        so the idempotency pass's round2 re-format also
+                                                        resolves `auto` against the same
+                                                        `.jxmake-code-formatter` boundary) plus a small number
+                                                        of unregistered helper `.c` files (`_vote_helper_*.c`)
+                                                        so the directory vote comes out unambiguously in the
+                                                        intended direction despite every registered `.c` file
+                                                        in the directory (the `_inp`/`_out` pair) casting its
+                                                        first-indented-line vote for "spaces" via the
+                                                        mandatory copyright header's leading `" * "` --
+                                                        regardless of the body's actual indentation style.
+
 Java:
   java_core_inp/out.java                             -- Core Java 8-compatible constructs: declaration
                                                         alignment, modifier ordering, getter/setter groups,
@@ -2786,14 +2823,13 @@ Real-code regressions:
 
   real_code_regressions_127_inp/out.py               -- Python3, `django/django` real-code dogfood: a §8
                                                         single-statement-body `match`/`case` header with its
-                                                        own trailing comment (e.g. `case Sequence():  # str
-                                                        and bytes were already handled.`) qualified for
-                                                        joining with its body line, but the join's
-                                                        `headerText` only spanned up to the header's `:`,
-                                                        silently deleting the comment -- real content loss
-                                                        (surfaced via `diff -rq round1 round2` since round2 no
-                                                        longer had the comment to drop). Fixed in
-                                                        `ScopePipelineIndent`:
+                                                        own trailing comment (e.g. `case Sequence(): # str and
+                                                        bytes were already handled.`) qualified for joining
+                                                        with its body line, but the join's `headerText` only
+                                                        spanned up to the header's `:`, silently deleting the
+                                                        comment -- real content loss (surfaced via `diff -rq
+                                                        round1 round2` since round2 no longer had the comment
+                                                        to drop). Fixed in `ScopePipelineIndent`:
                                                         `classifySingleStatementHeaderColon` and
                                                         `classifyCaseLine` both now bail from the join
                                                         whenever a trailing comment follows the header's `:`,

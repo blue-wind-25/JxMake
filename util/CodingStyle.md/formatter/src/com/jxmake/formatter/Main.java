@@ -519,7 +519,18 @@ public final class Main {
             original, language, config, path.toString(), formatOff
         );
 
-        return applyLineEndings( formatted, original, config.lineEndings() );
+        String result = applyLineEndings( formatted, original, config.lineEndings() );
+        if( config.isNormalizeInvisibleInvalidUnicode() ) {
+            result = UnicodeAndWhitespaceNormalizer.normalizeInvisibleUnicode(result, language);
+        }
+        if( config.isRemoveTrailingSpaces() ) {
+            result = UnicodeAndWhitespaceNormalizer.stripTrailingSpaces(result, language);
+        }
+        if( config.isAppendNewLineAtEof() ) {
+            result = UnicodeAndWhitespaceNormalizer.appendNewLineAtEof(result);
+        }
+
+        return result;
     }
 
     /**

@@ -379,6 +379,19 @@ INP_FILES += in_file_config_lang_inp.h
 # - See `test/in_file_config_error_out.hpp` for the expected error message.
 #INP_FILES += in_file_config_error_inp.hpp
 
+INP_FILES += behavior_flags_inp.js
+
+# `indent-style = auto` directory-scoped (Main.resolveAutoIndentStyle/IndentationDetector.detect
+# voting a real .jxmake-code-formatter's boundary directory, as opposed to xml_indent_auto_*'s own
+# per-file-content IndentationDetector.detectFromContent path). The `_out` reference for each lives
+# alongside its `_inp`/`.jxmake-code-formatter` in the same subdirectory (not flat in $(TEST_DIR)
+# like every other fixture) -- `out=` above is derived from `$$inp`'s own directory precisely so
+# this idempotency-pass round2 re-format also resolves `auto` against the same
+# `.jxmake-code-formatter` boundary the forward pass used, instead of falling back to the
+# (spaces) default a flat $(TEST_DIR)-rooted `_out` copy would hit.
+INP_FILES += indent_style_auto_spaces/indent_style_auto_spaces_inp.c
+INP_FILES += indent_style_auto_tabs/indent_style_auto_tabs_inp.c
+
 INP_FILES += h_core_inp.h
 INP_FILES += c_core_inp.c
 INP_FILES += h_combined_inp.h
@@ -784,9 +797,10 @@ _test_serial: gru-sync-weights
 	    $(JAVA) -jar $(JAR_FILE) --standalone --out $(TEST_TMP) "$$@" 2>$(TEST_STDERR);     \
 	    for inp in "$$@"; do                                                                \
 	        base=$$(basename "$$inp");                                                      \
+	        indir=$$(dirname "$$inp");                                                      \
 	        ext="$${base##*_inp.}";                                                         \
 	        stem="$${base%_inp.*}";                                                         \
-	        out="$(TEST_DIR)/$${stem}_out.$$ext";                                           \
+	        out="$$indir/$${stem}_out.$$ext";                                               \
 	        if [ ! -f "$$out" ]; then                                                       \
 	            echo "SKIP $$inp (no matching $$out)";                                      \
 	            continue;                                                                   \

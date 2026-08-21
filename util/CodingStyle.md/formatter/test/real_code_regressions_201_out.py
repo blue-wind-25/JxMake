@@ -9,6 +9,6 @@ def f(
     text          : str  = "default",
     *            ,
     debug         : bool = False,
-    **kwargs     
+    **kwargs
 ) -> str:
     ...

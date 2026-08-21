@@ -510,6 +510,9 @@ indent-style                           = spaces      # spaces | tabs | auto
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
 line-endings                           = lf          # lf | crlf | preserve
+append-new-line-at-eof                 = on          # on | off -- only if the last line does not have it
+remove-trailing-spaces                 = on          # on | off
+normalize-invisible-invalid-unicode    = on          # on | off
 
 normalize-comment-start-case           = on          # on | off
 normalize-comment-start-case-multiline = off         # off | on
@@ -1019,7 +1022,7 @@ function foo(a,b){if(a){return b;}else{return a;}}
 [General scope-depth reindentation (GDR)](#general-scope-depth-reindentation-gdr-curly-general-scope-reindent)
 above for what the joined-one-true-brace-style gap is and why multipass fixes it.
 
-A related but distinct gap (found 2026-08-19, diagnosed 2026-08-20): a function *expression*
+A related but distinct gap: a function *expression*
 passed as a call argument, with a body already spanning multiple physical lines, was **not**
 reformatted the same way an identical body at declaration/statement position already is:
 
@@ -1038,7 +1041,7 @@ never recognized as a scope at all and none of the normal brace-placement/statem
 logic ever ran on it — unlike a top-level `function foo(a,b){...}` *declaration*, which is a
 top-level scope and goes through that logic normally.
 
-**Fixed for JavaScript/TypeScript** (2026-08-20): a call-argument function-expression body like
+**Fixed for JavaScript/TypeScript**: a call-argument function-expression body like
 the example above is now recursed into and reformatted the same as an identical body at
 declaration/assignment-statement position. A body that is still entirely on one physical line
 (e.g. `items.map(function (x) { doA(x); doB(x); return x; });` with no line breaks in the body)
@@ -1050,7 +1053,7 @@ fix applies: only declaration statements inside the reformatted body get their i
 normalized; a plain non-declaration statement line (e.g. a fluent method-chain continuation) keeps
 whatever indentation it already had in the source.
 
-**Fixed for C/C++ and Kotlin** (2026-08-20): the same structural shape — a lambda passed as a call
+**Fixed for C/C++ and Kotlin**: the same structural shape — a lambda passed as a call
 argument in C/C++ (`std::sort(v.begin(), v.end(), [](int a, int b) {...});`), or a lambda literal
 passed as a non-trailing call argument in Kotlin (`bar(1, { x -> ... });`) — is now recursed into
 and reformatted the same way. Kotlin's ordinary trailing-lambda call syntax
@@ -1060,14 +1063,14 @@ return-type specifier between its parameter list and its body is not yet recogni
 declaration statements inside a reformatted body get their indentation normalized — a plain
 non-declaration statement line keeps whatever indentation it already had.
 
-**Fixed for Java** (2026-08-21): an anonymous class passed as a call argument
+**Fixed for Java**: an anonymous class passed as a call argument
 (`run(new Runnable() { public void run() { ... } });`) is now recursed into and reformatted the
 same way as the other languages' equivalents above — each statement in its body onto its own line,
 with correct depth-based indentation and brace placement, however many anonymous classes or
 members are nested inside one another. (A separate bug that could make this shape's body collapse
 onto one garbled line instead of reformatting correctly — an unrelated declaration-parsing issue
 that also affected some C++ lambda-as-call-argument shapes with no preceding `.`/`->` in the call
-chain — was fixed earlier, 2026-08-20.)
+chain — was fixed earlier.)
 
 #### 2. `curly-general-scope-reindent-postpass`: validated at real-code scale
 
@@ -1121,7 +1124,7 @@ the already-formatted output is fed back in and formatted again — i.e. formatt
 idempotent for this narrow shape. No workaround exists short of avoiding deeply nested short calls
 inside very long lines.
 
-**Kotlin is no longer affected**: as of 2026-08-16, formatting a Kotlin file internally re-runs
+**Kotlin is no longer affected**: formatting a Kotlin file internally re-runs
 itself (up to 5 passes) until two consecutive passes produce byte-identical output, converging on
 a fixed point instead of flapping. This is a known, currently-unresolved gap
 for C/C++/Java/JS/TS only.
@@ -1413,6 +1416,30 @@ comments the classifier confidently capitalizes) but raises the rate of wrongly 
 comment that was actually a real code reference. `0.76` was chosen as the best trade-off found so
 far — see [`DESIGN_NOTES.md`](DESIGN_NOTES.md). No workaround: not planned to change further
 unless a future corpus expansion or held-out measurement moves the curve.
+
+### Cross-cutting Behavior flags (`append-new-line-at-eof`/`remove-trailing-spaces`/`normalize-invisible-invalid-unicode`)
+
+These three flags apply the same way across every supported language, so their caveats are listed
+together here rather than under one language family.
+
+#### 1. `remove-trailing-spaces` leaves a Makefile recipe line, and a raw multi-line string/template-literal body in some languages, untouched
+
+A Makefile recipe line's leading tab is whitespace-sensitive, so this flag is always a no-op there
+by design. Separately, a line found to be inside a raw multi-line string body — a JS/TS backtick
+template literal, or a Python triple-quoted string — is also left alone, since trailing whitespace
+there could be semantically part of the literal's own content rather than incidental formatting.
+
+#### 2. `normalize-invisible-invalid-unicode` falls back to a bracketed `<U+XXXX>` notation for languages with no native invisible-character string escape
+
+Bash, PowerShell, Makefile, E-INI, and JxMakeFile config files have no consistent native escape
+sequence for an invisible/control Unicode character inside a string-like value, so a flagged
+character found there is rewritten the same way it would be inside a comment (bracketed
+`<U+XXXX>` notation) rather than inventing an escape syntax the language doesn't actually support.
+A single-quoted YAML scalar and a TOML literal string are not recognized as string content by this
+pass at all — neither format's single-quoted form supports backslash escapes, so there is no safe
+rewrite that preserves the literal's runtime value, and a flagged character found there is left
+untouched rather than risk changing the string. The double-quoted/basic string form of both formats
+is unaffected and still gets the native `\uXXXX`/`\UXXXXXXXX` escape.
 
 ---
 

@@ -1383,7 +1383,7 @@ public final class YamlSpecificRule {
             // document boundary. Using the raw (only trailing-whitespace-stripped) line here,
             // instead of a fully trimmed one, avoids misinterpreting such indented occurrences as
             // stream separators and corrupting the rest of the file.
-            final String rTrimmed = raw.replaceAll("\\s+$", "");
+            final String rTrimmed = YamlTomlSharedRule.rtrim(raw);
             if( rTrimmed.equals("---") || rTrimmed.equals("...") ) {
                 if( !docLines.isEmpty() ) {
                     renderDocument(docLines, out);

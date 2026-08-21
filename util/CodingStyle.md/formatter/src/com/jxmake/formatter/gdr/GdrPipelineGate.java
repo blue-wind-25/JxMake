@@ -2,6 +2,7 @@ package com.jxmake.formatter.gdr;
 
 import com.jxmake.formatter.Config;
 import com.jxmake.formatter.FormatterCore;
+import com.jxmake.formatter.Lang;
 
 /**
  * The single decision point for whether the GDR pre-pass runs ahead of the existing formatter
@@ -157,9 +158,7 @@ public final class GdrPipelineGate {
 
     private static boolean isCurlyFamily(String language)
     {
-        return "c".equals(language) || "cpp".equals(language)
-                || "java".equals(language) || "kotlin".equals(language)
-                || "js".equals(language) || "ts".equals(language);
+        return new Lang(language).isCurly;
     }
 
 } // class GdrPipelineGate

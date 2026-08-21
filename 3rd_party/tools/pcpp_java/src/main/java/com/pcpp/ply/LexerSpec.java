@@ -23,7 +23,7 @@ import java.util.Map;
  * spec.addRule(new LexRule("t_ID",     "[A-Za-z_][A-Za-z0-9_]*"));
  * spec.addRule(new LexRule("t_NUMBER", "\\d+"));
  * spec.addIgnore("INITIAL", " \t");
- * spec.setErrorCallback("INITIAL", tok -> { /* ... *‌/ return tok; });
+ * spec.setErrorCallback("INITIAL", tok -> { /* ... *<U+200C>/ return tok; });
  * }</pre>
  *
  * <p>After populating the spec call {@link LexerBuilder#build(LexerSpec)} to

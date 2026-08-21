@@ -6,18 +6,18 @@ JAVAC        ?= javac
 JAR          ?= jar
 JAVA_VERSION ?= 8
 
-VERSION       = 1.30
-ARTIFACT      = pcpp-java-$(VERSION)
-MAIN_CLASS    = com.pcpp.pcmd.CmdPreprocessor
+VERSION    = 1.30
+ARTIFACT   = pcpp-java-$(VERSION)
+MAIN_CLASS = com.pcpp.pcmd.CmdPreprocessor
 
-SRC_DIR       = src/main/java
+SRC_DIR = src/main/java
 
-BUILD_DIR     = target
-CLASS_DIR     = $(BUILD_DIR)/classes
-JAR_FILE      = $(BUILD_DIR)/$(ARTIFACT).jar
-MANIFEST      = $(CLASS_DIR)/MANIFEST.MF
+BUILD_DIR = target
+CLASS_DIR = $(BUILD_DIR)/classes
+JAR_FILE  = $(BUILD_DIR)/$(ARTIFACT).jar
+MANIFEST  = $(CLASS_DIR)/MANIFEST.MF
 
-SOURCES       = $(shell find $(SRC_DIR) -name "*.java")
+SOURCES = $(shell find $(SRC_DIR) -name "*.java")
 
 .PHONY: all clean
 

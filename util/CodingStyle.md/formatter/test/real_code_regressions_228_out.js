@@ -6,7 +6,7 @@
 import { readFile } from "node:fs/promises";
 
 import { WidgetX } from "components/Widget";   // Resolves to the project's own source tree via
-                                               // Tsconfig `baseUrl`/`paths`, but is classified
+                                               // tsconfig `baseUrl`/`paths`, but is classified
                                                // "third-party", not "local"
 import { debounce } from "lodash";
 

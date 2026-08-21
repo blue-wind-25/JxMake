@@ -4267,6 +4267,14 @@ Real-code regressions:
                                                         floating comment (corrupting both the moved import and
                                                         the comment left behind).
 
+  real_code_regressions_229_inp/out.js               -- comment-grouping fix (shared curly-family code): a
+                                                        trailing `//` comment's own-line continuation lines,
+                                                        aligned under the first line's comment marker, are now
+                                                        recognized as part of the same comment group for
+                                                        capitalization purposes, instead of each continuation
+                                                        line being treated as a fresh standalone comment and
+                                                        having its first word wrongly capitalized.
+
 How Tests Are Run
 -----------------
 

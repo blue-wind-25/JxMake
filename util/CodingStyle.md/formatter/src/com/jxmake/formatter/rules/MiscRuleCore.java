@@ -2050,6 +2050,13 @@ public static final class Assignment {
                 group.add(i);
                 int j = i;
                 int next;
+                if( !isStandaloneCommentLine(tokens, i) ) {
+                    next = nextCommentChainLinkIfTrailingContinuation(tokens, i);
+                    if(next >= 0) {
+                        group.add(next);
+                        j = next;
+                    }
+                }
                 while( ( next = nextCommentChainLinkIfAdjacent(tokens, j) ) >= 0 ) {
                     group.add(next);
                     j = next;
@@ -2097,6 +2104,65 @@ public static final class Assignment {
     protected boolean isCommentChainLink(final List<Token> tokens, final int idx)
     {
         return !isClosingBraceLabelComment(tokens, idx);
+    }
+    /**
+     * 0-based column (character count since the start of its physical line, or since the previous
+     * NEWLINE token) at which the token at {@code idx} begins. A simple character count, not
+     * tab-width-aware -- consistent with every other column/width measurement in this codebase.
+     */
+    protected int columnOfToken(final List<Token> tokens, final int idx)
+    {
+        int col = 0;
+        int i   = idx - 1;
+        while( i >= 0 && tokens.get(i).type != TokenType.NEWLINE ) {
+            col += tokens.get(i).text.length();
+            --i;
+        }
+
+        return col;
+    }
+    /**
+     * If the token at {@code idx} is a trailing (same-line, not standalone) `//` comment, and it
+     * is followed -- after exactly one NEWLINE and only WHITESPACE otherwise (no blank line, no
+     * other token) -- by a standalone chain-link `//` comment that starts at the exact same column
+     * as this trailing comment's own `//`, returns that next comment's token index; otherwise
+     * returns -1.
+     *
+     * <p>Column alignment is the signal that distinguishes a genuine wrapped-continuation line
+     * (written flush under the trailing comment it continues -- the common real-world convention
+     * for a wrapped trailing comment, e.g. a long explanation after an import) from an unrelated
+     * standalone comment that merely happens to immediately follow a trailing comment (e.g. a
+     * fresh comment leading the very next statement) -- grouping the latter into the former's
+     * sentence would wrongly capitalize its own leading word as if it were mid-sentence.
+     */
+    protected int nextCommentChainLinkIfTrailingContinuation(final List<Token> tokens, final int idx)
+    {
+        if( isStandaloneCommentLine(tokens, idx) ) return -1;
+        final int anchorColumn = columnOfToken(tokens, idx);
+              int p            = idx + 1;
+              int newlineCount = 0;
+        while( p < tokens.size() ) {
+            final TokenType type = tokens.get(p).type;
+            if(type == TokenType.WHITESPACE) {
+                ++p;
+            }
+            else if(type == TokenType.NEWLINE) {
+                ++newlineCount;
+                if(newlineCount > 1) return -1;
+                ++p;
+            }
+            else {
+                break;
+            }
+        } // while
+        if( p >= tokens.size() || newlineCount != 1 ) return -1;
+        if( tokens.get(
+            p
+        ).type == TokenType.COMMENT_LINE && isCommentChainLink(
+            tokens, p
+        ) && columnOfToken(tokens, p) == anchorColumn ) return p;
+
+        return -1;
     }
     /**
      * True iff the {@code COMMENT_LINE} token at {@code idx} may actually be rewritten (not a

@@ -267,6 +267,10 @@ Use sub-agent. This can be a substantial work.
 - [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL. See
   RDD_KEY_328 in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
+  It may help to have an internal flag `boolean postMode` (it could be set/passed when the
+  function is called) to make the GDR internal implementation behave slightly different,
+  depending on the pass mode (prepass or postpass).
+
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Dogfood] ===

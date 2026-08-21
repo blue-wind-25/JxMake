@@ -93,10 +93,10 @@ public final class GdrReindenter {
         List<GdrLineParenBracketDepth> pbDepths    = GdrParenBracketDepthCounter.compute(tokens);
         int                            totalLines  = braceDepths.size();
 
-        List<Boolean>  touchable   = GdrLineTouchability.computeTouchableByLine(tokens, totalLines);
-        List<Boolean>  excluded    = GdrExclusionZones.computeExcludedByLine(tokens);
-        GdrTokenType[] leadingType = computeLeadingTokenTypes(tokens, totalLines);
-        String[]       trailingSig = postMode ? computeTrailingSignificantText(tokens, totalLines) : null;
+        List<Boolean>  touchable    = GdrLineTouchability.computeTouchableByLine(tokens, totalLines);
+        List<Boolean>  excluded     = GdrExclusionZones.computeExcludedByLine(tokens);
+        GdrTokenType[] leadingType  = computeLeadingTokenTypes(tokens, totalLines);
+        String[]       trailingSig  = postMode ? computeTrailingSignificantText(tokens, totalLines) : null;
         String[]       precedingSig = postMode ? computePrecedingSignificantText(trailingSig, totalLines) : null;
 
         List<GdrIndentTarget> result   = new ArrayList<>(totalLines);

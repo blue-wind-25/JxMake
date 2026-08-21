@@ -2064,13 +2064,7 @@ public class KotlinSpecificRule {
      */
     private boolean isPathOp(final Token t)
     {
-        if( t == null || t.type != TokenType.OP || t.text.isEmpty() ) return false;
-        for( int i = 0; i < t.text.length(); ++i ) {
-            final char c = t.text.charAt(i);
-            if(c != '.' && c != '*') return false;
-        }
-
-        return true;
+        return TokenNavigationRule.isPathOp(t);
     }
 
     /**
@@ -2126,12 +2120,7 @@ public class KotlinSpecificRule {
 
     private boolean matchesPrefix(final String[] parts, final List<String> prefix)
     {
-        if( parts.length < prefix.size() ) return false;
-        for( int i = 0; i < prefix.size(); ++i ) {
-            if( !parts[i].equals( prefix.get(i) ) ) return false;
-        }
-
-        return true;
+        return TokenNavigationRule.matchesPrefix(parts, prefix);
     }
 
     /** Appends the literal text of {@code tokens[fromInclusive, toExclusive)} verbatim */

@@ -870,12 +870,7 @@ public class JavaSpecificRule {
     
     private boolean matchesPrefix(final String[] parts, final List<String> prefix)
     {
-        if( parts.length < prefix.size() ) return false;
-        for( int i = 0; i < prefix.size(); ++i ) {
-            if( !parts[i].equals( prefix.get(i) ) ) return false;
-        }
-
-        return true;
+        return TokenNavigationRule.matchesPrefix(parts, prefix);
     }
 
     /**
@@ -1300,13 +1295,7 @@ public class JavaSpecificRule {
      */
     private String render(final List<Token> tokens, final Map<Integer, String> overrides)
     {
-        final StringBuilder out = new StringBuilder();
-        for( int i = 0; i < tokens.size(); ++i ) {
-            final String override = overrides.get(i);
-            out.append( override != null ? override : tokens.get(i).text );
-        }
-
-        return out.toString();
+        return TokenNavigationRule.render(tokens, overrides);
     }
 
     /**
@@ -1362,16 +1351,7 @@ public class JavaSpecificRule {
     /** Index of the first significant token on the same physical line as {@code idx} */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = -1;
-        for(int i = idx; i >= 0; --i) {
-            if( tokens.get(i).type == TokenType.NEWLINE ) {
-                newlineIdx = i;
-                break;
-            }
-        }
-        final int firstSig = nextSignificantIndexAfter(tokens, newlineIdx);
-
-        return firstSig < 0 ? idx : firstSig;
+        return TokenNavigationRule.lineStartIndex(tokens, idx);
     }
 
     /** Appends the literal text of {@code tokens[fromInclusive, toExclusive)} verbatim */
@@ -1392,13 +1372,7 @@ public class JavaSpecificRule {
      */
     private boolean isPathOp(final Token t)
     {
-        if( t == null || t.type != TokenType.OP || t.text.isEmpty() ) return false;
-        for( int i = 0; i < t.text.length(); ++i ) {
-            final char c = t.text.charAt(i);
-            if(c != '.' && c != '*') return false;
-        }
-
-        return true;
+        return TokenNavigationRule.isPathOp(t);
     }
 
 
@@ -1432,11 +1406,7 @@ public class JavaSpecificRule {
      */
     private int prevSignificantIndexBefore(final List<Token> tokens, final int from)
     {
-        for(int i = from - 1; i >= 0; --i) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.prevSignificantIndexBefore(tokens, from);
     }
 
     /**
@@ -1446,11 +1416,7 @@ public class JavaSpecificRule {
      */
     private int nextSignificantIndexAfter(final List<Token> tokens, final int from)
     {
-        for( int i = from + 1; i < tokens.size(); ++i ) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.nextSignificantIndexAfter(tokens, from);
     }
 
 } // class JavaSpecificRule

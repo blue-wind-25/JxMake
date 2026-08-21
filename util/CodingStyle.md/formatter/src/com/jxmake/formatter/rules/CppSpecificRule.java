@@ -1388,16 +1388,7 @@ public class CppSpecificRule {
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = -1;
-        for(int i = idx; i >= 0; --i) {
-            if( tokens.get(i).type == TokenType.NEWLINE ) {
-                newlineIdx = i;
-                break;
-            }
-        }
-        final int firstSig = nextSignificantIndexAfter(tokens, newlineIdx);
-
-        return firstSig < 0 ? idx : firstSig;
+        return TokenNavigationRule.lineStartIndex(tokens, idx);
     }
 
     /**
@@ -1757,11 +1748,7 @@ public class CppSpecificRule {
      */
     private int prevSignificantIndexBefore(final List<Token> tokens, final int from)
     {
-        for(int i = from - 1; i >= 0; --i) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.prevSignificantIndexBefore(tokens, from);
     }
 
     /**
@@ -1771,11 +1758,7 @@ public class CppSpecificRule {
      */
     private int nextSignificantIndexAfter(final List<Token> tokens, final int from)
     {
-        for( int i = from + 1; i < tokens.size(); ++i ) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.nextSignificantIndexAfter(tokens, from);
     }
 
     /**

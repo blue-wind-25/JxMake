@@ -655,13 +655,7 @@ public final class JsTsSpecificRule {
 
     private String render(final List<Token> tokens, final Map<Integer, String> overrides)
     {
-        final StringBuilder out = new StringBuilder();
-        for( int i = 0; i < tokens.size(); ++i ) {
-            final String override = overrides.get(i);
-            out.append( override != null ? override : tokens.get(i).text );
-        }
-
-        return out.toString();
+        return TokenNavigationRule.render(tokens, overrides);
     }
 
     // ── §3 Spread / rest (`...`) tight spacing ───────────────────────────────────────

@@ -725,10 +725,14 @@ cost of extra formatting passes for any file that enables it.
 
 **Experimental (`curly-general-scope-reindent-postpass`):** default `off`, only takes effect when
 `curly-general-scope-reindent` is also `on`. Runs one extra reindent pass directly on the final
-formatted output, with no further formatting pass after it. This is not a general-purpose
-improvement over `curly-general-scope-reindent-multipass` — it can leave some brace pairs less
-correctly aligned than the base/multipass path on certain nested-call shapes — so it should only
-be turned on to test a specific narrow case, not as a routine addition to an existing
+formatted output, with no further formatting pass after it. This pass now leaves any line that's
+part of a wrapped, multi-line call or condition completely alone — it never re-derives that
+line's indentation — and only re-targets plain block-structure indentation that sits outside any
+such wrap. That closes a known regression where this pass could previously push an
+already-correctly-aligned wrapped-call continuation line, and its closing bracket, one level
+deeper than the rest of the formatter had decided. It remains opt-in and has not yet been
+validated against a large real-code corpus, so it stays marked experimental for now — turn it on
+to test a specific narrow case, not as a routine addition to an existing
 `curly-general-scope-reindent` configuration.
 
 ### HTML5 tree-construction gap levels (`html5-tc-gap-level`)
@@ -1027,16 +1031,14 @@ onto one garbled line instead of reformatting correctly — an unrelated declara
 that also affected some C++ lambda-as-call-argument shapes with no preceding `.`/`->` in the call
 chain — was fixed earlier, 2026-08-20.)
 
-#### 2. `curly-general-scope-reindent-postpass` is experimental and can regress already-correct indentation
+#### 2. `curly-general-scope-reindent-postpass` is experimental and not yet validated at real-code scale
 
 `curly-general-scope-reindent-postpass` (default `off`, only takes effect when
 `curly-general-scope-reindent` is also `on`) runs one extra reindentation pass directly on the
 final formatted output, with no further formatting pass afterward — unlike
 `curly-general-scope-reindent-multipass`, which always alternates a reindent pass with a full
-formatting pass. Real-code testing found this extra pass can push a previously-correct wrapped
-call's continuation line and closing bracket a level deeper than they should be, since it
-reindents by structural brace/paren depth alone and doesn't understand that a wrapped
-continuation's closer is meant to dedent back to match the call's own indentation level:
+formatting pass. Earlier real-code testing found this extra pass could push a previously-correct
+wrapped call's continuation line and closing bracket a level deeper than they should be:
 
 ```kotlin
 if( a?.b?.isSomething(
@@ -1044,19 +1046,16 @@ if( a?.b?.isSomething(
 ) == true ) { ... }
 ```
 
-Without the postpass, `context` and the closing `) == true` line up with the call's own indent
-level (correct). With the postpass on, both lines can shift one level deeper than shown above.
+That specific over-indentation has since been fixed: this pass now leaves every line that's part
+of a wrapped, multi-line call or condition — like `context` and the closing `) == true` above —
+completely alone, so `context` and `) == true` keep lining up with the call's own indent level
+whether or not this pass runs. The pass still keeps its other, positive behavior: it can *fix* a
+genuine indentation mistake the base pass leaves behind, such as a declaration that an earlier
+alignment step left mis-indented relative to its own sibling declarations.
 
-The postpass isn't purely negative, though: it can also *fix* a genuine indentation mistake that
-the base pass leaves behind — specifically, a declaration that an earlier alignment step left
-mis-indented relative to its own sibling declarations (e.g. one declaration in a same-scope group
-sitting one level shallower than the rest, an unrelated pre-existing alignment quirk). The
-postpass's structural-depth-based reindent corrects that kind of "sibling declaration at the
-wrong depth" mistake, at the cost of the wrapped-call over-indentation risk shown above. In
-real-code testing across one large corpus, the postpass changed roughly 4 in 10 files, and the
-two effects appeared roughly comparably often, with no simple predictor of which case a given
-file will hit. Leave this key off; it exists as a building block for future work on this
-pre-pass, not as a routine addition to an existing `curly-general-scope-reindent` configuration.
+This fix has only been proven against small, hand-built examples, not against a large body of
+real-world code, so the key stays marked experimental and off by default until that broader
+validation happens. Leave it off for routine use; turn it on only to test a specific narrow case.
 
 #### 3. Multi-line-call/condition wrap decisions can flap across repeated formatting passes (C/C++/Java/JS/TS)
 

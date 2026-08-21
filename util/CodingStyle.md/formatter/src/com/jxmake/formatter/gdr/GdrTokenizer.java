@@ -297,7 +297,6 @@ public final class GdrTokenizer {
         return true;
     }
 
-    /** Ordinary {@code "..."}/{@code '...'} literal; unterminated at a bare newline. */
     /**
      * JS/TS template literal ({@code `...`}), treated as a single opaque {@code STRING} token --
      * this deliberately does not parse {@code ${...}} interpolation (any brace/paren inside an
@@ -331,6 +330,7 @@ public final class GdrTokenizer {
         tokens.add( new GdrToken( GdrTokenType.STRING, source.substring(start, i), startLine ) );
     }
 
+    /** Ordinary {@code "..."}/{@code '...'} literal; unterminated at a bare newline. */
     private void scanQuoted(char quote, GdrTokenType type)
     {
         flushText();

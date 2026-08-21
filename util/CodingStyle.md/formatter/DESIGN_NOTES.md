@@ -73,8 +73,8 @@ GDR-enabled file by default.
 
 ## GDR postpass: why it only touches block-structure indentation, not continuation lines
 
-The experimental `curly-general-scope-reindent-postpass` key (see
-`README.md`'s Known Limitations) reuses GDR's own reindenter as a genuine
+The `curly-general-scope-reindent-postpass` key (see `README.md`'s
+Configuration section) reuses GDR's own reindenter as a genuine
 post-pass, re-deriving indentation directly from the already-finished output
 rather than from source ahead of the pipeline. GDR's model for continuation
 indentation (a wrapped call or condition spanning multiple lines) is a

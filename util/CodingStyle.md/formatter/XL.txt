@@ -305,29 +305,10 @@ Use sub-agent. This can be a substantial work.
   `STATE_CURLY_GDR.md`.
 
 - [CURLY_GDR] `curly-general-scope-reindent-postpass` promotion out of EXPERIMENTAL — CLOSED,
-  PROMOTED 2026-08-21 (RDD_KEY_332 in `RDD_LOG.md` / `STATE_CURLY_GDR.md`). The real-corpus
-  re-validation this entry previously called for has now actually been run: a fresh clone of the
-  same 188-file-scale `JetBrains/kotlin` `compiler/ir/backend.js/src` corpus (191 `.kt` files),
-  `-multipass`-only vs. `-multipass`+`-postpass`, file-by-file diff. Found RDD_KEY_331's `postMode`
-  flag was a real but incomplete fix (63/191 files still differed, including new regressions
-  beyond the one class RDD_KEY_331 closed — a mixed paren+brace closer on one line, a Kotlin
-  scope-function reopen chain like `}.apply { ... }`, and an expression-bodied declaration's
-  wrapped-signature continuation together with that continuation's own nested closing braces).
-  Landed four further targeted `postMode` refinements addressing each shape in turn, bringing the
-  diff down to 12/191 files, 10 of which are genuine accidental improvements (the postpass's
-  original motivating fix, unaffected) and 2 of which share a newly-discovered, separate,
-  out-of-scope `GdrTokenizer` gap (a documentation comment containing an illustrative *nested*
-  comment marker in its own example text is mis-parsed — not postpass-specific, but only observed
-  to manifest visibly under postpass in this corpus; documented as a new, narrow README.md Known
-  Limitation, not fixed this session). Idempotency clean; batch Kotlin syntax check clean modulo a
-  pre-existing parser-version limitation confirmed identical against the untouched original
-  corpus (zero new syntax errors from formatting). New fixture
-  `test/real_code_regressions_226_{inp,out}.kt`. `curly-general-scope-reindent-postpass` is now
-  promoted out of EXPERIMENTAL — stays `off` by default (same opt-in posture as every other GDR
-  key), but the specific real-corpus regression class `EXPERIMENTAL` existed to guard against is
-  confirmed absent at real-corpus scale, not merely unvalidated. See `RDD_KEY_332` for the full
-  writeup; the residual `GdrTokenizer` nested-comment gap is a candidate for a future,
-  separately-scoped GDR tokenizer session, not tracked here as a pending item.
+  PROMOTED 2026-08-21. Real-corpus re-validation found RDD_KEY_331's `postMode` fix incomplete;
+  four further refinements landed (RDD_KEY_332), plus a separate, unfixed `GdrTokenizer`
+  nested-comment gap now in README.md's Known Limitations. Stays default off. See `RDD_KEY_332`
+  in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
 - [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
   resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s

@@ -526,6 +526,9 @@ public final class Main {
         if( config.isRemoveTrailingSpaces() ) {
             result = UnicodeAndWhitespaceNormalizer.stripTrailingSpaces(result, language);
         }
+        if( config.isCollapseTrailingBlankLinesAtEof() ) {
+            result = UnicodeAndWhitespaceNormalizer.collapseTrailingBlankLinesAtEof(result);
+        }
         if( config.isAppendNewLineAtEof() ) {
             result = UnicodeAndWhitespaceNormalizer.appendNewLineAtEof(result);
         }

@@ -511,6 +511,7 @@ indent-style                           = spaces      # spaces | tabs | auto
 # ── Behavior ──────────────────────────────────────────────────────────────────
 line-endings                           = lf          # lf | crlf | preserve
 append-new-line-at-eof                 = on          # on | off -- only if the last line does not have it
+collapse-trailing-blank-lines-at-eof    = off         # off | on -- removes existing trailing blank lines
 remove-trailing-spaces                 = on          # on | off
 normalize-invisible-invalid-unicode    = on          # on | off
 
@@ -1417,19 +1418,29 @@ comment that was actually a real code reference. `0.76` was chosen as the best t
 far — see [`DESIGN_NOTES.md`](DESIGN_NOTES.md). No workaround: not planned to change further
 unless a future corpus expansion or held-out measurement moves the curve.
 
-### Cross-cutting Behavior flags (`append-new-line-at-eof`/`remove-trailing-spaces`/`normalize-invisible-invalid-unicode`)
+### Cross-cutting Behavior flags (`append-new-line-at-eof`/`collapse-trailing-blank-lines-at-eof`/`remove-trailing-spaces`/`normalize-invisible-invalid-unicode`)
 
-These three flags apply the same way across every supported language, so their caveats are listed
+These four flags apply the same way across every supported language, so their caveats are listed
 together here rather than under one language family.
 
-#### 1. `remove-trailing-spaces` leaves a Makefile recipe line, and a raw multi-line string/template-literal body in some languages, untouched
+#### 1. `append-new-line-at-eof` and `collapse-trailing-blank-lines-at-eof` are independent
+
+`append-new-line-at-eof` (default `on`) only ever adds a missing final newline — it never removes
+or collapses existing trailing blank lines. `collapse-trailing-blank-lines-at-eof` (default `off`)
+is the separate, more destructive removal behavior: it collapses two or more consecutive blank
+lines immediately before end-of-file down to zero, leaving exactly one trailing newline. Because
+collapsing existing content is a stronger transform than purely filling in a missing newline, it
+defaults off and requires explicit opt-in; turning both flags on together is safe and composes as
+expected.
+
+#### 2. `remove-trailing-spaces` leaves a Makefile recipe line, and a raw multi-line string/template-literal body in some languages, untouched
 
 A Makefile recipe line's leading tab is whitespace-sensitive, so this flag is always a no-op there
 by design. Separately, a line found to be inside a raw multi-line string body — a JS/TS backtick
 template literal, or a Python triple-quoted string — is also left alone, since trailing whitespace
 there could be semantically part of the literal's own content rather than incidental formatting.
 
-#### 2. `normalize-invisible-invalid-unicode` falls back to a bracketed `<U+XXXX>` notation for languages with no native invisible-character string escape
+#### 3. `normalize-invisible-invalid-unicode` falls back to a bracketed `<U+XXXX>` notation for languages with no native invisible-character string escape
 
 Bash, PowerShell, Makefile, E-INI, and JxMakeFile config files have no consistent native escape
 sequence for an invisible/control Unicode character inside a string-like value, so a flagged

@@ -30,7 +30,8 @@ public final class Config {
         "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",
         "server-concurrency", "client-read-ahead",
         "closing-comment-min-lines", "format-macros", "line-endings",
-        "append-new-line-at-eof", "remove-trailing-spaces", "normalize-invisible-invalid-unicode",
+        "append-new-line-at-eof", "collapse-trailing-blank-lines-at-eof", "remove-trailing-spaces",
+        "normalize-invisible-invalid-unicode",
         "normalize-comment-start-case", "normalize-comment-start-case-multiline",
         "normalize-comment-end-period", "comment-normalization-classifier",
         "header-guard-rename",
@@ -109,6 +110,15 @@ public final class Config {
      * trailing blank lines.
      */
     private boolean appendNewLineAtEof                  = true;
+    /**
+     * {@code collapse-trailing-blank-lines-at-eof} -- default off: collapses two or more
+     * consecutive blank lines immediately before end-of-file down to zero (leaving exactly one
+     * trailing newline after the last non-blank line, same as {@code append-new-line-at-eof}'s own
+     * target shape). Distinct from, and independent of, {@code append-new-line-at-eof} -- that flag
+     * only ever adds a missing final newline and never removes anything; this flag is the
+     * separate, more destructive removal behavior, so it defaults off and requires explicit opt-in.
+     */
+    private boolean collapseTrailingBlankLinesAtEof     = false;
     /**
      * {@code remove-trailing-spaces} -- default on: strips trailing whitespace (spaces/tabs) at
      * the end of every line, except a Makefile recipe line (tab-prefixed), which this is always a
@@ -333,6 +343,11 @@ public final class Config {
         return appendNewLineAtEof;
     }
 
+    public boolean isCollapseTrailingBlankLinesAtEof()
+    {
+        return collapseTrailingBlankLinesAtEof;
+    }
+
     public boolean isRemoveTrailingSpaces()
     {
         return removeTrailingSpaces;
@@ -507,7 +522,8 @@ public final class Config {
         groups.put(
             "Behavior",
             new String[] {
-                "line-endings", "append-new-line-at-eof", "remove-trailing-spaces",
+                "line-endings", "append-new-line-at-eof", "collapse-trailing-blank-lines-at-eof",
+                "remove-trailing-spaces",
                 "normalize-invisible-invalid-unicode", "normalize-comment-start-case",
                 "normalize-comment-start-case-multiline", "normalize-comment-end-period",
                 "comment-normalization-classifier",
@@ -690,6 +706,11 @@ public final class Config {
 
             case "append-new-line-at-eof":
                 defaultValue  = defaults.appendNewLineAtEof ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                break;
+
+            case "collapse-trailing-blank-lines-at-eof":
+                defaultValue  = defaults.collapseTrailingBlankLinesAtEof ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 break;
 
@@ -986,6 +1007,9 @@ public final class Config {
         );
         config.appendNewLineAtEof                 = parseBoolean(
             raw, "append-new-line-at-eof", config.appendNewLineAtEof
+        );
+        config.collapseTrailingBlankLinesAtEof    = parseBoolean(
+            raw, "collapse-trailing-blank-lines-at-eof", config.collapseTrailingBlankLinesAtEof
         );
         config.removeTrailingSpaces               = parseBoolean(
             raw, "remove-trailing-spaces", config.removeTrailingSpaces

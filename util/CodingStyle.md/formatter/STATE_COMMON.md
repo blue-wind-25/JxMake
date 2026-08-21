@@ -382,6 +382,17 @@ copy here; it drifts. This section only holds maintainer-facing notes:
   harness -- landing them fixed a real harness gap in `_test_serial`'s
   idempotency pass, see `RDD_KEY_336`).
 
+- `collapse-trailing-blank-lines-at-eof`: added 2026-08-22, default **off**
+  (unlike its three RDD_KEY_336 siblings above) -- COMMON/ALL cross-cutting
+  scope, see `RDD_KEY_337`. Distinct from `append-new-line-at-eof` (purely
+  additive, never removes anything): this flag collapses 2+ consecutive
+  trailing blank lines down to exactly one final newline, a stronger/more
+  destructive transform, hence opt-in only. Implemented in
+  `UnicodeAndWhitespaceNormalizer.collapseTrailingBlankLinesAtEof`, wired into
+  `Main.formatStandalone` right before the `append-new-line-at-eof` step.
+  Fixture `test/collapse_trailing_blank_lines_inp/out.js` (in-file
+  `JXM_CFMT_CFG` directive, since the flag defaults off).
+
 For every added, deleted, or modified configuration item, synchronize with
 `README.md` and the *In-file Config Support* implementation
 (`JXM_CFMT_CFG` directive, below).

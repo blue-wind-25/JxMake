@@ -31,6 +31,26 @@ final class UnicodeAndWhitespaceNormalizer {
     }
 
     // ------------------------------------------------------------------------------------------
+    // collapse-trailing-blank-lines-at-eof
+    // ------------------------------------------------------------------------------------------
+
+    /**
+     * Collapses two or more consecutive blank lines immediately before end-of-file down to zero,
+     * leaving exactly one trailing newline after the last non-blank line. A no-op if the file has
+     * at most one trailing blank line already. Independent of {@code append-new-line-at-eof} --
+     * this only ever removes existing trailing blank lines, never adds a missing final newline.
+     */
+    static String collapseTrailingBlankLinesAtEof(final String text)
+    {
+        int end = text.length();
+        while( end > 0 && text.charAt(end - 1) == '\n' ) --end;
+
+        if( end == text.length() ) return text;
+
+        return text.substring(0, end) + "\n";
+    }
+
+    // ------------------------------------------------------------------------------------------
     // remove-trailing-spaces
     // ------------------------------------------------------------------------------------------
 

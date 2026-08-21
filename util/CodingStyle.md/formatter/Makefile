@@ -380,6 +380,7 @@ INP_FILES += in_file_config_lang_inp.h
 #INP_FILES += in_file_config_error_inp.hpp
 
 INP_FILES += behavior_flags_inp.js
+INP_FILES += collapse_trailing_blank_lines_inp.js
 
 # `indent-style = auto` directory-scoped (Main.resolveAutoIndentStyle/IndentationDetector.detect
 # voting a real .jxmake-code-formatter's boundary directory, as opposed to xml_indent_auto_*'s own

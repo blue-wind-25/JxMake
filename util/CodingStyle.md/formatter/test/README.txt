@@ -62,7 +62,7 @@ In-file config directive:
                                                         against, and would always show as a spurious FAIL. See
                                                         the file itself for how to exercise it manually.
 
-Behavior flags (new-line at EOF, trailing spaces, Unicode normalization):
+Behavior flags (new-line at EOF, blank-line collapse, trailing spaces, Unicode normalization):
   behavior_flags_inp/out.js                          -- One shared, language-agnostic fixture (JS chosen as
                                                         vehicle) demonstrating all three new default-on
                                                         "Behavior" config keys having a visible effect at
@@ -76,9 +76,16 @@ Behavior flags (new-line at EOF, trailing spaces, Unicode normalization):
                                                         their native `\uXXXX` JS escape so the string's
                                                         runtime value is unchanged).
 
-  indent_style_auto_spaces_inp/out.c                 -- Each subdirectory `indent_style_auto_*` carries its
-  indent_style_auto_tabs_inp/out.c                      own `.jxmake-code-formatter` overriding `indent-style =
-                                                        auto`, exercising `Main.resolveAutoIndentStyle`/
+  collapse_trailing_blank_lines_inp/out.js           -- `collapse-trailing-blank-lines-at-eof` (default off,
+                                                        opted in here via an in-file JXM_CFMT_CFG directive):
+                                                        several consecutive trailing blank lines collapse down
+                                                        to exactly one final newline, independent of and
+                                                        composing correctly with `append-new-line-at-eof`.
+
+  indent_style_auto_spaces_inp/out.c                 -- Each of the two subdirectories carries
+                                                     -- its own `.jxmake-code-formatter` overriding
+                                                        `indent-style = auto`, exercising
+                                                        `Main.resolveAutoIndentStyle`/
                                                         `IndentationDetector.detect`'s real directory-vote
                                                         path (distinct from the existing `xml_indent_auto_*`
                                                         fixtures, which exercise
@@ -447,34 +454,35 @@ JS/TS:
                                                         X = ...` aliases form their own `=`-aligned group.
 
 JSX/TSX:
-  jsx_tsx_return_context_inp/out.tsx                 -- JSX/TSX boundary-finding pre-pass
-                                                        (XL.txt TIER 3, STATE_JS_TS.md), Increment 1:
-                                                        `.tsx`-only, "after `return`" expression-start
-                                                        context. A JSX tree (nested elements, an attribute, and
-                                                        a `{...}` expression hole) round-trips byte-for-byte as
-                                                        one opaque `JSX_SPAN` token while the surrounding
-                                                        function/if statements still get real brace/indent
-                                                        formatting applied around it; a self-closing `<br />`
-                                                        return is also covered; an ordinary `if (x < 1)`
-                                                        comparison (not after `return`) is confirmed untouched
-                                                        by the pre-pass.
+  jsx_tsx_return_context_inp/out.tsx                 -- JSX/TSX boundary-finding pre-pass (XL.txt TIER 3,
+                                                        STATE_JS_TS.md), Increment 1: `.tsx`-only, "after
+                                                        `return`" expression-start context. A JSX tree (nested
+                                                        elements, an attribute, and a `{...}` expression hole)
+                                                        round-trips byte-for-byte as one opaque `JSX_SPAN`
+                                                        token while the surrounding function/if statements
+                                                        still get real brace/indent formatting applied around
+                                                        it; a self-closing `<br />` return is also covered; an
+                                                        ordinary `if (x < 1)` comparison (not after `return`)
+                                                        is confirmed untouched by the pre-pass.
 
-  jsx_tsx_arrow_ternary_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, Increment 2:
-                                                        "after `=>`" (arrow-function body start) and "after
+  jsx_tsx_arrow_ternary_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, Increment 2: "after
+                                                        `=>`" (arrow-function body start) and "after
                                                         `?`"/"after `:`" (both branches of a ternary
                                                         conditional expression). Covers a bare-arrow-body JSX
                                                         return, a ternary whose both branches are simple JSX
-                                                        elements, and a ternary whose truthy branch is a nested
-                                                        JSX tree (with an attribute and a `{...}` hole) and
-                                                        whose falsy branch is a self-closing `<br />`; an
-                                                        ordinary `if (x < 1)` comparison is confirmed untouched.
+                                                        elements, and a ternary whose truthy branch is a
+                                                        nested JSX tree (with an attribute and a `{...}` hole)
+                                                        and whose falsy branch is a self-closing `<br />`; an
+                                                        ordinary `if (x < 1)` comparison is confirmed
+                                                        untouched.
 
   jsx_tsx_combined_sanity_inp/out.tsx                -- Real-shape sanity check combining all 3 contexts
                                                         landed so far (return, arrow-body, both ternary
                                                         branches) in one small component, including a ternary
                                                         nested inside a `{...}` expression hole inside a
-                                                        `return`-context JSX tree, to catch context-interaction
-                                                        bugs the isolated fixtures might miss.
+                                                        `return`-context JSX tree, to catch
+                                                        context-interaction bugs the isolated fixtures might
+                                                        miss.
 
   jsx_tsx_call_array_context_inp/out.tsx             -- JSX/TSX boundary-finding pre-pass, Increment 3:
                                                         call-argument-start and array-literal-element-start.
@@ -486,126 +494,128 @@ JSX/TSX:
                                                         untouched.
 
   jsx_tsx_assign_logical_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 4:
-                                                        assignment-RHS (incl. compound assignment, e.g.
-                                                        `+=`) and logical/nullish-RHS (`&&`, `||`, `??`).
-                                                        Covers a plain `=` assignment, a `+=` compound
-                                                        assignment, and each of `&&`/`||`/`??` as the
-                                                        operator immediately preceding a JSX open; an
-                                                        ordinary `if (x < 1)` comparison is confirmed
-                                                        untouched.
+                                                        assignment-RHS (incl. compound assignment, e.g. `+=`)
+                                                        and logical/nullish-RHS (`&&`, `||`, `??`). Covers a
+                                                        plain `=` assignment, a `+=` compound assignment, and
+                                                        each of `&&`/`||`/`??` as the operator immediately
+                                                        preceding a JSX open; an ordinary `if (x < 1)`
+                                                        comparison is confirmed untouched.
 
-  jsx_tsx_assign_logical_sanity_inp/out.tsx          -- Real-shape sanity check combining Increment 4's
-                                                        two new contexts (assignment-RHS, logical/nullish
+  jsx_tsx_assign_logical_sanity_inp/out.tsx          -- Real-shape sanity check combining Increment 4's two
+                                                        new contexts (assignment-RHS, logical/nullish
                                                         `??`-RHS) with previously-landed contexts (plain
                                                         assignment `=`, `&&`-RHS, `return`-context,
-                                                        call-argument-start, array-element-start, ternary
-                                                        both branches, arrow-body) in one small component,
-                                                        to catch context-interaction bugs the isolated
-                                                        fixture might miss.
+                                                        call-argument-start, array-element-start, ternary both
+                                                        branches, arrow-body) in one small component, to catch
+                                                        context-interaction bugs the isolated fixture might
+                                                        miss.
 
   jsx_tsx_grouping_paren_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 5:
                                                         grouping-paren-start (a `(` NOT preceded by an
-                                                        IDENTIFIER/`)`/`]`, distinguishing it from a
-                                                        call-open `(` already covered by Increment 3).
-                                                        Covers a bare `const a = (<span>...</span>);` and a
-                                                        `(<div ...>{a}</div>)` with a `{}` hole; an ordinary
-                                                        `if (x < 1)` comparison is confirmed untouched (also
-                                                        proving the fallback safety net: `if`'s `(` is itself
-                                                        a non-call-open grouping-shaped paren, so this
-                                                        context now fires on it too, but `findJsxSpanEnd`
-                                                        correctly returns -1 since `x < 1` isn't real JSX).
+                                                        IDENTIFIER/`)`/`]`, distinguishing it from a call-open
+                                                        `(` already covered by Increment 3). Covers a bare
+                                                        `const a = (<span>...</span>);` and a `(<div
+                                                        ...>{a}</div>)` with a `{}` hole; an ordinary `if (x <
+                                                        1)` comparison is confirmed untouched (also proving
+                                                        the fallback safety net: `if`'s `(` is itself a
+                                                        non-call-open grouping-shaped paren, so this context
+                                                        now fires on it too, but `findJsxSpanEnd` correctly
+                                                        returns -1 since `x < 1` isn't real JSX).
 
-  jsx_tsx_hole_spread_context_inp/out.tsx            -- JSX/TSX boundary-finding pre-pass, Increment 6:
-                                                        bare `{`-hole-start (design list item 9, a JSX
-                                                        element that is the sole content of a `{...}`
-                                                        hole with nothing else preceding it) and spread
-                                                        (design list item 11, `...items` immediately
-                                                        before a JSX call-argument/array-element).
-                                                        Covers a nested-hole return (`<div>{<span>...`),
-                                                        a spread call argument, and a spread array
-                                                        element; an ordinary `if (x < 1)` comparison is
-                                                        confirmed untouched.
+  jsx_tsx_hole_spread_context_inp/out.tsx            -- JSX/TSX boundary-finding pre-pass, Increment 6: bare
+                                                        `{`-hole-start (design list item 9, a JSX element that
+                                                        is the sole content of a `{...}` hole with nothing
+                                                        else preceding it) and spread (design list item 11,
+                                                        `...items` immediately before a JSX
+                                                        call-argument/array-element). Covers a nested-hole
+                                                        return (`<div>{<span>...`), a spread call argument,
+                                                        and a spread array element; an ordinary `if (x < 1)`
+                                                        comparison is confirmed untouched.
 
   jsx_tsx_template_hole_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, template-literal
                                                         `${}` hole support (design list item 10,
                                                         STATE_JS_TS.md's 2026-08-13 scoping-session
-                                                        sub-contexts 0-1): a bare JSX element as a hole's
-                                                        sole content (`` `text ${<Foo/>} more` ``), a plain
-                                                        non-JSX interpolation (`` `sum ${a+b} end` ``,
-                                                        confirming the pre-existing spacing-normalization
-                                                        feature still fires via the new token-based path),
-                                                        and a ternary mixing a real comparison with JSX
-                                                        branches (`` `val ${x < 1 ? <A/> : <B/>} end` ``).
-                                                        Only `.jsx`/`.tsx` files tokenize a template
-                                                        literal's holes this way; plain `.js`/`.ts` files
-                                                        keep the original single-opaque-STRING-token path
-                                                        unchanged (sub-context 3).
+                                                        sub-contexts 0-1): a bare JSX element as a hole's sole
+                                                        content (`` `text ${<Foo/>} more` ``), a plain non-JSX
+                                                        interpolation (`` `sum ${a+b} end` ``, confirming the
+                                                        pre-existing spacing-normalization feature still fires
+                                                        via the new token-based path), and a ternary mixing a
+                                                        real comparison with JSX branches (`` `val ${x < 1 ?
+                                                        <A/> : <B/>} end` ``). Only `.jsx`/`.tsx` files
+                                                        tokenize a template literal's holes this way; plain
+                                                        `.js`/`.ts` files keep the original
+                                                        single-opaque-STRING-token path unchanged (sub-context
+                                                        3).
 
-  jsx_tsx_template_hole_nested_inp/out.tsx           -- Template-literal `${}` hole support, sub-context 2:
-                                                        a template literal nested inside another hole, both
+  jsx_tsx_template_hole_nested_inp/out.tsx           -- Template-literal `${}` hole support, sub-context 2: a
+                                                        template literal nested inside another hole, both
                                                         plain (`` `a ${ `b ${x+1}` } d` ``) and JSX-bearing
                                                         (`` `a ${ `b ${<X/>}` }` ``), plus an `if (x < 1)`
-                                                        safety-net case. Confirms round-tripping is clean
-                                                        and idempotent -- an earlier implementation folded
-                                                        each hole into a synthetic token correctly but left
-                                                        a nested literal's own STRING segments as separate
-                                                        list entries, which `renderTokens` then spaced apart
-                                                        as if they were unrelated value expressions,
-                                                        corrupting (and, on a second pass, further growing)
-                                                        the nested literal's raw text; fixed by folding a
-                                                        nested literal's entire segment chain into one
-                                                        synthetic STRING token before rendering.
+                                                        safety-net case. Confirms round-tripping is clean and
+                                                        idempotent -- an earlier implementation folded each
+                                                        hole into a synthetic token correctly but left a
+                                                        nested literal's own STRING segments as separate list
+                                                        entries, which `renderTokens` then spaced apart as if
+                                                        they were unrelated value expressions, corrupting
+                                                        (and, on a second pass, further growing) the nested
+                                                        literal's raw text; fixed by folding a nested
+                                                        literal's entire segment chain into one synthetic
+                                                        STRING token before rendering.
 
   jsx_tsx_wrap_detect_context_inp/out.tsx            -- Step 2 ("context 11") Increment 1's original
-                                                        detect-and-measure-only fixture: a `<VeryLongComponentName
-                                                        .../>` opening tag whose attribute list exceeds
-                                                        `line-length`, and a short `<Small a={1} />` tag that
-                                                        doesn't. Its expected output was updated when Increment 2
-                                                        landed real self-closing-tag wrapping (previously
-                                                        byte-identical to the unwrapped input) -- the wide tag now
-                                                        wraps one-attribute-per-line, the narrow tag is unchanged.
+                                                        detect-and-measure-only fixture: a
+                                                        `<VeryLongComponentName .../>` opening tag whose
+                                                        attribute list exceeds `line-length`, and a short
+                                                        `<Small a={1} />` tag that doesn't. Its expected
+                                                        output was updated when Increment 2 landed real
+                                                        self-closing-tag wrapping (previously byte-identical
+                                                        to the unwrapped input) -- the wide tag now wraps
+                                                        one-attribute-per-line, the narrow tag is unchanged.
 
   jsx_tsx_self_closing_wrap_inp/out.tsx              -- Step 2 ("context 11") Increments 2-3: the actual
                                                         wrap-decision function, now covering both self-closing
                                                         JSX_SPANs (Increment 2) and children-bearing ones
-                                                        (Increment 3). Five cases: a single over-width attribute on
-                                                        a self-closing tag wraps onto its own line with a `/>` on
-                                                        its own closing line; a zero-attribute over-width
-                                                        self-closing tag is left on one line (nothing to wrap); an
-                                                        over-width tag WITH children but whose OPENING TAG alone
-                                                        fits under `line-length` is left on one line (width is
-                                                        measured over the opening tag only, never the children,
+                                                        (Increment 3). Five cases: a single over-width
+                                                        attribute on a self-closing tag wraps onto its own
+                                                        line with a `/>` on its own closing line; a
+                                                        zero-attribute over-width self-closing tag is left on
+                                                        one line (nothing to wrap); an over-width tag WITH
+                                                        children but whose OPENING TAG alone fits under
+                                                        `line-length` is left on one line (width is measured
+                                                        over the opening tag only, never the children,
                                                         matching Increment 1's own `JsxWrapDiagnostics`
                                                         approximation); an over-width opening tag WITH a short
-                                                        single-expression child wraps its attributes with a bare
-                                                        `>` (not `/>`) on its own closing line, with `{child}...`
-                                                        spliced back on immediately after, byte-for-byte unchanged;
-                                                        and an over-width opening tag with real multi-line JSX
-                                                        children (nested elements, deliberately irregular internal
-                                                        whitespace, an embedded `.map()` expression) wraps its own
-                                                        attributes while every byte from the opening tag's `>`
-                                                        onward -- children plus closing tag -- comes through
-                                                        provably byte-identical, the explicit gating assertion
-                                                        sub-context 6 requires before children-bearing wrap could
-                                                        land (verified via `--diff` showing zero hunks touching
-                                                        those lines, and round-trip idempotency).
+                                                        single-expression child wraps its attributes with a
+                                                        bare `>` (not `/>`) on its own closing line, with
+                                                        `{child}...` spliced back on immediately after,
+                                                        byte-for-byte unchanged; and an over-width opening tag
+                                                        with real multi-line JSX children (nested elements,
+                                                        deliberately irregular internal whitespace, an
+                                                        embedded `.map()` expression) wraps its own attributes
+                                                        while every byte from the opening tag's `>` onward --
+                                                        children plus closing tag -- comes through provably
+                                                        byte-identical, the explicit gating assertion
+                                                        sub-context 6 requires before children-bearing wrap
+                                                        could land (verified via `--diff` showing zero hunks
+                                                        touching those lines, and round-trip idempotency).
 
   jsx_tsx_attr_kinds_wrap_inp/out.tsx                -- Step 2 ("context 11") Increment 4: proves the wrap
                                                         logic needs no real JSX-grammar understanding, only
                                                         balance-tracking, across the attribute kinds not yet
                                                         exercised by Increments 2-3 (which only used plain
-                                                        `name={expr}`). Four cases, all self-closing so only the
-                                                        attribute-kind handling is under test: a spread attribute
-                                                        (`{...somePropsObjectThatIsQuiteLong}`) wraps as one
-                                                        segment, its own `{`/`}` intact; a bare boolean attribute
-                                                        (`disabledBecauseOfSomeReason`, no `=`) wraps as a plain
-                                                        identifier with nothing else on its line; an
-                                                        expression-valued attribute whose value itself contains
-                                                        nested `()`/`.` (`onClick={handlers.click.bind(this,
-                                                        item.id)}`) wraps as one segment without the inner parens
-                                                        confusing the brace-only balance tracking; and a mixed
-                                                        tag combining all three kinds plus a plain attribute in
-                                                        one tag wraps each onto its own line in source order.
+                                                        `name={expr}`). Four cases, all self-closing so only
+                                                        the attribute-kind handling is under test: a spread
+                                                        attribute (`{...somePropsObjectThatIsQuiteLong}`)
+                                                        wraps as one segment, its own `{`/`}` intact; a bare
+                                                        boolean attribute (`disabledBecauseOfSomeReason`, no
+                                                        `=`) wraps as a plain identifier with nothing else on
+                                                        its line; an expression-valued attribute whose value
+                                                        itself contains nested `()`/`.`
+                                                        (`onClick={handlers.click.bind(this, item.id)}`) wraps
+                                                        as one segment without the inner parens confusing the
+                                                        brace-only balance tracking; and a mixed tag combining
+                                                        all three kinds plus a plain attribute in one tag
+                                                        wraps each onto its own line in source order.
 
   jsx_tsx_fragment_shorthand_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
                                                         validation): regression fixture for a real
@@ -613,21 +623,21 @@ JSX/TSX:
                                                         reactstrap/reactstrap's DropdownToggle.js.
                                                         `parseJsxTag` required a tag-name IDENTIFIER
                                                         unconditionally, so bare fragment shorthand (`<>`/
-                                                        `</>`, no tag name) was never recognized as JSX at
-                                                        all -- its `{...}` expression content fell through to
+                                                        `</>`, no tag name) was never recognized as JSX at all
+                                                        -- its `{...}` expression content fell through to
                                                         ordinary JS statement-level formatting, which wrongly
                                                         inserted a semicolon inside the hole
-                                                        (`{returnFunction(...)}}` -> `{returnFunction(...);}`),
-                                                        an actual behavior change. Fixed by giving fragments an
-                                                        empty-string tagName sentinel so the existing
-                                                        open/close tag-identity check pairs them correctly with
-                                                        no other logic changes. Three cases: a bare-expression
-                                                        fragment child (the exact corrupted shape); a
-                                                        multi-child fragment; a fragment nested inside a normal
-                                                        element's children. All three round-trip byte-identical
-                                                        (fragments have no attributes, so wrap logic never
-                                                        engages -- this fixture is purely about detection, not
-                                                        wrapping).
+                                                        (`{returnFunction(...)}}` ->
+                                                        `{returnFunction(...);}`), an actual behavior change.
+                                                        Fixed by giving fragments an empty-string tagName
+                                                        sentinel so the existing open/close tag-identity check
+                                                        pairs them correctly with no other logic changes.
+                                                        Three cases: a bare-expression fragment child (the
+                                                        exact corrupted shape); a multi-child fragment; a
+                                                        fragment nested inside a normal element's children.
+                                                        All three round-trip byte-identical (fragments have no
+                                                        attributes, so wrap logic never engages -- this
+                                                        fixture is purely about detection, not wrapping).
 
   jsx_tsx_template_hole_wrap_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
                                                         validation): regression fixture for a second real
@@ -638,21 +648,21 @@ JSX/TSX:
                                                         (a template literal's `${...}` hole) the way it tracks
                                                         `(`/`[`, so a NEWLINE right after `${` in a multi-line
                                                         hole (e.g. a wrapped ternary) was seen at depth 0 and
-                                                        got a stray `;` appended directly onto `${`
-                                                        (`` `${x} ${\n cond ? a : b\n}` `` ->
-                                                        `` `${x} ${;\n...` ``), corrupting the template
-                                                        literal. Fixed by treating TEMPLATE_HOLE_OPEN/CLOSE
-                                                        like `(`/`)` in the depth counter, plus a defensive
-                                                        exclusion in needsSemicolonAfter. Two cases: the exact
-                                                        corrupted shape (multi-line ternary inside a `${}`
-                                                        hole with a sibling `${}` before it) and a simpler
-                                                        single-expression multi-line hole. Both idempotent,
-                                                        no semicolon ever inserted inside either hole.
+                                                        got a stray `;` appended directly onto `${` (`` `${x}
+                                                        ${\n cond ? a : b\n}` `` -> `` `${x} ${;\n...` ``),
+                                                        corrupting the template literal. Fixed by treating
+                                                        TEMPLATE_HOLE_OPEN/CLOSE like `(`/`)` in the depth
+                                                        counter, plus a defensive exclusion in
+                                                        needsSemicolonAfter. Two cases: the exact corrupted
+                                                        shape (multi-line ternary inside a `${}` hole with a
+                                                        sibling `${}` before it) and a simpler
+                                                        single-expression multi-line hole. Both idempotent, no
+                                                        semicolon ever inserted inside either hole.
 
-  jsx_tsx_hyphenated_attr_wrap_inp/out.tsx           -- Regression fixture for a hyphenated JSX attribute
-                                                        name (`data-foo`, `aria-label`) getting corrupted by
-                                                        the opening-tag wrap logic. Root cause: a hyphenated
-                                                        name tokenizes as IDENTIFIER/-/IDENTIFIER, and
+  jsx_tsx_hyphenated_attr_wrap_inp/out.tsx           -- Regression fixture for a hyphenated JSX attribute name
+                                                        (`data-foo`, `aria-label`) getting corrupted by the
+                                                        opening-tag wrap logic. Root cause: a hyphenated name
+                                                        tokenizes as IDENTIFIER/-/IDENTIFIER, and
                                                         parseJsxTag's attribute-boundary scan treated every
                                                         top-level IDENTIFIER as a fresh attribute start, so
                                                         wrapping split the name across two lines
@@ -680,13 +690,13 @@ JSX/TSX:
                                                         preserved on `.ts` once opted in.
 
   jsx_mismatched_tag_inp/out.jsx                     -- Recommendation 4: TokenizerCurly.findJsxSpanEnd/
-  js_mismatched_tag_inp/out.js                          parseJsxTag now track tag-name identity (not just
+  js_mismatched_tag_inp/out.js                       -- parseJsxTag now track tag-name identity (not just
                                                         nesting depth) via a Deque<String> stack, so
                                                         `<a>text</b>` bails out (-1) instead of balancing as
                                                         if valid JSX. Verified in both `.jsx` (pre-existing
-                                                        gate) and the newly-widened `.js` context -- output
-                                                        is plain, sane, non-corrupted formatting rather than
-                                                        a thrown exception or silently-accepted mismatch.
+                                                        gate) and the newly-widened `.js` context -- output is
+                                                        plain, sane, non-corrupted formatting rather than a
+                                                        thrown exception or silently-accepted mismatch.
 
 HTML5:
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`

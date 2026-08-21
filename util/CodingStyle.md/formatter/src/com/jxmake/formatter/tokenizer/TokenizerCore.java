@@ -14,12 +14,12 @@ import java.util.Set;
 
 /**
  * Slim, language-family-agnostic base for every tokenizer sibling ({@link TokenizerCurly} for
- * C/C++/Java/Kotlin/JS/TS, and future {@code TokenizerIndent}/{@code TokenizerTags} for
- * Python3/XML-HTML5). Holds only what every family's scan needs regardless of scoping-delimiter
- * shape: the {@link Token}/{@link TokenType} model, the shared scan-position fields, the generic
- * char/number/whitespace/newline emitters, and {@link #markFrozenSpans}. Family-specific lexing
- * (keyword sets, brace/paren tracking, string/comment/preprocessor handling, angle-bracket
- * disambiguation, etc.) lives in the sibling classes, not here.
+ * C/C++/Java/Kotlin/JS/TS, and {@code TokenizerIndent} for Python3). Holds only what every
+ * family's scan needs regardless of scoping-delimiter shape: the {@link Token}/{@link TokenType}
+ * model, the shared scan-position fields, the generic char/number/whitespace/newline emitters, and
+ * {@link #markFrozenSpans}. Family-specific lexing (keyword sets, brace/paren tracking,
+ * string/comment/preprocessor handling, angle-bracket disambiguation, etc.) lives in the sibling
+ * classes, not here.
  */
 public class TokenizerCore {
 

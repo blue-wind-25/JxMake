@@ -19,12 +19,12 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
 /**
  * Slim, language-family-agnostic base for every scope-pipeline sibling ({@link ScopePipelineCurly}
- * for C/C++/Java/Kotlin, and future {@code ScopePipelineIndent}/{@code ScopePipelineTags} for
- * Python3/XML-HTML5). Holds only what every family's splice-back needs regardless of scoping
- * shape: the {@link Span}/{@link Replacement} models, the splice/indent/whitespace primitives, and
- * generic token-scanning helpers with no curly-specific branching. Family-specific span-splitting,
- * pass-driving, and recursion (the four STYLE.md §5/§6/§8/§14 passes, Kotlin-vs-C/C++/Java
- * branches, etc.) live in the sibling classes, not here.
+ * for C/C++/Java/Kotlin, and {@code ScopePipelineIndent} for Python3). Holds only what every
+ * family's splice-back needs regardless of scoping shape: the {@link Span}/{@link Replacement}
+ * models, the splice/indent/whitespace primitives, and generic token-scanning helpers with no
+ * curly-specific branching. Family-specific span-splitting, pass-driving, and recursion (the four
+ * STYLE.md §5/§6/§8/§14 passes, Kotlin-vs-C/C++/Java branches, etc.) live in the sibling classes,
+ * not here.
  */
 public abstract class ScopePipelineCore {
 

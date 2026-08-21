@@ -82,10 +82,9 @@ Behavior flags (new-line at EOF, blank-line collapse, trailing spaces, Unicode n
                                                         to exactly one final newline, independent of and
                                                         composing correctly with `append-new-line-at-eof`.
 
-  indent_style_auto_spaces_inp/out.c                 -- Each of the two subdirectories carries
-                                                     -- its own `.jxmake-code-formatter` overriding
-                                                        `indent-style = auto`, exercising
-                                                        `Main.resolveAutoIndentStyle`/
+  indent_style_auto_spaces_inp/out.c                 -- Each of the two subdirectories carries its own
+  indent_style_auto_tabs_inp/out.c                   -- `.jxmake-code-formatter` overriding `indent-style =
+                                                        auto`, exercising `Main.resolveAutoIndentStyle`/
                                                         `IndentationDetector.detect`'s real directory-vote
                                                         path (distinct from the existing `xml_indent_auto_*`
                                                         fixtures, which exercise
@@ -963,19 +962,19 @@ E-INI:
                                                         indent-width multiple, all four `#`/`;`/`@`/`//`
                                                         comment markers plus a `'''` triple-quote comment
                                                         (quoted vs. unquoted, RDD_KEY_306), a trailing
-                                                        same-line comment after a key-value pair, a
-                                                        multi-line comment-chain (copyright header)
-                                                        normalized as one logical unit, a `;%`-marker
-                                                        `JXM_CFMT_CFG` directive (RDD_KEY_306), and an
-                                                        "Escape And Unicode" group proving quoted backslash
-                                                        escapes and Unicode content pass through verbatim.
+                                                        same-line comment after a key-value pair, a multi-line
+                                                        comment-chain (copyright header) normalized as one
+                                                        logical unit, a `;%`-marker `JXM_CFMT_CFG` directive
+                                                        (RDD_KEY_306), and an "Escape And Unicode" group
+                                                        proving quoted backslash escapes and Unicode content
+                                                        pass through verbatim.
 
 JxMakeFile:
   jxmake_combined_inp/out.jxm                        -- STYLE_JXMAKE.md §1-4 combined: chain-grouped `#`
-                                                        line-comment normalization (standalone comment
-                                                        lines keep their original leading whitespace, not
-                                                        reindented), a `(* ... *)` block comment shifted as
-                                                        a unit by indent delta with interior byte-identical,
+                                                        line-comment normalization (standalone comment lines
+                                                        keep their original leading whitespace, not
+                                                        reindented), a `(* ... *)` block comment shifted as a
+                                                        unit by indent delta with interior byte-identical,
                                                         forced reindent by block-keyword nesting depth
                                                         (`function`/`if`/`elif`/`else`/`endif`/`for`/
                                                         `foreach`/`while`/`do`/`whilst`/`repeat`/`until`/
@@ -987,17 +986,18 @@ JxMakeFile:
                                                         `if`/`elif`/`else`/`endif` chain where every branch
                                                         inlines its body via `;`, which *does* get its
                                                         `if`/`elif`/`else` keywords right-justified to the
-                                                        chain's widest keyword, a `;`-separated multi-statement
-                                                        line reindented as a whole only, `@`/`-@` shell-exec lines
-                                                        left opaque after the marker, backslash continuation
-                                                        alignment under an assignment's value column and
-                                                        under `(depth+1)*indent-size` for a non-assignment
+                                                        chain's widest keyword, a `;`-separated
+                                                        multi-statement line reindented as a whole only,
+                                                        `@`/`-@` shell-exec lines left opaque after the
+                                                        marker, backslash continuation alignment under an
+                                                        assignment's value column and under
+                                                        `(depth+1)*indent-size` for a non-assignment
                                                         continuation, a `[[" ... "]]` multiline string left
                                                         100% verbatim, and rule-4 field-table assignment
-                                                        alignment (`local`/`const`/var-name fields each
-                                                        padded to the group's widest occurrence, operator
-                                                        and value left unaligned) for direct and indirect
-                                                        (`^name`) assignment groups.
+                                                        alignment (`local`/`const`/var-name fields each padded
+                                                        to the group's widest occurrence, operator and value
+                                                        left unaligned) for direct and indirect (`^name`)
+                                                        assignment groups.
 
 Makefile/Bash/PowerShell:
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
@@ -4196,11 +4196,11 @@ Real-code regressions:
 
   real_code_regressions_215_inp/out.jxm              -- JxMakeFile dogfood corpus (`XMLFrame.jxm`) fix:
                                                         `isOneLinerIf` mistook the `:` inside a `;`-inlined
-                                                        branch's `:=` assign-op for the Section 11.1
-                                                        one-liner marker, so the block `if` never opened a
-                                                        nesting level and its `elif`/`elif`/`else`/`endif`
-                                                        collapsed to column 0. Fixed by stopping the scan at
-                                                        the first top-level `;` and excluding `:` followed by
+                                                        branch's `:=` assign-op for the Section 11.1 one-liner
+                                                        marker, so the block `if` never opened a nesting level
+                                                        and its `elif`/`elif`/`else`/`endif` collapsed to
+                                                        column 0. Fixed by stopping the scan at the first
+                                                        top-level `;` and excluding `:` followed by
                                                         `=`/`+`/`?`. Also doubles as a real-corpus proof of
                                                         the `if`/`elif`/`else` keyword right-alignment
                                                         sub-rule, since every branch inlines its body via `;`.

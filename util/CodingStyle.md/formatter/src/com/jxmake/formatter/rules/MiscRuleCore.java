@@ -737,8 +737,9 @@ public abstract class MiscRuleCore {
         return "type".equals(lastSig.text) && secondLastSig != null
                 && secondLastSig.type == TokenType.KEYWORD && "import".equals(secondLastSig.text);
     }
-protected static int matchParenForward(final List<Token> tokens, final int openIdx)
-{
+
+    protected static int matchParenForward(final List<Token> tokens, final int openIdx)
+    {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
             if( isPunct( tokens.get(i), "(" ) ) {
@@ -751,7 +752,8 @@ protected static int matchParenForward(final List<Token> tokens, final int openI
         } // for
 
         return -1;
-}
+    }
+
     /**
      * Forward `{`/`}` bracket match -- the brace-pair analog of {@link #matchParenForward},
      * previously re-implemented byte-identically in both {@code CppSpecificRule} and

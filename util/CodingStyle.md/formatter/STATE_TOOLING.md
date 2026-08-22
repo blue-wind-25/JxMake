@@ -307,41 +307,41 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
 - [x] Run a real-code dogfood pass, one language at a time (Makefile, then
       Bash, then PowerShell).
       **Bash — DONE, 4 bugs found and fixed (3 idempotency, 1 syntax
-      corruption).** Batched 5 already-materialized corpora through
-      round1/round2: `javaparser/javaparser` (`/tmp/javaparser_gdr`, 7
+      corruption).** Batched 5 corpora through round1/round2:
+      `javaparser/javaparser` (`/tmp/javaparser_gdr`, 7
       `.sh`), `jenkinsci/jenkins` (`/tmp/jenkins_scope`, 3 `.sh`),
       `wordpress/wordpress-develop` (`/tmp/wordpress-develop`, 3 `.sh`),
       `acmesh-official/acme.sh` (`/tmp/acme.sh`, full shallow clone, 276
       `.sh`), `ohmyzsh/ohmyzsh` (`/tmp/ohmyzsh`, stripped to 17
-      `.sh`/`.bash`). First four came back clean; `ohmyzsh` had a
-      non-empty round1/round2 diff, bisected to a minimal repro. Four root
-      causes, all in `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
-      (1) `emitCaseBody`'s `CASE_ARM` boundary regex found the terminating
-      `)` via first-match with no backslash-escape awareness, so an escaped
+      `.sh`/`.bash`). First four clean; `ohmyzsh` had a non-empty diff,
+      bisected to a minimal repro. All four root causes in
+      `src/com/jxmake/formatter/rules/BashSpecificRule.java`:
+      1. `emitCaseBody`'s `CASE_ARM` boundary regex found the terminating
+      `)` by first-match with no backslash-escape awareness, so an escaped
       paren pair like `\(\))` had its *escaped* `)` mistaken for the real
-      terminator, splitting the arm mid-pattern — fixed with a char-by-char
+      terminator, splitting the arm mid-pattern. Fixed with a char-by-char
       `matchCaseArm` scan that skips `\`-escaped characters.
-      (2) `runPassA`'s root/code-mode tokenizer had no backslash-escape
+      2. `runPassA`'s root/code-mode tokenizer had no backslash-escape
       handling, so a `\'` case-arm pattern (e.g. `\'*)`) fell through to the
       plain `'` branch, opening a real single-quote string frame that stayed
       open until an unrelated later `'` closed it, corrupting brace-depth
-      indentation downstream — fixed by adding a root-context `c == '\\'`
+      indentation downstream. Fixed by adding a root-context `c == '\\'`
       branch (mirrors existing escape handling in the `D`/`Q`/`B` frame
       types) that consumes the backslash and next character as plain code
       before any quote-opening check runs.
-      (3) `emitCaseBody` had no concept of a nested `case ... in` as an
+      3. `emitCaseBody` had no concept of a nested `case ... in` as an
       outer arm's body — its terminating `esac` was only recognized as
       exactly `esac`, so a combined `esac ;;` line (closing both the nested
       case and the enclosing arm) fell through to the generic body-line
-      fallback, corrupting indentation from there on — fixed by splitting
+      fallback, corrupting indentation from there on. Fixed by splitting
       `emitCaseBody` into a wrapper plus recursive `emitCaseBodyInner` (new
       `CaseBodyEnd` result tracking next index + whether the terminator
       closed an enclosing arm); terminator check now accepts `esac`,
       `esac ;;`, or `esac;;`.
-      (4) Surfaced via `tools/verifiers/bash_syntax_check.sh` after fixes
+      4. Surfaced via `tools/verifiers/bash_syntax_check.sh` after fixes
       1-2: `pipeSpacing`'s (§2.2) lone-`|` detector excluded `||`/`|&` but
       not the noclobber-override redirect `>|` (`cmd >| file`), splitting
-      it into `> |`, a genuine `bash -n` syntax error — fixed by also
+      it into `> |`, a genuine `bash -n` syntax error. Fixed by also
       excluding a `|` immediately preceded by `>`. After all four fixes:
       round1/round2 diff empty across all 5 corpora; `bash -n` on `ohmyzsh`
       shows the same 10 pre-existing error lines on both original and
@@ -350,10 +350,10 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       invalid bash before formatting, out of scope). **Accepted gap, not
       fixed:** `tools/upgrade.sh` also has `pipeSpacing` insert a space
       inside a zsh extended-glob alternation indistinguishable from a real
-      pipe (`(|.git)` -> `( | .git)`) — not a new breakage class since the
-      file already failed `bash -n`; dialect-detecting zsh-under-`.sh`
-      content is out of scope (same "no general grammar" boundary as every
-      other accepted gap here). **Disposition (2026-08-10):** documented in
+      pipe (`(|.git)` -> `( | .git)`) — not a new breakage class (file
+      already failed `bash -n`); dialect-detecting zsh-under-`.sh` content
+      stays out of scope (same "no general grammar" boundary as every other
+      accepted gap here). **Disposition (2026-08-10):** documented in
       `README.md`'s Known Limitations → new "Build/dev-tooling scripts
       (Makefile/Bash/PowerShell)" section, removed from `XL.txt` TIER 9
       (permanent, not a live TODO). `make test`: 267/267 forward +
@@ -407,19 +407,17 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       diff empty, zero formatter errors). New permanent fixture
       `test/real_code_regressions_192_{inp,out}.ps1` (registered in
       `Makefile` `INP_FILES` and `test/README.txt`). `make test`: 269/269
-      forward + idempotency (was 268/268). **Accepted loose end:** the
-      original content-indexed `char[] kind` local inside `runPassA` is now
-      dead write-only code (every `kind[i] = ...` assignment unread after
-      this fix) — left in place rather than stripped (~50 scattered
-      dead-store lines judged higher-risk to remove than leave); a future
-      cleanup pass may strip it. See `STATE_DOGFOOD.md`'s
+      forward + idempotency (was 268/268). See `STATE_DOGFOOD.md`'s
       `microsoft/azure-pipelines-tasks` row (updated from "OPEN Q" to
-      fixed). **Resolved, 2026-08-11 (Tier1 cleanup):** the dead-write-only
-      `char[] kind` local was removed from `runPassA` entirely — the
-      declaration plus all ~32 now-unread `kind[i] = ...`/`kind[i] =
-      kind[i + 1] = ...` assignments (verified via `grep -n "kind\["` that
-      every one fell inside `runPassA`'s own body, and that
-      `PassAResult.kind` is built solely from
+      fixed). **Accepted loose end, resolved 2026-08-11 (Tier1 cleanup):**
+      the original content-indexed `char[] kind` local inside `runPassA`
+      was left in place at fix time as dead write-only code (every
+      `kind[i] = ...` assignment unread — ~50 scattered dead-store lines
+      judged higher-risk to strip immediately than leave); removed entirely
+      in this follow-up — the declaration plus all ~32 now-unread
+      `kind[i] = ...`/`kind[i] = kind[i + 1] = ...` assignments (verified
+      via `grep -n "kind\["` that every one fell inside `runPassA`'s own
+      body, and that `PassAResult.kind` is built solely from
       `chainCollector.resolveKind(...)`, never from this local). Every
       other `kind[...]` reference in the file (`computeLinePurity`,
       `applyOperatorSpacing`, `applyPipelineSplit`, etc.) reads a
@@ -601,46 +599,42 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `ohmyzsh`, `javaparser_gdr`, `jenkins_scope`, `wordpress-develop`) --
       clean, zero regressions. See `RDD_KEY_297` for full narrative.
 - [x] **Bash -- proposed `StrictBashShDetector` zsh-dialect mitigation,
-      EVALUATED AND REJECTED in this exact scored-heuristic shape, no
-      source changed (2026-08-16). SUPERSEDED same day -- see the
-      shebang-exact-match follow-up entry below, which landed a working
-      fix using a different, much narrower design.** User proposed a
-      score-based Java heuristic (`isBashOrSh(String)`: shebang regex
-      bonus/penalty; negative regexes for other-language indicators --
-      Python `def`/`import`/`class`/`print`, JS `console.log`/`const`/`let`/
+      EVALUATED AND REJECTED in this scored-heuristic shape, no source
+      changed (2026-08-16). SUPERSEDED same day by the narrower
+      shebang-exact-match fix below.** Proposed: a score-based Java
+      heuristic (`isBashOrSh(String)`: shebang regex bonus/penalty;
+      negative regexes for other-language indicators -- Python
+      `def`/`import`/`class`/`print`, JS `console.log`/`const`/`let`/
       arrow-fn, Perl/Ruby `use strict`/`my \$`/`puts`/`nil`, fish/csh
       `end`/`setenv`; positive regexes for bash constructs --
       `fi`/`done`/`esac`/`local x=`/`export x=`/`2>&1`/`[ ... ]`; threshold
-      `score > 0`) as a gate to stop the known pipe-spacing/extended-glob
-      misfire (see README.md Known Limitations) from touching zsh-dialect
-      files under a `.sh`/`.bash` extension, with instructions to implement
-      it if it tested well. Ported the scoring logic to Python and ran it
-      empirically against two corpora before writing any Java: (1)
-      `/tmp/ohmyzsh` (17 files, the corpus the gap is about, containing the
-      known zsh-only files) -- the detector missed the target class:
-      `plugins/wd/wd.sh`, a genuine `#!/usr/bin/env zsh` file, scored +3
-      (BASH, not caught); `tools/upgrade.sh`, the one file with a
-      *confirmed* pipe-spacing misfire, scored exactly 0 (NOT-BASH, caught
-      only by a zero-margin fluke, not a robust margin); several other
-      genuine zsh/plain-bash files with no zsh-dialect issue at all
+      `score > 0`) gating the known pipe-spacing/extended-glob misfire
+      (README.md Known Limitations) away from zsh-dialect files under
+      `.sh`/`.bash`. Ported to Python and tested empirically against two
+      corpora before writing Java. `/tmp/ohmyzsh` (17 files, the corpus the
+      gap targets): missed the target class -- `plugins/wd/wd.sh`
+      (`#!/usr/bin/env zsh`) scored +3 (BASH, not caught); `tools/upgrade.sh`
+      (the one file with a *confirmed* pipe-spacing misfire) scored exactly
+      0 (caught only by a zero-margin fluke, not a robust margin); several
+      genuine zsh/plain-bash files with no dialect issue at all
       (`oh-my-zsh.sh`, `emacsclient.sh`, `git-prompt.sh`, `_wd.sh`,
       `git-completion.bash`, `changelog.sh`, `theme_chooser.sh`) also scored
-      NOT-BASH, i.e. would be wrongly skipped from formatting entirely. (2)
-      `/tmp/nvm` + `/tmp/acme.sh` combined (280 files, previously dogfooded,
-      confirmed fully clean/idempotent, zero zsh-dialect content) --
-      277/280 (~99%) scored <=0 and would be misclassified NOT-BASH, scores
-      down to -77; root cause is the detector is a wrong-*language*
-      classifier, not a zsh-*dialect* classifier, and its negative-indicator
-      regex list (especially `\bend\b`, aimed at Ruby's `end` keyword) fires
-      constantly on ordinary English comment/string prose in real bash
-      scripts (many false positives are sourced-not-executed
-      `dnsapi/*.sh`/`notify/*.sh`/`deploy/*.sh` helper files with no shebang
-      at all, so the shebang bonus never applies either). Verdict: reject
-      -- the detector doesn't reliably solve the problem it targets even
-      within the one corpus built to contain it, and would additionally
-      disable formatting for most genuinely valid bash content it was never
-      meant to flag. No Java source touched; existing accepted-gap wording
-      in `README.md`'s Known Limitations stands, now with this evaluation's
+      NOT-BASH, i.e. would be wrongly skipped from formatting entirely.
+      `/tmp/nvm` + `/tmp/acme.sh` combined (280 files, previously dogfooded
+      clean/idempotent, zero zsh-dialect content): 277/280 (~99%) scored
+      <=0, misclassified NOT-BASH, scores down to -77. Root cause: the
+      detector is a wrong-*language* classifier, not a zsh-*dialect*
+      classifier -- its negative-indicator regex list (especially
+      `\bend\b`, aimed at Ruby's `end` keyword) fires constantly on
+      ordinary English comment/string prose in real bash scripts, and many
+      false positives are sourced-not-executed
+      `dnsapi/*.sh`/`notify/*.sh`/`deploy/*.sh` helper files with no
+      shebang at all, so the shebang bonus never applies either. **Verdict:
+      reject** -- doesn't reliably solve the problem it targets even within
+      the one corpus built to contain it, and would additionally disable
+      formatting for most genuinely valid bash content it was never meant
+      to flag. No Java source touched; existing accepted-gap wording in
+      `README.md`'s Known Limitations stands, now with this evaluation's
       concrete numbers appended. `make test` not re-run -- no source
       changed.
 - [x] **Bash -- shebang-exact-match gate for the zsh-dialect pipe-spacing

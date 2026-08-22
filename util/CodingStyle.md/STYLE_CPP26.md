@@ -3,14 +3,14 @@
 Read [STYLE.md](STYLE.md), [STYLE_C_CPP.md](STYLE_C_CPP.md), and
 [STYLE_CPP20.md](STYLE_CPP20.md) first. This file extends all three for C++26
 constructs not covered there. `STYLE_CPP20.md` remains frozen as the C++17/20/23
-baseline (its constructs are fully implemented and cross-checked against actual JAR
-behavior) — kept in its own file rather than extended, so the riskier/newer C++26
-work here doesn't mix into a file that's otherwise done.
+baseline (its constructs are fully implemented and cross-checked against real
+formatter output) — kept in its own file rather than extended, so the riskier/newer
+C++26 work here doesn't mix into a file that's otherwise done.
 
-C++26 shipped/finalized 28 March 2026. Covers only finalized C++26 constructs — no
-C++29 content: C++29 only began its first WG21 meeting in June 2026, and "adopted
-into draft" this early isn't the same as frozen — C++26 itself lost trivial
-relocatability during its own finalization. Revisit only once C++29 itself ships.
+C++26 was finalized on 28 March 2026. This file covers only finalized C++26
+constructs, not C++29 — C++29 only held its first standards-committee meeting in
+June 2026, and "adopted into draft" this early isn't the same as frozen (C++26 itself
+lost trivial relocatability during its own finalization). Revisit once C++29 ships.
 
 ---
 
@@ -32,7 +32,7 @@ No space between the pack name, `...`, and `[`; `...` binds tight to the pack na
 the same way STYLE_CPP20.md treats other pack-expansion ellipses. The interior
 padding itself follows the ordinary tight/loose bracket-complexity rule like any
 other `[]` — a call-containing index (`computeIndex()`) gets interior spaces the
-same way a loose array index would anywhere else in the project (RDD_KEY_181).
+same way a loose array index would anywhere else.
 
 ---
 
@@ -104,18 +104,19 @@ void process(int x) {
 
 ## 5. Reflection (`^^`, `[:`, `:]`)
 
-**Status: tokenizer-support pass required before trusting any rule below — not
-inferred from the standard's grammar alone.** These are new tokens the existing
-tokenizer does not recognize at all (not new keywords slotted into an existing
-grammar shape), comparable in kind to the Kotlin Step 0 tokenizer work: new
-`MULTI_CHAR_OPS` entries, longest-prefix-first ordering, and a real risk of surfacing
-latent tokenizer bugs the way that session found one in number-literal lexing.
+**Status: these are new tokens the formatter does not yet fully recognize, so the
+rules below are provisional rather than safely inferred from the standard's grammar
+alone.** Supporting a brand-new token shape — rather than a new keyword slotting into
+an existing grammar shape — carries a real risk of surfacing bugs elsewhere in
+tokenizing, similar to issues that have surfaced before when other languages gained
+support for new operator tokens.
 
 The rules below are a **provisional starting point**, evidence-tested only against
-the test-fixture repos below, not yet validated the way STYLE_CPP20.md's constructs
-were (JAR cross-check). Treat as draft until that validation pass happens.
+the reference repositories listed here, not yet validated as thoroughly as
+STYLE_CPP20.md's constructs. Treat them as a draft until that validation is
+complete.
 
-**Test-fixture repos** (real reflection code to validate the tokenizer pass
+**Reference repositories** (real reflection code to validate formatter behavior
 against, since this is the one piece that can't be trusted from the standard's
 grammar alone):
 - `bloomberg/clang-p2996` — Bloomberg's experimental Clang fork implementing

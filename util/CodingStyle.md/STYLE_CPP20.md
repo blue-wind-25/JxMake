@@ -111,8 +111,8 @@ concept Drawable = requires(T t) {
 
 ## 3. `consteval`, `constinit`, `constexpr` (as it appears post-C++17)
 
-`consteval` and `constinit` are new modifier keywords that take columns in
-`CppModifierPriority` adjacent to the existing `constexpr` entry:
+`consteval` and `constinit` are new modifier keywords that take their place in the
+canonical modifier ordering right next to `constexpr`:
 
 ```
 static / extern / inline
@@ -121,10 +121,8 @@ virtual / override / final
 const / volatile
 ```
 
-Before adding these columns, verify against the real `CppModifierPriority`
-implementation that `constexpr` already has an entry there — do not add a
-duplicate. If `constexpr` is missing (unlikely given phase-1 work), add it first
-in the same slot, then `consteval` and `constinit` immediately after.
+When multiple modifiers appear on the same declaration, they are reordered to match
+this sequence, with `consteval` and `constinit` sorted immediately after `constexpr`.
 
 ---
 
@@ -159,16 +157,16 @@ if(auto x = f(); x > 0) { ... }
 switch(auto x = compute(); x) { ... }
 ```
 
-No special rule needed. STYLE.md §3.1's `isLoose` check applies to the full
-condition content as usual — the `;` is just another token. A condition like
+No special rule needed. STYLE.md §3.1's tight/loose classification applies to the
+full condition content as usual — the `;` is just another token. A condition like
 `auto x = 10; x > 0` containing no `(` or `[` tokens is correctly classified
 tight; one like `auto x = f(); x > 0` containing a call `(` is correctly loose.
 
 ### 4.4 Attribute Specifiers (`[[ ]]`)
 
 Reuses STYLE.md §3.1's tight/loose bracket rule directly, applied to `[[ ]]` the same
-way it applies to `()`/`[]` — this is existing JAR-verified behavior, documented here
-for the first time rather than newly introduced:
+way it applies to `()`/`[]` — this is existing, already-verified behavior, documented
+here for the first time rather than newly introduced:
 
 ```cpp
 [[nodiscard]]

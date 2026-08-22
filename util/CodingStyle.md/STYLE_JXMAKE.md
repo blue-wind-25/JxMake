@@ -33,8 +33,8 @@ text after the marker is left byte-identical, same as a raw string).
 
 **Line comments** (`#` to end of physical line) are normalized: first-
 letter capitalization of the comment body, and stripping a sole trailing
-`.` — reusing the exact same `ToolingCommentNormalizer` used for Makefile/
-Bash/PowerShell/E-INI, gated by the existing global
+`.` — the same normalization applied to Makefile/Bash/PowerShell/E-INI
+comments, gated by the existing global
 `normalize-comment-start-case`/`normalize-comment-end-period` config keys.
 Contiguous standalone `#` comment lines are chain-grouped and normalized
 as one unit (same semantics as the Makefile/E-INI comment chain rule) —
@@ -81,8 +81,9 @@ every line of the `(* ... *)` block — the opener, the `*` line, and the
 closer — shifts right by the same one indent-size worth of spaces. Nothing
 inside the comment other than each line's leading whitespace is touched.
 
-`%` is never a comment marker for JxMakeFile (reserved for this codebase's
-own `JXM_CFMT_CFG` in-file directive, e.g. `#% JXM_CFMT_CFG ...`).
+`%` is never a comment marker for JxMakeFile (reserved for this
+formatter's own `JXM_CFMT_CFG` in-file directive, e.g.
+`#% JXM_CFMT_CFG ...`).
 
 ---
 
@@ -98,12 +99,12 @@ their depth from the next code line per rule 1's "Indentation of
 standalone `#` comment chains" above rather than from their own line's
 keyword classification (they have none); block `(* ... *)` comments are
 covered by rule 1's own uniform-shift-by-delta rule instead. This is a
-**full forced reindent** of
-every statement line (not a "preserve author's own indent, only snap"
-rule like Bash's `snapIndent`) — safe here because every JxMake block
-construct is unambiguously keyword-delimited (unlike Bash's braceless
-`if`/`for`), so there is no non-keyword construct whose depth is
-ambiguous.
+**full forced reindent** of every statement line — unlike Bash formatting,
+which only snaps existing indentation to the nearest valid depth rather
+than recomputing it outright. The stronger rule is safe here because
+every JxMake block construct is unambiguously keyword-delimited (unlike
+Bash's braceless `if`/`for`), so there is no non-keyword construct whose
+depth is ambiguous.
 
 **Block openers** (increase depth by one for the lines that follow, until
 the matching closer, which itself renders at the opener's own depth):
@@ -157,7 +158,7 @@ endif
 This applies **only** when every branch of the chain inlines its body on
 the same physical line via a trailing `;` (the grammar treats `;` as
 fully equivalent to a physical newline, so "condition, `;`, body" all on
-one physical line is a normal, existing usage in this codebase's own
+one physical line is a normal, existing usage in JxMake's own standard
 `.jxm` library files — see `src/0-JxMake/lib/BasicPlatformUtil.jxm`'s
 `verSpecStr +:= ...` if/else). If even one branch in the chain instead
 puts its body on following separate lines (the ordinary block form), the

@@ -335,7 +335,7 @@ immediately before/after it participate in normal indentation.
 **Bare text nodes** (text sitting directly between element siblings, not inside a
 tag) reindent to their parent's structural depth like any other content line, same
 as an element child would — by analogy with §2.2's normal tag-indentation rule,
-applied to text content rather than a nested tag (RDD_KEY_185).
+applied to text content rather than a nested tag.
 
 ---
 
@@ -406,7 +406,7 @@ under the first key — shown above with `items`.
 Flow-style mappings/sequences (`{a: 1}`, `[1, 2]`) are **preserved as written** by
 default — a block-style construct in the source stays block, a flow-style construct
 stays flow. Internal spacing within a flow collection that stays flow-style follows
-the same tight-atom spacing STYLE.md/§1.2 already use (single space after `,` and
+the same tight-atom spacing STYLE.md §1.2 already uses (single space after `,` and
 `:`).
 
 **Exception:** if a flow-style collection would exceed the configured `line-length`

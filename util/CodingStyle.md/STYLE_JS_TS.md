@@ -89,8 +89,7 @@ const merged = { ...defaults, ...overrides };
 - A destructuring pattern on the LHS of `const`/`let` is an ordinary declaration for
   STYLE.md §5's alignment-grid purposes — it joins an adjacent run of `const`/`let`
   declarations into the same `=`-aligned group like any other declaration shape,
-  regardless of whether the LHS is a plain identifier or a destructuring pattern
-  (RDD_KEY_182).
+  regardless of whether the LHS is a plain identifier or a destructuring pattern.
 
 ## 4. Template Literals
 
@@ -222,7 +221,7 @@ from one placement to the other.
 
 **Overflow** — if a decorator plus the target it precedes would exceed STYLE.md §2's
 line-length limit on one line, resolve in two steps, same dropped-form/one-per-line
-cascade already used for call-argument overflow (AI_PREAMBLE_AESTHETIC.md Rule 1):
+cascade already used for call-argument overflow:
 
 1. Drop the decorator to its own line, keeping the target (class/method/property) on
    the next line. If this fits, stop here.
@@ -294,7 +293,7 @@ Variable/property declarations with a type annotation align the same way STYLE.m
 and STYLE_KOTLIN.md §6 align declaration groups — same group/group-break rules (blank
 line or comment breaks the group). Two or more consecutive `type X = ...` alias
 declarations, with nothing separating them, form their own `=`-aligned group the same
-way — same alignment grid as any other consecutive declaration run (RDD_KEY_183).
+way — same alignment grid as any other consecutive declaration run.
 
 ### 11.2 Class Field Modifiers
 

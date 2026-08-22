@@ -29,7 +29,7 @@ capitalization when the comment opens with a common Unix tool name (e.g.
 unconditionally.
 
 **`%` is never a comment marker for any of these four languages** —
-reserved for this codebase's own `JXM_CFMT_CFG` in-file directive (e.g.
+reserved for this formatter's own `JXM_CFMT_CFG` in-file directive (e.g.
 `#% JXM_CFMT_CFG ...`). E-INI's spec explicitly calls this out since its
 comment-marker list is otherwise fairly permissive (four punctuation-based
 markers plus triple-quote); the other three simply never use `%` for
@@ -145,7 +145,8 @@ foo() {
     echo hi
 }
 ```
-(Body indentation here is a byproduct of brace-depth counting — see 2.5.)
+(Body indentation here is a byproduct of brace-depth counting, not a
+separately configurable rule.)
 
 ### 2.4 `case` Formatting
 

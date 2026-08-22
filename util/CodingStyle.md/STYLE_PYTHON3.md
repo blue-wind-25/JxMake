@@ -28,8 +28,8 @@ has no bucket for.
 
 ```python
 if(a and b):            # atoms, simple ops — tight
-if(isReady(x)):         # NOT this — see below, actually loose
-if( isReady(x) ):       # contains a call — loose
+if(isReady(x)):         # wrong: contains a call, should be loose (see next line)
+if( isReady(x) ):       # correct: contains a call — loose
 a[10]                   # constant index — tight
 a[ callSomething(x) ]   # call inside index — loose
 ```
@@ -87,7 +87,7 @@ it's evaluated as any other content atom under §1.1/§1.2's rules (a plain
 `[*a, *b]` stays tight; `[*get_items(), *b]` goes loose because `get_items()` is a
 call). A non-empty `{}` (dict or set, whether or not it contains `**`/`*` unpacking)
 always gets §3.3's mandatory padding regardless — see §1.5, which applies uniformly
-with no unpacking-only carve-out (RDD_KEY_184).
+with no unpacking-only carve-out.
 
 ### 1.5 Dict vs. Set Literal Disambiguation
 
@@ -102,7 +102,7 @@ presence of `:` at the top level of the `{}` content before applying padding:
 - **Any non-empty `{}` is always loose**, per STYLE.md §3.3's "always pad non-empty
   `{}`" rule, applied uniformly regardless of content shape — including a dict/set
   literal whose only content is `*`/`**` unpacking (e.g. `{ **defaults, **overrides }`,
-  see §1.4). There is no tight carve-out for unpacking-only literals (RDD_KEY_184).
+  see §1.4). There is no tight carve-out for unpacking-only literals.
 
 ```python
 empty_dict = {}
@@ -393,9 +393,9 @@ match command.split():
   reasoning: it's just a name token).
 
 **Closing comment:** `match` is a control-flow block for STYLE.md §7's purposes,
-same category as `while`/`switch` — see AI_PREAMBLE_FULL.md §7's Defaults for the
-subject-expression extraction rule (`match obj:` → `# match obj` when the subject is
-exactly one identifier).
+same category as `while`/`switch` — by default, the closing comment extracts the
+subject expression (`match obj:` → `# match obj`) when the subject is exactly one
+identifier.
 
 ---
 
@@ -453,7 +453,7 @@ match command:
 
 ## 9. Control Flow Blank Lines
 
-Two related STYLE.md/AI_PREAMBLE_FULL.md rules, both un-addressed for Python until
+Two related blank-line rules, both un-addressed for Python until
 now — neither is exclusive to brace-delimited syntax, both transfer directly since
 they're about blank-line placement, not braces themselves.
 
@@ -478,7 +478,7 @@ expression `if`.
 
 ### 9.2 Blank line before `elif` / `else`
 
-Same as AI_PREAMBLE_FULL.md §12's default: add a blank line before `elif`/`else`
+By default, add a blank line before `elif`/`else`
 **only** when the last statement of the preceding block is an unconditional exit
 (`return`, `break`, or `continue`) — note this list does not currently include
 `raise`, matching the existing C-family list exactly rather than extending it (the
@@ -524,7 +524,7 @@ Here, the docstring's own internal indentation (`Health check endpoint.` at one
 depth, `Always returns "ok" for now.` at a deeper, inconsistent depth) is left
 exactly as written — the formatter only ensures the opening `"""` line itself sits
 at the correct structural indent for its enclosing block, same as any other
-statement (RDD_KEY_186).
+statement.
 
 ---
 
@@ -536,5 +536,5 @@ None currently — decorators, f-strings, and type-hint-heavy signature wrapping
 (previously listed here) were resolved via Q&A and moved into §4–§6 above.
 Structural pattern matching (`match`/`case`, §7), single-statement compound-body
 compactness (§8), and control-flow blank-line placement (§9) were separate gaps
-found during the AI_PREAMBLE_FULL.md review pass — not originally listed here — and
+found during a later review pass — not originally listed here — and
 resolved the same way. Section kept for future use if new gaps surface.

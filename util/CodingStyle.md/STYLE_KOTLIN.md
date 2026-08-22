@@ -213,13 +213,15 @@ when(x) {
 - **Branch bodies never get a closing comment**, regardless of length — matches
   Java: only the top-level construct is labeled, not individual `case`/branch
   blocks.
-- A branch needing a block body still opens `->` K&R-style, same line:
+- **All-or-nothing**, same as STYLE_JAVA17.md §3.1: if any branch uses a block
+  body, `->` alignment is abandoned for the entire `when` — no branch gets
+  aligned. A branch needing a block body still opens `->` K&R-style, same line:
 
 ```kotlin
 when(x) {
 
-    1    -> foo()
-    2    -> {
+    1 -> foo()
+    2 -> {
         bar()
         baz()
     }
@@ -450,7 +452,7 @@ as §6, unless there's an outlier breaking the group.
 
 **No forced line-break past 100 chars.** Unlike constructor params (§7), a
 destructuring list has no type annotations to anchor a column grid, so a forced
-one-per-line break gains no readability. This is a deliberate, documented
+one-per-line break would gain no readability. This is a deliberate, documented
 exception to the general >100-char breaking rule: destructuring lists are allowed
 to overflow.
 
@@ -566,8 +568,8 @@ fun build(block: StringBuilder.(Int, String) -> Unit) { }
 
 **Known gap:** a function type nested as a *parameter* of another function type
 (e.g. `((Int) -> String, Boolean) -> Unit`) is genuine nesting and is not yet
-handled by the exemption above — falls back to default spacing, may not look
-ideal. See STYLE.md Known Gaps section.
+handled by the exemption above — it falls back to default spacing, which may not
+look ideal. See STYLE.md's Known Gaps section.
 
 ### 17.1 Lambda Parameter Arrow Spacing
 
@@ -644,8 +646,8 @@ from STYLE_JAVA.md §7, with one Kotlin-specific difference: **there is no
 `static` group**, because Kotlin has no `import static` keyword — an import of
 a companion object member or a top-level function is written with the exact
 same `import a.b.c` syntax as any other import, so "this is a static import"
-isn't something the tokenizer can tell apart from an ordinary one. In its
-place, a leading group is added for Kotlin's own standard library.
+isn't something the tokenizer can tell apart from an ordinary one. Instead, a
+new leading group is added for Kotlin's own standard library.
 
 **Default group order:**
 

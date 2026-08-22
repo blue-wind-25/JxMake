@@ -60,8 +60,8 @@ public final class Circle implements Shape { ... }
 public non-sealed class Square implements Shape { ... }
 ```
 
-**Modifier priority column:** `sealed` / `non-sealed` take columns in
-`JavaModifierPriority` in this order:
+**Modifier priority column:** `sealed` / `non-sealed` take their place among the
+other modifier keywords in this order:
 
 ```
 public / protected / private

@@ -207,21 +207,17 @@ resolved 2026-08-06.
 and this file's Config section but never wired into `Config.java` (not in
 `ALL_KEYS`, no fields/getters, no CLI/file parsing, not in `GROUPS`) —
 noticed while building the server's `/properties` endpoint
-(`STATE_COMMON.md`'s "Server mode: 3rd endpoint"). Fixed 2026-08-06 in two
-steps:
-
-**Step 1 (blocked, real ambiguity):** `python-import-sort` was unambiguous —
-gates `ScopePipelineIndent.applyImportSort` exactly like
-`java-import-sort`/`js-import-sort` gate their own passes (off = the whole
-§3 pass is a no-op). `python-import-blank-lines` had nothing to wire into:
+(`STATE_COMMON.md`'s "Server mode: 3rd endpoint"). Fixed 2026-08-06.
+`python-import-sort` was unambiguous to wire — gates
+`ScopePipelineIndent.applyImportSort` exactly like `java-import-sort`/
+`js-import-sort` gate their own passes (off = the whole §3 pass is a
+no-op). `python-import-blank-lines` had nothing to wire into:
 `flushImportGroup` only replaced a group's own `[start,end)` range, never
 the gap *between* groups — unlike JS/TS's `enforceImportOrdering`, whose
-`blankLines` param threads into `renderImportSegment`. Stopped per
-`STATE_COMMON.md`'s ambiguity protocol; recorded as Open Question, asked
-user.
-
-**Step 2 (resolved same day):** coordinator decided to implement it for
-real, mirroring JS/TS's `enforceImportOrdering`/`renderImportSegment`
+`blankLines` param threads into `renderImportSegment`. That half was
+stopped per `STATE_COMMON.md`'s ambiguity protocol and asked of the user
+as an Open Question — resolved same day: coordinator decided to implement
+it for real, mirroring JS/TS's `enforceImportOrdering`/`renderImportSegment`
 blank-line-insertion shape. New `ScopePipelineIndent
 .applyImportGroupBlankLines`/`isBlankLine`, scoped to the one unambiguous
 case for Python's bucket-less, adjacency-based grouping: two consecutive
@@ -392,15 +388,14 @@ sole trailing period — the only `.` in the chain — stripped only from the la
 staying lowercase; a trailing (non-standalone) comment as its own singleton group; an ordinary
 standalone single-comment capitalization.
 
-**Existing-fixture regressions (per this job's fallback instruction, NOT fixed by the implementing
-agent):** `test/py_combined_{inp,out}.py`, `test/py_comments_{inp,out}.py`,
+**Existing-fixture regressions:** `test/py_combined_{inp,out}.py`, `test/py_comments_{inp,out}.py`,
 `test/real_code_regressions_127_{inp,out}.py`, `test/real_code_regressions_178_{inp,out}.py` each
 needed their `_out.py` updated for the newly-wired-up pass (every diff traced to a `#` comment
 gaining start-case capitalization and/or sole-trailing-period stripping, now firing where
-§2/§3/§7/§9's worked examples happened to contain ordinary-prose `#` comments). Stopped per the
-fallback instruction and left for the project owner; **owner reviewed and fixed all four fixtures
-directly this session** — confirmed correct, `make test` 258/258 forward + idempotency (257
-pre-existing + 1 new fixture).
+§2/§3/§7/§9's worked examples happened to contain ordinary-prose `#` comments). Per this job's
+fallback instruction, left unfixed by the implementing agent for the project owner —
+**owner reviewed and fixed all four fixtures directly this session**, confirmed correct, `make
+test` 258/258 forward + idempotency (257 pre-existing + 1 new fixture).
 
 No real-code dogfood corpus re-run performed this session — the five-repo dogfood list
 (`pallets/flask`, `pallets/click`, `psf/black`, `django/django`, `python/cpython`) was all done for

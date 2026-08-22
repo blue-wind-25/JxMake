@@ -179,18 +179,51 @@ Use sub-agent. This can be a substantial work.
 
     NEVER launch Opus or any more expensive sub-agent.
 
-    Session note (2026-08-22): investigated whether any of the per-rule-class helpers duplicated
-    across JavaSpecificRule/CppSpecificRule/KotlinSpecificRule/JsTsSpecificRule/MiscRuleCurly/
-    BlockStructureRule are safe to consolidate despite the documented no-shared-helpers-across-
-    rule-classes precedent (see MiscRuleCurly.hasCommentBetween's doc comment). Found and
-    consolidated 6 genuinely safe, byte-identical, purely algorithmic ones --
-    lineStartIndex/prevSignificantIndexBefore/nextSignificantIndexAfter (Java/Cpp),
-    isPathOp/matchesPrefix (Java/Kotlin), render (Java/JsTs) -- into new TokenNavigationRule.java
-    (commit e6fb770). The lineIndent/hasCommentBetween/appendRange/renderTokens cluster remains
-    intentionally duplicated per that precedent; Kotlin's lineStartIndex and isEnumBodyBrace were
-    checked and excluded due to real behavioral divergence, not just superficial dissimilarity.
-    Do not re-attempt merging any of those without new evidence. Next time this job runs, keep
-    checking newly-modified files for the same kind of safe-to-share opportunity.
+    Session note (2026-08-22, afternoon): continuation of this morning's TokenNavigationRule pass
+    (commit e6fb770, see prior note preserved below). No `src/**/*.java` files had been touched
+    since `99011aa` besides the morning's own commit, so this session ran three parallel research
+    sub-agents across the whole `rules`/`gdr`/`grid`/`tokenizer`/`classifier`/core-file surface
+    instead of a modified-files-only pass. Landed 6 small, independently tested/committed
+    behavior-preserving changes:
+     - UnicodeAndWhitespaceNormalizer/SwitchRule: two redundant duplicate-call sites (matchesAt,
+       lineStartOf each called twice with identical args) collapsed to one call.
+     - ServerMode: findRunningServerPort()/stop() each read+parsed the lockfile twice (PID, then
+       port); consolidated into one readLockfile() returning both.
+     - GruAbstainResolver: cached the process-invariant default weights path (code-source lookup +
+       URI parse + filesystem stat) instead of re-deriving it on every ABSTAIN comment, same
+       compute-once pattern as this class's existing CLASSIFIER_CACHE.
+     - CommentFeatureExtractor/KeywordAmbiguityGate: hasLeadingKeywordMatch no longer re-scans
+       commentText for its leading word -- the extractor already has it (targetWord) and now
+       passes it straight through.
+     - JsTsDeclarationAlignmentRule/KotlinDeclarationAlignmentRule: pulled the byte-identical
+       hasCommentAfter helper (each doc comment already cross-referenced the other's copy) up into
+       their shared base DeclarationAlignmentRuleCurly, same precedent as that class's existing
+       spansMultipleLines pull-up.
+     - Main.java: processFile() parsed InFileConfig.parse(original) once for --lang, then
+       formatStandalone() re-ran the same full-file directive-regex parse from scratch for the
+       rest of the overrides; now parsed once and threaded through format()/formatStandalone().
+
+    Looked at and deliberately deferred (real but low-value or higher-risk than this job's bar):
+    JavaSpecificRule/KotlinSpecificRule.hasBreakableCall (same algorithm, but Kotlin routes
+    through its own differently-indexed nextSignificantIndex/matchParenForward -- same
+    divergence-prone Kotlin-index area the morning session already flagged as excluded, needs a
+    careful look before any merge attempt, not a drop-in); GetterSetterRuleCore.isInsignificant vs
+    Token.isGapToken (near-identical predicate, two unrelated base-class hierarchies, minor/
+    low-value); CommentedOutCodeGate.endsWithSemicolon vs LicenseBlockGate's trailing-punctuation
+    check (same idiom, ~4 lines each, too small to be worth a shared helper on its own).
+    `gdr/GdrBraceDepthCounter` vs `GdrParenBracketDepthCounter` duplication remains intentional and
+    already self-documented in both classes' own javadoc -- not a gap, don't touch.
+
+    Prior morning-session finding still holds and needs no re-verification: the
+    lineIndent/hasCommentBetween/appendRange/renderTokens cluster stays intentionally duplicated
+    per MiscRuleCurly.hasCommentBetween's precedent; Kotlin's lineStartIndex/isEnumBodyBrace stay
+    excluded (real behavioral divergence, re-confirmed this session for isEnumBodyBrace/
+    separateEnumConstantListTerminator/findEnumConstantListTerminators too). Do not re-attempt
+    merging any of those without new evidence.
+
+    Next time this job runs: re-run the modified-files-since-last-pass check first (`git log
+    --diff-filter=ACMR --name-only --pretty=format: <last-session-commit>..HEAD -- src | grep
+    '\.java$'`) before falling back to a full-surface sub-agent survey again.
 
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 

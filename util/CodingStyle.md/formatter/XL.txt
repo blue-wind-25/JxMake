@@ -250,6 +250,24 @@ Use sub-agent. This can be a substantial work.
     --diff-filter=ACMR --name-only --pretty=format: <last-session-commit>..HEAD -- src | grep
     '\.java$'`) before falling back to a full-surface sub-agent survey again.
 
+    Follow-up (same day, user-requested): 2 code-comment additions plus a static-import
+    consistency pass. (1) Added in-code doc comments to GetterSetterRuleCore.isInsignificant and
+    the CommentedOutCodeGate/LicenseBlockGate trailing-punctuation pair recording why they must
+    stay unmerged, so a future scan doesn't re-flag them without also seeing the rejection
+    rationale in the code itself. (2) User asked whether every qualified `Token.xxx(...)` call
+    should use static import instead -- grepped the WHOLE Token API surface (isPunct/isOp/isRepOp/
+    isKeyword/isComment/isGapToken/isUnaryMinusOperand/matchesAt/isPathOp), not just the 6-method
+    subset checked earlier, and found 2 more leftover-inconsistency files beyond the single
+    MiscRuleCurly.java:2128 case already fixed: DeclarationAlignmentRuleCore.java/
+    DeclarationAlignmentRuleCurly.java/MiscRuleCore.java already had partial Token static imports
+    but still called isRepOp/isUnaryMinusOperand qualified, and TokenizerCurly.java had a leftover
+    qualified isKeyword call missed by the earlier partial pass. Converted every remaining
+    qualified Token.<method>( call codebase-wide (9 files total, commit be149f1) -- including
+    TokenizerCore.java's single self-referential call to its own nested Token class (unusual but
+    legal Java, user explicitly opted for full uniformity over leaving that one exception). Zero
+    qualified Token.<method>( calls remain anywhere in src/ as of this commit -- if a future
+    change reintroduces one, it's a fresh regression, not a pre-existing gap.
+
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
    Apply the formatter to all `*.java/py/js/sh` source files inside `tools/*` subdirectories.

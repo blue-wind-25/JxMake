@@ -54,7 +54,7 @@ public final class ServerMode {
         final Path lockfilePath = lockfilePath();
 
         if( Files.isRegularFile(lockfilePath) ) {
-            final long existingPid = readLockfilePid(lockfilePath);
+            final long existingPid = readLockfile(lockfilePath).pid;
             if( existingPid > 0 && isProcessAlive(existingPid) ) {
                 System.out.println(
                     "jxmake-code-formatter: server already running (pid " + existingPid + ")"
@@ -179,26 +179,48 @@ public final class ServerMode {
         }
     }
 
-    private static long readLockfilePid(final Path lockfilePath)
+    /** The PID and port recorded in a server lockfile, or {@code -1}/{@code -1} if unreadable. */
+    private static final class LockfileInfo {
+        final long pid;
+        final int  port;
+
+        LockfileInfo(final long pid, final int port)
+        {
+            this.pid  = pid;
+            this.port = port;
+        }
+    }
+
+    /** Reads both the PID and port from the lockfile in a single pass over its contents. */
+    private static LockfileInfo readLockfile(final Path lockfilePath)
     {
         try {
             final List<String> lines = Files.readAllLines(lockfilePath);
-            if( lines.isEmpty() ) return -1;
-            return Long.parseLong( lines.get(0).trim() );
+            final long pid  = lines.isEmpty()      ? -1 : parseLongSafe( lines.get(0) );
+            final int  port = lines.size() < 2 ? -1 : parseIntSafe( lines.get(1) );
+            return new LockfileInfo(pid, port);
         }
-        catch(final IOException | NumberFormatException e) {
+        catch(final IOException e) {
+            return new LockfileInfo(-1, -1);
+        }
+    }
+
+    private static long parseLongSafe(final String text)
+    {
+        try {
+            return Long.parseLong( text.trim() );
+        }
+        catch(final NumberFormatException e) {
             return -1;
         }
     }
 
-    private static int readLockfilePort(final Path lockfilePath)
+    private static int parseIntSafe(final String text)
     {
         try {
-            final List<String> lines = Files.readAllLines(lockfilePath);
-            if( lines.size() < 2 ) return -1;
-            return Integer.parseInt( lines.get(1).trim() );
+            return Integer.parseInt( text.trim() );
         }
-        catch(final IOException | NumberFormatException e) {
+        catch(final NumberFormatException e) {
             return -1;
         }
     }
@@ -212,10 +234,10 @@ public final class ServerMode {
     {
         final Path lockfilePath = lockfilePath();
         if( !Files.isRegularFile(lockfilePath) ) return -1;
-        final long pid = readLockfilePid(lockfilePath);
-        if( pid <= 0 || !isProcessAlive(pid) ) return -1;
+        final LockfileInfo info = readLockfile(lockfilePath);
+        if( info.pid <= 0 || !isProcessAlive(info.pid) ) return -1;
 
-        return readLockfilePort(lockfilePath);
+        return info.port;
     }
 
     /**
@@ -235,14 +257,15 @@ public final class ServerMode {
             return true;
         }
 
-        final long pid = readLockfilePid(lockfilePath);
+        final LockfileInfo info = readLockfile(lockfilePath);
+        final long pid = info.pid;
         if( pid <= 0 || !isProcessAlive(pid) ) {
             deleteLockfileQuietly(lockfilePath);
             System.out.println("jxmake-code-formatter: no server running (stale lockfile removed)");
             return true;
         }
 
-        final int port = readLockfilePort(lockfilePath);
+        final int port = info.port;
         if(port > 0) {
             try {
                 final java.net.URL url = new java.net.URL("http://localhost:" + port + "/shutdown");

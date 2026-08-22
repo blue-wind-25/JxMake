@@ -342,6 +342,15 @@ public abstract class GetterSetterRuleCore {
         return depth == 0 ? i - 1 : -1;
     }
 
+    /**
+     * Deliberately NOT {@code Token.isGapToken} despite the near-identical shape -- that one also
+     * treats {@code SHEBANG} as a gap, this one doesn't. {@code GetterSetterRuleCurly} (this
+     * class's curly-family subclass) runs on JS/TS too, and {@code ScopePipelineCurly}'s entry
+     * point calls its getter/setter pass at depth 0 on the whole file's token list, which does
+     * include a leading {@code #!...} SHEBANG token when a .js/.ts file has one -- so swapping
+     * this for {@code isGapToken} would be a real, confirmed behavior change, not a superficial-
+     * similarity false alarm. Verified/rejected 2026-08-22, see XL.txt's session note.
+     */
     protected boolean isInsignificant(final Token t)
     {
         return t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE

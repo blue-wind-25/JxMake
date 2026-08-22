@@ -75,6 +75,12 @@ public final class LicenseBlockGate {
         return count;
     }
 
+    /**
+     * Same trailing-whitespace-skip-then-check-last-char shape as
+     * {@code CommentedOutCodeGate.endsWithSemicolon}, but a different terminal character set for
+     * a different question (sentence-ending vs. code-shape). Deliberately not factored into a
+     * shared helper -- see that method's doc comment for why.
+     */
     private static boolean endsWithSentenceEndingPunctuation(final String commentText)
     {
         int i = commentText.length() - 1;

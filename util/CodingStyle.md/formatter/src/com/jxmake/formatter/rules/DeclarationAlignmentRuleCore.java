@@ -19,6 +19,8 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isRepOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isUnaryMinusOperand;
 
 /**
  * Family-agnostic base for {@link DeclarationAlignmentRuleCurly} -- everything in this file used
@@ -88,7 +90,7 @@ public abstract class DeclarationAlignmentRuleCore {
             if(prev != null) {
                 if( !jsObjectPropertyColons.contains(
                     t
-                ) && !Token.isUnaryMinusOperand(
+                ) && !isUnaryMinusOperand(
                     tokens, i
                 ) && needsSpaceBetween(
                     prev, t, tokens, i
@@ -194,13 +196,13 @@ public abstract class DeclarationAlignmentRuleCore {
                         sb.append(' '); // Binary * or & in expression context
                     }
                 } // if
-                else if( !Token.isUnaryMinusOperand(
+                else if( !isUnaryMinusOperand(
                     tokens, i
                 ) && needsSpaceBetween(
                     prev, t, tokens, i
                 ) ) {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
-                    if( t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
+                    if( t.type == TokenType.IDENTIFIER && isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)
                         && (lang.isC || lang.isCpp) ) {
                         // Pointer dereference: add nothing
@@ -264,7 +266,7 @@ public abstract class DeclarationAlignmentRuleCore {
         ) ) return false;
         for(int k = openIdx + 1; k < closeIdx; ++k) {
             final Token t = tokens.get(k);
-            if( t.type != TokenType.IDENTIFIER && t.type != TokenType.KEYWORD && !Token.isRepOp(
+            if( t.type != TokenType.IDENTIFIER && t.type != TokenType.KEYWORD && !isRepOp(
                 t, '*'
             ) ) return false;
         }
@@ -515,7 +517,7 @@ public abstract class DeclarationAlignmentRuleCore {
         // reasoning for this same rule (STYLE_KOTLIN.md's `Type?` rendering via
         // KotlinDeclarationAlignmentRule.renderKotlinTokens, which reuses this method).
         if( lang.isKotlin && isOp(t, "?") ) return true;
-        // Token.isRepOp(t, '&') matches ANY run of `&` characters, including Kotlin's `&&`
+        // isRepOp(t, '&') matches ANY run of `&` characters, including Kotlin's `&&`
         // logical-AND operator -- it was written for C/C++'s repeated pointer/reference
         // operators (`**`, `&&` as an rvalue-reference declarator), which don't exist in
         // Kotlin. Without this gate, `val x = a && b` loses its space before `&&` (rendered
@@ -541,7 +543,7 @@ public abstract class DeclarationAlignmentRuleCore {
         // of which reaches this declaration-initializer join point) -- left as-is to avoid
         // touching a code path with no observed bug.
         return ( !lang.isKotlin && !lang.isJs && !lang.isTs
-                && ( Token.isRepOp(t, '*') || ( !lang.isJava && Token.isRepOp(t, '&') ) ) )
+                && ( isRepOp(t, '*') || ( !lang.isJava && isRepOp(t, '&') ) ) )
                 || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
     }
 

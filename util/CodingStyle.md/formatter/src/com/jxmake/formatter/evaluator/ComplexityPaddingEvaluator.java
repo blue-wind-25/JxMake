@@ -12,6 +12,8 @@ import java.util.List;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+
 public class ComplexityPaddingEvaluator {
 
     /**
@@ -125,7 +127,7 @@ public class ComplexityPaddingEvaluator {
     private int prevSignificant(final List<Token> tokens, final int fromIdx)
     {
         for(int i = fromIdx; i >= 0; --i) {
-            if( !Token.isGapToken( tokens.get(i) ) ) return i;
+            if( !isGapToken( tokens.get(i) ) ) return i;
         }
 
         return -1;
@@ -134,7 +136,7 @@ public class ComplexityPaddingEvaluator {
     private int nextSignificant(final List<Token> tokens, final int fromIdx)
     {
         for( int i = fromIdx; i < tokens.size(); ++i ) {
-            if( !Token.isGapToken( tokens.get(i) ) ) return i;
+            if( !isGapToken( tokens.get(i) ) ) return i;
         }
 
         return -1;

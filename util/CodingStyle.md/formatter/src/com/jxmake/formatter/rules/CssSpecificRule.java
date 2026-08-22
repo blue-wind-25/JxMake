@@ -16,6 +16,8 @@ import com.jxmake.formatter.tokenizer.CssTokenizer;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 /**
  * CSS STYLE_DATA_FORMATS.md §3 rule logic. Not curly/indent/tag-based; sibling of
  * {@link JsonSpecificRule} under the "SimpleBraced" family (RDD_KEY_189/190) --
@@ -285,7 +287,7 @@ public final class CssSpecificRule {
                 }
                 throw new CssParseException("unterminated block, reached end of input");
             } // if
-            if( Token.isPunct(t, "}") ) {
+            if( isPunct(t, "}") ) {
                 if(topLevel) throw new CssParseException("unexpected '}' at top level");
                 c.i++;
                 if( !item.leadingComments.isEmpty() || item.blankBefore ) items.add(item);
@@ -311,33 +313,33 @@ public final class CssSpecificRule {
                     }
                     throw new CssParseException("unterminated block, reached end of input");
                 } // if
-                if( Token.isPunct(tok, "(") ) {
+                if( isPunct(tok, "(") ) {
                     ++parenDepth;
                     text.append(tok.text);
                     c.i++;
                     continue;
                 }
-                if( Token.isPunct(tok, ")") ) {
+                if( isPunct(tok, ")") ) {
                     --parenDepth;
                     text.append(tok.text);
                     c.i++;
                     continue;
                 }
-                if( parenDepth == 0 && Token.isPunct(tok, "{") ) {
+                if( parenDepth == 0 && isPunct(tok, "{") ) {
                     terminator = TERM_BRACE_OPEN;
                     c.i++;
                     break;
                 }
-                if( parenDepth == 0 && Token.isPunct(tok, ";") ) {
+                if( parenDepth == 0 && isPunct(tok, ";") ) {
                     terminator = TERM_SEMI;
                     c.i++;
                     break;
                 }
-                if( parenDepth == 0 && Token.isPunct(tok, "}") ) {
+                if( parenDepth == 0 && isPunct(tok, "}") ) {
                     terminator = TERM_BRACE_CLOSE_IMPLICIT;
                     break; // Do not consume -- the outer loop's pre-check handles it
                 }
-                if( parenDepth == 0 && colonOffset < 0 && Token.isPunct(
+                if( parenDepth == 0 && colonOffset < 0 && isPunct(
                     tok, ":"
                 ) ) colonOffset = text.length();
                 if(tok.type == TokenType.WHITESPACE || tok.type == TokenType.NEWLINE) {

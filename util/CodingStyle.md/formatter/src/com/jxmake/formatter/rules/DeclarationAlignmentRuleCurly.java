@@ -25,6 +25,7 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isRepOp;
 
 public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore {
 
@@ -1254,7 +1255,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                     for( int k = 0; isFuncPtrName && k < inner.size() - 1; ++k ) {
                         // A run of `*` may be tokenized as one merged rep-op (e.g. `**`) rather
                         // than separate `*` tokens (see Token.isRepOp) -- accept either shape.
-                        if( !Token.isRepOp( inner.get(k), '*' ) ) isFuncPtrName = false;
+                        if( !isRepOp( inner.get(k), '*' ) ) isFuncPtrName = false;
                     }
                     // A leading statement keyword (`return`, `throw`, `synchronized`, ...) can
                     // never legitimately begin a real type -- without this guard, a cast-and-

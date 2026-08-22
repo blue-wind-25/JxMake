@@ -12,6 +12,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isComment;
+
 /**
  * Slim, language-family-agnostic base for every tokenizer sibling ({@link TokenizerCurly} for
  * C/C++/Java/Kotlin/JS/TS, and {@code TokenizerIndent} for Python3). Holds only what every
@@ -250,7 +252,7 @@ public class TokenizerCore {
     {
         boolean frozen = startFrozen;
         for(final Token t : tokens) {
-            if( Token.isComment(t) ) {
+            if( isComment(t) ) {
                 final String trimmed = t.text.trim();
                 if( FORMAT_DIS_MARKER.matcher(trimmed).matches() ) {
                     frozen = true;

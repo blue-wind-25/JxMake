@@ -13,6 +13,10 @@ import java.util.List;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isKeyword;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 /**
  * Python3 bracket-complexity detector (STYLE_PYTHON3.md §1). An extension of, not a straight
  * port of, {@link ComplexityPaddingEvaluator}'s C-family tight/loose heuristic -- deliberately
@@ -101,7 +105,7 @@ public class PythonBracketComplexityEvaluator {
         for(final Token t : tokens) {
                  if( isOpenBracket(t) )                        depth++;
             else if( isCloseBracket(t) )                       depth--;
-            else if( depth == 0 && Token.isKeyword(t, "for") ) return true;
+            else if( depth == 0 && isKeyword(t, "for") ) return true;
         }
 
         return false;
@@ -132,7 +136,7 @@ public class PythonBracketComplexityEvaluator {
         for(final Token t : tokens) {
                  if( isOpenBracket(t) )                    depth++;
             else if( isCloseBracket(t) )                   depth--;
-            else if( depth == 0 && Token.isPunct(t, ":") ) return true;
+            else if( depth == 0 && isPunct(t, ":") ) return true;
         }
 
         return false;
@@ -159,7 +163,7 @@ public class PythonBracketComplexityEvaluator {
                 --depth;
                 current.add(t);
             }
-            else if( depth == 0 && Token.isPunct(t, ":") ) {
+            else if( depth == 0 && isPunct(t, ":") ) {
                 segments.add(current);
                 current = new ArrayList<>();
             }
@@ -179,7 +183,7 @@ public class PythonBracketComplexityEvaluator {
     private boolean isEmptyContent(final List<Token> tokens)
     {
         for(final Token t : tokens) {
-            if( !Token.isGapToken(t) ) return false;
+            if( !isGapToken(t) ) return false;
         }
 
         return true;

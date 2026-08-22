@@ -128,15 +128,11 @@ C/C++/Java job's) declaration-alignment rule — confirmed correct,
 pre-existing behavior with a plain non-reflection repro, expected output
 updated to match.
 
-**STALE, superseded — do not re-flag.** This paragraph is a leftover from
-before the corpus-scale pass ran; see "Test Fixtures (External,
-corpus-scale)" above — all four named candidates (`bloomberg/clang-p2996`
-found empty/unusable, `wrocpp/cpp26-reflection-examples`,
-`simdjson/experimental_json_builder`, `stephenberry/glaze`,
-`ryanjk5.github.io/posts/rjk-duck`) are DONE and that section's own text
-says so explicitly. Not an open item; a future session sourcing more §5
-real-code coverage would need to name a brand-new candidate first, which
-is a fresh future task, not this one.
+**STALE, superseded — do not re-flag.** Leftover from before the
+corpus-scale pass ran; see "Test Fixtures (External, corpus-scale)" above,
+which lists all four candidates as DONE. Not an open item — a future
+session sourcing more §5 real-code coverage would need a brand-new
+candidate, a fresh task, not this one.
 
 ## Tools/compiler used
 (1) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.2.0/bin/g++`; PEGTL,
@@ -367,13 +363,12 @@ below (all landed). No open question remains for §5.
       gaps:
       - 33/37: known switch/case relative-delta reindentation drift
         (`SwitchRule.applyNonInlineCaseIndent`) on internally inconsistent source — same shape as
-        the then-ACCEPTED `javaparser`/`JSONEncoderLite.java` gaps. **Status note (2026-08-16
-        cleanup pass):** the general shape was fixed 2026-08-07 (`RDD_KEY_251`, see
-        `STATE_C_CPP_JAVA.md`) and both `javaparser`/`JSONEncoderLite.java` gaps are now closed
-        too (`RDD_KEY_292`/`RDD_KEY_301`) — not independently re-verified against these specific
-        33 `glaze` files (original `/tmp/glaze` checkout gone, see 2026-08-15 note below), but
-        plausibly also fixed incidentally; re-open in `STATE_C_CPP_JAVA.md`'s Known Gaps if a
-        fresh `glaze` clone surfaces the drift again.
+        the then-ACCEPTED `javaparser`/`JSONEncoderLite.java` gaps. **2026-08-16 cleanup pass:**
+        the general shape was fixed 2026-08-07 (`RDD_KEY_251`, see `STATE_C_CPP_JAVA.md`), and
+        both `javaparser`/`JSONEncoderLite.java` gaps are now closed too (`RDD_KEY_292`/`RDD_KEY_301`)
+        — not independently re-verified against these 33 `glaze` files (checkout gone, see
+        2026-08-15 note below) but plausibly fixed incidentally; re-open in
+        `STATE_C_CPP_JAVA.md`'s Known Gaps if a fresh `glaze` clone surfaces the drift again.
       - `glaze_asio.hpp`/`ordered_map_test.cpp`: member-initializer-list wrapping inserts a stray
         space after `.` (`other.index` -> `other. index`) on wrap — general init-list-wrapping
         bug, not `CppSpecificRule`.

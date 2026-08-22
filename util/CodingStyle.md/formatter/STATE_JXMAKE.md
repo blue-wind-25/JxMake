@@ -3,7 +3,7 @@
 Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
 status: real `.jxm` library files under
-`/home/aloysius/Projects/JxMake/src/0-JxMake/lib/*.jxm` (JxMake's own
+`~/Projects/JxMake/src/0-JxMake/lib/*.jxm` (JxMake's own
 project) — round1/round2 idempotent across the whole corpus, syntax-checked
 via `dist_build/jxmake --__compile__` (the 5 files that fail also fail
 identically on the unformatted originals — pre-existing standalone-compile
@@ -131,7 +131,7 @@ Syntax-check command for this job (mirrors `STATE_TOOLING.md`'s own
 "Tools/compiler used" section):
 
 ```
-/home/aloysius/Projects/JxMake/dist_build/jxmake --__compile__ -f <filename>.jxm
+~/Projects/JxMake/dist_build/jxmake --__compile__ -f <filename>.jxm
 ```
 
 **If `dist_build/` is missing in a future session, ask the user to rebuild

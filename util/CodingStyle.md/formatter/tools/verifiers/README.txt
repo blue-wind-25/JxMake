@@ -247,13 +247,27 @@ JSON/JSON5
       Usage      : json_syntax_check.sh <file.json> [file2.json ...]
       Depends on : json_syntax_check.js, _exec_nodejs.sh.
 
+  json_content_diff.sh
+      Content-preservation checker for JSON. Parses both files with the Python standard library's
+      `json` module and compares the resulting values. JSON has no comment syntax, so unlike the
+      YAML/TOML content-diff checkers there is no separate comment-preservation side-channel.
+
+      Usage      : json_content_diff.sh <original.json> <formatted.json>
+      Depends on : json_content_diff.py, _exec_python.sh.
+
   json5_syntax_check.sh
       Syntax checker for JSON5 source files, using the `json5` npm package.
 
       Usage      : json5_syntax_check.sh <file.json5> [file2.json5 ...]
       Depends on : json5_syntax_check.js, _exec_nodejs.sh (requires the "json5" npm module).
 
-  There is no json_content_diff.sh / json5_content_diff.sh in this directory as of this writing.
+  json5_content_diff.sh
+      Content-preservation checker for JSON5, using the `json5` npm package. Compares parsed
+      values between an original and formatted file, and separately scans `//` line comments and
+      `/* */` block comments as an informational-only signal (does not fail the check by itself).
+
+      Usage      : json5_content_diff.sh <original.json5> <formatted.json5>
+      Depends on : json5_content_diff.js, _exec_nodejs.sh (requires the "json5" npm module).
 
 
 CSS

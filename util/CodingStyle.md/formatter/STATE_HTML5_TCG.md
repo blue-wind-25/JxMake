@@ -91,24 +91,23 @@ one synthesized `<body>`.
 heuristic wrapped `<meta>`/`<title>`/`<script>` into `<body>` immediately instead of implicitly
 opening `<head>` first. Root cause: the synthesis point was picked by a sibling-shape heuristic,
 not a real tracked "head insertion mode closed" transition, so a leading `<meta>`/`<title>`/
-`<script>` run with no `<head>` wrapper looked indistinguishable from real body content. Fixed by
-adding a `headInsertionModeClosed` boolean field (reset at the top of each
+`<script>` run with no `<head>` wrapper looked indistinguishable from real body content. Fix:
+added a `headInsertionModeClosed` boolean field (reset at the top of each
 `insertImplicitBodyIfNeeded` call) plus a `HEAD_ELIGIBLE_ELEMENTS` lookup set (`title`, `script`,
-`style`, `meta`, `link`, `base`, `noscript` — the spec's own "in head" vocabulary): an explicit
+`style`, `meta`, `link`, `base`, `noscript` — the spec's own "in head" vocabulary). An explicit
 `<head>` sets the flag `true` and is skipped as before; while `false`, a head-eligible sibling is
 also skipped (belongs to an implicit head, not body); the first sibling that is neither closes the
 flag and becomes the synthesis point. Verified via a minimal repro (`<html>` with
 `<meta>`/`<title>`/`<script>` then `<h1>`/`<p>`, no `<head>` tag, `html5-tc-gap-level=1`): before
 the fix all five siblings landed inside the synthesized `<body>`; after, `<meta>`/`<title>`/
 `<script>` stay outside `<body>` as direct `<html>` children while `<h1>`/`<p>` still wrap
-correctly. Explicit-`<head>` case (common case, e.g.
-`html_tc_gap_level1_body_insertion_{inp,out}.html`) unchanged, verified byte-identical via `make
-test`. `README.md`'s Level-1 known-gap bullet updated to drop this sub-gap (bare-fragment-wrapping
-sub-gap unaffected, still documented). Fixtures:
+correctly. Explicit-`<head>` case (e.g. `html_tc_gap_level1_body_insertion_{inp,out}.html`)
+unchanged, byte-identical via `make test`. `README.md`'s Level-1 known-gap bullet updated to drop
+this sub-gap (bare-fragment-wrapping sub-gap unaffected, still documented). Fixtures:
 `test/html_tc_gap_level1_body_insertion_{inp,out}.html`,
 `test/html_tc_gap_level0_body_unchanged_{inp,out}.html`,
-`test/html_tc_gap_level1_no_head_{inp,out}.html` (new, 2026-08-11 — no explicit `<head>` at all,
-proves the fix).
+`test/html_tc_gap_level1_no_head_{inp,out}.html` (new — no explicit `<head>` at all, proves the
+fix).
 
 **Level 2 — foster-parenting (`>= 2`).** New `TABLE_STRUCTURE_CHILDREN`
 lookup set (spec's "in table" vocabulary + `td`/`th` defensively);
@@ -208,21 +207,20 @@ comparison sites, so needed no constants. Verified zero behavior change: `make t
 
 ## Open Questions
 
-**Level 4 two-simultaneous-misnesting fix (`XL.txt` TIER 9 item) — blocked 2026-08-11 needing a
-user decision; RESOLVED 2026-08-15, see below.** Investigated upgrading
+**Level 4 two-simultaneous-misnesting fix (`XL.txt` TIER 9 item) — RESOLVED 2026-08-15 (blocked
+2026-08-11 pending a user decision).** Candidate fix investigated: upgrade
 `pendingAdoptionNode`/`pendingAdoptionOuterTagLower` (single field pair) to a small stack/list so
 a second simultaneous misnesting under the same ancestor is queued instead of overwriting the
-first (see Level 4's "Known limitation" above).
-
-Root cause confirmed by tracing `parseElement`/`parseNodes`: for `<b>1<i>2<u>3</b>4</i>5</u>6</p>`
-(or without the `<p>` wrapper), `<u>` is orphaned first (`pendingAdoptionNode = u`, ancestor `b`);
+first (see Level 4's "Known limitation" above). Root cause, confirmed by tracing
+`parseElement`/`parseNodes` and a Java debug print: for `<b>1<i>2<u>3</b>4</i>5</u>6</p>` (or
+without the `<p>` wrapper), `<u>` is orphaned first (`pendingAdoptionNode = u`, ancestor `b`);
 before `b` actually closes, `<i>` is *also* orphaned by the same eventual `</b>`
-(`pendingAdoptionNode = i`, overwriting `u`) — confirmed via a Java debug print that `u`'s entry
-is silently dropped exactly as documented.
+(`pendingAdoptionNode = i`, overwriting `u`), so `u`'s entry is silently dropped exactly as
+documented.
 
-Checked real spec-correct ground truth using `parse5` (a real HTML5-tree-construction-spec
-implementation, already installed under `~/mynpm/node_modules`, invoked via
-`tools/verifiers/_exec_node_env.sh`) rather than guessing:
+Spec-correct ground truth checked against `parse5` (a real HTML5-tree-construction-spec
+implementation, installed under `~/mynpm/node_modules`, invoked via
+`tools/verifiers/_exec_node_env.sh`) rather than guessed:
 
 ```
 input:  <b>1<i>2<u>3</b>4</i>5</u>6
@@ -230,26 +228,23 @@ spec output:
   <b>1<i>2<u>3</u></i></b><i><u>4</u></i><u>5</u>6
 ```
 
-Materially more complex than "queue both orphaned elements, replay each once": the spec output
-needs **three separate reconstruction events** — (1) `<i>` wrapping a nested `<u>`, reconstructed
+That output is materially more complex than "queue both orphaned elements, replay each once" — it
+needs **three separate reconstruction events**: (1) `<i>` wrapping a nested `<u>`, reconstructed
 right after `<b>`'s real close, holding `"4"`; (2) a **second, independent** `<u>` reconstruction
 after that reconstructed `<i>`'s own matching close, holding `"5"`; (3) plain trailing text `"6"`,
-no further reconstruction. This is the spec's "reconstruct the active formatting elements" step,
-which re-fires after each subsequent close/text-insert — not a one-shot replay of a queued list
-but a genuinely bigger mechanism (closer to the full active-formatting-elements list the existing
-design deliberately rejected for level 4) than the "small, contained upgrade" scope proposed.
+no further reconstruction. This is the spec's "reconstruct the active formatting elements" step
+re-firing after each subsequent close/text-insert — a genuinely bigger mechanism (closer to the
+full active-formatting-elements list level 4 deliberately rejected) than the proposed "small,
+contained" queue upgrade, so the fix is not as simple as first framed.
 
-**RESOLVED (2026-08-15, user decision, `RDD_KEY_295`, full detail in `RDD_LOG.md`).** Option 1
-chosen: leave the known limitation as-is, no code change — real-world impact nil (needs two
-*simultaneous* misnestings under the same ancestor, never observed in any dogfood corpus run).
-Options 2 (full "reconstruct active formatting elements" mechanism, scope-creep toward the full
-spec algorithm `RDD_KEY_230` deliberately rejected) and 3 (queue-based non-spec-exact
-approximation, risks being silently wrong in a new way) rejected as unjustified by zero observed
-impact.
-
-**Not permanently closed** — revisit if a future dogfood pass or real-world input surfaces an
-actual two-simultaneous-misnesting case, invalidating the "nil real-world impact" premise this
-rests on.
+**Decision (`RDD_KEY_295`, full detail in `RDD_LOG.md`):** Option 1 — leave the known limitation
+as-is, no code change — chosen over Option 2 (full "reconstruct active formatting elements"
+mechanism: scope-creep toward the full spec algorithm `RDD_KEY_230` deliberately rejected) and
+Option 3 (queue-based non-spec-exact approximation: risks being silently wrong in a new way).
+Rationale: real-world impact nil — needs two *simultaneous* misnestings under the same ancestor,
+never observed in any dogfood corpus run — so neither alternative is justified. Not permanently
+closed: revisit if a future dogfood pass or real-world input surfaces an actual case,
+invalidating the "nil real-world impact" premise this rests on.
 
 ---
 

@@ -314,7 +314,11 @@ final class UnicodeAndWhitespaceNormalizer {
                 // JS/TS get the ES6 code-point escape for supplementary-plane values; every other
                 // curly-family language (C/C++/Java/Kotlin) and the BMP case for JS/TS use plain
                 // \\uXXXX (4 hex digits)
-                if(cp > 0xFFFF) return "\\u{" + Integer.toHexString(cp).toUpperCase(java.util.Locale.ROOT) + "}";
+                if(cp > 0xFFFF) return "\\u{" + Integer.toHexString(
+                    cp
+                ).toUpperCase(
+                    java.util.Locale.ROOT
+                ) + "}";
                 return String.format( "\\u%04X", Integer.valueOf(cp) );
 
             case "python":
@@ -414,7 +418,7 @@ final class UnicodeAndWhitespaceNormalizer {
 
             if(inBlockComment) {
                 final String blockEnd = matchesAt(text, i, profile.blockCommentEnd);
-                if( blockEnd != null ) {
+                if(blockEnd != null) {
                     out.append(blockEnd);
                     i              += blockEnd.length();
                     inBlockComment  = false;

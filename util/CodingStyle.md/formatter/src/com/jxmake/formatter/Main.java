@@ -406,10 +406,10 @@ public final class Main {
     ) throws IOException
     {
         if( !Files.isRegularFile(path) ) throw new IOException("no such file: " + path);
-        final String               original        = readFile(path);
-        final Map<String, String>  inFileOverrides = InFileConfig.parse(original);
-        final String               inFileLang      = inFileOverrides.get("--lang");
-        final String               language        = inFileLang != null ? inFileLang : ( explicitLanguage != null ? explicitLanguage : inferLanguage(
+        final String              original        = readFile(path);
+        final Map<String, String> inFileOverrides = InFileConfig.parse(original);
+        final String              inFileLang      = inFileOverrides.get("--lang");
+        final String              language        = inFileLang != null ? inFileLang : ( explicitLanguage != null ? explicitLanguage : inferLanguage(
             path
         ) );
         if(language == null) throw new IOException(

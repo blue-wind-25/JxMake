@@ -557,6 +557,7 @@ public class SwitchRule {
     private String currentLineIndent(final List<Token> tokens, final int anchorIdx)
     {
         final Token first = tokens.get( lineStartOf(tokens, anchorIdx) );
+
         return first.type == TokenType.WHITESPACE ? first.text : "";
     }
 

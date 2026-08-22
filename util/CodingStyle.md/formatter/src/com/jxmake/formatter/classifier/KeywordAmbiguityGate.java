@@ -334,7 +334,7 @@ public final class KeywordAmbiguityGate {
     /**
      * Takes the already-extracted leading word directly, rather than re-scanning
      * {@code commentText} -- callers such as {@link CommentFeatureExtractor} already have this
-     * word from their own leading-word extraction and can pass it straight through.
+     * word from their own leading-word extraction and can pass it straight through
      */
     public static boolean hasLeadingKeywordMatch(final String leadingWord, final Lang lang)
     {

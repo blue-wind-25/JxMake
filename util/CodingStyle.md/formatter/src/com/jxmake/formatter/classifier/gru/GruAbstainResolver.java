@@ -196,19 +196,23 @@ public final class GruAbstainResolver {
         if( gruWeightsPathConfig != null && !gruWeightsPathConfig.trim().isEmpty() ) return Paths.get(
             gruWeightsPathConfig
         );
+
         return defaultWeightsPath();
     }
 
-    /** {@link #DEFAULT_WEIGHTS_PATH_CACHE}-backed, compute-once version of the default path. */
+    /** {@link #DEFAULT_WEIGHTS_PATH_CACHE}-backed, compute-once version of the default path */
     private static Path defaultWeightsPath()
     {
         Optional<Path> cached = DEFAULT_WEIGHTS_PATH_CACHE.get();
         if(cached == null) {
             final Path programDir = programDirectory();
-            cached = Optional.ofNullable( programDir == null ? null : programDir.resolve(WEIGHTS_FILENAME) );
+            cached = Optional.ofNullable(
+                programDir == null ? null : programDir.resolve(WEIGHTS_FILENAME)
+            );
             DEFAULT_WEIGHTS_PATH_CACHE.compareAndSet(null, cached);
             cached = DEFAULT_WEIGHTS_PATH_CACHE.get();
-        }
+        } // if
+
         return cached.orElse(null);
     }
 

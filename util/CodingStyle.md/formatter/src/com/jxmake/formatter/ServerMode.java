@@ -179,8 +179,9 @@ public final class ServerMode {
         }
     }
 
-    /** The PID and port recorded in a server lockfile, or {@code -1}/{@code -1} if unreadable. */
+    /** The PID and port recorded in a server lockfile, or {@code -1}/{@code -1} if unreadable */
     private static final class LockfileInfo {
+
         final long pid;
         final int  port;
 
@@ -189,15 +190,16 @@ public final class ServerMode {
             this.pid  = pid;
             this.port = port;
         }
-    }
 
-    /** Reads both the PID and port from the lockfile in a single pass over its contents. */
+    } // class LockfileInfo
+
+    /** Reads both the PID and port from the lockfile in a single pass over its contents */
     private static LockfileInfo readLockfile(final Path lockfilePath)
     {
         try {
             final List<String> lines = Files.readAllLines(lockfilePath);
-            final long pid  = lines.isEmpty()      ? -1 : parseLongSafe( lines.get(0) );
-            final int  port = lines.size() < 2 ? -1 : parseIntSafe( lines.get(1) );
+            final long         pid   = lines.isEmpty() ? -1 : parseLongSafe( lines.get(0) );
+            final int          port  = lines.size() < 2 ? -1 : parseIntSafe( lines.get(1) );
             return new LockfileInfo(pid, port);
         }
         catch(final IOException e) {
@@ -258,7 +260,7 @@ public final class ServerMode {
         }
 
         final LockfileInfo info = readLockfile(lockfilePath);
-        final long pid = info.pid;
+        final long         pid  = info.pid;
         if( pid <= 0 || !isProcessAlive(pid) ) {
             deleteLockfileQuietly(lockfilePath);
             System.out.println("jxmake-code-formatter: no server running (stale lockfile removed)");

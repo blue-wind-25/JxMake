@@ -407,6 +407,11 @@ INP_FILES += cpp_combined_inp.cpp
 INP_FILES += cpp_comments_inp.cpp
 INP_FILES += cpp_using_alias_inp.cpp
 
+INP_FILES += cpp26_core_inp.cpp
+INP_FILES += cpp26_comments_inp.cpp
+INP_FILES += cpp26_reflection_inp.cpp
+INP_FILES += cpp26_nested_call_wrap_inp.cpp
+
 INP_FILES += java_core_inp.java
 INP_FILES += java_modern_inp.java
 INP_FILES += java_combined_inp.java
@@ -440,10 +445,20 @@ INP_FILES += xml_indent_auto_spaces_inp.xml
 INP_FILES += xml_indent_auto_fallback_inp.xml
 INP_FILES += xml_mixed_content_inp.xml
 
-INP_FILES += cpp26_core_inp.cpp
-INP_FILES += cpp26_comments_inp.cpp
-INP_FILES += cpp26_reflection_inp.cpp
-INP_FILES += cpp26_nested_call_wrap_inp.cpp
+INP_FILES += html_combined_inp.html
+INP_FILES += html_comments_inp.html
+INP_FILES += html_multiline_comment_verbatim_inp.html
+INP_FILES += html_multiline_comment_banner_inp.html
+INP_FILES += html_mathml_case_fixup_inp.html
+INP_FILES += html_tc_gap_level0_body_unchanged_inp.html
+INP_FILES += html_tc_gap_level1_body_insertion_inp.html
+INP_FILES += html_tc_gap_level1_no_head_inp.html
+INP_FILES += html_tc_gap_level1_foster_unchanged_inp.html
+INP_FILES += html_tc_gap_level2_foster_parenting_inp.html
+INP_FILES += html_tc_gap_level2_form_unchanged_inp.html
+INP_FILES += html_tc_gap_level3_form_template_inp.html
+INP_FILES += html_tc_gap_level3_adoption_unchanged_inp.html
+INP_FILES += html_tc_gap_level4_adoption_agency_inp.html
 
 INP_FILES += js_combined_inp.js
 INP_FILES += js_comments_inp.js
@@ -477,21 +492,6 @@ INP_FILES += ts_jsx_optin_inp.ts
 INP_FILES += jsx_mismatched_tag_inp.jsx
 INP_FILES += js_mismatched_tag_inp.js
 
-INP_FILES += html_combined_inp.html
-INP_FILES += html_comments_inp.html
-INP_FILES += html_multiline_comment_verbatim_inp.html
-INP_FILES += html_multiline_comment_banner_inp.html
-INP_FILES += html_mathml_case_fixup_inp.html
-INP_FILES += html_tc_gap_level0_body_unchanged_inp.html
-INP_FILES += html_tc_gap_level1_body_insertion_inp.html
-INP_FILES += html_tc_gap_level1_no_head_inp.html
-INP_FILES += html_tc_gap_level1_foster_unchanged_inp.html
-INP_FILES += html_tc_gap_level2_foster_parenting_inp.html
-INP_FILES += html_tc_gap_level2_form_unchanged_inp.html
-INP_FILES += html_tc_gap_level3_form_template_inp.html
-INP_FILES += html_tc_gap_level3_adoption_unchanged_inp.html
-INP_FILES += html_tc_gap_level4_adoption_agency_inp.html
-
 INP_FILES += py_combined_inp.py
 INP_FILES += py_comments_inp.py
 INP_FILES += py_comments_normalization_inp.py
@@ -512,9 +512,9 @@ INP_FILES += powershell_combined_inp.ps1
 
 INP_FILES += curly_general_scope_reindent_inp.hpp
 INP_FILES += curly_gdr_multipass_inp.java
-INP_FILES += curly_gdr_js_regex_inp.ts
 INP_FILES += curly_gdr_multipass_oneliner_inp.js
 INP_FILES += curly_gdr_postpass_wrap_inp.java
+INP_FILES += curly_gdr_js_regex_inp.ts
 INP_FILES += java_flush_left_inp.java
 INP_FILES += html_js_flush_left_inp.html
 

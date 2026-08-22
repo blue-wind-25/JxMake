@@ -1,9 +1,9 @@
 Formatter Test Suite
 ====================
 
-This directory contains the permanent dogfood/regression test suite for the code-formatter code
-formatter. Tests are mechanically verifiable: no manual inspection required once the expected output
-files are authored.
+This directory contains the permanent dogfood/regression test suite for the code-formatter. Tests
+are mechanically verifiable: once the expected output files are authored, no manual inspection is
+required.
 
 
 File Naming Convention
@@ -20,6 +20,7 @@ Test Files
 ----------
 
 In-file config directive:
+
   in_file_config_inp/out.hpp                         -- Top-of-file JXM_CFMT_CFG directive (STATE_COMMON.md
                                                         "In-file Config Support", RDD_KEY_167/168): sets every
                                                         per-file-applicable Config Keys and Defaults key (all
@@ -63,6 +64,7 @@ In-file config directive:
                                                         the file itself for how to exercise it manually.
 
 Behavior flags (new-line at EOF, blank-line collapse, trailing spaces, Unicode normalization):
+
   behavior_flags_inp/out.js                          -- One shared, language-agnostic fixture (JS chosen as
                                                         vehicle) demonstrating all three new default-on
                                                         "Behavior" config keys having a visible effect at
@@ -91,7 +93,117 @@ Behavior flags (new-line at EOF, blank-line collapse, trailing spaces, Unicode n
                                                         `IndentationDetector.detectFromContent`'s per-file-
                                                         content path instead).
 
+C:
+
+  c_core_inp/out.c                                   -- C11 constructs: declaration alignment, bitfields,
+                                                        pointer placement, struct/enum/typedef, function
+                                                        Allman braces, control-flow K&R, pre-increment, static
+                                                        reordering, assignment alignment.
+
+  c_combined_inp/out.c                               -- All C constructs together in one realistic file:
+                                                        macros, enums with closing comments, structs, forward
+                                                        declarations, global state alignment, public API,
+                                                        internal functions, inline comments.
+
+  c_comments_inp/out.c                               -- Uncommon comment placements in C: inside struct,
+                                                        between params, inside if/for headers, between else
+                                                        and brace, divider normalization, comments on macros.
+
+  c_cpp_decl_gaps_inp/out.c                          -- Regression coverage for three DeclarationAlignmentRule
+                                                        fixes (STATE.md "Known Gaps -- Fixed"): the `* const`
+                                                        column gap in mixed pointer-star groups, `typedef`
+                                                        joining and aligning with a surrounding plain-variable
+                                                        group, and direct function-pointer declarations
+                                                        (including multi-star `(**cb)`) joining a group.
+
+C++:
+
+  cpp_core_inp/out.cpp                               -- C++11/14 constructs: class with access specifiers,
+                                                        template class, lambdas, auto return type, initializer
+                                                        list constructors, getter/setter groups, extern "C".
+
+  cpp_modern_inp/out.cpp                             -- C++17/20/23 constructs: structured bindings,
+                                                        init-statement if/switch, concepts/requires,
+                                                        consteval/constinit, operator<=>, coroutines
+                                                        (co_yield/co_return).
+
+  cpp_combined_inp/out.cpp                           -- All C++ constructs together: concepts, enum class,
+                                                        template class with nested Config struct, structured
+                                                        bindings, init-statement if/switch,
+                                                        consteval/constinit, operator<=>, lambda with auto
+                                                        return, extern "C", trailing comments on declarations.
+
+  cpp_comments_inp/out.cpp                           -- Uncommon comment placements in C++: inside template
+                                                        parameter lists, inside concept requires expressions,
+                                                        between class specifier and base, inside function
+                                                        params, inside structured bindings, inside requires
+                                                        clauses.
+
+  cpp_using_alias_inp/out.cpp                        -- `using` alias declarations (C++11+) column-aligned on
+                                                        `=`: adjacent plain aliases of differing name length,
+                                                        a `template<typename T> using Vec = ...` singleton
+                                                        group left as its own group, and a function-local
+                                                        `using Local = double;` unaffected by the file-scope
+                                                        group.
+
+C/C++ Headers:
+
+  h_core_inp/out.h                                   -- C header with #ifndef guard: header zone spacing,
+                                                        include ordering (angle vs quote), struct alignment,
+                                                        pointer declarations, #ifdef __cplusplus extern "C".
+
+  h_combined_inp/out.h                               -- Combined C header: guard zones, macros alignment,
+                                                        named enum/struct with closing comments, full API
+                                                        declaration group, extern "C".
+
+  hpp_core_inp/out.hpp                               -- C++ header with #pragma once: pragma once zone
+                                                        spacing, concepts, enum class, structs with
+                                                        operator<=>, abstract class interface, concrete
+                                                        derived classes.
+
+  hpp_combined_inp/out.hpp                           -- Combined C++ header: pragma once zones, concepts,
+                                                        template base class, concrete subclass, factory
+                                                        declaration, extern "C" block.
+
+C++26:
+
+  cpp26_core_inp/out.cpp                             -- Pack indexing (`T...[N]` tight vs. going loose when
+                                                        the index contains a call or a nested bracket), `=
+                                                        delete("reason")` vs. bare `= delete;`, placeholder
+                                                        `_` in structured bindings and if-init, and contract
+                                                        clauses (`pre`/`post`/`contract_assert`) staying
+                                                        inline when the signature fits vs. one-per-line when
+                                                        it doesn't.
+
+  cpp26_comments_inp/out.cpp                         -- Uncommon comment placement around the above: leading
+                                                        comment before pack indexing, comment between
+                                                        `template<>` and its `using`, comments forcing an
+                                                        `if`-init to stay a braced block instead of collapsing
+                                                        to inline, per-clause leading/trailing contract
+                                                        comments, and `/* */` block comments between contract
+                                                        clauses.
+
+  cpp26_reflection_inp/out.cpp                       -- Reflection (`^^`, `[:`/`:]` splicing): `^^` binding
+                                                        tight to an initializer, a `return` expression, and a
+                                                        parenthesized sub-expression; a four-member `constexpr
+                                                        auto` `=`-alignment group; `[:refl:]` staying tight
+                                                        vs. `[: computeRefl(x) :]` going loose because it
+                                                        contains a call; a standalone splice reused as an
+                                                        operand; a second alignment group after a blank line;
+                                                        and an `if` going loose then collapsing to inline.
+                                                        Promoted ahead of its original promotion gate
+                                                        (external- corpus cross-check for STYLE_CPP26.md §5
+                                                        still pending) to seed the initial tokenizer test for
+                                                        `^^`/`[:`/`:]`; see STATE_CPP26.md.
+
+  cpp26_nested_call_wrap_inp/out.cpp                 -- `stephenberry/glaze` dogfood regression (RDD_KEY_285):
+                                                        an aggregate init whose only inner newline comes from
+                                                        a nested call's own line-wrap (`glz::generic( 2.0\n)`)
+                                                        must not be mistaken for a genuinely oversized
+                                                        aggregate init -- round1/round2 idempotency check.
+
 Java:
+
   java_core_inp/out.java                             -- Core Java 8-compatible constructs: declaration
                                                         alignment, modifier ordering, getter/setter groups,
                                                         closing comments, K&R/Allman braces, import sorting,
@@ -129,6 +241,7 @@ Java:
                                                         the method's own modifier line.
 
 Kotlin:
+
   kt_combined_inp/out.kt                             -- Kotlin STYLE_KOTLIN.md + STYLE_KOTLIN2.md end-to-end
                                                         coverage: enum class with members, sealed classes,
                                                         data classes, type aliases, generics/variance, where
@@ -141,76 +254,8 @@ Kotlin:
                                                         JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers.
                                                         See STATE_KOTLIN.md Step 4.
 
-C:
-  c_core_inp/out.c                                   -- C11 constructs: declaration alignment, bitfields,
-                                                        pointer placement, struct/enum/typedef, function
-                                                        Allman braces, control-flow K&R, pre-increment, static
-                                                        reordering, assignment alignment.
-
-  c_combined_inp/out.c                               -- All C constructs together in one realistic file:
-                                                        macros, enums with closing comments, structs, forward
-                                                        declarations, global state alignment, public API,
-                                                        internal functions, inline comments.
-
-  c_comments_inp/out.c                               -- Uncommon comment placements in C: inside struct,
-                                                        between params, inside if/for headers, between else
-                                                        and brace, divider normalization, comments on macros.
-
-  c_cpp_decl_gaps_inp/out.c                          -- Regression coverage for three DeclarationAlignmentRule
-                                                        fixes (STATE.md "Known Gaps -- Fixed"): the `* const`
-                                                        column gap in mixed pointer-star groups, `typedef`
-                                                        joining and aligning with a surrounding plain-variable
-                                                        group, and direct function-pointer declarations
-                                                        (including multi-star `(**cb)`) joining a group.
-
-C++:
-  cpp_core_inp/out.cpp                               -- C++11/14 constructs: class with access specifiers,
-                                                        template class, lambdas, auto return type, initializer
-                                                        list constructors, getter/setter groups, extern "C".
-
-  cpp_modern_inp/out.cpp                             -- C++17/20/23 constructs: structured bindings,
-                                                        init-statement if/switch, concepts/requires,
-                                                        consteval/constinit, operator<=>, coroutines
-                                                        (co_yield/co_return).
-
-  cpp_combined_inp/out.cpp                           -- All C++ constructs together: concepts, enum class,
-                                                        template class with nested Config struct, structured
-                                                        bindings, init-statement if/switch,
-                                                        consteval/constinit, operator<=>, lambda with auto
-                                                        return, extern "C", trailing comments on declarations.
-
-  cpp_comments_inp/out.cpp                           -- Uncommon comment placements in C++: inside template
-                                                        parameter lists, inside concept requires expressions,
-                                                        between class specifier and base, inside function
-                                                        params, inside structured bindings, inside requires
-                                                        clauses.
-
-  cpp_using_alias_inp/out.cpp                        -- `using` alias declarations (C++11+) column-aligned on
-                                                        `=`: adjacent plain aliases of differing name length,
-                                                        a `template<typename T> using Vec = ...` singleton
-                                                        group left as its own group, and a function-local
-                                                        `using Local = double;` unaffected by the file-scope
-                                                        group.
-
-C/C++ Headers:
-  h_core_inp/out.h                                   -- C header with #ifndef guard: header zone spacing,
-                                                        include ordering (angle vs quote), struct alignment,
-                                                        pointer declarations, #ifdef __cplusplus extern "C".
-
-  h_combined_inp/out.h                               -- Combined C header: guard zones, macros alignment,
-                                                        named enum/struct with closing comments, full API
-                                                        declaration group, extern "C".
-
-  hpp_core_inp/out.hpp                               -- C++ header with #pragma once: pragma once zone
-                                                        spacing, concepts, enum class, structs with
-                                                        operator<=>, abstract class interface, concrete
-                                                        derived classes.
-
-  hpp_combined_inp/out.hpp                           -- Combined C++ header: pragma once zones, concepts,
-                                                        template base class, concrete subclass, factory
-                                                        declaration, extern "C" block.
-
 JSON/JSON5:
+
   json_core_inp/out.json                             -- Plain RFC 8259 JSON: colon-alignment groups, tight
                                                         atoms-only arrays, loose arrays containing objects,
                                                         empty object/array.
@@ -238,6 +283,7 @@ JSON/JSON5:
                                                         (capitalize only the first content line).
 
 CSS:
+
   css_combined_inp/out.css                           -- Property/value colon-alignment groups broken by a
                                                         comment then re-merging, a custom property (`--gap`)
                                                         joining an ordinary group, `@media`/`@supports`/
@@ -257,6 +303,7 @@ CSS:
                                                         block.
 
 YAML/TOML:
+
   yaml_core_inp/out.yaml                             -- Mapping colon-alignment group, a flow mapping short
                                                         enough to stay flow, a flow mapping converted to block
                                                         on `line-length` overflow (including its own nested
@@ -295,6 +342,7 @@ YAML/TOML:
                                                         `//`: only the first is capitalized.
 
 XML:
+
   xml_combined_inp/out.xml                           -- `<?xml?>` PI plus a second `<?xml-stylesheet?>` PI and
                                                         `<!DOCTYPE>` all preserved opaque/verbatim including
                                                         irregular internal spacing; a multi-attribute opening
@@ -346,358 +394,8 @@ XML:
                                                         child-element-only list confirm both pre-existing
                                                         shapes are unaffected.
 
-C++26:
-  cpp26_core_inp/out.cpp                             -- Pack indexing (`T...[N]` tight vs. going loose when
-                                                        the index contains a call or a nested bracket), `=
-                                                        delete("reason")` vs. bare `= delete;`, placeholder
-                                                        `_` in structured bindings and if-init, and contract
-                                                        clauses (`pre`/`post`/`contract_assert`) staying
-                                                        inline when the signature fits vs. one-per-line when
-                                                        it doesn't.
-
-  cpp26_comments_inp/out.cpp                         -- Uncommon comment placement around the above: leading
-                                                        comment before pack indexing, comment between
-                                                        `template<>` and its `using`, comments forcing an
-                                                        `if`-init to stay a braced block instead of collapsing
-                                                        to inline, per-clause leading/trailing contract
-                                                        comments, and `/* */` block comments between contract
-                                                        clauses.
-
-  cpp26_reflection_inp/out.cpp                       -- Reflection (`^^`, `[:`/`:]` splicing): `^^` binding
-                                                        tight to an initializer, a `return` expression, and a
-                                                        parenthesized sub-expression; a four-member `constexpr
-                                                        auto` `=`-alignment group; `[:refl:]` staying tight
-                                                        vs. `[: computeRefl(x) :]` going loose because it
-                                                        contains a call; a standalone splice reused as an
-                                                        operand; a second alignment group after a blank line;
-                                                        and an `if` going loose then collapsing to inline.
-                                                        Promoted ahead of its original promotion gate
-                                                        (external- corpus cross-check for STYLE_CPP26.md §5
-                                                        still pending) to seed the initial tokenizer test for
-                                                        `^^`/`[:`/`:]`; see STATE_CPP26.md.
-
-  cpp26_nested_call_wrap_inp/out.cpp                 -- `stephenberry/glaze` dogfood regression (RDD_KEY_285):
-                                                        an aggregate init whose only inner newline comes from
-                                                        a nested call's own line-wrap (`glz::generic( 2.0\n)`)
-                                                        must not be mistaken for a genuinely oversized
-                                                        aggregate init -- round1/round2 idempotency check.
-
-JS/TS:
-  js_combined_inp/out.js                             -- Import grouping/sorting, inline vs. own-line decorator
-                                                        placement, a private class field, static vs. instance
-                                                        getter/setter one-liner alignment groups,
-                                                        destructuring/spread/template literals/optional
-                                                        chaining/nullish coalescing, both arrow forms, an
-                                                        eight-member `const` `=`-alignment group, mandatory
-                                                        blank line before `return`, and closing comments on
-                                                        the class and an Allman-brace method but not a short
-                                                        generator.
-
-  js_comments_inp/out.js                             -- Leading/trailing comments surviving import resort, a
-                                                        comment forcing a destructuring pattern multi-line
-                                                        (and out of any `=`-alignment group), and comments
-                                                        around a generator method's `yield`s.
-
-  js_getter_setter_asi_inp/out.js                    -- A semicolon-less class field (`#cache = new Map()`,
-                                                        legal under JS's ASI) sitting directly above a `static
-                                                        get`/`static set` one-liner pair: GetterSetterRule's
-                                                        member-splitting used to require an explicit `;`/`}`
-                                                        boundary (JS/TS semicolon insertion runs in a later
-                                                        phase), so the unterminated field swallowed the
-                                                        following `static get` member into its own span and
-                                                        desynced blank-line-boundary detection for every
-                                                        member after it -- leaving the static get/set pair's
-                                                        empty parens unpadded to match its sibling's width
-                                                        while a plain get/set pair below it padded correctly.
-                                                        Now fixed with an ASI-aware depth-0-NEWLINE statement
-                                                        boundary (JS/TS only).
-
-  js_import_ordering_comments_inp/out.js             -- §15 import-ordering comment handling (RDD_KEY_197): a
-                                                        trailing same-line comment on an import (`import a
-                                                        from "alpha"; // keep with a`) travels with its own
-                                                        import through reordering instead of blocking the
-                                                        pass; a standalone comment on its own line between two
-                                                        imports now segments the import list (imports
-                                                        before/after it are grouped/sorted independently,
-                                                        never reordered across each other) with the comment
-                                                        preserved verbatim in place, instead of bailing the
-                                                        whole pass.
-
-  js_nested_template_literal_inp/out.js              -- §4 nested template-literal interpolation (`` `outer
-                                                        ${`inner ${x+1}`}` ``): the inner template literal's
-                                                        own `${...}` interpolation now gets its expression
-                                                        spacing normalized too (`x + 1`), not just the
-                                                        outermost `${...}` span -- recursive reformatting of
-                                                        any nesting depth via
-                                                        enforceTemplateLiteralInterpolationSpacing.
-
-  ts_combined_inp/out.ts                             -- Tight union/intersection `=`-alignment, both
-                                                        break-before/break-after long-union continuation
-                                                        styles, generics with a default type parameter,
-                                                        `interface`/`type`-alias `:` alignment, both enum
-                                                        forms, the full six-slot class-field modifier order, a
-                                                        mixed-modifier-length alignment group, and the
-                                                        two-step decorator-overflow cascade.
-
-  ts_comments_inp/out.ts                             -- A trailing comment surviving union-continuation
-                                                        realignment, a comment inside a generic type-parameter
-                                                        list staying tight, comments breaking `interface`/enum
-                                                        alignment groups, and a trailing comment on an
-                                                        overflow-wrapped decorator staying attached to its
-                                                        closing `)`.
-
-  ts_decl_grid_ext_inp/out.ts                        -- Declaration-alignment-grid extensions
-                                                        (RDD_KEY_182/183): an object-destructuring-pattern LHS
-                                                        joins the same const/let `=`-alignment group as a
-                                                        plain identifier declarator, and two consecutive `type
-                                                        X = ...` aliases form their own `=`-aligned group.
-
-JSX/TSX:
-  jsx_tsx_return_context_inp/out.tsx                 -- JSX/TSX boundary-finding pre-pass (XL.txt TIER 3,
-                                                        STATE_JS_TS.md), Increment 1: `.tsx`-only, "after
-                                                        `return`" expression-start context. A JSX tree (nested
-                                                        elements, an attribute, and a `{...}` expression hole)
-                                                        round-trips byte-for-byte as one opaque `JSX_SPAN`
-                                                        token while the surrounding function/if statements
-                                                        still get real brace/indent formatting applied around
-                                                        it; a self-closing `<br />` return is also covered; an
-                                                        ordinary `if (x < 1)` comparison (not after `return`)
-                                                        is confirmed untouched by the pre-pass.
-
-  jsx_tsx_arrow_ternary_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, Increment 2: "after
-                                                        `=>`" (arrow-function body start) and "after
-                                                        `?`"/"after `:`" (both branches of a ternary
-                                                        conditional expression). Covers a bare-arrow-body JSX
-                                                        return, a ternary whose both branches are simple JSX
-                                                        elements, and a ternary whose truthy branch is a
-                                                        nested JSX tree (with an attribute and a `{...}` hole)
-                                                        and whose falsy branch is a self-closing `<br />`; an
-                                                        ordinary `if (x < 1)` comparison is confirmed
-                                                        untouched.
-
-  jsx_tsx_combined_sanity_inp/out.tsx                -- Real-shape sanity check combining all 3 contexts
-                                                        landed so far (return, arrow-body, both ternary
-                                                        branches) in one small component, including a ternary
-                                                        nested inside a `{...}` expression hole inside a
-                                                        `return`-context JSX tree, to catch
-                                                        context-interaction bugs the isolated fixtures might
-                                                        miss.
-
-  jsx_tsx_call_array_context_inp/out.tsx             -- JSX/TSX boundary-finding pre-pass, Increment 3:
-                                                        call-argument-start and array-literal-element-start.
-                                                        Covers a call with two JSX arguments (first
-                                                        immediately after `(`, second after a top-level `,`)
-                                                        and an array literal of two JSX elements (first
-                                                        immediately after `[`, second after a top-level `,`);
-                                                        an ordinary `if (x < 1)` comparison is confirmed
-                                                        untouched.
-
-  jsx_tsx_assign_logical_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 4:
-                                                        assignment-RHS (incl. compound assignment, e.g. `+=`)
-                                                        and logical/nullish-RHS (`&&`, `||`, `??`). Covers a
-                                                        plain `=` assignment, a `+=` compound assignment, and
-                                                        each of `&&`/`||`/`??` as the operator immediately
-                                                        preceding a JSX open; an ordinary `if (x < 1)`
-                                                        comparison is confirmed untouched.
-
-  jsx_tsx_assign_logical_sanity_inp/out.tsx          -- Real-shape sanity check combining Increment 4's two
-                                                        new contexts (assignment-RHS, logical/nullish
-                                                        `??`-RHS) with previously-landed contexts (plain
-                                                        assignment `=`, `&&`-RHS, `return`-context,
-                                                        call-argument-start, array-element-start, ternary both
-                                                        branches, arrow-body) in one small component, to catch
-                                                        context-interaction bugs the isolated fixture might
-                                                        miss.
-
-  jsx_tsx_grouping_paren_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 5:
-                                                        grouping-paren-start (a `(` NOT preceded by an
-                                                        IDENTIFIER/`)`/`]`, distinguishing it from a call-open
-                                                        `(` already covered by Increment 3). Covers a bare
-                                                        `const a = (<span>...</span>);` and a `(<div
-                                                        ...>{a}</div>)` with a `{}` hole; an ordinary `if (x <
-                                                        1)` comparison is confirmed untouched (also proving
-                                                        the fallback safety net: `if`'s `(` is itself a
-                                                        non-call-open grouping-shaped paren, so this context
-                                                        now fires on it too, but `findJsxSpanEnd` correctly
-                                                        returns -1 since `x < 1` isn't real JSX).
-
-  jsx_tsx_hole_spread_context_inp/out.tsx            -- JSX/TSX boundary-finding pre-pass, Increment 6: bare
-                                                        `{`-hole-start (design list item 9, a JSX element that
-                                                        is the sole content of a `{...}` hole with nothing
-                                                        else preceding it) and spread (design list item 11,
-                                                        `...items` immediately before a JSX
-                                                        call-argument/array-element). Covers a nested-hole
-                                                        return (`<div>{<span>...`), a spread call argument,
-                                                        and a spread array element; an ordinary `if (x < 1)`
-                                                        comparison is confirmed untouched.
-
-  jsx_tsx_template_hole_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, template-literal
-                                                        `${}` hole support (design list item 10,
-                                                        STATE_JS_TS.md's 2026-08-13 scoping-session
-                                                        sub-contexts 0-1): a bare JSX element as a hole's sole
-                                                        content (`` `text ${<Foo/>} more` ``), a plain non-JSX
-                                                        interpolation (`` `sum ${a+b} end` ``, confirming the
-                                                        pre-existing spacing-normalization feature still fires
-                                                        via the new token-based path), and a ternary mixing a
-                                                        real comparison with JSX branches (`` `val ${x < 1 ?
-                                                        <A/> : <B/>} end` ``). Only `.jsx`/`.tsx` files
-                                                        tokenize a template literal's holes this way; plain
-                                                        `.js`/`.ts` files keep the original
-                                                        single-opaque-STRING-token path unchanged (sub-context
-                                                        3).
-
-  jsx_tsx_template_hole_nested_inp/out.tsx           -- Template-literal `${}` hole support, sub-context 2: a
-                                                        template literal nested inside another hole, both
-                                                        plain (`` `a ${ `b ${x+1}` } d` ``) and JSX-bearing
-                                                        (`` `a ${ `b ${<X/>}` }` ``), plus an `if (x < 1)`
-                                                        safety-net case. Confirms round-tripping is clean and
-                                                        idempotent -- an earlier implementation folded each
-                                                        hole into a synthetic token correctly but left a
-                                                        nested literal's own STRING segments as separate list
-                                                        entries, which `renderTokens` then spaced apart as if
-                                                        they were unrelated value expressions, corrupting
-                                                        (and, on a second pass, further growing) the nested
-                                                        literal's raw text; fixed by folding a nested
-                                                        literal's entire segment chain into one synthetic
-                                                        STRING token before rendering.
-
-  jsx_tsx_wrap_detect_context_inp/out.tsx            -- Step 2 ("context 11") Increment 1's original
-                                                        detect-and-measure-only fixture: a
-                                                        `<VeryLongComponentName .../>` opening tag whose
-                                                        attribute list exceeds `line-length`, and a short
-                                                        `<Small a={1} />` tag that doesn't. Its expected
-                                                        output was updated when Increment 2 landed real
-                                                        self-closing-tag wrapping (previously byte-identical
-                                                        to the unwrapped input) -- the wide tag now wraps
-                                                        one-attribute-per-line, the narrow tag is unchanged.
-
-  jsx_tsx_self_closing_wrap_inp/out.tsx              -- Step 2 ("context 11") Increments 2-3: the actual
-                                                        wrap-decision function, now covering both self-closing
-                                                        JSX_SPANs (Increment 2) and children-bearing ones
-                                                        (Increment 3). Five cases: a single over-width
-                                                        attribute on a self-closing tag wraps onto its own
-                                                        line with a `/>` on its own closing line; a
-                                                        zero-attribute over-width self-closing tag is left on
-                                                        one line (nothing to wrap); an over-width tag WITH
-                                                        children but whose OPENING TAG alone fits under
-                                                        `line-length` is left on one line (width is measured
-                                                        over the opening tag only, never the children,
-                                                        matching Increment 1's own `JsxWrapDiagnostics`
-                                                        approximation); an over-width opening tag WITH a short
-                                                        single-expression child wraps its attributes with a
-                                                        bare `>` (not `/>`) on its own closing line, with
-                                                        `{child}...` spliced back on immediately after,
-                                                        byte-for-byte unchanged; and an over-width opening tag
-                                                        with real multi-line JSX children (nested elements,
-                                                        deliberately irregular internal whitespace, an
-                                                        embedded `.map()` expression) wraps its own attributes
-                                                        while every byte from the opening tag's `>` onward --
-                                                        children plus closing tag -- comes through provably
-                                                        byte-identical, the explicit gating assertion
-                                                        sub-context 6 requires before children-bearing wrap
-                                                        could land (verified via `--diff` showing zero hunks
-                                                        touching those lines, and round-trip idempotency).
-
-  jsx_tsx_attr_kinds_wrap_inp/out.tsx                -- Step 2 ("context 11") Increment 4: proves the wrap
-                                                        logic needs no real JSX-grammar understanding, only
-                                                        balance-tracking, across the attribute kinds not yet
-                                                        exercised by Increments 2-3 (which only used plain
-                                                        `name={expr}`). Four cases, all self-closing so only
-                                                        the attribute-kind handling is under test: a spread
-                                                        attribute (`{...somePropsObjectThatIsQuiteLong}`)
-                                                        wraps as one segment, its own `{`/`}` intact; a bare
-                                                        boolean attribute (`disabledBecauseOfSomeReason`, no
-                                                        `=`) wraps as a plain identifier with nothing else on
-                                                        its line; an expression-valued attribute whose value
-                                                        itself contains nested `()`/`.`
-                                                        (`onClick={handlers.click.bind(this, item.id)}`) wraps
-                                                        as one segment without the inner parens confusing the
-                                                        brace-only balance tracking; and a mixed tag combining
-                                                        all three kinds plus a plain attribute in one tag
-                                                        wraps each onto its own line in source order.
-
-  jsx_tsx_fragment_shorthand_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
-                                                        validation): regression fixture for a real
-                                                        content-corruption bug found dogfooding
-                                                        reactstrap/reactstrap's DropdownToggle.js.
-                                                        `parseJsxTag` required a tag-name IDENTIFIER
-                                                        unconditionally, so bare fragment shorthand (`<>`/
-                                                        `</>`, no tag name) was never recognized as JSX at all
-                                                        -- its `{...}` expression content fell through to
-                                                        ordinary JS statement-level formatting, which wrongly
-                                                        inserted a semicolon inside the hole
-                                                        (`{returnFunction(...)}}` ->
-                                                        `{returnFunction(...);}`), an actual behavior change.
-                                                        Fixed by giving fragments an empty-string tagName
-                                                        sentinel so the existing open/close tag-identity check
-                                                        pairs them correctly with no other logic changes.
-                                                        Three cases: a bare-expression fragment child (the
-                                                        exact corrupted shape); a multi-child fragment; a
-                                                        fragment nested inside a normal element's children.
-                                                        All three round-trip byte-identical (fragments have no
-                                                        attributes, so wrap logic never engages -- this
-                                                        fixture is purely about detection, not wrapping).
-
-  jsx_tsx_template_hole_wrap_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
-                                                        validation): regression fixture for a second real
-                                                        content-corruption bug found dogfooding
-                                                        excalidraw/excalidraw's SearchMenu.tsx. Not a JSX bug
-                                                        at all -- `enforceSemicolonInsertion`'s depth counter
-                                                        never tracked TEMPLATE_HOLE_OPEN/TEMPLATE_HOLE_CLOSE
-                                                        (a template literal's `${...}` hole) the way it tracks
-                                                        `(`/`[`, so a NEWLINE right after `${` in a multi-line
-                                                        hole (e.g. a wrapped ternary) was seen at depth 0 and
-                                                        got a stray `;` appended directly onto `${` (`` `${x}
-                                                        ${\n cond ? a : b\n}` `` -> `` `${x} ${;\n...` ``),
-                                                        corrupting the template literal. Fixed by treating
-                                                        TEMPLATE_HOLE_OPEN/CLOSE like `(`/`)` in the depth
-                                                        counter, plus a defensive exclusion in
-                                                        needsSemicolonAfter. Two cases: the exact corrupted
-                                                        shape (multi-line ternary inside a `${}` hole with a
-                                                        sibling `${}` before it) and a simpler
-                                                        single-expression multi-line hole. Both idempotent, no
-                                                        semicolon ever inserted inside either hole.
-
-  jsx_tsx_hyphenated_attr_wrap_inp/out.tsx           -- Regression fixture for a hyphenated JSX attribute name
-                                                        (`data-foo`, `aria-label`) getting corrupted by the
-                                                        opening-tag wrap logic. Root cause: a hyphenated name
-                                                        tokenizes as IDENTIFIER/-/IDENTIFIER, and
-                                                        parseJsxTag's attribute-boundary scan treated every
-                                                        top-level IDENTIFIER as a fresh attribute start, so
-                                                        wrapping split the name across two lines
-                                                        (`data-\nfoo={value}`). Fixed with a guard: an
-                                                        IDENTIFIER immediately following a top-level `-` is a
-                                                        name continuation, never a new boundary. Verified
-                                                        idempotent.
-
-  jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
-                                                        (recommendation 1): plain `.js` now gets the same JSX
-                                                        boundary-finding pre-pass as `.jsx`/`.tsx`
-                                                        (Lang.isJsxSyntaxPath widened unconditionally to
-                                                        `.js`/`.mjs`/`.cjs`). Same real-shape content as
-                                                        jsx_tsx_combined_sanity, confirming JSX inside a plain
-                                                        `.js` file is preserved rather than corrupted.
-
-  ts_jsx_default_off_inp/out.ts                      -- Recommendation 2: `.ts` stays gated off by default --
-                                                        a legacy angle-bracket cast (`<string>x`) is left as
-                                                        ordinary TS syntax, not misdetected as a JSX open tag.
-
-  ts_jsx_optin_inp/out.ts                            -- Recommendation 3: the new `jsx-in-ts` Config key (set
-                                                        via a `JXM_CFMT_CFG` in-file directive here) lets a
-                                                        `.ts` file opt into the JSX pre-pass -- same
-                                                        real-shape JSX content as jsx_in_plain_js, now
-                                                        preserved on `.ts` once opted in.
-
-  jsx_mismatched_tag_inp/out.jsx                     -- Recommendation 4: TokenizerCurly.findJsxSpanEnd/
-  js_mismatched_tag_inp/out.js                       -- parseJsxTag now track tag-name identity (not just
-                                                        nesting depth) via a Deque<String> stack, so
-                                                        `<a>text</b>` bails out (-1) instead of balancing as
-                                                        if valid JSX. Verified in both `.jsx` (pre-existing
-                                                        gate) and the newly-widened `.js` context -- output is
-                                                        plain, sane, non-corrupted formatting rather than a
-                                                        thrown exception or silently-accepted mismatch.
-
 HTML5:
+
   html_combined_inp/out.html                         -- Void element normalization (`<img>`/`<input>`/ `<br>`
                                                         lose self-closing `/`, contrasted with `<link>`), bare
                                                         boolean attributes, a tag whose combined attribute
@@ -834,7 +532,322 @@ HTML5:
                                                         tracked, not a full list-of-active-formatting-elements
                                                         + furthest-block + bookmark algorithm).
 
+JS/TS:
+
+  js_combined_inp/out.js                             -- Import grouping/sorting, inline vs. own-line decorator
+                                                        placement, a private class field, static vs. instance
+                                                        getter/setter one-liner alignment groups,
+                                                        destructuring/spread/template literals/optional
+                                                        chaining/nullish coalescing, both arrow forms, an
+                                                        eight-member `const` `=`-alignment group, mandatory
+                                                        blank line before `return`, and closing comments on
+                                                        the class and an Allman-brace method but not a short
+                                                        generator.
+
+  js_comments_inp/out.js                             -- Leading/trailing comments surviving import resort, a
+                                                        comment forcing a destructuring pattern multi-line
+                                                        (and out of any `=`-alignment group), and comments
+                                                        around a generator method's `yield`s.
+
+  js_getter_setter_asi_inp/out.js                    -- A semicolon-less class field (`#cache = new Map()`,
+                                                        legal under JS's ASI) sitting directly above a `static
+                                                        get`/`static set` one-liner pair: GetterSetterRule's
+                                                        member-splitting used to require an explicit `;`/`}`
+                                                        boundary (JS/TS semicolon insertion runs in a later
+                                                        phase), so the unterminated field swallowed the
+                                                        following `static get` member into its own span and
+                                                        desynced blank-line-boundary detection for every
+                                                        member after it -- leaving the static get/set pair's
+                                                        empty parens unpadded to match its sibling's width
+                                                        while a plain get/set pair below it padded correctly.
+                                                        Now fixed with an ASI-aware depth-0-NEWLINE statement
+                                                        boundary (JS/TS only).
+
+  js_import_ordering_comments_inp/out.js             -- §15 import-ordering comment handling (RDD_KEY_197): a
+                                                        trailing same-line comment on an import (`import a
+                                                        from "alpha"; // keep with a`) travels with its own
+                                                        import through reordering instead of blocking the
+                                                        pass; a standalone comment on its own line between two
+                                                        imports now segments the import list (imports
+                                                        before/after it are grouped/sorted independently,
+                                                        never reordered across each other) with the comment
+                                                        preserved verbatim in place, instead of bailing the
+                                                        whole pass.
+
+  js_nested_template_literal_inp/out.js              -- §4 nested template-literal interpolation (`` `outer
+                                                        ${`inner ${x+1}`}` ``): the inner template literal's
+                                                        own `${...}` interpolation now gets its expression
+                                                        spacing normalized too (`x + 1`), not just the
+                                                        outermost `${...}` span -- recursive reformatting of
+                                                        any nesting depth via
+                                                        enforceTemplateLiteralInterpolationSpacing.
+
+  ts_combined_inp/out.ts                             -- Tight union/intersection `=`-alignment, both
+                                                        break-before/break-after long-union continuation
+                                                        styles, generics with a default type parameter,
+                                                        `interface`/`type`-alias `:` alignment, both enum
+                                                        forms, the full six-slot class-field modifier order, a
+                                                        mixed-modifier-length alignment group, and the
+                                                        two-step decorator-overflow cascade.
+
+  ts_comments_inp/out.ts                             -- A trailing comment surviving union-continuation
+                                                        realignment, a comment inside a generic type-parameter
+                                                        list staying tight, comments breaking `interface`/enum
+                                                        alignment groups, and a trailing comment on an
+                                                        overflow-wrapped decorator staying attached to its
+                                                        closing `)`.
+
+  ts_decl_grid_ext_inp/out.ts                        -- Declaration-alignment-grid extensions
+                                                        (RDD_KEY_182/183): an object-destructuring-pattern LHS
+                                                        joins the same const/let `=`-alignment group as a
+                                                        plain identifier declarator, and two consecutive `type
+                                                        X = ...` aliases form their own `=`-aligned group.
+
+JSX/TSX:
+
+  jsx_tsx_return_context_inp/out.tsx                 -- JSX/TSX boundary-finding pre-pass (XL.txt TIER 3,
+                                                        STATE_JS_TS.md), Increment 1: `.tsx`-only, "after
+                                                        `return`" expression-start context. A JSX tree (nested
+                                                        elements, an attribute, and a `{...}` expression hole)
+                                                        round-trips byte-for-byte as one opaque `JSX_SPAN`
+                                                        token while the surrounding function/if statements
+                                                        still get real brace/indent formatting applied around
+                                                        it; a self-closing `<br />` return is also covered; an
+                                                        ordinary `if (x < 1)` comparison (not after `return`)
+                                                        is confirmed untouched by the pre-pass.
+
+  jsx_tsx_arrow_ternary_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, Increment 2: "after
+                                                        `=>`" (arrow-function body start) and "after
+                                                        `?`"/"after `:`" (both branches of a ternary
+                                                        conditional expression). Covers a bare-arrow-body JSX
+                                                        return, a ternary whose both branches are simple JSX
+                                                        elements, and a ternary whose truthy branch is a
+                                                        nested JSX tree (with an attribute and a `{...}` hole)
+                                                        and whose falsy branch is a self-closing `<br />`; an
+                                                        ordinary `if (x < 1)` comparison is confirmed
+                                                        untouched.
+
+  jsx_tsx_combined_sanity_inp/out.tsx                -- Real-shape sanity check combining all 3 contexts
+                                                        landed so far (return, arrow-body, both ternary
+                                                        branches) in one small component, including a ternary
+                                                        nested inside a `{...}` expression hole inside a
+                                                        `return`-context JSX tree, to catch
+                                                        context-interaction bugs the isolated fixtures might
+                                                        miss.
+
+  jsx_tsx_call_array_context_inp/out.tsx             -- JSX/TSX boundary-finding pre-pass, Increment 3:
+                                                        call-argument-start and array-literal-element-start.
+                                                        Covers a call with two JSX arguments (first
+                                                        immediately after `(`, second after a top-level `,`)
+                                                        and an array literal of two JSX elements (first
+                                                        immediately after `[`, second after a top-level `,`);
+                                                        an ordinary `if (x < 1)` comparison is confirmed
+                                                        untouched.
+
+  jsx_tsx_assign_logical_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 4:
+                                                        assignment-RHS (incl. compound assignment, e.g. `+=`)
+                                                        and logical/nullish-RHS (`&&`, `||`, `??`). Covers a
+                                                        plain `=` assignment, a `+=` compound assignment, and
+                                                        each of `&&`/`||`/`??` as the operator immediately
+                                                        preceding a JSX open; an ordinary `if (x < 1)`
+                                                        comparison is confirmed untouched.
+
+  jsx_tsx_assign_logical_sanity_inp/out.tsx          -- Real-shape sanity check combining Increment 4's two
+                                                        new contexts (assignment-RHS, logical/nullish
+                                                        `??`-RHS) with previously-landed contexts (plain
+                                                        assignment `=`, `&&`-RHS, `return`-context,
+                                                        call-argument-start, array-element-start, ternary both
+                                                        branches, arrow-body) in one small component, to catch
+                                                        context-interaction bugs the isolated fixture might
+                                                        miss.
+
+  jsx_tsx_grouping_paren_context_inp/out.tsx         -- JSX/TSX boundary-finding pre-pass, Increment 5:
+                                                        grouping-paren-start (a `(` NOT preceded by an
+                                                        IDENTIFIER/`)`/`]`, distinguishing it from a call-open
+                                                        `(` already covered by Increment 3). Covers a bare
+                                                        `const a = (<span>...</span>);` and a `(<div
+                                                        ...>{a}</div>)` with a `{}` hole; an ordinary `if (x <
+                                                        1)` comparison is confirmed untouched (also proving
+                                                        the fallback safety net: `if`'s `(` is itself a
+                                                        non-call-open grouping-shaped paren, so this context
+                                                        now fires on it too, but `findJsxSpanEnd` correctly
+                                                        returns -1 since `x < 1` isn't real JSX).
+
+  jsx_tsx_hole_spread_context_inp/out.tsx            -- JSX/TSX boundary-finding pre-pass, Increment 6: bare
+                                                        `{`-hole-start (design list item 9, a JSX element that
+                                                        is the sole content of a `{...}` hole with nothing
+                                                        else preceding it) and spread (design list item 11,
+                                                        `...items` immediately before a JSX
+                                                        call-argument/array-element). Covers a nested-hole
+                                                        return (`<div>{<span>...`), a spread call argument,
+                                                        and a spread array element; an ordinary `if (x < 1)`
+                                                        comparison is confirmed untouched.
+
+  jsx_tsx_template_hole_context_inp/out.tsx          -- JSX/TSX boundary-finding pre-pass, template-literal
+                                                        `${}` hole support (design list item 10,
+                                                        STATE_JS_TS.md's 2026-08-13 scoping-session
+                                                        sub-contexts 0-1): a bare JSX element as a hole's sole
+                                                        content (`` `text ${<Foo/>} more` ``), a plain non-JSX
+                                                        interpolation (`` `sum ${a+b} end` ``, confirming the
+                                                        pre-existing spacing-normalization feature still fires
+                                                        via the new token-based path), and a ternary mixing a
+                                                        real comparison with JSX branches (`` `val ${x < 1 ?
+                                                        <A/> : <B/>} end` ``). Only `.jsx`/`.tsx` files
+                                                        tokenize a template literal's holes this way; plain
+                                                        `.js`/`.ts` files keep the original
+                                                        single-opaque-STRING-token path unchanged (sub-context
+                                                        3).
+
+  jsx_tsx_template_hole_nested_inp/out.tsx           -- Template-literal `${}` hole support, sub-context 2: a
+                                                        template literal nested inside another hole, both
+                                                        plain (`` `a ${ `b ${x+1}` } d` ``) and JSX-bearing
+                                                        (`` `a ${ `b ${<X/>}` }` ``), plus an `if (x < 1)`
+                                                        safety-net case. Confirms round-tripping is clean and
+                                                        idempotent -- an earlier implementation folded each
+                                                        hole into a synthetic token correctly but left a
+                                                        nested literal's own STRING segments as separate list
+                                                        entries, which `renderTokens` then spaced apart as if
+                                                        they were unrelated value expressions, corrupting
+                                                        (and, on a second pass, further growing) the nested
+                                                        literal's raw text; fixed by folding a nested
+                                                        literal's entire segment chain into one synthetic
+                                                        STRING token before rendering.
+
+  jsx_tsx_wrap_detect_context_inp/out.tsx            -- Step 2 ("context 11") Increment 1's original
+                                                        detect-and-measure-only fixture: a
+                                                        `<VeryLongComponentName .../>` opening tag whose
+                                                        attribute list exceeds `line-length`, and a short
+                                                        `<Small a={1} />` tag that doesn't. Its expected
+                                                        output was updated when Increment 2 landed real
+                                                        self-closing-tag wrapping (previously byte-identical
+                                                        to the unwrapped input) -- the wide tag now wraps
+                                                        one-attribute-per-line, the narrow tag is unchanged.
+
+  jsx_tsx_self_closing_wrap_inp/out.tsx              -- Step 2 ("context 11") increments 2-3: the
+                                                        wrap-decision function, covering both self-closing
+                                                        JSX_SPANs (increment 2) and children-bearing ones
+                                                        (increment 3). Five cases: a single over-width
+                                                        attribute on a self-closing tag wraps onto its own
+                                                        line with `/>` on its own closing line; a
+                                                        zero-attribute over-width self-closing tag is left
+                                                        alone; an over-width tag with children whose opening
+                                                        tag alone fits under `line-length` is left alone
+                                                        (width is measured over the opening tag only, matching
+                                                        increment 1's own `JsxWrapDiagnostics` approximation);
+                                                        an over-width opening tag with a short
+                                                        single-expression child wraps its attributes with a
+                                                        bare `>` on its own closing line, `{child}...` spliced
+                                                        back on unchanged; and an over-width opening tag with
+                                                        real multi-line JSX children (nested elements,
+                                                        irregular whitespace, an embedded `.map()`) wraps its
+                                                        own attributes while every byte from the opening tag's
+                                                        `>` onward comes through byte-identical -- the gating
+                                                        assertion sub-context 6 requires before
+                                                        children-bearing wrap could land (verified via
+                                                        `--diff` showing zero hunks touching those lines, and
+                                                        round-trip idempotency).
+
+  jsx_tsx_attr_kinds_wrap_inp/out.tsx                -- Step 2 ("context 11") Increment 4: proves the wrap
+                                                        logic needs no real JSX-grammar understanding, only
+                                                        balance-tracking, across the attribute kinds not yet
+                                                        exercised by Increments 2-3 (which only used plain
+                                                        `name={expr}`). Four cases, all self-closing so only
+                                                        the attribute-kind handling is under test: a spread
+                                                        attribute (`{...somePropsObjectThatIsQuiteLong}`)
+                                                        wraps as one segment, its own `{`/`}` intact; a bare
+                                                        boolean attribute (`disabledBecauseOfSomeReason`, no
+                                                        `=`) wraps as a plain identifier with nothing else on
+                                                        its line; an expression-valued attribute whose value
+                                                        itself contains nested `()`/`.`
+                                                        (`onClick={handlers.click.bind(this, item.id)}`) wraps
+                                                        as one segment without the inner parens confusing the
+                                                        brace-only balance tracking; and a mixed tag combining
+                                                        all three kinds plus a plain attribute in one tag
+                                                        wraps each onto its own line in source order.
+
+  jsx_tsx_fragment_shorthand_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
+                                                        validation): regression fixture for a real
+                                                        content-corruption bug found dogfooding
+                                                        reactstrap/reactstrap's DropdownToggle.js.
+                                                        `parseJsxTag` required a tag-name IDENTIFIER
+                                                        unconditionally, so bare fragment shorthand (`<>`/
+                                                        `</>`, no tag name) was never recognized as JSX at all
+                                                        -- its `{...}` expression content fell through to
+                                                        ordinary JS statement-level formatting, which wrongly
+                                                        inserted a semicolon inside the hole
+                                                        (`{returnFunction(...)}}` ->
+                                                        `{returnFunction(...);}`), an actual behavior change.
+                                                        Fixed by giving fragments an empty-string tagName
+                                                        sentinel so the existing open/close tag-identity check
+                                                        pairs them correctly with no other logic changes.
+                                                        Three cases: a bare-expression fragment child (the
+                                                        exact corrupted shape); a multi-child fragment; a
+                                                        fragment nested inside a normal element's children.
+                                                        All three round-trip byte-identical (fragments have no
+                                                        attributes, so wrap logic never engages -- this
+                                                        fixture is purely about detection, not wrapping).
+
+  jsx_tsx_template_hole_wrap_inp/out.tsx             -- Step 2 ("context 11") Increment 5 (real-corpus
+                                                        validation): regression fixture for a second real
+                                                        content-corruption bug found dogfooding
+                                                        excalidraw/excalidraw's SearchMenu.tsx. Not a JSX bug
+                                                        at all -- `enforceSemicolonInsertion`'s depth counter
+                                                        never tracked TEMPLATE_HOLE_OPEN/TEMPLATE_HOLE_CLOSE
+                                                        (a template literal's `${...}` hole) the way it tracks
+                                                        `(`/`[`, so a NEWLINE right after `${` in a multi-line
+                                                        hole (e.g. a wrapped ternary) was seen at depth 0 and
+                                                        got a stray `;` appended directly onto `${` (`` `${x}
+                                                        ${\n cond ? a : b\n}` `` -> `` `${x} ${;\n...` ``),
+                                                        corrupting the template literal. Fixed by treating
+                                                        TEMPLATE_HOLE_OPEN/CLOSE like `(`/`)` in the depth
+                                                        counter, plus a defensive exclusion in
+                                                        needsSemicolonAfter. Two cases: the exact corrupted
+                                                        shape (multi-line ternary inside a `${}` hole with a
+                                                        sibling `${}` before it) and a simpler
+                                                        single-expression multi-line hole. Both idempotent, no
+                                                        semicolon ever inserted inside either hole.
+
+  jsx_tsx_hyphenated_attr_wrap_inp/out.tsx           -- Regression fixture for a hyphenated JSX attribute name
+                                                        (`data-foo`, `aria-label`) getting corrupted by the
+                                                        opening-tag wrap logic. Root cause: a hyphenated name
+                                                        tokenizes as IDENTIFIER/-/IDENTIFIER, and
+                                                        parseJsxTag's attribute-boundary scan treated every
+                                                        top-level IDENTIFIER as a fresh attribute start, so
+                                                        wrapping split the name across two lines
+                                                        (`data-\nfoo={value}`). Fixed with a guard: an
+                                                        IDENTIFIER immediately following a top-level `-` is a
+                                                        name continuation, never a new boundary. Verified
+                                                        idempotent.
+
+  jsx_in_plain_js_inp/out.js                         -- STATE_JS_TS.md's 2026-08-13 implementation section
+                                                        (recommendation 1): plain `.js` now gets the same JSX
+                                                        boundary-finding pre-pass as `.jsx`/`.tsx`
+                                                        (Lang.isJsxSyntaxPath widened unconditionally to
+                                                        `.js`/`.mjs`/`.cjs`). Same real-shape content as
+                                                        jsx_tsx_combined_sanity, confirming JSX inside a plain
+                                                        `.js` file is preserved rather than corrupted.
+
+  ts_jsx_default_off_inp/out.ts                      -- Recommendation 2: `.ts` stays gated off by default --
+                                                        a legacy angle-bracket cast (`<string>x`) is left as
+                                                        ordinary TS syntax, not misdetected as a JSX open tag.
+
+  ts_jsx_optin_inp/out.ts                            -- Recommendation 3: the new `jsx-in-ts` Config key (set
+                                                        via a `JXM_CFMT_CFG` in-file directive here) lets a
+                                                        `.ts` file opt into the JSX pre-pass -- same
+                                                        real-shape JSX content as jsx_in_plain_js, now
+                                                        preserved on `.ts` once opted in.
+
+  jsx_mismatched_tag_inp/out.jsx                     -- Recommendation 4: TokenizerCurly.findJsxSpanEnd/
+  js_mismatched_tag_inp/out.js                       -- parseJsxTag now track tag-name identity (not just
+                                                        nesting depth) via a Deque<String> stack, so
+                                                        `<a>text</b>` bails out (-1) instead of balancing as
+                                                        if valid JSX. Verified in both `.jsx` (pre-existing
+                                                        gate) and the newly-widened `.js` context -- output is
+                                                        plain, sane, non-corrupted formatting rather than a
+                                                        thrown exception or silently-accepted mismatch.
+
 Python3:
+
   py_combined_inp/out.py                             -- Bracket-complexity categories, assignment alignment
                                                         (augmented assignment, both continuation-break
                                                         styles), import ordering/grouping including
@@ -924,33 +937,31 @@ Python3:
 
   py_signature_wrap_inp/out.py                       -- Python3 §6 overflow: the inline-vs-one-per-line
                                                         decision for a `def` signature (STYLE.md §8 as
-                                                        directly referenced by §6), previously missing -- an
-                                                        over- `line-length` inline signature wraps to
-                                                        one-parameter- per-line with `:`/`=` column alignment
-                                                        baked in (rendered the same way as an
-                                                        already-broken-out signature's own alignment slice),
-                                                        closing `)` back at the `def` line's indent, no
-                                                        trailing comma after the last parameter, `->
-                                                        ReturnType:` staying fixed on the closing `)`'s own
+                                                        referenced by §6), previously missing -- an
+                                                        over-`line-length` inline signature wraps to
+                                                        one-parameter-per-line with `:`/`=` column alignment
+                                                        baked in (same alignment slice an already-broken-out
+                                                        signature gets), closing `)` back at the `def` line's
+                                                        indent, no trailing comma after the last parameter,
+                                                        `-> ReturnType:` staying fixed on the closing `)`'s
                                                         line. Covers: an already-fitting signature left
                                                         untouched; a plain overflow wrap; a
                                                         type-hint-plus-default parameter needing depth-tracked
                                                         comma splitting past a nested `Dict[str, int] = {}`
-                                                        default; a return-type annotation case; and an
-                                                        already- one-per-line signature
-                                                        (adjacent-pass-ordering check -- picked up by the
-                                                        pre-existing §6 alignment pass, not this new wrap
-                                                        pass, since the two passes are mutually exclusive by
-                                                        construction). (`f'Struct331_{signedness}{n}_...'`,
+                                                        default; a return-type annotation case; an already
+                                                        one-per-line signature (adjacent-pass-ordering check
+                                                        -- handled by the pre-existing §6 alignment pass, not
+                                                        this new wrap pass, since the two are mutually
+                                                        exclusive by construction); an f-string field
                                                         mirroring the §4/§5 idempotency bug already fixed for
-                                                        this exact adjacency shape); a lambda-default argument
+                                                        this adjacency shape; a lambda-default argument
                                                         containing its own f-string field; and a trailing
                                                         same-line comment after the call, which disqualifies
-                                                        the whole line from wrapping (documented gap, same
-                                                        "comment disqualifies the candidate" posture as the
-                                                        C-family's `enforceCallLineBreaking`).
+                                                        the line from wrapping (documented gap, same posture
+                                                        as the C-family's `enforceCallLineBreaking`).
 
 E-INI:
+
   eini_combined_inp/out.ini                          -- STYLE_TOOLING.md §4 combined: `[name]`/`{name}`/
                                                         `<name>`/`(name)`/bare-word group headers, `=`/`:`
                                                         key-value separators with quoted (interior-preserved)
@@ -970,36 +981,35 @@ E-INI:
                                                         pass through verbatim.
 
 JxMakeFile:
+
   jxmake_combined_inp/out.jxm                        -- STYLE_JXMAKE.md §1-4 combined: chain-grouped `#`
                                                         line-comment normalization (standalone comment lines
-                                                        keep their original leading whitespace, not
-                                                        reindented), a `(* ... *)` block comment shifted as a
-                                                        unit by indent delta with interior byte-identical,
-                                                        forced reindent by block-keyword nesting depth
-                                                        (`function`/`if`/`elif`/`else`/`endif`/`for`/
-                                                        `foreach`/`while`/`do`/`whilst`/`repeat`/`until`/
-                                                        `loop`/`.macro`/target), a one-liner `if ... : stmt`
-                                                        left un-nested, an ordinary block-form `if`/`elif`/
-                                                        `else`/`endif` left at plain depth indent (not
-                                                        keyword-right-aligned, since its branches don't
-                                                        uniformly inline their bodies) alongside a second
-                                                        `if`/`elif`/`else`/`endif` chain where every branch
-                                                        inlines its body via `;`, which *does* get its
-                                                        `if`/`elif`/`else` keywords right-justified to the
-                                                        chain's widest keyword, a `;`-separated
-                                                        multi-statement line reindented as a whole only,
-                                                        `@`/`-@` shell-exec lines left opaque after the
-                                                        marker, backslash continuation alignment under an
-                                                        assignment's value column and under
-                                                        `(depth+1)*indent-size` for a non-assignment
-                                                        continuation, a `[[" ... "]]` multiline string left
-                                                        100% verbatim, and rule-4 field-table assignment
-                                                        alignment (`local`/`const`/var-name fields each padded
-                                                        to the group's widest occurrence, operator and value
-                                                        left unaligned) for direct and indirect (`^name`)
-                                                        assignment groups.
+                                                        keep their original leading whitespace); a `(* ... *)`
+                                                        block comment shifted as a unit by indent delta,
+                                                        interior byte-identical; forced reindent by
+                                                        block-keyword nesting depth (`function`/`if`/`elif`/
+                                                        `else`/`endif`/`for`/`foreach`/`while`/`do`/`whilst`/
+                                                        `repeat`/`until`/`loop`/`.macro`/target); a one-liner
+                                                        `if ... : stmt` left un-nested; an ordinary block-form
+                                                        `if`/`elif`/`else`/`endif` left at plain depth indent
+                                                        (not keyword-right-aligned, since its branches don't
+                                                        uniformly inline their bodies), alongside a second
+                                                        such chain where every branch inlines its body via
+                                                        `;`, which *does* get its keywords right-justified to
+                                                        the chain's widest; a `;`-separated multi-statement
+                                                        line reindented as a whole only; `@`/`-@` shell-exec
+                                                        lines left opaque after the marker;
+                                                        backslash-continuation alignment under an assignment's
+                                                        value column, and under `(depth+1)*indent-size` for a
+                                                        non-assignment continuation; a `[[" ... "]]` multiline
+                                                        string left 100% verbatim; and rule-4 field-table
+                                                        assignment alignment (`local`/`const`/var-name fields
+                                                        each padded to the group's widest occurrence, operator
+                                                        and value left unaligned) for direct and indirect
+                                                        (`^name`) assignment groups.
 
 Makefile/Bash/PowerShell:
+
   makefile_combined_inp/out.mk                       -- STYLE_TOOLING.md §1 combined: assignment-alignment
                                                         group (`=`/`:=`/`+=`), backslash continuation-line
                                                         alignment under the value column, target `:` spacing
@@ -1028,6 +1038,7 @@ Makefile/Bash/PowerShell:
                                                         byte-identical.
 
 General Scope-Depth Reindentation:
+
   curly_general_scope_reindent_inp/out.hpp           -- Proves `curly-general-scope-reindent=on` is accepted
                                                         as an in-file config key (JXM_CFMT_CFG) and produces a
                                                         correctly formatted result, not an error -- see
@@ -1049,14 +1060,6 @@ General Scope-Depth Reindentation:
                                                         against angular/angular, javaparser-core(-
                                                         generators), tool/JSONEncoderLite.java, and
                                                         serge-sans-paille/frozen.
-
-  curly_gdr_js_regex_inp/out.ts                      -- JS/TS regex literal containing bracket-family
-                                                        characters (`/[{]/`, `/[(]/`) with
-                                                        curly-general-scope-reindent=on via in-file config --
-                                                        proves GdrTokenizer (STATE_CURLY_GDR.md) correctly
-                                                        tokenizes JS/TS regex literals as string-like units
-                                                        (STRING) rather than plain TEXT, preventing regex
-                                                        interior brackets from miscounting structural depth.
 
   curly_gdr_multipass_oneliner_inp/out.js            -- Real-world minified/compiled one-liner function bodies
                                                         (react-demos dogfood shape, STATE_JS_TS.md's Step 2
@@ -1085,6 +1088,14 @@ General Scope-Depth Reindentation:
                                                         base single-pass RDD_KEY_229 shape as
                                                         curly_gdr_multipass_inp.java) still gets its closing
                                                         braces corrected by the postpass alone.
+
+  curly_gdr_js_regex_inp/out.ts                      -- JS/TS regex literal containing bracket-family
+                                                        characters (`/[{]/`, `/[(]/`) with
+                                                        curly-general-scope-reindent=on via in-file config --
+                                                        proves GdrTokenizer (STATE_CURLY_GDR.md) correctly
+                                                        tokenizes JS/TS regex literals as string-like units
+                                                        (STRING) rather than plain TEXT, preventing regex
+                                                        interior brackets from miscounting structural depth.
 
   java_flush_left_inp/out.java                       -- Every line of the input is flushed to column 0 (no
                                                         leading indentation at all), with
@@ -1125,6 +1136,7 @@ General Scope-Depth Reindentation:
                                                         corrupting inner space.
 
 Multi-Sentence Comment Capitalization:
+
   multi_sentence_comment_inp/out.java                -- Proves `normalize-comment-start-case-multiline=on`
                                                         (curly family, via in-file config) capitalizes
                                                         sentence 2+ of a `//` comment group, not just sentence
@@ -1135,6 +1147,7 @@ Multi-Sentence Comment Capitalization:
                                                         (Makefile/Bash/PowerShell), via `#%` in-file config.
 
 Real-code regressions:
+
   real_code_regressions_1_inp/out.cpp                -- Distilled from tinyexpr-plusplus: same-line-sibling
                                                         call-argument mis-split, an undercounted call "does it
                                                         fit" length check, and an
@@ -1918,28 +1931,27 @@ Real-code regressions:
                                                         YAML dogfood run): six combined bugs. (1) A
                                                         sequence-of-mapping's first key rejected a same-indent
                                                         nested sequence child (common "- apiGroups:\n    -
-                                                        \"*\"" manifest style); fixed by mirroring the same
-                                                        rule plain mapping keys already had. (2)/(3) Quoted
-                                                        and plain scalars wrapping across physical lines
-                                                        (common in CRD/API description fields) crashed the
-                                                        line-based parser; fixed by detecting an unterminated
-                                                        quote / deeper continuation line and capturing it as
-                                                        an opaque multi-line scalar, for both plain keys and
+                                                        \"*\"" manifest style); fixed by mirroring the rule
+                                                        plain mapping keys already had. (2)/(3) Quoted and
+                                                        plain scalars wrapping across physical lines (common
+                                                        in CRD/API description fields) crashed the line-based
+                                                        parser; fixed by detecting an unterminated quote or
+                                                        deeper continuation line and capturing it as an opaque
+                                                        multi-line scalar, for both plain keys and
                                                         sequence-of-mapping first keys. (4) A dangling
                                                         trailing-comment item (null key) inside a
                                                         sequence-of-mapping's children threw an NPE in the
                                                         colon-alignment padding helper; fixed by excluding
                                                         dangling items from the padding key list. (5)
                                                         Idempotency-only: multi-line scalar/block-scalar
-                                                        continuations stored their indentation as an ABSOLUTE
+                                                        continuations stored their indentation as an absolute
                                                         value rather than a delta relative to their own key,
-                                                        so a shift in the key's rendered column (from
-                                                        colon-alignment padding etc.) broke idempotency on a
-                                                        second pass; fixed by storing/re-anchoring a RELATIVE
-                                                        delta instead. (6) A `|`/`>` block scalar as a plain
-                                                        (non-keyed) sequence item's own value (e.g.
-                                                        "command:\n- |\n  script text") was silently truncated
-                                                        to an empty string -- found via the
+                                                        so a shift in the key's rendered column broke
+                                                        idempotency on a second pass; fixed by
+                                                        storing/re-anchoring a relative delta instead. (6) A
+                                                        `|`/`>` block scalar as a plain sequence item's own
+                                                        value (e.g. "command:\n- |\n  script text") was
+                                                        silently truncated to an empty string -- found via the
                                                         content-preservation check, since the truncated output
                                                         was still syntactically valid YAML. Fixed by adding
                                                         the same block-scalar (and multi-line-quoted-scalar)
@@ -1961,29 +1973,27 @@ Real-code regressions:
   real_code_regressions_73_inp/out.yaml              -- YAML, ansible/ansible real-code testing: three
                                                         combined bugs, all found via the content-preservation
                                                         check (every corrupted output stayed syntactically
-                                                        valid YAML). (1) A plain (non-keyed) sequence item's
-                                                        own unquoted scalar value wrapping across physical
-                                                        lines (e.g. a changelog fragment) had no continuation
-                                                        handling at all, silently dropping every line past the
-                                                        first; fixed by adding the same
-                                                        multi-line-plain-scalar capture used for
-                                                        keyed/seqOfMapping-first-key values, with the
-                                                        continuation's baseline column at the scalar's own
-                                                        start. (2) A comment dedented below its enclosing
-                                                        block's indent (a real "# FIXME: ..." note at column 0
-                                                        between deeper-indented sibling keys) made
-                                                        `parseBlock` break out of every enclosing block in
-                                                        turn without consuming it, permanently orphaning it
-                                                        and dropping everything that followed at every level;
-                                                        fixed by looking past the comment (and any more like
-                                                        it) to the next real content line and attaching the
-                                                        comment to whichever block that line's own indent
-                                                        belongs to. (3) A bare top-level plain scalar document
-                                                        (e.g. an `$ANSIBLE_VAULT;...` header followed by
-                                                        opaque unquoted hex data with no "key:"/"- " shape)
+                                                        valid YAML). (1) A plain sequence item's own unquoted
+                                                        scalar value wrapping across physical lines (e.g. a
+                                                        changelog fragment) had no continuation handling,
+                                                        silently dropping every line past the first; fixed by
+                                                        adding the same multi-line-plain-scalar capture used
+                                                        for keyed/seqOfMapping-first-key values, continuation
+                                                        baseline at the scalar's own start. (2) A comment
+                                                        dedented below its enclosing block's indent (a real "#
+                                                        FIXME: ..." note at column 0 between deeper-indented
+                                                        sibling keys) made `parseBlock` break out of every
+                                                        enclosing block in turn without consuming it,
+                                                        orphaning it and dropping everything that followed at
+                                                        every level; fixed by looking past the comment (and
+                                                        any more like it) to the next real content line and
+                                                        attaching the comment to whichever block that line's
+                                                        indent belongs to. (3) A bare top-level plain scalar
+                                                        document (e.g. an `$ANSIBLE_VAULT;...` header followed
+                                                        by opaque unquoted hex data with no "key:"/"- " shape)
                                                         only kept its first line, dropping the rest; fixed by
                                                         emitting the remaining raw lines verbatim once this
-                                                        bare-scalar- document shape is detected.
+                                                        shape is detected.
 
   real_code_regressions_74_inp/out.svg               -- XML, w3c/svgwg real-code testing: `.svg` files were
                                                         never mapped to the "xml" language in `Lang.infer`, so
@@ -2024,29 +2034,28 @@ Real-code regressions:
                                                         shape already used for `enforceComplexityPadding`.
 
   real_code_regressions_77_inp/out.js                -- JS, expressjs/express real-code testing: two combined
-                                                        bugs. (1) ASI (§2 semicolon insertion): a leading-
-                                                        continuation-operator/comma line (method chaining on
-                                                        its own line, or a comma-first multi-declarator list)
-                                                        was wrongly treated as ending the previous statement
-                                                        -- `needsSemicolonAfter` only checked the previous
-                                                        line's own trailing token, never the next line's
-                                                        leading token, so a bogus `;` landed
-                                                        mid-chain/mid-declarator- list. Found via `node
+                                                        bugs. (1) ASI (§2 semicolon insertion): a
+                                                        leading-continuation-operator/comma line (method
+                                                        chaining on its own line, or a comma-first
+                                                        multi-declarator list) was wrongly treated as ending
+                                                        the previous statement -- `needsSemicolonAfter` only
+                                                        checked the previous line's trailing token, never the
+                                                        next line's leading token, so a bogus `;` landed
+                                                        mid-chain/mid-declarator-list. Found via `node
                                                         --check` on round1 output. Fixed by adding a
                                                         leading-operator/comma lookahead alongside the
                                                         existing trailing-operator check. (2) The tokenizer
                                                         had no JS/TS regex-literal recognition at all -- a
                                                         bare `/` was always treated as the division operator,
                                                         so a regex containing a `"` inside a bracketed
-                                                        character class got its `"` mistaken for a string
+                                                        character class had its `"` mistaken for a string
                                                         literal, corrupting brace/paren tracking for the rest
                                                         of the statement. Found via `node --check` on round1
                                                         output. Fixed by adding
-                                                        `TokenizerCurly.emitRegexLiteral`/`isRe
-                                                        gexLiteralAllowedHere` (regex-vs-division
-                                                        disambiguation based on the preceding significant
-                                                        token), emitting the whole literal as one opaque
-                                                        `STRING` token.
+                                                        `TokenizerCurly.emitRegexLiteral`/`isRegexLiteralAllowedHere`
+                                                        (regex-vs-division disambiguation based on the
+                                                        preceding significant token), emitting the whole
+                                                        literal as one opaque `STRING` token.
 
   real_code_regressions_78_inp/out.py                -- Python3, pallets/flask real-code testing (first
                                                         Python3 dogfood run): a non-idempotency bug found via
@@ -2605,7 +2614,7 @@ Real-code regressions:
                                                         immediately followed by a nested `{` (e.g. `f"{ {a for
                                                         a in (1, 2, 3)}}"`) had its open-gap trim collapse the
                                                         field's `{` and the nested `{` into a literal `{{`,
-                                                        which Python's f-string grammar parses as an ESCAPED
+                                                        which Python's f-string grammar parses as an escaped
                                                         brace rather than two field-opens -- silently deleting
                                                         the whole comprehension expression (confirmed via
                                                         `ast.dump`: the `FormattedValue` node vanished).
@@ -2618,9 +2627,9 @@ Real-code regressions:
                                                         original whitespace verbatim for a `=`-suffixed field
                                                         -- a real behavior change, not cosmetic. Fixed:
                                                         `addBraceTrim` now detects a bare trailing `=` (a lone
-                                                        1-char OP token; all
-                                                        comparison/augmented-assignment/walrus operators
-                                                        tokenize as distinct multi-char OPs, so no risk of
+                                                        1-char OP token; every
+                                                        comparison/augmented-assignment/walrus operator
+                                                        tokenizes as a distinct multi-char OP, so no risk of
                                                         confusion) as the expression's last significant token
                                                         and skips gap-trimming entirely for that field. Both
                                                         verified via `python_content_diff.py` (structurally
@@ -2689,11 +2698,11 @@ Real-code regressions:
   real_code_regressions_121_inp/out.hpp              -- C++, microsoft/STL real-code dogfood: a wrapped
                                                         constructor signature (STL's own
                                                         `unique_lock(unique_lock&& _Other) noexcept :
-                                                        _Pmtx(_Other._Pmtx), _Owns(_Other._Owns) {}`) whose
-                                                        own parameter-wrap logic got misapplied to the
+                                                        _Pmtx(_Other._Pmtx), _Owns(_Other._Owns) {}`) had its
+                                                        parameter-wrap logic misapplied to the
                                                         immediately-following member-initializer-list entry,
                                                         corrupting `_Other._Pmtx` into `_Other. _Pmtx` -- a
-                                                        forward-pass bug, wrong on the very first format. Root
+                                                        forward-pass bug, wrong on the first format. Root
                                                         cause: `MiscRuleCurly.enforceCallLineBreaking` treats
                                                         `_Pmtx(_Other._Pmtx)` as an "IDENTIFIER (" call
                                                         candidate and hands it to `parseSignature`, whose
@@ -2727,13 +2736,12 @@ Real-code regressions:
                                                         indentation with no check that it's pure whitespace --
                                                         when the gap ends in a same-line leading comment
                                                         before the first declaration, that text got swept into
-                                                        `indent`, which `applyDeclarationsPass`/
-                                                        `applyAssignmentsPass`/
-                                                        `applyOversizedAggregateInitClosingBracePass` all use
-                                                        as the per-line join separator, duplicating the
-                                                        comment onto every sibling line. Fixed by truncating
-                                                        `trailingIndent`'s result at the first non-space/
-                                                        non-tab character. Verified against the real
+                                                        `indent`, which
+                                                        `applyDeclarationsPass`/`applyAssignmentsPass`/`applyOversizedAggregateInitClosingBracePass`
+                                                        all use as the per-line join separator, duplicating
+                                                        the comment onto every sibling line. Fixed by
+                                                        truncating `trailingIndent`'s result at the first
+                                                        non-whitespace character. Verified against the real
                                                         microsoft/STL tree (`ranges.hpp`, all 4 affected
                                                         `_Range` occurrences now idempotent and
                                                         comment-duplication-free). **Note:** a second,
@@ -2757,15 +2765,15 @@ Real-code regressions:
                                                         candidate line's parsed label/rest before it's allowed
                                                         into a separator-alignment run: a fragment must have
                                                         at most 4 whitespace-separated words, be at most 24
-                                                        characters, and contain no whole word (case-
-                                                        insensitively, single-letter words exempted) from a
-                                                        small common-English-stopword list; failing either
-                                                        check breaks the run like any non-qualifying line.
-                                                        This fixture also includes a genuine 2-line separator-
-                                                        alignment pair (`// Count : 1` / `// GrandTotal : 22`)
-                                                        to prove the fix doesn't regress real §15 alignment --
-                                                        still padded (`Count      : 1` / `GrandTotal : 22`).
-                                                        See `STATE_C_CPP_JAVA.md`.
+                                                        characters, and contain no whole word
+                                                        (case-insensitively, single-letter words exempted)
+                                                        from a small common-English-stopword list; failing
+                                                        either check breaks the run like any non-qualifying
+                                                        line. This fixture also includes a genuine 2-line
+                                                        separator-alignment pair (`// Count : 1` / `//
+                                                        GrandTotal : 22`) to prove the fix doesn't regress
+                                                        real §15 alignment -- still padded (`Count      : 1` /
+                                                        `GrandTotal : 22`). See `STATE_C_CPP_JAVA.md`.
 
   real_code_regressions_124_inp/out.hpp              -- C++, `filesystem.hpp` `recursive_directory_iterator`
                                                         assignment-alignment column-padding non-idempotency
@@ -3086,7 +3094,7 @@ Real-code regressions:
                                                         PUNCT) instead. Round2's `applyFStringSpacing` then
                                                         trimmed the field back to `{n}` but left the outer
                                                         decorator-call paren padding untouched --
-                                                        non-idempotent. Same bug class as already-fixed
+                                                        non-idempotent. Same bug class as the already-fixed
                                                         `pallets/click` case (fixture
                                                         `real_code_regressions_80`), triggered by field
                                                         adjacency rather than nesting depth. Fixed by tracking
@@ -3236,7 +3244,7 @@ Real-code regressions:
                                                         subject text kept a spurious space directly inside a
                                                         wrapped call's own parens (`min( left, 2 )` instead of
                                                         `min(left, 2)`) whenever `enforceCallLineBreaking`'s
-                                                        wrap placed a NEWLINE immediately after `(` or before
+                                                        wrap placed a newline immediately after `(` or before
                                                         `)`. Fixed by stripping whitespace adjacent to a paren
                                                         after the general collapse; `_out.kt` corrected to
                                                         `min(left, 2)`/`min(right, 3)`. `make test`: 278/278
@@ -3294,22 +3302,21 @@ Real-code regressions:
 
   real_code_regressions_153_inp/out.kt               -- Kotlin, `JetBrains/kotlin` dogfood cluster C6d: an
                                                         annotation directly ahead of a function-type literal
-                                                        (`@Composable (Params) -> Type`, as a parameter type
-                                                        or property type) lost its required space -- the
-                                                        general call-tight rule (`IDENTIFIER` immediately
-                                                        before `(` is always tight, correct for
-                                                        `@Composable(x)`'s own annotation-argument-list shape)
-                                                        fired first and wrongly tightened this case too, since
-                                                        both shapes are `IDENTIFIER` then `(` at the same
-                                                        join. Fixed by a new lookback+lookahead carve-out (is
-                                                        `prev` itself an annotation name immediately preceded
-                                                        by `@`? is its `(...)`'s matching `)` followed by
-                                                        `->`, i.e. actually a function type?) added ahead of
-                                                        the general rule in
+                                                        (`@Composable (Params) -> Type`, as a parameter or
+                                                        property type) lost its required space -- the general
+                                                        call-tight rule (`IDENTIFIER` immediately before `(`
+                                                        is always tight, correct for `@Composable(x)`'s own
+                                                        annotation-argument-list shape) fired first and
+                                                        wrongly tightened this case too, since both shapes are
+                                                        `IDENTIFIER` then `(` at the same join. Fixed by a new
+                                                        lookback+lookahead carve-out (is `prev` itself an
+                                                        annotation name immediately preceded by `@`? is its
+                                                        `(...)`'s matching `)` followed by `->`, i.e. actually
+                                                        a function type?) added ahead of the general rule in
                                                         `DeclarationAlignmentRuleCore.needsSpaceBetween` and
                                                         `MiscRuleCore.needsSpaceBetween` (both gained a
                                                         `List<Token> tokens, int curIdx` overload for the
-                                                        lookahead) and in `KotlinDeclarationAlignmentRule`'s
+                                                        lookahead), and in `KotlinDeclarationAlignmentRule`'s
                                                         own `renderTokens` override (updated to pass the new
                                                         overload through). `make test`: 201/201 forward +
                                                         201/201 idempotency. See `STATE_KOTLIN.md`'s Dogfood:
@@ -3362,16 +3369,14 @@ Real-code regressions:
                                                         returning null (leave the whole signature untouched)
                                                         whenever a param's default-value slice contains one.
                                                         (2) `BlockStructureRule.tryCollapseBraceless`'s
-                                                        sibling-but-distinct condition-flattening path
-                                                        (`renderInline`) had no comment guard at all, unlike
-                                                        its braced-body sibling `tryCollapse` (which already
-                                                        guarded its own condition render) -- a comment nested
-                                                        arbitrarily deep inside the condition (e.g. inside a
-                                                        trailing-lambda argument of a call within the
-                                                        condition) reached this method's
-                                                        `renderInline(tokens.subList(kwIndex,
-                                                        closeParenIndex+1))` call unguarded. Fixed by adding
-                                                        the exact same `containsLineComment` bail
+                                                        sibling condition-flattening path (`renderInline`) had
+                                                        no comment guard at all, unlike its braced-body
+                                                        sibling `tryCollapse` (which already guarded its own
+                                                        condition render) -- a comment nested arbitrarily deep
+                                                        inside the condition (e.g. inside a trailing-lambda
+                                                        argument of a call within the condition) reached this
+                                                        method's `renderInline` call unguarded. Fixed by
+                                                        adding the same `containsLineComment` bail
                                                         `tryCollapse` already had, to `tryCollapseBraceless`
                                                         too. Both fixes verified against the real
                                                         `JetBrains/kotlin` corpus (`ResolutionTesting.kt` and
@@ -3390,20 +3395,21 @@ Real-code regressions:
                                                         `=` is followed by a run of standalone `//` comment
                                                         lines before the real expression body
                                                         (`AbstractNativeBlackBoxTest.kt`'s
-                                                        `buildJUnitDynamicNodes`). `KotlinSignatureRule.
-                                                        renderWithTail` renders the tail's expression tokens
-                                                        via the comment-unaware `renderTokens` helper (same
-                                                        mechanism as this cluster's already-fixed shape (1)),
-                                                        fusing every leading comment line plus the first line
-                                                        of the real expression onto one physical line. Fixed
-                                                        by a new `containsLineComment` bail in
+                                                        `buildJUnitDynamicNodes`).
+                                                        `KotlinSignatureRule.renderWithTail` renders the
+                                                        tail's expression tokens via the comment-unaware
+                                                        `renderTokens` helper (same mechanism as this
+                                                        cluster's already-fixed shape (1)), fusing every
+                                                        leading comment line plus the first line of the real
+                                                        expression onto one physical line. Fixed by a new
+                                                        `containsLineComment` bail in
                                                         `KotlinSignatureRule.parseFunctionTail`, returning
                                                         null whenever the expression-body slice contains a
                                                         `COMMENT_LINE` -- `ScopePipelineCurly` already treats
                                                         a null tail like a null `KotlinSignature` and leaves
-                                                        the whole span untouched, no caller change needed
-                                                        beyond adding the null check. Verified against the
-                                                        real `AbstractNativeBlackBoxTest.kt` via
+                                                        the whole span untouched, no caller change needed.
+                                                        Verified against the real
+                                                        `AbstractNativeBlackBoxTest.kt` via
                                                         `kotlin_syntax_check` (clean). `make test`: 205/205
                                                         forward + 205/205 idempotency (no count change --
                                                         corruption fix to already-covered functionality, not a
@@ -4007,30 +4013,29 @@ Real-code regressions:
                                                         `JsTsSpecificRule. classBraceKind` walks backward from
                                                         a brace looking for a `class`/`interface` KEYWORD
 
-  real_code_regressions_199_inp/out.kt               -- Minimal repro of Kotlin multi‑line call/list‑literal
-                                                        trailing‑comma drop (STYLE_KOTLIN.md §7.2). A trailing
-                                                        comma before `)` on a multi‑line call/list‑literal was
+  real_code_regressions_199_inp/out.kt               -- Minimal repro of Kotlin multi-line call/list-literal
+                                                        trailing-comma drop (STYLE_KOTLIN.md §7.2). A trailing
+                                                        comma before `)` on a multi-line call/list-literal was
                                                         dropped in the "preserve original line groups" path
-                                                        (`MiscRuleCurly.renderCallPreserveGroups`) because
-                                                        last‑comma suppression unconditionally withheld the
-                                                        final comma, which is correct for C/C++/Java but wrong
-                                                        for Kotlin. The issue was resolved with a
-                                                        `hasTrailingComma` check gated on `lang.isKotlin`,
-                                                        consulted before `groupByOriginalLine` drops the
-                                                        dangling empty group, and wired into
-                                                        `renderCallPreserveGroups`, `renderCallDropped`, and
-                                                        `renderCallOnePerLine`. This covers a call with a
-                                                        trailing comma that is preserved, a call without one
-                                                        that is not added, and a `listOf(...)` list‑literal
-                                                        with a trailing comma that follows the same path. A
-                                                        token misclassification occurred where a field named
-                                                        `class` was misread as a class‑declaration keyword,
-                                                        feeding its nested brace into
-                                                        `enforceClassFieldAlignmentGrid`. The correction was
-                                                        `isFieldNameKeywordUsage`, which checks whether the
-                                                        token after the keyword is `:` or `?` (field usage)
-                                                        rather than an identifier (declared name), and skips
-                                                        such cases.
+                                                        (`MiscRuleCurly.renderCallPreserveGroups`), because
+                                                        last-comma suppression unconditionally withheld the
+                                                        final comma -- correct for C/C++/Java but wrong for
+                                                        Kotlin. Fixed with a `hasTrailingComma` check gated on
+                                                        `lang.isKotlin`, consulted before
+                                                        `groupByOriginalLine` drops the dangling empty group,
+                                                        and wired into `renderCallPreserveGroups`,
+                                                        `renderCallDropped`, and `renderCallOnePerLine`.
+                                                        Covers a call with a trailing comma that's preserved,
+                                                        a call without one that isn't added, and a
+                                                        `listOf(...)` list-literal with a trailing comma
+                                                        following the same path. Also fixes a token
+                                                        misclassification where a field named `class` was
+                                                        misread as a class-declaration keyword, feeding its
+                                                        nested brace into `enforceClassFieldAlignmentGrid`;
+                                                        corrected via `isFieldNameKeywordUsage`, which checks
+                                                        whether the token after the keyword is `:` or `?`
+                                                        (field usage) rather than an identifier (declared
+                                                        name), and skips such cases.
 
   real_code_regressions_200_inp/out.js               -- JS/TS §8 getter/setter-group regression: a plain
                                                         block-bodied method with no return-type token

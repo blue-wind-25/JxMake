@@ -972,8 +972,8 @@ The server (`--server`) exposes two plain-HTTP endpoints on `localhost:<port>` (
   terminates the process shortly after (deleting its lockfile first). Used by `--stop`.
 - `GET /properties` — no request parameters, empty request body. Response body (HTTP 200) is a
   JSON array of section-group objects, grouped and ordered exactly like the `### Config file
-  format` list below (`Structural constants`, `Behavior`, `C/C++`, `Java`, `Kotlin`, `JS/TS`,
-  `Python 3`, `HTML5`, `AI-assist (GRU)`): `[{"group": "<section-name>",
+  format` section above (`Server configurations`, `Structural constants`, `Behavior`, `C/C++`,
+  `Java`, `Kotlin`, `JS/TS`, `Python 3`, `HTML5`, `AI-assist (GRU)`): `[{"group": "<section-name>",
   "properties": [{"key": "<config-key>", "default": "<default-value>", "allowedValues":
   ["choice1", "choice2", ...] | null}, ...]}, ...]`. `default` is always the value's raw string
   form (as it would appear in a config file/query param/env var), even for integer/boolean keys.

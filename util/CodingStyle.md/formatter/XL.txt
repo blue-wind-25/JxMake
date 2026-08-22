@@ -203,15 +203,40 @@ Use sub-agent. This can be a substantial work.
        formatStandalone() re-ran the same full-file directive-regex parse from scratch for the
        rest of the overrides; now parsed once and threaded through format()/formatStandalone().
 
-    Looked at and deliberately deferred (real but low-value or higher-risk than this job's bar):
-    JavaSpecificRule/KotlinSpecificRule.hasBreakableCall (same algorithm, but Kotlin routes
-    through its own differently-indexed nextSignificantIndex/matchParenForward -- same
-    divergence-prone Kotlin-index area the morning session already flagged as excluded, needs a
-    careful look before any merge attempt, not a drop-in); GetterSetterRuleCore.isInsignificant vs
-    Token.isGapToken (near-identical predicate, two unrelated base-class hierarchies, minor/
-    low-value); CommentedOutCodeGate.endsWithSemicolon vs LicenseBlockGate's trailing-punctuation
-    check (same idiom, ~4 lines each, too small to be worth a shared helper on its own).
-    `gdr/GdrBraceDepthCounter` vs `GdrParenBracketDepthCounter` duplication remains intentional and
+    Follow-up (same day, user-requested deep-dive on the 3 deferred items above): investigated each
+    with actual evidence rather than re-stating the hedge.
+     - GetterSetterRuleCore.isInsignificant vs Token.isGapToken: CONFIRMED real divergence, not
+       just superficial -- isGapToken also treats SHEBANG as a gap, isInsignificant doesn't.
+       GetterSetterRuleCurly runs on JS/TS too, and ScopePipelineCurly's entry point
+       (`processScope(tokenize(source, formatOff), 0, ...)`, line ~2536) calls applyGetterSetterPass
+       at depth 0 on the *whole file's* token list, which includes a leading `#!...` SHEBANG token
+       when a .js/.ts file has one. Left duplicated -- do not merge.
+     - CommentedOutCodeGate.endsWithSemicolon vs LicenseBlockGate's trailing-punctuation check:
+       confirmed exactly 2 occurrences codebase-wide (grepped), no third consumer, no existing
+       shared-utility class for the Gate classes to host a new helper in (unlike the cases below,
+       which already had a natural home). Left duplicated -- premature abstraction for ~1 shared
+       line, not a risk issue.
+     - JavaSpecificRule/KotlinSpecificRule.hasBreakableCall: verified the two ARE functionally
+       equivalent today (Kotlin's at-or-after nextSignificantIndex(tokens, i+1) resolves to the same
+       start index as Java's strictly-after nextSignificantIndexAfter(tokens, i); Kotlin's local
+       matchParenForward returns the same matching-paren index as MiscRuleCore's). But both classes'
+       own doc comments explicitly document this specific duplication (hasBreakableCall AND
+       isSingleLineBody) as the deliberate "each rule class matches its own local conventions"
+       precedent, already spanning JavaSpecificRule/CppSpecificRule/KotlinSpecificRule/
+       GetterSetterRuleCurly -- a recorded architectural decision, not an oversight. Left
+       hasBreakableCall/isSingleLineBody themselves duplicated per that precedent.
+       HOWEVER: user asked to push one layer deeper and deduplicate the *underlying* index-scan
+       primitives instead (which don't carry that "local conventions" precedent -- they're the same
+       plain algorithmic navigation class as TokenNavigationRule's existing methods). Landed:
+       KotlinSpecificRule.nextSignificantIndex (at-or-after convention, 18 call sites in that file)
+       renamed to nextSignificantIndexAtOrAfter (explicit name, per user's request to disambiguate
+       from the shared -After/strictly-after convention) and its body now delegates to
+       TokenNavigationRule.nextSignificantIndexAfter(tokens, from - 1); KotlinSpecificRule's local
+       matchParenForward now delegates straight to MiscRuleCore.matchParenForward (no index math
+       needed, already-equivalent contract). hasBreakableCall/isSingleLineBody's own bodies
+       untouched -- still two separate methods per the local-conventions precedent, just built on
+       shared primitives underneath now. `make test`: 346/346 throughout, commit 8b7e604.
+     `gdr/GdrBraceDepthCounter` vs `GdrParenBracketDepthCounter` duplication remains intentional and
     already self-documented in both classes' own javadoc -- not a gap, don't touch.
 
     Prior morning-session finding still holds and needs no re-verification: the

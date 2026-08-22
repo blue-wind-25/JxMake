@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 import java.security.CodeSource;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.jxmake.formatter.Config;
 import com.jxmake.formatter.classifier.CommentClassifier;
@@ -52,6 +53,17 @@ public final class GruAbstainResolver {
      * weights path is also safe to hand out to concurrent server-mode requests.
      */
     private static final ConcurrentHashMap<Path, Optional<GruClassifier>> CLASSIFIER_CACHE = new ConcurrentHashMap<>();
+
+    /**
+     * Cache of {@link #programDirectory()}/{@link #WEIGHTS_FILENAME}'s derived default weights
+     * path, so the underlying {@code getProtectionDomain().getCodeSource()} + URI-to-{@link Path}
+     * resolution + filesystem {@code isDirectory} stat -- process-invariant work -- runs at most
+     * once per process instead of once per ABSTAIN comment when {@code gru-weights-path} is left
+     * at its default (the normal deployment case). {@code null} means "not yet computed"; a
+     * resolved {@code null} result (path undeterminable) is cached as {@code Optional.empty()},
+     * same fail-safe-once posture as {@link #CLASSIFIER_CACHE}.
+     */
+    private static final AtomicReference<Optional<Path>> DEFAULT_WEIGHTS_PATH_CACHE = new AtomicReference<>();
 
     /**
      * Filename of the GRU weights file expected in the "program directory" (see
@@ -184,10 +196,20 @@ public final class GruAbstainResolver {
         if( gruWeightsPathConfig != null && !gruWeightsPathConfig.trim().isEmpty() ) return Paths.get(
             gruWeightsPathConfig
         );
-        final Path programDir = programDirectory();
-        if(programDir == null) return null;
+        return defaultWeightsPath();
+    }
 
-        return programDir.resolve(WEIGHTS_FILENAME);
+    /** {@link #DEFAULT_WEIGHTS_PATH_CACHE}-backed, compute-once version of the default path. */
+    private static Path defaultWeightsPath()
+    {
+        Optional<Path> cached = DEFAULT_WEIGHTS_PATH_CACHE.get();
+        if(cached == null) {
+            final Path programDir = programDirectory();
+            cached = Optional.ofNullable( programDir == null ? null : programDir.resolve(WEIGHTS_FILENAME) );
+            DEFAULT_WEIGHTS_PATH_CACHE.compareAndSet(null, cached);
+            cached = DEFAULT_WEIGHTS_PATH_CACHE.get();
+        }
+        return cached.orElse(null);
     }
 
     /**

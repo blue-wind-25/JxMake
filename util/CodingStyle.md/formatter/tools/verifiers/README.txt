@@ -436,7 +436,20 @@ Makefile
       Standalone -- does not depend on any of the _exec_* launchers or any supporting .py/.js/
       .java file.
 
-      There is no makefile_content_diff.sh in this directory as of this writing.
+  makefile_content_diff.sh
+      Content-preservation checker for Makefile. No parser or AST dump is available for Make here,
+      so this compares `make -p -n -r -R` database dumps instead -- the fully-expanded value of
+      every variable and the expanded prerequisites/recipe of every target, with built-in implicit
+      rules and variables suppressed so only what the input file itself defines shows up. Both
+      dumps for one pair are produced from the same throwaway working directory, so path-dependent
+      entries (CURDIR, MAKEFILE_LIST, etc.) line up regardless of content; only each dump's
+      timestamp/mtime lines vary run to run and are stripped before comparing.
+
+      Usage : makefile_content_diff.sh <original.mk> <formatted.mk>
+              makefile_content_diff.sh <original_base_dir> <formatted_base_dir> <mk_rel_path_file_list.txt>
+
+      Standalone -- does not depend on any of the _exec_* launchers or any supporting .py/.js/
+      .java file.
 
 
 Bash

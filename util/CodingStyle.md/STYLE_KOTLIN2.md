@@ -51,7 +51,7 @@ rules already established in STYLE_KOTLIN.md:
 - **K2 compiler** — implementation detail, no syntax change.
 - **Non-local `break`/`continue` in lambdas** (2.1) — no new tokens to format.
 - **Multi-dollar string interpolation** (`$$`, 2.1) — falls under
-  STYLE_KOTLIN.md §16 (string templates preserved exactly as written).
+  STYLE_KOTLIN.md §19 (string templates preserved exactly as written).
 - **Context parameters** (experimental, 2.1+) — not yet in scope; revisit once
   the feature stabilizes and appears in actual project code.
 - **Unnamed placeholder `_`** in a lambda parameter list (`{ _, value -> ... }`) —

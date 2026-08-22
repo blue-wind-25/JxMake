@@ -54,11 +54,14 @@ stays empty — `eini` was added directly to `Lang.SUPPORTED_LANGUAGES`.
   Unicode" group proving quoted backslash escapes/real Unicode pass through
   verbatim (RDD_KEY_306). Registered in `Makefile`'s `INP_FILES`
   (immediately before `makefile_combined_inp.mk`) and `test/README.txt`. No
-  dogfood/external corpus — E-INI is a
-  codebase-local format with no widely-used real-world referent, so local
-  fixture coverage (plus round1/round2 idempotency) is the accepted bar,
-  same as the rest of the tooling family absent a corpus. No external
-  tool/validator applies for the same reason.
+  dogfood/external corpus — E-INI is a codebase-local format, a synthetic
+  combination of features (four simultaneous comment markers, dual `=`/`:`
+  separators, column-aligned backslash continuation, triple-quote strings)
+  rather than a match for any single widely-used real-world config format,
+  so no realistic search would turn up a corpus for it; local fixture
+  coverage (plus round1/round2 idempotency) is the accepted bar, same as
+  the rest of the tooling family absent a corpus. No external tool/
+  validator applies for the same reason.
 
 ---
 
@@ -115,5 +118,3 @@ that already-resolved spec, not genuine ambiguities requiring a stop.
       Confirmed `AI_PREAMBLE_FULL.md`/`AI_PREAMBLE_AESTHETIC.md` need no
       change (no language-enumeration lists there).
 - [x] Add `RDD_KEY_303` to `RDD_LOG.md`, index it above; create this file.
-- [ ] (Future, not blocking) Source a dogfood corpus if a real-world E-INI-
-      shaped format surfaces; register in `STATE_DOGFOOD.md` when it does.

@@ -413,10 +413,10 @@ final class UnicodeAndWhitespaceNormalizer {
             } // if
 
             if(inBlockComment) {
-                if( matchesAt(text, i, profile.blockCommentEnd) != null ) {
-                    final String end = matchesAt(text, i, profile.blockCommentEnd);
-                    out.append(end);
-                    i              += end.length();
+                final String blockEnd = matchesAt(text, i, profile.blockCommentEnd);
+                if( blockEnd != null ) {
+                    out.append(blockEnd);
+                    i              += blockEnd.length();
                     inBlockComment  = false;
                     isFirstChar     = false;
                     continue;

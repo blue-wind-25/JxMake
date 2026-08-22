@@ -556,8 +556,8 @@ public class SwitchRule {
     /** The leading whitespace text of the line containing tokens.get(anchorIdx), or "" if none. */
     private String currentLineIndent(final List<Token> tokens, final int anchorIdx)
     {
-        return tokens.get( lineStartOf(tokens, anchorIdx) ).type == TokenType.WHITESPACE
-                ? tokens.get( lineStartOf(tokens, anchorIdx) ).text : "";
+        final Token first = tokens.get( lineStartOf(tokens, anchorIdx) );
+        return first.type == TokenType.WHITESPACE ? first.text : "";
     }
 
     /** Index of the first token of the line containing tokens.get(idx). */

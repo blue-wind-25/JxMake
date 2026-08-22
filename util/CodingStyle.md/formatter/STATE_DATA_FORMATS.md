@@ -418,48 +418,40 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
   `STATE_HTML5_TCG.md` and has since been fully implemented there; items 2
   and 3 below are both FIXED here. Full diagnosis kept for history.**
 
-  1. **`web-platform-tests/wpt` residual gaps — DEFERRED, then IMPLEMENTED
-     in the grouped job `STATE_HTML5_TCG.md` (split off 2026-08-02, tc gap
-     job in `CLAUDE.md`'s routing table; now authoritative for this gap —
-     kept here only as a compact history pointer.** After 4 bugs fixed in
-     the initial `html/syntax/` session (EOF-implied-close; `<image>`->
-     `<img>` rewrite; `<head>`/`<body>` implied-close-trigger; `<xmp>`
-     raw-text) and a follow-up (`real_code_regressions_110`: generalized
-     `<image>` into `TAG_NAME_REWRITES`, broadened the tolerant-close
-     fallback from EOF-only to any mismatched/unrecognized closing tag,
-     fixing 3 of 9 residual files), remaining gaps (catalogued by category,
-     not re-verified live — no network access): foster-parenting-driven tree
-     reshaping (`foreign_content_009/010.html`); misnested `<form>`
-     reconstruction inside `<template>`; implicit `<body>` start-tag
-     insertion (content after an implicitly-closed `<head>` with no
-     `<body>` start tag ever written — distinct from the already-fixed
-     `<head>`/`<body>` implied-close trigger). A separate crash site
-     (raw-text elements whose literal closing tag never appears before EOF)
-     was found and FIXED (`real_code_regressions_111`) — capture-verbatim
-     instead of throwing. All three remaining gaps share one prerequisite:
-     an explicit open-elements-stack + HTML5 insertion-mode state machine
-     (currently implicit in the Java call stack) — comparable in size/risk
-     to `STATE_COMMON.md`'s "general scope-depth reindentation"
-     Architectural TODO (recommended order: implicit `<body>` insertion
-     first/narrowest, then foster-parenting, then misnested
-     `<form>`-in-`<template>`, then adoption agency last). Real-world impact
-     low — every dogfood corpus run so far formatted cleanly with zero
-     structural loss; these gaps only bite WPT's deliberately pathological
-     conformance fixtures. 2026-07-26 investigation confirmed implicit
-     `<body>` insertion can't be peeled off standalone (requires
-     fabricating a tag absent from source — first tag-synthesis path in an
-     otherwise preserve-as-written formatter — and threading state across
-     recursive `parseNodes`/`parseElement` calls to avoid
-     double-insertion); status quo (RDD_KEY_185: bare top-level content
-     reindents as an ordinary sibling) doesn't corrupt output, just isn't
-     spec-faithful. Tag-name case-folding was fixed standalone (item 3
-     below). **UPDATE:** all three gaps were subsequently implemented in
-     `STATE_HTML5_TCG.md` as levels 1-3 (implicit `<body>` insertion,
-     foster-parenting, misnested `<form>`-in-`<template>`) — landed and
-     full-suite dogfood re-validated with zero regressions, opt-in behind
-     `html5-tc-gap-level` (default `0`, off). No longer an open gap here;
-     see `STATE_HTML5_TCG.md` for each level's implementation notes/known
-     limitations.
+  1. **`web-platform-tests/wpt` residual gaps — history pointer only, fully
+     IMPLEMENTED in the grouped job `STATE_HTML5_TCG.md`** (split off
+     2026-08-02, tc gap job in `CLAUDE.md`'s routing table; that file is now
+     authoritative for this gap — see it for each level's implementation
+     notes/known limitations). Initial `html/syntax/` session fixed 4 bugs
+     (EOF-implied-close; `<image>`->`<img>` rewrite; `<head>`/`<body>`
+     implied-close-trigger; `<xmp>` raw-text); a follow-up
+     (`real_code_regressions_110`) generalized `<image>` into
+     `TAG_NAME_REWRITES` and broadened the tolerant-close fallback from
+     EOF-only to any mismatched/unrecognized closing tag, fixing 3 of 9
+     residual files. A separate crash site (raw-text elements whose literal
+     closing tag never appears before EOF) was found and FIXED
+     (`real_code_regressions_111`) — capture-verbatim instead of throwing.
+     The three remaining gaps (foster-parenting-driven tree reshaping,
+     `foreign_content_009/010.html`; misnested `<form>` reconstruction
+     inside `<template>`; implicit `<body>` start-tag insertion, distinct
+     from the already-fixed `<head>`/`<body>` implied-close trigger) all
+     shared one prerequisite — an explicit open-elements-stack + HTML5
+     insertion-mode state machine (currently implicit in the Java call
+     stack) — and had low real-world impact: every dogfood corpus run so
+     far formatted cleanly with zero structural loss, only WPT's
+     deliberately pathological conformance fixtures hit them; status quo
+     (RDD_KEY_185: bare top-level content reindents as an ordinary sibling)
+     doesn't corrupt output, just isn't spec-faithful. A 2026-07-26
+     investigation confirmed implicit `<body>` insertion can't be peeled off
+     standalone — it requires fabricating a tag absent from source (the
+     formatter's first tag-synthesis path) with state threaded across
+     recursive `parseNodes`/`parseElement` calls to avoid double-insertion.
+     Tag-name case-folding was fixed standalone (item 3 below). **All three
+     gaps were subsequently implemented** in `STATE_HTML5_TCG.md` as levels
+     1-3 (implicit `<body>` insertion, foster-parenting, misnested
+     `<form>`-in-`<template>`) — landed and full-suite dogfood re-validated
+     with zero regressions, opt-in behind `html5-tc-gap-level` (default `0`,
+     off). No longer an open gap here.
 
   2. **`apache/ant` `manual/running.html` — FIXED (RDD_KEY_223, 2026-08-01).**
      Narrower self-contained fix, not item 1's full insertion-mode-state

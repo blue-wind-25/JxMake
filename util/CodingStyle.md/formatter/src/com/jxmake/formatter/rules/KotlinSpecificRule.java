@@ -1170,7 +1170,12 @@ public class KotlinSpecificRule {
 
     /**
      * The index of the first significant token on the physical line containing {@code idx} --
-     * same purpose as {@code CppSpecificRule.lineStartIndex}.
+     * same purpose as {@code CppSpecificRule.lineStartIndex}/{@code TokenNavigationRule.lineStartIndex}.
+     * Kept as its own local copy rather than delegating to the shared one -- flagged in a prior
+     * session (2026-08-22 morning) as having real behavioral divergence from the shared
+     * implementation, not merely superficial dissimilarity, but that finding was not
+     * independently re-derived/re-verified since. Do not merge without re-confirming the specific
+     * divergence first.
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
@@ -1471,7 +1476,11 @@ public class KotlinSpecificRule {
      * True iff the `{` at {@code braceIdx} opens a Kotlin `enum class` body -- scans backward
      * past the enum's name and any supertype/generic-bound clause tokens until it finds the
      * `enum` keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely).
-     * Same shape as {@code JavaSpecificRule.isEnumBodyBrace}.
+     * Same shape as {@code JavaSpecificRule.isEnumBodyBrace}, but deliberately NOT merged with it
+     * (verified 2026-08-22): this method's local {@code prevSignificantIndex} is an at-or-before
+     * scan, unlike Java's {@code prevSignificantIndexBefore} (strictly-before) -- and this
+     * method's call sites (`braceIdx - 1`, `p - 1`) apply no compensating offset, so the two
+     * methods actually scan different starting positions. Not safe to merge.
      */
     private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
     {
@@ -1748,7 +1757,12 @@ public class KotlinSpecificRule {
      * lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
      * comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical
      * helper -- same "each rule class matches its own local conventions" precedent already used
-     * across those classes.
+     * across those classes. Re-verified 2026-08-22: this and {@code JavaSpecificRule.hasBreakableCall}
+     * ARE functionally equivalent today (confirmed via index-math trace, not just name/shape
+     * similarity), but stay two separate methods per the precedent above -- only the low-level
+     * index-scan primitives underneath ({@link #nextSignificantIndexAtOrAfter}/
+     * {@link #matchParenForward}) were pulled onto shared code, not this method itself. Do not
+     * merge without new evidence.
      */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
     {

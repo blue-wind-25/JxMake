@@ -30,6 +30,8 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isRepOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isUnaryMinusOperand;
 
 /**
  * Family-agnostic base for {@link MiscRuleCurly} (and, in the future, {@code MiscRuleIndent}/
@@ -735,8 +737,9 @@ public abstract class MiscRuleCore {
         return "type".equals(lastSig.text) && secondLastSig != null
                 && secondLastSig.type == TokenType.KEYWORD && "import".equals(secondLastSig.text);
     }
-protected static int matchParenForward(final List<Token> tokens, final int openIdx)
-{
+
+    protected static int matchParenForward(final List<Token> tokens, final int openIdx)
+    {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
             if( isPunct( tokens.get(i), "(" ) ) {
@@ -749,7 +752,8 @@ protected static int matchParenForward(final List<Token> tokens, final int openI
         } // for
 
         return -1;
-}
+    }
+
     /**
      * Forward `{`/`}` bracket match -- the brace-pair analog of {@link #matchParenForward},
      * previously re-implemented byte-identically in both {@code CppSpecificRule} and
@@ -1436,7 +1440,7 @@ public static final class Assignment {
               Token         prev = null;
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( prev != null && !Token.isUnaryMinusOperand(
+            if( prev != null && !isUnaryMinusOperand(
                 tokens, i
             ) && needsSpaceBetween(
                 prev, t, templateOpens, templateCloses, tokens, i
@@ -1487,7 +1491,7 @@ public static final class Assignment {
         ) ) return false;
         for(int k = openIdx + 1; k < closeIdx; ++k) {
             final Token t = tokens.get(k);
-            if( t.type != TokenType.IDENTIFIER && t.type != TokenType.KEYWORD && !Token.isRepOp(
+            if( t.type != TokenType.IDENTIFIER && t.type != TokenType.KEYWORD && !isRepOp(
                 t, '*'
             ) ) return false;
         }
@@ -1535,13 +1539,13 @@ public static final class Assignment {
                         || next.type == TokenType.NUMBER || isPunct(next, "(") ) ) {
                     sb.append(' '); // Binary * or & in expression context
                 } // if
-                else if( !Token.isUnaryMinusOperand(
+                else if( !isUnaryMinusOperand(
                     tokens, i
                 ) && needsSpaceBetween(
                     prev, t, templateOpens, templateCloses, tokens, i
                 ) ) {
                     final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
-                    if( t.type == TokenType.IDENTIFIER && Token.isRepOp(prev, '*')
+                    if( t.type == TokenType.IDENTIFIER && isRepOp(prev, '*')
                         && (prev2 == null || prev2.type == TokenType.OP)
                         && (lang.isC || lang.isCpp) ) {
                         // Pointer dereference: add nothing
@@ -1822,15 +1826,15 @@ public static final class Assignment {
         // rendering surfaced this: `x * x` was joining as `x* x`). Same reasoning excludes Java
         // (RDD_KEY_TBD, self-hosting dogfood bug, mirrors the identical fix in
         // `DeclarationAlignmentRuleCore.isTightToken`): Java has no pointer/reference declarator
-        // syntax, so `&`/`&&` there are always bitwise-AND/logical-AND -- `Token.isRepOp(t, '&')`
+        // syntax, so `&`/`&&` there are always bitwise-AND/logical-AND -- `isRepOp(t, '&')`
         // matches the whole `&&` run too, so without this exclusion a Java logical-AND lost its
         // leading space (`x >= 2&& y`) wherever an expression (not just a declaration
         // initializer) rendered through this shared join point. `*` stays tight for Java here,
         // same as `DeclarationAlignmentRuleCore`'s mirrored fix -- no observed bug on that side,
         // left untouched to avoid an unrelated behavior change.
-        if( !lang.isKotlin && ( Token.isRepOp(
+        if( !lang.isKotlin && ( isRepOp(
             t, '*'
-        ) || ( !lang.isJava && Token.isRepOp(
+        ) || ( !lang.isJava && isRepOp(
             t, '&'
         ) ) ) ) return true;
         // Kotlin's bare `?` only ever appears as a type's nullability suffix (`Type?`) -- its

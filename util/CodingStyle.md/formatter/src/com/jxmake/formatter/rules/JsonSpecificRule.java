@@ -16,6 +16,8 @@ import com.jxmake.formatter.tokenizer.JsonTokenizer;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 /**
  * JSON/JSON5 STYLE_DATA_FORMATS.md §1 rule logic -- shared between the two (gated internally on
  * {@code lang.isJson5} for JSON5-only additions such as comments/trailing commas/unquoted keys),
@@ -237,8 +239,8 @@ public final class JsonSpecificRule {
     {
         final Token t = c.cur();
         if(t == null) throw new JsonParseException("unexpected end of input");
-        if( Token.isPunct(t, "{") ) return parseContainer(c, true);
-        if( Token.isPunct(t, "[") ) return parseContainer(c, false);
+        if( isPunct(t, "{") ) return parseContainer(c, true);
+        if( isPunct(t, "[") ) return parseContainer(c, false);
         if(t.type == TokenType.STRING || t.type == TokenType.NUMBER || t.type == TokenType.IDENTIFIER) {
             c.i++;
             return new Scalar(t.text);
@@ -268,7 +270,7 @@ public final class JsonSpecificRule {
             if(t == null) throw new JsonParseException(
                 "unterminated " + (isObject ? "object" : "array")
             );
-            if( Token.isPunct(t, closer) ) {
+            if( isPunct(t, closer) ) {
                 c.i++;
                 // A dangling blank line with no comment before the closer carries no information
                 // that survives to rendered output (it would only ever be rendered via
@@ -297,7 +299,7 @@ public final class JsonSpecificRule {
                     c.i++;
                     while( c.cur() != null && ( c.cur().type == TokenType.WHITESPACE || c.cur().type == TokenType.NEWLINE ) ) c.i++;
                 }
-                if( !Token.isPunct(
+                if( !isPunct(
                     c.cur(), ":"
                 ) ) throw new JsonParseException(
                     "expected ':' after key " + item.key
@@ -309,7 +311,7 @@ public final class JsonSpecificRule {
             item.value = parseValue(c);
 
             while( c.cur() != null && c.cur().type == TokenType.WHITESPACE ) c.i++;
-            if( Token.isPunct( c.cur(), "," ) ) {
+            if( isPunct( c.cur(), "," ) ) {
                 item.hasComma = true;
                 c.i++;
             }

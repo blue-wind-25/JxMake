@@ -73,6 +73,14 @@ public final class CommentedOutCodeGate {
             || DECLARATION_SHAPE.matcher(commentText).find();
     }
 
+    /**
+     * Same trailing-whitespace-skip-then-check-last-char shape as
+     * {@code LicenseBlockGate.endsWithSentenceEndingPunctuation}, but a different terminal
+     * character set for a different question (code-shape vs. sentence-ending). Deliberately not
+     * factored into a shared helper -- only these 2 occurrences codebase-wide (grepped
+     * 2026-08-22), and neither Gate class has an existing shared-utility home to put one in;
+     * introducing a new class for one shared loop line would be premature abstraction.
+     */
     private static boolean endsWithSemicolon(final String commentText)
     {
         int i = commentText.length() - 1;

@@ -326,7 +326,12 @@ public class JavaSpecificRule {
      * lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
      * comment). Duplicated from {@code GetterSetterRuleCurly}'s identical helper -- same "each rule
      * class matches its own local conventions" precedent as {@code isSingleLineBody} itself,
-     * already duplicated across this class and {@code CppSpecificRule}.
+     * already duplicated across this class and {@code CppSpecificRule}. Re-verified 2026-08-22:
+     * this and {@code KotlinSpecificRule.hasBreakableCall} ARE functionally equivalent today
+     * (confirmed via index-math trace, not just name/shape similarity), but stay two separate
+     * methods per the precedent above -- only the low-level index-scan primitives underneath were
+     * pulled onto shared code ({@code TokenNavigationRule}/{@code MiscRuleCore}), not this method
+     * itself. Do not merge without new evidence.
      */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
     {
@@ -567,7 +572,13 @@ public class JavaSpecificRule {
     /**
      * True iff the `{` at {@code braceIdx} opens a Java enum's body -- scans backward past the
      * enum's name and any `implements`/generic-bound clause tokens until it finds the `enum`
-     * keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely)
+     * keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely).
+     * Deliberately NOT merged with {@code KotlinSpecificRule.isEnumBodyBrace} despite the
+     * identical shape (verified 2026-08-22): this method's {@code prevSignificantIndexBefore} is
+     * a strictly-before scan, but Kotlin's local {@code prevSignificantIndex} is at-or-before --
+     * and unlike {@code hasBreakableCall}'s properly offset-compensated use of the equivalent
+     * next-index pair, Kotlin's call sites here (`braceIdx - 1`, `p - 1`) apply no compensating
+     * offset, so the two methods actually scan different starting positions. Not safe to merge.
      */
     private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
     {

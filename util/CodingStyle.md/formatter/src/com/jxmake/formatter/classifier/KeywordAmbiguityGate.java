@@ -331,9 +331,13 @@ public final class KeywordAmbiguityGate {
         return new HashSet<>( Arrays.asList(words) );
     }
 
-    public static boolean hasLeadingKeywordMatch(final String commentText, final Lang lang)
+    /**
+     * Takes the already-extracted leading word directly, rather than re-scanning
+     * {@code commentText} -- callers such as {@link CommentFeatureExtractor} already have this
+     * word from their own leading-word extraction and can pass it straight through
+     */
+    public static boolean hasLeadingKeywordMatch(final String leadingWord, final Lang lang)
     {
-        final String leadingWord = leadingWord(commentText);
         if( leadingWord.isEmpty() ) return false;
         if(lang.isJava) return KEYWORDS_JAVA.contains(leadingWord);
         if(lang.isCpp) return KEYWORDS_C.contains(
@@ -351,25 +355,6 @@ public final class KeywordAmbiguityGate {
         if(lang.isPython3) return KEYWORDS_PYTHON.contains(leadingWord);
 
         return KEYWORDS_C.contains(leadingWord);
-    }
-
-    /**
-     * First contiguous run of letters/digits/underscore after skipping leading whitespace, or
-     * "" if commentText has no such leading word. Mirrors
-     * MiscRuleCore.capitalizeFirstLetter's leading-word extraction.
-     */
-    private static String leadingWord(final String commentText)
-    {
-        int i = 0;
-        while( i < commentText.length() && Character.isWhitespace( commentText.charAt(i) ) ) i++;
-        int end = i;
-        while( end < commentText.length() && ( Character.isLetterOrDigit(
-            commentText.charAt(end)
-        ) || commentText.charAt(
-            end
-        ) == '_' ) ) end++;
-
-        return commentText.substring(i, end);
     }
 
     /**

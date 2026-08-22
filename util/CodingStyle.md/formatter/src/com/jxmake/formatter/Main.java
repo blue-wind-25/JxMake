@@ -406,9 +406,10 @@ public final class Main {
     ) throws IOException
     {
         if( !Files.isRegularFile(path) ) throw new IOException("no such file: " + path);
-        final String original   = readFile(path);
-        final String inFileLang = InFileConfig.parse(original).get("--lang");
-        final String language   = inFileLang != null ? inFileLang : ( explicitLanguage != null ? explicitLanguage : inferLanguage(
+        final String              original        = readFile(path);
+        final Map<String, String> inFileOverrides = InFileConfig.parse(original);
+        final String              inFileLang      = inFileOverrides.get("--lang");
+        final String              language        = inFileLang != null ? inFileLang : ( explicitLanguage != null ? explicitLanguage : inferLanguage(
             path
         ) );
         if(language == null) throw new IOException(
@@ -417,7 +418,7 @@ public final class Main {
         if( Lang.isScaffoldOnly(language) ) throw new UnsupportedLanguageException(language);
 
         final String  formatted = format(
-            path, language, original, standalone, formatOff, cliOverrides
+            path, language, original, standalone, formatOff, cliOverrides, inFileOverrides
         );
         final boolean changed   = !formatted.equals(original);
 
@@ -468,7 +469,8 @@ public final class Main {
         final String              original,
         final boolean             standalone,
         final boolean             formatOff,
-        final Map<String, String> cliOverrides
+        final Map<String, String> cliOverrides,
+        final Map<String, String> inFileOverrides
     ) throws IOException
     {
         if(!standalone) {
@@ -484,7 +486,7 @@ public final class Main {
             } // if
         } // if
 
-        return formatStandalone(path, language, original, formatOff, cliOverrides);
+        return formatStandalone(path, language, original, formatOff, cliOverrides, inFileOverrides);
     }
 
     private static String formatStandalone(
@@ -492,10 +494,10 @@ public final class Main {
         final String              language,
         final String              original,
         final boolean             formatOff,
-        final Map<String, String> baseCliOverrides
+        final Map<String, String> baseCliOverrides,
+        final Map<String, String> inFileOverrides
     ) throws IOException
     {
-        final Map<String, String> inFileOverrides = InFileConfig.parse(original);
         inFileOverrides.remove("--lang");
                 Config config = Config.resolve(path, baseCliOverrides, inFileOverrides);
         if( "auto".equals( config.indentStyle() ) ) {

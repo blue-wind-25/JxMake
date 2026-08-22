@@ -18,6 +18,11 @@ import java.util.Set;
 
 import com.jxmake.formatter.Lang;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isKeyword;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
+
 /**
  * Curly-brace-family tokenizer (C/C++/Java/Kotlin) -- everything in this file used to live
  * directly in {@link TokenizerCore} before the curly/indent/tags class-refactor
@@ -1573,7 +1578,7 @@ public class TokenizerCurly extends TokenizerCore {
     private boolean isRegexLiteralAllowedHere(final List<Token> tokens)
     {
         int i = tokens.size() - 1;
-        while( i >= 0 && Token.isGapToken( tokens.get(i) ) ) i--;
+        while( i >= 0 && isGapToken( tokens.get(i) ) ) i--;
         if(i < 0) return true;
         final Token last = tokens.get(i);
         switch(last.type) {
@@ -1967,7 +1972,7 @@ public class TokenizerCurly extends TokenizerCore {
      * assignment-RHS (incl. compound assignment operators) / logical-nullish-RHS (Increment 4, see
      * {@link #isAssignmentOrLogicalRhsStart}), grouping-paren-start (Increment 5, see
      * {@link #isGroupingParenStart}), and bare `{`-hole-start / spread (Increment 6, see the plain
-     * {@code Token.isPunct(prev, "{")} check and {@link #isSpreadContext}). Design list item 10
+     * {@code isPunct(prev, "{")} check and {@link #isSpreadContext}). Design list item 10
      * (template-literal `${}` holes) is NOT implemented -- see STATE_JS_TS.md, structurally
      * unreachable at this pre-pass's granularity because {@code emitTemplateLiteral} already
      * swallows an entire template literal (including every `${...}` interpolation) into one opaque
@@ -1988,7 +1993,7 @@ public class TokenizerCurly extends TokenizerCore {
         for( int s = 0; s < sig.size(); ++s ) {
             final int   idx = sig.get(s);
             final Token cur = tokens.get(idx);
-            if( !Token.isOp(cur, "<") ) continue;
+            if( !isOp(cur, "<") ) continue;
 
             final Token prev = s > 0 ? tokens.get( sig.get(s - 1) ) : null;
             // Increment 1: "after return". Increment 2 adds "after =>" (arrow-function body start)
@@ -2001,13 +2006,13 @@ public class TokenizerCurly extends TokenizerCore {
             // legacy `<T>` cast) is still safe even if this check fires on it -- findJsxSpanEnd/
             // parseJsxTag returns -1 for anything that doesn't actually parse as a balanced JSX
             // tree, leaving the tokens untouched.
-            final boolean isJsxContext = Token.isKeyword(
+            final boolean isJsxContext = isKeyword(
                 prev, "return"
-            ) || Token.isOp(
+            ) || isOp(
                 prev, "=>"
-            ) || Token.isOp(
+            ) || isOp(
                 prev, "?"
-            ) || Token.isOp(
+            ) || isOp(
                 prev, ":"
             ) || isCallArgumentOrArrayElementStart(
                 tokens, sig, s
@@ -2015,7 +2020,7 @@ public class TokenizerCurly extends TokenizerCore {
                 prev
             ) || isGroupingParenStart(
                 tokens, sig, s
-            ) || Token.isPunct(
+            ) || isPunct(
                 prev, "{"
             ) || (prev != null && prev.type == TokenType.TEMPLATE_HOLE_OPEN) || isSpreadContext(
                 tokens, sig, s
@@ -2198,8 +2203,8 @@ public class TokenizerCurly extends TokenizerCore {
         int s = s0;
         while( s < sig.size() ) {
             final Token cur = tokens.get( sig.get(s) );
-            if( !Token.isOp(cur, "<") ) {
-                if( Token.isPunct(cur, "{") ) {
+            if( !isOp(cur, "<") ) {
+                if( isPunct(cur, "{") ) {
                     final int holeOpenRawIdx = sig.get(s);
                     final int newS           = skipBalancedBraceHole(tokens, sig, s);
                     if(newS < 0) return -1;
@@ -2318,7 +2323,7 @@ public class TokenizerCurly extends TokenizerCore {
               int s = s0 + 1;     // Skip the opening '<'
         if(s >= n) return null;
 
-        final boolean closing = Token.isOp( tokens.get( sig.get(s) ), "/" );
+        final boolean closing = isOp( tokens.get( sig.get(s) ), "/" );
         if(closing) {
             ++s;
             if(s >= n) return null;
@@ -2333,7 +2338,7 @@ public class TokenizerCurly extends TokenizerCore {
         // inserted inside the hole). Empty string is the fragment's `tagName` sentinel -- open/close
         // fragments both use "", so findJsxSpanEnd's existing tag-identity check (`expected.equals(
         // r.tagName)`) already pairs them correctly with zero changes needed there.
-        final boolean isFragment = Token.isOp( tokens.get( sig.get(s) ), ">" );
+        final boolean isFragment = isOp( tokens.get( sig.get(s) ), ">" );
         final String  tagNameStr;
         if(isFragment) {
             tagNameStr = "";
@@ -2342,7 +2347,7 @@ public class TokenizerCurly extends TokenizerCore {
             if( tokens.get( sig.get(s) ).type != TokenType.IDENTIFIER ) return null; // Tag name required
             final StringBuilder tagName = new StringBuilder( tokens.get( sig.get(s) ).text );
             ++s;
-            while( s + 1 < n && Token.isOp( tokens.get( sig.get(s) ), "." )
+            while( s + 1 < n && isOp( tokens.get( sig.get(s) ), "." )
                     && tokens.get( sig.get(s + 1) ).type == TokenType.IDENTIFIER ) {
                 tagName.append('.').append( tokens.get( sig.get(s + 1) ).text );
                 s += 2; // Dotted component name, e.g. `React.Fragment`
@@ -2362,21 +2367,21 @@ public class TokenizerCurly extends TokenizerCore {
                                                           // attrValueHoleRawRanges' own javadoc.
         while(s < n) {
             final Token t = tokens.get( sig.get(s) );
-            if( localBrace == 0 && Token.isOp(t, "/") && s + 1 < n
-                    && Token.isOp( tokens.get( sig.get(s + 1) ), ">" ) ) {
+            if( localBrace == 0 && isOp(t, "/") && s + 1 < n
+                    && isOp( tokens.get( sig.get(s + 1) ), ">" ) ) {
                 selfClosing = true;
                 ++s; // Leave the '>' itself for the shared consumption below
                 break;
             }
-            if( localBrace == 0 && Token.isOp(t, ">") ) break;
+            if( localBrace == 0 && isOp(t, ">") ) break;
             // A `{` at localBrace == 0 only starts a new attribute (spread, `{...props}`) when
             // it's NOT the value half of a preceding `name={...}` -- otherwise it's the same
             // attribute's own value hole, not a fresh boundary (found via Increment 2's own
             // real-code smoke test: without this check, `attr={x}` wrongly split into two
             // "attributes", `attr=` and `{x}`).
-            final boolean isValueHoleOpenBrace = Token.isPunct(
+            final boolean isValueHoleOpenBrace = isPunct(
                 t, "{"
-            ) && s > 0 && Token.isOp(
+            ) && s > 0 && isOp(
                 tokens.get( sig.get(s - 1) ), "="
             );
             // A hyphenated attribute name (`data-foo`, `aria-label`) tokenizes as
@@ -2384,22 +2389,22 @@ public class TokenizerCurly extends TokenizerCore {
             // JSX attributes any other way, so an IDENTIFIER immediately following one is always
             // a name continuation, not a fresh boundary (previously mis-split into two
             // "attributes", corrupting the wrap output -- see STATE_JS_TS.md).
-            final boolean isHyphenatedNameContinuation = s > 0 && Token.isOp(
+            final boolean isHyphenatedNameContinuation = s > 0 && isOp(
                 tokens.get( sig.get(s - 1) ), "-"
             );
             if( localBrace == 0 && !closing && !isValueHoleOpenBrace && !isHyphenatedNameContinuation
-                    && ( t.type == TokenType.IDENTIFIER || Token.isPunct(
+                    && ( t.type == TokenType.IDENTIFIER || isPunct(
                         t, "{"
                     ) ) ) attrRawTokenIndices.add(
                         sig.get(s)
                     );
-            if( Token.isPunct(t, "{") ) {
+            if( isPunct(t, "{") ) {
                 if(localBrace == 0 && isValueHoleOpenBrace) valueHoleOpenRawIdx = sig.get(s);
                 ++localBrace;
                 ++s;
                 continue;
             }
-            if( Token.isPunct(t, "}") ) {
+            if( isPunct(t, "}") ) {
                 if(localBrace > 0) --localBrace;
                 if(localBrace == 0 && valueHoleOpenRawIdx >= 0) {
                     attrValueHoleRawRanges.add( new int[]{valueHoleOpenRawIdx, sig.get(s) + 1} );
@@ -2411,7 +2416,7 @@ public class TokenizerCurly extends TokenizerCore {
             ++s;
         } // while
 
-        if( s >= n || !Token.isOp( tokens.get( sig.get(s) ), ">" ) ) return null;
+        if( s >= n || !isOp( tokens.get( sig.get(s) ), ">" ) ) return null;
         ++s; // Consume '>'
 
         return new JsxTagResult(
@@ -2434,8 +2439,8 @@ public class TokenizerCurly extends TokenizerCore {
         int s          = s0;
         while( s < sig.size() ) {
             final Token t = tokens.get( sig.get(s) );
-            if( Token.isPunct(t, "{") ) ++braceDepth;
-            else if( Token.isPunct(t, "}") ) {
+            if( isPunct(t, "{") ) ++braceDepth;
+            else if( isPunct(t, "}") ) {
                 --braceDepth;
                 if(braceDepth == 0) return s + 1;
             }
@@ -2477,15 +2482,15 @@ public class TokenizerCurly extends TokenizerCore {
         if(s == 0) return false;
         final Token prev = tokens.get( sig.get(s - 1) );
 
-        if( Token.isPunct(prev, "[") ) return true;
-        if( Token.isPunct(prev, "(") ) return isCallOpenParen(tokens, sig, s - 1);
+        if( isPunct(prev, "[") ) return true;
+        if( isPunct(prev, "(") ) return isCallOpenParen(tokens, sig, s - 1);
 
-        if( Token.isPunct(prev, ",") ) {
+        if( isPunct(prev, ",") ) {
             final int openIdx = findEnclosingOpenBracket(tokens, sig, s - 1);
             if(openIdx < 0) return false;
             final Token open = tokens.get( sig.get(openIdx) );
-            if( Token.isPunct(open, "[") ) return true;
-            if( Token.isPunct(open, "(") ) return isCallOpenParen(tokens, sig, openIdx);
+            if( isPunct(open, "[") ) return true;
+            if( isPunct(open, "(") ) return isCallOpenParen(tokens, sig, openIdx);
             return false;
         } // if
 
@@ -2506,9 +2511,9 @@ public class TokenizerCurly extends TokenizerCore {
         if(parenS == 0) return false;
         final Token before = tokens.get( sig.get(parenS - 1) );
 
-        return before.type == TokenType.IDENTIFIER || Token.isPunct(
+        return before.type == TokenType.IDENTIFIER || isPunct(
             before, ")"
-        ) || Token.isPunct(
+        ) || isPunct(
             before, "]"
         );
     }
@@ -2530,7 +2535,7 @@ public class TokenizerCurly extends TokenizerCore {
         if(s == 0) return false;
         final int   parenS = s - 1;
         final Token prev   = tokens.get( sig.get(parenS) );
-        if( !Token.isPunct(prev, "(") ) return false;
+        if( !isPunct(prev, "(") ) return false;
 
         return !isCallOpenParen(tokens, sig, parenS);
     }
@@ -2549,7 +2554,7 @@ public class TokenizerCurly extends TokenizerCore {
     {
         if(s == 0) return false;
         final Token prev = tokens.get( sig.get(s - 1) );
-        if( !Token.isOp(prev, "...") ) return false;
+        if( !isOp(prev, "...") ) return false;
 
         return isCallArgumentOrArrayElementStart(tokens, sig, s - 1);
     }
@@ -2569,10 +2574,10 @@ public class TokenizerCurly extends TokenizerCore {
         final java.util.Deque<String> stack = new java.util.ArrayDeque<>();
         for(int s = beforeS - 1; s >= 0; --s) {
             final Token t = tokens.get( sig.get(s) );
-            if( Token.isPunct(t, ")") || Token.isPunct(t, "]") || Token.isPunct(t, "}") ) {
+            if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) {
                 stack.push(t.text);
             }
-            else if( Token.isPunct(t, "(") || Token.isPunct(t, "[") || Token.isPunct(t, "{") ) {
+            else if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) {
                 if( stack.isEmpty() ) return s;
                 stack.pop();
             }

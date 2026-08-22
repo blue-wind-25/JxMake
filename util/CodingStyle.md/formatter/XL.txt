@@ -153,7 +153,7 @@ Use sub-agent. This can be a substantial work.
      2. If a clear opportunity arises, optimize for execution speed.
      3. Perform other useful code clean-ups as needed.
 
-    Prioritize the files that are modified after commit `99011aa` but you can search for existing
+    Prioritize the files that are modified after commit `d1e6d06` but you can search for existing
     helper functions that already exist before that commit.
 
     Prioritize changes that are:
@@ -178,19 +178,6 @@ Use sub-agent. This can be a substantial work.
     If a code-writing task is simple and mechanical, use Haiku instead of Sonnet.
 
     NEVER launch Opus or any more expensive sub-agent.
-
-    Session note (2026-08-22): investigated whether any of the per-rule-class helpers duplicated
-    across JavaSpecificRule/CppSpecificRule/KotlinSpecificRule/JsTsSpecificRule/MiscRuleCurly/
-    BlockStructureRule are safe to consolidate despite the documented no-shared-helpers-across-
-    rule-classes precedent (see MiscRuleCurly.hasCommentBetween's doc comment). Found and
-    consolidated 6 genuinely safe, byte-identical, purely algorithmic ones --
-    lineStartIndex/prevSignificantIndexBefore/nextSignificantIndexAfter (Java/Cpp),
-    isPathOp/matchesPrefix (Java/Kotlin), render (Java/JsTs) -- into new TokenNavigationRule.java
-    (commit e6fb770). The lineIndent/hasCommentBetween/appendRange/renderTokens cluster remains
-    intentionally duplicated per that precedent; Kotlin's lineStartIndex and isEnumBodyBrace were
-    checked and excluded due to real behavioral divergence, not just superficial dissimilarity.
-    Do not re-attempt merging any of those without new evidence. Next time this job runs, keep
-    checking newly-modified files for the same kind of safe-to-share opportunity.
 
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 

@@ -2125,7 +2125,7 @@ public static final class Signature {
         if( p < 0 || tokens.get(p).type != TokenType.NEWLINE ) return ownIndent;
         int q = p - 1;
         while( q >= 0 && tokens.get(q).type == TokenType.WHITESPACE ) q--;
-        if( q < 0 || !Token.isOp( tokens.get(q), "->" ) ) return ownIndent;
+        if( q < 0 || !isOp( tokens.get(q), "->" ) ) return ownIndent;
 
         return lineIndent(tokens, q);
     }

@@ -112,7 +112,7 @@ public class KotlinSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( t.type != TokenType.KEYWORD || !"when".equals(t.text) ) continue;
-            int j = nextSignificantIndex(tokens, i + 1);
+            int j = nextSignificantIndexAtOrAfter(tokens, i + 1);
             if(j < 0) continue;
             String subject = null;
             if( isPunct( tokens.get(j), "(" ) ) {
@@ -140,7 +140,7 @@ public class KotlinSpecificRule {
                 // own nested calls happened to wrap.
                 subject = literalSlice(tokens, j + 1, closeParen).trim().replaceAll("\\s+", " ")
                         .replaceAll("\\(\\s+", "(").replaceAll("\\s+\\)", ")");
-                j       = nextSignificantIndex(tokens, closeParen + 1);
+                j       = nextSignificantIndexAtOrAfter(tokens, closeParen + 1);
             } // if
             if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;
             final int openBrace  = j;
@@ -173,12 +173,12 @@ public class KotlinSpecificRule {
     )
     {
         final List<WhenBranch> branches = new ArrayList<>();
-              int              pos      = nextSignificantIndex(tokens, openBrace + 1);
+              int              pos      = nextSignificantIndexAtOrAfter(tokens, openBrace + 1);
         while(pos >= 0 && pos < closeBrace) {
             final int arrowIdx = findTopLevelArrow(tokens, pos, closeBrace);
             if(arrowIdx < 0) return null;
             final String label     = literalSlice(tokens, pos, arrowIdx).trim();
-            final int    bodyStart = nextSignificantIndex(tokens, arrowIdx + 1);
+            final int    bodyStart = nextSignificantIndexAtOrAfter(tokens, arrowIdx + 1);
             if(bodyStart < 0 || bodyStart >= closeBrace) return null;
 
             final int bodyEnd;
@@ -187,7 +187,7 @@ public class KotlinSpecificRule {
                 final int bodyClose = matchBraceForward(tokens, bodyStart);
                 if(bodyClose < 0 || bodyClose > closeBrace) return null;
                 bodyEnd = bodyClose;
-                nextPos = nextSignificantIndex(tokens, bodyClose + 1);
+                nextPos = nextSignificantIndexAtOrAfter(tokens, bodyClose + 1);
             }
             else {
                 final int nlIdx = findTopLevelNewline(tokens, bodyStart, closeBrace);
@@ -197,7 +197,7 @@ public class KotlinSpecificRule {
                 }
                 else {
                     bodyEnd = lastSignificantIndex(tokens, bodyStart, nlIdx);
-                    nextPos = nextSignificantIndex(tokens, nlIdx + 1);
+                    nextPos = nextSignificantIndexAtOrAfter(tokens, nlIdx + 1);
                 }
             }
             branches.add( new WhenBranch(pos, bodyStart, bodyEnd, label) );
@@ -247,7 +247,7 @@ public class KotlinSpecificRule {
      * which meant a `when` branch led by its own standalone comment (e.g. `// Success case`
      * right after the `when(...) {`) never got its blank line at all, since {@code
      * findWhenBranches}'s {@code labelStart} is the branch's first *significant* token --
-     * {@code nextSignificantIndex} skips comments -- so the comment ends up inside the scanned
+     * {@code nextSignificantIndexAtOrAfter} skips comments -- so the comment ends up inside the scanned
      * gap even though it visually belongs to the branch, not the `when`'s own opening). A
      * standalone comment that starts its own line is now treated as the anchor: the blank line
      * is guaranteed in the sub-gap strictly before it, and the comment itself is left exactly
@@ -390,13 +390,18 @@ public class KotlinSpecificRule {
         return sb.toString();
     }
 
-    private int nextSignificantIndex(final List<Token> tokens, final int from)
+    /**
+     * Index of the nearest significant token at-or-after {@code from} ({@code from} itself is
+     * returned if it's already significant), or {@code -1} if none -- unlike
+     * {@link TokenNavigationRule#nextSignificantIndexAfter}'s at-strictly-after-{@code from}
+     * convention, kept as its own differently-named wrapper here since every call site in this
+     * class already expects the at-or-after contract (typically called with {@code from + 1} to
+     * mean "strictly after" at the use site instead). Delegates to the shared scan with the
+     * matching {@code from - 1} index-math adjustment so the loop itself isn't duplicated.
+     */
+    private int nextSignificantIndexAtOrAfter(final List<Token> tokens, final int from)
     {
-        for( int i = from; i < tokens.size(); ++i ) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.nextSignificantIndexAfter(tokens, from - 1);
     }
 
     private int lastSignificantIndex(final List<Token> tokens, final int from, final int to)
@@ -408,18 +413,14 @@ public class KotlinSpecificRule {
         return from;
     }
 
+    /**
+     * Index of {@code openIdx}'s matching {@code )}, or {@code -1} if unbalanced. Delegates to
+     * {@link MiscRuleCore#matchParenForward} -- same depth-tracking result for every call site
+     * here, all of which already pass an {@code openIdx} that's a verified {@code (} token.
+     */
     private int matchParenForward(final List<Token> tokens, final int openIdx)
     {
-          int depth = 1;
-          int i     = openIdx + 1;
-    final int n     = tokens.size();
-        while(i < n && depth > 0) {
-                 if( isPunct( tokens.get(i), "(" ) ) depth++;
-            else if( isPunct( tokens.get(i), ")" ) ) depth--;
-            ++i;
-        }
-
-        return depth == 0 ? i - 1 : -1;
+        return MiscRuleCore.matchParenForward(tokens, openIdx);
     }
 
     private int matchBraceForward(final List<Token> tokens, final int openIdx)
@@ -843,12 +844,12 @@ public class KotlinSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( t.type != TokenType.KEYWORD || !"when".equals(t.text) ) continue;
-            int j = nextSignificantIndex(tokens, i + 1);
+            int j = nextSignificantIndexAtOrAfter(tokens, i + 1);
             if(j < 0) continue;
             if( isPunct( tokens.get(j), "(" ) ) {
                 final int closeParen = matchParenForward(tokens, j);
                 if(closeParen < 0) continue;
-                j = nextSignificantIndex(tokens, closeParen + 1);
+                j = nextSignificantIndexAtOrAfter(tokens, closeParen + 1);
             }
             if( j < 0 || !isPunct( tokens.get(j), "{" ) ) continue;
             final int openBrace  = j;
@@ -1024,7 +1025,7 @@ public class KotlinSpecificRule {
                 overrides.put( b.start, prefix + boundTexts.get(k) );
                 for(int j = b.start + 1; j <= b.end; ++j) suppressed.add(j);
                 if( k < bounds.size() - 1 ) {
-                    final int commaIdx = nextSignificantIndex(tokens, b.end + 1);
+                    final int commaIdx = nextSignificantIndexAtOrAfter(tokens, b.end + 1);
                     overrides.put(commaIdx, ",");
                     final int nextStart = bounds.get(k + 1).start;
                     for(int j = commaIdx + 1; j < nextStart; ++j) suppressed.add(j);
@@ -1067,7 +1068,7 @@ public class KotlinSpecificRule {
     {
         final List<WhereBound> bounds  = new ArrayList<>();
               int              depth   = 0;
-              int              start   = nextSignificantIndex(tokens, fromInclusive);
+              int              start   = nextSignificantIndexAtOrAfter(tokens, fromInclusive);
               int              lastSig = -1;
         for(int i = start; i >= 0 && i < toExclusive; ++i) {
             final Token t = tokens.get(i);
@@ -1083,7 +1084,7 @@ public class KotlinSpecificRule {
             else if( depth == 0 && isPunct(t, ",") ) {
                 if(lastSig < 0) return Collections.emptyList();
                 bounds.add( new WhereBound(start, lastSig) );
-                start   = nextSignificantIndex(tokens, i + 1);
+                start   = nextSignificantIndexAtOrAfter(tokens, i + 1);
                 lastSig = -1;
                 continue;
             }
@@ -1159,7 +1160,7 @@ public class KotlinSpecificRule {
         // already-wrapped multi-line `where` clause, its physical-line indent is whatever a prior
         // formatting pass happened to write there, which is not guaranteed to stay stable across
         // repeated formatting rounds (see RDD_KEY_215).
-        final int    firstSig   = nextSignificantIndex(tokens, stmtStart);
+        final int    firstSig   = nextSignificantIndexAtOrAfter(tokens, stmtStart);
         final String stmtIndent = lineIndent(tokens, firstSig < 0 ? idx : firstSig);
 
         return stmtIndent.length() >= indentUnit.length()
@@ -1169,7 +1170,12 @@ public class KotlinSpecificRule {
 
     /**
      * The index of the first significant token on the physical line containing {@code idx} --
-     * same purpose as {@code CppSpecificRule.lineStartIndex}.
+     * same purpose as {@code CppSpecificRule.lineStartIndex}/{@code TokenNavigationRule.lineStartIndex}.
+     * Kept as its own local copy rather than delegating to the shared one -- flagged in a prior
+     * session (2026-08-22 morning) as having real behavioral divergence from the shared
+     * implementation, not merely superficial dissimilarity, but that finding was not
+     * independently re-derived/re-verified since. Do not merge without re-confirming the specific
+     * divergence first.
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
@@ -1180,7 +1186,7 @@ public class KotlinSpecificRule {
                 break;
             }
         }
-        final int firstSig = nextSignificantIndex(tokens, newlineIdx < 0 ? 0 : newlineIdx);
+        final int firstSig = nextSignificantIndexAtOrAfter(tokens, newlineIdx < 0 ? 0 : newlineIdx);
 
         return firstSig < 0 ? idx : firstSig;
     }
@@ -1438,7 +1444,7 @@ public class KotlinSpecificRule {
             if( !isPunct( tokens.get(i), "{" ) || !isEnumBodyBrace(tokens, i) ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
             if(closeBraceIdx < 0) continue;
-            final int firstMember = nextSignificantIndex(tokens, i + 1);
+            final int firstMember = nextSignificantIndexAtOrAfter(tokens, i + 1);
             if(firstMember < 0 || firstMember >= closeBraceIdx) continue;
             final String indent = lineIndent(tokens, firstMember);
                   int    depth  = 0;
@@ -1452,7 +1458,7 @@ public class KotlinSpecificRule {
                     --depth;
                 }
                 else if( depth == 0 && isPunct(t, ";") ) {
-                    final int next = nextSignificantIndex(tokens, p + 1);
+                    final int next = nextSignificantIndexAtOrAfter(tokens, p + 1);
                     if( next >= 0 && next < closeBraceIdx && !MiscRuleCore.anyFrozen(
                         tokens, firstMember, closeBraceIdx
                     ) ) result.put(
@@ -1470,7 +1476,11 @@ public class KotlinSpecificRule {
      * True iff the `{` at {@code braceIdx} opens a Kotlin `enum class` body -- scans backward
      * past the enum's name and any supertype/generic-bound clause tokens until it finds the
      * `enum` keyword, bailing out on an intervening `{`/`}`/`;` (a different construct entirely).
-     * Same shape as {@code JavaSpecificRule.isEnumBodyBrace}.
+     * Same shape as {@code JavaSpecificRule.isEnumBodyBrace}, but deliberately NOT merged with it
+     * (verified 2026-08-22): this method's local {@code prevSignificantIndex} is an at-or-before
+     * scan, unlike Java's {@code prevSignificantIndexBefore} (strictly-before) -- and this
+     * method's call sites (`braceIdx - 1`, `p - 1`) apply no compensating offset, so the two
+     * methods actually scan different starting positions. Not safe to merge.
      */
     private boolean isEnumBodyBrace(final List<Token> tokens, final int braceIdx)
     {
@@ -1747,18 +1757,23 @@ public class KotlinSpecificRule {
      * lines if it doesn't fit (zero-arg calls are never broken, see that method's own doc
      * comment). Duplicated from {@code JavaSpecificRule}/{@code GetterSetterRuleCurly}'s identical
      * helper -- same "each rule class matches its own local conventions" precedent already used
-     * across those classes.
+     * across those classes. Re-verified 2026-08-22: this and {@code JavaSpecificRule.hasBreakableCall}
+     * ARE functionally equivalent today (confirmed via index-math trace, not just name/shape
+     * similarity), but stay two separate methods per the precedent above -- only the low-level
+     * index-scan primitives underneath ({@link #nextSignificantIndexAtOrAfter}/
+     * {@link #matchParenForward}) were pulled onto shared code, not this method itself. Do not
+     * merge without new evidence.
      */
     private boolean hasBreakableCall(final List<Token> tokens, final int from, final int to)
     {
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type != TokenType.IDENTIFIER) continue;
-            final int parenIdx = nextSignificantIndex(tokens, i + 1);
+            final int parenIdx = nextSignificantIndexAtOrAfter(tokens, i + 1);
             if( parenIdx < 0 || parenIdx > to || !isPunct( tokens.get(parenIdx), "(" ) ) continue;
             final int closeIdx = matchParenForward(tokens, parenIdx);
             if(closeIdx < 0 || closeIdx > to) continue;
-            final int argsFrom = nextSignificantIndex(tokens, parenIdx + 1);
+            final int argsFrom = nextSignificantIndexAtOrAfter(tokens, parenIdx + 1);
             if(argsFrom >= 0 && argsFrom < closeIdx) return true;
         } // for
 
@@ -2173,7 +2188,7 @@ public class KotlinSpecificRule {
             ) || isControlFlowOrWhenOrNamedBrace(
                 tokens, i
             ) ) continue;
-            final int firstSig = nextSignificantIndex(tokens, i + 1);
+            final int firstSig = nextSignificantIndexAtOrAfter(tokens, i + 1);
             if( firstSig < 0 || isPunct( tokens.get(firstSig), "}" ) ) continue; // Empty body
             if( tokens.get(
                 firstSig

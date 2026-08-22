@@ -306,33 +306,6 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
         return new KotlinDecl( modifiers, name, typeTokens, initTokens, findTrailingComment(stmt) );
     }
 
-    /**
-     * True iff {@code stmt} (the declaration's raw, unfiltered token span) contains a
-     * {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token anywhere strictly between {@code
-     * afterToken} (found by identity, same approach as {@link #spansMultipleLines}) and {@code
-     * stmt}'s own last significant token -- i.e. an *embedded* comment inside the initializer
-     * expression that a comment-free {@code significantOnly} rebuild would otherwise silently
-     * drop. A trailing end-of-line comment (after the last significant token) is deliberately
-     * excluded -- that one is already carried separately via {@link #findTrailingComment} and
-     * rendered back, so flagging it here would needlessly break grouping for the common case of
-     * a plain `val x = 1 // comment` declaration.
-     */
-    private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken)
-    {
-        int lastSigIdx = -1;
-        for( int k = 0; k < stmt.size(); ++k ) {
-            if( !isGapToken( stmt.get(k) ) ) lastSigIdx = k;
-        }
-        boolean seen = false;
-        for( int k = 0; k < stmt.size(); ++k ) {
-            final Token t = stmt.get(k);
-            if( seen && k < lastSigIdx && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) ) return true;
-            if(t == afterToken) seen = true;
-        }
-
-        return false;
-    }
-
     private boolean isPlainModifier(final Token t)
     {
         return modifierPriority.isModifier(t.text) && !isValOrVar(t);

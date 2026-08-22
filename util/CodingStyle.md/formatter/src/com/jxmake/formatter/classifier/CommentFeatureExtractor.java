@@ -86,7 +86,7 @@ public final class CommentFeatureExtractor {
             commentText
         );
         final boolean hasLeadingKeywordMatch        = targetWordIndex == 0 && KeywordAmbiguityGate.hasLeadingKeywordMatch(
-            commentText, lang
+            targetWord, lang
         );
         final boolean isDecorativeOnly              = DecorativeSeparatorGate.isDecorativeOnly(
             commentText
@@ -137,9 +137,10 @@ public final class CommentFeatureExtractor {
 
     /**
      * [start, end) of the first contiguous run of letters/digits/underscore after skipping
-     * leading whitespace -- same extraction MiscRuleCore.capitalizeFirstLetter and
-     * KeywordAmbiguityGate.hasLeadingKeywordMatch use, kept in sync by construction here since
-     * both callers now route through this.
+     * leading whitespace -- same extraction MiscRuleCore.capitalizeFirstLetter uses. The
+     * resulting {@code targetWord} is passed straight into
+     * {@link KeywordAmbiguityGate#hasLeadingKeywordMatch(String, Lang)} rather than that method
+     * re-extracting it from {@code commentText} itself.
      */
     private static int[] leadingWordBounds(final String commentText)
     {

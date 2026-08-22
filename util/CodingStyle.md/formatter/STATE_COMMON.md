@@ -219,6 +219,7 @@ python_content_diff.sh
 jxmake_syntax_check.sh
 
 makefile_syntax_check.sh
+makefile_content_diff.sh
 
 bash_syntax_check.sh
 ```

@@ -190,7 +190,10 @@ kotlin_syntax_check.sh
 kotlin_content_diff.sh
 
 json_syntax_check.sh
+json_content_diff.sh
+
 json5_syntax_check.sh
+json5_content_diff.sh
 
 css_syntax_check.sh
 css_content_diff.sh
@@ -212,6 +215,8 @@ js_ts_content_diff.sh
 
 python_syntax_check.sh
 python_content_diff.sh
+
+jxmake_syntax_check.sh
 
 makefile_syntax_check.sh
 

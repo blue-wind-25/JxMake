@@ -396,6 +396,32 @@ Python
       Depends on : python_content_diff.py, _exec_python.sh.
 
 
+JxMakeFile
+----------
+
+  jxmake_syntax_check.sh
+      Syntax checker for JxMakeFile (.jxm) source files. There is no parse-only mode for JxMake,
+      so this runs the real compiler, `dist_build/jxmake --__compile__ -f <file>.jxm`, located at a
+      fixed path relative to this script (`<this dir>/../../../../../dist_build/jxmake`, never an
+      absolute path) rather than assumed to be on `PATH`.
+
+      Compiling always writes a sibling *.bin file next to the source, which this checker must not
+      leak as a side effect: if a *.bin already existed for a given input, it is backed up before
+      compiling and restored afterward; if none existed, the one the compile produces is deleted
+      afterward. A pre-existing *.bin surviving under a `.jxmake_syntax_check_backup` suffix after
+      an interrupted run is the exit trap failing to fire, not by design.
+
+      Usage : jxmake_syntax_check.sh <file.jxm> [file2.jxm ...]
+
+      Standalone -- does not depend on any of the _exec_* launchers or any supporting .py/.js/
+      .java file.
+
+      Exit 2 also covers the case where dist_build (or the jxmake binary inside it) doesn't exist
+      yet -- build it first, then re-run the check.
+
+      There is no jxmake_content_diff.sh in this directory as of this writing.
+
+
 Makefile
 --------
 
@@ -432,4 +458,5 @@ Exit codes
 
 All *_syntax_check.* scripts follow the same convention: exit 0 if every input file parses
 successfully, 1 if one or more files contain syntax errors, and 2 if invoked with no file
-arguments (usage error).
+arguments (usage error). jxmake_syntax_check.sh additionally uses exit 2 for a missing
+dist_build/jxmake prerequisite -- see its entry above.

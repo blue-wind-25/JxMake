@@ -15,7 +15,6 @@ import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
-import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
@@ -442,28 +441,6 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
             if(t == from) inRange = true;
             if( inRange && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) ) return true;
             if(t == to) break;
-        }
-
-        return false;
-    }
-
-    /**
-     * Same "embedded comment inside the initializer would be silently dropped" bailout as
-     * {@code KotlinDeclarationAlignmentRule.hasCommentAfter} -- a trailing end-of-line comment
-     * (after {@code stmt}'s own last significant token) is excluded, since that one is already
-     * carried separately via {@link #findTrailingComment}.
-     */
-    private boolean hasCommentAfter(final List<Token> stmt, final Token afterToken)
-    {
-        int lastSigIdx = -1;
-        for( int k = 0; k < stmt.size(); ++k ) {
-            if( !isGapToken( stmt.get(k) ) ) lastSigIdx = k;
-        }
-        boolean seen = false;
-        for( int k = 0; k < stmt.size(); ++k ) {
-            final Token t = stmt.get(k);
-            if( seen && k < lastSigIdx && (t.type == TokenType.COMMENT_LINE || t.type == TokenType.COMMENT_BLOCK) ) return true;
-            if(t == afterToken) seen = true;
         }
 
         return false;

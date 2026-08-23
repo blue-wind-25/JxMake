@@ -697,7 +697,8 @@ public final class Main {
         return body;
     }
 
-    private static String readStream(final InputStream in) throws IOException
+    /** Reads {@code in} fully as UTF-8. Package-private: also used by {@code ServerMode}'s request-body reading. */
+    static String readStream(final InputStream in) throws IOException
     {
         final java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
         final byte[] chunk = new byte[8192];

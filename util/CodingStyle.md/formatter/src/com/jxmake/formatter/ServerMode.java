@@ -8,7 +8,6 @@
 package com.jxmake.formatter;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -394,7 +393,7 @@ public final class ServerMode {
                 final boolean             formatOff       = "true".equals(
                     params.get("format-off")
                 );
-                final String              content         = readBody( exchange.getRequestBody() );
+                final String              content         = Main.readStream( exchange.getRequestBody() );
                 final Map<String, String> inFileOverrides = InFileConfig.parse(content);
                 final String              inFileLanguage  = inFileOverrides.remove("--lang");
                       String              language        = inFileLanguage != null ? inFileLanguage : queryLanguage;
@@ -624,15 +623,6 @@ public final class ServerMode {
         }
     }
 
-    private static String readBody(final InputStream in) throws IOException
-    {
-        final java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
-        final byte[] chunk = new byte[8192];
-              int    read;
-        while( ( read = in.read(chunk) ) != -1 ) buffer.write(chunk, 0, read);
-
-        return new String( buffer.toByteArray(), StandardCharsets.UTF_8 );
-    }
 
     private static void respond(
         final HttpExchange exchange,

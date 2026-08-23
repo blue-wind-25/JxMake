@@ -229,7 +229,7 @@ final class ToolingCommentNormalizer {
             final String body;
             final int    lineNo;
                   String resolvedText   = null; // Set by resolve(); final substituted text
-                  int    resolvedLength = -1; // Set by resolve(); length of the final substituted text
+                  int    resolvedLength = -1;   // Set by resolve(); length of the final substituted text
 
             Entry(final String placeholder, final String body, final int lineNo)
             {

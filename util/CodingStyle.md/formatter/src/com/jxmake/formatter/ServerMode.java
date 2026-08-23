@@ -147,6 +147,7 @@ public final class ServerMode {
     private static Object processHandleOf(final long pid) throws ReflectiveOperationException
     {
         final Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
+
         return processHandleClass.getMethod("of", long.class).invoke(null, pid);
     }
 
@@ -394,7 +395,9 @@ public final class ServerMode {
                 final boolean             formatOff       = "true".equals(
                     params.get("format-off")
                 );
-                final String              content         = Main.readStream( exchange.getRequestBody() );
+                final String              content         = Main.readStream(
+                    exchange.getRequestBody()
+                );
                 final Map<String, String> inFileOverrides = InFileConfig.parse(content);
                 final String              inFileLanguage  = inFileOverrides.remove("--lang");
                       String              language        = inFileLanguage != null ? inFileLanguage : queryLanguage;

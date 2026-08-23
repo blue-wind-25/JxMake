@@ -132,14 +132,14 @@ public class PythonBracketComplexityEvaluator {
     /**
      * Shared depth-0 bracket-aware scan behind {@link #containsTopLevelComprehension}/
      * {@link #containsTopLevelColon}: true iff any token in {@code tokens} satisfies
-     * {@code match} while at its own top level (depth 0 relative to {@code tokens} itself).
+     * {@code match} while at its own top level (depth 0 relative to {@code tokens} itself)
      */
     private boolean containsTopLevel(final List<Token> tokens, final Predicate<Token> match)
     {
         int depth = 0;
         for(final Token t : tokens) {
-                 if( isOpenBracket(t) )        depth++;
-            else if( isCloseBracket(t) )       depth--;
+                 if( isOpenBracket(t) )            depth++;
+            else if( isCloseBracket(t) )           depth--;
             else if( depth == 0 && match.test(t) ) return true;
         }
 

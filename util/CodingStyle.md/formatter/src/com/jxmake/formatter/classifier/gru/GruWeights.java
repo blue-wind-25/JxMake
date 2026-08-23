@@ -356,7 +356,7 @@ public final class GruWeights {
     private static Object findOptionalValue(String json, String key)
     {
         final String needle = "\"" + key + "\"";
-        int          idx    = json.indexOf(needle);
+              int    idx    = json.indexOf(needle);
         while(idx >= 0) {
             int q = idx + needle.length();
             while( q < json.length() && Character.isWhitespace( json.charAt(q) ) ) ++q;

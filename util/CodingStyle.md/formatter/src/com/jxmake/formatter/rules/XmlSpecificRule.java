@@ -742,7 +742,9 @@ public final class XmlSpecificRule {
     /** True iff {@code n} is an ELEMENT node named {@code tagName} (case-insensitive) */
     private static boolean isElementNamed(final Node n, final String tagName)
     {
-        return n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(tagName);
+        return n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
+            tagName
+        );
     }
 
     private void insertImplicitBodyIfNeeded(final List<Node> nodes)

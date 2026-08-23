@@ -80,7 +80,7 @@ final class TokenNavigationRule {
      * {@code lastSignificant} and {@code t}) because a comment, a newline, or a frozen token
      * (either inside the gap itself, or {@code lastSignificant}/{@code t} bookending it) is
      * present -- byte-identical shape previously reimplemented at every tight-spacing rewrite call
-     * site across {@link JsTsSpecificRule}/{@link KotlinSpecificRule}.
+     * site across {@link JsTsSpecificRule}/{@link KotlinSpecificRule}
      */
     static boolean isGapBlocked(final List<Token> gap, final Token lastSignificant, final Token t)
     {

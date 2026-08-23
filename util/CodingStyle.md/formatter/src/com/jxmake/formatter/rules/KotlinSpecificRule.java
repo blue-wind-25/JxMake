@@ -589,7 +589,9 @@ public class KotlinSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked        = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean gapBlocked        = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean adjacentToRangeOp = isRangeOp(lastSignificant) || isRangeOp(t);
 
             if(!gapBlocked && adjacentToRangeOp) {
@@ -657,7 +659,9 @@ public class KotlinSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked       = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean gapBlocked       = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean tightBeforeAt    = isOp(
                 t, "@"
             ) && ( state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_THIS_KEYWORD || ( state == JumpState.AFTER_PLAIN_IDENT && isLoopLabelTarget(
@@ -798,7 +802,9 @@ public class KotlinSpecificRule {
                 continue;
             }
 
-            final boolean blocked          = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean blocked          = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean forceSpaceBefore = !blocked && isOp(t, "->") && !whenArrows.contains(i);
             final boolean forceSpaceAfter  = !blocked && lastSignificant != null && isOp(
                 lastSignificant, "->"
@@ -899,7 +905,9 @@ public class KotlinSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked       = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean gapBlocked       = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean tightBeforeColon = state == UseSiteState.AFTER_TARGET && isOp(t, ":");
             final boolean tightAfterColon  = state == UseSiteState.AFTER_COLON;
 

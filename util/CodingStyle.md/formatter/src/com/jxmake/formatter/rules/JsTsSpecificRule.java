@@ -730,7 +730,9 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked        = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean gapBlocked        = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean adjacentToTightOp = isOptionalChain(
                 lastSignificant
             ) || isOptionalChain(
@@ -2225,7 +2227,9 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked      = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean gapBlocked      = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean adjacentToArrow = isOp(lastSignificant, "=>") || isOp(t, "=>");
 
             if(gapBlocked || !adjacentToArrow) {
@@ -3200,7 +3204,9 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked                    = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean gapBlocked                    = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean adjacentToUnionOrIntersection = isUnionOrIntersection(
                 lastSignificant
             ) || isUnionOrIntersection(
@@ -3276,7 +3282,9 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked      = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
+            final boolean gapBlocked      = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
             final boolean beforeTypeColon = typeColons.contains(i);
             final boolean afterTypeColon  = lastSigIdx >= 0 && typeColons.contains(lastSigIdx);
 
@@ -4064,7 +4072,7 @@ public final class JsTsSpecificRule {
             if( isOp(t, "@") && !t.frozen ) {
                 final int nextSig = nextSignificantIndex(tokens, i + 1);
                 if(nextSig > i + 1) {
-                    final List<Token> gap        = tokens.subList(i + 1, nextSig);
+                    final List<Token> gap = tokens.subList(i + 1, nextSig);
                     // 2026-08-23 dedup-sweep note: NOT a candidate for TokenNavigationRule.
                     // isGapBlocked(gap, lastSignificant, t) despite the surface resemblance to the
                     // 10 sites in this file/KotlinSpecificRule that do use it. That helper also
@@ -4079,7 +4087,7 @@ public final class JsTsSpecificRule {
                     // already caught by `isComment(g)` above. So this narrower gap-only check is
                     // provably equivalent to the shared predicate here, not an incomplete copy of
                     // it; do not "fix" by delegating without re-deriving this reachability argument.
-                    final boolean     gapBlocked = gap.stream().anyMatch(
+                    final boolean gapBlocked = gap.stream().anyMatch(
                         g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
                     );
                     if(!gapBlocked) {

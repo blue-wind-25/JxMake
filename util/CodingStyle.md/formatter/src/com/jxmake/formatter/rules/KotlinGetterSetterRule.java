@@ -66,7 +66,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
      * Visibility/inheritance modifiers shared by every Kotlin declaration kind this class checks
      * -- the common prefix of {@link #FUN_MODIFIERS}/{@link #PROPERTY_MODIFIERS}, factored out so
      * a future addition/removal to this shared set can't silently drift between the two lists the
-     * way a plain copy-paste risked.
+     * way a plain copy-paste risked
      */
     private static final List<String> VISIBILITY_AND_INHERITANCE_MODIFIERS = Arrays.asList(
         "public", "private", "protected", "internal", "override", "open", "final", "abstract"
@@ -74,7 +74,12 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
 
     private static final List<String> FUN_MODIFIERS = withExtra(
         VISIBILITY_AND_INHERITANCE_MODIFIERS,
-        "inline", "suspend", "operator", "infix", "tailrec", "external"
+        "inline",
+        "suspend",
+        "operator",
+        "infix",
+        "tailrec",
+        "external"
     );
 
     /** Modifiers that can precede a `val`/`var` property declaration (STYLE_KOTLIN.md §6/§8). */

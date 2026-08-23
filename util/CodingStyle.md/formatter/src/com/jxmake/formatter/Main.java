@@ -596,9 +596,9 @@ public final class Main {
         try {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
             final byte[]        hash   = digest.digest( input.getBytes(StandardCharsets.UTF_8) );
-            final StringBuilder sb     = new StringBuilder( 2* hash.length );
+            final StringBuilder sb     = new StringBuilder(2* hash.length);
             for(final byte b : hash) {
-                sb.append( HEX_DIGITS[(b >> 4) & 0xF] );
+                sb.append( HEX_DIGITS[ (b >> 4) & 0xF ] );
                 sb.append( HEX_DIGITS[b & 0xF] );
             }
             return sb.toString();

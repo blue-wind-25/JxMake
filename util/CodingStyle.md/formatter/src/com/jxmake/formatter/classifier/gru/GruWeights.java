@@ -345,13 +345,31 @@ public final class GruWeights {
 
     } // class Cursor
 
+    /**
+     * Finds {@code "key"} followed by (optional whitespace, {@code :}, optional whitespace) and
+     * parses the value that follows -- a manual literal scan rather than a fresh
+     * {@code Pattern.compile} per call (this runs once per field on every weights-file load, ~20-30
+     * fields), same match semantics as the regex it replaces: a {@code "key"} occurrence not
+     * eventually followed by {@code :} (only whitespace in between) is skipped in favor of the next
+     * occurrence, matching {@code Matcher.find()}'s own scan-forward behavior.
+     */
     private static Object findOptionalValue(String json, String key)
     {
-        Matcher m = Pattern.compile( "\"" + Pattern.quote(key) + "\"\\s*:\\s*" ).matcher(json);
-        if( !m.find() ) return null;
-        Cursor c = new Cursor( json, m.end() );
+        final String needle = "\"" + key + "\"";
+              int    idx    = json.indexOf(needle);
+        while(idx >= 0) {
+            int q = idx + needle.length();
+            while( q < json.length() && Character.isWhitespace( json.charAt(q) ) ) ++q;
+            if( q < json.length() && json.charAt(q) == ':' ) {
+                ++q;
+                while( q < json.length() && Character.isWhitespace( json.charAt(q) ) ) ++q;
 
-        return parseValue(c);
+                return parseValue( new Cursor(json, q) );
+            }
+            idx = json.indexOf(needle, idx + 1);
+        } // while
+
+        return null;
     }
 
     private static Object parseValue(Cursor c)

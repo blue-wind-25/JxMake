@@ -228,7 +228,8 @@ final class ToolingCommentNormalizer {
             final String placeholder;
             final String body;
             final int    lineNo;
-                  int    resolvedLength = -1; // Set by resolve(); length of the final substituted text
+                  String resolvedText   = null; // Set by resolve(); final substituted text
+                  int    resolvedLength = -1;   // Set by resolve(); length of the final substituted text
 
             Entry(final String placeholder, final String body, final int lineNo)
             {
@@ -291,8 +292,7 @@ final class ToolingCommentNormalizer {
         {
             if( entries.isEmpty() ) return transformed;
 
-            String out = transformed;
-            int    i   = 0;
+            int i = 0;
             while( i < entries.size() ) {
                 int j = i;
                 while( j + 1 < entries.size() && entries.get(
@@ -317,13 +317,28 @@ final class ToolingCommentNormalizer {
                     multiSentenceCase
                 );
                 for(int k = i; k <= j; ++k) {
-                    entries.get(k).resolvedLength = normalized.get(k - i).length();
-                    out = out.replace( entries.get(k).placeholder, normalized.get(k - i) );
+                    entries.get(k).resolvedText   = normalized.get(k - i);
+                    entries.get(k).resolvedLength = entries.get(k).resolvedText.length();
                 } // for
                 i = j + 1;
             } // while
 
-            return out;
+            // Single forward pass over `transformed` splicing in each entry's resolved text at its
+            // placeholder's position -- entries are in strictly increasing position order (defer()
+            // appends them in scan order), the same assumption resolveKind below already relies on,
+            // so this avoids resolve()'s previous O(entryCount * transformed.length()) cost of a
+            // fresh whole-string String.replace per entry.
+            final StringBuilder out = new StringBuilder( transformed.length() );
+                  int           pos = 0;
+            for(final Entry e : entries) {
+                final int idx = transformed.indexOf(e.placeholder, pos);
+                out.append(transformed, pos, idx);
+                out.append(e.resolvedText);
+                pos = idx + e.placeholder.length();
+            } // for
+            out.append( transformed, pos, transformed.length() );
+
+            return out.toString();
         }
 
         /**

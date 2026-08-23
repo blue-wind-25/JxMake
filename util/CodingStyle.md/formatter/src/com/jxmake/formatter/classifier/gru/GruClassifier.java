@@ -320,63 +320,11 @@ public final class GruClassifier {
         // reassociation. rh (r-hadamard-hPrev/hNext) is still materialized separately since it
         // feeds into a *different* matrix (Wh/Uh) than r itself.
 
-        double[][] fZ    = new double[t][], fR = new double[t][], fHTilde = new double[t][], fH = new double[t][], fRH = new double[t][];
-        double[]   hPrev = new double[h];
-        for(int i = 0; i <= targetIndex; ++i) {
-            double[] z = new double[h];
-            gateInto(
-                weights.forward.Wz, x[i], weights.forward.Uz, hPrev, weights.forward.bz, z, true
-            );
-            double[] r = new double[h];
-            gateInto(
-                weights.forward.Wr, x[i], weights.forward.Ur, hPrev, weights.forward.br, r, true
-            );
-            double[] rh     = hadamard(r, hPrev);
-            double[] hTilde = new double[h];
-            gateInto(
-                weights.forward.Wh, x[i], weights.forward.Uh, rh, weights.forward.bh, hTilde, false
-            );
-            double[] hNew = new double[h];
-            for(int k = 0; k < h; ++k) hNew[k] = ( 1 - z[k] ) * hPrev[k] + z[k] * hTilde[k];
-            fZ[i]      = z;
-            fR[i]      = r;
-            fHTilde[i] = hTilde;
-            fRH[i]     = rh;
-            fH[i]      = hNew;
-            hPrev      = hNew;
-        } // for
+        double[][] fZ = new double[t][], fR = new double[t][], fHTilde = new double[t][], fH = new double[t][], fRH = new double[t][];
+        runGruDirection(weights.forward, x, h, 0, targetIndex, 1, fZ, fR, fHTilde, fRH, fH);
 
-        double[][] bZ    = new double[t][], bR = new double[t][], bHTilde = new double[t][], bH = new double[t][], bRH = new double[t][];
-        double[]   hNext = new double[h];
-        for(int i = t - 1; i >= targetIndex; --i) {
-            double[] z = new double[h];
-            gateInto(
-                weights.backward.Wz, x[i], weights.backward.Uz, hNext, weights.backward.bz, z, true
-            );
-            double[] r = new double[h];
-            gateInto(
-                weights.backward.Wr, x[i], weights.backward.Ur, hNext, weights.backward.br, r, true
-            );
-            double[] rh     = hadamard(r, hNext);
-            double[] hTilde = new double[h];
-            gateInto(
-                weights.backward.Wh,
-                x[i],
-                weights.backward.Uh,
-                rh,
-                weights.backward.bh,
-                hTilde,
-                false
-            );
-            double[] hNew = new double[h];
-            for(int k = 0; k < h; ++k) hNew[k] = ( 1 - z[k] ) * hNext[k] + z[k] * hTilde[k];
-            bZ[i]      = z;
-            bR[i]      = r;
-            bHTilde[i] = hTilde;
-            bRH[i]     = rh;
-            bH[i]      = hNew;
-            hNext      = hNew;
-        } // for
+        double[][] bZ = new double[t][], bR = new double[t][], bHTilde = new double[t][], bH = new double[t][], bRH = new double[t][];
+        runGruDirection(weights.backward, x, h, t - 1, targetIndex, -1, bZ, bR, bHTilde, bRH, bH);
 
         double[] denseInput = new double[2* h];
         System.arraycopy( fH[targetIndex], 0, denseInput, 0, h );
@@ -391,6 +339,49 @@ public final class GruClassifier {
             tokens, targetIndex, tokenRow, x, fZ, fR, fHTilde, fH, fRH,
             bZ, bR, bHTilde, bH, bRH, denseInput, densePre, denseHidden, logits
         );
+    }
+
+    /**
+     * Runs one direction's (forward or backward) per-token GRU recurrence from {@code startIdx} to
+     * {@code endIdx} (inclusive) stepping by {@code step}, writing each token's gate/hidden-state
+     * arrays into the caller-supplied {@code outZ}/{@code outR}/{@code outHTilde}/{@code outRH}/
+     * {@code outH} at that token's own index -- the direction-agnostic half of {@link #forward},
+     * mirroring how {@link #backpropDirection} already factors the same forward/backward symmetry
+     * for backprop. Same per-token operation order as before extraction, so results stay
+     * bit-identical.
+     */
+    private static void runGruDirection(
+        GruWeights.DirectionWeights dirWeights,
+        double[][]                  x,
+        int                         h,
+        int                         startIdx,
+        int                         endIdx,
+        int                         step,
+        double[][]                  outZ,
+        double[][]                  outR,
+        double[][]                  outHTilde,
+        double[][]                  outRH,
+        double[][]                  outH
+    )
+    {
+        double[] hPrev = new double[h];
+        for(int i = startIdx; step > 0 ? i <= endIdx : i >= endIdx; i += step) {
+            double[] z = new double[h];
+            gateInto( dirWeights.Wz, x[i], dirWeights.Uz, hPrev, dirWeights.bz, z, true );
+            double[] r = new double[h];
+            gateInto( dirWeights.Wr, x[i], dirWeights.Ur, hPrev, dirWeights.br, r, true );
+            double[] rh     = hadamard(r, hPrev);
+            double[] hTilde = new double[h];
+            gateInto( dirWeights.Wh, x[i], dirWeights.Uh, rh, dirWeights.bh, hTilde, false );
+            double[] hNew = new double[h];
+            for(int k = 0; k < h; ++k) hNew[k] = ( 1 - z[k] ) * hPrev[k] + z[k] * hTilde[k];
+            outZ[i]      = z;
+            outR[i]      = r;
+            outHTilde[i] = hTilde;
+            outRH[i]     = rh;
+            outH[i]      = hNew;
+            hPrev        = hNew;
+        } // for
     }
 
     /**
@@ -625,14 +616,6 @@ public final class GruClassifier {
     {
         double[] r = new double[a.length];
         for(int i = 0; i < a.length; ++i) r[i] = a[i] + b[i];
-
-        return r;
-    }
-
-    private static double[] addVec(double[] a, double[] b, double[] c)
-    {
-        double[] r = new double[a.length];
-        for(int i = 0; i < a.length; ++i) r[i] = a[i] + b[i] + c[i];
 
         return r;
     }

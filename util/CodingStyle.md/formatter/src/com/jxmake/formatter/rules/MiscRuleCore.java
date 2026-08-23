@@ -738,7 +738,7 @@ public abstract class MiscRuleCore {
                 && secondLastSig.type == TokenType.KEYWORD && "import".equals(secondLastSig.text);
     }
 
-    protected static int matchParenForward(final List<Token> tokens, final int openIdx)
+    public static int matchParenForward(final List<Token> tokens, final int openIdx)
     {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
@@ -759,7 +759,7 @@ public abstract class MiscRuleCore {
      * previously re-implemented byte-identically in both {@code CppSpecificRule} and
      * {@code JavaSpecificRule}
      */
-    protected static int matchBraceForward(final List<Token> tokens, final int openIdx)
+    public static int matchBraceForward(final List<Token> tokens, final int openIdx)
     {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
@@ -1902,7 +1902,7 @@ public static final class Assignment {
 
         return i;
     }
-    protected static int matchParenBackward(final List<Token> tokens, final int closeIdx)
+    public static int matchParenBackward(final List<Token> tokens, final int closeIdx)
     {
         int depth = 0;
         for(int i = closeIdx; i >= 0; --i) {

@@ -57,3 +57,10 @@ class MetricsHost {
     process(): void {}
 
 } // class MetricsHost
+
+class LegacyService {
+
+    @ /* Keep spaced pending removal */ Deprecated()
+    legacy(): void {}
+
+} // class LegacyService

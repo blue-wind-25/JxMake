@@ -15,7 +15,6 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
-import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
 /**
  * Slim, language-family-agnostic base for every scope-pipeline sibling ({@link ScopePipelineCurly}
@@ -355,54 +354,6 @@ public abstract class ScopePipelineCore {
         for( int i = from + 1; i < tokens.size(); ++i ) {
             if( !isGapToken( tokens.get(i) ) ) return i;
         }
-
-        return -1;
-    }
-
-    protected int matchParenForward(final List<Token> tokens, final int openIdx)
-    {
-        int depth = 0;
-        for( int i = openIdx; i < tokens.size(); ++i ) {
-            if( isPunct( tokens.get(i), "(" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), ")" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
-    }
-
-    protected int matchParenBackward(final List<Token> tokens, final int closeIdx)
-    {
-        int depth = 0;
-        for(int i = closeIdx; i >= 0; --i) {
-            if( isPunct( tokens.get(i), ")" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), "(" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
-    }
-
-    protected int matchBraceForward(final List<Token> tokens, final int openIdx)
-    {
-        int depth = 0;
-        for( int i = openIdx; i < tokens.size(); ++i ) {
-            if( isPunct( tokens.get(i), "{" ) ) {
-                ++depth;
-            }
-            else if( isPunct( tokens.get(i), "}" ) ) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
 
         return -1;
     }

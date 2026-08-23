@@ -195,6 +195,17 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      * text; for a {@code /* *&#47;} block comment (which may span multiple lines as one token) it
      * must sit right before the closing {@code *&#47;}. Operates on the delimiter-stripped interior
      * only, so the delimiters themselves (which contain no `.`) never affect the dot count.
+     *
+     * <p><b>2026-08-23 dedup-sweep note:</b> this count-dots/strip-sole-trailing-dot shape recurs
+     * in {@link #normalizeLineCommentChain} and {@link #tryBannerShape} below (and, per that
+     * session's research, in several other files' own comment-normalization code). A shared
+     * extraction was considered and deliberately deferred: the three sites here operate on
+     * genuinely different span shapes (one delimiter-including string with a head/tail split, vs.
+     * a {@code List<String>} of raw {@code //}-prefixed lines, vs. a {@code List<String>} of
+     * already-delimiter-stripped banner content lines), so a real unification would need a
+     * strategy parameter per shape rather than a clean pull-up -- not worth the regression risk on
+     * this heavily fixture-tested normalization logic for the modest size savings. Do not re-flag
+     * this trio as a fresh duplication candidate without a concrete reason to touch this logic.
      */
     public static String stripCommentEndPeriod(final String commentText)
     {
@@ -292,6 +303,10 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      * unit: only the first comment's start is capitalized, and the trailing `.` is stripped only if
      * it's the sole `.` across the whole chain's content (and only from the chain's last comment).
      * A singleton list (chain of one) is the same as the old per-comment-token behavior.
+     *
+     * <p>Its count-dots/strip-sole-trailing-dot logic below is a deliberate, reviewed-and-kept
+     * sibling of {@link #stripCommentEndPeriod}'s own copy -- see that method's doc comment's
+     * "2026-08-23 dedup-sweep note" for why the two (plus {@link #tryBannerShape}) aren't merged.
      */
     public static List<String> normalizeLineCommentChain(
         final List<String> rawTexts,
@@ -363,6 +378,11 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      * {@code raw} isn't in that shape. Output uses a bare {@code " *"} continuation prefix on each
      * line (no indent baked in) -- the caller's later {@link #reindentBlockComment} pass supplies the
      * real structural indent, matching how a freshly-collected leading comment is rendered.
+     *
+     * <p>Its count-dots/strip-sole-trailing-dot logic below is a deliberate, reviewed-and-kept
+     * sibling of {@link #stripCommentEndPeriod}'s own copy -- see that method's doc comment's
+     * "2026-08-23 dedup-sweep note" for why the two (plus {@link #normalizeLineCommentChain}) aren't
+     * merged.
      */
     private static String tryBannerShape(
         final String  raw,

@@ -629,6 +629,48 @@ public static final class Signature {
     {
         return render(sig, indentLevel, indentStyle, 0);
     }
+
+    /** Result of {@link #paramColumnWidths} -- the two column widths a type-column-padded one-per-line param render needs */
+    private static final class ParamColumnWidths {
+
+        final int typeColWidth;
+        final int maxNameCommaLen;
+
+        ParamColumnWidths(final int typeColWidth, final int maxNameCommaLen)
+        {
+            this.typeColWidth    = typeColWidth;
+            this.maxNameCommaLen = maxNameCommaLen;
+        }
+
+    } // class ParamColumnWidths
+
+    /**
+     * Computes the type-column width and name+comma-column width a type-column-padded
+     * one-per-line param render needs -- pure function of {@code sig.params}, shared by
+     * {@link #render}'s broken form and {@link #renderOnePerLine} (see that method's doc comment
+     * for why the rest of the two methods' rendering loops still stay separate).
+     */
+    private ParamColumnWidths paramColumnWidths(final Signature sig)
+    {
+        int maxTypeLen = 0;
+        for(final Param p : sig.params) {
+            if(p.leadingComment == null) maxTypeLen = Math.max(
+                maxTypeLen, renderTokens(p.typeTokens).length()
+            );
+        }
+        final int typeColWidth    = maxTypeLen + 1;
+              int maxNameCommaLen = 0;
+        for( int i = 0; i < sig.params.size(); ++i ) {
+            final Param  p             = sig.params.get(i);
+            final String nameCommaText = p.name.text + renderTokens(
+                p.sizeTokens
+            ) + ( i < sig.params.size() - 1 ? "," : "" );
+            maxNameCommaLen = Math.max( maxNameCommaLen, nameCommaText.length() );
+        } // for
+
+        return new ParamColumnWidths(typeColWidth, maxNameCommaLen);
+    }
+
     /**
      * @param trailingLen length of any trailing same-line text after the signature's own `)`
      * (e.g. a constructor's member-initializer-list opener, `: field(`) that the line-length
@@ -685,21 +727,9 @@ public static final class Signature {
             inline
         );
 
-        int maxTypeLen = 0;
-        for(final Param p : sig.params) {
-            if(p.leadingComment == null) maxTypeLen = Math.max(
-                maxTypeLen, renderTokens(p.typeTokens).length()
-            );
-        }
-        final int typeColWidth    = maxTypeLen + 1;
-              int maxNameCommaLen = 0;
-        for( int i = 0; i < sig.params.size(); ++i ) {
-            final Param  p             = sig.params.get(i);
-            final String nameCommaText = p.name.text + renderTokens(
-                p.sizeTokens
-            ) + ( i < sig.params.size() - 1 ? "," : "" );
-            maxNameCommaLen = Math.max( maxNameCommaLen, nameCommaText.length() );
-        } // for
+        final ParamColumnWidths colWidths       = paramColumnWidths(sig);
+        final int               typeColWidth    = colWidths.typeColWidth;
+        final int               maxNameCommaLen = colWidths.maxNameCommaLen;
 
         final List<String> lines = new ArrayList<>();
         lines.add(head);
@@ -1501,29 +1531,17 @@ public static final class Signature {
     }
     /**
      * Option 3 (one-per-line) for a forward declaration -- same type-column-padded shape as
-     * {@link #render}'s broken form, parameterized by raw {@code baseIndent} text instead of an
-     * integer level (this pass has no tracked recursion depth, see
-     * {@link #indentUnit}'s doc comment), so this is a deliberate sibling rather than a
-     * direct reuse of {@link #render}
+     * {@link #render}'s broken form (column widths shared via {@link #paramColumnWidths}),
+     * parameterized by raw {@code baseIndent} text instead of an integer level (this pass has no
+     * tracked recursion depth, see {@link #indentUnit}'s doc comment), so the rendering loop
+     * itself stays a deliberate sibling rather than a direct reuse of {@link #render}
      */
     private List<String> renderOnePerLine(final Signature sig, final String baseIndent)
     {
-        int maxTypeLen = 0;
-        for(final Param p : sig.params) {
-            if(p.leadingComment == null) maxTypeLen = Math.max(
-                maxTypeLen, renderTokens(p.typeTokens).length()
-            );
-        }
-        final int    typeColWidth    = maxTypeLen + 1;
-        final String paramIndent     = baseIndent + indentUnit;
-              int    maxNameCommaLen = 0;
-        for( int i = 0; i < sig.params.size(); ++i ) {
-            final Param  p             = sig.params.get(i);
-            final String nameCommaText = p.name.text + renderTokens(
-                p.sizeTokens
-            ) + ( i < sig.params.size() - 1 ? "," : "" );
-            maxNameCommaLen = Math.max( maxNameCommaLen, nameCommaText.length() );
-        } // for
+        final ParamColumnWidths colWidths       = paramColumnWidths(sig);
+        final int               typeColWidth    = colWidths.typeColWidth;
+        final int               maxNameCommaLen = colWidths.maxNameCommaLen;
+        final String            paramIndent     = baseIndent + indentUnit;
 
         final List<String> lines = new ArrayList<>();
         for( int i = 0; i < sig.params.size(); ++i ) {

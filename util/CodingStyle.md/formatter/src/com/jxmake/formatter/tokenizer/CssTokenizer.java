@@ -61,24 +61,7 @@ public final class CssTokenizer extends TokenizerSimpleBraced {
 
     private Token emitString(final char quote)
     {
-        final int start = pos;
-        ++pos;
-        while(pos < length) {
-            final char c = source.charAt(pos);
-            if(c == '\\') {
-                ++pos;
-                if(pos < length) pos++;
-                continue;
-            }
-            if(c == quote) {
-                ++pos;
-                break;
-            }
-            if(c == '\n' || c == '\r') break; // Unterminated string reaching a raw newline
-            ++pos;
-        } // while
-
-        return new Token( TokenType.STRING, source.substring(start, pos), 0, 0, null );
+        return emitQuotedString(quote, false);
     }
 
     /**

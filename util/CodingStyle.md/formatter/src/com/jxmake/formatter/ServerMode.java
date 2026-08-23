@@ -8,7 +8,6 @@
 package com.jxmake.formatter;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -141,6 +140,18 @@ public final class ServerMode {
     }
 
     /**
+     * Reflectively resolves {@code ProcessHandle.of(pid)} -- the {@code java.util.Optional<
+     * ProcessHandle>} boilerplate shared by {@link #isProcessAlive}/{@link #forceKill}, which
+     * each need this same lookup before checking presence/reading the handle.
+     */
+    private static Object processHandleOf(final long pid) throws ReflectiveOperationException
+    {
+        final Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
+
+        return processHandleClass.getMethod("of", long.class).invoke(null, pid);
+    }
+
+    /**
      * Uses {@code ProcessHandle.of(pid).isPresent()} (Java 9+) via reflection when available.
      * Falls back, on Java 8, to checking {@code /proc/<pid>} on Linux, or shelling out to
      * {@code kill -0 <pid>} on other Unix-likes; this fallback is not portable to Windows
@@ -150,12 +161,7 @@ public final class ServerMode {
     private static boolean isProcessAlive(final long pid)
     {
         try {
-            final Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
-            final Object   optional           = processHandleClass.getMethod(
-                "of", long.class
-            ).invoke(
-                null, pid
-            );
+            final Object optional = processHandleOf(pid);
             return (Boolean) optional.getClass().getMethod("isPresent").invoke(optional);
         }
         catch(final ReflectiveOperationException e) {
@@ -335,12 +341,7 @@ public final class ServerMode {
     private static boolean forceKill(final long pid)
     {
         try {
-            final Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
-            final Object   optional           = processHandleClass.getMethod(
-                "of", long.class
-            ).invoke(
-                null, pid
-            );
+            final Object optional = processHandleOf(pid);
             if( !(Boolean) optional.getClass().getMethod(
                 "isPresent"
             ).invoke(
@@ -394,7 +395,9 @@ public final class ServerMode {
                 final boolean             formatOff       = "true".equals(
                     params.get("format-off")
                 );
-                final String              content         = readBody( exchange.getRequestBody() );
+                final String              content         = Main.readStream(
+                    exchange.getRequestBody()
+                );
                 final Map<String, String> inFileOverrides = InFileConfig.parse(content);
                 final String              inFileLanguage  = inFileOverrides.remove("--lang");
                       String              language        = inFileLanguage != null ? inFileLanguage : queryLanguage;
@@ -624,15 +627,6 @@ public final class ServerMode {
         }
     }
 
-    private static String readBody(final InputStream in) throws IOException
-    {
-        final java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
-        final byte[] chunk = new byte[8192];
-              int    read;
-        while( ( read = in.read(chunk) ) != -1 ) buffer.write(chunk, 0, read);
-
-        return new String( buffer.toByteArray(), StandardCharsets.UTF_8 );
-    }
 
     private static void respond(
         final HttpExchange exchange,

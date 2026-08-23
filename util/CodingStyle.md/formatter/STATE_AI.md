@@ -1468,3 +1468,78 @@ never reads it back for training). Changed:
   at all — no change needed.
 
 `make jar` + `make test`: **286/286 forward, 286/286 idempotency** — clean.
+
+**2026-08-23 — Minimal-corpus smoke test for `GruTrainer`/`cross_validate.py`,
+and how to check GRU % against the shipped weights.** Documented as a
+reusable procedure after a refactor/optimize session needed to confirm the
+training and CV pipelines still ran correctly without paying the
+multi-hour-to-multi-day full-corpus cost (`gru-train`/`gru-cv-corpus` are
+both hours-scale against the full `sample_default.txt`, per the
+2026-08-02/2026-08-03 log above). Two separate things, not to be confused:
+
+1. **Minimal-corpus trainer/CV smoke test — proves the pipeline still runs,
+   says nothing about model quality.** Extract a small YES/NO sample from
+   any RDD_EXT_21-schema examples file (`sample_default.txt` works, or
+   synthesize a tiny one by hand), then run `cross_validate.py` with a small
+   `--epochs`/`--patience` and a throwaway `--work-dir`:
+   ```
+   grep -v "^#" tools/gru/sample_default.txt | grep -P "^\S+\tYES\t" | head -60 >  /tmp/gru_smoke_corpus.txt
+   grep -v "^#" tools/gru/sample_default.txt | grep -P "^\S+\tNO\t"  | head -60 >> /tmp/gru_smoke_corpus.txt
+   python3 tools/gru/cross_validate.py /tmp/gru_smoke_corpus.txt \
+       --rounds 5 --work-dir /tmp/gru_cv_smoketest --epochs 3 --patience 2 --progress-every 0
+   ```
+   120 examples, 3 epochs/round, 5 rounds: completes in well under a minute
+   (vs. hours for the full corpus). Verified 2026-08-23: built the jar,
+   compiled `GruTrainer`/`GruEval` once, ran all 5 rounds (train →
+   early-stop → weights write → `GruEval` confusion matrix) end to end with
+   no errors, final aggregate line `precision mean=0.8000 stdev=0.4472
+   min=0.0000 max=1.0000`. **The precision numbers themselves are
+   meaningless at this scale/epoch count** (`stdev=0.4472` says so
+   directly) — this run only confirms the trainer/CV machinery
+   (mini-batching, the Adam step, early stopping, weights serialization,
+   `GruEval`'s confusion-matrix/precision computation, `cross_validate.py`'s
+   own orchestration/aggregation) still works after a code change, e.g. a
+   refactor touching `GruClassifier`/`GruWeights`. Never treat this as a
+   real precision check. Use a throwaway `/tmp` (or scratchpad) path for
+   both the corpus file and `--work-dir` — never point `--work-dir` at
+   `$(GRU_BUILD_DIR)/cv_corpus` (the real `gru-cv-corpus` target's own dir)
+   — and delete both afterward (`rm -rf`), same RDD_EXT_19 no-commit
+   posture as every other GRU scratch artifact.
+
+2. **Getting a real "GRU %" from the shipped, already-trained weights (no
+   retraining needed) — the workflow this file's earlier "check GRU %/CV"
+   shorthand (2026-08-10 note, above) refers to.** `GruEval <weights-path>
+   <rdd-ext-21-examples-path> [threshold]` loads a weights file and reports
+   precision/decisiveness against a labeled examples file directly, no
+   training involved:
+   ```
+   mkdir -p target/gru/classes
+   javac -encoding UTF-8 -source 8 -target 8 -cp target/classes -d target/gru/classes tools/gru/GruEval.java
+   java -cp target/classes:target/gru/classes GruEval code-formatter-ai-assist-weights.json <examples-file> 0.76
+   ```
+   `code-formatter-ai-assist-weights.json` (repo root) is the real,
+   full-corpus-trained, **committed production weights file** — nothing
+   here retrains it. Swap in a minimal examples file first for a fast
+   syntax/plumbing check (verified 2026-08-23 against the same 120-row
+   smoke corpus from item 1: completes in under a second, `precision=1.0
+   yesCorrect=60 noCorrect=38 decided=98 abstain=22` on this easy,
+   non-representative subset), **then swap `<examples-file>` for
+   `tools/gru/sample_default.txt`** (the full ~119641-line corpus) for the
+   real, full-corpus figure. **That full-corpus run is slow** — attempted
+   2026-08-23, still running after 4m30s wall-clock with no sign of
+   finishing soon, killed rather than let it block an unrelated session;
+   budget several minutes minimum and run it in the background (e.g.
+   `nohup ... &`) or on a machine you don't need back for a while, same
+   posture `gru-cv-corpus` itself already documents above. Also note
+   `sample_default.txt` is the same corpus the shipped weights were
+   *trained* on, so a precision figure from this exact pairing is
+   training-fit/optimistic, not a genuine held-out estimate — this file's
+   own 2026-08-02/2026-08-03 entries above already have the real held-out
+   numbers (~92.4% mean CV precision at threshold 0.7 across 5 genuinely
+   held-out CV folds, later re-validated at 0.76). For a decision-
+   distribution check against real, unlabeled, genuinely out-of-
+   distribution text instead (no ground-truth labels needed), use `make
+   gru-filter-abstain` + `make gru-real-corpus-tally` instead (usage
+   documented directly above the `gru-real-corpus-tally` target in the
+   Makefile) — `GRU_TALLY_WEIGHTS` also defaults to this same committed
+   `code-formatter-ai-assist-weights.json`.

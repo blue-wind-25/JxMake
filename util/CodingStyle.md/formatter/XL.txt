@@ -197,7 +197,8 @@ Use sub-agent. This can be a substantial work.
    bug fixes as needed.
 
    Find and fix accidentally flushed-left line and dedented lines because this may indicates
-   formatter bug.
+   formatter bug. Use `tools/detect_flushed_left_lines.py` (run with no args for usage) to scan
+   for this instead of re-deriving the heuristic each time.
 
    Next, apply the formatter to:
        `../../JCS/*`

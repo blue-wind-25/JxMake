@@ -62,15 +62,18 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
  */
 public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
 
-    private static final List<String> FUN_MODIFIERS = Arrays.asList(
-        "public",
-        "private",
-        "protected",
-        "internal",
-        "override",
-        "open",
-        "final",
-        "abstract",
+    /**
+     * Visibility/inheritance modifiers shared by every Kotlin declaration kind this class checks
+     * -- the common prefix of {@link #FUN_MODIFIERS}/{@link #PROPERTY_MODIFIERS}, factored out so
+     * a future addition/removal to this shared set can't silently drift between the two lists the
+     * way a plain copy-paste risked
+     */
+    private static final List<String> VISIBILITY_AND_INHERITANCE_MODIFIERS = Arrays.asList(
+        "public", "private", "protected", "internal", "override", "open", "final", "abstract"
+    );
+
+    private static final List<String> FUN_MODIFIERS = withExtra(
+        VISIBILITY_AND_INHERITANCE_MODIFIERS,
         "inline",
         "suspend",
         "operator",
@@ -80,18 +83,17 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
     );
 
     /** Modifiers that can precede a `val`/`var` property declaration (STYLE_KOTLIN.md §6/§8). */
-    private static final List<String> PROPERTY_MODIFIERS = Arrays.asList(
-        "public",
-        "private",
-        "protected",
-        "internal",
-        "override",
-        "open",
-        "final",
-        "abstract",
-        "const",
-        "lateinit"
+    private static final List<String> PROPERTY_MODIFIERS = withExtra(
+        VISIBILITY_AND_INHERITANCE_MODIFIERS, "const", "lateinit"
     );
+
+    private static List<String> withExtra(final List<String> base, final String... extra)
+    {
+        final List<String> combined = new ArrayList<>(base);
+        combined.addAll( Arrays.asList(extra) );
+
+        return combined;
+    }
 
     /**
      * {@link Member#pureSpecifier} marker distinguishing a §8 property-accessor member (this

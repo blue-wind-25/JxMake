@@ -79,15 +79,15 @@ def find_flushed_left_lines(path):
             continue
 
         if prev_nonblank_idx is not None:
-            opener = lines[prev_nonblank_idx]
+            opener          = lines[prev_nonblank_idx]
             opener_stripped = opener.rstrip()
-            opener_indent = len(opener) - len(opener.lstrip(" \t"))
+            opener_indent   = len(opener) - len(opener.lstrip(" \t"))
 
             opener_is_indented_block_start = (
                 opener_indent > 0 and opener_stripped.endswith("{")
             )
 
-            current_indent = len(raw_line) - len(raw_line.lstrip(" \t"))
+            current_indent        = len(raw_line) - len(raw_line.lstrip(" \t"))
             current_is_flush_left = current_indent == 0
 
             if (
@@ -105,10 +105,8 @@ def iter_target_files(args):
     for arg in args:
         p = Path(arg)
         if p.is_dir():
-            for ext in DEFAULT_EXTENSIONS:
-                yield from sorted(p.rglob(f"*{ext}"))
-        elif p.is_file():
-            yield p
+            for ext in DEFAULT_EXTENSIONS: yield from sorted(p.rglob(f"*{ext}"))
+        elif p.is_file(): yield p
         else:
             print(f"detect_flushed_left_lines: not a file or directory: {arg}", file=sys.stderr)
 
@@ -118,7 +116,7 @@ def main():
         print(__doc__, file=sys.stderr)
         return 2
 
-    hit_count = 0
+    hit_count  = 0
     file_count = 0
 
     for path in iter_target_files(sys.argv[1:]):
@@ -134,8 +132,8 @@ def main():
         return 0
 
     print(f"\ndetect_flushed_left_lines: {file_count} file(s) scanned, {hit_count} suspicious line(s) found", file=sys.stderr)
+
     return 1
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+if __name__ == "__main__": sys.exit(main())

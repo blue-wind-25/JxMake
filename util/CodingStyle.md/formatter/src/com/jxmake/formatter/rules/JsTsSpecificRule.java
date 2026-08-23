@@ -687,9 +687,7 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked  = gap.stream().anyMatch(
-                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked  = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
             final boolean afterSpread = lastSignificant != null && isOp(lastSignificant, "...");
 
             if(gapBlocked || !afterSpread) {
@@ -732,9 +730,7 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked        = gap.stream().anyMatch(
-                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked        = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
             final boolean adjacentToTightOp = isOptionalChain(
                 lastSignificant
             ) || isOptionalChain(
@@ -2229,9 +2225,7 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked      = gap.stream().anyMatch(
-                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked      = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
             final boolean adjacentToArrow = isOp(lastSignificant, "=>") || isOp(t, "=>");
 
             if(gapBlocked || !adjacentToArrow) {
@@ -3206,9 +3200,7 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked                    = gap.stream().anyMatch(
-                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked                    = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
             final boolean adjacentToUnionOrIntersection = isUnionOrIntersection(
                 lastSignificant
             ) || isUnionOrIntersection(
@@ -3284,9 +3276,7 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked      = gap.stream().anyMatch(
-                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked      = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
             final boolean beforeTypeColon = typeColons.contains(i);
             final boolean afterTypeColon  = lastSigIdx >= 0 && typeColons.contains(lastSigIdx);
 
@@ -3339,9 +3329,7 @@ public final class JsTsSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked = gap.stream().anyMatch(
-                g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
-            ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
+            final boolean gapBlocked = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
             final boolean afterComma = lastSignificant != null && isPunct(
                 lastSignificant, ","
             ) && angleDepth > 0;

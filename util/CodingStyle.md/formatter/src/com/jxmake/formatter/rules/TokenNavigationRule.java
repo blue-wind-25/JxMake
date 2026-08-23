@@ -13,6 +13,7 @@ import java.util.Map;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 
+import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isComment;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 
 /**
@@ -72,6 +73,20 @@ final class TokenNavigationRule {
         }
 
         return -1;
+    }
+
+    /**
+     * True iff a tight-spacing rewrite is disallowed across {@code gap} (the gap tokens between
+     * {@code lastSignificant} and {@code t}) because a comment, a newline, or a frozen token
+     * (either inside the gap itself, or {@code lastSignificant}/{@code t} bookending it) is
+     * present -- byte-identical shape previously reimplemented at every tight-spacing rewrite call
+     * site across {@link JsTsSpecificRule}/{@link KotlinSpecificRule}.
+     */
+    static boolean isGapBlocked(final List<Token> gap, final Token lastSignificant, final Token t)
+    {
+        return gap.stream().anyMatch(
+            g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+        ) || (lastSignificant != null && lastSignificant.frozen) || t.frozen;
     }
 
     /**

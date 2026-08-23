@@ -172,6 +172,9 @@ Use sub-agent. This can be a substantial work.
     commit. Each commit should contain a coherent set of related changes and have an appropriate
     commit message.
 
+    Some of the code inside `tools/*` may use the formatter classes either directly or via its
+    JAR. Ensure the refactoring and optimization process do not break the `tools`.
+
     You may launch up to three research sub-agents simultaneously.
 
     You may (but does not have to) launch only one code-writer sub-agent at a time.

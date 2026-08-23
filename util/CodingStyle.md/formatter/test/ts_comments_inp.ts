@@ -44,3 +44,8 @@ class MetricsHost {
     @LogPerformanceMetricsAndReportDetailedTimingInformation({threshold: 500, unit: "ms", verbose: true}) // heavy metrics decorator
     process(): void {}
 }
+
+class LegacyService {
+    @ /* keep spaced pending removal */ Deprecated()
+    legacy(): void {}
+}

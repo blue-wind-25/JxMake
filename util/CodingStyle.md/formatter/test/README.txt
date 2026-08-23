@@ -593,9 +593,12 @@ JS/TS:
   ts_comments_inp/out.ts                             -- A trailing comment surviving union-continuation
                                                         realignment, a comment inside a generic type-parameter
                                                         list staying tight, comments breaking `interface`/enum
-                                                        alignment groups, and a trailing comment on an
+                                                        alignment groups, a trailing comment on an
                                                         overflow-wrapped decorator staying attached to its
-                                                        closing `)`.
+                                                        closing `)`, and a block comment sitting directly
+                                                        between a decorator's `@` and its name (§9's
+                                                        tight-spacing pass leaves that gap untouched instead
+                                                        of tightening across the comment).
 
   ts_decl_grid_ext_inp/out.ts                        -- Declaration-alignment-grid extensions
                                                         (RDD_KEY_182/183): an object-destructuring-pattern LHS

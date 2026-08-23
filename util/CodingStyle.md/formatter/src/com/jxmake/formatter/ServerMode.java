@@ -140,6 +140,17 @@ public final class ServerMode {
     }
 
     /**
+     * Reflectively resolves {@code ProcessHandle.of(pid)} -- the {@code java.util.Optional<
+     * ProcessHandle>} boilerplate shared by {@link #isProcessAlive}/{@link #forceKill}, which
+     * each need this same lookup before checking presence/reading the handle.
+     */
+    private static Object processHandleOf(final long pid) throws ReflectiveOperationException
+    {
+        final Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
+        return processHandleClass.getMethod("of", long.class).invoke(null, pid);
+    }
+
+    /**
      * Uses {@code ProcessHandle.of(pid).isPresent()} (Java 9+) via reflection when available.
      * Falls back, on Java 8, to checking {@code /proc/<pid>} on Linux, or shelling out to
      * {@code kill -0 <pid>} on other Unix-likes; this fallback is not portable to Windows
@@ -149,12 +160,7 @@ public final class ServerMode {
     private static boolean isProcessAlive(final long pid)
     {
         try {
-            final Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
-            final Object   optional           = processHandleClass.getMethod(
-                "of", long.class
-            ).invoke(
-                null, pid
-            );
+            final Object optional = processHandleOf(pid);
             return (Boolean) optional.getClass().getMethod("isPresent").invoke(optional);
         }
         catch(final ReflectiveOperationException e) {
@@ -334,12 +340,7 @@ public final class ServerMode {
     private static boolean forceKill(final long pid)
     {
         try {
-            final Class<?> processHandleClass = Class.forName("java.lang.ProcessHandle");
-            final Object   optional           = processHandleClass.getMethod(
-                "of", long.class
-            ).invoke(
-                null, pid
-            );
+            final Object optional = processHandleOf(pid);
             if( !(Boolean) optional.getClass().getMethod(
                 "isPresent"
             ).invoke(

@@ -739,14 +739,18 @@ public final class XmlSpecificRule {
      * document is never given more than one synthetic {@code <body>}, even if this were ever
      * called more than once for the same parse.
      */
+    /** True iff {@code n} is an ELEMENT node named {@code tagName} (case-insensitive) */
+    private static boolean isElementNamed(final Node n, final String tagName)
+    {
+        return n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(tagName);
+    }
+
     private void insertImplicitBodyIfNeeded(final List<Node> nodes)
     {
         if(bodyInserted) return;
         Node htmlNode = null;
         for(final Node n : nodes) {
-            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
-                "html"
-            ) ) {
+            if( isElementNamed(n, "html") ) {
                 htmlNode = n;
                 break;
             } // if
@@ -754,18 +758,14 @@ public final class XmlSpecificRule {
         final List<Node> target = htmlNode != null && htmlNode.children != null ? htmlNode.children : nodes;
         for(final Node n : target) {
             // Explicit <body> already present somewhere in the target sibling list -- nothing to do
-            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
-                "body"
-            ) ) return;
+            if( isElementNamed(n, "body") ) return;
         } // for
         headInsertionModeClosed = false;
         int firstContentIdx = -1;
         for( int i = 0; i < target.size(); ++i ) {
             final Node n = target.get(i);
             if(n.type == NodeType.DOCTYPE || n.type == NodeType.COMMENT) continue;
-            if( n.type == NodeType.ELEMENT && n.tagName != null && n.tagName.equalsIgnoreCase(
-                "head"
-            ) ) {
+            if( isElementNamed(n, "head") ) {
                 // An explicit <head> closes head-insertion mode once we're past it -- everything
                 //  after belongs to "in body", matching the spec's real transition criterion
                 headInsertionModeClosed = true;

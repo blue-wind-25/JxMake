@@ -45,6 +45,9 @@ public final class Main {
      */
     private static final int SERVER_STARTED_KEEP_ALIVE = -1;
 
+    /** Lowercase hex-nibble lookup table for {@link #sha256Hex} -- avoids a per-byte String.format call. */
+    private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
+
     private Main()
     {
     }
@@ -593,8 +596,11 @@ public final class Main {
         try {
             final MessageDigest digest = MessageDigest.getInstance("SHA-256");
             final byte[]        hash   = digest.digest( input.getBytes(StandardCharsets.UTF_8) );
-            final StringBuilder sb     = new StringBuilder();
-            for(final byte b : hash) sb.append( String.format( "%02x", Byte.valueOf(b) ) );
+            final StringBuilder sb     = new StringBuilder( 2* hash.length );
+            for(final byte b : hash) {
+                sb.append( HEX_DIGITS[(b >> 4) & 0xF] );
+                sb.append( HEX_DIGITS[b & 0xF] );
+            }
             return sb.toString();
         }
         catch(final NoSuchAlgorithmException e) {

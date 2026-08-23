@@ -30,6 +30,9 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
 
+import static com.jxmake.formatter.rules.MiscRuleCore.matchBraceForward;
+import static com.jxmake.formatter.rules.MiscRuleCore.matchParenBackward;
+import static com.jxmake.formatter.rules.MiscRuleCore.matchParenForward;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;

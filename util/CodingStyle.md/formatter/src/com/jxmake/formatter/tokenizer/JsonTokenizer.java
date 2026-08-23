@@ -90,38 +90,7 @@ public final class JsonTokenizer extends TokenizerSimpleBraced {
      */
     private Token emitString(final char quote)
     {
-        final int start = pos;
-        ++pos; // Opening quote
-        while(pos < length) {
-            final char c = source.charAt(pos);
-            if(c == '\\') {
-                // Backslash followed by anything (including a line terminator, JSON5's
-                // continuation) is consumed as a pair -- never inspected further
-                ++pos;
-                if(pos < length) {
-                    if( source.charAt(pos) == '\r' ) {
-                        ++pos;
-                        if( pos < length && source.charAt(pos) == '\n' ) pos++;
-                    }
-                    else {
-                        ++pos;
-                    }
-                } // if
-                continue;
-            } // if
-            if(c == quote) {
-                ++pos;
-                break;
-            }
-            if(c == '\n' || c == '\r') {
-                // Unterminated string reaching a raw newline -- stop here rather than swallowing
-                // the rest of the file; the parser surfaces this as malformed input
-                break;
-            }
-            ++pos;
-        } // while
-
-        return new Token( TokenType.STRING, source.substring(start, pos), 0, 0, null );
+        return emitQuotedString(quote, true);
     }
 
     /**

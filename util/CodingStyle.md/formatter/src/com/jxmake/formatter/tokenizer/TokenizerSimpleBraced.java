@@ -29,4 +29,50 @@ public abstract class TokenizerSimpleBraced extends TokenizerCore {
         return new Token( TokenType.COMMENT_BLOCK, source.substring(start, pos), 0, 0, null );
     }
 
+    /**
+     * Consumes a quoted string as one opaque {@code STRING} token, from an already-positioned
+     * opening {@code quote} through its matching close (or an un-escaped raw newline, treated as
+     * unterminated and left for the parser to surface). {@code allowLineContinuation} additionally
+     * treats a backslash immediately followed by {@code \r}[{@code \n}] as consuming the whole
+     * line-terminator pair (JSON5's backslash-newline string continuation, STYLE_DATA_FORMATS.md
+     * §1.3); when {@code false} a backslash simply consumes exactly one following character
+     * regardless of what it is (CSS has no such continuation rule). Shared by
+     * {@link JsonTokenizer#emitString}/{@link CssTokenizer#emitString}, previously reimplemented
+     * independently in each.
+     */
+    protected final Token emitQuotedString(final char quote, final boolean allowLineContinuation)
+    {
+        final int start = pos;
+        ++pos; // Opening quote
+        while(pos < length) {
+            final char c = source.charAt(pos);
+            if(c == '\\') {
+                // Backslash followed by anything is consumed as a pair -- never inspected further
+                ++pos;
+                if(pos < length) {
+                    if( allowLineContinuation && source.charAt(pos) == '\r' ) {
+                        ++pos;
+                        if( pos < length && source.charAt(pos) == '\n' ) pos++;
+                    }
+                    else {
+                        ++pos;
+                    }
+                } // if
+                continue;
+            } // if
+            if(c == quote) {
+                ++pos;
+                break;
+            }
+            if(c == '\n' || c == '\r') {
+                // Unterminated string reaching a raw newline -- stop here rather than swallowing
+                // the rest of the file; the parser surfaces this as malformed input
+                break;
+            }
+            ++pos;
+        } // while
+
+        return new Token( TokenType.STRING, source.substring(start, pos), 0, 0, null );
+    }
+
 } // class TokenizerSimpleBraced

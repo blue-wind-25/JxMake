@@ -8,6 +8,7 @@
 package com.jxmake.formatter.evaluator;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
@@ -73,19 +74,10 @@ public class ComplexityPaddingEvaluator {
 
     private int matchTemplateHole(final List<Token> tokens, final int openIdx)
     {
-        int depth = 0;
-        for( int i = openIdx; i < tokens.size(); ++i ) {
-            final TokenType ty = tokens.get(i).type;
-            if(ty == TokenType.TEMPLATE_HOLE_OPEN) {
-                ++depth;
-            }
-            else if(ty == TokenType.TEMPLATE_HOLE_CLOSE) {
-                --depth;
-                if(depth == 0) return i;
-            }
-        } // for
-
-        return -1;
+        return matchDepth(
+            tokens, openIdx, t -> t.type == TokenType.TEMPLATE_HOLE_OPEN,
+            t -> t.type == TokenType.TEMPLATE_HOLE_CLOSE
+        );
     }
 
     private boolean isReceiverFunctionTypeParens(final List<Token> tokens, final int openIdx)
@@ -109,13 +101,27 @@ public class ComplexityPaddingEvaluator {
 
     private int matchParen(final List<Token> tokens, final int openIdx)
     {
+        return matchDepth(
+            tokens, openIdx, t -> t.type == TokenType.PUNCT && "(".equals(t.text),
+            t -> t.type == TokenType.PUNCT && ")".equals(t.text)
+        );
+    }
+
+    /** Scans forward from {@code openIdx}, tracking nesting depth via {@code isOpen}/{@code isClose}, and returns the index where depth returns to 0 (or -1). */
+    private int matchDepth(
+        final List<Token>    tokens,
+        final int            openIdx,
+        final Predicate<Token> isOpen,
+        final Predicate<Token> isClose
+    )
+    {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( t.type == TokenType.PUNCT && "(".equals(t.text) ) {
+            if( isOpen.test(t) ) {
                 ++depth;
             }
-            else if( t.type == TokenType.PUNCT && ")".equals(t.text) ) {
+            else if( isClose.test(t) ) {
                 --depth;
                 if(depth == 0) return i;
             }

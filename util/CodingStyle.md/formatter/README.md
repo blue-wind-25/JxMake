@@ -1270,6 +1270,18 @@ With `normalize-comment-start-case-multiline = on`, this becomes:
 **Workaround:** leave this key off (the default) for codebases that keep a lot of commented-out
 code inside otherwise-prose comment groups; enabling it elsewhere is a judgment call.
 
+#### 9. Braces around a single-statement `if`/`while`/`for` body are sometimes kept even though they could safely be removed
+
+For C, C++, and Java, a single-statement body that is a local variable declaration (e.g. `Foo x =
+compute();`) always keeps its surrounding braces, because a local declaration is not legal as the
+sole, brace-free body of an `if`/`while`/`for` in these languages' own grammar. This is detected
+structurally — a type name (optionally qualified, generic, an array type, or a C/C++
+pointer/reference) immediately followed by a variable name — and the detection deliberately errs
+on the side of keeping braces whenever a statement's shape is ambiguous (for example, a rare
+standalone expression like `a * b;`, which reads the same as a pointer declaration without a
+symbol table). The result is always valid code; the only downside is an occasional brace pair
+that a human reader could tell is safe to remove but this pass conservatively leaves in place.
+
 ### Tag-based family (XML/HTML5)
 
 #### 1. HTML5 deep tree-construction gap coverage is a narrow, documented approximation, not a full spec-faithful implementation

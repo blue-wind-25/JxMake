@@ -821,16 +821,38 @@ public class BlockStructureRule {
         // final boolean ignored = f.setWritable(true); }` collapsed to a braceless `if` whose
         // body is a bare declaration -- javac rejects it with "variable declaration not allowed
         // here"). Refuse collapse rather than emit invalid code.
-        if( "final".equals( sig.get(0).text ) || "const".equals( sig.get(0).text ) ) return false;
-        // Sibling case to the `final`/`const` check just above: an un-qualified declaration whose
-        // leading token is itself a primitive/built-in type keyword (`int x = ...;`) is just as
-        // illegal a braceless body -- only Kotlin's `val`/`var` are handled separately below since
-        // Kotlin has no primitive-type-keyword declaration shape.
+        // `let` is JS/TS's own unqualified declaration keyword (`var`/`const` are already caught,
+        // `var` via `PRIMITIVE_TYPE_KEYWORDS` below, `const` just above) -- `if (x) { let y = 1; }`
+        // collapsing to the braceless `if (x) let y = 1;` is just as illegal in ECMAScript grammar
+        // as a bare local-variable-declaration braceless body is in C/C++/Java. Checked here
+        // alongside `final`/`const` since it needs no following-token lookahead either.
+        if( "final".equals( sig.get(0).text )
+                || "const".equals( sig.get(0).text )
+                || "let".equals( sig.get(0).text )
+        ) return false;
+        // Sibling case to the `final`/`const`/`let` check just above: an un-qualified declaration
+        // whose leading token is itself a primitive/built-in type keyword (`int x = ...;`) is just
+        // as illegal a braceless body -- only Kotlin's `val`/`var` are handled separately below
+        // since Kotlin has no primitive-type-keyword declaration shape.
         if( !lang.isKotlin
                 && sig.size() >= 2
                 && sig.get(0).type == TokenType.KEYWORD
                 && PRIMITIVE_TYPE_KEYWORDS.contains( sig.get(0).text )
                 && sig.get(1).type == TokenType.IDENTIFIER
+        ) return false;
+        // Sibling case again, for C/C++/Java only: a declaration whose type is a class/interface
+        // name rather than a primitive keyword (`Foo x = ...;`, `Supplier<String> supplier =
+        // ...;`) is just as illegal a braceless body -- the primitive-keyword check above only
+        // catches a `PRIMITIVE_TYPE_KEYWORDS`-led declaration, so a custom/library type slips
+        // through. JS/TS needs no equivalent check: every JS/TS local declaration is fronted by
+        // `let`/`const`/`var` (all already refused above), never a bare type name. Detected
+        // structurally via `isNonPrimitiveDeclarationLead` -- see its own javadoc. Found via
+        // google/guava real-code testing (`SuppliersTest.java` and 7 other files: `if (...) {
+        // Supplier<String> supplier = ...; }` collapsed to the illegal braceless `if (...)
+        // Supplier<String> supplier = ...;`).
+        if( ( lang.isC || lang.isCpp || lang.isJava )
+                && sig.get(0).type == TokenType.IDENTIFIER
+                && isNonPrimitiveDeclarationLead(sig)
         ) return false;
 
         int semiCount = 0;
@@ -881,6 +903,75 @@ public class BlockStructureRule {
         if( "val".equals(first.text) || "var".equals(first.text) ) return false;
 
         return !COMPOUND_BODY_KEYWORDS.contains(first.text);
+    }
+
+    /**
+     * True iff {@code sig} (a candidate braceless body's significant tokens, already confirmed to
+     * start with an {@code IDENTIFIER} by the caller) begins with a class/interface-typed local
+     * variable declaration: a qualified type name (`Foo`/`java.util.List`), optionally followed by
+     * a balanced `&lt;...&gt;` generic argument list (matched via the dedicated {@code
+     * ANGLE_BRACKET_OPEN}/{@code ANGLE_BRACKET_CLOSE} token type -- already reclassified out of
+     * raw relational-operator `&lt;`/`&gt;` tokens by tokenization, so no separate disambiguation
+     * is needed here) and/or `[]` array-type brackets, immediately followed by a second identifier
+     * (the variable name) and then `=`, `;`, `,`, or `[` -- the shape a call (`Foo(...)`,
+     * `foo.bar()`), plain assignment (`x = 1;`), field-access statement (`a.b = c;`), or
+     * increment/decrement (`x++;`) can never produce, since none of those place two bare
+     * identifiers back to back. Mirrors the sibling {@code PRIMITIVE_TYPE_KEYWORDS} check for a
+     * type that's a user identifier rather than a built-in keyword. See the call site's own
+     * javadoc comment for the real-code repro this was found against.
+     */
+    private boolean isNonPrimitiveDeclarationLead(final List<Token> sig)
+    {
+        final int n = sig.size();
+        int       i = 0;
+
+        // Qualified name: IDENTIFIER (('.' | '::') IDENTIFIER)* -- `::` is C++'s own scope-
+        // resolution separator (`std::string`), tokenized as a single `OP`, alongside `.` for
+        // Java's package/nested-type qualification.
+        if( sig.get(i).type != TokenType.IDENTIFIER ) return false;
+        ++i;
+        while( i + 1 < n
+                && ( isPunct( sig.get(i), "." ) || isOp( sig.get(i), "::" ) )
+                && sig.get(i + 1).type == TokenType.IDENTIFIER
+        ) {
+            i += 2;
+        }
+
+        // Optional generic argument list.
+        if( i < n && sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN ) {
+            int depth = 1;
+            ++i;
+            while( i < n && depth > 0 ) {
+                     if( sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN )  ++depth;
+                else if( sig.get(i).type == TokenType.ANGLE_BRACKET_CLOSE ) --depth;
+                ++i;
+            }
+            if( depth != 0 ) return false; // unbalanced -- not actually a generic type here
+        }
+
+        // Optional array-type brackets (`Foo[] arr = ...;`).
+        while( i + 1 < n && isPunct( sig.get(i), "[" ) && isPunct( sig.get(i + 1), "]" ) ) {
+            i += 2;
+        }
+
+        // Optional C/C++ pointer/reference declarator run (`MyClass* obj = ...;`, `MyClass& ref =
+        // ...;`, `const MyClass* const p = ...;`) -- `*`/`&`/`&&` between the type and the variable
+        // name, and a `const`/`volatile` qualifier can appear on either side of them. Harmless for
+        // Java (never produces this token shape) but needed for C/C++, which this method is
+        // reached for equally (the caller gates on `lang.isC || lang.isCpp || lang.isJava`).
+        while( i < n
+                && ( isOp( sig.get(i), "*" ) || isOp( sig.get(i), "&" ) || isOp( sig.get(i), "&&" )
+                        || "const".equals( sig.get(i).text ) || "volatile".equals( sig.get(i).text ) )
+        ) {
+            ++i;
+        }
+
+        // Require the variable name, then a declaration-only follow token.
+        if( i >= n || sig.get(i).type != TokenType.IDENTIFIER ) return false;
+        ++i;
+        if( i >= n ) return false;
+        return isOp( sig.get(i), "=" ) || isPunct( sig.get(i), ";" )
+                || isPunct( sig.get(i), "," ) || isPunct( sig.get(i), "[" );
     }
 
     /**

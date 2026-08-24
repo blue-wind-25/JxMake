@@ -4365,6 +4365,24 @@ Real-code regressions:
                                                         and `>`/`,`/`extends`/`super` on the other, and is
                                                         left alone.
 
+  real_code_regressions_232_inp/out.java             -- brace-collapse fix: a single-statement `if`/`while`/
+                                                        `for` body that is itself a local variable declaration
+                                                        of a class/interface (non-primitive) type -- e.g.
+                                                        `Supplier<String> supplier = ...;` -- is no longer
+                                                        collapsed to an illegal braceless form; braces are now
+                                                        kept whenever the body is a declaration.
+
+  real_code_regressions_233_inp/out.cpp              -- same brace-collapse fix, C++ pointer/reference/
+                                                        scope-qualified declaration shapes (`std::string s =
+                                                        ...;`, `MyClass* obj = ...;`, `MyClass& ref = ...;`):
+                                                        previously collapsed to an illegal braceless `if`
+                                                        body.
+
+  real_code_regressions_234_inp/out.js               -- same brace-collapse fix, JS/TS `let` declarations: a
+                                                        single-statement `if` body of the form `let y = 1;`
+                                                        was previously collapsed to an illegal braceless form
+                                                        (`const`/`var` bodies were already correctly refused).
+
 How Tests Are Run
 -----------------
 

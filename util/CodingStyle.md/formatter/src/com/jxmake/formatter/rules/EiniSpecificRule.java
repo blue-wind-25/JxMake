@@ -169,10 +169,9 @@ public final class EiniSpecificRule {
 
     public String format(final String content)
     {
-        final boolean      endsWithNewline = content.endsWith("\n");
-        final String[]     rawLines        = content.split("\n", -1);
-        final List<String> lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
-        if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
+        final ToolingSharedRule.Lines linesObj        = new ToolingSharedRule.Lines(content);
+        final List<String>            lines           = linesObj.lines;
+        final boolean                 endsWithNewline = linesObj.endsWithNewline;
 
         final List<String> out   = new ArrayList<>();
         final List<KvItem> group = new ArrayList<>();
@@ -297,13 +296,7 @@ public final class EiniSpecificRule {
 
         flushGroup(out, group);
 
-        final StringBuilder sb = new StringBuilder();
-        for( int i = 0; i < out.size(); ++i ) {
-            sb.append( out.get(i) );
-            if( i + 1 < out.size() || endsWithNewline ) sb.append('\n');
-        }
-
-        return sb.toString();
+        return ToolingSharedRule.joinLines(out, endsWithNewline);
     }
 
     private void flushGroup(final List<String> out, final List<KvItem> group)

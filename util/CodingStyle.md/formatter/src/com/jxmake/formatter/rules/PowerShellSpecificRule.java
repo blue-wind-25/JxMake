@@ -544,32 +544,6 @@ public final class PowerShellSpecificRule {
 
     // ---- Line splitting / joining -------------------------------------------------------------
 
-    private static final class Lines {
-
-        final List<String> lines;
-        final boolean      endsWithNewline;
-
-        Lines(final String content)
-        {
-            this.endsWithNewline = content.endsWith("\n");
-            final String[] raw = content.split("\n", -1);
-            this.lines = new ArrayList<>( java.util.Arrays.asList(raw) );
-            if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
-        }
-
-        String join()
-        {
-            final StringBuilder sb = new StringBuilder();
-            for( int i = 0; i < lines.size(); ++i ) {
-                sb.append( lines.get(i) );
-                if( i + 1 < lines.size() || endsWithNewline ) sb.append('\n');
-            }
-
-            return sb.toString();
-        }
-
-    } // class Lines
-
     private static String leadingWhitespace(final String line)
     {
         return ToolingSharedRule.leadingWhitespace(line);
@@ -610,7 +584,7 @@ public final class PowerShellSpecificRule {
     }
 
     /**
-     * Per-line kind slices aligned with {@link Lines#lines} (newline characters themselves are
+     * Per-line kind slices aligned with {@link ToolingSharedRule.Lines#lines} (newline characters themselves are
      * omitted; each slice is exactly the line's character kinds)
      */
     private static char[][] lineKinds(final String content, final char[] kind, final int lineCount)
@@ -642,7 +616,7 @@ public final class PowerShellSpecificRule {
     private String applyBraceIndent(final String content)
     {
         final PassAResult  passA    = runPassA(content);
-        final Lines        lines    = new Lines(passA.transformed);
+        final ToolingSharedRule.Lines lines    = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]    pure     = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
@@ -880,7 +854,7 @@ public final class PowerShellSpecificRule {
     private String applyAssignAlignment(final String content)
     {
         final PassAResult      passA = runPassA(content);
-        final Lines            lines = new Lines(passA.transformed);
+        final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]        pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
@@ -978,7 +952,7 @@ public final class PowerShellSpecificRule {
     private String applyPipelineSplit(final String content)
     {
         final PassAResult  passA = runPassA(content);
-        final Lines        lines = new Lines(passA.transformed);
+        final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]    pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
@@ -1159,7 +1133,7 @@ public final class PowerShellSpecificRule {
     private String applySwitchArmAlignment(final String content)
     {
         final PassAResult   passA = runPassA(content);
-        final Lines         lines = new Lines(passA.transformed);
+        final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]     pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );

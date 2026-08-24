@@ -731,10 +731,9 @@ public final class BashSpecificRule {
     {
         final PassAResult passA = runPassA(content);
 
-        final boolean      endsWithNewline = passA.transformed.endsWith("\n");
-        final String[]     rawLines        = passA.transformed.split("\n", -1);
-        final List<String> lines           = new ArrayList<>( java.util.Arrays.asList(rawLines) );
-        if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
+        final ToolingSharedRule.Lines linesObj        = new ToolingSharedRule.Lines(passA.transformed);
+        final List<String>            lines           = linesObj.lines;
+        final boolean                 endsWithNewline = linesObj.endsWithNewline;
 
         final boolean[] pure = computeLinePurity( content, passA.kind, lines.size() );
 
@@ -782,13 +781,7 @@ public final class BashSpecificRule {
             ++idx;
         } // while
 
-        final StringBuilder sb = new StringBuilder();
-        for( int i = 0; i < out.size(); ++i ) {
-            sb.append( out.get(i) );
-            if( i + 1 < out.size() || endsWithNewline ) sb.append('\n');
-        }
-
-        return sb.toString();
+        return ToolingSharedRule.joinLines(out, endsWithNewline);
     }
 
     private static boolean isIfHeader(final String trimmed)

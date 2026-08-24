@@ -287,10 +287,9 @@ public final class JxMakeSpecificRule {
 
     public String format(final String content)
     {
-        final boolean      endsWithNewline = content.endsWith("\n");
-        final String[]     rawArr          = content.split("\n", -1);
-        final List<String> lines           = new ArrayList<>( Arrays.asList(rawArr) );
-        if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
+        final ToolingSharedRule.Lines linesObj        = new ToolingSharedRule.Lines(content);
+        final List<String>            lines           = linesObj.lines;
+        final boolean                 endsWithNewline = linesObj.endsWithNewline;
 
         final List<String>   out        = new ArrayList<>();
         final List<AsgnItem> group      = new ArrayList<>();
@@ -584,13 +583,7 @@ public final class JxMakeSpecificRule {
 
         flushGroup(out, group, groupDepth, indentWidth);
 
-        final StringBuilder sb = new StringBuilder();
-        for( int i = 0; i < out.size(); ++i ) {
-            sb.append( out.get(i) );
-            if( i + 1 < out.size() || endsWithNewline ) sb.append('\n');
-        }
-
-        return sb.toString();
+        return ToolingSharedRule.joinLines(out, endsWithNewline);
     }
 
     private void flushGroup(

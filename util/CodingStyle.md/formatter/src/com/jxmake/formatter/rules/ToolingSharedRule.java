@@ -7,6 +7,10 @@
 
 package com.jxmake.formatter.rules;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 /**
  * Shared helper logic that was structurally identical, byte-for-byte, across {@link
  * MakefileSpecificRule}, {@link BashSpecificRule}, and {@link PowerShellSpecificRule} (2026-08-16
@@ -59,6 +63,46 @@ final class ToolingSharedRule {
         while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) ++i;
 
         return line.substring(0, i);
+    }
+
+    /**
+     * A source's `\n`-split physical lines plus whether it ended with a trailing `\n` -- promoted
+     * from a byte-identical private copy in {@link PowerShellSpecificRule}; {@link
+     * MakefileSpecificRule}/{@link BashSpecificRule}/{@link EiniSpecificRule}/{@link
+     * JxMakeSpecificRule} each independently wrote out the same split-then-strip-trailing-empty
+     * construction and join-back logic instead of using a shared type for it. {@code lines} is
+     * mutable and meant to be edited in place before calling {@link #join}.
+     */
+    static final class Lines {
+
+        final List<String> lines;
+        final boolean      endsWithNewline;
+
+        Lines(final String content)
+        {
+            this.endsWithNewline = content.endsWith("\n");
+            final String[] raw = content.split("\n", -1);
+            this.lines = new ArrayList<>( Arrays.asList(raw) );
+            if( endsWithNewline && !lines.isEmpty() ) lines.remove( lines.size() - 1 );
+        }
+
+        String join()
+        {
+            return joinLines(lines, endsWithNewline);
+        }
+
+    } // class Lines
+
+    /** Joins {@code lines} back with `\n`, appending a final trailing `\n` only if {@code endsWithNewline}. */
+    static String joinLines(final List<String> lines, final boolean endsWithNewline)
+    {
+        final StringBuilder sb = new StringBuilder();
+        for( int i = 0; i < lines.size(); ++i ) {
+            sb.append( lines.get(i) );
+            if( i + 1 < lines.size() || endsWithNewline ) sb.append('\n');
+        }
+
+        return sb.toString();
     }
 
 } // class ToolingSharedRule

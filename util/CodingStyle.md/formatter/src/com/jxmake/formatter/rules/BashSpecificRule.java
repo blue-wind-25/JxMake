@@ -1008,9 +1008,4 @@ public final class BashSpecificRule {
         return basePrefix + indent( Math.max( Math.max(0, minLevels), snapped ) );
     }
 
-    private static String repeatChar(final char c, final int count)
-    {
-        return ToolingSharedRule.repeatChar(c, count);
-    }
-
 } // class BashSpecificRule

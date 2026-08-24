@@ -15,7 +15,6 @@ import java.util.Map;
 
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.grid.ColumnGrid;
-import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;

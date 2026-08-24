@@ -2821,24 +2821,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      */
     private String render(final List<Token> tokens, final List<Replacement> replacements)
     {
-        final StringBuilder out = new StringBuilder();
-        final int           n   = tokens.size();
-              int           i   = 0;
-              int           r   = 0;
-        while(i < n) {
-            while( r < replacements.size() && replacements.get(r).start < i ) r++;
-            if( r < replacements.size() && replacements.get(r).start == i ) {
-                out.append( replacements.get(r).text );
-                i = replacements.get(r).end;
-                ++r;
-                continue;
-            }
-            final Token t = tokens.get(i);
-            if(t.type != TokenType.INDENT && t.type != TokenType.DEDENT) out.append(t.text);
-            ++i;
-        } // while
-
-        return out.toString();
+        return renderSpan( tokens, 0, tokens.size(), replacements );
     }
 
 } // class ScopePipelineIndent

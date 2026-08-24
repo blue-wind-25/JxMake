@@ -127,10 +127,18 @@ public final class JsTsSpecificRule {
      * break-before-operator `cond\n  ? x\n  : y`, logical-operator chains, etc.), can *never*
      * legally begin a new statement -- so their presence there means the previous line's
      * statement is not actually finished yet, regardless of what its own last token was.
-     * Deliberately excludes ops that have a valid unary/statement-leading use (`+`, `-`, `!`,
-     * `...` (rest/spread can't start a statement either, but is excluded out of caution as
-     * it is not observed as a real leading-continuation shape) -- so this set stays narrower
-     * than {@link #CONTINUATION_OPS} on purpose.
+     * Deliberately excludes ops that have a restricted-production postfix meaning (`++`, `--` --
+     * real JS ASI genuinely DOES split `x\n++y` into two statements, so those must stay out) and
+     * `...` (rest/spread can't start a statement either, but is excluded out of caution as it is
+     * not observed as a real leading-continuation shape) -- so this set stays narrower than
+     * {@link #CONTINUATION_OPS} on purpose. `+`/`-` ARE included despite also having a valid
+     * unary/statement-leading use: real JS ASI only splits when continuing would be a syntax
+     * error, and a leading `+`/`-` can always continue the previous line's expression as a binary
+     * operator, so the parser never splits there regardless of what the next line could otherwise
+     * have meant on its own (the well-known "no-unexpected-multiline" ASI hazard) -- confirmed by
+     * a real-code dogfood hit (`tools/verifiers/json5_content_diff.js`'s `timestampNow`, a
+     * `return` of two template-literal halves joined by a leading `+` on the continuation line;
+     * see RDD_KEY_339 in RDD_LOG.md).
      */
     private static final Set<String> LEADING_CONTINUATION_OPS = new HashSet<>( Arrays.asList(
         ".",
@@ -146,6 +154,8 @@ public final class JsTsSpecificRule {
         "!==",
         "<=",
         ">=",
+        "+",
+        "-",
         "+=",
         "-=",
         "*=",

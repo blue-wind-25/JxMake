@@ -76,7 +76,7 @@ _mk_dump() {
     cp "$target" "$workdir/Included.mk"
 
     ( cd "$workdir" && make -p -n -r -R -f "$wrapper" __jxmake_noop_target__ 2>&1 ) \
-        | grep -v '^# Make data base, printed on\|^# Finished Make data base\|^#  Last modified '
+    | grep -v '^# Make data base, printed on\|^# Finished Make data base\|^#  Last modified '
 }
 
 # Compares one pair; prints MISMATCH/OK and a unified diff on mismatch.
@@ -184,8 +184,12 @@ _run_batch() {
 }
 
 case "$#" in
-2) _run_single "$1" "$2" ;;
-3) _run_batch "$1" "$2" "$3" ;;
+2)
+    _run_single "$1" "$2"
+    ;;
+3)
+    _run_batch "$1" "$2" "$3"
+    ;;
 *)
     print_usage
     exit 2

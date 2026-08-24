@@ -4355,6 +4355,16 @@ Real-code regressions:
                                                         two statements and discarded the second line's
                                                         contribution to the returned value.
 
+  real_code_regressions_231_inp/out.java             -- `line-split-operator-priority` fix: a generic wildcard
+                                                        type argument's `?` (e.g. `Optional<?>`, `Collection<?
+                                                        extends E>`) was being mistaken for a ternary
+                                                        conditional operator and split as if it were one,
+                                                        producing an ugly and unnecessary break inside the
+                                                        type argument. The `?` is now recognized as a wildcard
+                                                        when it is immediately bounded by `<`/`,` on one side
+                                                        and `>`/`,`/`extends`/`super` on the other, and is
+                                                        left alone.
+
 How Tests Are Run
 -----------------
 

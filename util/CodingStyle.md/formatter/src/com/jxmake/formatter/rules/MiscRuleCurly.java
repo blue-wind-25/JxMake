@@ -2440,6 +2440,9 @@ public static final class Signature {
                      if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
             }
+            else if( t.type == TokenType.OP && isOp(t, "?") && isGenericWildcardQuestion(tokens, i) ) {
+                // skip -- `Optional<?>`/`List<? extends X>`/`Map<K, ?>` wildcard, not a ternary
+            }
             else if( t.type == TokenType.OP && ( isOp(t, "?") || isOp(t, ":") ) ) {
                 occ.add( new int[] { i, depth } );
             }
@@ -2452,6 +2455,30 @@ public static final class Signature {
         for( final int[] o : occ ) if( o[1] == minDepth ) result.add( o[0] );
 
         return result;
+    }
+    /**
+     * {@code true} if the `?` token at {@code idx} is a generic wildcard type argument (Java
+     * `Optional<?>`/`List<? extends X>`/`Map<K, ?>`, TS-equivalent shapes) rather than a real
+     * ternary conditional operator. A wildcard `?` is always immediately preceded by `<`/`,` and
+     * immediately followed by `>`/`,`/`extends`/`super` -- a real ternary `?` is never adjacent to
+     * those on both sides at once (it always has a full operand between it and the next `?`/`:`/
+     * `,`/`>`). Checking only the trailing side (`>`/`extends`/`super`, or a following `,` when the
+     * leading side is also `<`/`,`) is sufficient and avoids needing real angle-bracket-depth
+     * tracking, which the surrounding `(`/`[`-only depth scan doesn't otherwise need.
+     */
+    private boolean isGenericWildcardQuestion(final List<Token> tokens, final int idx)
+    {
+        final int nextIdx = nextSignificantIndex(tokens, idx + 1);
+        if(nextIdx < 0) return false;
+        final Token nt = tokens.get(nextIdx);
+        if( nt.type == TokenType.KEYWORD && ( "extends".equals(nt.text) || "super".equals(nt.text) ) ) return true;
+        if( !( isOp(nt, ">") || nt.type == TokenType.ANGLE_BRACKET_CLOSE || isPunct(nt, ",") ) ) return false;
+
+        final int prevIdx = prevSignificantIndex(tokens, idx - 1);
+        if(prevIdx < 0) return false;
+        final Token pt = tokens.get(prevIdx);
+
+        return isOp(pt, "<") || pt.type == TokenType.ANGLE_BRACKET_OPEN || isPunct(pt, ",");
     }
     /**
      * {@code true} if the token immediately preceding {@code idx} (skipping whitespace/comments)

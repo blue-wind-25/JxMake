@@ -41,6 +41,66 @@ ternary tokens); `Preprocessor.java` shows a tier-1 `&&` split on a long
 positives. No bug found — Pass 2 fully clean, no new fixture needed. No
 files copied back anywhere (read-only per plan).
 
+Pass 3 (flag forced ON via `.jxmake-code-formatter`, scratch copy,
+read-only): corpus `google/guava` (`git clone --depth 1`, 1655 `.java`
+files excluding `android/`, ~404.7K LOC) — a much larger corpus than Pass
+2, chosen after every other `/tmp` checkout available at session start
+turned out corrupted/unsuitable (0 real files, or `node_modules` stub-only
+trees). round1/round2 `diff -ru`: 100 of 1655 files differ, all
+attributable to two categories, both confirmed pre-existing (reproduced
+identically with the flag forced OFF at default config, i.e. present on
+unmodified `main` before this pass):
+  1. The already-documented closing-comment-min-lines flap (see "Known
+     Out-of-Scope Finding" above) — a handful of files.
+  2. A newly-observed variant of the same broad "line-count-crosses-a-
+     later-pass's-threshold" class: when the original source already has
+     an `if`/`while` condition hand-split across multiple lines (e.g.
+     `Sets.java`'s `subSet`, `&&`-chained across 4 source lines) and the
+     single-statement body collapses onto the condition's closing line
+     (`BlockStructureRule.tryCollapse`), the resulting over-length single
+     physical line is not always re-detected as a fresh operator-split
+     candidate in round 1 (root cause not fully isolated — reproducing it
+     requires the exact real-file context; a reduced standalone repro with
+     the same shape formats correctly in round 1). Round 2, working from
+     round 1's already-collapsed-and-rejoined text, does split it
+     correctly, self-correcting on the second pass. Output is valid Java
+     both rounds — a non-idempotent flap, not a correctness bug — left
+     out of scope for this pass per the same reasoning as finding 1.
+  `java_syntax_check.sh` (batch via `xargs`, all 1655 files): 1647 clean,
+  8 "variable declaration not allowed here" errors — all 8 confirmed
+  **pre-existing** (reproduced identically with the flag OFF), root-caused
+  to an unrelated, separate bug in `BlockStructureRule.tryCollapse`: it
+  strips `{ }` from a single-statement loop/if body even when that
+  statement is a local variable declaration, which is illegal Java without
+  braces (e.g. `SuppliersTest.java`'s
+  `for(...) Object unused = Suppliers.synchronizedSupplier(...).get();`).
+  Flagged prominently as a real, pre-existing bug worth a future session's
+  attention, but unrelated to `line-split-operator-priority` and out of
+  scope here.
+  One genuine in-scope bug found and fixed: `findTernarySplits` mistook a
+  generic wildcard type argument's `?` (`Optional<?>`, `Collection<?
+  extends E>`, `Map<K, ?>` — found via `MoreObjects.java`/`Sets.java`) for
+  a ternary conditional operator, producing an incorrect split inside the
+  type argument. Fixed via a new `isGenericWildcardQuestion` helper in
+  `MiscRuleCurly.java` that recognizes the shape (immediately bounded by
+  `<`/`,` on one side, `>`/`,`/`extends`/`super` on the other) and skips
+  it. Note: the bounding `<`/`>` tokens are tagged
+  `TokenType.ANGLE_BRACKET_OPEN`/`ANGLE_BRACKET_CLOSE` by a later
+  re-tagging pass, not plain `OP`/`PUNCT` as first assumed — the fix
+  checks both forms, matching the existing pattern used elsewhere in this
+  file (`isPunct(t, "<") || t.type == TokenType.ANGLE_BRACKET_OPEN`). New
+  fixture: `test/real_code_regressions_231_{inp,out}.java`. `make test`
+  351/351 forward + idempotency after the fix. Re-verified post-fix: the
+  100-file round1/round2 diff count and 8-file syntax-check count are
+  both unchanged (the fix only removes a false-positive split, it doesn't
+  touch either pre-existing flap class). 73 of the 1655 files show the
+  feature actually firing vs. a flag-off baseline; spot-checked
+  `CharMatcher.java`, `Graphs.java`, `Maps.java`, `TreeRangeSet.java` —
+  all show correct tier-1 (`&&`/`+`) and tier-2 (ternary) operator-leading
+  splits, no false positives on TS-equivalent shapes (n/a for this
+  Java-only corpus) or Kotlin elvis (n/a). No files copied back anywhere
+  (read-only per plan).
+
 ---
 
 ## Purpose
@@ -167,7 +227,8 @@ by omitting that case from the `.ts` fixture (already covered by `.cpp`/
   nullish-vs-ternary landmine, genuine ternary still splits.
 - All three registered in `Makefile`'s `INP_FILES` (grouped ahead of the
   `real_code_regressions_*` block, per this job's own naming).
-- `make test`: 347/347 -> 350/350 forward + idempotency, zero regressions.
+- `make test`: 347/347 -> 350/350 -> 351/351 forward + idempotency, zero
+  regressions (351 after Pass 3's `real_code_regressions_231` fixture).
 
 ---
 

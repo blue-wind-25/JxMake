@@ -4315,14 +4315,14 @@ Real-code regressions:
                                                         line being treated as a fresh standalone comment and
                                                         having its first word wrongly capitalized.
 
-  real_code_regressions_230_inp/out.js               -- §2 semicolon-insertion fix: a `return` statement
-                                                        whose expression continues onto the next line via a
-                                                        leading `+` (e.g. two template-literal halves joined
-                                                        across lines) is now recognized as a single
-                                                        continuing statement instead of having a stray
-                                                        semicolon inserted after the first line, which had
-                                                        silently split it into two statements and discarded
-                                                        the second line's contribution to the returned value.
+  real_code_regressions_230_inp/out.js               -- §2 semicolon-insertion fix: a `return` statement whose
+                                                        expression continues onto the next line via a leading
+                                                        `+` (e.g. two template-literal halves joined across
+                                                        lines) is now recognized as a single continuing
+                                                        statement instead of having a stray semicolon inserted
+                                                        after the first line, which had silently split it into
+                                                        two statements and discarded the second line's
+                                                        contribution to the returned value.
 
 How Tests Are Run
 -----------------

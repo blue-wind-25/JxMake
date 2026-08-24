@@ -796,10 +796,7 @@ public abstract class MiscRuleCore {
     }
     protected int nextSignificantIndex(final List<Token> tokens, final int from)
     {
-        int i = from;
-        while( i < tokens.size() && isGapToken( tokens.get(i) ) ) i++;
-
-        return i < tokens.size() ? i : -1;
+        return TokenNavigationRule.nextSignificantIndexAtOrAfter(tokens, from);
     }
     protected static final Set<String> ASSIGNMENT_OPS = setOf(
         "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="
@@ -1897,10 +1894,7 @@ public static final class Assignment {
     }
     protected int prevSignificantIndex(final List<Token> tokens, final int from)
     {
-        int i = from;
-        while( i >= 0 && isGapToken( tokens.get(i) ) ) i--;
-
-        return i;
+        return TokenNavigationRule.prevSignificantIndexAtOrBefore(tokens, from);
     }
     public static int matchParenBackward(final List<Token> tokens, final int closeIdx)
     {

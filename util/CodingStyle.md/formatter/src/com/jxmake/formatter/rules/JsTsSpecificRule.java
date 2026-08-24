@@ -637,20 +637,12 @@ public final class JsTsSpecificRule {
 
     private int nextSignificantIndex(final List<Token> tokens, final int from)
     {
-        for( int i = from; i < tokens.size(); ++i ) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.nextSignificantIndexAtOrAfter(tokens, from);
     }
 
     private int prevSignificantIndex(final List<Token> tokens, final int from)
     {
-        for(int i = from; i >= 0; --i) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.prevSignificantIndexAtOrBefore(tokens, from);
     }
 
     private String render(final List<Token> tokens, final Map<Integer, String> overrides)

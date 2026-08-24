@@ -21,7 +21,7 @@ public final class IndentationDetector {
 
     private static final String[] SOURCE_EXTENSIONS = { ".java", ".c", ".h", ".cpp", ".cc", ".cxx", ".hh", ".hpp", ".hxx" };
     private static final int      SAMPLE_FILE_CAP   = 10;
-    private static final String[] BOUNDARY_MARKERS  = { ".jxmake-code-formatter", ".git", ".hg" };
+    private static final String[] BOUNDARY_MARKERS  = { Config.STYLE_FMT_FILE_NAME, ".git", ".hg" };
 
     private IndentationDetector()
     {

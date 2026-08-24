@@ -174,6 +174,18 @@ public final class Lang {
      */
     public static final String SCAFFOLD_ONLY_LANGUAGES = "";
 
+    /**
+     * {@link #SUPPORTED_LANGUAGES}, plus {@link #SCAFFOLD_ONLY_LANGUAGES} appended (comma-
+     * separated) when non-empty -- the "must be one of: ..." list every `--lang`/`lang=`
+     * validation error message (CLI, server, in-file config) renders. A no-op today since
+     * {@code SCAFFOLD_ONLY_LANGUAGES} is empty, but kept as one shared method so the four
+     * call sites can't drift out of sync if a future scaffold-only language is added.
+     */
+    public static String recognizedLanguagesForErrorMessage()
+    {
+        return SUPPORTED_LANGUAGES + ( SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + SCAFFOLD_ONLY_LANGUAGES );
+    }
+
     public static boolean isSupported(final String language)
     {
         return "c".equals(language) || "cpp".equals(language)

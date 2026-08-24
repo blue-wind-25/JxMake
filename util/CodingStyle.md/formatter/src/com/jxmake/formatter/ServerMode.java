@@ -420,7 +420,7 @@ public final class ServerMode {
 
                 if( language != null && !Lang.isRecognized(language) ) {
                     respond(
-                        exchange, 400, "'lang' query parameter must be one of: " + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + " (got: " + language + ")"
+                        exchange, 400, "'lang' query parameter must be one of: " + Lang.recognizedLanguagesForErrorMessage() + " (got: " + language + ")"
                     );
                     return;
                 }

@@ -128,13 +128,13 @@ public final class Main {
             }
             else if( "--lang".equals(arg) ) {
                 if(i + 1 >= args.length) return usageError(
-                    "--lang requires an argument (" + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + ")"
+                    "--lang requires an argument (" + Lang.recognizedLanguagesForErrorMessage() + ")"
                 );
                 final String langArg = args[++i];
                 if( !Lang.isRecognized(
                     langArg
                 ) ) return usageError(
-                    "--lang must be one of: " + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + " (got: " + langArg + ")"
+                    "--lang must be one of: " + Lang.recognizedLanguagesForErrorMessage() + " (got: " + langArg + ")"
                 );
                 explicitLanguage = langArg;
             }

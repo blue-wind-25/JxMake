@@ -744,6 +744,30 @@ future pass. `make test`: 290/290 forward + idempotency, clean.
 
 `make test`: 323/323 forward + idempotency, clean (final confirmation run).
 
+**2026-08-25 cleanup-pass follow-up (`hasNewlineBetween` duplicate sweep,
+user-directed):** grepped `src/` for every `hasNewlineBetween` definition
+(a new one had just been added to `MiscRuleCurly` for the line-split-
+operator-priority job — see `STATE_LINE_SPLIT_OP.md`). Found four total:
+`GetterSetterRuleCore.hasNewlineBetween` (already the shared, promoted
+copy for its two subclasses, `GetterSetterRuleCurly`/`KotlinGetterSetterRule`
+— half-open `[from, to)`), plus three independent `private` copies —
+`CppSpecificRule.hasNewlineBetween` (both endpoints exclusive,
+`fromExclusive+1 .. toExclusive-1`), `JsTsSpecificRule.hasNewlineBetween`
+(half-open `[from, to)`, plus a defensive `i < tokens.size()` bound), and
+`MiscRuleCurly.hasNewlineBetween` (both endpoints inclusive, `[from, to]`).
+Same judgment call as the 2026-07-28 `setOf` sweep: the three `private`
+copies sit in unrelated class hierarchies with no common ancestor short of
+introducing a brand-new shared-utility class, and — unlike the byte-
+identical `setOf` case that was promoted — their endpoint-inclusivity
+conventions are genuinely different (exclusive-both vs. half-open vs.
+inclusive-both), each matching that class's own local span-indexing
+convention at its call sites; merging them would require normalizing
+every call site's indices too, a materially bigger and riskier change
+than this cleanup's scope. Left all three alone, intentionally
+unconsolidated, same as the `setOf` precedent's three leftover copies. No
+source changes made; `make test` re-run to confirm still 350/350 forward +
+idempotency (no regression, since nothing was touched).
+
 ### Formatter self-formatting (dogfood-and-adopt) process
 
 A dedicated procedure for reformatting the formatter's own Java source tree

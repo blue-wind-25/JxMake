@@ -717,10 +717,10 @@ public final class Config {
                 note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) — splits a too-long "
                               + "if/while/switch condition, for(...) header, or a bare return/assignment-RHS "
                               + "expression with no enclosing call, at a three-tier operator priority ladder: "
-                              + "&&, ||, +, - first (equal priority), then ?: ternary (skipped for Kotlin) if "
-                              + "still too long, then * and / if still too long after that, before falling "
-                              + "back to call-argument wrapping. A for(...) header splits on its own two "
-                              + "top-level ';' clause boundaries, recursing into the same ladder per clause.";
+                              + "&&, ||, +, - first (equal priority), then ?: ternary (skipped for Kotlin) if still "
+                              + "too long, then * and / if still too long after that, before falling back to "
+                              + "call-argument wrapping. A for(...) header splits on its own two top-level ';' clause "
+                              + "boundaries, recursing into the same ladder per clause.";
                 break;
 
             case "indent-size":

@@ -367,3 +367,45 @@ echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
+
+
+
+
+
+Ask a sub-agent to do this (ONLY for the files affected by the new line-split-operator-priority
+feature and any subsequent bug fixes):
+
+    Process the formatter's Java source code and make improvements in this priority order:
+     1. Refactor duplicated/common code.
+     2. If a clear opportunity arises, optimize for execution speed.
+     3. Perform other useful code clean-ups as needed.
+
+    Prioritize changes that are:
+     - Small and focused.
+     - Low-risk and behavior-preserving
+     - Consistent with the existing code style and architecture.
+     - Related to the stated tasks; avoid unrelated changes.
+
+    For optimizations, do not make speculative changes. Prefer optimizations where the
+    performance benefit is reasonably clear from the code.
+
+    After several trivial changes, or after completing one substantial change, run `make test`.
+    Fix any failures before continuing.
+
+    Commit completed changes incrementally. Do NOT accumulate all changes and make one large
+    commit. Each commit should contain a coherent set of related changes and have an appropriate
+    commit message.
+
+    Some of the code inside `tools/*` may use the formatter classes either directly or via its
+    JAR. Ensure the refactoring and optimization process do not break the `tools`.
+
+and then:
+
+   Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
+   subdirectories that WERE CHANGED by the ABOVE job (readopt again).
+
+   Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform
+   idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
+   formatter's `src/**/` subdirectories. Perform some eyeballing as needed. Running the test
+   fixtures from the formatter JAR may produce regressions due to missing GRU weights. Perform
+   bug fixes as needed.

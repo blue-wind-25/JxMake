@@ -1471,29 +1471,46 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement> replacements = new ArrayList<>();
         for(final RawLine line : rawLines) {
             if(line.multiPhysicalLine) continue; // Already-broken-out signatures are §6's existing alignment slice's own territory
-            int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
-            if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            if( isKeyword( tokens.get(kwIdx), "async" ) ) {
-                kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-                if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            }
-            if( !isKeyword( tokens.get(kwIdx), "def" ) ) continue;
-            final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-            if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
-            final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
-            if( openIdx < 0 || tokens.get(
-                openIdx
-            ).type != TokenType.PUNCT || !"(".equals(
-                tokens.get(openIdx).text
-            ) ) continue;
-            final int closeIdx = matchBracket(tokens, openIdx, line.end);
-            if(closeIdx < 0) continue;
+            final int[] parens = findDefSignatureParens(tokens, line);
+            if(parens == null) continue;
 
-            final Replacement wrap = tryWrapDefSignature(tokens, line, openIdx, closeIdx);
+            final Replacement wrap = tryWrapDefSignature(tokens, line, parens[0], parens[1]);
             if(wrap != null) replacements.add(wrap);
         } // for
 
         return replacements;
+    }
+
+    /**
+     * Locates a {@code def} (optionally {@code async def}) signature header's parameter-list
+     * parens on {@code line}: skips an optional {@code async}, requires the {@code def} keyword,
+     * an {@code IDENTIFIER} name, then {@code (}, and matches its closing {@code )}. Returns
+     * {@code {openIdx, closeIdx}}, or {@code null} if {@code line} isn't a {@code def} signature
+     * header at all. Shared by {@link #applySignatureWrapping} and {@link
+     * #applySignatureAlignment}, which differ only in which {@code multiPhysicalLine} lines they
+     * consider and what they do once the parens are found.
+     */
+    private int[] findDefSignatureParens(final List<Token> tokens, final RawLine line)
+    {
+        int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
+        if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) return null;
+        if( isKeyword( tokens.get(kwIdx), "async" ) ) {
+            kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+            if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) return null;
+        }
+        if( !isKeyword( tokens.get(kwIdx), "def" ) ) return null;
+        final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+        if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) return null;
+        final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
+        if( openIdx < 0 || tokens.get(
+            openIdx
+        ).type != TokenType.PUNCT || !"(".equals(
+            tokens.get(openIdx).text
+        ) ) return null;
+        final int closeIdx = matchBracket(tokens, openIdx, line.end);
+        if(closeIdx < 0) return null;
+
+        return new int[] {openIdx, closeIdx};
     }
 
     /**
@@ -1598,24 +1615,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement> replacements = new ArrayList<>();
         for(final RawLine line : rawLines) {
             if(!line.multiPhysicalLine) continue;
-            int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
-            if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            if( isKeyword( tokens.get(kwIdx), "async" ) ) {
-                kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-                if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            }
-            if( !isKeyword( tokens.get(kwIdx), "def" ) ) continue;
-            final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-            if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
-            final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
-            if( openIdx < 0 || tokens.get(
-                openIdx
-            ).type != TokenType.PUNCT || !"(".equals(
-                tokens.get(openIdx).text
-            ) ) continue;
-            final int closeIdx = matchBracket(tokens, openIdx, line.end);
-            if(closeIdx < 0) continue;
-            final List<Replacement> group = trySignatureGroup(tokens, openIdx, closeIdx);
+            final int[] parens = findDefSignatureParens(tokens, line);
+            if(parens == null) continue;
+            final List<Replacement> group = trySignatureGroup(tokens, parens[0], parens[1]);
             if(group != null) replacements.addAll(group);
         } // for
 

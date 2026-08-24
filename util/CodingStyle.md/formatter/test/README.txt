@@ -1149,6 +1149,35 @@ Multi-Sentence Comment Capitalization:
   multi_sentence_comment_inp/out.sh                  -- Same proof for the tooling `#`-comment family
                                                         (Makefile/Bash/PowerShell), via `#%` in-file config.
 
+Line-split operator priority:
+
+  line_split_operator_priority_inp/out.cpp            -- `line-split-operator-priority` (default off): if/while/
+                                                        switch/assignment/return primary-tier splits (`&&`,
+                                                        `||`, `+`, `-`), ternary-tier and mul-div-tier fallback
+                                                        splits engaged only when the primary tier leaves a
+                                                        fragment still too long, `for(...)` header splitting
+                                                        (including a clause still too long after the top-level
+                                                        split, recursing into the same ladder), and a unary
+                                                        pointer-dereference `*ptr` landmine (never mistaken for
+                                                        a binary-multiplication split point).
+
+  line_split_operator_priority_inp/out.kt              -- same feature, Kotlin: primary-tier if-condition split,
+                                                        plus an elvis `?:` landmine (never mistaken for C-style
+                                                        ternary -- Kotlin has no C-style ternary, so the
+                                                        ternary tier is skipped entirely for this language).
+
+  line_split_operator_priority_inp/out.ts              -- same feature, TS: optional-chaining `?.` and nullish-
+                                                        coalescing `??` landmine (never mistaken for ternary
+                                                        `?`/`:`), plus a genuine ternary that still splits when
+                                                        too long. Intentionally omits an if-condition case (the
+                                                        obvious analogue of the .cpp/.kt one), which was found to
+                                                        trigger an unrelated, pre-existing closing-comment-min-
+                                                        lines threshold flap where splitting a condition changes
+                                                        the enclosing function's line count across the threshold
+                                                        that decides whether a trailing comment is emitted --
+                                                        out of scope for this feature, already covered without
+                                                        the flap by the .cpp/.kt fixtures.
+
 Real-code regressions:
 
   real_code_regressions_1_inp/out.cpp                -- Distilled from tinyexpr-plusplus: same-line-sibling

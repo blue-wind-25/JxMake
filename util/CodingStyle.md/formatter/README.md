@@ -499,31 +499,32 @@ sample and falls back to the default indent style.
 ```properties
 # ── Server configurations ─────────────────────────────────────────────────────
 server-port                            = 17173
-server-concurrency                     = 1           # server-only, see "Server mode" below
-client-read-ahead                      = 1           # client-only, see "Server mode" below
+server-concurrency                     = 1           # server-only -- see "Server mode" below
+client-read-ahead                      = 1           # client-only -- see "Server mode" below
 
 # ── Structural constants ──────────────────────────────────────────────────────
 line-length                            = 100
 line-length-with-comment               = 120         # code+comment fits-check width -- curly-brace family only
+line-split-operator-priority           = off         # off | on -- curly-brace family only
 indent-size                            = 4
 indent-style                           = spaces      # spaces | tabs | auto
 
 # ── Behavior ──────────────────────────────────────────────────────────────────
-line-endings                           = lf          # lf | crlf | preserve
-append-new-line-at-eof                 = on          # on | off -- only if the last line does not have it
-collapse-trailing-blank-lines-at-eof   = off         # off | on -- removes existing trailing blank lines
-remove-trailing-spaces                 = on          # on | off
-normalize-invisible-invalid-unicode    = on          # on | off
+line-endings                           = lf          # lf  | crlf | preserve
+append-new-line-at-eof                 = on          # on  | off -- only if the last line does not have it
+collapse-trailing-blank-lines-at-eof   = off         # off | on  -- removes existing trailing blank lines
+remove-trailing-spaces                 = on          # on  | off
+normalize-invisible-invalid-unicode    = on          # on  | off
 
-normalize-comment-start-case           = on          # on | off
+normalize-comment-start-case           = on          # on  | off
 normalize-comment-start-case-multiline = off         # off | on
-normalize-comment-end-period           = on          # on | off
-comment-normalization-classifier       = on          # on | off
+normalize-comment-end-period           = on          # on  | off
+comment-normalization-classifier       = on          # on  | off
 closing-comment-min-lines              = 5
 
 curly-general-scope-reindent           = off         # off | on
-curly-general-scope-reindent-multipass = off         # off | on, only takes effect when the above is also on
-curly-general-scope-reindent-postpass  = off         # off | on, only takes effect when the base flag is also on
+curly-general-scope-reindent-multipass = off         # off | on -- only takes effect when the above is also on
+curly-general-scope-reindent-postpass  = off         # off | on -- only takes effect when the base flag is also on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────
 header-guard-rename                    = off         # off | on
@@ -552,7 +553,7 @@ python-import-sort                     = on
 python-import-blank-lines              = 1
 
 # ── HTML5 ─────────────────────────────────────────────────────────────────────
-html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4, cumulative
+html5-tc-gap-level                     = 0           # 0 | 1 | 2 | 3 | 4 (cumulative)
 
 # ── AI-assist (GRU) ───────────────────────────────────────────────────────────
 gru-classifier                         = on          # on | off
@@ -688,6 +689,34 @@ mid-comment line of commented-out code such as
 can have its `import` line capitalized to `// Import './rxjs/rxjs.spec';` if the classifier judges
 it a plausible sentence start. Leave this key off for codebases where commented-out code inside
 multi-line comment groups is common, or accept spot-checking after enabling it.
+
+### Operator-priority line splitting (`line-split-operator-priority`)
+
+`line-split-operator-priority` (default `off`) is a curly-brace family (C/C++/Java/Kotlin/JS/TS)
+option: when an `if`/`while`/`switch` condition, a `for(...)` header, or a plain `return`/
+assignment right-hand side (not wrapped in a function call) is too long to fit on one line, it is
+split across multiple lines at operator boundaries instead of being left long.
+
+Each continuation line leads with its operator and is indented one level in from the statement's
+own indentation, for example:
+
+```
+if( someVeryLongConditionNameHere
+    && anotherVeryLongConditionNameHere )
+{
+    ...
+}
+```
+
+Splitting is tried in priority order: `&&`/`||`/`+`/`-` first; then, only if a resulting piece is
+still too long (or nothing was found at that first level), the ternary `?:` (this level is skipped
+for Kotlin, which uses `?:` for its elvis operator rather than a ternary); then, only if still too
+long after that, `*`/`/`. A `for(...)` header instead splits on its own initialization/condition/
+increment clauses, one per line; an individual clause that is still too long after that is itself
+split using the same operator-priority order.
+
+This option never touches Kotlin's elvis operator (`?:`) or JavaScript/TypeScript's optional
+chaining (`?.`) and nullish coalescing (`??`) — none of those are treated as ternary operators.
 
 ### General scope-depth reindentation (GDR) (`curly-general-scope-reindent`)
 

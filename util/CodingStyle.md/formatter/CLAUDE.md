@@ -18,6 +18,7 @@ state file.
 | JS/TS support (implemented) | `STATE_COMMON.md` | `STATE_JS_TS.md` |
 | Python3 support (implemented) | `STATE_COMMON.md` | `STATE_PYTHON3.md` |
 | AI-assist Step 3: GRU comment-classifier abstain resolution (implemented and shipped — `gru-classifier = on` default since 2026-08-02, `com.jxmake.formatter.classifier.gru` package) | `STATE_COMMON.md` | `STATE_AI.md` |
+| Operator-priority line splitting (curly-family `line-split-operator-priority`, default off — implemented) | `STATE_COMMON.md` | `STATE_LINE_SPLIT_OP.md` |
 | General scope-depth reindentation (curly reindent job; pre-pass architecture landed, default off, behind `curly-general-scope-reindent = on` — high risk, a real pass-ordering bug was found during real-code validation, read `STATE_CURLY_GDR.md` before attempting) | `STATE_COMMON.md` | `STATE_CURLY_GDR.md` |
 | HTML5 deep tree-construction gaps (tc gap job; all four levels (1-4) landed and full-suite dogfood re-validated with zero regression, still off by default behind `html5-tc-gap-level = 0`, opt-in cumulative — read `STATE_HTML5_TCG.md` for each level's implementation notes/known limitations before changing) | `STATE_COMMON.md` | `STATE_HTML5_TCG.md` |
 | INI-like key-value config formatter (E-INI, Extended INI; implemented — narrow beautification-only rule list per `STYLE_TOOLING.md` §4) | `STATE_COMMON.md` | `STATE_EINI.md` |
@@ -29,9 +30,9 @@ protocol, file-exclusion rules, and real-code-testing methodology used by
 every job. `STATE_C_CPP_JAVA.md` is authoritative for the C/C++/Java job's
 progress, implementation protocol, and "Resolved Design Decisions" table.
 `STATE_KOTLIN.md`, `STATE_CPP26.md`, `STATE_DATA_FORMATS.md`,
-`STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_AI.md`, `STATE_CURLY_GDR.md`,
-`STATE_HTML5_TCG.md`, `STATE_EINI.md`, `STATE_JXMAKE.md`, and
-`STATE_TOOLING.md` are each job's own equivalent.
+`STATE_JS_TS.md`, `STATE_PYTHON3.md`, `STATE_AI.md`, `STATE_LINE_SPLIT_OP.md`,
+`STATE_CURLY_GDR.md`, `STATE_HTML5_TCG.md`, `STATE_EINI.md`,
+`STATE_JXMAKE.md`, and `STATE_TOOLING.md` are each job's own equivalent.
 
 **Current implementation status:** no language in this codebase is
 scaffold-only any longer (`Lang.SCAFFOLD_ONLY_LANGUAGES` is now an empty

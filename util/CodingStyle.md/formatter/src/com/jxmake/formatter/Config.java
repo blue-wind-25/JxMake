@@ -29,7 +29,8 @@ public final class Config {
     static final String STYLE_FMT_FILE_NAME = ".jxmake-code-formatter";
 
     private static final String[] ALL_KEYS = {
-        "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",
+        "line-length", "line-length-with-comment", "line-split-operator-priority",
+        "indent-size", "indent-style", "server-port",
         "server-concurrency", "client-read-ahead",
         "closing-comment-min-lines", "format-macros", "line-endings",
         "append-new-line-at-eof", "collapse-trailing-blank-lines-at-eof", "remove-trailing-spaces",
@@ -84,6 +85,19 @@ public final class Config {
     private int    lineLengthWithComment = DEFAULT_LINE_LENGTH_WITH_COMMENT;
     private int    indentSize            = DEFAULT_INDENT_SIZE;
     private String indentStyle           = DEFAULT_INDENT_STYLE;
+    /**
+     * {@code line-split-operator-priority} -- default off: when a curly-family (C/C++/Java/
+     * Kotlin/JS/TS) `if`/`while`/`switch` condition, `for(...)` header, or a bare `return`/
+     * assignment-RHS expression with no enclosing call parens, is too long, splits at a three-tier
+     * operator priority ladder -- `&&`/`||`/`+`/`-` first (equal priority), then `?:` ternary
+     * (skipped for Kotlin) only if still too long, then `*`/`/` only if still too long after that --
+     * before falling back to today's call-argument-paren wrapping. Each continuation line leads
+     * with its operator, one indent level in from the statement's base indent. A `for(...)` header
+     * splits on its own two top-level `;` clause boundaries onto three lines, recursing into the
+     * same ladder per clause if a clause is itself still too long. See
+     * {@code MiscRuleCurly.enforceOperatorLineBreaking}.
+     */
+    private boolean lineSplitOperatorPriority = false;
     private int    serverPort            = 17173;
     /**
      * {@code server-concurrency} -- thread-pool size {@code ServerMode.start} uses for the
@@ -310,6 +324,11 @@ public final class Config {
         return indentStyle;
     }
 
+    public boolean lineSplitOperatorPriority()
+    {
+        return lineSplitOperatorPriority;
+    }
+
     public int serverPort()
     {
         return serverPort;
@@ -518,7 +537,8 @@ public final class Config {
         groups.put(
             "Structural constants",
             new String[] {
-                "line-length", "line-length-with-comment", "indent-size", "indent-style"
+                "line-length", "line-length-with-comment", "line-split-operator-priority",
+                "indent-size", "indent-style"
             }
         );
         groups.put(
@@ -655,14 +675,14 @@ public final class Config {
             case "server-port":
                 defaultValue  = String.valueOf(defaults.serverPort);
                 allowedValues = null;
-                note          = "server-only — takes effect only when the formatter server itself starts; "
+                note          = "Server-only — takes effect only when the formatter server itself starts; "
                               + "has no effect here or on a running server";
                 break;
 
             case "server-concurrency":
                 defaultValue  = String.valueOf(defaults.serverConcurrency);
                 allowedValues = null;
-                note          = "server-only — thread-pool size the server's HTTP executor uses; takes effect "
+                note          = "Server-only — thread-pool size the server's HTTP executor uses; takes effect "
                               + "only when the formatter server itself starts. Default 1 (single-threaded); "
                               + "raising this requires the client to also raise 'client-read-ahead' to see any benefit.";
                 break;
@@ -670,7 +690,7 @@ public final class Config {
             case "client-read-ahead":
                 defaultValue  = String.valueOf(defaults.clientReadAhead);
                 allowedValues = null;
-                note          = "client-only — how many requests the CLI's one-by-one server-delegation path keeps "
+                note          = "Client-only — how many requests the CLI's one-by-one server-delegation path keeps "
                               + "in flight at once. Default 1 (strict serial dispatch); when tuning against a server "
                               + "with 'server-concurrency' raised, a reasonable starting point is roughly "
                               + "'server-concurrency' + 2.";
@@ -689,6 +709,18 @@ public final class Config {
                 note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) — the 'code + comment' fits-check "
                               + "width for a line carrying a trailing same-line comment. No other language folds a "
                               + "trailing comment into its own wrap decision, so this key has no effect elsewhere.";
+                break;
+
+            case "line-split-operator-priority":
+                defaultValue  = defaults.lineSplitOperatorPriority ? "on" : "off";
+                allowedValues = ON_OFF_CHOICES;
+                note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) — splits a too-long "
+                              + "if/while/switch condition, for(...) header, or a bare return/assignment-RHS "
+                              + "expression with no enclosing call, at a three-tier operator priority ladder: "
+                              + "&&, ||, +, - first (equal priority), then ?: ternary (skipped for Kotlin) if "
+                              + "still too long, then * and / if still too long after that, before falling "
+                              + "back to call-argument wrapping. A for(...) header splits on its own two "
+                              + "top-level ';' clause boundaries, recursing into the same ladder per clause.";
                 break;
 
             case "indent-size":
@@ -986,6 +1018,9 @@ public final class Config {
         config.lineLength                         = parseInt(raw, "line-length", config.lineLength);
         config.lineLengthWithComment              = parseInt(
             raw, "line-length-with-comment", config.lineLengthWithComment
+        );
+        config.lineSplitOperatorPriority          = parseBoolean(
+            raw, "line-split-operator-priority", config.lineSplitOperatorPriority
         );
         config.indentSize                         = parseInt(raw, "indent-size", config.indentSize);
         config.indentStyle                        = parseChoice(

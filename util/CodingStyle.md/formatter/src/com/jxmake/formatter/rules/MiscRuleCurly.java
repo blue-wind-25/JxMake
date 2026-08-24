@@ -2147,5 +2147,481 @@ public static final class Signature {
 
         return lineIndent(tokens, q);
     }
+    /**
+     * {@code line-split-operator-priority} (RDD_KEY_340, amended by a mid-implementation scope
+     * addendum -- see that key's follow-up row): splits a too-long `if`/`while`/`switch` condition,
+     * `for(...)` header, or a bare `return`/assignment-RHS expression with no enclosing call
+     * parens. `if`/`while`/`switch`/return/assignment-RHS split at a three-tier operator priority
+     * ladder, loosest first (see {@link #splitTiered}): (1) `&&`/`||`/`+`/`-`, equal priority,
+     * every qualifying occurrence at the shallowest depth splits together; (2) ternary `?:`
+     * (skipped entirely for Kotlin -- see below), only engaged on a fragment tier 1 left still too
+     * long, or when tier 1 found nothing at all; (3) `*`/`/`, only engaged on a fragment tiers 1-2
+     * left still too long. Every continuation line leads with its operator, indented one level in
+     * from the statement's own base indent -- same idiom as {@link #enforceCallLineBreaking}'s
+     * one-per-line fallback, no column alignment/padding. `for(...)` splits at its own two
+     * top-level `;` clause boundaries onto three lines (init/cond/incr), the closing `)` staying
+     * attached to whatever followed it in the source (typically ` {`); an individual clause left
+     * still too long by that split recurses into the same tier-1..3 ladder. Never triggers ternary
+     * splitting for Kotlin -- Kotlin's only `?`-led tokens are the single-token elvis `?:` operator
+     * and the nullable-type-suffix `?`, neither of which ever produces the separate top-level `?`
+     * ... `:` OP-token pair this scan looks for (Kotlin has no C-style ternary at all).
+     */
+    public String enforceOperatorLineBreaking(final List<Token> tokens)
+    {
+        final List<int[]>  spans      = new ArrayList<>();
+        final List<String> renders    = new ArrayList<>();
+              int           scanCursor = 0;
+
+        for( int i = 0; i < tokens.size(); ++i ) {
+            if(i < scanCursor) continue;
+            final Token t = tokens.get(i);
+
+            if( t.type == TokenType.KEYWORD
+                    && ( "if".equals(t.text) || "while".equals(t.text) || "switch".equals(t.text) ) ) {
+                final int openIdx = nextSignificantIndex(tokens, i + 1);
+                if( openIdx >= 0 && isPunct( tokens.get(openIdx), "(" ) ) {
+                    final int closeIdx = matchParenForward(tokens, openIdx);
+                    if( closeIdx > openIdx + 1 ) {
+                        final String rendered = tryOperatorSplit(
+                            tokens, openIdx + 1, closeIdx - 1, lineIndent(tokens, i)
+                        );
+                        if(rendered != null) {
+                            spans.add( new int[] { openIdx + 1, closeIdx } );
+                            renders.add(rendered);
+                            scanCursor = closeIdx;
+                            continue;
+                        }
+                    }
+                }
+            } // if
+            else if( t.type == TokenType.KEYWORD && "for".equals(t.text) ) {
+                final String rendered = tryForHeaderSplit(tokens, i);
+                if(rendered != null) {
+                    final int openIdx  = nextSignificantIndex(tokens, i + 1);
+                    final int closeIdx = matchParenForward(tokens, openIdx);
+                    spans.add( new int[] { openIdx, closeIdx + 1 } );
+                    renders.add(rendered);
+                    scanCursor = closeIdx + 1;
+                    continue;
+                }
+            } // else if
+            else if( t.type == TokenType.KEYWORD && "return".equals(t.text) ) {
+                final int exprStart = nextSignificantIndex(tokens, i + 1);
+                if( exprStart >= 0 ) {
+                    final int semiIdx = findStatementSemicolon(tokens, exprStart);
+                    if( semiIdx > exprStart ) {
+                        final String rendered = tryOperatorSplit(
+                            tokens, exprStart, semiIdx - 1, lineIndent(tokens, i)
+                        );
+                        if(rendered != null) {
+                            spans.add( new int[] { exprStart, semiIdx } );
+                            renders.add(rendered);
+                            scanCursor = semiIdx;
+                            continue;
+                        }
+                    }
+                }
+            } // else if
+            else if( isOp(t, "=") && t.parenDepth == 0 ) {
+                // Top-level (not inside any call/for-header parens) plain assignment -- covers
+                // both a declaration's own initializer and an ordinary reassignment; "no enclosing
+                // call parens" is exactly `parenDepth == 0` at the `=` token itself.
+                final int rhsStart = nextSignificantIndex(tokens, i + 1);
+                if( rhsStart >= 0 ) {
+                    final int semiIdx = findStatementSemicolon(tokens, rhsStart);
+                    if( semiIdx > rhsStart ) {
+                        final String rendered = tryOperatorSplit(
+                            tokens, rhsStart, semiIdx - 1, lineIndent(tokens, i)
+                        );
+                        if(rendered != null) {
+                            spans.add( new int[] { rhsStart, semiIdx } );
+                            renders.add(rendered);
+                            scanCursor = semiIdx;
+                            continue;
+                        }
+                    }
+                }
+            } // else if
+        } // for
+
+        if( spans.isEmpty() ) return joinVerbatim(tokens);
+        final StringBuilder out    = new StringBuilder();
+              int           cursor = 0;
+        for( int s = 0; s < spans.size(); ++s ) {
+            final int[] span = spans.get(s);
+            appendRange( out, tokens, cursor, span[0] );
+            out.append( renders.get(s) );
+            cursor = span[1];
+        }
+        appendRange( out, tokens, cursor, tokens.size() );
+
+        return out.toString();
+    }
+    /**
+     * Finds the `;` PUNCT token terminating the statement starting at {@code from}, tracking local
+     * bracket depth (`(`/`)`/`[`/`]`/`{`/`}`) so a `;` nested inside a lambda body, object literal,
+     * or nested call is never mistaken for the statement's own terminator. Returns -1 if none is
+     * found before the token list ends (e.g. a malformed/mid-edit source) -- caller treats that as
+     * "don't touch".
+     */
+    private int findStatementSemicolon(final List<Token> tokens, final int from)
+    {
+        int depth = 0;
+        for( int i = from; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.PUNCT ) {
+                if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
+                else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) {
+                    if(depth == 0) return -1; // Left the enclosing scope -- not a statement we own
+                    --depth;
+                }
+                else if( depth == 0 && ";".equals(t.text) ) return i;
+            } // if
+        } // for
+
+        return -1;
+    }
+    /**
+     * Attempts a tiered operator-priority split of {@code tokens[from, to]} (inclusive both ends)
+     * -- `from`'s line indent, via {@code baseIndent}, anchors every continuation line. Returns
+     * {@code null} if the whole line already fits {@link #lineLengthLimit}, if a comment or frozen
+     * span sits anywhere in range, if the span already spans multiple physical lines (see
+     * {@link #hasNewlineBetween}'s doc comment -- idempotency guard), or if no qualifying operator
+     * exists at any tier.
+     */
+    private String tryOperatorSplit(
+        final List<Token> tokens,
+        final int         from,
+        final int         to,
+        final String      baseIndent
+    )
+    {
+        if(from > to) return null;
+        if( hasCommentBetween(tokens, from - 1, to + 1) ) return null;
+        if( anyFrozen(tokens, from, to + 1) ) return null;
+        if( hasNewlineBetween(tokens, from, to) ) return null;
+
+        final int lineStart = lineStartIndex(tokens, from);
+        final int wholeLen  = expandedIndentWidth(baseIndent, indentWidth)
+                + collapseToOneLine(tokens, lineStart, to).length();
+        if(wholeLen <= lineLengthLimit) return null; // Already fits -- nothing to do
+
+        return splitTiered(tokens, from, to, baseIndent, 1);
+    }
+    /**
+     * {@code true} if any token in {@code tokens[from, to]} (inclusive both ends) is a NEWLINE --
+     * used as an idempotency guard throughout this feature: a candidate that already spans
+     * multiple physical lines is either already this pass's own prior output (round 2+ of a
+     * repeated format, where re-deriving the split from scratch would duplicate the newline
+     * already baked into the source alongside the newline this pass would insert, producing a
+     * blank line -- found via real testing, see {@code STATE_LINE_SPLIT_OP.md}'s Resolved Design
+     * Decisions) or some other already-multi-line shape this pass has no business rewriting
+     * either way. Mirrors the standing precedent elsewhere in this class of a NEWLINE anywhere in
+     * a gap suppressing a rewrite for that side (e.g. {@link #enforceCallLineBreaking}'s own
+     * per-side gap check).
+     */
+    private boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to)
+    {
+        for( int i = from; i <= to; ++i ) if( tokens.get(i).type == TokenType.NEWLINE ) return true;
+
+        return false;
+    }
+    /**
+     * Core tiered split engine, tier {@code 1} (primary `&&`/`||`/`+`/`-`), {@code 2} (ternary
+     * `?:`, skipped for Kotlin), or {@code 3} (`*`/`/`) -- see {@link #enforceOperatorLineBreaking}'s
+     * class doc comment for the full ladder. Finds this tier's split points; if none exist, falls
+     * through to the next tier (or returns {@code null} once tier 3 also finds nothing). If split
+     * points ARE found at this tier, renders them via {@link #renderTieredSplit} -- which itself
+     * recurses into the *next* tier, but only for an individual resulting fragment still too long
+     * on its own, never re-trying the current tier or skipping ahead past the immediate next one.
+     */
+    private String splitTiered(
+        final List<Token> tokens,
+        final int         from,
+        final int         to,
+        final String      baseIndent,
+        final int         tier
+    )
+    {
+        if(tier > 3) return null;
+        if( tier == 2 && lang.isKotlin ) return splitTiered(tokens, from, to, baseIndent, 3);
+
+        final List<Integer> splits = (tier == 1) ? findOperatorSplits(tokens, from, to)
+                                    : (tier == 2) ? findTernarySplits(tokens, from, to)
+                                    : findMulDivSplits(tokens, from, to);
+        if( splits.isEmpty() ) return splitTiered(tokens, from, to, baseIndent, tier + 1);
+
+        return renderTieredSplit(tokens, from, to, splits, baseIndent, tier + 1);
+    }
+    /**
+     * Depth-0 (relative to `from`) occurrences of the four primary split operators (`&&`, `||`,
+     * `+`, `-`) restricted to the shallowest depth any of them actually occurs at, and further
+     * restricted to a genuinely binary-operator context (see {@link #isBinaryOperatorContext}) so
+     * a unary `-x`/`+x` is never mistaken for a split point. Equal v1 priority among the four --
+     * every qualifying occurrence at the shared shallowest depth splits, not just the first.
+     */
+    private List<Integer> findOperatorSplits(final List<Token> tokens, final int from, final int to)
+    {
+        return findBinaryOpSplits(tokens, from, to, "&&", "||", "+", "-");
+    }
+    /**
+     * Tier 3 -- same shape as {@link #findOperatorSplits}, for `*`/`/`, so a C/C++ unary pointer
+     * dereference (`*ptr`) is never mistaken for a split point (excluded by the same
+     * {@link #isBinaryOperatorContext} check used for unary `-x`/`+x`).
+     */
+    private List<Integer> findMulDivSplits(final List<Token> tokens, final int from, final int to)
+    {
+        return findBinaryOpSplits(tokens, from, to, "*", "/");
+    }
+    /**
+     * Shared depth-tracking scan behind {@link #findOperatorSplits}/{@link #findMulDivSplits}: every
+     * {@code opTexts}-matching OP token in binary-operator context, restricted to the shallowest
+     * bracket depth any of them occurs at within {@code [from, to]}.
+     */
+    private List<Integer> findBinaryOpSplits(
+        final List<Token> tokens,
+        final int         from,
+        final int         to,
+        final String...   opTexts
+    )
+    {
+        int              depth = 0;
+        final List<int[]> occ   = new ArrayList<>(); // {tokenIndex, depth}
+        for( int i = from; i <= to; ++i ) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.PUNCT ) {
+                if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
+                else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
+            }
+            else if( t.type == TokenType.OP && isBinaryOperatorContext(tokens, i) ) {
+                for(final String opText : opTexts) {
+                    if( isOp(t, opText) ) {
+                        occ.add( new int[] { i, depth } );
+                        break;
+                    }
+                }
+            }
+        } // for
+        if( occ.isEmpty() ) return Collections.emptyList();
+
+        int minDepth = Integer.MAX_VALUE;
+        for(final int[] o : occ) minDepth = Math.min(minDepth, o[1]);
+        final List<Integer> result = new ArrayList<>();
+        for(final int[] o : occ) if(o[1] == minDepth) result.add(o[0]);
+
+        return result;
+    }
+    /**
+     * Same depth-tracking shape as {@link #findOperatorSplits}, for tier-2 ternary `?`/`:` -- every
+     * top-level `?` and `:` OP token at the candidate's shallowest depth is a split point (a
+     * chained ternary splits at each). Never called for Kotlin (see this file's tiered-split doc
+     * comments).
+     */
+    private List<Integer> findTernarySplits(final List<Token> tokens, final int from, final int to)
+    {
+        int              depth = 0;
+        final List<int[]> occ   = new ArrayList<>();
+        for( int i = from; i <= to; ++i ) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.PUNCT ) {
+                if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
+                else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
+            }
+            else if( t.type == TokenType.OP && ( isOp(t, "?") || isOp(t, ":") ) ) {
+                occ.add( new int[] { i, depth } );
+            }
+        } // for
+        if( occ.isEmpty() ) return Collections.emptyList();
+
+        int minDepth = Integer.MAX_VALUE;
+        for(final int[] o : occ) minDepth = Math.min(minDepth, o[1]);
+        final List<Integer> result = new ArrayList<>();
+        for(final int[] o : occ) if(o[1] == minDepth) result.add(o[0]);
+
+        return result;
+    }
+    /**
+     * {@code true} if the token immediately preceding {@code idx} (skipping whitespace/comments)
+     * ends an operand -- an identifier, literal, or closing `)`/`]` -- as opposed to leading one
+     * (another operator, an opening bracket, a comma, or nothing at all), which would mean the
+     * operator at {@code idx} is unary (`-x`, `+x`, `*ptr`) rather than the binary occurrence this
+     * pass looks for.
+     */
+    private boolean isBinaryOperatorContext(final List<Token> tokens, final int idx)
+    {
+        final int p = prevSignificantIndex(tokens, idx - 1);
+        if(p < 0) return false;
+        final Token pt = tokens.get(p);
+        if( pt.type == TokenType.IDENTIFIER || pt.type == TokenType.NUMBER
+                || pt.type == TokenType.STRING || pt.type == TokenType.CHAR ) return true;
+        if( pt.type == TokenType.PUNCT && ( ")".equals(pt.text) || "]".equals(pt.text) ) ) return true;
+        if( pt.type == TokenType.KEYWORD
+                && ( "this".equals(pt.text) || "true".equals(pt.text) || "false".equals(pt.text)
+                        || "null".equals(pt.text) || "super".equals(pt.text) ) ) return true;
+
+        return false;
+    }
+    /**
+     * Renders {@code tokens[from, to]} (inclusive) with a `NEWLINE + baseIndent + one indentUnit`
+     * inserted immediately before each split-point operator token in {@code splitIdxs} (in
+     * ascending order) -- the operator leads its own continuation line, trailing whitespace before
+     * it and leading whitespace after it trimmed so exactly one space (this method's own, not the
+     * original source's) separates the operator from the fragment following it. Every fragment
+     * between two split points (or before the first/after the last) that itself still doesn't fit
+     * {@link #lineLengthLimit} at {@code baseIndent + one indentUnit} recurses into
+     * {@link #splitTiered} at {@code nextTier} (the caller's tier + 1) -- a fragment that still
+     * doesn't fit even after that recursion is left as the longest line {@code splitTiered} could
+     * produce for it (tier 3 is the last tier, so nothing beyond it is ever attempted). Every other
+     * token -- all interior spacing within a fragment that isn't itself further split -- is carried
+     * through byte-for-byte from the original tokens.
+     */
+    private String renderTieredSplit(
+        final List<Token>   tokens,
+        final int           from,
+        final int           to,
+        final List<Integer> splitIdxs,
+        final String        baseIndent,
+        final int           nextTier
+    )
+    {
+        final String        contIndent = baseIndent + indentUnit;
+        final StringBuilder out        = new StringBuilder();
+              int           cursor     = from;
+        for(final int opIdx : splitIdxs) {
+            int trimmedEnd = opIdx;
+            while( trimmedEnd > cursor && tokens.get(trimmedEnd - 1).type == TokenType.WHITESPACE ) --trimmedEnd;
+            out.append( renderFragment(tokens, cursor, trimmedEnd - 1, contIndent, nextTier) );
+            out.append('\n').append(baseIndent).append(indentUnit).append( tokens.get(opIdx).text ).append(' ');
+            int next = opIdx + 1;
+            while( next <= to && tokens.get(next).type == TokenType.WHITESPACE ) ++next;
+            cursor = next;
+        } // for
+        out.append( renderFragment(tokens, cursor, to, contIndent, nextTier) );
+
+        return out.toString();
+    }
+    /**
+     * One fragment of a tiered split (inclusive {@code [fragFrom, fragTo]}, empty if
+     * {@code fragFrom > fragTo}): rendered verbatim if it already fits {@code lineLengthLimit} at
+     * {@code fragBaseIndent}, else handed to {@link #splitTiered} at {@code nextTier} for further
+     * splitting (returns the verbatim text unchanged if that tier finds nothing to split on
+     * either -- the fragment is simply left over-length, same "best effort" posture as
+     * {@link #enforceCallLineBreaking}'s own fallback chain).
+     */
+    private String renderFragment(
+        final List<Token> tokens,
+        final int         fragFrom,
+        final int         fragTo,
+        final String      fragBaseIndent,
+        final int         nextTier
+    )
+    {
+        if(fragFrom > fragTo) return "";
+        final StringBuilder verbatim = new StringBuilder();
+        appendRange(verbatim, tokens, fragFrom, fragTo + 1);
+        if(nextTier > 3) return verbatim.toString();
+
+        final int fragLen = expandedIndentWidth(fragBaseIndent, indentWidth)
+                + collapseToOneLine(tokens, fragFrom, fragTo).length();
+        if(fragLen <= lineLengthLimit) return verbatim.toString();
+        if( hasCommentBetween(tokens, fragFrom - 1, fragTo + 1) ) return verbatim.toString();
+        if( anyFrozen(tokens, fragFrom, fragTo + 1) ) return verbatim.toString();
+        if( hasNewlineBetween(tokens, fragFrom, fragTo) ) return verbatim.toString();
+
+        final String split = splitTiered(tokens, fragFrom, fragTo, fragBaseIndent, nextTier);
+
+        return split != null ? split : verbatim.toString();
+    }
+    /**
+     * `for(...)` header split (2026-08-25 scope amendment to RDD_KEY_340 -- see the follow-up row):
+     * splits at the header's own two top-level `;` clause boundaries onto three lines (init/cond/
+     * incr), the closing `)` staying on its own line at {@code baseIndent}, whatever followed it in
+     * the source (typically ` {`) carried through unchanged by the caller. Only attempted when the
+     * whole header line doesn't already fit {@link #lineLengthLimit} and exactly two top-level `;`
+     * clause separators are found (anything else -- zero, one, three or more -- is left untouched;
+     * a `for(;;)`-shaped empty clause is valid C-family syntax but out of scope for this pass since
+     * an empty clause can never itself be the reason the line is too long). An individual clause
+     * still too long once on its own continuation line recurses into {@link #splitTiered} at tier 1,
+     * same ladder a standalone `while` condition would use.
+     */
+    private String tryForHeaderSplit(final List<Token> tokens, final int forIdx)
+    {
+        final int openIdx = nextSignificantIndex(tokens, forIdx + 1);
+        if( openIdx < 0 || !isPunct( tokens.get(openIdx), "(" ) ) return null;
+        final int closeIdx = matchParenForward(tokens, openIdx);
+        if(closeIdx <= openIdx + 1) return null;
+        if( hasCommentBetween(tokens, openIdx, closeIdx) ) return null;
+        if( anyFrozen(tokens, openIdx, closeIdx + 1) ) return null;
+        if( hasNewlineBetween(tokens, openIdx, closeIdx) ) return null; // Idempotency guard -- see hasNewlineBetween's doc comment
+
+        final String baseIndent = lineIndent(tokens, forIdx);
+        final int    lineStart  = lineStartIndex(tokens, forIdx);
+        final int    wholeLen   = expandedIndentWidth(baseIndent, indentWidth)
+                + collapseToOneLine(tokens, lineStart, closeIdx).length();
+        if(wholeLen <= lineLengthLimit) return null; // Already fits
+
+        int       depth = 0;
+        final List<Integer> semis = new ArrayList<>();
+        for( int i = openIdx + 1; i < closeIdx; ++i ) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.PUNCT ) {
+                if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
+                else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) --depth;
+                else if(depth == 0 && ";".equals(t.text)) semis.add(i);
+            }
+        } // for
+        if(semis.size() != 2) return null; // Not the ordinary 3-clause shape -- leave untouched
+
+        final int    semi1      = semis.get(0);
+        final int    semi2      = semis.get(1);
+        final String contIndent = baseIndent + indentUnit;
+
+        final StringBuilder out = new StringBuilder();
+        out.append( tokens.get(openIdx).text ); // "("
+        out.append('\n').append(contIndent).append(
+            renderForClause(tokens, openIdx + 1, semi1 - 1, contIndent)
+        ).append(';');
+        out.append('\n').append(contIndent).append(
+            renderForClause(tokens, semi1 + 1, semi2 - 1, contIndent)
+        ).append(';');
+        out.append('\n').append(contIndent).append(
+            renderForClause(tokens, semi2 + 1, closeIdx - 1, contIndent)
+        );
+        out.append('\n').append(baseIndent).append( tokens.get(closeIdx).text ); // ")"
+
+        return out.toString();
+    }
+    /**
+     * One `for(...)` clause (inclusive {@code [from, to]}, trimmed of leading/trailing whitespace,
+     * "" for an empty clause e.g. `for(;;)`'s middle slot): rendered verbatim if it already fits at
+     * {@code clauseIndent}, else recursed into {@link #splitTiered} at tier 1 -- same ladder a
+     * standalone condition/RHS candidate starts at.
+     */
+    private String renderForClause(
+        final List<Token> tokens,
+        final int         from,
+        final int         to,
+        final String      clauseIndent
+    )
+    {
+        int a = from;
+        int b = to;
+        while( a <= b && tokens.get(a).type == TokenType.WHITESPACE ) ++a;
+        while( b >= a && tokens.get(b).type == TokenType.WHITESPACE ) --b;
+        if(a > b) return "";
+
+        final StringBuilder verbatim = new StringBuilder();
+        appendRange(verbatim, tokens, a, b + 1);
+        final int clauseLen = expandedIndentWidth(clauseIndent, indentWidth)
+                + collapseToOneLine(tokens, a, b).length();
+        if(clauseLen <= lineLengthLimit) return verbatim.toString();
+        if( hasCommentBetween(tokens, a - 1, b + 1) ) return verbatim.toString();
+        if( anyFrozen(tokens, a, b + 1) ) return verbatim.toString();
+        if( hasNewlineBetween(tokens, a, b) ) return verbatim.toString();
+
+        final String split = splitTiered(tokens, a, b, clauseIndent, 1);
+
+        return split != null ? split : verbatim.toString();
+    }
 
 } // class MiscRuleCurly

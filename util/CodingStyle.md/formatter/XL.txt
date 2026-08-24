@@ -259,7 +259,39 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-NONE FOR NOW
+- Two NEW idempotency-only flaps surfaced by RDD_KEY_343's guava spot-check
+  (1655 files, flag forced on) — neither causes corruption, crash, or
+  content loss; both rounds produce valid, compilable output that differs
+  only in line-splitting shape. Low priority, same bar as the closing-
+  comment flap was:
+    1. Declaration/condition collapse-on-round2 (38/1655 files, e.g.
+       `MinMaxPriorityQueue.java`, `CharMatcher.java`, `TreeRangeSet.java`,
+       `Streams.java`) — `enforceOperatorLineBreaking` splits correctly on
+       round 1, a later pass (declaration-alignment or
+       `enforceComplexityPadding` suspected) rejoins it on round 2. Root
+       cause not investigated.
+    2. A separate, flag-independent baseline of 42/1655 guava files that
+       already differ round1-vs-round2 regardless of this feature (e.g.
+       `Functions.java`'s anonymous-class closing-brace indentation) —
+       confirmed unrelated to `line-split-operator-priority`, pre-existing,
+       not investigated.
+  Neither has been tried yet with `indent-size = 2` — per this tracker's
+  usual first move on an idempotency-only flap, worth checking whether
+  either (or both) simply self-resolve under 2-space indent before any
+  real root-cause investigation.
+
+- Re-dogfood `line-split-operator-priority` against a real C/C++ corpus
+  (guava/pcpp_java passes so far are Java-only) — check tier-1/tier-2/tier-3
+  split behavior and idempotency on real C/C++ conditionals.
+
+- Re-dogfood `line-split-operator-priority` against a real Kotlin corpus
+  (elvis-operator false-positive risk only checked via hand-written
+  fixtures so far, never against real Kotlin source).
+
+- Re-dogfood `line-split-operator-priority` against a real TS corpus (e.g.
+  reuse/reclone an angular-scale checkout) with the flag forced on — the
+  `?.`/`??`/optional-param landmines were only checked via hand-written
+  fixtures so far, never at scale against real TS source.
 
 Use sub-agent. This can be a substantial work.
 
@@ -368,12 +400,8 @@ exec  ~/mynpm/bin/claude "$@"
 
 ####################################################################################################
 
-
-
-
-
-Ask a sub-agent to do this (ONLY for the files affected by the new line-split-operator-priority
-feature and any subsequent bug fixes):
+Launch a sub-agent to do this (ONLY for the files affected by this session's jobs -- see the GIT
+commit log for this session as needed):
 
     Process the formatter's Java source code and make improvements in this priority order:
      1. Refactor duplicated/common code.
@@ -402,10 +430,11 @@ feature and any subsequent bug fixes):
 and then:
 
    Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
-   subdirectories that WERE CHANGED by the ABOVE job (readopt again).
+   subdirectories that WERE MODIFIED by the ABOVE job (readopt again).
 
-   Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform
-   idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
-   formatter's `src/**/` subdirectories. Perform some eyeballing as needed. Running the test
-   fixtures from the formatter JAR may produce regressions due to missing GRU weights. Perform
-   bug fixes as needed.
+   Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform idempotency check
+   and content-diff check. If all OK, copy back the formatted round1 to the formatter's `src/**/`
+   subdirectories. Perform some eyeballing as needed. Running the test fixtures from the formatter
+   JAR may produce regressions due to missing GRU weights. Perform bug fixes as needed.
+
+####################################################################################################

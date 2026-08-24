@@ -47,18 +47,16 @@ import com.jxmake.formatter.tokenizer.TokenizerCore;
  */
 public final class GdrExclusionZones {
 
-    private static final Pattern DIS     = Pattern.compile(
-        "^//%\\s*" + TokenizerCore.JXM_CFMT_DIS + "\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_DIS + "\\s*\\*/$"
-    );
-    private static final Pattern ENA     = Pattern.compile(
-        "^//%\\s*" + TokenizerCore.JXM_CFMT_ENA + "\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_ENA + "\\s*\\*/$"
-    );
-    private static final Pattern GDR_OFF = Pattern.compile(
-        "^//%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+0\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+0\\s*\\*/$"
-    );
-    private static final Pattern GDR_ON  = Pattern.compile(
-        "^//%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+1\\s*$|^/\\*%\\s*" + TokenizerCore.JXM_CFMT_GDR + "\\s+1\\s*\\*/$"
-    );
+    private static final Pattern DIS     = markerPattern(TokenizerCore.JXM_CFMT_DIS);
+    private static final Pattern ENA     = markerPattern(TokenizerCore.JXM_CFMT_ENA);
+    private static final Pattern GDR_OFF = markerPattern(TokenizerCore.JXM_CFMT_GDR + "\\s+0");
+    private static final Pattern GDR_ON  = markerPattern(TokenizerCore.JXM_CFMT_GDR + "\\s+1");
+
+    /** Line-anchored `//%`/`/\*% ... *\/`-style marker-comment pattern for the given marker body. */
+    private static Pattern markerPattern(String body)
+    {
+        return Pattern.compile("^//%\\s*" + body + "\\s*$|^/\\*%\\s*" + body + "\\s*\\*/$");
+    }
 
     private GdrExclusionZones()
     {

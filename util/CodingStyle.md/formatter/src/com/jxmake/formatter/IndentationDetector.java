@@ -41,17 +41,13 @@ public final class IndentationDetector {
     public static String detectFromContent(final String source)
     {
         try ( final BufferedReader reader = new BufferedReader( new StringReader(source) ) ) {
-            String line;
-            while( ( line = reader.readLine() ) != null ) {
-                final String style = styleOfIndentedLine(line);
-                if(style != null) return style;
-            }
+            final String style = scanReaderForIndentStyle(reader);
+
+            return style != null ? style : Config.DEFAULT_INDENT_STYLE;
         }
         catch(final IOException e) {
             return Config.DEFAULT_INDENT_STYLE;
         }
-
-        return Config.DEFAULT_INDENT_STYLE;
     }
 
     /**
@@ -117,14 +113,20 @@ public final class IndentationDetector {
     private static String voteForFile(final Path path)
     {
         try ( final BufferedReader reader = Files.newBufferedReader(path) ) {
-            String line;
-            while( ( line = reader.readLine() ) != null ) {
-                final String style = styleOfIndentedLine(line);
-                if(style != null) return style;
-            }
+            return scanReaderForIndentStyle(reader);
         }
         catch(final IOException e) {
             return null;
+        }
+    }
+
+    /** First detected indent style read from {@code reader}, or {@code null} if none of its lines are indented. */
+    private static String scanReaderForIndentStyle(final BufferedReader reader) throws IOException
+    {
+        String line;
+        while( ( line = reader.readLine() ) != null ) {
+            final String style = styleOfIndentedLine(line);
+            if(style != null) return style;
         }
 
         return null;

@@ -1005,20 +1005,7 @@ public class TokenizerCurly extends TokenizerCore {
     private Token emitMacroDef()
     {
         final int start = pos;
-        while(true) {
-            while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
-            int q = pos - 1;
-            while( q >= start && ( source.charAt(q) == ' ' || source.charAt(q) == '\t' ) ) q--;
-            final boolean continues = q >= start && source.charAt(q) == '\\';
-            if(!continues || pos >= length) break;
-            if( source.charAt(pos) == '\r' ) {
-                ++pos;
-                if( pos < length && source.charAt(pos) == '\n' ) pos++;
-            }
-            else {
-                ++pos;
-            }
-        } // while
+        scanBackslashContinuedDirective(start);
 
         return new Token(
             TokenType.MACRO_DEF, source.substring(start, pos), braceDepth,
@@ -1036,6 +1023,16 @@ public class TokenizerCurly extends TokenizerCore {
     private Token emitPreprocessor()
     {
         final int start = pos;
+        scanBackslashContinuedDirective(start);
+
+        return new Token(
+            TokenType.PREPROCESSOR, source.substring(start, pos), braceDepth, parenDepth, null
+        );
+    }
+
+    /** Advances {@code pos} past a directive starting at {@code start}, consuming any trailing-{@code \}-continued lines. */
+    private void scanBackslashContinuedDirective(final int start)
+    {
         while(true) {
             while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
             int q = pos - 1;
@@ -1050,10 +1047,6 @@ public class TokenizerCurly extends TokenizerCore {
                 ++pos;
             }
         } // while
-
-        return new Token(
-            TokenType.PREPROCESSOR, source.substring(start, pos), braceDepth, parenDepth, null
-        );
     }
 
     private Token emitLineComment()
@@ -1955,6 +1948,19 @@ public class TokenizerCurly extends TokenizerCore {
         return t.type == TokenType.KEYWORD && CAST_KEYWORDS.contains(t.text);
     }
 
+    /** Indices of {@code tokens} that carry real content -- skips whitespace/newline/comment/preprocessor. */
+    private static List<Integer> significantTokenIndices(final List<Token> tokens)
+    {
+        final List<Integer> sig = new ArrayList<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            final TokenType ty = tokens.get(i).type;
+            if(ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK || ty == TokenType.PREPROCESSOR) continue;
+            sig.add(i);
+        }
+
+        return sig;
+    }
+
     // ── JSX/TSX boundary-finding pre-pass (XL.txt TIER 3, STATE_JS_TS.md) ───────────
     /**
      * Finds each top-level JSX/TSX tree in the flat token list and collapses it into one opaque
@@ -1983,12 +1989,7 @@ public class TokenizerCurly extends TokenizerCore {
      */
     private void findJsxSpans(final List<Token> tokens)
     {
-        final List<Integer> sig = new ArrayList<>();
-        for( int i = 0; i < tokens.size(); ++i ) {
-            final TokenType ty = tokens.get(i).type;
-            if(ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK || ty == TokenType.PREPROCESSOR) continue;
-            sig.add(i);
-        }
+        final List<Integer> sig = significantTokenIndices(tokens);
 
         for( int s = 0; s < sig.size(); ++s ) {
             final int   idx = sig.get(s);
@@ -2589,12 +2590,7 @@ public class TokenizerCurly extends TokenizerCore {
     // ── Generic/template angle bracket disambiguation ───────────────────────────────
     private void reclassifyAngleBrackets(final List<Token> tokens)
     {
-        final List<Integer> sig = new ArrayList<>();
-        for( int i = 0; i < tokens.size(); ++i ) {
-            final TokenType ty = tokens.get(i).type;
-            if(ty == TokenType.WHITESPACE || ty == TokenType.NEWLINE || ty == TokenType.COMMENT_LINE || ty == TokenType.COMMENT_BLOCK || ty == TokenType.PREPROCESSOR) continue;
-            sig.add(i);
-        }
+        final List<Integer> sig = significantTokenIndices(tokens);
 
         final Deque<int[]> openStack        = new ArrayDeque<>(); // Each entry: {tokenIndex, validFlag}
               int          nestedBraceDepth = 0;                  // Balanced `{...}` seen while openStack is non-empty -- see below

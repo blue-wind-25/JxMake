@@ -437,41 +437,20 @@ public final class JsonSpecificRule {
     )
     {
         // Compute colon-alignment groups (object only): a run of consecutive real items (not
-        // dangling trailing-comment placeholders) with no leading comment/blank line between them
-        final List<String> keys    = isObject ? new ArrayList<>() : null;
-              String[]     padding = null;
-        if(isObject) {
-            padding = new String[ items.size() ];
-            int groupStart = -1; // -1 = no open group
-            for( int i = 0; i <= items.size(); ++i ) {
-                final boolean atEnd      = i == items.size();
-                final boolean isDangling = !atEnd && items.get(i).value == null;
-                // A group boundary falls *before* item i whenever it carries a leading
-                // comment/blank line (§1.1) or is a dangling trailing-comment placeholder (no
-                // key at all) -- the item itself (if it has a key) still starts a fresh group
-                // rather than being dropped from alignment entirely.
-                final boolean hasMidComment = !atEnd && items.get(i).midComment != null;
-                final boolean breaksBefore  = atEnd || isDangling || hasMidComment || !items.get(
-                    i
-                ).leadingComments.isEmpty() || items.get(
-                    i
-                ).blankBefore;
-                if(breaksBefore) {
-                    if(groupStart >= 0 && i > groupStart) {
-                        keys.clear();
-                        for(int g = groupStart; g < i; ++g) keys.add( items.get(g).key );
-                        final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(
-                            keys
-                        );
-                        for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
-                    } // if
-                    groupStart = (!atEnd && !isDangling && !hasMidComment) ? i : -1;
-                } // if
-                else if(groupStart < 0) {
-                    groupStart = i;
-                }
-            } // for
-        } // if
+        // dangling trailing-comment placeholders) with no leading comment/blank line between them.
+        // A group boundary falls *before* item i whenever it carries a leading comment/blank line
+        // (§1.1) or is a dangling trailing-comment placeholder (no key at all) -- the item itself
+        // (if it has a key) still starts a fresh group rather than being dropped from alignment
+        // entirely. Same grouping algorithm YamlTomlSharedRule#computeColonAlignmentPadding
+        // implements for YAML/TOML (§1.1); "keyed" here folds both the dangling-placeholder and
+        // mid-comment cases into one predicate.
+        final String[] padding = isObject ? YamlTomlSharedRule.computeColonAlignmentPadding(
+            items.size(),
+            i -> items.get(i).value != null && items.get(i).midComment == null,
+            i -> !items.get(i).leadingComments.isEmpty(),
+            i -> items.get(i).blankBefore,
+            i -> items.get(i).key
+        ) : null;
 
         for( int i = 0; i < items.size(); ++i ) {
             final Item item = items.get(i);

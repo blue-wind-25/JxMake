@@ -467,16 +467,11 @@ public final class TomlSpecificRule {
                     item.frozenLines     = new ArrayList<>();
                     item.frozenLines.add(raw);
                     ++idx;
-                    while( idx < lines.size() && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals(
-                        lines.get(idx).trim()
-                    ) ) {
-                        item.frozenLines.add( lines.get(idx) );
-                        ++idx;
-                    }
-                    if( idx < lines.size() ) {
-                        item.frozenLines.add( lines.get(idx) );
-                        ++idx;
-                    }
+                    final YamlTomlSharedRule.FrozenSpanScan scan = YamlTomlSharedRule.collectFrozenSpanLines(
+                        lines.size(), idx, i -> lines.get(i).trim(), lines::get
+                    );
+                    item.frozenLines.addAll(scan.lines);
+                    idx = scan.newPos;
                     items.add(item);
                     continue;
                 } // if

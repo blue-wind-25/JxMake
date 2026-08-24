@@ -13,6 +13,7 @@ import java.util.function.IntFunction;
 import java.util.function.IntPredicate;
 
 import com.jxmake.formatter.FormatterSimpleBraced;
+import com.jxmake.formatter.tokenizer.TokenizerCore;
 
 /**
  * Shared helper logic that was structurally identical between {@link YamlSpecificRule} and
@@ -234,6 +235,49 @@ final class YamlTomlSharedRule {
         } // for
 
         return padding;
+    }
+
+    /** Result of {@link #collectFrozenSpanLines}: the collected raw lines and the scan position just past them. */
+    static final class FrozenSpanScan {
+
+        final List<String> lines;
+        final int          newPos;
+
+        FrozenSpanScan(final List<String> lines, final int newPos)
+        {
+            this.lines  = lines;
+            this.newPos = newPos;
+        }
+
+    } // class FrozenSpanScan
+
+    /**
+     * Collects a {@code JXM_CFMT_DIS}/{@code ENA} frozen span's raw lines, starting right after
+     * its already-consumed {@code DIS} marker line, through and including its {@code ENA} marker
+     * line (or through EOF if unterminated) -- same scan {@link YamlSpecificRule#parseBlock} and
+     * {@link TomlSpecificRule#format} each ran independently, differing only in how they access a
+     * line's content/raw text ({@code Line#content}/{@code #raw} vs. a plain {@code String}/its
+     * {@code trim()}). {@code contentAt}/{@code rawAt} let each caller supply its own accessor.
+     */
+    static FrozenSpanScan collectFrozenSpanLines(
+        final int                 size,
+        final int                 start,
+        final IntFunction<String> contentAt,
+        final IntFunction<String> rawAt
+    )
+    {
+        final List<String> collected = new ArrayList<>();
+              int          idx       = start;
+        while( idx < size && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals( contentAt.apply(idx) ) ) {
+            collected.add( rawAt.apply(idx) );
+            ++idx;
+        }
+        if(idx < size) {
+            collected.add( rawAt.apply(idx) );
+            ++idx;
+        }
+
+        return new FrozenSpanScan(collected, idx);
     }
 
 } // class YamlTomlSharedRule

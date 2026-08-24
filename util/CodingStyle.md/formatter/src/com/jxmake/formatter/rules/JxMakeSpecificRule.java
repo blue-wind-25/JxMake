@@ -176,10 +176,7 @@ public final class JxMakeSpecificRule {
 
     private static int firstNonWs(final String line)
     {
-        int i = 0;
-        while( i < line.length() && ( line.charAt(i) == ' ' || line.charAt(i) == '\t' ) ) ++i;
-
-        return i;
+        return ToolingSharedRule.leadingWhitespace(line).length();
     }
 
     private static String normalizeComment(final String body, final boolean multiSentence)

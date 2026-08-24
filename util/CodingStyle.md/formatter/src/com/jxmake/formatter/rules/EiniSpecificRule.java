@@ -141,12 +141,7 @@ public final class EiniSpecificRule {
 
     private static String snapIndentPrefix(final String rawLine, final int indentWidth)
     {
-        int i = 0;
-        while( i < rawLine.length() && ( rawLine.charAt(
-            i
-        ) == ' ' || rawLine.charAt(
-            i
-        ) == '\t' ) ) ++i;
+        final int i       = ToolingSharedRule.leadingWhitespace(rawLine).length();
         final int snapped = (i == 0) ? 0 : ( (i + indentWidth - 1) / indentWidth )* indentWidth;
 
         return repeatChar(' ', snapped);

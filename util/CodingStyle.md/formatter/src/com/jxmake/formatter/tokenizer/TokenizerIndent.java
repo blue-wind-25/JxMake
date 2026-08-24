@@ -240,10 +240,10 @@ public class TokenizerIndent extends TokenizerCore {
             out.add( emitWhitespace() );
         }
         else if(c == '#') {
-            out.add( emitLineComment() );
+            out.add( emitLineCommentToEol() );
         }
         else if( isIdentifierStart(c) ) {
-            final Token   idTok           = emitIdentifierOrKeyword();
+            final Token   idTok           = emitIdentifierOrKeyword(KEYWORDS_PYTHON);
             final boolean followedByQuote = pos < length && ( source.charAt(
                 pos
             ) == '"' || source.charAt(
@@ -312,28 +312,6 @@ public class TokenizerIndent extends TokenizerCore {
         return Character.isLetterOrDigit(c) || c == '_';
     }
 
-    private Token emitIdentifierOrKeyword()
-    {
-        final int start = pos;
-        while( pos < length && isIdentifierPart( source.charAt(pos) ) ) pos++;
-        final String    text = source.substring(start, pos);
-        final TokenType type = KEYWORDS_PYTHON.contains(
-            text
-        ) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
-
-        return new Token(type, text, braceDepth, parenDepth, null);
-    }
-
-    private Token emitLineComment()
-    {
-        final int start = pos;
-        while( pos < length && source.charAt(pos) != '\r' && source.charAt(pos) != '\n' ) pos++;
-
-        return new Token(
-            TokenType.COMMENT_LINE, source.substring(start, pos), braceDepth,
-            parenDepth, null
-        );
-    }
 
     /**
      * Single-line, single/double-quoted string literal (the tokenize loop dispatches the

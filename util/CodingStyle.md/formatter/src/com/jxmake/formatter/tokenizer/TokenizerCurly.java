@@ -613,7 +613,7 @@ public class TokenizerCurly extends TokenizerCore {
             t = emitPreprocessorOrDefine();
         }
         else if( c == '/' && peek(1) == '/' ) {
-            t = emitLineComment();
+            t = emitLineCommentToEol();
         }
         else if( c == '/' && peek(1) == '*' ) {
             t = emitBlockComment();
@@ -648,7 +648,7 @@ public class TokenizerCurly extends TokenizerCore {
             t = emitNumber();
         }
         else if( isIdentifierStart(c) ) {
-            t = emitIdentifierOrKeyword();
+            t = emitIdentifierOrKeyword(keywords);
         }
         else if( c == '[' && peek(1) == '[' && lang.isCpp && looksLikeAttributeOpen() ) {
             t = emitOperator();
@@ -1047,18 +1047,6 @@ public class TokenizerCurly extends TokenizerCore {
                 ++pos;
             }
         } // while
-    }
-
-    private Token emitLineComment()
-    {
-        final int start = pos;
-        pos += 2;
-        while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
-
-        return new Token(
-            TokenType.COMMENT_LINE, source.substring(start, pos), braceDepth,
-            parenDepth, null
-        );
     }
 
     // A shebang line (`#!...`) is only ever valid as the file's first two characters -- emitted
@@ -1861,16 +1849,6 @@ public class TokenizerCurly extends TokenizerCore {
             TokenType.CHAR, source.substring(start, pos), braceDepth, parenDepth,
             null
         );
-    }
-
-    private Token emitIdentifierOrKeyword()
-    {
-        final int start = pos;
-        while( pos < length && isIdentifierPart( source.charAt(pos) ) ) pos++;
-        final String    text = source.substring(start, pos);
-        final TokenType type = keywords.contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
-
-        return new Token(type, text, braceDepth, parenDepth, null);
     }
 
     // Guards the "[[" -> single-OP-token merge (C++17 attribute syntax, e.g. `[[noreturn]]`)

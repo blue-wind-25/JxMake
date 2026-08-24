@@ -17,14 +17,29 @@ loss. Trial JAR: `_test_serial` 348/350 — the 2 failures
 (`cpp_comments_inp.cpp`, `real_code_regressions_217_inp.java`) are the
 documented `gru-sync-weights` trial-JAR drift class, not chased. Adopted;
 `make clean && make test` 350/350 forward + idempotency, fully green. Leg
-C (external corpora) — see below.
+C (external corpora, `../../JCS`/`../../MDXplorer`/
+`../../../3rd_party/tools/pcpp_java`/`colordiff.py`) — every formatted file
+byte-identical to committed originals, still at the prior fixed point,
+nothing to adopt; see `STATE_DOGFOOD.md`.
 
-Pass 2 (flag forced on, stress test): corpus `../../../3rd_party/tools/pcpp_java`
-(small, curly-family). Idempotent (`hasNewlineBetween` guard held under
-round2). `java_syntax_check.sh` clean on all changed files. Hand-eyeballed
-diffs confirm operator-LEADING tier-1 (`&&`/`||`/`+`/`-`) splits firing
-correctly on long `if`/assignment conditions; no false positives. No bug
-found — Pass 2 fully clean, no new fixture needed.
+Pass 2 (flag forced ON via `JXMAKE_CODE_FORMATTER_LINE_SPLIT_OPERATOR_
+PRIORITY=on`, scratch copy, read-only): corpus
+`../../../3rd_party/tools/pcpp_java` (43 `.java` files, ~10.7K LOC) —
+chosen over `../../JCS` (only 1 real `.java` file, rest shell/PowerShell
+scripts) as the smallest genuinely curly-family corpus among the four
+Pass-1 external candidates. round1/round2 `diff -ru` empty (idempotency,
+exercises `hasNewlineBetween`'s guard). `java_syntax_check.sh` clean on
+all 43 files. Only 3 files actually changed vs. the unformatted original
+(`LexTab.java`, `ParseTab.java`, `Preprocessor.java`) — small corpus, few
+lines cross the length threshold. Hand-eyeballed: `LexTab.java`/
+`ParseTab.java` show tier-1 `+` splits on long string-concatenation
+assignment RHS (operator-leading, one `indentWidth` continuation indent,
+correctly leaving `?`/`:` substrings *inside* string literals like
+`"...CPP_QUESTION..."` untouched since those are literal text, not real
+ternary tokens); `Preprocessor.java` shows a tier-1 `&&` split on a long
+`if` condition. All three match the designed shape exactly, no false
+positives. No bug found — Pass 2 fully clean, no new fixture needed. No
+files copied back anywhere (read-only per plan).
 
 ---
 

@@ -592,9 +592,7 @@ public class CppSpecificRule {
 
             final boolean afterOpen     = lastSignificant != null && lastSignificant.type == TokenType.ANGLE_BRACKET_OPEN;
             final boolean beforeClose   = t.type == TokenType.ANGLE_BRACKET_CLOSE;
-            final boolean gapHasBlocker = hasCommentOrNewline(
-                gap
-            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
+            final boolean gapHasBlocker = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
 
             if( (afterOpen || beforeClose) && !gapHasBlocker ) {
                 final boolean pad = ( afterOpen && needsPadding.contains(
@@ -664,16 +662,6 @@ public class CppSpecificRule {
         return needsPadding;
     }
 
-    private boolean hasCommentOrNewline(final List<Token> gap)
-    {
-        for(final Token g : gap) {
-            final TokenType type = g.type;
-            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
-        }
-
-        return false;
-    }
-
     /**
      * STYLE_CPP26.md §1: pack indexing (`T...[i]`). No space between the pack name, `...`, and
      * the opening `[` -- both surrounding gaps are collapsed to zero width whenever an `...`
@@ -711,9 +699,9 @@ public class CppSpecificRule {
 
             final boolean beforeBracketAfterEllipsis    = lastWasEllipsisTarget && isPunct(t, "[");
             final boolean afterIdentifierBeforeEllipsis = ellipsisBeforeBracket.contains(i);
-            final boolean gapHasBlocker                 = hasCommentOrNewline(
-                gap
-            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
+            final boolean gapHasBlocker                 = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
 
             if( (beforeBracketAfterEllipsis || afterIdentifierBeforeEllipsis) && !gapHasBlocker ) {
                 gap.clear();
@@ -1149,9 +1137,7 @@ public class CppSpecificRule {
                 continue;
             }
 
-            final boolean gapHasBlocker = hasCommentOrNewline(
-                gap
-            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
+            final boolean gapHasBlocker = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
 
             if(lastWasReflectionOp && !gapHasBlocker) {
                 gap.clear();

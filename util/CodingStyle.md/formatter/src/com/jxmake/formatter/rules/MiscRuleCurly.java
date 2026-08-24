@@ -2321,9 +2321,7 @@ public static final class Signature {
     )
     {
         if(from > to) return null;
-        if( hasCommentBetween(tokens, from - 1, to + 1) ) return null;
-        if( anyFrozen(tokens, from, to + 1) ) return null;
-        if( hasNewlineBetween(tokens, from, to) ) return null;
+        if( blocksOperatorSplit(tokens, from, to) ) return null;
 
         final int lineStart      = lineStartIndex(tokens, from);
         final int lineEnd        = effectiveLineEndIndex(tokens, to);
@@ -2356,6 +2354,21 @@ public static final class Signature {
         for(int i = from; i <= to; ++i) if( tokens.get(i).type == TokenType.NEWLINE ) return true;
 
         return false;
+    }
+    /**
+     * Shared guard triplet repeated at every operator-split candidate site whose {@code from}/
+     * {@code to} are a plain inclusive token-index span (i.e. NOT {@link #tryForHeaderSplit}'s own
+     * paren-index-based variant, which checks a different, intentionally offset span for
+     * {@code anyFrozen} -- see that method): {@code true} if a comment sits anywhere in
+     * {@code [from, to]}, any token in {@code [from, to]} is frozen, or the span already spans a
+     * NEWLINE (the idempotency guard -- see {@link #hasNewlineBetween}'s doc comment).
+     */
+    private boolean blocksOperatorSplit(final List<Token> tokens, final int from, final int to)
+    {
+        if( hasCommentBetween(tokens, from - 1, to + 1) ) return true;
+        if( anyFrozen(tokens, from, to + 1) ) return true;
+
+        return hasNewlineBetween(tokens, from, to);
     }
     /**
      * Core tiered split engine, tier {@code 1} (primary `&&`/`||`/`+`/`-`), {@code 2} (ternary
@@ -2610,9 +2623,7 @@ public static final class Signature {
             tokens, fragFrom, fragTo
         ).length();
         if(fragLen <= lineLengthLimit) return verbatim.toString();
-        if( hasCommentBetween(tokens, fragFrom - 1, fragTo + 1) ) return verbatim.toString();
-        if( anyFrozen(tokens, fragFrom, fragTo + 1) ) return verbatim.toString();
-        if( hasNewlineBetween(tokens, fragFrom, fragTo) ) return verbatim.toString();
+        if( blocksOperatorSplit(tokens, fragFrom, fragTo) ) return verbatim.toString();
 
         final String split = splitTiered(tokens, fragFrom, fragTo, fragBaseIndent, nextTier);
 
@@ -2709,9 +2720,7 @@ public static final class Signature {
             tokens, a, b
         ).length();
         if(clauseLen <= lineLengthLimit) return verbatim.toString();
-        if( hasCommentBetween(tokens, a - 1, b + 1) ) return verbatim.toString();
-        if( anyFrozen(tokens, a, b + 1) ) return verbatim.toString();
-        if( hasNewlineBetween(tokens, a, b) ) return verbatim.toString();
+        if( blocksOperatorSplit(tokens, a, b) ) return verbatim.toString();
 
         final String split = splitTiered(tokens, a, b, clauseIndent, 1);
 

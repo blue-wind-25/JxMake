@@ -164,30 +164,13 @@ public final class CssSpecificRule {
 
     // ---- Parsing ------------------------------------------------------------------------------
 
-    private static final class Cursor {
-
-        final List<Token> toks;
-              int         i;
-
-        Cursor(final List<Token> toks)
-        {
-            this.toks = toks;
-        }
-
-        Token cur()
-        {
-            return i < toks.size() ? toks.get(i) : null;
-        }
-
-    } // class Cursor
-
     /**
      * Consumes whitespace/newlines/comments up to the next significant token, recording comment
      * text (in order) and whether a blank line occurred anywhere in the span -- a group-break
      * signal per §3.1. CSS has no `//` line comments, unlike JSON5's trivia scan.
      */
     private void collectTrivia(
-        final Cursor       c,
+        final TokenCursor  c,
         final List<String> comments,
         final boolean[]    blankOut
     )
@@ -216,7 +199,7 @@ public final class CssSpecificRule {
         } // while
     }
 
-    private String collectTrailingComment(final Cursor c)
+    private String collectTrailingComment(final TokenCursor c)
     {
         final int save = c.i;
         while( c.cur() != null && c.cur().type == TokenType.WHITESPACE ) c.i++;
@@ -234,7 +217,7 @@ public final class CssSpecificRule {
     private static final int TERM_SEMI                 = 1;
     private static final int TERM_BRACE_CLOSE_IMPLICIT = 2;
 
-    private List<Item> parseBlockBody(final Cursor c, final boolean topLevel)
+    private List<Item> parseBlockBody(final TokenCursor c, final boolean topLevel)
     {
         final List<Item> items = new ArrayList<>();
         while(true) {
@@ -489,7 +472,7 @@ public final class CssSpecificRule {
     {
         final List<Token> tokens = new CssTokenizer().tokenize(content);
         com.jxmake.formatter.tokenizer.TokenizerCore.markFrozenSpans(tokens, false);
-        final Cursor        c        = new Cursor(tokens);
+        final TokenCursor   c        = new TokenCursor(tokens);
         final List<Item>    topLevel = parseBlockBody(c, true);
         final StringBuilder out      = new StringBuilder();
         renderItems(topLevel, 0, out);

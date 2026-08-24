@@ -160,30 +160,13 @@ public final class JsonSpecificRule {
 
     // ---- Parsing ------------------------------------------------------------------------------
 
-    private static final class Cursor {
-
-        final List<Token> toks;
-              int         i;
-
-        Cursor(final List<Token> toks)
-        {
-            this.toks = toks;
-        }
-
-        Token cur()
-        {
-            return i < toks.size() ? toks.get(i) : null;
-        }
-
-    } // class Cursor
-
     /**
      * Consumes whitespace/newlines/comments up to the next significant token, recording comment
      * text (in order) and whether a blank line (2+ consecutive newlines) occurred anywhere in the
      * span -- both a group-break signal per §1.1.
      */
     private void collectTrivia(
-        final Cursor       c,
+        final TokenCursor  c,
         final List<String> comments,
         final boolean[]    blankOut
     )
@@ -221,7 +204,7 @@ public final class JsonSpecificRule {
      * Same-line trailing comment right after a value/comma -- only consumed if no newline is
      * crossed first
      */
-    private String collectTrailingComment(final Cursor c)
+    private String collectTrailingComment(final TokenCursor c)
     {
         final int save = c.i;
         while( c.cur() != null && c.cur().type == TokenType.WHITESPACE ) c.i++;
@@ -235,7 +218,7 @@ public final class JsonSpecificRule {
         return null;
     }
 
-    private Node parseValue(final Cursor c)
+    private Node parseValue(final TokenCursor c)
     {
         final Token t = c.cur();
         if(t == null) throw new JsonParseException("unexpected end of input");
@@ -255,7 +238,7 @@ public final class JsonSpecificRule {
         throw new JsonParseException("unexpected token: " + t.text);
     }
 
-    private Container parseContainer(final Cursor c, final boolean isObject)
+    private Container parseContainer(final TokenCursor c, final boolean isObject)
     {
         c.i++; // Consume '{' or '['
         final Container container = new Container(isObject);
@@ -480,7 +463,7 @@ public final class JsonSpecificRule {
     public String format(final String content)
     {
         final List<Token>  tokens          = new JsonTokenizer().tokenize(content);
-        final Cursor       c               = new Cursor(tokens);
+        final TokenCursor  c               = new TokenCursor(tokens);
         final List<String> leadingComments = new ArrayList<>();
         final boolean[]    blank           = { false };
         collectTrivia(c, leadingComments, blank);

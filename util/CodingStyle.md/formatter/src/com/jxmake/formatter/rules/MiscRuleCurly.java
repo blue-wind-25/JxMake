@@ -2437,14 +2437,8 @@ public static final class Signature {
                 }
             }
         } // for i
-        if( occ.isEmpty() ) return Collections.emptyList();
 
-        int minDepth = Integer.MAX_VALUE;
-        for( final int[] o : occ ) minDepth = Math.min( minDepth, o[1] );
-        final List<Integer> result = new ArrayList<>();
-        for( final int[] o : occ ) if( o[1] == minDepth ) result.add( o[0] );
-
-        return result;
+        return occurrencesAtShallowestDepth(occ);
     }
     /**
      * Same depth-tracking shape as {@link #findOperatorSplits}, for tier-2 ternary `?`/`:` -- every
@@ -2469,6 +2463,17 @@ public static final class Signature {
                 occ.add( new int[] { i, depth } );
             }
         } // for
+
+        return occurrencesAtShallowestDepth(occ);
+    }
+    /**
+     * Shared tail of {@link #findBinaryOpSplits}/{@link #findTernarySplits}: given {@code occ}
+     * ({@code {tokenIndex, depth}} pairs of every candidate split-point occurrence found), returns
+     * the token indices of just the occurrences at the shallowest depth present -- empty if
+     * {@code occ} itself is empty.
+     */
+    private List<Integer> occurrencesAtShallowestDepth(final List<int[]> occ)
+    {
         if( occ.isEmpty() ) return Collections.emptyList();
 
         int minDepth = Integer.MAX_VALUE;

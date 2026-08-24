@@ -2170,18 +2170,24 @@ public static final class Signature {
     {
         final List<int[]>  spans      = new ArrayList<>();
         final List<String> renders    = new ArrayList<>();
-              int           scanCursor = 0;
+              int          scanCursor = 0;
 
         for( int i = 0; i < tokens.size(); ++i ) {
             if(i < scanCursor) continue;
             final Token t = tokens.get(i);
 
             if( t.type == TokenType.KEYWORD
-                    && ( "if".equals(t.text) || "while".equals(t.text) || "switch".equals(t.text) ) ) {
+                    && ( "if".equals(
+                        t.text
+                    ) || "while".equals(
+                        t.text
+                    ) || "switch".equals(
+                        t.text
+                    ) ) ) {
                 final int openIdx = nextSignificantIndex(tokens, i + 1);
                 if( openIdx >= 0 && isPunct( tokens.get(openIdx), "(" ) ) {
                     final int closeIdx = matchParenForward(tokens, openIdx);
-                    if( closeIdx > openIdx + 1 ) {
+                    if(closeIdx > openIdx + 1) {
                         final String rendered = tryOperatorSplit(
                             tokens, openIdx + 1, closeIdx - 1, lineIndent(tokens, i)
                         );
@@ -2191,8 +2197,8 @@ public static final class Signature {
                             scanCursor = closeIdx;
                             continue;
                         }
-                    }
-                }
+                    } // if
+                } // if
             } // if
             else if( t.type == TokenType.KEYWORD && "for".equals(t.text) ) {
                 final String rendered = tryForHeaderSplit(tokens, i);
@@ -2203,13 +2209,13 @@ public static final class Signature {
                     renders.add(rendered);
                     scanCursor = closeIdx + 1;
                     continue;
-                }
+                } // if
             } // else if
             else if( t.type == TokenType.KEYWORD && "return".equals(t.text) ) {
                 final int exprStart = nextSignificantIndex(tokens, i + 1);
-                if( exprStart >= 0 ) {
+                if(exprStart >= 0) {
                     final int semiIdx = findStatementSemicolon(tokens, exprStart);
-                    if( semiIdx > exprStart ) {
+                    if(semiIdx > exprStart) {
                         final String rendered = tryOperatorSplit(
                             tokens, exprStart, semiIdx - 1, lineIndent(tokens, i)
                         );
@@ -2219,17 +2225,17 @@ public static final class Signature {
                             scanCursor = semiIdx;
                             continue;
                         }
-                    }
-                }
+                    } // if
+                } // if
             } // else if
             else if( isOp(t, "=") && t.parenDepth == 0 ) {
                 // Top-level (not inside any call/for-header parens) plain assignment -- covers
                 // both a declaration's own initializer and an ordinary reassignment; "no enclosing
-                // call parens" is exactly `parenDepth == 0` at the `=` token itself.
+                // call parens" is exactly `parenDepth == 0` at the `=` token itself
                 final int rhsStart = nextSignificantIndex(tokens, i + 1);
-                if( rhsStart >= 0 ) {
+                if(rhsStart >= 0) {
                     final int semiIdx = findStatementSemicolon(tokens, rhsStart);
-                    if( semiIdx > rhsStart ) {
+                    if(semiIdx > rhsStart) {
                         final String rendered = tryOperatorSplit(
                             tokens, rhsStart, semiIdx - 1, lineIndent(tokens, i)
                         );
@@ -2239,8 +2245,8 @@ public static final class Signature {
                             scanCursor = semiIdx;
                             continue;
                         }
-                    }
-                }
+                    } // if
+                } // if
             } // else if
         } // for
 
@@ -2269,8 +2275,8 @@ public static final class Signature {
         int depth = 0;
         for( int i = from; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            if( t.type == TokenType.PUNCT ) {
-                if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
+            if(t.type == TokenType.PUNCT) {
+                     if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) {
                     if(depth == 0) return -1; // Left the enclosing scope -- not a statement we own
                     --depth;
@@ -2302,8 +2308,11 @@ public static final class Signature {
         if( hasNewlineBetween(tokens, from, to) ) return null;
 
         final int lineStart = lineStartIndex(tokens, from);
-        final int wholeLen  = expandedIndentWidth(baseIndent, indentWidth)
-                + collapseToOneLine(tokens, lineStart, to).length();
+        final int wholeLen  = expandedIndentWidth(
+            baseIndent, indentWidth
+        ) + collapseToOneLine(
+            tokens, lineStart, to
+        ).length();
         if(wholeLen <= lineLengthLimit) return null; // Already fits -- nothing to do
 
         return splitTiered(tokens, from, to, baseIndent, 1);
@@ -2322,7 +2331,7 @@ public static final class Signature {
      */
     private boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to)
     {
-        for( int i = from; i <= to; ++i ) if( tokens.get(i).type == TokenType.NEWLINE ) return true;
+        for(int i = from; i <= to; ++i) if( tokens.get(i).type == TokenType.NEWLINE ) return true;
 
         return false;
     }
@@ -2344,11 +2353,15 @@ public static final class Signature {
     )
     {
         if(tier > 3) return null;
-        if( tier == 2 && lang.isKotlin ) return splitTiered(tokens, from, to, baseIndent, 3);
+        if(tier == 2 && lang.isKotlin) return splitTiered(tokens, from, to, baseIndent, 3);
 
-        final List<Integer> splits = (tier == 1) ? findOperatorSplits(tokens, from, to)
-                                    : (tier == 2) ? findTernarySplits(tokens, from, to)
-                                    : findMulDivSplits(tokens, from, to);
+        final List<Integer> splits = (tier == 1) ? findOperatorSplits(
+            tokens, from, to
+        ) : (tier == 2) ? findTernarySplits(
+            tokens, from, to
+        ) : findMulDivSplits(
+            tokens, from, to
+        );
         if( splits.isEmpty() ) return splitTiered(tokens, from, to, baseIndent, tier + 1);
 
         return renderTieredSplit(tokens, from, to, splits, baseIndent, tier + 1);
@@ -2367,7 +2380,7 @@ public static final class Signature {
     /**
      * Tier 3 -- same shape as {@link #findOperatorSplits}, for `*`/`/`, so a C/C++ unary pointer
      * dereference (`*ptr`) is never mistaken for a split point (excluded by the same
-     * {@link #isBinaryOperatorContext} check used for unary `-x`/`+x`).
+     * {@link #isBinaryOperatorContext} check used for unary `-x`/`+x`)
      */
     private List<Integer> findMulDivSplits(final List<Token> tokens, final int from, final int to)
     {
@@ -2376,7 +2389,7 @@ public static final class Signature {
     /**
      * Shared depth-tracking scan behind {@link #findOperatorSplits}/{@link #findMulDivSplits}: every
      * {@code opTexts}-matching OP token in binary-operator context, restricted to the shallowest
-     * bracket depth any of them occurs at within {@code [from, to]}.
+     * bracket depth any of them occurs at within {@code [from, to]}
      */
     private List<Integer> findBinaryOpSplits(
         final List<Token> tokens,
@@ -2385,12 +2398,12 @@ public static final class Signature {
         final String...   opTexts
     )
     {
-        int              depth = 0;
+              int         depth = 0;
         final List<int[]> occ   = new ArrayList<>(); // {tokenIndex, depth}
-        for( int i = from; i <= to; ++i ) {
+        for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
-            if( t.type == TokenType.PUNCT ) {
-                if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
+            if(t.type == TokenType.PUNCT) {
+                     if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
             }
             else if( t.type == TokenType.OP && isBinaryOperatorContext(tokens, i) ) {
@@ -2401,13 +2414,13 @@ public static final class Signature {
                     }
                 }
             }
-        } // for
+        } // for i
         if( occ.isEmpty() ) return Collections.emptyList();
 
         int minDepth = Integer.MAX_VALUE;
-        for(final int[] o : occ) minDepth = Math.min(minDepth, o[1]);
+        for( final int[] o : occ ) minDepth = Math.min( minDepth, o[1] );
         final List<Integer> result = new ArrayList<>();
-        for(final int[] o : occ) if(o[1] == minDepth) result.add(o[0]);
+        for( final int[] o : occ ) if( o[1] == minDepth ) result.add( o[0] );
 
         return result;
     }
@@ -2419,12 +2432,12 @@ public static final class Signature {
      */
     private List<Integer> findTernarySplits(final List<Token> tokens, final int from, final int to)
     {
-        int              depth = 0;
+              int         depth = 0;
         final List<int[]> occ   = new ArrayList<>();
-        for( int i = from; i <= to; ++i ) {
+        for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
-            if( t.type == TokenType.PUNCT ) {
-                if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
+            if(t.type == TokenType.PUNCT) {
+                     if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
             }
             else if( t.type == TokenType.OP && ( isOp(t, "?") || isOp(t, ":") ) ) {
@@ -2434,9 +2447,9 @@ public static final class Signature {
         if( occ.isEmpty() ) return Collections.emptyList();
 
         int minDepth = Integer.MAX_VALUE;
-        for(final int[] o : occ) minDepth = Math.min(minDepth, o[1]);
+        for( final int[] o : occ ) minDepth = Math.min( minDepth, o[1] );
         final List<Integer> result = new ArrayList<>();
-        for(final int[] o : occ) if(o[1] == minDepth) result.add(o[0]);
+        for( final int[] o : occ ) if( o[1] == minDepth ) result.add( o[0] );
 
         return result;
     }
@@ -2445,16 +2458,20 @@ public static final class Signature {
      * ends an operand -- an identifier, literal, or closing `)`/`]` -- as opposed to leading one
      * (another operator, an opening bracket, a comma, or nothing at all), which would mean the
      * operator at {@code idx} is unary (`-x`, `+x`, `*ptr`) rather than the binary occurrence this
-     * pass looks for.
+     * pass looks for
      */
     private boolean isBinaryOperatorContext(final List<Token> tokens, final int idx)
     {
         final int p = prevSignificantIndex(tokens, idx - 1);
         if(p < 0) return false;
         final Token pt = tokens.get(p);
-        if( pt.type == TokenType.IDENTIFIER || pt.type == TokenType.NUMBER
-                || pt.type == TokenType.STRING || pt.type == TokenType.CHAR ) return true;
-        if( pt.type == TokenType.PUNCT && ( ")".equals(pt.text) || "]".equals(pt.text) ) ) return true;
+        if(pt.type == TokenType.IDENTIFIER || pt.type == TokenType.NUMBER
+                || pt.type == TokenType.STRING || pt.type == TokenType.CHAR) return true;
+        if( pt.type == TokenType.PUNCT && ( ")".equals(
+            pt.text
+        ) || "]".equals(
+            pt.text
+        ) ) ) return true;
         if( pt.type == TokenType.KEYWORD
                 && ( "this".equals(pt.text) || "true".equals(pt.text) || "false".equals(pt.text)
                         || "null".equals(pt.text) || "super".equals(pt.text) ) ) return true;
@@ -2489,9 +2506,21 @@ public static final class Signature {
               int           cursor     = from;
         for(final int opIdx : splitIdxs) {
             int trimmedEnd = opIdx;
-            while( trimmedEnd > cursor && tokens.get(trimmedEnd - 1).type == TokenType.WHITESPACE ) --trimmedEnd;
+            while( trimmedEnd > cursor && tokens.get(
+                trimmedEnd - 1
+            ).type == TokenType.WHITESPACE ) --trimmedEnd;
             out.append( renderFragment(tokens, cursor, trimmedEnd - 1, contIndent, nextTier) );
-            out.append('\n').append(baseIndent).append(indentUnit).append( tokens.get(opIdx).text ).append(' ');
+            out.append(
+                '\n'
+            ).append(
+                baseIndent
+            ).append(
+                indentUnit
+            ).append(
+                tokens.get(opIdx).text
+            ).append(
+                ' '
+            );
             int next = opIdx + 1;
             while( next <= to && tokens.get(next).type == TokenType.WHITESPACE ) ++next;
             cursor = next;
@@ -2506,7 +2535,7 @@ public static final class Signature {
      * {@code fragBaseIndent}, else handed to {@link #splitTiered} at {@code nextTier} for further
      * splitting (returns the verbatim text unchanged if that tier finds nothing to split on
      * either -- the fragment is simply left over-length, same "best effort" posture as
-     * {@link #enforceCallLineBreaking}'s own fallback chain).
+     * {@link #enforceCallLineBreaking}'s own fallback chain)
      */
     private String renderFragment(
         final List<Token> tokens,
@@ -2521,8 +2550,11 @@ public static final class Signature {
         appendRange(verbatim, tokens, fragFrom, fragTo + 1);
         if(nextTier > 3) return verbatim.toString();
 
-        final int fragLen = expandedIndentWidth(fragBaseIndent, indentWidth)
-                + collapseToOneLine(tokens, fragFrom, fragTo).length();
+        final int fragLen = expandedIndentWidth(
+            fragBaseIndent, indentWidth
+        ) + collapseToOneLine(
+            tokens, fragFrom, fragTo
+        ).length();
         if(fragLen <= lineLengthLimit) return verbatim.toString();
         if( hasCommentBetween(tokens, fragFrom - 1, fragTo + 1) ) return verbatim.toString();
         if( anyFrozen(tokens, fragFrom, fragTo + 1) ) return verbatim.toString();
@@ -2552,25 +2584,30 @@ public static final class Signature {
         if(closeIdx <= openIdx + 1) return null;
         if( hasCommentBetween(tokens, openIdx, closeIdx) ) return null;
         if( anyFrozen(tokens, openIdx, closeIdx + 1) ) return null;
-        if( hasNewlineBetween(tokens, openIdx, closeIdx) ) return null; // Idempotency guard -- see hasNewlineBetween's doc comment
+        if( hasNewlineBetween(
+            tokens, openIdx, closeIdx
+        ) ) return null; // Idempotency guard -- see hasNewlineBetween's doc comment
 
         final String baseIndent = lineIndent(tokens, forIdx);
         final int    lineStart  = lineStartIndex(tokens, forIdx);
-        final int    wholeLen   = expandedIndentWidth(baseIndent, indentWidth)
-                + collapseToOneLine(tokens, lineStart, closeIdx).length();
+        final int    wholeLen   = expandedIndentWidth(
+            baseIndent, indentWidth
+        ) + collapseToOneLine(
+            tokens, lineStart, closeIdx
+        ).length();
         if(wholeLen <= lineLengthLimit) return null; // Already fits
 
-        int       depth = 0;
+              int           depth = 0;
         final List<Integer> semis = new ArrayList<>();
-        for( int i = openIdx + 1; i < closeIdx; ++i ) {
+        for(int i = openIdx + 1; i < closeIdx; ++i) {
             final Token t = tokens.get(i);
-            if( t.type == TokenType.PUNCT ) {
-                if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
+            if(t.type == TokenType.PUNCT) {
+                     if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) --depth;
-                else if(depth == 0 && ";".equals(t.text)) semis.add(i);
+                else if( depth == 0 && ";".equals(t.text) ) semis.add(i);
             }
         } // for
-        if(semis.size() != 2) return null; // Not the ordinary 3-clause shape -- leave untouched
+        if( semis.size() != 2 ) return null; // Not the ordinary 3-clause shape -- leave untouched
 
         final int    semi1      = semis.get(0);
         final int    semi2      = semis.get(1);
@@ -2612,8 +2649,11 @@ public static final class Signature {
 
         final StringBuilder verbatim = new StringBuilder();
         appendRange(verbatim, tokens, a, b + 1);
-        final int clauseLen = expandedIndentWidth(clauseIndent, indentWidth)
-                + collapseToOneLine(tokens, a, b).length();
+        final int clauseLen = expandedIndentWidth(
+            clauseIndent, indentWidth
+        ) + collapseToOneLine(
+            tokens, a, b
+        ).length();
         if(clauseLen <= lineLengthLimit) return verbatim.toString();
         if( hasCommentBetween(tokens, a - 1, b + 1) ) return verbatim.toString();
         if( anyFrozen(tokens, a, b + 1) ) return verbatim.toString();

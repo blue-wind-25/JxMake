@@ -468,9 +468,9 @@ public final class FormatterCurly extends FormatterCore {
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
         // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
-        if( config.lineSplitOperatorPriority() ) {
-            text = miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) );
-        }
+        if( config.lineSplitOperatorPriority() ) text = miscRule.enforceOperatorLineBreaking(
+            tokenizer.apply(text)
+        );
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );

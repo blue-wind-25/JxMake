@@ -98,7 +98,7 @@ public final class Config {
      * {@code MiscRuleCurly.enforceOperatorLineBreaking}.
      */
     private boolean lineSplitOperatorPriority = false;
-    private int    serverPort            = 17173;
+    private int     serverPort                = 17173;
     /**
      * {@code server-concurrency} -- thread-pool size {@code ServerMode.start} uses for the
      * HTTP server's executor. Default 1: today's implicit single-threaded {@code HttpServer}

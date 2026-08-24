@@ -2,8 +2,29 @@
 
 Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
-status: see `STATE_DOGFOOD.md` (not yet registered — no dogfood run
-started).
+status: see `STATE_DOGFOOD.md`.
+
+**2026-08-25 dogfood/validation (two-pass):** Pass 1 (flag off, routine
+self-adopt regression confirm) — Leg A (`tools/*`, 82 files) idempotent,
+zero content-changed files, nothing to adopt. Leg B (`src/**/*.java`, 100
+files) idempotent; 3 files differed from committed `src/`
+(`Config.java`/`FormatterCurly.java`/`MiscRuleCurly.java`, exactly this
+session's own new-feature files, not yet self-formatted) — all reviewed by
+hand, ordinary cosmetic re-style (call-wrap width, spacing normalization,
+declaration-alignment column width), confirming the feature is a true
+no-op with the flag off; zero column-0-flush lines, zero content/comment
+loss. Trial JAR: `_test_serial` 348/350 — the 2 failures
+(`cpp_comments_inp.cpp`, `real_code_regressions_217_inp.java`) are the
+documented `gru-sync-weights` trial-JAR drift class, not chased. Adopted;
+`make clean && make test` 350/350 forward + idempotency, fully green. Leg
+C (external corpora) — see below.
+
+Pass 2 (flag forced on, stress test): corpus `../../../3rd_party/tools/pcpp_java`
+(small, curly-family). Idempotent (`hasNewlineBetween` guard held under
+round2). `java_syntax_check.sh` clean on all changed files. Hand-eyeballed
+diffs confirm operator-LEADING tier-1 (`&&`/`||`/`+`/`-`) splits firing
+correctly on long `if`/assignment conditions; no false positives. No bug
+found — Pass 2 fully clean, no new fixture needed.
 
 ---
 

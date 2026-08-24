@@ -300,6 +300,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<RawLine> rawLines
     )
     {
+        final Map<Token, Integer> indexOf      = buildIndexMap(tokens);
         final List<Replacement>  replacements = new ArrayList<>();
               List<PyAssignment> group        = new ArrayList<>();
               List<int[]>        groupSpans   = new ArrayList<>(); // [assignStart, assignEnd] per group member
@@ -308,9 +309,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final PyAssignment a = line.multiPhysicalLine ? null : classifyAssignment(tokens, line);
             if( a != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
                 group.add(a);
-                groupSpans.add(
-                    new int[] { indexOf(tokens, a.target), lastIndexOfValue(tokens, a) }
-                );
+                groupSpans.add( assignmentSpan(indexOf, a) );
                 groupDepth = line.depth;
                 continue;
             } // if
@@ -319,9 +318,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             groupSpans = new ArrayList<>();
             if(a != null) {
                 group.add(a);
-                groupSpans.add(
-                    new int[] { indexOf(tokens, a.target), lastIndexOfValue(tokens, a) }
-                );
+                groupSpans.add( assignmentSpan(indexOf, a) );
                 groupDepth = line.depth;
             } // if
             else {
@@ -333,23 +330,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         return replacements;
     }
 
-    private int indexOf(final List<Token> tokens, final Token target)
-    {
-        for( int i = 0; i < tokens.size(); ++i ) {
-            if( tokens.get(i) == target ) return i;
-        }
-
-        return -1;
-    }
-
-    private int lastIndexOfValue(final List<Token> tokens, final PyAssignment a)
+    private int[] assignmentSpan(final Map<Token, Integer> indexOf, final PyAssignment a)
     {
         final Token last = a.valueTokens.get( a.valueTokens.size() - 1 );
-        for( int i = tokens.size() - 1; i >= 0; --i ) {
-            if( tokens.get(i) == last ) return i + 1;
-        }
 
-        return -1;
+        return new int[] { indexOf.get(a.target), indexOf.get(last) + 1 };
     }
 
     private void flushAssignmentGroup(

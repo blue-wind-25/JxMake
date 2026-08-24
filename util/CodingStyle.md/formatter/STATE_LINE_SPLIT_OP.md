@@ -140,6 +140,24 @@ across both rounds. `java_syntax_check.sh` on all 1655 round1 files: zero
 errors. `make test`: 355/355 forward + idempotency. Full text:
 `RDD_KEY_342`.
 
+**2026-08-25 follow-up (closing-comment-min-lines flap fix):** the
+remaining Known Out-of-Scope Finding from the section above — splitting a
+condition can push an enclosing `for`/`while`/`if`/`switch` block's line
+count across the `closing-comment-min-lines` threshold, but
+`addClosingComments` ran before `enforceOperatorLineBreaking` in the
+pipeline, so a fresh format's decision didn't see the post-split line
+count while a reformat of already-split output did — root-caused and
+fixed via `RDD_KEY_343` (see D6 in Resolved Design Decisions below): the
+`addClosingComments`/`enforceSwitchExpressionArrowAlignment` pair now runs
+after `enforceOperatorLineBreaking` when the flag is on, gated so the
+flag-off pipeline is byte-for-byte unchanged. New fixture
+`test/real_code_regressions_236_{inp,out}.java`. `make test`: 356/356
+forward + idempotency. Spot-checked against a fresh `google/guava` clone
+(flag forced on, same methodology as Pass 3/4): confirmed zero of the
+remaining round1-vs-round2 differing files are this flap class anymore.
+That spot-check surfaced a different, still-unfixed, pre-existing flap —
+see the new entry in "Known Out-of-Scope Finding" below.
+
 ---
 
 ## Purpose
@@ -150,7 +168,7 @@ condition, a `for(...)` header, or a bare `return`/assignment-RHS
 expression with no enclosing call parens is too long, splits it at
 operator boundaries instead of leaving it long or falling straight to
 today's call-argument-paren wrapping. **Fully implemented, `make test`
-green (350/350).**
+green (356/356).**
 
 Output shape: unpadded, operator-LEADING (the operator token leads each
 continuation line), each continuation line at `baseIndent + one
@@ -247,19 +265,55 @@ Full text: `RDD_KEY_340`.
   to avoid a resulting over-split regression on trailing same-line
   comments, by reusing `enforceCallLineBreaking`'s existing comment-aware
   `effectiveLimit` pattern.
+- **D6 — closing-comment-min-lines flap fixed via flag-gated reordering,
+  not an unconditional move.** Follow-up fix, `RDD_KEY_343`. Root cause
+  matched `RDD_KEY_174`'s precedent exactly: `enforceOperatorLineBreaking`
+  can expand a block's content-line count, but
+  `BlockStructureRule.addClosingComments` (STYLE.md §7 threshold decision)
+  ran BEFORE it in the pipeline, so a fresh format's decision saw the
+  pre-split line count while a reformat of already-split output saw the
+  post-split count. Unlike `RDD_KEY_174` (where the earlier pass could
+  simply move later unconditionally), `addClosingComments` could not move
+  unconditionally here: everything between its old position and
+  `enforceOperatorLineBreaking`'s position (Phase 4 cosmetic spacing,
+  `alignBracelessElseIfChain`) runs regardless of the
+  `line-split-operator-priority` flag, and `alignBracelessElseIfChain`
+  itself can change a block's line count (collapsing a braceless `if`/body
+  onto one line) — an unconditional move would have changed
+  `addClosingComments`' decisions, and thus output, even with the flag
+  off. Fixed by gating instead: `addClosingComments` (+
+  `enforceSwitchExpressionArrowAlignment`, kept paired immediately after
+  it, matching its pre-fix relative order) runs at its original Phase 3
+  position only when the flag is off (byte-for-byte identical to every
+  pre-fix flag-off pipeline), and is skipped there + re-run immediately
+  after `enforceOperatorLineBreaking` when the flag is on. New fixture:
+  `test/real_code_regressions_236_{inp,out}.java`.
 
 ---
 
 ## Known Out-of-Scope Finding (not fixed, discovered incidentally)
 
-A pre-existing closing-comment-min-lines round1-vs-round2 flap (same
-category as `RDD_KEY_174`): splitting a condition can change the enclosing
-function's line count across the threshold that decides whether a
-trailing `// functionName` comment is emitted, so round 1 and round 2
-output can genuinely differ for a function shaped that way. Hit while
-authoring the `.ts` fixture's would-be `primaryTierIf` case; worked around
-by omitting that case from the `.ts` fixture (already covered by `.cpp`/
-`.kt`) rather than fixing — unrelated to this feature, out of scope.
+**Declaration/condition collapse-on-round2 flap (found 2026-08-25, during
+`RDD_KEY_343`'s guava spot-check, not fixed).** A different, pre-existing
+flap from the closing-comment one D6 fixed: an operator-split-eligible
+declaration or condition that `enforceOperatorLineBreaking` correctly
+renders multi-line (operator-leading) on round 1 collapses back onto one
+physical line on round 2 — e.g. `google/guava`'s
+`MinMaxPriorityQueue.java`: `int result = (configuredExpectedSize ==
+Builder.UNSET_EXPECTED_SIZE) ? DEFAULT_CAPACITY : configuredExpectedSize;`
+stays split round 1, joins to one line round 2. Also seen in
+`CharMatcher.java`, `TreeRangeSet.java`, `Streams.java`, and 34 other files
+in a fresh guava clone (38 of 1655 files total, flag forced on). Confirmed
+pre-existing (reproduces identically against the pipeline from before
+`RDD_KEY_343`'s fix) and unrelated to `addClosingComments`/closing
+comments — likely a different later pass (declaration-alignment or
+`enforceComplexityPadding` are the leading suspects) rejoining what
+`enforceOperatorLineBreaking` split, but root cause not investigated. A
+separate, pre-existing, flag-independent baseline of 42/1655 guava files
+also differ round1-vs-round2 regardless of this feature (e.g.
+`Functions.java`'s anonymous-class closing-brace indentation) — confirmed
+unrelated to `line-split-operator-priority` (reproduces with the flag
+off), not investigated, out of scope for this job.
 
 ---
 
@@ -279,9 +333,13 @@ by omitting that case from the `.ts` fixture (already covered by `.cpp`/
   fix: an `if` condition whose collapsed single-statement body pushes the
   physical line over the length limit, adapted from real
   `Suppliers.java`'s `memoize` shape.
-- `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 forward +
-  idempotency, zero regressions (355 after Pass 4's
-  `real_code_regressions_235` fixture).
+- `test/real_code_regressions_236_{inp,out}.java` — `RDD_KEY_343` fix: a
+  `while` loop whose nested braceless `if` condition split pushes the
+  loop's own content-line count past `closing-comment-min-lines`, only
+  visible to `addClosingComments` after the reordering fix.
+- `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 forward
+  + idempotency, zero regressions (356 after `RDD_KEY_343`'s
+  `real_code_regressions_236` fixture).
 
 ---
 

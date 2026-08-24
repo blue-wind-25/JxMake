@@ -4390,6 +4390,13 @@ Real-code regressions:
                                                         without being re-detected for splitting,
                                                         self-correcting only on a second formatting pass.
 
+  real_code_regressions_236_inp/out.java             -- line-split-operator-priority idempotency fix: an
+                                                        operator-split expanding an enclosing `while` loop's
+                                                        line count past the closing-comment-min-lines
+                                                        threshold was invisible to the closing-comment
+                                                        decision on a fresh format, only appearing on a second
+                                                        formatting pass.
+
 How Tests Are Run
 -----------------
 

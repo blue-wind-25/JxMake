@@ -418,10 +418,24 @@ public final class FormatterCurly extends FormatterCore {
         // cosmetic (found via arrow-kt/arrow's `Iterable.kt` `separateEither`, RDD_KEY_174). Moved
         // ahead of addClosingComments so its line-count decisions always see the final line count.
         if(lang.isKotlin) text = kotlinRule.formatWhenExpressions( tokenizer.apply(text) );
-        text = blockRule.addClosingComments( tokenizer.apply(text) );
-        if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
-            tokenizer.apply(text)
-        );
+        // addClosingComments (+ enforceSwitchExpressionArrowAlignment, which stays paired
+        // immediately after it) is only run HERE when line-split-operator-priority is off. When
+        // that flag is on, enforceOperatorLineBreaking (further below, gated the same way) can
+        // still EXPAND a block's line count after this point -- splitting a long if/while/for
+        // condition or return/assignment RHS across multiple lines -- so running
+        // addClosingComments here would let its STYLE.md §7 line-count threshold decision see a
+        // fresh format's pre-split (shorter) line count while a reformat of already-split output
+        // sees the post-split (longer) count, a round1-vs-round2 flap identical in shape to
+        // RDD_KEY_174 above. Fixed (RDD_KEY_343) by deferring both calls, flag-on only, to run
+        // after enforceOperatorLineBreaking instead (see that later call site) -- keeping this
+        // flag-off branch byte-for-byte identical to the pre-fix, single unconditional call so
+        // every existing flag-off fixture/pipeline stays unaffected.
+        if( !config.lineSplitOperatorPriority() ) {
+            text = blockRule.addClosingComments( tokenizer.apply(text) );
+            if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
+                tokenizer.apply(text)
+            );
+        }
 
         // Phase 4: cosmetic spacing
         text = miscRule.enforceKeywordSpacing( tokenizer.apply(text) );
@@ -468,9 +482,17 @@ public final class FormatterCurly extends FormatterCore {
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
         // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
-        if( config.lineSplitOperatorPriority() ) text = miscRule.enforceOperatorLineBreaking(
-            tokenizer.apply(text)
-        );
+        if( config.lineSplitOperatorPriority() ) {
+            text = miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) );
+            // See the flag-off addClosingComments call site above (Phase 3) for why this pair is
+            // deferred to here, flag-on only: enforceOperatorLineBreaking can expand a block's
+            // line count, and addClosingComments' STYLE.md §7 threshold decision must see that
+            // final, post-split line count to stay round1/round2 idempotent (RDD_KEY_343).
+            text = blockRule.addClosingComments( tokenizer.apply(text) );
+            if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
+                tokenizer.apply(text)
+            );
+        }
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );

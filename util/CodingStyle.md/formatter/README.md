@@ -1160,6 +1160,11 @@ itself (up to 5 passes) until two consecutive passes produce byte-identical outp
 a fixed point instead of flapping. This is a known, currently-unresolved gap
 for C/C++/Java/JS/TS only.
 
+The same general class also shows up with `line-split-operator-priority` turned on: a condition or
+assignment right-hand side that gets split across operator boundaries the first time can sometimes
+collapse back onto one line on a second formatting pass, or vice versa. No workaround beyond the
+one above.
+
 #### 4. `.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in
 
 The JSX/TSX boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but

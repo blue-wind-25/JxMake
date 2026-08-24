@@ -2706,11 +2706,9 @@ public static final class Assignment {
         // own per-boundary targetWordIndex + GRU fallback, since gru.classify genuinely depends on
         // which word the decision is about.
         CommentDecision ruleResultForNonLeadingBoundary = null;
-        if(commentNormalizationClassifier) {
-            ruleResultForNonLeadingBoundary = CommentClassifier.classify(
-                CommentFeatureExtractor.extract(combinedText, lang, TokenType.COMMENT_LINE, 1)
-            );
-        }
+        if(commentNormalizationClassifier) ruleResultForNonLeadingBoundary = CommentClassifier.classify(
+            CommentFeatureExtractor.extract(combinedText, lang, TokenType.COMMENT_LINE, 1)
+        );
 
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);
@@ -2728,7 +2726,7 @@ public static final class Assignment {
                     ).size();
                     allow = classifyComment(combinedText, targetWordIndex) == CommentDecision.YES;
                 }
-            }
+            } // if
             else {
                 int end = letterPos;
                 while( end < combinedText.length() && ( Character.isLetterOrDigit(

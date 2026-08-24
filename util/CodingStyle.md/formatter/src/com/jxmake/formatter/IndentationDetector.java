@@ -120,7 +120,7 @@ public final class IndentationDetector {
         }
     }
 
-    /** First detected indent style read from {@code reader}, or {@code null} if none of its lines are indented. */
+    /** First detected indent style read from {@code reader}, or {@code null} if none of its lines are indented */
     private static String scanReaderForIndentStyle(final BufferedReader reader) throws IOException
     {
         String line;

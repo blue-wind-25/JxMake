@@ -107,10 +107,10 @@ public class ComplexityPaddingEvaluator {
         );
     }
 
-    /** Scans forward from {@code openIdx}, tracking nesting depth via {@code isOpen}/{@code isClose}, and returns the index where depth returns to 0 (or -1). */
+    /** Scans forward from {@code openIdx}, tracking nesting depth via {@code isOpen}/{@code isClose}, and returns the index where depth returns to 0 (or -1) */
     private int matchDepth(
-        final List<Token>    tokens,
-        final int            openIdx,
+        final List<Token>      tokens,
+        final int              openIdx,
         final Predicate<Token> isOpen,
         final Predicate<Token> isClose
     )

@@ -52,7 +52,7 @@ final class TokenNavigationRule {
     /**
      * Index of the nearest significant token strictly before {@code from} ({@code from} itself is
      * never returned, unlike {@link #prevSignificantIndexAtOrBefore}'s at-or-before scan), or
-     * {@code -1} if none.
+     * {@code -1} if none
      */
     static int prevSignificantIndexBefore(final List<Token> tokens, final int from)
     {
@@ -66,7 +66,7 @@ final class TokenNavigationRule {
     /**
      * Index of the nearest significant token strictly after {@code from} ({@code from} itself is
      * never returned, unlike {@link #nextSignificantIndexAtOrAfter}'s at-or-after scan), or
-     * {@code -1} if none.
+     * {@code -1} if none
      */
     static int nextSignificantIndexAfter(final List<Token> tokens, final int from)
     {
@@ -80,7 +80,7 @@ final class TokenNavigationRule {
     /**
      * Index of the nearest significant token at-or-after {@code from} ({@code from} itself is
      * returned if it's already significant, unlike {@link #nextSignificantIndexAfter}'s
-     * strictly-after scan), or {@code -1} if none.
+     * strictly-after scan), or {@code -1} if none
      */
     static int nextSignificantIndexAtOrAfter(final List<Token> tokens, final int from)
     {
@@ -94,7 +94,7 @@ final class TokenNavigationRule {
      * Index of the nearest significant token at-or-before {@code from} ({@code from} itself is
      * returned if it's already significant, unlike {@link #prevSignificantIndexBefore}'s
      * strictly-before scan), or {@code -1} if none (including when {@code from} itself is
-     * already negative).
+     * already negative)
      */
     static int prevSignificantIndexAtOrBefore(final List<Token> tokens, final int from)
     {

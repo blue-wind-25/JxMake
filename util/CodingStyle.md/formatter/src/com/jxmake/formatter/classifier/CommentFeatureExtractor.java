@@ -165,10 +165,10 @@ public final class CommentFeatureExtractor {
             start
         ) != '_' ) start++;
 
-        return commentText.substring(start, wordEnd(commentText, start));
+        return commentText.substring( start, wordEnd(commentText, start) );
     }
 
-    /** End index (exclusive) of the contiguous run of letters/digits/underscore starting at {@code start}. */
+    /** End index (exclusive) of the contiguous run of letters/digits/underscore starting at {@code start} */
     private static int wordEnd(final String commentText, final int start)
     {
         int end = start;

@@ -301,10 +301,10 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     )
     {
         final Map<Token, Integer> indexOf      = buildIndexMap(tokens);
-        final List<Replacement>  replacements = new ArrayList<>();
-              List<PyAssignment> group        = new ArrayList<>();
-              List<int[]>        groupSpans   = new ArrayList<>(); // [assignStart, assignEnd] per group member
-              int                groupDepth   = -1;
+        final List<Replacement>   replacements = new ArrayList<>();
+              List<PyAssignment>  group        = new ArrayList<>();
+              List<int[]>         groupSpans   = new ArrayList<>();     // [assignStart, assignEnd] per group member
+              int                 groupDepth   = -1;
         for(final RawLine line : rawLines) {
             final PyAssignment a = line.multiPhysicalLine ? null : classifyAssignment(tokens, line);
             if( a != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
@@ -1474,7 +1474,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             final int[] parens = findDefSignatureParens(tokens, line);
             if(parens == null) continue;
 
-            final Replacement wrap = tryWrapDefSignature(tokens, line, parens[0], parens[1]);
+            final Replacement wrap = tryWrapDefSignature( tokens, line, parens[0], parens[1] );
             if(wrap != null) replacements.add(wrap);
         } // for
 
@@ -1617,7 +1617,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             if(!line.multiPhysicalLine) continue;
             final int[] parens = findDefSignatureParens(tokens, line);
             if(parens == null) continue;
-            final List<Replacement> group = trySignatureGroup(tokens, parens[0], parens[1]);
+            final List<Replacement> group = trySignatureGroup( tokens, parens[0], parens[1] );
             if(group != null) replacements.addAll(group);
         } // for
 

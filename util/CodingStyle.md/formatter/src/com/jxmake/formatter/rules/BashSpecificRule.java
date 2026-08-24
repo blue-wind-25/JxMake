@@ -731,9 +731,11 @@ public final class BashSpecificRule {
     {
         final PassAResult passA = runPassA(content);
 
-        final ToolingSharedRule.Lines linesObj        = new ToolingSharedRule.Lines(passA.transformed);
-        final List<String>            lines           = linesObj.lines;
-        final boolean                 endsWithNewline = linesObj.endsWithNewline;
+        final ToolingSharedRule.Lines linesObj        = new ToolingSharedRule.Lines(
+            passA.transformed
+        );
+        final List<String> lines           = linesObj.lines;
+        final boolean      endsWithNewline = linesObj.endsWithNewline;
 
         final boolean[] pure = computeLinePurity( content, passA.kind, lines.size() );
 

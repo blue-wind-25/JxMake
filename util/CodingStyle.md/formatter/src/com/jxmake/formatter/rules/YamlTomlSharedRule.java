@@ -237,7 +237,7 @@ final class YamlTomlSharedRule {
         return padding;
     }
 
-    /** Result of {@link #collectFrozenSpanLines}: the collected raw lines and the scan position just past them. */
+    /** Result of {@link #collectFrozenSpanLines}: the collected raw lines and the scan position just past them */
     static final class FrozenSpanScan {
 
         final List<String> lines;
@@ -268,7 +268,9 @@ final class YamlTomlSharedRule {
     {
         final List<String> collected = new ArrayList<>();
               int          idx       = start;
-        while( idx < size && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals( contentAt.apply(idx) ) ) {
+        while( idx < size && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals(
+            contentAt.apply(idx)
+        ) ) {
             collected.add( rawAt.apply(idx) );
             ++idx;
         }

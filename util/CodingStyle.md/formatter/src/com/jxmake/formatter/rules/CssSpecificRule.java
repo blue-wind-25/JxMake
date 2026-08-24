@@ -406,10 +406,10 @@ public final class CssSpecificRule {
         // colon and no mid-comment) with no leading comment/blank line between them.
         final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
             items.size(),
-            i -> items.get(i).decl != null && items.get(i).decl.hasColon && items.get(i).decl.midComment == null,
-            i -> !items.get(i).leadingComments.isEmpty(),
-            i -> items.get(i).blankBefore,
-            i -> items.get(i).decl.prop
+            i->items.get(i).decl != null && items.get(i).decl.hasColon && items.get(i).decl.midComment == null,
+            i->!items.get(i).leadingComments.isEmpty(),
+            i->items.get(i).blankBefore,
+            i->items.get(i).decl.prop
         );
 
         for( int i = 0; i < items.size(); ++i ) {

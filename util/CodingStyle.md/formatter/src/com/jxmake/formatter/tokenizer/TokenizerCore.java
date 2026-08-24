@@ -346,7 +346,7 @@ public class TokenizerCore {
         return new Token(type, text, braceDepth, parenDepth, null);
     }
 
-    /** Scans a line comment from {@code pos} through EOL (or EOF) and returns it as one COMMENT_LINE token. */
+    /** Scans a line comment from {@code pos} through EOL (or EOF) and returns it as one COMMENT_LINE token */
     protected Token emitLineCommentToEol()
     {
         final int start = pos;

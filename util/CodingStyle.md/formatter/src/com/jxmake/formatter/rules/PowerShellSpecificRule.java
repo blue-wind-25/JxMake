@@ -615,7 +615,7 @@ public final class PowerShellSpecificRule {
      */
     private String applyBraceIndent(final String content)
     {
-        final PassAResult  passA    = runPassA(content);
+        final PassAResult passA = runPassA(content);
         final ToolingSharedRule.Lines lines    = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]    pure     = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
@@ -853,7 +853,7 @@ public final class PowerShellSpecificRule {
      */
     private String applyAssignAlignment(final String content)
     {
-        final PassAResult      passA = runPassA(content);
+        final PassAResult passA = runPassA(content);
         final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]        pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
@@ -951,7 +951,7 @@ public final class PowerShellSpecificRule {
      */
     private String applyPipelineSplit(final String content)
     {
-        final PassAResult  passA = runPassA(content);
+        final PassAResult passA = runPassA(content);
         final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]    pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
@@ -1132,7 +1132,7 @@ public final class PowerShellSpecificRule {
      */
     private String applySwitchArmAlignment(final String content)
     {
-        final PassAResult   passA = runPassA(content);
+        final PassAResult passA = runPassA(content);
         final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
         final boolean[]     pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()

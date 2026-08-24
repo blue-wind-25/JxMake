@@ -1030,7 +1030,7 @@ public class TokenizerCurly extends TokenizerCore {
         );
     }
 
-    /** Advances {@code pos} past a directive starting at {@code start}, consuming any trailing-{@code \}-continued lines. */
+    /** Advances {@code pos} past a directive starting at {@code start}, consuming any trailing-{@code \}-continued lines */
     private void scanBackslashContinuedDirective(final int start)
     {
         while(true) {
@@ -1926,7 +1926,7 @@ public class TokenizerCurly extends TokenizerCore {
         return t.type == TokenType.KEYWORD && CAST_KEYWORDS.contains(t.text);
     }
 
-    /** Indices of {@code tokens} that carry real content -- skips whitespace/newline/comment/preprocessor. */
+    /** Indices of {@code tokens} that carry real content -- skips whitespace/newline/comment/preprocessor */
     private static List<Integer> significantTokenIndices(final List<Token> tokens)
     {
         final List<Integer> sig = new ArrayList<>();

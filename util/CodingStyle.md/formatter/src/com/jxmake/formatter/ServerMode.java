@@ -445,7 +445,9 @@ public final class ServerMode {
                         }
                     } // if
                     final Map<String, String> overrides = inlineConfig.isEmpty() ? java.util.Collections.< String, String > emptyMap() : inlineConfig;
-                    config = Main.withResolvedIndentStyle(targetFile, overrides, inFileOverrides, resolvedStyle);
+                    config = Main.withResolvedIndentStyle(
+                        targetFile, overrides, inFileOverrides, resolvedStyle
+                    );
                 } // if
                 System.err.println(
                     "jxmake-code-formatter: processing " + (path == null ? "(no path, lang=" + language + ")" : path)

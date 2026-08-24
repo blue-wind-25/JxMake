@@ -907,13 +907,13 @@ public class CppSpecificRule {
             // list and the contract-clause group, same technique as
             // enforceRequiresClausePlacement, to reach the declarator's own opening paren for a
             // stable baseIndent.
-            final int openParenForIndent  = findDeclaratorOpenParen(tokens, anchorCloseParenIdx);
-            final int declLineStartIdx    = openParenForIndent >= 0 ? lineStartIndex(
+            final int    openParenForIndent = findDeclaratorOpenParen(tokens, anchorCloseParenIdx);
+            final int    declLineStartIdx   = openParenForIndent >= 0 ? lineStartIndex(
                 tokens, openParenForIndent
             ) : lineStartIndex(
                 tokens, anchorCloseParenIdx
             );
-            final String baseIndent       = lineIndent(tokens, declLineStartIdx);
+            final String baseIndent         = lineIndent(tokens, declLineStartIdx);
 
             final List<String>      clauseRenders         = new ArrayList<>();
             final List<List<Token>> clauseLeadingComments = new ArrayList<>();

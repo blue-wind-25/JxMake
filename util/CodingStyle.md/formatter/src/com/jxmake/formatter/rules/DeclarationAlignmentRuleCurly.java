@@ -852,7 +852,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final int[] range = findIdentityRange(stmt, openTok, closeTok);
         if(range == null) return null;
 
-        return new ArrayList<>( stmt.subList(range[0], range[1] + 1) );
+        return new ArrayList<>( stmt.subList( range[0], range[1] + 1 ) );
     }
 
     private List<Token> rawSliceBetween(
@@ -864,7 +864,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final int[] range = findIdentityRange(stmt, openTok, closeTok);
         if(range == null) return null;
         final List<Token> raw = new ArrayList<>();
-        for( final Token t : stmt.subList(range[0], range[1] + 1) ) {
+        for( final Token t : stmt.subList( range[0], range[1] + 1 ) ) {
             if(t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) raw.add(t);
         }
 
@@ -874,7 +874,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     /**
      * Locates {@code openTok}/{@code closeTok} within {@code stmt} by identity (forward scan for
      * the open token, then backward scan from the end for the close token) and returns
-     * {@code {openIdx, closeIdx}}, or {@code null} if either can't be found.
+     * {@code {openIdx, closeIdx}}, or {@code null} if either can't be found
      */
     private int[] findIdentityRange(
         final List<Token> stmt,
@@ -905,7 +905,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     /**
      * Scans backward from {@code closeIdx} down to {@code lowerBound}, tracking nesting depth
      * over {@code open}/{@code close} punctuation, and returns the index of the matching open
-     * token (or -1 if unbalanced within that range).
+     * token (or -1 if unbalanced within that range)
      */
     private int matchBracketBackward(
         final List<Token> body,

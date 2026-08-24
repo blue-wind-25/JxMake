@@ -93,7 +93,7 @@ final class ToolingSharedRule {
 
     } // class Lines
 
-    /** Joins {@code lines} back with `\n`, appending a final trailing `\n` only if {@code endsWithNewline}. */
+    /** Joins {@code lines} back with `\n`, appending a final trailing `\n` only if {@code endsWithNewline} */
     static String joinLines(final List<String> lines, final boolean endsWithNewline)
     {
         final StringBuilder sb = new StringBuilder();

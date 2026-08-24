@@ -170,8 +170,8 @@ public final class EiniSpecificRule {
     public String format(final String content)
     {
         final ToolingSharedRule.Lines linesObj        = new ToolingSharedRule.Lines(content);
-        final List<String>            lines           = linesObj.lines;
-        final boolean                 endsWithNewline = linesObj.endsWithNewline;
+        final List<String> lines           = linesObj.lines;
+        final boolean      endsWithNewline = linesObj.endsWithNewline;
 
         final List<String> out   = new ArrayList<>();
         final List<KvItem> group = new ArrayList<>();

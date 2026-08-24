@@ -505,7 +505,9 @@ public final class Main {
                 Config config = Config.resolve(path, baseCliOverrides, inFileOverrides);
         if( "auto".equals( config.indentStyle() ) ) {
             final String resolvedStyle = resolveAutoIndentStyle(path);
-            config = withResolvedIndentStyle(path, baseCliOverrides, inFileOverrides, resolvedStyle);
+            config = withResolvedIndentStyle(
+                path, baseCliOverrides, inFileOverrides, resolvedStyle
+            );
         }
         final String formatted = com.jxmake.formatter.gdr.GdrPipelineGate.applyAndFormat(
             original, language, config, path.toString(), formatOff

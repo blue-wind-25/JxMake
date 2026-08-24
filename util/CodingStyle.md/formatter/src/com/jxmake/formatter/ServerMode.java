@@ -444,9 +444,8 @@ public final class ServerMode {
                             resolvedStyle = Config.DEFAULT_INDENT_STYLE;
                         }
                     } // if
-                    final Map<String, String> merged = new LinkedHashMap<String, String>( inlineConfig.isEmpty() ? java.util.Collections.< String, String > emptyMap() : inlineConfig );
-                    merged.put("indent-style", resolvedStyle);
-                    config = Config.resolve(targetFile, merged, inFileOverrides);
+                    final Map<String, String> overrides = inlineConfig.isEmpty() ? java.util.Collections.< String, String > emptyMap() : inlineConfig;
+                    config = Main.withResolvedIndentStyle(targetFile, overrides, inFileOverrides, resolvedStyle);
                 } // if
                 System.err.println(
                     "jxmake-code-formatter: processing " + (path == null ? "(no path, lang=" + language + ")" : path)

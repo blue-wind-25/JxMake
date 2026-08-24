@@ -2328,7 +2328,7 @@ public static final class Signature {
         final int effectiveLimit = hasCommentBetween(
             tokens, to, lineEnd
         ) ? lineLengthWithCommentLimit : lineLengthLimit;
-        final int wholeLen  = expandedIndentWidth(
+        final int wholeLen       = expandedIndentWidth(
             baseIndent, indentWidth
         ) + collapseToOneLine(
             tokens, lineStart, lineEnd - 1
@@ -2469,8 +2469,12 @@ public static final class Signature {
                      if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
             }
-            else if( t.type == TokenType.OP && isOp(t, "?") && isGenericWildcardQuestion(tokens, i) ) {
-                // skip -- `Optional<?>`/`List<? extends X>`/`Map<K, ?>` wildcard, not a ternary
+            else if( t.type == TokenType.OP && isOp(
+                t, "?"
+            ) && isGenericWildcardQuestion(
+                tokens, i
+            ) ) {
+                // Skip -- `Optional<?>`/`List<? extends X>`/`Map<K, ?>` wildcard, not a ternary
             }
             else if( t.type == TokenType.OP && ( isOp(t, "?") || isOp(t, ":") ) ) {
                 occ.add( new int[] { i, depth } );
@@ -2483,7 +2487,7 @@ public static final class Signature {
      * Shared tail of {@link #findBinaryOpSplits}/{@link #findTernarySplits}: given {@code occ}
      * ({@code {tokenIndex, depth}} pairs of every candidate split-point occurrence found), returns
      * the token indices of just the occurrences at the shallowest depth present -- empty if
-     * {@code occ} itself is empty.
+     * {@code occ} itself is empty
      */
     private List<Integer> occurrencesAtShallowestDepth(final List<int[]> occ)
     {
@@ -2511,8 +2515,16 @@ public static final class Signature {
         final int nextIdx = nextSignificantIndex(tokens, idx + 1);
         if(nextIdx < 0) return false;
         final Token nt = tokens.get(nextIdx);
-        if( nt.type == TokenType.KEYWORD && ( "extends".equals(nt.text) || "super".equals(nt.text) ) ) return true;
-        if( !( isOp(nt, ">") || nt.type == TokenType.ANGLE_BRACKET_CLOSE || isPunct(nt, ",") ) ) return false;
+        if( nt.type == TokenType.KEYWORD && ( "extends".equals(
+            nt.text
+        ) || "super".equals(
+            nt.text
+        ) ) ) return true;
+        if( !( isOp(
+            nt, ">"
+        ) || nt.type == TokenType.ANGLE_BRACKET_CLOSE || isPunct(
+            nt, ","
+        ) ) ) return false;
 
         final int prevIdx = prevSignificantIndex(tokens, idx - 1);
         if(prevIdx < 0) return false;

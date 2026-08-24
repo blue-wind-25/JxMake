@@ -506,6 +506,7 @@ client-read-ahead                      = 1           # client-only -- see "Serve
 line-length                            = 100
 line-length-with-comment               = 120         # code+comment fits-check width -- curly-brace family only
 line-split-operator-priority           = off         # off | on -- curly-brace family only
+
 indent-size                            = 4
 indent-style                           = spaces      # spaces | tabs | auto
 
@@ -523,7 +524,7 @@ comment-normalization-classifier       = on          # on  | off
 closing-comment-min-lines              = 5
 
 curly-general-scope-reindent           = off         # off | on
-curly-general-scope-reindent-multipass = off         # off | on -- only takes effect when the above is also on
+curly-general-scope-reindent-multipass = off         # off | on -- only takes effect when the base flag is also on
 curly-general-scope-reindent-postpass  = off         # off | on -- only takes effect when the base flag is also on
 
 # ── C/C++ ─────────────────────────────────────────────────────────────────────

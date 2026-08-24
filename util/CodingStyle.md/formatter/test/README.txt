@@ -1040,7 +1040,7 @@ Makefile/Bash/PowerShell:
                                                         comments and a here-string body are left
                                                         byte-identical.
 
-General Scope-Depth Reindentation:
+General scope-depth reindentation:
 
   curly_general_scope_reindent_inp/out.hpp           -- Proves `curly-general-scope-reindent=on` is accepted
                                                         as an in-file config key (JXM_CFMT_CFG) and produces a
@@ -1138,7 +1138,7 @@ General Scope-Depth Reindentation:
                                                         itself must render byte-for-byte unchanged, not gain a
                                                         corrupting inner space.
 
-Multi-Sentence Comment Capitalization:
+Multi-sentence comment capitalization:
 
   multi_sentence_comment_inp/out.java                -- Proves `normalize-comment-start-case-multiline=on`
                                                         (curly family, via in-file config) capitalizes
@@ -1151,32 +1151,34 @@ Multi-Sentence Comment Capitalization:
 
 Line-split operator priority:
 
-  line_split_operator_priority_inp/out.cpp            -- `line-split-operator-priority` (default off): if/while/
-                                                        switch/assignment/return primary-tier splits (`&&`,
-                                                        `||`, `+`, `-`), ternary-tier and mul-div-tier fallback
-                                                        splits engaged only when the primary tier leaves a
-                                                        fragment still too long, `for(...)` header splitting
-                                                        (including a clause still too long after the top-level
-                                                        split, recursing into the same ladder), and a unary
-                                                        pointer-dereference `*ptr` landmine (never mistaken for
-                                                        a binary-multiplication split point).
+  line_split_operator_priority_inp/out.cpp           -- `line-split-operator-priority` (default off):
+                                                        if/while/ switch/assignment/return primary-tier splits
+                                                        (`&&`, `||`, `+`, `-`), ternary-tier and mul-div-tier
+                                                        fallback splits engaged only when the primary tier
+                                                        leaves a fragment still too long, `for(...)` header
+                                                        splitting (including a clause still too long after the
+                                                        top-level split, recursing into the same ladder), and
+                                                        a unary pointer-dereference `*ptr` landmine (never
+                                                        mistaken for a binary-multiplication split point).
 
-  line_split_operator_priority_inp/out.kt              -- same feature, Kotlin: primary-tier if-condition split,
-                                                        plus an elvis `?:` landmine (never mistaken for C-style
-                                                        ternary -- Kotlin has no C-style ternary, so the
-                                                        ternary tier is skipped entirely for this language).
+  line_split_operator_priority_inp/out.kt            -- same feature, Kotlin: primary-tier if-condition split,
+                                                        plus an elvis `?:` landmine (never mistaken for
+                                                        C-style ternary -- Kotlin has no C-style ternary, so
+                                                        the ternary tier is skipped entirely for this
+                                                        language).
 
-  line_split_operator_priority_inp/out.ts              -- same feature, TS: optional-chaining `?.` and nullish-
+  line_split_operator_priority_inp/out.ts            -- same feature, TS: optional-chaining `?.` and nullish-
                                                         coalescing `??` landmine (never mistaken for ternary
-                                                        `?`/`:`), plus a genuine ternary that still splits when
-                                                        too long. Intentionally omits an if-condition case (the
-                                                        obvious analogue of the .cpp/.kt one), which was found to
-                                                        trigger an unrelated, pre-existing closing-comment-min-
-                                                        lines threshold flap where splitting a condition changes
-                                                        the enclosing function's line count across the threshold
-                                                        that decides whether a trailing comment is emitted --
-                                                        out of scope for this feature, already covered without
-                                                        the flap by the .cpp/.kt fixtures.
+                                                        `?`/`:`), plus a genuine ternary that still splits
+                                                        when too long. Intentionally omits an if-condition
+                                                        case (the obvious analogue of the .cpp/.kt one), which
+                                                        was found to trigger an unrelated, pre-existing
+                                                        closing-comment-min- lines threshold flap where
+                                                        splitting a condition changes the enclosing function's
+                                                        line count across the threshold that decides whether a
+                                                        trailing comment is emitted -- out of scope for this
+                                                        feature, already covered without the flap by the
+                                                        .cpp/.kt fixtures.
 
 Real-code regressions:
 

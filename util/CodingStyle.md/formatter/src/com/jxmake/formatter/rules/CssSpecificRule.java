@@ -418,36 +418,16 @@ public final class CssSpecificRule {
 
     private void renderItems(final List<Item> items, final int depth, final StringBuilder out)
     {
-        final List<String> keys       = new ArrayList<>();
-        final String[]     padding    = new String[ items.size() ];
-              int          groupStart = -1;
-        for( int i = 0; i <= items.size(); ++i ) {
-            final boolean atEnd           = i == items.size();
-            final boolean isAlignableDecl = !atEnd && items.get(
-                i
-            ).decl != null && items.get(
-                i
-            ).decl.hasColon && items.get(
-                i
-            ).decl.midComment == null;
-            final boolean breaksBefore    = atEnd || !isAlignableDecl || !items.get(
-                i
-            ).leadingComments.isEmpty() || items.get(
-                i
-            ).blankBefore;
-            if(breaksBefore) {
-                if(groupStart >= 0 && i > groupStart) {
-                    keys.clear();
-                    for(int g = groupStart; g < i; ++g) keys.add( items.get(g).decl.prop );
-                    final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
-                    for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
-                }
-                groupStart = (!atEnd && isAlignableDecl) ? i : -1;
-            } // if
-            else if(groupStart < 0) {
-                groupStart = i;
-            }
-        } // for
+        // Same grouping algorithm YamlTomlSharedRule#computeColonAlignmentPadding implements for
+        // YAML/TOML/JSON (§1.1): a run of consecutive alignable declarations (a real `decl` with a
+        // colon and no mid-comment) with no leading comment/blank line between them.
+        final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
+            items.size(),
+            i -> items.get(i).decl != null && items.get(i).decl.hasColon && items.get(i).decl.midComment == null,
+            i -> !items.get(i).leadingComments.isEmpty(),
+            i -> items.get(i).blankBefore,
+            i -> items.get(i).decl.prop
+        );
 
         for( int i = 0; i < items.size(); ++i ) {
             final Item item = items.get(i);

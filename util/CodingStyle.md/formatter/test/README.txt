@@ -4383,6 +4383,13 @@ Real-code regressions:
                                                         was previously collapsed to an illegal braceless form
                                                         (`const`/`var` bodies were already correctly refused).
 
+  real_code_regressions_235_inp/out.java             -- line-split-operator-priority idempotency fix: an
+                                                        `if`/`while` condition whose single-statement body
+                                                        collapses onto the condition's own closing-paren line
+                                                        could push that physical line over the length limit
+                                                        without being re-detected for splitting,
+                                                        self-correcting only on a second formatting pass.
+
 How Tests Are Run
 -----------------
 

@@ -101,6 +101,45 @@ unmodified `main` before this pass):
   Java-only corpus) or Kotlin elvis (n/a). No files copied back anywhere
   (read-only per plan).
 
+Pass 4 (follow-up fix for Pass 3 finding 2, the collapse-onto-condition-
+line non-idempotency flap): root-caused via `google/guava`'s
+`Suppliers.java` `memoize` method (`if (delegate instanceof
+NonSerializableMemoizingSupplier || delegate instanceof
+MemoizingSupplier) return delegate;` — 118 chars once
+`BlockStructureRule.tryCollapse` joins the single-statement body onto the
+condition's closing-paren line — confirmed to stay unsplit and identical
+across round 1 AND round 2 pre-fix, i.e. a persistent miss, not a
+self-correcting flap as Pass 3 first assumed for that specific line; the
+"self-correcting on round 2" behavior Pass 3 observed happens for *other*
+lines in the same corpus once round 1's own edits shift what round 2 sees.
+Root cause: `MiscRuleCurly.tryOperatorSplit`'s fits-check measured only
+`[lineStartIndex(from), to]` (the condition's own span, stopping at the
+closing paren) rather than the true rendered physical line, so it never
+saw the collapsed body text that `BlockStructureRule.tryCollapse` (running
+earlier in the pipeline, well before `enforceOperatorLineBreaking`) had
+already joined onto that same line, and undercounted the width. Fix:
+extend the measured span through `effectiveLineEndIndex(tokens, to)` (the
+existing helper that walks forward to the true end of the physical output
+line, tracking bracket depth). Extending the fits-check window uncovered a
+second, narrower issue: it now unconditionally counted a trailing same-
+line comment against the plain 100-char limit, over-splitting lines that
+legitimately fit under the wider 120-char `line-length-with-comment`
+limit (found via `Streams.java`'s alignment-grouped `isParallel`
+declaration). Fixed by mirroring `enforceCallLineBreaking`'s own existing
+comment-aware-limit pattern (`effectiveLimit = hasCommentBetween(tokens,
+to, lineEnd) ? lineLengthWithCommentLimit : lineLengthLimit`). New
+fixture: `test/real_code_regressions_235_{inp,out}.java` (adapted from the
+real `Suppliers.java` `memoize` shape), round1/round2 empty diff confirmed
+for it specifically. Re-verified against a fresh `google/guava` clone
+(1655 files, same methodology as Pass 3, flag forced on for both rounds
+via a copied `.jxmake-code-formatter`): round1/round2 diff dropped from
+100 to 47 files, all 47 confirmed (by sampling) to be the pre-existing
+closing-comment-min-lines flap (finding 1) only — finding 2's non-
+idempotency, including the exact `Suppliers.java:129` line, is now stable
+across both rounds. `java_syntax_check.sh` on all 1655 round1 files: zero
+errors. `make test`: 355/355 forward + idempotency. Full text:
+`RDD_KEY_342`.
+
 ---
 
 ## Purpose
@@ -199,6 +238,15 @@ Full text: `RDD_KEY_340`.
   coalescing `??` never mistaken for ternary `?`/`:`; C/C++ unary
   pointer-dereference `*ptr` never mistaken for a binary-multiplication
   split point. Each has a dedicated fixture case.
+- **D5 — fits-check must measure the true physical line, comment-aware.**
+  Follow-up fix (Pass 4, `RDD_KEY_342`). `tryOperatorSplit`'s fits-check
+  originally measured only the condition span itself, missing width
+  contributed by a `BlockStructureRule.tryCollapse`-joined single-statement
+  body sharing the same physical line — a persistent (not self-correcting)
+  non-idempotency. Fixed by measuring through `effectiveLineEndIndex`, and,
+  to avoid a resulting over-split regression on trailing same-line
+  comments, by reusing `enforceCallLineBreaking`'s existing comment-aware
+  `effectiveLimit` pattern.
 
 ---
 
@@ -227,8 +275,13 @@ by omitting that case from the `.ts` fixture (already covered by `.cpp`/
   nullish-vs-ternary landmine, genuine ternary still splits.
 - All three registered in `Makefile`'s `INP_FILES` (grouped ahead of the
   `real_code_regressions_*` block, per this job's own naming).
-- `make test`: 347/347 -> 350/350 -> 351/351 forward + idempotency, zero
-  regressions (351 after Pass 3's `real_code_regressions_231` fixture).
+- `test/real_code_regressions_235_{inp,out}.java` — Pass 4 idempotency
+  fix: an `if` condition whose collapsed single-statement body pushes the
+  physical line over the length limit, adapted from real
+  `Suppliers.java`'s `memoize` shape.
+- `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 forward +
+  idempotency, zero regressions (355 after Pass 4's
+  `real_code_regressions_235` fixture).
 
 ---
 

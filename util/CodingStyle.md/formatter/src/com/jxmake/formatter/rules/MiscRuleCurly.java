@@ -2294,6 +2294,24 @@ public static final class Signature {
      * span sits anywhere in range, if the span already spans multiple physical lines (see
      * {@link #hasNewlineBetween}'s doc comment -- idempotency guard), or if no qualifying operator
      * exists at any tier.
+     *
+     * <p>The fits-check measures through {@link #effectiveLineEndIndex} from {@code to}, not just
+     * {@code to} itself: for the if/while/switch call site, {@code to} is the last condition token
+     * (the candidate span deliberately excludes the closing `)` and anything after it), but the
+     * REAL physical line can extend well past that -- most commonly a single-statement body
+     * `BlockStructureRule.tryCollapse` already stripped `{ }` from and joined onto the condition's
+     * own closing-paren line (`if(cond) return x;`). Measuring only `[lineStart, to]` undercounts
+     * that real rendered width by the closing paren plus the entire trailing body, so a condition
+     * whose own text sits just under {@link #lineLengthLimit} wrongly reads as "fits" even though
+     * the actual line is well over -- found via real-code testing against `google/guava`'s
+     * `Suppliers.java` (`RDD_KEY_342`; a hand-split multi-line `if` collapses onto one over-length
+     * line that then goes undetected in every round, not just round 1). Mirrors
+     * {@link #enforceCallLineBreaking}'s own {@code effectiveLimit} pattern: a same-line trailing
+     * comment anywhere in the extended `[to+1, lineEnd)` gap switches the limit to
+     * {@link #lineLengthWithCommentLimit} rather than {@link #lineLengthLimit} -- otherwise a long
+     * trailing `//` comment on an otherwise-short collapsed line would wrongly trigger a split of
+     * code that fits on its own (first found in `google/guava`'s `Streams.java`, a
+     * `boolean isParallel = ... || ...; // Same as Stream.concat` shape, while fixing the above).
      */
     private String tryOperatorSplit(
         final List<Token> tokens,
@@ -2307,13 +2325,17 @@ public static final class Signature {
         if( anyFrozen(tokens, from, to + 1) ) return null;
         if( hasNewlineBetween(tokens, from, to) ) return null;
 
-        final int lineStart = lineStartIndex(tokens, from);
+        final int lineStart      = lineStartIndex(tokens, from);
+        final int lineEnd        = effectiveLineEndIndex(tokens, to);
+        final int effectiveLimit = hasCommentBetween(
+            tokens, to, lineEnd
+        ) ? lineLengthWithCommentLimit : lineLengthLimit;
         final int wholeLen  = expandedIndentWidth(
             baseIndent, indentWidth
         ) + collapseToOneLine(
-            tokens, lineStart, to
+            tokens, lineStart, lineEnd - 1
         ).length();
-        if(wholeLen <= lineLengthLimit) return null; // Already fits -- nothing to do
+        if(wholeLen <= effectiveLimit) return null; // Already fits -- nothing to do
 
         return splitTiered(tokens, from, to, baseIndent, 1);
     }

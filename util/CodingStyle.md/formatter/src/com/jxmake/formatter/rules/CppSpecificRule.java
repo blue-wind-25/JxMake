@@ -592,9 +592,7 @@ public class CppSpecificRule {
 
             final boolean afterOpen     = lastSignificant != null && lastSignificant.type == TokenType.ANGLE_BRACKET_OPEN;
             final boolean beforeClose   = t.type == TokenType.ANGLE_BRACKET_CLOSE;
-            final boolean gapHasBlocker = hasCommentOrNewline(
-                gap
-            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
+            final boolean gapHasBlocker = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
 
             if( (afterOpen || beforeClose) && !gapHasBlocker ) {
                 final boolean pad = ( afterOpen && needsPadding.contains(
@@ -664,16 +662,6 @@ public class CppSpecificRule {
         return needsPadding;
     }
 
-    private boolean hasCommentOrNewline(final List<Token> gap)
-    {
-        for(final Token g : gap) {
-            final TokenType type = g.type;
-            if(type == TokenType.NEWLINE || type == TokenType.COMMENT_LINE || type == TokenType.COMMENT_BLOCK) return true;
-        }
-
-        return false;
-    }
-
     /**
      * STYLE_CPP26.md §1: pack indexing (`T...[i]`). No space between the pack name, `...`, and
      * the opening `[` -- both surrounding gaps are collapsed to zero width whenever an `...`
@@ -711,9 +699,9 @@ public class CppSpecificRule {
 
             final boolean beforeBracketAfterEllipsis    = lastWasEllipsisTarget && isPunct(t, "[");
             final boolean afterIdentifierBeforeEllipsis = ellipsisBeforeBracket.contains(i);
-            final boolean gapHasBlocker                 = hasCommentOrNewline(
-                gap
-            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
+            final boolean gapHasBlocker                 = TokenNavigationRule.isGapBlocked(
+                gap, lastSignificant, t
+            );
 
             if( (beforeBracketAfterEllipsis || afterIdentifierBeforeEllipsis) && !gapHasBlocker ) {
                 gap.clear();
@@ -805,23 +793,7 @@ public class CppSpecificRule {
             // intermediate specifier's own opening-paren line (e.g. a `noexcept(` continuation
             // line, itself possibly awkwardly wrapped by an unrelated pass) as baseIndent would
             // reproduce the same class of instability this fix is for.
-            int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
-            while(openParenIdx >= 0) {
-                final int beforeOpen = prevSignificantIndexBefore(tokens, openParenIdx);
-                if( beforeOpen >= 0 && isPunct( tokens.get(beforeOpen), ")" ) ) {
-                    openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeOpen);
-                    continue;
-                }
-                if( beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
-                        && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
-                    final int beforeSpecifier = prevSignificantIndexBefore(tokens, beforeOpen);
-                    if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
-                        openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeSpecifier);
-                        continue;
-                    }
-                } // if
-                break;
-            } // while
+            final int    openParenIdx     = findDeclaratorOpenParen(tokens, closeParenIdx);
             final int    declLineStartIdx = openParenIdx >= 0 ? lineStartIndex(
                 tokens, openParenIdx
             ) : lineStartIndex(
@@ -845,19 +817,7 @@ public class CppSpecificRule {
             renders.add(rendered);
         } // for
 
-        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
-
-        final StringBuilder out    = new StringBuilder();
-              int           cursor = 0;
-        for( int s = 0; s < spans.size(); ++s ) {
-            final int[] span = spans.get(s);
-            appendRange( out, tokens, cursor, span[0] );
-            out.append( renders.get(s) );
-            cursor = span[1];
-        }
-        appendRange( out, tokens, cursor, tokens.size() );
-
-        return out.toString();
+        return applySpans(tokens, spans, renders);
     }
 
     /**
@@ -947,31 +907,13 @@ public class CppSpecificRule {
             // list and the contract-clause group, same technique as
             // enforceRequiresClausePlacement, to reach the declarator's own opening paren for a
             // stable baseIndent.
-            int openParenForIndent = MiscRuleCore.matchParenBackward(tokens, anchorCloseParenIdx);
-            while(openParenForIndent >= 0) {
-                final int beforeOpen = prevSignificantIndexBefore(tokens, openParenForIndent);
-                if( beforeOpen >= 0 && isPunct( tokens.get(beforeOpen), ")" ) ) {
-                    openParenForIndent = MiscRuleCore.matchParenBackward(tokens, beforeOpen);
-                    continue;
-                }
-                if( beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
-                        && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
-                    final int beforeSpecifier = prevSignificantIndexBefore(tokens, beforeOpen);
-                    if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
-                        openParenForIndent = MiscRuleCore.matchParenBackward(
-                            tokens, beforeSpecifier
-                        );
-                        continue;
-                    }
-                } // if
-                break;
-            } // while
-            final int    declLineStartIdx = openParenForIndent >= 0 ? lineStartIndex(
+            final int    openParenForIndent = findDeclaratorOpenParen(tokens, anchorCloseParenIdx);
+            final int    declLineStartIdx   = openParenForIndent >= 0 ? lineStartIndex(
                 tokens, openParenForIndent
             ) : lineStartIndex(
                 tokens, anchorCloseParenIdx
             );
-            final String baseIndent       = lineIndent(tokens, declLineStartIdx);
+            final String baseIndent         = lineIndent(tokens, declLineStartIdx);
 
             final List<String>      clauseRenders         = new ArrayList<>();
             final List<List<Token>> clauseLeadingComments = new ArrayList<>();
@@ -1038,19 +980,7 @@ public class CppSpecificRule {
             i = lastCloseParenIdx;
         } // for i
 
-        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
-
-        final StringBuilder out    = new StringBuilder();
-              int           cursor = 0;
-        for( int s = 0; s < spans.size(); ++s ) {
-            final int[] span = spans.get(s);
-            appendRange( out, tokens, cursor, span[0] );
-            out.append( renders.get(s) );
-            cursor = span[1];
-        }
-        appendRange( out, tokens, cursor, tokens.size() );
-
-        return out.toString();
+        return applySpans(tokens, spans, renders);
     }
 
     /**
@@ -1082,19 +1012,7 @@ public class CppSpecificRule {
             renders.add(inner);
         } // for
 
-        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
-
-        final StringBuilder out    = new StringBuilder();
-              int           cursor = 0;
-        for( int s = 0; s < spans.size(); ++s ) {
-            final int[] span = spans.get(s);
-            appendRange( out, tokens, cursor, span[0] );
-            out.append( renders.get(s) );
-            cursor = span[1];
-        }
-        appendRange( out, tokens, cursor, tokens.size() );
-
-        return out.toString();
+        return applySpans(tokens, spans, renders);
     }
 
     /**
@@ -1185,19 +1103,7 @@ public class CppSpecificRule {
             renders.add( render.toString() );
         } // for pair
 
-        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
-
-        final StringBuilder out    = new StringBuilder();
-              int           cursor = 0;
-        for( int s = 0; s < spans.size(); ++s ) {
-            final int[] span = spans.get(s);
-            appendRange( out, tokens, cursor, span[0] );
-            out.append( renders.get(s) );
-            cursor = span[1];
-        }
-        appendRange( out, tokens, cursor, tokens.size() );
-
-        return out.toString();
+        return applySpans(tokens, spans, renders);
     }
 
     /**
@@ -1231,9 +1137,7 @@ public class CppSpecificRule {
                 continue;
             }
 
-            final boolean gapHasBlocker = hasCommentOrNewline(
-                gap
-            ) || t.frozen || (lastSignificant != null && lastSignificant.frozen);
+            final boolean gapHasBlocker = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
 
             if(lastWasReflectionOp && !gapHasBlocker) {
                 gap.clear();
@@ -1720,6 +1624,67 @@ public class CppSpecificRule {
         for(int i = fromInclusive; i < toExclusive; ++i) out.append( tokens.get(i).text );
     }
 
+    /**
+     * Reassembles {@code tokens}' source text verbatim, splicing each {@code spans.get(s)}
+     * (a {@code [start, end)} token-index range) with {@code renders.get(s)}'s replacement
+     * text -- shared tail of every pass in this file that renders a `spans`/`renders` pair
+     * built up by its own detection loop (requires-clause/contract-clause placement, contract
+     * `assert` spacing, attribute/splice-bracket padding).
+     */
+    private String applySpans(
+        final List<Token>  tokens,
+        final List<int[]>  spans,
+        final List<String> renders
+    )
+    {
+        if( spans.isEmpty() ) return MiscRuleCore.joinVerbatim(tokens);
+
+        final StringBuilder out    = new StringBuilder();
+              int           cursor = 0;
+        for( int s = 0; s < spans.size(); ++s ) {
+            final int[] span = spans.get(s);
+            appendRange( out, tokens, cursor, span[0] );
+            out.append( renders.get(s) );
+            cursor = span[1];
+        }
+        appendRange( out, tokens, cursor, tokens.size() );
+
+        return out.toString();
+    }
+
+    /**
+     * Unwinds backward from {@code closeParenIdx} through any chained parenthesized specifier
+     * (e.g. a trailing {@code noexcept(...)} exception-spec between a function's parameter list
+     * and a `requires`/contract-clause group) to reach the declarator's own real opening paren --
+     * shared by {@link #enforceRequiresClausePlacement} and {@link
+     * #enforceContractClausePlacement}, both of which need this same stable anchor for
+     * {@code baseIndent}. Each closing paren's own opening paren, if immediately preceded by
+     * either another {@code )} or a {@code noexcept} keyword that itself follows a {@code )}, is
+     * itself just another specifier, not the declarator. Returns -1 if {@code closeParenIdx}
+     * itself has no matching open paren.
+     */
+    private int findDeclaratorOpenParen(final List<Token> tokens, final int closeParenIdx)
+    {
+        int openParenIdx = MiscRuleCore.matchParenBackward(tokens, closeParenIdx);
+        while(openParenIdx >= 0) {
+            final int beforeOpen = prevSignificantIndexBefore(tokens, openParenIdx);
+            if( beforeOpen >= 0 && isPunct( tokens.get(beforeOpen), ")" ) ) {
+                openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeOpen);
+                continue;
+            }
+            if( beforeOpen >= 0 && tokens.get(beforeOpen).type == TokenType.KEYWORD
+                    && "noexcept".equals( tokens.get(beforeOpen).text ) ) {
+                final int beforeSpecifier = prevSignificantIndexBefore(tokens, beforeOpen);
+                if( beforeSpecifier >= 0 && isPunct( tokens.get(beforeSpecifier), ")" ) ) {
+                    openParenIdx = MiscRuleCore.matchParenBackward(tokens, beforeSpecifier);
+                    continue;
+                }
+            } // if
+            break;
+        } // while
+
+        return openParenIdx;
+    }
 
     private int nextNonBlankIndex(final List<Token> tokens, final int from)
     {

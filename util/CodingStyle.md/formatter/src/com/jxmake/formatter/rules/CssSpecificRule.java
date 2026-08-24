@@ -164,30 +164,13 @@ public final class CssSpecificRule {
 
     // ---- Parsing ------------------------------------------------------------------------------
 
-    private static final class Cursor {
-
-        final List<Token> toks;
-              int         i;
-
-        Cursor(final List<Token> toks)
-        {
-            this.toks = toks;
-        }
-
-        Token cur()
-        {
-            return i < toks.size() ? toks.get(i) : null;
-        }
-
-    } // class Cursor
-
     /**
      * Consumes whitespace/newlines/comments up to the next significant token, recording comment
      * text (in order) and whether a blank line occurred anywhere in the span -- a group-break
      * signal per §3.1. CSS has no `//` line comments, unlike JSON5's trivia scan.
      */
     private void collectTrivia(
-        final Cursor       c,
+        final TokenCursor  c,
         final List<String> comments,
         final boolean[]    blankOut
     )
@@ -216,7 +199,7 @@ public final class CssSpecificRule {
         } // while
     }
 
-    private String collectTrailingComment(final Cursor c)
+    private String collectTrailingComment(final TokenCursor c)
     {
         final int save = c.i;
         while( c.cur() != null && c.cur().type == TokenType.WHITESPACE ) c.i++;
@@ -234,7 +217,7 @@ public final class CssSpecificRule {
     private static final int TERM_SEMI                 = 1;
     private static final int TERM_BRACE_CLOSE_IMPLICIT = 2;
 
-    private List<Item> parseBlockBody(final Cursor c, final boolean topLevel)
+    private List<Item> parseBlockBody(final TokenCursor c, final boolean topLevel)
     {
         final List<Item> items = new ArrayList<>();
         while(true) {
@@ -418,36 +401,16 @@ public final class CssSpecificRule {
 
     private void renderItems(final List<Item> items, final int depth, final StringBuilder out)
     {
-        final List<String> keys       = new ArrayList<>();
-        final String[]     padding    = new String[ items.size() ];
-              int          groupStart = -1;
-        for( int i = 0; i <= items.size(); ++i ) {
-            final boolean atEnd           = i == items.size();
-            final boolean isAlignableDecl = !atEnd && items.get(
-                i
-            ).decl != null && items.get(
-                i
-            ).decl.hasColon && items.get(
-                i
-            ).decl.midComment == null;
-            final boolean breaksBefore    = atEnd || !isAlignableDecl || !items.get(
-                i
-            ).leadingComments.isEmpty() || items.get(
-                i
-            ).blankBefore;
-            if(breaksBefore) {
-                if(groupStart >= 0 && i > groupStart) {
-                    keys.clear();
-                    for(int g = groupStart; g < i; ++g) keys.add( items.get(g).decl.prop );
-                    final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
-                    for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
-                }
-                groupStart = (!atEnd && isAlignableDecl) ? i : -1;
-            } // if
-            else if(groupStart < 0) {
-                groupStart = i;
-            }
-        } // for
+        // Same grouping algorithm YamlTomlSharedRule#computeColonAlignmentPadding implements for
+        // YAML/TOML/JSON (§1.1): a run of consecutive alignable declarations (a real `decl` with a
+        // colon and no mid-comment) with no leading comment/blank line between them.
+        final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
+            items.size(),
+            i->items.get(i).decl != null && items.get(i).decl.hasColon && items.get(i).decl.midComment == null,
+            i->!items.get(i).leadingComments.isEmpty(),
+            i->items.get(i).blankBefore,
+            i->items.get(i).decl.prop
+        );
 
         for( int i = 0; i < items.size(); ++i ) {
             final Item item = items.get(i);
@@ -509,7 +472,7 @@ public final class CssSpecificRule {
     {
         final List<Token> tokens = new CssTokenizer().tokenize(content);
         com.jxmake.formatter.tokenizer.TokenizerCore.markFrozenSpans(tokens, false);
-        final Cursor        c        = new Cursor(tokens);
+        final TokenCursor   c        = new TokenCursor(tokens);
         final List<Item>    topLevel = parseBlockBody(c, true);
         final StringBuilder out      = new StringBuilder();
         renderItems(topLevel, 0, out);

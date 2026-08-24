@@ -467,16 +467,11 @@ public final class TomlSpecificRule {
                     item.frozenLines     = new ArrayList<>();
                     item.frozenLines.add(raw);
                     ++idx;
-                    while( idx < lines.size() && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals(
-                        lines.get(idx).trim()
-                    ) ) {
-                        item.frozenLines.add( lines.get(idx) );
-                        ++idx;
-                    }
-                    if( idx < lines.size() ) {
-                        item.frozenLines.add( lines.get(idx) );
-                        ++idx;
-                    }
+                    final YamlTomlSharedRule.FrozenSpanScan scan = YamlTomlSharedRule.collectFrozenSpanLines(
+                        lines.size(), idx, i -> lines.get(i).trim(), lines::get
+                    );
+                    item.frozenLines.addAll(scan.lines);
+                    idx = scan.newPos;
                     items.add(item);
                     continue;
                 } // if
@@ -527,9 +522,9 @@ public final class TomlSpecificRule {
                 item.value = new Scalar( valueSpan.toString() );
             }
             else {
-                String logical = trimmed;
+                final StringBuilder logicalSb = new StringBuilder(trimmed);
                 ++idx;
-                int balance = bracketBalance(logical);
+                int balance = bracketBalance(trimmed);
                 while( balance > 0 && idx < lines.size() ) {
                     // Strip each continuation line's own trailing comment before joining --
                     // otherwise an interior comment (e.g. `"target/", # note` mid-array) gets
@@ -538,11 +533,11 @@ public final class TomlSpecificRule {
                     // as "comment text" and producing a spurious "unterminated array" parse error.
                     // Found via rust-lang/cargo dogfood testing (Cargo.toml's `exclude = [...]`).
                     final String cont = splitTrailingComment( lines.get(idx).trim() )[0];
-                    logical  = logical + " " + cont;
+                    logicalSb.append(' ').append(cont);
                     balance += bracketBalance(cont);
                     ++idx;
                 } // while
-                final String[] parts = splitTrailingComment(logical);
+                final String[] parts = splitTrailingComment( logicalSb.toString() );
                 final String   code  = parts[0];
                 item.trailingComment = parts[1] != null ? normComment( parts[1] ) : null;
                 final int eq = findAssignmentEquals(code);

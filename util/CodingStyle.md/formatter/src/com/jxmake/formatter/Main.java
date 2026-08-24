@@ -128,13 +128,13 @@ public final class Main {
             }
             else if( "--lang".equals(arg) ) {
                 if(i + 1 >= args.length) return usageError(
-                    "--lang requires an argument (" + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + ")"
+                    "--lang requires an argument (" + Lang.recognizedLanguagesForErrorMessage() + ")"
                 );
                 final String langArg = args[++i];
                 if( !Lang.isRecognized(
                     langArg
                 ) ) return usageError(
-                    "--lang must be one of: " + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + " (got: " + langArg + ")"
+                    "--lang must be one of: " + Lang.recognizedLanguagesForErrorMessage() + " (got: " + langArg + ")"
                 );
                 explicitLanguage = langArg;
             }
@@ -504,10 +504,10 @@ public final class Main {
         inFileOverrides.remove("--lang");
                 Config config = Config.resolve(path, baseCliOverrides, inFileOverrides);
         if( "auto".equals( config.indentStyle() ) ) {
-            final String              resolvedStyle = resolveAutoIndentStyle(path);
-            final Map<String, String> merged        = new LinkedHashMap<String, String>(baseCliOverrides);
-            merged.put("indent-style", resolvedStyle);
-            config = Config.resolve(path, merged, inFileOverrides);
+            final String resolvedStyle = resolveAutoIndentStyle(path);
+            config = withResolvedIndentStyle(
+                path, baseCliOverrides, inFileOverrides, resolvedStyle
+            );
         }
         final String formatted = com.jxmake.formatter.gdr.GdrPipelineGate.applyAndFormat(
             original, language, config, path.toString(), formatOff
@@ -589,6 +589,26 @@ public final class Main {
         }
 
         return detected;
+    }
+
+    /**
+     * Merges a resolved {@code "auto"} indent-style value into a copy of {@code overrides} and
+     * re-resolves {@code Config} with it -- the shared tail of the "auto" indent-style resolution
+     * both {@code formatStandalone} and {@code ServerMode.FormatHandler.handle} perform, once each
+     * has determined {@code resolvedStyle} its own way (they differ on a null {@code path}/
+     * IOException fallback, which stays each caller's own concern).
+     */
+    static Config withResolvedIndentStyle(
+        final Path                path,
+        final Map<String, String> overrides,
+        final Map<String, String> inFileOverrides,
+        final String              resolvedStyle
+    )
+    {
+        final Map<String, String> merged = new LinkedHashMap<String, String>(overrides);
+        merged.put("indent-style", resolvedStyle);
+
+        return Config.resolve(path, merged, inFileOverrides);
     }
 
     private static String sha256Hex(final String input)

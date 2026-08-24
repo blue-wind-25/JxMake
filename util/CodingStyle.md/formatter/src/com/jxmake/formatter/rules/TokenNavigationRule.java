@@ -19,12 +19,14 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 /**
  * Shared helper logic that was structurally identical, byte-for-byte, across a subset of
  * {@link JavaSpecificRule}, {@link CppSpecificRule}, {@link KotlinSpecificRule}, and
- * {@link JsTsSpecificRule}: plain {@link Token}/{@link TokenType} navigation and rendering that
- * carries no per-language semantics (unlike, say, each class's own {@code lineIndent}, which
- * stays intentionally duplicated per this file's established no-shared-helpers-across-rule-classes
- * precedent -- see {@code MiscRuleCurly.hasCommentBetween}'s doc comment). Not every method here is
- * used by every one of those four classes; each keeps its own private delegating wrapper for
- * whichever subset it needs, same shape as {@code ToolingSharedRule}'s delegation pattern.
+ * {@link JsTsSpecificRule} (plus, for the at-or-before/at-or-after pair, {@code MiscRuleCore}):
+ * plain {@link Token}/{@link TokenType} navigation and rendering that carries no per-language
+ * semantics (unlike, say, each class's own {@code lineIndent}, which stays intentionally
+ * duplicated per this file's established no-shared-helpers-across-rule-classes precedent -- see
+ * {@code MiscRuleCurly.hasCommentBetween}'s doc comment). Not every method here is used by every
+ * one of those classes; each keeps its own private delegating wrapper (or, for {@code
+ * MiscRuleCore}, a protected one, since its own subclasses call it too) for whichever subset it
+ * needs, same shape as {@code ToolingSharedRule}'s delegation pattern.
  */
 final class TokenNavigationRule {
 
@@ -49,8 +51,8 @@ final class TokenNavigationRule {
 
     /**
      * Index of the nearest significant token strictly before {@code from} ({@code from} itself is
-     * never returned, unlike {@code MiscRuleCore.prevSignificantIndex}'s at-or-before scan), or
-     * {@code -1} if none.
+     * never returned, unlike {@link #prevSignificantIndexAtOrBefore}'s at-or-before scan), or
+     * {@code -1} if none
      */
     static int prevSignificantIndexBefore(final List<Token> tokens, final int from)
     {
@@ -63,8 +65,8 @@ final class TokenNavigationRule {
 
     /**
      * Index of the nearest significant token strictly after {@code from} ({@code from} itself is
-     * never returned, unlike {@code MiscRuleCore.nextSignificantIndex}'s at-or-after scan), or
-     * {@code -1} if none.
+     * never returned, unlike {@link #nextSignificantIndexAtOrAfter}'s at-or-after scan), or
+     * {@code -1} if none
      */
     static int nextSignificantIndexAfter(final List<Token> tokens, final int from)
     {
@@ -73,6 +75,33 @@ final class TokenNavigationRule {
         }
 
         return -1;
+    }
+
+    /**
+     * Index of the nearest significant token at-or-after {@code from} ({@code from} itself is
+     * returned if it's already significant, unlike {@link #nextSignificantIndexAfter}'s
+     * strictly-after scan), or {@code -1} if none
+     */
+    static int nextSignificantIndexAtOrAfter(final List<Token> tokens, final int from)
+    {
+        int i = from;
+        while( i < tokens.size() && isGapToken( tokens.get(i) ) ) i++;
+
+        return i < tokens.size() ? i : -1;
+    }
+
+    /**
+     * Index of the nearest significant token at-or-before {@code from} ({@code from} itself is
+     * returned if it's already significant, unlike {@link #prevSignificantIndexBefore}'s
+     * strictly-before scan), or {@code -1} if none (including when {@code from} itself is
+     * already negative)
+     */
+    static int prevSignificantIndexAtOrBefore(final List<Token> tokens, final int from)
+    {
+        int i = from;
+        while( i >= 0 && isGapToken( tokens.get(i) ) ) i--;
+
+        return i;
     }
 
     /**

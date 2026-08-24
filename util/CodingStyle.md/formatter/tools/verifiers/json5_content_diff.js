@@ -90,8 +90,8 @@ function commentBodies(text)
     // as yaml_content_diff.py's comment_lines().
     const out = [];
     const re  = /\/\/[^\n]*|\/\*[\s\S]*?\*\//g;
-    let m;
-    while( (m = re.exec(text)) !== null ) out.push( m[0].trim() );
+    let   m;
+    while( ( m = re.exec(text) ) !== null ) out.push( m[0].trim() );
 
     return out;
 } // commentBodies
@@ -101,8 +101,8 @@ function timestampNow()
     const now = new Date();
     const pad = (n, w) => String(n).padStart(w, '0');
 
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1, 2)}-${pad(now.getDate(), 2)} `
-         + `${pad(now.getHours(), 2)}:${pad(now.getMinutes(), 2)}:${pad(now.getSeconds(), 2)}.${pad(now.getMilliseconds(), 3)}`;
+    return `${now.getFullYear()}-${pad( now.getMonth() + 1, 2 )}-${pad( now.getDate(), 2 )} `
+         + `${pad( now.getHours(), 2 )}:${pad( now.getMinutes(), 2 )}:${pad( now.getSeconds(), 2 )}.${pad( now.getMilliseconds(), 3 )}`;
 } // timestampNow
 
 function printTimestampedHeader(relPath)
@@ -112,25 +112,25 @@ function printTimestampedHeader(relPath)
 
 function deepEqual(a, b)
 {
-    if( a === b ) return true;
-    if( typeof a !== typeof b ) return false;
-    if( a === null || b === null ) return a === b;
-    if( typeof a !== 'object' ) return false; // primitives already handled by === above
+    if(a === b) return true;
+    if(typeof a !== typeof b) return false;
+    if(a === null || b === null) return a === b;
+    if(typeof a !== 'object') return false; // Primitives already handled by === above
 
     if( Array.isArray(a) !== Array.isArray(b) ) return false;
 
     if( Array.isArray(a) ) {
-        if( a.length !== b.length ) return false;
-        for(let i = 0; i < a.length; ++i) if( !deepEqual(a[i], b[i]) ) return false;
+        if(a.length !== b.length) return false;
+        for(let i = 0; i < a.length; ++i) if( !deepEqual( a[i], b[i] ) ) return false;
         return true;
     }
 
     const aKeys = Object.keys(a);
     const bKeys = Object.keys(b);
-    if( aKeys.length !== bKeys.length ) return false;
+    if(aKeys.length !== bKeys.length) return false;
     for(const k of aKeys) {
         if( !Object.prototype.hasOwnProperty.call(b, k) ) return false;
-        if( !deepEqual(a[k], b[k]) ) return false;
+        if( !deepEqual( a[k], b[k] ) ) return false;
     }
 
     return true;
@@ -155,37 +155,42 @@ function compareOne(origPath, fmtPath, origLabel, fmtLabel)
 
     if( !deepEqual(orig.value, fmt.value) ) {
         console.log(`MISMATCH: ${origLabel} vs ${fmtLabel}`);
-        console.log(`  - parsed structure differs\n  original:  ${JSON.stringify(orig.value)}\n  formatted: ${JSON.stringify(fmt.value)}`);
+        console.log(
+            `  - parsed structure differs\n  original:  ${JSON.stringify(orig.value)}\n  formatted: ${JSON.stringify(fmt.value)}`
+        );
         return false;
-    }
+    } // if
 
     // Informational-only comment scan (not a failure condition by itself)
-    const oc = commentBodies(orig.text);
-    const fc = commentBodies(fmt.text);
-    const same = oc.length === fc.length && oc.every((v, i) => v === fc[i]);
-    if( !same ) {
-        if( oc.length === fc.length ) {
+    const oc   = commentBodies(orig.text);
+    const fc   = commentBodies(fmt.text);
+    const same = oc.length === fc.length && oc.every( (v, i) => v === fc[i] );
+    if(!same) {
+        if(oc.length === fc.length) {
             const diffs = [];
-            for(let i = 0; i < oc.length; ++i) if( oc[i] !== fc[i] ) diffs.push([oc[i], fc[i]]);
+            for(let i = 0; i < oc.length; ++i) if( oc[i] !== fc[i] ) diffs.push( [ oc[i], fc[i] ] );
             console.log(`OK: content preserved (data structures match: ${origLabel} == ${fmtLabel}). `
                       + `Note: ${diffs.length} comment(s) textually changed (informational only):`);
-            for(const [a, b] of diffs.slice(0, 10)) console.log(`    ${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
-        }
+            for( const [a, b] of diffs.slice(0, 10) ) console.log(`    ${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
+        } // if
         else {
             console.log(`OK: content preserved (data structures match: ${origLabel} == ${fmtLabel}). `
                       + `Note: comment count differs (${oc.length} -> ${fc.length}), informational only.`);
         }
         return true;
-    }
+    } // if
 
     console.log(`OK: content preserved: ${origLabel} vs ${fmtLabel}`);
+
     return true;
 } // compareOne
 
 function printUsage()
 {
     console.error('Usage: json5_content_diff.sh <original.json5> <formatted.json5>');
-    console.error('       json5_content_diff.sh <original_base_dir> <formatted_base_dir> <json5_rel_path_file_list.txt>');
+    console.error(
+        '       json5_content_diff.sh <original_base_dir> <formatted_base_dir> <json5_rel_path_file_list.txt>'
+    );
 } // printUsage
 
 function runSingle(origArg, fmtArg)
@@ -193,19 +198,21 @@ function runSingle(origArg, fmtArg)
     printTimestampedHeader(origArg);
 
     const origExists = fs.existsSync(origArg);
-    const fmtExists   = fs.existsSync(fmtArg);
-    if( !origExists || !fmtExists ) {
-        if( !origExists && !fmtExists ) console.error(`WARNING: both ${origArg} and ${fmtArg} are missing`);
-        else if( !origExists ) console.error(`WARNING: ${origArg} is missing`);
+    const fmtExists  = fs.existsSync(fmtArg);
+    if(!origExists || !fmtExists) {
+        if(!origExists && !fmtExists) console.error(
+            `WARNING: both ${origArg} and ${fmtArg} are missing`
+        );
+        else if(!origExists) console.error(`WARNING: ${origArg} is missing`);
         else console.error(`WARNING: ${fmtArg} is missing`);
         process.exit(1);
-    }
+    } // if
 
     try {
         process.exit( compareOne(origArg, fmtArg, origArg, fmtArg) ? 0 : 1 );
     }
     catch(e) {
-        if( e instanceof ParseError ) {
+        if(e instanceof ParseError) {
             console.error(`ERROR: ${e.message}`);
             process.exit(2);
         }
@@ -217,8 +224,8 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
 {
     const relPaths = fs.readFileSync(fileListPath, 'utf8')
         .split('\n')
-        .map(l => l.trim())
-        .filter(l => l.length > 0);
+        .map( (l) => l.trim() )
+        .filter( (l) => l.length > 0 );
 
     let okCount = 0, mismatchCount = 0, missingCount = 0;
 
@@ -229,18 +236,20 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
         printTimestampedHeader(rel);
 
         const origExists = fs.existsSync(origPath);
-        const fmtExists   = fs.existsSync(fmtPath);
-        if( !origExists && !fmtExists ) {
-            console.log(`  WARNING: missing from both ${origBaseDir} and ${fmtBaseDir} -- skipping`);
+        const fmtExists  = fs.existsSync(fmtPath);
+        if(!origExists && !fmtExists) {
+            console.log(
+                `  WARNING: missing from both ${origBaseDir} and ${fmtBaseDir} -- skipping`
+            );
             ++missingCount;
             continue;
-        }
-        if( !origExists ) {
+        } // if
+        if(!origExists) {
             console.log(`  WARNING: missing from ${origBaseDir} -- skipping`);
             ++missingCount;
             continue;
         }
-        if( !fmtExists ) {
+        if(!fmtExists) {
             console.log(`  WARNING: missing from ${fmtBaseDir} -- skipping`);
             ++missingCount;
             continue;
@@ -248,7 +257,7 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
 
         try {
             if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
-            else ++mismatchCount;
+            else                                          ++mismatchCount;
         }
         catch(e) {
             console.log(`  ERROR: ${e.message}`);
@@ -260,15 +269,15 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
     console.log(`SUMMARY: ${okCount} OK, ${mismatchCount} MISMATCH/ERROR, ${missingCount} MISSING `
               + `(of ${okCount + mismatchCount + missingCount} files checked)`);
 
-    if( mismatchCount > 0 || missingCount > 0 ) process.exit(1);
+    if(mismatchCount > 0 || missingCount > 0) process.exit(1);
 } // runBatch
 
 function main()
 {
     const args = process.argv.slice(2);
-    if( args.length === 2 ) runSingle(args[0], args[1]);
-    else if( args.length === 3 ) runBatch(args[0], args[1], args[2]);
-    else {
+         if(args.length === 2) runSingle( args[0], args[1] );
+    else if(args.length === 3) runBatch( args[0], args[1], args[2] );
+    else                       {
         printUsage();
         process.exit(2);
     }

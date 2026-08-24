@@ -160,30 +160,13 @@ public final class JsonSpecificRule {
 
     // ---- Parsing ------------------------------------------------------------------------------
 
-    private static final class Cursor {
-
-        final List<Token> toks;
-              int         i;
-
-        Cursor(final List<Token> toks)
-        {
-            this.toks = toks;
-        }
-
-        Token cur()
-        {
-            return i < toks.size() ? toks.get(i) : null;
-        }
-
-    } // class Cursor
-
     /**
      * Consumes whitespace/newlines/comments up to the next significant token, recording comment
      * text (in order) and whether a blank line (2+ consecutive newlines) occurred anywhere in the
      * span -- both a group-break signal per §1.1.
      */
     private void collectTrivia(
-        final Cursor       c,
+        final TokenCursor  c,
         final List<String> comments,
         final boolean[]    blankOut
     )
@@ -221,7 +204,7 @@ public final class JsonSpecificRule {
      * Same-line trailing comment right after a value/comma -- only consumed if no newline is
      * crossed first
      */
-    private String collectTrailingComment(final Cursor c)
+    private String collectTrailingComment(final TokenCursor c)
     {
         final int save = c.i;
         while( c.cur() != null && c.cur().type == TokenType.WHITESPACE ) c.i++;
@@ -235,7 +218,7 @@ public final class JsonSpecificRule {
         return null;
     }
 
-    private Node parseValue(final Cursor c)
+    private Node parseValue(final TokenCursor c)
     {
         final Token t = c.cur();
         if(t == null) throw new JsonParseException("unexpected end of input");
@@ -255,7 +238,7 @@ public final class JsonSpecificRule {
         throw new JsonParseException("unexpected token: " + t.text);
     }
 
-    private Container parseContainer(final Cursor c, final boolean isObject)
+    private Container parseContainer(final TokenCursor c, final boolean isObject)
     {
         c.i++; // Consume '{' or '['
         final Container container = new Container(isObject);
@@ -437,41 +420,20 @@ public final class JsonSpecificRule {
     )
     {
         // Compute colon-alignment groups (object only): a run of consecutive real items (not
-        // dangling trailing-comment placeholders) with no leading comment/blank line between them
-        final List<String> keys    = isObject ? new ArrayList<>() : null;
-              String[]     padding = null;
-        if(isObject) {
-            padding = new String[ items.size() ];
-            int groupStart = -1; // -1 = no open group
-            for( int i = 0; i <= items.size(); ++i ) {
-                final boolean atEnd      = i == items.size();
-                final boolean isDangling = !atEnd && items.get(i).value == null;
-                // A group boundary falls *before* item i whenever it carries a leading
-                // comment/blank line (§1.1) or is a dangling trailing-comment placeholder (no
-                // key at all) -- the item itself (if it has a key) still starts a fresh group
-                // rather than being dropped from alignment entirely.
-                final boolean hasMidComment = !atEnd && items.get(i).midComment != null;
-                final boolean breaksBefore  = atEnd || isDangling || hasMidComment || !items.get(
-                    i
-                ).leadingComments.isEmpty() || items.get(
-                    i
-                ).blankBefore;
-                if(breaksBefore) {
-                    if(groupStart >= 0 && i > groupStart) {
-                        keys.clear();
-                        for(int g = groupStart; g < i; ++g) keys.add( items.get(g).key );
-                        final String[] groupPad = FormatterSimpleBraced.padKeysForColonAlignment(
-                            keys
-                        );
-                        for(int g = groupStart; g < i; ++g) padding[g] = groupPad[g - groupStart];
-                    } // if
-                    groupStart = (!atEnd && !isDangling && !hasMidComment) ? i : -1;
-                } // if
-                else if(groupStart < 0) {
-                    groupStart = i;
-                }
-            } // for
-        } // if
+        // dangling trailing-comment placeholders) with no leading comment/blank line between them.
+        // A group boundary falls *before* item i whenever it carries a leading comment/blank line
+        // (§1.1) or is a dangling trailing-comment placeholder (no key at all) -- the item itself
+        // (if it has a key) still starts a fresh group rather than being dropped from alignment
+        // entirely. Same grouping algorithm YamlTomlSharedRule#computeColonAlignmentPadding
+        // implements for YAML/TOML (§1.1); "keyed" here folds both the dangling-placeholder and
+        // mid-comment cases into one predicate.
+        final String[] padding = isObject ? YamlTomlSharedRule.computeColonAlignmentPadding(
+            items.size(),
+            i->items.get(i).value != null && items.get(i).midComment == null,
+            i->!items.get(i).leadingComments.isEmpty(),
+            i->items.get(i).blankBefore,
+            i->items.get(i).key
+        ) : null;
 
         for( int i = 0; i < items.size(); ++i ) {
             final Item item = items.get(i);
@@ -501,7 +463,7 @@ public final class JsonSpecificRule {
     public String format(final String content)
     {
         final List<Token>  tokens          = new JsonTokenizer().tokenize(content);
-        final Cursor       c               = new Cursor(tokens);
+        final TokenCursor  c               = new TokenCursor(tokens);
         final List<String> leadingComments = new ArrayList<>();
         final boolean[]    blank           = { false };
         collectTrivia(c, leadingComments, blank);

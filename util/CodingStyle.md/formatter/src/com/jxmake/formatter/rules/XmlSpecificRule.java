@@ -1867,11 +1867,7 @@ public final class XmlSpecificRule {
                 appendWithTrailing(out, tightLine, n.trailingComment);
             }
             else {
-                out.append( indent(depth) ).append('<').append(n.tagName).append('\n');
-                for( int i = 0; i < n.attrs.size(); ++i ) {
-                    out.append( indent(depth + 1) ).append( n.attrs.get(i) );
-                    out.append( i == n.attrs.size() - 1 ? close + "\n" : "\n" );
-                }
+                appendWrappedOpenTag(n, depth, out, close);
                 if(n.trailingComment != null) {
                     out.setLength( out.length() - 1 );
                     out.append(' ').append( wrapComment(n.trailingComment) ).append('\n');
@@ -2082,10 +2078,21 @@ public final class XmlSpecificRule {
 
     private void appendWrappedOpenTag(final Node n, final int depth, final StringBuilder out)
     {
+        appendWrappedOpenTag(n, depth, out, ">");
+    }
+
+    /** {@code closer} is the text that terminates the last attribute line (e.g. {@code ">"}, {@code "/>"}, or a void element's {@code ">"}). */
+    private void appendWrappedOpenTag(
+        final Node          n,
+        final int           depth,
+        final StringBuilder out,
+        final String        closer
+    )
+    {
         out.append( indent(depth) ).append('<').append(n.tagName).append('\n');
         for( int i = 0; i < n.attrs.size(); ++i ) {
             out.append( indent(depth + 1) ).append( n.attrs.get(i) );
-            out.append( i == n.attrs.size() - 1 ? ">\n" : "\n" );
+            out.append( i == n.attrs.size() - 1 ? closer + "\n" : "\n" );
         }
     }
 

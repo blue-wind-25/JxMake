@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.jxmake.formatter.Lang;
+import com.jxmake.formatter.classifier.CommentClassifier;
 import com.jxmake.formatter.classifier.CommentDecision;
 import com.jxmake.formatter.classifier.CommentFeatureExtractor;
 import com.jxmake.formatter.classifier.gru.GruAbstainResolver;
@@ -796,10 +797,7 @@ public abstract class MiscRuleCore {
     }
     protected int nextSignificantIndex(final List<Token> tokens, final int from)
     {
-        int i = from;
-        while( i < tokens.size() && isGapToken( tokens.get(i) ) ) i++;
-
-        return i < tokens.size() ? i : -1;
+        return TokenNavigationRule.nextSignificantIndexAtOrAfter(tokens, from);
     }
     protected static final Set<String> ASSIGNMENT_OPS = setOf(
         "=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="
@@ -1897,10 +1895,7 @@ public static final class Assignment {
     }
     protected int prevSignificantIndex(final List<Token> tokens, final int from)
     {
-        int i = from;
-        while( i >= 0 && isGapToken( tokens.get(i) ) ) i--;
-
-        return i;
+        return TokenNavigationRule.prevSignificantIndexAtOrBefore(tokens, from);
     }
     public static int matchParenBackward(final List<Token> tokens, final int closeIdx)
     {
@@ -2699,6 +2694,22 @@ public static final class Assignment {
         // than only the trailing period.
         final java.util.regex.Matcher matcher = SENTENCE_BOUNDARY.matcher(combinedText);
         final Map<Integer, Character> capitalized = new HashMap<>();
+
+        // Every boundary below has targetWordIndex > 0 (letterPos == 0 is skipped just below), and
+        // CommentFeatureExtractor.extract's returned feature vector -- hence CommentClassifier
+        // .classify's rule-based first stage -- depends on targetWordIndex only via signals gated
+        // `targetWordIndex == 0` (its targetWord is always the comment's LEADING word, independent
+        // of targetWordIndex; see that class's javadoc). So the rule-based result is identical for
+        // every boundary in this comment block: compute it once here rather than re-running the
+        // full gate cascade (URL/filename/number regex, non-Latin-script scan, commented-out-code/
+        // license-block gates) per sentence boundary. Only an ABSTAIN result still needs the loop's
+        // own per-boundary targetWordIndex + GRU fallback, since gru.classify genuinely depends on
+        // which word the decision is about.
+        CommentDecision ruleResultForNonLeadingBoundary = null;
+        if(commentNormalizationClassifier) ruleResultForNonLeadingBoundary = CommentClassifier.classify(
+            CommentFeatureExtractor.extract(combinedText, lang, TokenType.COMMENT_LINE, 1)
+        );
+
         while( matcher.find() ) {
             final int letterPos = matcher.start(1);
             if(letterPos == 0) continue; // Sentence 1 -- already handled separately
@@ -2706,11 +2717,16 @@ public static final class Assignment {
             final char    c = combinedText.charAt(letterPos);
                   boolean allow;
             if(commentNormalizationClassifier) {
-                final int targetWordIndex = GruClassifier.tokenize(
-                    combinedText.substring(0, letterPos)
-                ).size();
-                allow = classifyComment(combinedText, targetWordIndex) == CommentDecision.YES;
-            }
+                if(ruleResultForNonLeadingBoundary != CommentDecision.ABSTAIN) {
+                    allow = ruleResultForNonLeadingBoundary == CommentDecision.YES;
+                }
+                else {
+                    final int targetWordIndex = GruClassifier.tokenize(
+                        combinedText.substring(0, letterPos)
+                    ).size();
+                    allow = classifyComment(combinedText, targetWordIndex) == CommentDecision.YES;
+                }
+            } // if
             else {
                 int end = letterPos;
                 while( end < combinedText.length() && ( Character.isLetterOrDigit(

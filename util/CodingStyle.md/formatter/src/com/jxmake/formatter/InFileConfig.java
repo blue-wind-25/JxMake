@@ -127,7 +127,7 @@ public final class InFileConfig {
             final String value = trimmed.substring(eq + 1).trim();
             if( "--lang".equals(key) ) {
                 if( !Lang.isRecognized(value) ) throw new IOException(
-                    TokenizerCore.JXM_CFMT_CFG + ": \"--lang\" must be one of: " + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + " (got: " + value + ")"
+                    TokenizerCore.JXM_CFMT_CFG + ": \"--lang\" must be one of: " + Lang.recognizedLanguagesForErrorMessage() + " (got: " + value + ")"
                 );
                 result.put(key, value);
                 continue;

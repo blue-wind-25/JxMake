@@ -420,7 +420,7 @@ public final class ServerMode {
 
                 if( language != null && !Lang.isRecognized(language) ) {
                     respond(
-                        exchange, 400, "'lang' query parameter must be one of: " + Lang.SUPPORTED_LANGUAGES + ( Lang.SCAFFOLD_ONLY_LANGUAGES.isEmpty() ? "" : ", " + Lang.SCAFFOLD_ONLY_LANGUAGES ) + " (got: " + language + ")"
+                        exchange, 400, "'lang' query parameter must be one of: " + Lang.recognizedLanguagesForErrorMessage() + " (got: " + language + ")"
                     );
                     return;
                 }
@@ -444,9 +444,10 @@ public final class ServerMode {
                             resolvedStyle = Config.DEFAULT_INDENT_STYLE;
                         }
                     } // if
-                    final Map<String, String> merged = new LinkedHashMap<String, String>( inlineConfig.isEmpty() ? java.util.Collections.< String, String > emptyMap() : inlineConfig );
-                    merged.put("indent-style", resolvedStyle);
-                    config = Config.resolve(targetFile, merged, inFileOverrides);
+                    final Map<String, String> overrides = inlineConfig.isEmpty() ? java.util.Collections.< String, String > emptyMap() : inlineConfig;
+                    config = Main.withResolvedIndentStyle(
+                        targetFile, overrides, inFileOverrides, resolvedStyle
+                    );
                 } // if
                 System.err.println(
                     "jxmake-code-formatter: processing " + (path == null ? "(no path, lang=" + language + ")" : path)

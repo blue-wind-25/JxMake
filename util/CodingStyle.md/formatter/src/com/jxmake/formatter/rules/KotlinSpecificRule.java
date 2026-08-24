@@ -1495,11 +1495,7 @@ public class KotlinSpecificRule {
 
     private int prevSignificantIndex(final List<Token> tokens, final int from)
     {
-        for(int i = from; i >= 0; --i) {
-            if( !isGapToken( tokens.get(i) ) ) return i;
-        }
-
-        return -1;
+        return TokenNavigationRule.prevSignificantIndexAtOrBefore(tokens, from);
     }
 
     // ── §3/§3.3 Function/secondary-constructor body Allman conversion ──────────

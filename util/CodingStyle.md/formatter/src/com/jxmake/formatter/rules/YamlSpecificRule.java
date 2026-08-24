@@ -636,16 +636,11 @@ public final class YamlSpecificRule {
                     item.frozenLines     = new ArrayList<>();
                     item.frozenLines.add(ln.raw);
                     ++pos;
-                    while( pos < lines.size() && !("#% " + TokenizerCore.JXM_CFMT_ENA).equals(
-                        peek().content
-                    ) ) {
-                        item.frozenLines.add( peek().raw );
-                        ++pos;
-                    }
-                    if( pos < lines.size() ) {
-                        item.frozenLines.add( peek().raw );
-                        ++pos;
-                    }
+                    final YamlTomlSharedRule.FrozenSpanScan scan = YamlTomlSharedRule.collectFrozenSpanLines(
+                        lines.size(), pos, i -> lines.get(i).content, i -> lines.get(i).raw
+                    );
+                    item.frozenLines.addAll(scan.lines);
+                    pos = scan.newPos;
                     items.add(item);
                     continue;
                 } // if

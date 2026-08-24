@@ -300,17 +300,16 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<RawLine> rawLines
     )
     {
-        final List<Replacement>  replacements = new ArrayList<>();
-              List<PyAssignment> group        = new ArrayList<>();
-              List<int[]>        groupSpans   = new ArrayList<>(); // [assignStart, assignEnd] per group member
-              int                groupDepth   = -1;
+        final Map<Token, Integer> indexOf      = buildIndexMap(tokens);
+        final List<Replacement>   replacements = new ArrayList<>();
+              List<PyAssignment>  group        = new ArrayList<>();
+              List<int[]>         groupSpans   = new ArrayList<>();     // [assignStart, assignEnd] per group member
+              int                 groupDepth   = -1;
         for(final RawLine line : rawLines) {
             final PyAssignment a = line.multiPhysicalLine ? null : classifyAssignment(tokens, line);
             if( a != null && ( group.isEmpty() || line.depth == groupDepth ) ) {
                 group.add(a);
-                groupSpans.add(
-                    new int[] { indexOf(tokens, a.target), lastIndexOfValue(tokens, a) }
-                );
+                groupSpans.add( assignmentSpan(indexOf, a) );
                 groupDepth = line.depth;
                 continue;
             } // if
@@ -319,9 +318,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             groupSpans = new ArrayList<>();
             if(a != null) {
                 group.add(a);
-                groupSpans.add(
-                    new int[] { indexOf(tokens, a.target), lastIndexOfValue(tokens, a) }
-                );
+                groupSpans.add( assignmentSpan(indexOf, a) );
                 groupDepth = line.depth;
             } // if
             else {
@@ -333,23 +330,11 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         return replacements;
     }
 
-    private int indexOf(final List<Token> tokens, final Token target)
-    {
-        for( int i = 0; i < tokens.size(); ++i ) {
-            if( tokens.get(i) == target ) return i;
-        }
-
-        return -1;
-    }
-
-    private int lastIndexOfValue(final List<Token> tokens, final PyAssignment a)
+    private int[] assignmentSpan(final Map<Token, Integer> indexOf, final PyAssignment a)
     {
         final Token last = a.valueTokens.get( a.valueTokens.size() - 1 );
-        for( int i = tokens.size() - 1; i >= 0; --i ) {
-            if( tokens.get(i) == last ) return i + 1;
-        }
 
-        return -1;
+        return new int[] { indexOf.get(a.target), indexOf.get(last) + 1 };
     }
 
     private void flushAssignmentGroup(
@@ -1486,29 +1471,46 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement> replacements = new ArrayList<>();
         for(final RawLine line : rawLines) {
             if(line.multiPhysicalLine) continue; // Already-broken-out signatures are §6's existing alignment slice's own territory
-            int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
-            if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            if( isKeyword( tokens.get(kwIdx), "async" ) ) {
-                kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-                if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            }
-            if( !isKeyword( tokens.get(kwIdx), "def" ) ) continue;
-            final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-            if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
-            final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
-            if( openIdx < 0 || tokens.get(
-                openIdx
-            ).type != TokenType.PUNCT || !"(".equals(
-                tokens.get(openIdx).text
-            ) ) continue;
-            final int closeIdx = matchBracket(tokens, openIdx, line.end);
-            if(closeIdx < 0) continue;
+            final int[] parens = findDefSignatureParens(tokens, line);
+            if(parens == null) continue;
 
-            final Replacement wrap = tryWrapDefSignature(tokens, line, openIdx, closeIdx);
+            final Replacement wrap = tryWrapDefSignature( tokens, line, parens[0], parens[1] );
             if(wrap != null) replacements.add(wrap);
         } // for
 
         return replacements;
+    }
+
+    /**
+     * Locates a {@code def} (optionally {@code async def}) signature header's parameter-list
+     * parens on {@code line}: skips an optional {@code async}, requires the {@code def} keyword,
+     * an {@code IDENTIFIER} name, then {@code (}, and matches its closing {@code )}. Returns
+     * {@code {openIdx, closeIdx}}, or {@code null} if {@code line} isn't a {@code def} signature
+     * header at all. Shared by {@link #applySignatureWrapping} and {@link
+     * #applySignatureAlignment}, which differ only in which {@code multiPhysicalLine} lines they
+     * consider and what they do once the parens are found.
+     */
+    private int[] findDefSignatureParens(final List<Token> tokens, final RawLine line)
+    {
+        int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
+        if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) return null;
+        if( isKeyword( tokens.get(kwIdx), "async" ) ) {
+            kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+            if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) return null;
+        }
+        if( !isKeyword( tokens.get(kwIdx), "def" ) ) return null;
+        final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
+        if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) return null;
+        final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
+        if( openIdx < 0 || tokens.get(
+            openIdx
+        ).type != TokenType.PUNCT || !"(".equals(
+            tokens.get(openIdx).text
+        ) ) return null;
+        final int closeIdx = matchBracket(tokens, openIdx, line.end);
+        if(closeIdx < 0) return null;
+
+        return new int[] {openIdx, closeIdx};
     }
 
     /**
@@ -1613,24 +1615,9 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         final List<Replacement> replacements = new ArrayList<>();
         for(final RawLine line : rawLines) {
             if(!line.multiPhysicalLine) continue;
-            int kwIdx = nextSignificant(tokens, line.contentStart, line.end);
-            if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            if( isKeyword( tokens.get(kwIdx), "async" ) ) {
-                kwIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-                if( kwIdx < 0 || tokens.get(kwIdx).type != TokenType.KEYWORD ) continue;
-            }
-            if( !isKeyword( tokens.get(kwIdx), "def" ) ) continue;
-            final int nameIdx = nextSignificant(tokens, kwIdx + 1, line.end);
-            if( nameIdx < 0 || tokens.get(nameIdx).type != TokenType.IDENTIFIER ) continue;
-            final int openIdx = nextSignificant(tokens, nameIdx + 1, line.end);
-            if( openIdx < 0 || tokens.get(
-                openIdx
-            ).type != TokenType.PUNCT || !"(".equals(
-                tokens.get(openIdx).text
-            ) ) continue;
-            final int closeIdx = matchBracket(tokens, openIdx, line.end);
-            if(closeIdx < 0) continue;
-            final List<Replacement> group = trySignatureGroup(tokens, openIdx, closeIdx);
+            final int[] parens = findDefSignatureParens(tokens, line);
+            if(parens == null) continue;
+            final List<Replacement> group = trySignatureGroup( tokens, parens[0], parens[1] );
             if(group != null) replacements.addAll(group);
         } // for
 
@@ -2834,24 +2821,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      */
     private String render(final List<Token> tokens, final List<Replacement> replacements)
     {
-        final StringBuilder out = new StringBuilder();
-        final int           n   = tokens.size();
-              int           i   = 0;
-              int           r   = 0;
-        while(i < n) {
-            while( r < replacements.size() && replacements.get(r).start < i ) r++;
-            if( r < replacements.size() && replacements.get(r).start == i ) {
-                out.append( replacements.get(r).text );
-                i = replacements.get(r).end;
-                ++r;
-                continue;
-            }
-            final Token t = tokens.get(i);
-            if(t.type != TokenType.INDENT && t.type != TokenType.DEDENT) out.append(t.text);
-            ++i;
-        } // while
-
-        return out.toString();
+        return renderSpan( tokens, 0, tokens.size(), replacements );
     }
 
 } // class ScopePipelineIndent

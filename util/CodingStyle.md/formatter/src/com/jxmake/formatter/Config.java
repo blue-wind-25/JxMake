@@ -21,10 +21,12 @@ import java.util.Map;
 
 public final class Config {
 
-    private static final String CONFIG_DIR          = ".config/jxmake-code-formatter";
-    private static final String CONFIG_FILE         = "config";
-    private static final String STYLE_FMT_FILE_NAME = ".jxmake-code-formatter";
-    private static final String ENV_PREFIX          = "JXMAKE_CODE_FORMATTER_";
+    private static final String CONFIG_DIR  = ".config/jxmake-code-formatter";
+    private static final String CONFIG_FILE = "config";
+    private static final String ENV_PREFIX  = "JXMAKE_CODE_FORMATTER_";
+
+    /** Per-directory style-boundary marker filename -- also consulted by {@link IndentationDetector} */
+    static final String STYLE_FMT_FILE_NAME = ".jxmake-code-formatter";
 
     private static final String[] ALL_KEYS = {
         "line-length", "line-length-with-comment", "indent-size", "indent-style", "server-port",

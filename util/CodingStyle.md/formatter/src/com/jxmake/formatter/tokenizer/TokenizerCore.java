@@ -331,6 +331,32 @@ public class TokenizerCore {
         );
     }
 
+    /**
+     * Scans an identifier/keyword run starting at {@code pos} and classifies it against
+     * {@code keywordSet} -- byte-identical between {@link com.jxmake.formatter.tokenizer.
+     * TokenizerCurly}/{@code TokenizerIndent}, differing only in which keyword set each consults.
+     */
+    protected Token emitIdentifierOrKeyword(final Set<String> keywordSet)
+    {
+        final int start = pos;
+        while( pos < length && isIdentifierPart( source.charAt(pos) ) ) pos++;
+        final String    text = source.substring(start, pos);
+        final TokenType type = keywordSet.contains(text) ? TokenType.KEYWORD : TokenType.IDENTIFIER;
+
+        return new Token(type, text, braceDepth, parenDepth, null);
+    }
+
+    /** Scans a line comment from {@code pos} through EOL (or EOF) and returns it as one COMMENT_LINE token */
+    protected Token emitLineCommentToEol()
+    {
+        final int start = pos;
+        while( pos < length && source.charAt(pos) != '\n' && source.charAt(pos) != '\r' ) pos++;
+
+        return new Token(
+            TokenType.COMMENT_LINE, source.substring(start, pos), braceDepth, parenDepth, null
+        );
+    }
+
     protected boolean isIdentifierStart(final char c)
     {
         return Character.isLetter(c) || c == '_' || c == '$';

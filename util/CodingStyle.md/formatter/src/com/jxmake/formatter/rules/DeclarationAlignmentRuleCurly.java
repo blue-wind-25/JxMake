@@ -849,27 +849,34 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         final Token       closeTok
     )
     {
-        int openIdx = -1;
-        for( int k = 0; k < stmt.size(); ++k ) {
-            if( stmt.get(k) == openTok ) {
-                openIdx = k;
-                break;
-            }
-        }
-        if(openIdx < 0) return null;
-        int closeIdx = -1;
-        for( int k = stmt.size() - 1; k > openIdx; --k ) {
-            if( stmt.get(k) == closeTok ) {
-                closeIdx = k;
-                break;
-            }
-        }
-        if(closeIdx < 0) return null;
+        final int[] range = findIdentityRange(stmt, openTok, closeTok);
+        if(range == null) return null;
 
-        return new ArrayList<>( stmt.subList(openIdx, closeIdx + 1) );
+        return new ArrayList<>( stmt.subList(range[0], range[1] + 1) );
     }
 
     private List<Token> rawSliceBetween(
+        final List<Token> stmt,
+        final Token       openTok,
+        final Token       closeTok
+    )
+    {
+        final int[] range = findIdentityRange(stmt, openTok, closeTok);
+        if(range == null) return null;
+        final List<Token> raw = new ArrayList<>();
+        for( final Token t : stmt.subList(range[0], range[1] + 1) ) {
+            if(t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) raw.add(t);
+        }
+
+        return raw;
+    }
+
+    /**
+     * Locates {@code openTok}/{@code closeTok} within {@code stmt} by identity (forward scan for
+     * the open token, then backward scan from the end for the close token) and returns
+     * {@code {openIdx, closeIdx}}, or {@code null} if either can't be found.
+     */
+    private int[] findIdentityRange(
         final List<Token> stmt,
         final Token       openTok,
         final Token       closeTok
@@ -891,12 +898,36 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             }
         }
         if(closeIdx < 0) return null;
-        final List<Token> raw = new ArrayList<>();
-        for( final Token t : stmt.subList(openIdx, closeIdx + 1) ) {
-            if(t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE) raw.add(t);
-        }
 
-        return raw;
+        return new int[] {openIdx, closeIdx};
+    }
+
+    /**
+     * Scans backward from {@code closeIdx} down to {@code lowerBound}, tracking nesting depth
+     * over {@code open}/{@code close} punctuation, and returns the index of the matching open
+     * token (or -1 if unbalanced within that range).
+     */
+    private int matchBracketBackward(
+        final List<Token> body,
+        final int         closeIdx,
+        final int         lowerBound,
+        final String      open,
+        final String      close
+    )
+    {
+        int depth = 0;
+        for(int k = closeIdx; k >= lowerBound; --k) {
+            final Token t = body.get(k);
+            if( isPunct(t, close) ) {
+                ++depth;
+            }
+            else if( isPunct(t, open) ) {
+                --depth;
+                if(depth == 0) return k;
+            }
+        } // for
+
+        return -1;
     }
 
     /**
@@ -1214,37 +1245,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // cell lets `name.text + sizeTokens` render back as `(*fp)(int)`, so it aligns with
         // plain variables in the same group exactly like STATE.md's gap example requires.
         if( end > i && isPunct( body.get(end - 1), ")" ) ) {
-            int depth         = 0;
-            int paramsOpenIdx = -1;
-            for(int k = end - 1; k >= i; --k) {
-                final Token t = body.get(k);
-                if( isPunct(t, ")") ) {
-                    ++depth;
-                }
-                else if( isPunct(t, "(") ) {
-                    --depth;
-                    if(depth == 0) {
-                        paramsOpenIdx = k;
-                        break;
-                    }
-                }
-            } // for
+            final int paramsOpenIdx = matchBracketBackward(body, end - 1, i, "(", ")");
             if( paramsOpenIdx > i && isPunct( body.get(paramsOpenIdx - 1), ")" ) ) {
-                int depth2      = 0;
-                int nameOpenIdx = -1;
-                for(int k = paramsOpenIdx - 1; k >= i; --k) {
-                    final Token t = body.get(k);
-                    if( isPunct(t, ")") ) {
-                        ++depth2;
-                    }
-                    else if( isPunct(t, "(") ) {
-                        --depth2;
-                        if(depth2 == 0) {
-                            nameOpenIdx = k;
-                            break;
-                        }
-                    }
-                } // for
+                final int nameOpenIdx = matchBracketBackward(body, paramsOpenIdx - 1, i, "(", ")");
                 if(nameOpenIdx > i) {
                     final List<Token> inner         = body.subList(
                         nameOpenIdx + 1, paramsOpenIdx - 1
@@ -1341,21 +1344,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             --sizeEnd;
         }
         while( sizeEnd > i && isPunct( body.get(sizeEnd - 1), "]" ) ) {
-            int depth   = 0;
-            int openIdx = -1;
-            for(int k = sizeEnd - 1; k >= i; --k) {
-                final Token t = body.get(k);
-                if( isPunct(t, "]") ) {
-                    ++depth;
-                }
-                else if( isPunct(t, "[") ) {
-                    --depth;
-                    if(depth == 0) {
-                        openIdx = k;
-                        break;
-                    }
-                }
-            } // for
+            final int openIdx = matchBracketBackward(body, sizeEnd - 1, i, "[", "]");
             if(openIdx < 0) break; // Unbalanced -- bail, don't touch this statement
             sizeTokens.addAll( 0, body.subList(openIdx, sizeEnd) );
             sizeEnd = openIdx;
@@ -1366,21 +1355,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // defaulted), which are function specifiers, not true variable initializers.
         if( sizeEnd > i && isPunct( body.get(sizeEnd - 1), ")" )
                 && ( initTokens.isEmpty() || isFuncDeclSpecifier(initTokens) ) ) {
-            int depth2       = 0;
-            int parenOpenIdx = -1;
-            for(int k = sizeEnd - 1; k >= i; --k) {
-                final Token t = body.get(k);
-                if( isPunct(t, ")") ) {
-                    ++depth2;
-                }
-                else if( isPunct(t, "(") ) {
-                    --depth2;
-                    if(depth2 == 0) {
-                        parenOpenIdx = k;
-                        break;
-                    }
-                }
-            } // for
+            final int parenOpenIdx = matchBracketBackward(body, sizeEnd - 1, i, "(", ")");
             if(parenOpenIdx > i) {
                 // Use the original (comment-carrying) token slice for the parameter list, not
                 // the comment-stripped `body` -- a lone function-prototype declaration is fully

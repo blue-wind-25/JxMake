@@ -1359,11 +1359,6 @@ guesses). Weights from 40 labeled examples under `tools/classifier_weights/`
 `tools/classifier_weights/README.md`/`tools/classifier_weights/weights.md`). `make test` 70/70
 PASS unchanged (default `off`); classifier `on` smoke-tested, 39/40 on labeled set.
 
-**TODO (still open):** the 40-example `tools/classifier_weights/` set is synthetic; growing it with real comments
-would firm up weight magnitudes and might surface new feature-set gaps. Independent of the
-formatter's own `make test` suite — classifier defaults to `off`, ships no runtime AI
-dependency; this is about `tools/classifier_weights/`'s example quality only.
-
 ### I — C/C++/Java braceless else-if chain collapse + alignment (DONE)
 Extended Kotlin's braceless if/else-if/else collapse + column alignment (RDD_KEY_124/127/128)
 to C/C++/Java, only when every branch in the chain qualifies (RDD_KEY_129) — mixed/braced chain

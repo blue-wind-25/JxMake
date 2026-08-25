@@ -849,228 +849,180 @@ find /tmp/gru_tools_r2 -type f -name '*.py' -print0 | xargs -0 ../verifiers/pyth
 cp -vf /tmp/gru_tools_r1/*.{java,py} .
 ```
 
-No syntax errors found; AST differed only in comments.
-`java_content_diff.java` initially flagged **INCORRECT COMMENT
-NORMALIZATION** on `tools/gru/*.java`, **resolved (2026-07-29) as a false
-alarm in the checker itself** — three unaccounted-for behaviors: reflowed
-Javadoc openers tripping the naive `* ` whitespace-collapse, new
-closing-brace annotations (`} // while`) flagged as suspect additions,
-`normalize-comment-end-period` legitimately stripping a sole trailing `.`.
-Fixed in `java_content_diff.java`; re-ran clean, all 9 `tools/gru` files
-zero mismatches — no classifier fix needed.
+No syntax errors; AST differed only in comments. `java_content_diff.java`
+initially flagged **INCORRECT COMMENT NORMALIZATION** on `tools/gru/*.java`,
+**resolved (2026-07-29) as a checker false alarm**: reflowed Javadoc openers
+triggered naive `* ` whitespace-collapse; new `} // while` closing-brace
+annotations looked like additions; `normalize-comment-end-period` legitimately
+stripped a sole trailing `.`. Fixed in `java_content_diff.java`; all 9
+`tools/gru` files then had zero mismatches — **no classifier fix needed**.
 
-**2026-08-08: broadened to all of `tools/*`** (simplified, no round2-JAR
-fixed-point check). 40 files, already-built JAR. Idempotency empty;
-content-diff clean on all 40; 8 files had a diff, all trailing-period
-comment normalization, not a bug. Adopted; `make test` unaffected
-(261/261).
+**2026-08-08: broadened to all `tools/*`** (simplified; no round2-JAR fixed-
+point check). 40 files; idempotency empty; content-diff clean. 8 files differed,
+all only trailing-period comment normalization. Adopted; `make test` 261/261.
 
-**2026-08-08: re-ran against real `src/`, not adopted.** round1/round2
-`diff -ru` not empty — `PowerShellSpecificRule.java`: a group-aligned
-trailing `//` comment after a call `enforceCallLineBreaking` wraps onto its
-own line keeps stale wide alignment padding through round1, then collapses
-to one space in round2 — same pass-ordering bug family as
-`JavaSpecificRule.isSingleLineBody` (comment-column width computed
-independently of the wrap decision). Root-caused, not fixed (too risky to
-patch blind at this scope). Round1 compiled clean, `make test` 261/261,
-24/25 changed files content-diffed clean. Real `src/` left untouched.
+**2026-08-08: re-ran against real `src/`, not adopted.** `diff -ru`
+round1/round2 non-empty. `PowerShellSpecificRule.java`: group-aligned trailing
+`//` after `enforceCallLineBreaking` wrapped to its own line but retained stale
+wide alignment padding in round1, collapsing to one space in round2 — same pass-
+ordering bug family as `JavaSpecificRule.isSingleLineBody` (comment-column width
+calculated independently of wrap decision). Root-caused, **not fixed** (too
+risky to patch blindly). Round1 compiled clean; `make test` 261/261; 24/25
+changed files content-diffed clean. Real `src/` untouched.
 
-**2026-08-08 (later): re-ran after a manual workaround, adopted.** A
-formatter-source fix for the trigger above (two attempts, both reverted —
-see `STATE_C_CPP_JAVA.md`'s Open Questions) was abandoned as too risky.
-Instead, blank lines manually inserted between each `s = applyX(s); //
-comment` statement in `PowerShellSpecificRule.java`'s `format()`, breaking
-`applyAssignmentsPass`'s alignment-group membership (RDD_KEY_254's "blank
-line breaks the group" rule) — sidesteps the trigger without touching
-formatter source. Full re-run: round1/round2 empty; 26 changed files
-content-diffed clean; adopted; `make clean && make test` 261/261, `make
-test-server` passed. **Superseded 2026-08-09:** the underlying
-`applyAssignmentsPass`-vs-`enforceCallLineBreaking` ordering bug fixed at
-the source level (RDD_KEY_193 fixture) — the blank-line workaround stayed
-in place as optional cleanup, no longer structurally required.
+**2026-08-08 (later): manual workaround adopted.** Two formatter-source fixes
+for the trigger were attempted and reverted (see `STATE_C_CPP_JAVA.md` Open
+Questions) as too risky. Instead, blank lines were inserted between each `s =
+applyX(s); // comment` in `PowerShellSpecificRule.java`'s `format()`, breaking
+`applyAssignmentsPass` alignment-group membership per `RDD_KEY_254` (“blank line
+breaks the group”), thereby avoiding the trigger without modifying formatter
+source. Round1/round2 empty; 26 changed files content-diffed clean; adopted;
+`make clean && make test` 261/261 and `make test-server` passed. **Superseded
+2026-08-09:** underlying `applyAssignmentsPass` vs `enforceCallLineBreaking`
+ordering bug fixed at source level (`RDD_KEY_193` fixture); blank-line
+workaround remained as optional cleanup, no longer structurally required.
 
 **2026-08-10: re-ran against `tools/*`** (added `.sh`, 67 files), adopted.
 Idempotency empty. 3 files differed: `acquire_corpus.sh` (cosmetic),
-`js_ts_content_diff.js` (no new diff), and `kotlin_content_diff.java` —
-surfaced a real bug: the GRU comment classifier (retrained earlier this
-session, see `STATE_AI.md`) capitalized a comment starting with a real
-method reference, `// getName() defaults...` → `// GetName() defaults...`,
-changing its meaning. Root cause: `nextCharIsOpenParen` existed but was
-only consulted inside `KeywordAmbiguityGate`'s scoring
-(`hasLeadingKeywordMatch`-gated); no equivalent of Gate 1c
-(`leadingWordFollowedBySlash`) existed for the plain call-shape case. Fixed
-by adding `leadingWordFollowedByParen`
-(`CommentFeatureVector`/`CommentFeatureExtractor`) and a new Gate 1c-2 in
-`CommentClassifier.classify`, guarded by `!hasLeadingKeywordMatch`; updated
-`GruAbstainResolverSelfTest.java`'s two call sites for the new constructor
-param. The tool's remaining mismatch (a single-statement `if` losing its
-braces) is the known, intentional `BlockStructureRule.tryCollapse` feature
-the AST-based checker doesn't tolerate — a checker limitation, confirmed
-via javac's raw parsed-tree `toString()`. All three adopted; `make test`
-276/276 before and after.
+`js_ts_content_diff.js` (no new diff), and `kotlin_content_diff.java`, which
+exposed a real bug: retrained GRU comment classifier changed `// getName()
+defaults...` → `// GetName() defaults...`, altering meaning. Root cause:
+`nextCharIsOpenParen` was used only inside `KeywordAmbiguityGate` scoring
+(`hasLeadingKeywordMatch`-gated); plain call-shape comments lacked a Gate 1c
+equivalent (`leadingWordFollowedBySlash`). Fixed by adding
+`leadingWordFollowedByParen` to `CommentFeatureVector`/`CommentFeatureExtractor`
+and Gate 1c-2 in `CommentClassifier.classify`, guarded by
+`!hasLeadingKeywordMatch`; updated two `GruAbstainResolverSelfTest.java`
+constructor call sites. Remaining mismatch: single-statement `if` brace loss
+from known/intentional `BlockStructureRule.tryCollapse`, which the AST checker
+cannot tolerate; confirmed with javac raw parsed-tree `toString()` — **checker
+limitation**. All adopted; `make test` 276/276 before and after.
 
-**2026-08-10 (later, same session): re-ran against real `src/`, adopted.**
-Idempotency empty. 18 files differed; content-diffed all 18 — 14 `OK`, 4
-(`Main.java`, `MiscRuleCore.java`, `ToolingCommentNormalizer.java`,
-`ScopePipelineIndent.java`) flagged "structure differs", each root-caused
-as one of two already-understood non-bug classes: (a) the same
-brace-collapse checker limitation above; (b) `src/` predated the
-closing-brace loop-variable-naming feature (`// for` → `// for i`/`// for
-e`) and some sentence-initial comment capitalizations outside Gate 1c-2's
-narrow scope (identifiers not immediately followed by `(`) — no real
-content loss. Adopted; `make clean && make test` 276/276, `make
-test-server` passed.
+**2026-08-10 (later): real `src/`, adopted.** Idempotency empty; 18 files
+differed; all 18 content- diffed: 14 OK, 4 (`Main.java`, `MiscRuleCore.java`,
+`ToolingCommentNormalizer.java`, `ScopePipelineIndent.java`) “structure
+differs”. All root-caused as known non-bug classes: (a) the brace-collapse
+checker limitation; (b) `src/` predating closing-brace loop-variable naming (`//
+for` → `// for i`/`// for e`) plus some sentence-initial comment capitalization
+outside Gate 1c-2's narrow scope (identifiers not immediately followed by `(`).
+No content loss. Adopted; `make clean && make test` 276/276; `make test-server`
+passed.
 
-**2026-08-16: re-ran against real `src/`** (explicitly requested, combined
-with a targeted hunt for a user-reported flushed-left/dedented-body-line
-bug shape), adopted. Fresh `/tmp/fmt_ref` copy (prior copy was stale).
-Idempotency clean. 6 files differed: `FormatterBash.java`,
-`FormatterCurly.java`, `rules/{BashSpecificRule,PowerShellSpecificRule,
-YamlSpecificRule,YamlTomlSharedRule}.java` — all reviewed by hand, confirmed
-legitimate cosmetic re-style (spacing around parens/`!`, param-list wrap
-width, alignment column width, one comment's trailing period), zero
-content/token loss. Trial JAR built from round1 (never overwrites committed
-`target/`); `_test_serial` came back 322/323 forward — the single failure
-(`cpp_comments_inp.cpp`) confirmed pre-existing via an isolated JAR built
-from unmodified `src/` (**established the recurring diagnosis reused
-below**: an isolated `javac`+`jar` trial build skips the
-`gru-sync-weights` Makefile dependency a normal `make test` run performs,
-so the trial JAR and the checked-in classifier weights drift out of sync —
-later sessions hit the identical failure class and confirm it the same
-way). round1b/round2b fixed-point check came back fully empty. Adopted;
-`make clean && make test` **323/323 forward + idempotency, fully green**
-(the `cpp_comments` failure doesn't reproduce via the Makefile's normal
-build path, which runs `gru-sync-weights` and resyncs the weights). No
-`RDD_KEY` added — only cosmetic re-style adopted.
+**2026-08-16: real `src/`, adopted.** Fresh `/tmp/fmt_ref` copy; explicitly
+combined with hunt for reported flushed-left/dedented-body-line bug. Idempotency
+clean. 6 files differed: `FormatterBash.java`, `FormatterCurly.java`, `rules/{Ba
+shSpecificRule,PowerShellSpecificRule,YamlSpecificRule,YamlTomlSharedRule}.java`
+; all manually confirmed legitimate cosmetic restyling (paren/`!` spacing,
+parameter-list width, alignment width, one comment trailing period), with zero
+content/token loss. Trial JAR built from round1 (never overwrote committed
+`target/`); `_test_serial` 322/323 forward. Sole failure,
+`cpp_comments_inp.cpp`, was confirmed pre-existing using an isolated JAR from
+unmodified `src/`. **Recurring root cause:** isolated `javac`+`jar` trial builds
+skip the `gru-sync-weights` Makefile dependency, so trial JAR and checked-in
+classifier weights drift; later sessions reproduced the same class.
+round1b/round2b fixed-point checks fully empty. Adopted; `make clean && make
+test` **323/323 forward + idempotency, fully green**. The `cpp_comments` failure
+does not occur through normal Makefile build, which runs `gru-sync-weights`. No
+`RDD_KEY` added.
 
-**Flushed-left/dedented-body-line bug hunt (2026-08-16, same session):**
-user reported a shape like a correctly-indented `if(...) {` / closing `}`
-with an in-between body statement dedented to column 0. Checked precedent
-first — `RDD_KEY_228` (flush-left GDR/HTML `<script>` fix) and
-`RDD_KEY_297` (Bash non-brace-nesting flattening fix) are real but
-different bug classes, not a match for a plain curly-family `.java` body
-line. Searched `src/`, round1, round2 (~500 `.java` files each) with two
-heuristics: a broad one (any line after an indented `{`-ending line,
-dedented relative to that opener) produced ~110 hits, all false positives
-on review (ordinary wrapped-signature-plus-body shapes); a strict one
-matching the user's exact description (collapse all the way to column 0
-right after an indented `{`-opening line, excluding comments/closing
-braces) found **zero hits** across all three trees. **Conclusion: not
-reproduced** — either this bug class doesn't occur in this codebase's own
-source under default config (most likely, since
-`curly-general-scope-reindent`, the pass family with prior history of
-exactly this shape (RDD_KEY_228/RDD_KEY_240/RDD_KEY_297), stays `off` by
-default per RDD_KEY_244's permanently-opt-in decision, so this dogfood
-pass never exercises it), or it needs an input shape this session's own
-source tree doesn't contain. No fix attempted; flagged in the final
-report.
+**Flushed-left/dedented-body-line hunt (2026-08-16):** Reported shape: correctly
+indented `if(...) {` / closing `}`, but an interior body statement dedented to
+column 0. `RDD_KEY_228` (flush-left GDR/HTML `<script>`) and `RDD_KEY_297` (Bash
+non-brace-nesting flattening) were checked but are different bug classes.
+Searched `src/`, round1, round2 (~500 `.java` files each). Broad heuristic (~110
+hits) produced only ordinary wrapped-signature/body false positives. Strict
+heuristic — column-0 line immediately after an indented `{` opener, excluding
+comments/closing braces — found **zero hits** in all three trees. **Not
+reproduced**; likely absent because `curly-general-scope- reindent`, the pass
+family with prior history of this shape
+(`RDD_KEY_228`/`RDD_KEY_240`/`RDD_KEY_297`), is `off` by default per
+`RDD_KEY_244`'s permanent opt- in decision. Could also require an absent input
+shape. No fix attempted; reported as unreproduced.
 
-**2026-08-20: re-ran against real `src/`** (after a session's changes to
-`ScopePipelineCurly.java`, shared scope-recursion infrastructure for
-C/C++/Java/Kotlin/JS/TS), adopted. Fresh copy (99 files). Idempotency
-clean. 2 files differed: `ScopePipelineCurly.java`,
-`rules/JsTsSpecificRule.java` — reviewed by hand for (a) flushed-left/
-dedented body lines and (b) lost comment content, **neither found**: every
-indentation change was ordinary alignment-column widening/narrowing. One
-genuine minor comment-content issue: in `JsTsSpecificRule.java`, a two-line
-wrapped trailing comment's second-line leading word got capitalized
-(`root's` → `Root's`) — the sentence-initial-capitalization heuristic
-treated the wrap-continuation line as a new sentence rather than a
-continuation; no text deleted, only mis-capitalized, flagged not fixed
-(same heuristic-gap family as Gate 1c/1c-2). Other hunks were routine
-cosmetic re-style (paren/`!`-spacing, trailing-Javadoc-period stripping,
-ternary/call-wrap reflow, `// for` → `// for pair`/`// for span`
-closing-brace loop-variable naming). Trial JAR: `_test_serial` 330/332 —
-the two failures (`cpp_comments_inp.cpp`,
-`real_code_regressions_217_inp.java`) confirmed the same gru-sync-weights
-drift class as 2026-08-16. round1b/round2b fixed-point empty. Adopted;
-`make clean && make test` **332/332 forward + idempotency, fully green**;
-`make test-server`/`make bench` both passed. No `RDD_KEY` added.
+**2026-08-20: real `src/`, adopted.** After `ScopePipelineCurly.java` changes
+(shared C/C++/Java/Kotlin/JS/TS scope-recursion infrastructure); fresh 99-file
+copy. Idempotency clean. 2 files differed: `ScopePipelineCurly.java`,
+`rules/JsTsSpecificRule.java`; manually checked for flushed-left/dedented lines
+and lost comment content — neither found; all indentation changes were
+alignment-column width changes. One genuine minor comment issue: wrapped
+trailing comment second- line `root's` → `Root's`; sentence-initial
+capitalization treated continuation as a new sentence. No deletion; flagged, not
+fixed (same Gate 1c/1c-2 heuristic gap). Other hunks were cosmetic: paren/`!`
+spacing, trailing-Javadoc-period stripping, ternary/call-wrap reflow, `// for` →
+`// for pair`/`// for span` closing-brace loop naming. Trial JAR `_test_serial`
+330/332; failures `cpp_comments_inp.cpp` and
+`real_code_regressions_217_inp.java` confirmed the same `gru-sync- weights`
+drift class. round1b/round2b empty. Adopted; `make clean && make test` **332/332
+forward + idempotency, fully green**; `make test-server` and `make bench`
+passed. No `RDD_KEY` added.
 
-**2026-08-21: full recurring pass** — `tools/*` (82 files), real `src/`
-(99 files), and the four external dogfood-and-adopt corpora, one session.
-`tools/*`: idempotent, content-diff clean, only 1 file changed
-(`js_ts_content_diff.js`, one mis-indented line) — adopted. `src/`: fresh
-copy, idempotent; 9/99 files differed (the handful touched by this
-session's other work), all ordinary cosmetic re-style (if/else collapse,
-call-wrap width, declaration-alignment column width, trailing-period
-comment stripping), zero content loss, explicit grep for any column-0-flush
-line found none. Trial JAR: `_test_serial` 335/337 — the 2 failures the
-same gru-sync-weights drift class. round1b/round2b empty. Adopted; `make
-clean && make test` **337/337 forward + idempotency, fully green**.
-External corpora (`../../JCS`, `../../MDXplorer`,
-`../../../3rd_party/tools/pcpp_java`,
-`../../../3rd_party/tools/colordiff/colordiff.py`, 61 files, `.cmd` files
-skipped — no formatter support for Windows batch files): idempotent, every
-file byte-identical to committed original (already at the 2026-08-14
-adopt's fixed point) — nothing to copy back. No `RDD_KEY` added.
+**2026-08-21: full recurring pass.** `tools/*` (82), real `src/` (99), and four
+external dogfood/adopt corpora. `tools/*`: idempotent/content-diff clean; only
+`js_ts_content_diff.js` changed (one mis-indented line), adopted. `src/`: fresh
+copy, idempotent; 9/99 differed, all ordinary cosmetic restyling (if/else
+collapse, call-wrap width, declaration-alignment width, trailing-period comment
+stripping), zero content loss; explicit column-0-flush grep found none. Trial
+JAR `_test_serial` 335/337; 2 failures were the same `gru-sync-weights` drift
+class. round1b/round2b empty. Adopted; `make clean && make test` **337/337
+forward + idempotency, fully green**. External corpora: `../../JCS`,
+`../../MDXplorer`, `../../../3rd_party/tools/pcpp_java`,
+`../../../3rd_party/tools/colordiff/colordiff.py` (61 files; `.cmd` skipped
+because Windows batch files have no formatter support). All idempotent and byte-
+identical to committed originals, already at the 2026-08-14 adopted fixed point;
+nothing copied back. No `RDD_KEY` added.
 
-**2026-08-21 (later, same day): scoped pass** — only the 4 GDR files
-touched this session (`gdr/{GdrTokenizer,GdrReindenter,GdrRewriter,
-GdrPipelineGate}.java`); the full-tree pass above already confirmed the
-other 95 files clean earlier the same day. Idempotent on all 4. Diff
-against committed source: ordinary cosmetic re-style (line-wrap reflow,
-paren-spacing, `x++`/`x--` → `++x`/`--x`, a closing-brace `// if`
-annotation, declaration-alignment column widening) — explicit eyeball for
-column-0-flush lines found none. One cosmetic comment-capitalization quirk
-noted, not fixed: `postMode` capitalized to `PostMode` at the start of
-several one-line comments — the already-documented
-`comment-normalization-classifier` behavior of not consulting the
-camelCase-identifier exception list (same accepted-limitation class as
-this file's "Multi-sentence comment capitalization" section). Syntax-clean
-on all 4; content-diff clean on 3/4, the 4th (`GdrTokenizer.java`) flagged
-MISMATCH but traced by hand to the prefix/postfix-increment rewrite above
-(different AST node shape, identical behavior) — the same checker
-false-positive class documented earlier, not re-verified via a fresh
-checker fix since the diff was small enough to read directly. Adopted;
-`make clean && make test` **340/340 forward + idempotency, fully green**.
-No `RDD_KEY` added.
+**2026-08-21 (later): scoped GDR pass.** Only
+`gdr/{GdrTokenizer,GdrReindenter,GdrRewriter,GdrPipelineGate}.java`; other 95
+files had already been confirmed clean that day. All 4 idempotent. Diffs were
+ordinary cosmetic restyling: line-wrap reflow, paren spacing, `x++`/`x--` →
+`++x`/`--x`, closing-brace `// if`, declaration-alignment widening. No
+column-0-flush lines. One cosmetic comment-capitalization quirk, not fixed:
+`postMode` → `PostMode` at start of several one-line comments; known `comment-
+normalization-classifier` behavior that ignores camelCase exception list, same
+accepted-limitation class as “Multi-sentence comment capitalization”. Syntax
+clean on all 4; content-diff clean on 3/4. `GdrTokenizer.java` was flagged
+MISMATCH but manual review traced it to prefix/postfix increment rewrite
+(different AST shape, identical behavior), another known checker false-positive
+class; no checker fix because diff was trivial. Adopted; `make clean && make
+test` **340/340 forward + idempotency, fully green**. No `RDD_KEY` added.
 
-**2026-08-22: full recurring pass** — `tools/*` (82 files) and real `src/`
-(99 files), external corpora run separately. `tools/*`: idempotent; round1
-came back **byte-identical to every committed original file** — nothing to
-adopt, no bugs found. `src/`: fresh copy, idempotent. 8/99 files differed:
-`Config.java`, `Main.java`, `UnicodeAndWhitespaceNormalizer.java`,
-`gdr/GdrTextUtil.java`, `rules/{JavaSpecificRule,JsTsSpecificRule,
-MiscRuleCore,PowerShellSpecificRule}.java` — reviewed by hand, explicit hunt
-for column-0-flush lines and lost comment content: **neither found**. All
-hunks were ordinary cosmetic re-style (declaration-alignment column
-re-width, brace/paren spacing, `x++`/`start++` → `++x`/`++start`, one added
-blank line, one multi-line-call reflow, one Javadoc sentence losing its
-already-optional trailing period, same false-alarm class as earlier
-documented). Trial JAR: `_test_serial` 344/346 — the 2 failures the same
-gru-sync-weights drift class as the 2026-08-16/2026-08-20/2026-08-21
-entries. round1b/round2b empty. Adopted; `make clean && make test`
-**346/346 forward + idempotency, fully green**; `make test-server` passed.
-No `RDD_KEY` added. (Note: `Makefile` and `XL.txt` appeared modified in the
-working tree at session start from prior, unrelated work — left alone and
-excluded from this pass's commit, per the standing rule to never touch
-files outside a session's own changes.)
+**2026-08-22: full recurring pass.** `tools/*` (82) and real `src/` (99),
+external corpora separately. `tools/*`: idempotent; round1 byte-identical to
+every committed original — nothing to adopt, no bugs. `src/`: fresh copy,
+idempotent; 8/99 differed: `Config.java`, `Main.java`,
+`UnicodeAndWhitespaceNormalizer.java`, `gdr/GdrTextUtil.java`, `rules/{JavaSpeci
+ficRule,JsTsSpecificRule,MiscRuleCore,PowerShellSpecificRule}.java`. Manual hunt
+for column-0-flush/lost comment content found neither. All changes cosmetic:
+declaration-alignment width, brace/paren spacing, `x++`/`start++` →
+`++x`/`++start`, one blank line, one multi-line-call reflow, one Javadoc
+sentence losing its already-optional trailing period (known false-alarm class).
+Trial JAR `_test_serial` 344/346; 2 failures were the same `gru-sync-weights`
+drift class from 2026-08-16/20/21. round1b/round2b empty. Adopted; `make clean
+&& make test` **346/346 forward + idempotency, fully green**; `make test-server`
+passed. No `RDD_KEY`. `Makefile` and `XL.txt` were already modified by unrelated
+prior work; left untouched/excluded per standing rule never to modify files
+outside the session's changes.
 
-**2026-08-25: recurring pass, real `src/`** (100 files, `*.java` only,
-flag forced off via `JXMAKE_CODE_FORMATTER_LINE_SPLIT_BY_OPERATOR_
-PRIORITY=off` to guarantee the default explicitly rather than rely on it),
-after this session's `line-split-by-operator-priority` rename/static-import/
-dedup follow-up work. Fresh round1/round2 to `/tmp/fmt_round1`/`/tmp/
-fmt_round2`; idempotent (`diff -rq` empty). Content-diff (`java_content_
-diff.sh`, batch): 96/100 OK, 4 MISMATCH (`FormatterCurly.java`,
-`ScopePipelineCurly.java`, `BlockStructureRule.java`, `MiscRuleCore.java` —
-exactly the files this session's own manual edits touched); a raw
-byte-diff also flagged `Config.java`/`MiscRuleCurly.java` (2 more of this
-session's edited files) as differing though the content-diff checker judged
-them structurally unchanged. All 6 reviewed by hand: ordinary cosmetic
-re-style only (paren/brace spacing, declaration-alignment column re-width,
-call-wrap reflow of hand-written multi-line calls into the formatter's own
-preferred shape, a sentence-initial comment-capitalization quirk on two
-method names — `addClosingComments`/`enforceOperatorLineBreaking` —
-matching the already-documented `comment-normalization-classifier`
-not-consulting-the-exception-list behavior, `// if`/`// for opText`
-closing-brace annotations, one trailing-period stripped). No content/token
-loss, no column-0-flush lines (`tools/detect_flushed_left_lines.py`: 100
-files scanned, zero hits). `java_syntax_check.sh`: 100/100 clean. Adopted;
-`make clean && make test` **363/363 forward + idempotency, fully green**
-from the newly-adopted `src/`. `tools/gru/*.java` (13 files) compiled
-cleanly against the freshly-rebuilt `target/classes` (only the standard
-obsolete `-source`/`-target 8` javac warnings, zero errors) — the GRU tools
-still build against this session's renamed/refactored formatter classes.
-No `RDD_KEY` added (no bug found).
+**2026-08-25: recurring pass, real `src/`.** 100 `*.java` files;
+`JXMAKE_CODE_FORMATTER_LINE_SPLIT_BY_OPERATOR_PRIORITY=off` explicitly forced to
+guarantee the default after this session's `line-split-by-operator-priority`
+rename/static-import/dedup work. Fresh round1/round2 in `/tmp/fmt_round1` and
+`/tmp/fmt_round2`; `diff -rq` empty. `java_content_diff.sh` batch: 96/100 OK, 4
+MISMATCH (`FormatterCurly.java`, `ScopePipelineCurly.java`,
+`BlockStructureRule.java`, `MiscRuleCore.java`), exactly session-edited files.
+Raw byte-diff also flagged `Config.java` and `MiscRuleCurly.java`, two other
+session-edited files, although the content-diff checker considered them
+structurally unchanged. All 6 manually reviewed: cosmetic restyling only —
+paren/brace spacing, declaration-alignment re-width, call-wrap reflow of hand-
+written multi-line calls into formatter-preferred shape, sentence-initial
+comment- capitalization quirk on
+`addClosingComments`/`enforceOperatorLineBreaking` (known `comment-
+normalization-classifier` exception-list limitation), `// if`/`// for opText`
+closing-brace annotations, one trailing period stripped. **No content/token
+loss; no column-0-flush lines** (`tools/detect_flushed_left_lines.py`: 100
+files, zero hits). `java_syntax_check.sh`: 100/100 clean. Adopted; `make clean
+&& make test` **363/363 forward + idempotency, fully green**. `tools/gru/*.java`
+(13 files) compiled cleanly against freshly rebuilt `target/classes`; only
+standard obsolete `-source`/`-target 8` javac warnings, zero errors. GRU tools
+still build against the session's renamed/refactored formatter classes. **No
+`RDD_KEY` added; no bug found.**

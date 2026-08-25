@@ -153,9 +153,6 @@ Use sub-agent. This can be a substantial work.
      2. If a clear opportunity arises, optimize for execution speed.
      3. Perform other useful code clean-ups as needed.
 
-    Prioritize the files that are modified after commit `c08fee6` but you can search for existing
-    helper functions that already exist before that commit.
-
     Prioritize changes that are:
      - Small and focused.
      - Low-risk and behavior-preserving
@@ -182,19 +179,22 @@ Use sub-agent. This can be a substantial work.
 
     NEVER launch Opus or any more expensive sub-agent.
 
+    Prioritize the files that are modified after commit `c30945b` but you can search for existing
+    helper functions that already exist before that commit.
+
 2. [COMMON] **DO NOT REMOVE THIS ITEM. This will be a recurring job.**
 
    Apply the formatter to all `*.java/py/js/sh` source files inside `tools/*` subdirectories.
-   Output the result to `/tmp/tools_round1` and then `/tmp/tools_round2`. Perform idempotency
-   check and content-diff check. If all OK, copy back the formatted round1 to the `tools/*`
-   subdirectories. Perform some eyeballing as needed. Perform bug fixes as needed.
+   Output the result to `/tmp/tools_r1` and then `/tmp/tools_r2`. Perform idempotency check and
+   content-diff check. If all OK, copy back the formatted round1 to the `tools/*` subdirectories.
+   Perform some eyeballing as needed. Perform bug fixes as needed.
 
    Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
-   subdirectories. Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform
-   idempotency check and content-diff check. If all OK, copy back the formatted round1 to the
-   formatter's `src/**/` subdirectories. Perform some eyeballing as needed. Running the test
-   fixtures from the formatter JAR may produce regressions due to missing GRU weights. Perform
-   bug fixes as needed.
+   subdirectories. Output the result to `/tmp/fmt_r1` and then `/tmp/fmt_r2`. Perform idempotency
+   check and content-diff check. If all OK, copy back the formatted round1 to the formatter's
+   `src/**/` subdirectories. Perform some eyeballing as needed. Running the test fixtures from
+   the formatter JAR may produce regressions due to missing GRU weights. Perform bug fixes as
+   needed.
 
    Find and fix accidentally flushed-left line and dedented lines because this may indicates
    formatter bug. Use `tools/detect_flushed_left_lines.py` (run with no args for usage) to scan

@@ -266,25 +266,25 @@ Use sub-agent. This can be a substantial work.
   on an operator-split RHS, still unfixed (RDD_KEY_344/346,
   STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
-- line-split-operator-priority: single-line function-body brace placement
-  flap, opening-brace half fixed, closing-brace half still unfixed
-  (RDD_KEY_346/348, STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
-
-- line-split-operator-priority: Kotlin return/assignment-RHS split never
-  fires on real source (stripOptionalSemicolons runs first), still unfixed
-  (RDD_KEY_347, STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-NONE FOR NOW
+- line-split-operator-priority: single-line function-body closing-brace
+  placement, opening-brace half already fixed -- the straightforward fix
+  (re-run scopePipeline.process()) was already tried and reverted twice for
+  an analogous case, real regression risk, not just estimated difficulty
+  (RDD_KEY_246/348, STATE_LINE_SPLIT_OP.md D10).
 
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-NONE FOR NOW
+- line-split-operator-priority: Kotlin return/assignment-RHS split needs a
+  real ASI-equivalent to work at all (method-chaining, multi-line if/when
+  expressions, elvis continuation, trailing lambdas) -- large, separately-
+  scoped subsystem, explicit corruption risk if done naively (RDD_KEY_347,
+  STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
 Use sub-agent. This can be a substantial work.
 

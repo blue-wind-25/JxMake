@@ -270,9 +270,9 @@ Use sub-agent. This can be a substantial work.
   not re-evaluated after a return-expression operator split, still unfixed
   (RDD_KEY_346, STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
-- Re-dogfood `line-split-operator-priority` against a real Kotlin corpus
-  (elvis-operator false-positive risk only checked via hand-written
-  fixtures so far, never against real Kotlin source).
+- line-split-operator-priority: Kotlin return/assignment-RHS split never
+  fires on real source (stripOptionalSemicolons runs first), still unfixed
+  (RDD_KEY_347, STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
 - Re-dogfood `line-split-operator-priority` against a real TS corpus (e.g.
   reuse/reclone an angular-scale checkout) with the flag forced on — the

@@ -195,7 +195,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     }
 
     /**
-     * `line-split-operator-priority` follow-up (RDD_KEY_350/RDD_KEY_351) -- forwards to this
+     * `line-split-by-operator-priority` follow-up (RDD_KEY_350/RDD_KEY_351) -- forwards to this
      * instance's own internal {@code miscRule} (a separate instance from {@code FormatterCurly}'s
      * own, per this class's "own copy of every rule" construction above), whose
      * {@code parseAssignment} needs the flag to guard against misclassifying that feature's own
@@ -207,11 +207,15 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * `MiscRuleCurly.setNormalizeCommentMultiSentenceCase`. Both declaration-alignment fields are
      * `null` unless the language matches (see this class's constructor), guarded accordingly.
      */
-    public void setLineSplitOperatorPriority(final boolean value)
+    public void setLineSplitByOperatorPriority(final boolean value)
     {
-        this.miscRule.setLineSplitOperatorPriority(value);
-        if(this.jsTsDeclarationRule != null) this.jsTsDeclarationRule.setLineSplitOperatorPriority(value);
-        if(this.kotlinDeclarationRule != null) this.kotlinDeclarationRule.setLineSplitOperatorPriority(value);
+        this.miscRule.setLineSplitByOperatorPriority(value);
+        if(this.jsTsDeclarationRule != null) {
+            this.jsTsDeclarationRule.setLineSplitByOperatorPriority(value);
+        }
+        if(this.kotlinDeclarationRule != null) {
+            this.kotlinDeclarationRule.setLineSplitByOperatorPriority(value);
+        }
     }
 
     /**

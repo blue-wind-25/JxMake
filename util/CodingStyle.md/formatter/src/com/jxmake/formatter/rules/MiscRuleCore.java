@@ -59,17 +59,17 @@ public abstract class MiscRuleCore {
     {
         this.normalizeCommentMultiSentenceCase = value;
     }
-    // `line-split-operator-priority` -- default off, set post-construction via
-    // {@link #setLineSplitOperatorPriority} for the same reason as
+    // `line-split-by-operator-priority` -- default off, set post-construction via
+    // {@link #setLineSplitByOperatorPriority} for the same reason as
     // `normalizeCommentMultiSentenceCase` above (many MiscRuleCore/MiscRuleCurly constructor
     // overloads; this flag is only consulted by `parseAssignment`'s narrow RDD_KEY_350 guard).
     // See STATE_LINE_SPLIT_OP.md's Known Out-of-Scope Finding, "Continuation-line
     // alignment-padding drift on operator-split RHS".
-    protected boolean lineSplitOperatorPriority = false;
+    protected boolean lineSplitByOperatorPriority = false;
 
-    public void setLineSplitOperatorPriority(final boolean value)
+    public void setLineSplitByOperatorPriority(final boolean value)
     {
-        this.lineSplitOperatorPriority = value;
+        this.lineSplitByOperatorPriority = value;
     }
     public final int indentWidth;
     public final int lineLengthLimit;
@@ -1266,7 +1266,7 @@ public static final class Assignment {
                     line2Start, valueTo
                 ) );
                 final Boolean     breakBeforeOperator = classifyMultiLineBreak(line1, line2);
-                // `line-split-operator-priority` follow-up (RDD_KEY_350): that feature's own
+                // `line-split-by-operator-priority` follow-up (RDD_KEY_350): that feature's own
                 // continuation-line convention (Project Layout, STATE_LINE_SPLIT_OP.md --
                 // "unpadded, operator-LEADING ... each continuation line at baseIndent + one
                 // indentWidth") happens to satisfy this method's own STYLE.md §6 "breaking before
@@ -1278,7 +1278,7 @@ public static final class Assignment {
                 // hand-authored STYLE.md §6 example and re-indents to the group's `=` column
                 // (`lhsWidth - 1`), a stale decision `enforceOperatorLineBreaking`'s own
                 // `hasNewlineBetween` guard then leaves untouched forever after -- a round1-vs-
-                // round2 flap, not a corruption. Guarded on `lineSplitOperatorPriority` (false
+                // round2 flap, not a corruption. Guarded on `lineSplitByOperatorPriority` (false
                 // unless the flag is on, so the flag-off pipeline -- including every existing
                 // STYLE.md §6 fixture -- is byte-for-byte unchanged) and on the exact
                 // `baseIndent + indentWidth` column match (a genuine hand-authored §6 example's
@@ -1287,7 +1287,7 @@ public static final class Assignment {
                 // shape). Falls through to the verbatim multi-physical-line fallback below (same
                 // path already used for a call-wrap-produced multi-line RHS), which reproduces the
                 // second line's original text -- including its indentation -- unchanged.
-                if( breakBeforeOperator != null && !( lineSplitOperatorPriority
+                if( breakBeforeOperator != null && !( lineSplitByOperatorPriority
                         && breakBeforeOperator
                         && isOperatorSplitContinuationIndent(stmt, targetIdx, newlineIdx) ) ) {
                     return Assignment.multiLine(
@@ -1311,10 +1311,11 @@ public static final class Assignment {
         );
     }
     /**
-     * `line-split-operator-priority` follow-up (RDD_KEY_350) -- {@code true} iff {@code newlineIdx}
-     * (the assignment RHS's sole internal `NEWLINE`) is immediately followed by a `WHITESPACE`
-     * token exactly {@code indentWidth} characters wider than {@code targetIdx}'s own leading
-     * indentation, i.e. the statement's base indent plus exactly one indent level -- the precise
+     * `line-split-by-operator-priority` follow-up (RDD_KEY_350) -- {@code true} iff
+     * {@code newlineIdx} (the assignment RHS's sole internal `NEWLINE`) is immediately followed
+     * by a `WHITESPACE` token exactly {@code indentWidth} characters wider than
+     * {@code targetIdx}'s own leading indentation, i.e. the statement's base indent plus exactly
+     * one indent level -- the precise
      * shape {@code MiscRuleCurly.renderFragment}/{@code renderTieredSplit} render an
      * operator-leading continuation line at (see this job's Project Layout: "each continuation line
      * at baseIndent + one indentWidth"). Both indentations are read directly from `stmt`'s own raw

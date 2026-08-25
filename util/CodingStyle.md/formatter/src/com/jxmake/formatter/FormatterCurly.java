@@ -195,7 +195,7 @@ public final class FormatterCurly extends FormatterCore {
         // misclassifying `enforceOperatorLineBreaking`'s own continuation-line output shape (see
         // STATE_LINE_SPLIT_OP.md's Known Out-of-Scope Finding). No-op when the flag is off
         // (default), matching every other gated call in this method.
-        scopePipeline.setLineSplitOperatorPriority( config.lineSplitOperatorPriority() );
+        scopePipeline.setLineSplitByOperatorPriority( config.lineSplitByOperatorPriority() );
         text = scopePipeline.process(text);
 
         // Phase 1: structural/brace passes.
@@ -424,7 +424,7 @@ public final class FormatterCurly extends FormatterCore {
         // ahead of addClosingComments so its line-count decisions always see the final line count.
         if(lang.isKotlin) text = kotlinRule.formatWhenExpressions( tokenizer.apply(text) );
         // addClosingComments (+ enforceSwitchExpressionArrowAlignment, which stays paired
-        // immediately after it) is only run HERE when line-split-operator-priority is off. When
+        // immediately after it) is only run HERE when line-split-by-operator-priority is off. When
         // that flag is on, enforceOperatorLineBreaking (further below, gated the same way) can
         // still EXPAND a block's line count after this point -- splitting a long if/while/for
         // condition or return/assignment RHS across multiple lines -- so running
@@ -435,7 +435,7 @@ public final class FormatterCurly extends FormatterCore {
         // after enforceOperatorLineBreaking instead (see that later call site) -- keeping this
         // flag-off branch byte-for-byte identical to the pre-fix, single unconditional call so
         // every existing flag-off fixture/pipeline stays unaffected.
-        if( !config.lineSplitOperatorPriority() ) {
+        if( !config.lineSplitByOperatorPriority() ) {
             text = blockRule.addClosingComments( tokenizer.apply(text) );
             if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
                 tokenizer.apply(text)
@@ -487,7 +487,7 @@ public final class FormatterCurly extends FormatterCore {
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
         // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
-        if( config.lineSplitOperatorPriority() ) {
+        if( config.lineSplitByOperatorPriority() ) {
             text = miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) );
             // enforceOperatorLineBreaking can turn a single-line function body's `return`
             // expression multi-line (e.g. `constexpr auto count() -> int { return B ? 1 : 0; }`'s

@@ -1151,7 +1151,7 @@ Multi-sentence comment capitalization:
 
 Line-split operator priority:
 
-  line_split_operator_priority_inp/out.cpp           -- `line-split-operator-priority` (default off):
+  line_split_operator_priority_inp/out.cpp           -- `line-split-by-operator-priority` (default off):
                                                         if/while/ switch/assignment/return primary-tier splits
                                                         (`&&`, `||`, `+`, `-`), ternary-tier and mul-div-tier
                                                         fallback splits engaged only when the primary tier
@@ -4355,15 +4355,15 @@ Real-code regressions:
                                                         two statements and discarded the second line's
                                                         contribution to the returned value.
 
-  real_code_regressions_231_inp/out.java             -- `line-split-operator-priority` fix: a generic wildcard
-                                                        type argument's `?` (e.g. `Optional<?>`, `Collection<?
-                                                        extends E>`) was being mistaken for a ternary
-                                                        conditional operator and split as if it were one,
-                                                        producing an ugly and unnecessary break inside the
-                                                        type argument. The `?` is now recognized as a wildcard
-                                                        when it is immediately bounded by `<`/`,` on one side
-                                                        and `>`/`,`/`extends`/`super` on the other, and is
-                                                        left alone.
+  real_code_regressions_231_inp/out.java             -- `line-split-by-operator-priority` fix: a generic
+                                                        wildcard type argument's `?` (e.g. `Optional<?>`,
+                                                        `Collection<? extends E>`) was being mistaken for a
+                                                        ternary conditional operator and split as if it were
+                                                        one, producing an ugly and unnecessary break inside
+                                                        the type argument. The `?` is now recognized as a
+                                                        wildcard when it is immediately bounded by `<`/`,` on
+                                                        one side and `>`/`,`/`extends`/`super` on the other,
+                                                        and is left alone.
 
   real_code_regressions_232_inp/out.java             -- brace-collapse fix: a single-statement `if`/`while`/
                                                         `for` body that is itself a local variable declaration
@@ -4383,14 +4383,14 @@ Real-code regressions:
                                                         was previously collapsed to an illegal braceless form
                                                         (`const`/`var` bodies were already correctly refused).
 
-  real_code_regressions_235_inp/out.java             -- line-split-operator-priority idempotency fix: an
+  real_code_regressions_235_inp/out.java             -- line-split-by-operator-priority idempotency fix: an
                                                         `if`/`while` condition whose single-statement body
                                                         collapses onto the condition's own closing-paren line
                                                         could push that physical line over the length limit
                                                         without being re-detected for splitting,
                                                         self-correcting only on a second formatting pass.
 
-  real_code_regressions_236_inp/out.java             -- line-split-operator-priority idempotency fix: an
+  real_code_regressions_236_inp/out.java             -- line-split-by-operator-priority idempotency fix: an
                                                         operator-split expanding an enclosing `while` loop's
                                                         line count past the closing-comment-min-lines
                                                         threshold was invisible to the closing-comment
@@ -4410,7 +4410,7 @@ Real-code regressions:
                                                         with a following line, with no rollback when that
                                                         chain attempt was then rejected.
 
-  real_code_regressions_239_inp/out.cpp              -- line-split-operator-priority: two real-code
+  real_code_regressions_239_inp/out.cpp              -- line-split-by-operator-priority: two real-code
                                                         split-point bugs found via an fmtlib/fmt sample
                                                         dogfood. (1) a comma-separated multi-declarator
                                                         statement's operator scan crossed unrelated
@@ -4419,27 +4419,27 @@ Real-code regressions:
                                                         template argument list (`Type*>`) was mistaken for a
                                                         binary multiplication split point.
 
-  real_code_regressions_240_inp/out.kt               -- line-split-operator-priority: an array-subscript
+  real_code_regressions_240_inp/out.kt               -- line-split-by-operator-priority: an array-subscript
                                                         operator (`arr[i - 1]`) with no depth-0 tier-1/tier-3
                                                         operator elsewhere in the condition was mistaken for a
                                                         valid split point, found via a square/okio sample
                                                         dogfood.
 
-  real_code_regressions_241_inp/out.ts               -- line-split-operator-priority: a bare `:` with no
+  real_code_regressions_241_inp/out.ts               -- line-split-by-operator-priority: a bare `:` with no
                                                         preceding real ternary `?` (a function-type-alias
                                                         parameter list's type annotations, and a trailing
                                                         object-literal property after a nullish-coalescing
                                                         fallback) was mistaken for a ternary else-branch,
                                                         found via an angular/angular sample dogfood.
 
-  real_code_regressions_242_inp/out.java             -- line-split-operator-priority: an operator-split
+  real_code_regressions_242_inp/out.java             -- line-split-by-operator-priority: an operator-split
                                                         assignment RHS continuation line inside a
                                                         multi-declaration alignment group got re-indented
                                                         under the group's `=` column on a second format
                                                         instead of keeping its first-format indentation, found
                                                         via a google/guava sample dogfood.
 
-  real_code_regressions_243_inp/out.ts               -- line-split-operator-priority: a declaration's
+  real_code_regressions_243_inp/out.ts               -- line-split-by-operator-priority: a declaration's
                                                         already-multi-line array-literal initializer, with a
                                                         newline sitting inside a spread argument's parens
                                                         rather than at the top level, was mistaken for

@@ -505,7 +505,7 @@ client-read-ahead                      = 1           # client-only -- see "Serve
 # ── Structural constants ──────────────────────────────────────────────────────
 line-length                            = 100
 line-length-with-comment               = 120         # code+comment fits-check width -- curly-brace family only
-line-split-operator-priority           = off         # off | on -- curly-brace family only
+line-split-by-operator-priority        = off         # off | on -- curly-brace family only
 
 indent-size                            = 4
 indent-style                           = spaces      # spaces | tabs | auto
@@ -691,9 +691,9 @@ can have its `import` line capitalized to `// Import './rxjs/rxjs.spec';` if the
 it a plausible sentence start. Leave this key off for codebases where commented-out code inside
 multi-line comment groups is common, or accept spot-checking after enabling it.
 
-### Operator-priority line splitting (`line-split-operator-priority`)
+### Operator-priority line splitting (`line-split-by-operator-priority`)
 
-`line-split-operator-priority` (default `off`) is a curly-brace family (C/C++/Java/Kotlin/JS/TS)
+`line-split-by-operator-priority` (default `off`) is a curly-brace family (C/C++/Java/Kotlin/JS/TS)
 option: when an `if`/`while`/`switch` condition, a `for(...)` header, or a plain `return`/
 assignment right-hand side (not wrapped in a function call) is too long to fit on one line, it is
 split across multiple lines at operator boundaries instead of being left long.
@@ -1160,11 +1160,6 @@ itself (up to 5 passes) until two consecutive passes produce byte-identical outp
 a fixed point instead of flapping. This is a known, currently-unresolved gap
 for C/C++/Java/JS/TS only.
 
-The same general class also shows up with `line-split-operator-priority` turned on: a condition or
-assignment right-hand side that gets split across operator boundaries the first time can sometimes
-collapse back onto one line on a second formatting pass, or vice versa. No workaround beyond the
-one above.
-
 #### 4. `.ts` files with embedded JSX need the explicit `jsx-in-ts` opt-in
 
 The JSX/TSX boundary-finding pre-pass runs unconditionally on `.jsx`/`.tsx`/`.js`/`.mjs`/`.cjs` but
@@ -1286,6 +1281,38 @@ on the side of keeping braces whenever a statement's shape is ambiguous (for exa
 standalone expression like `a * b;`, which reads the same as a pointer declaration without a
 symbol table). The result is always valid code; the only downside is an occasional brace pair
 that a human reader could tell is safe to remove but this pass conservatively leaves in place.
+
+#### 10. Operator-priority line splitting is not always idempotent
+
+Like the multi-line-call/condition wrapping described in limitation 3 above,
+`line-split-by-operator-priority` (default `off`, see "Operator-priority line splitting" above) can
+occasionally flap between two formatting passes: a condition or assignment right-hand side that
+gets split across operator boundaries the first time can sometimes collapse back onto one line on a
+second pass, or vice versa. The result is always valid, compilable code in every case — only the
+line-splitting shape differs between passes.
+
+A related, narrower case: a single-line function body whose contents get split onto multiple lines
+by this option can, on the very first formatting pass, leave its closing brace attached to the same
+line as the split content instead of moving it to its own line (most reliably observed in C/C++),
+for example:
+
+```cpp
+constexpr auto pick() -> int
+{ return someVeryLongConditionExpressionName > anotherVeryLongThresholdName
+    ? 1111111
+    : 2222222; }
+```
+
+Running the formatter a second time on its own output corrects this. Both are known,
+currently-unresolved gaps; no workaround exists beyond running the formatter twice.
+
+#### 11. Kotlin: a `return` statement or plain assignment is never split by `line-split-by-operator-priority`
+
+For Kotlin only, `line-split-by-operator-priority` currently splits an overlong `if`/`while`/`for`
+condition correctly, but never splits an overlong `return` expression or a plain (non-`if`/`while`)
+assignment's right-hand side — those are always left as one long line for Kotlin, even though the
+option covers both shapes for every other supported language. This is a known, currently-unresolved
+gap with no workaround beyond keeping those specific lines shorter by hand.
 
 ### Tag-based family (XML/HTML5)
 

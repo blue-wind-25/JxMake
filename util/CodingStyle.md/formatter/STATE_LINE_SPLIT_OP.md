@@ -53,10 +53,10 @@ doesn't reapply `enforceOperatorLineBreaking`'s own ternary spacing
 conventions either, so the flattened result also has mangled tight spacing
 around `?`/`:` (`ngDevMode ?[validAppIdInitializer] :[]`). Fixed narrowly,
 flag-gated (same "avoid threading a new constructor param" / narrow-guard
-precedent as D12): a new `lineSplitOperatorPriority` field + setter on
+precedent as D12): a new `lineSplitByOperatorPriority` field + setter on
 `DeclarationAlignmentRuleCurly` (consulted only by `spansMultipleLines`,
 harmless on the C/C++/Java subclass path which never calls that method),
-wired from `ScopePipelineCurly.setLineSplitOperatorPriority` into both
+wired from `ScopePipelineCurly.setLineSplitByOperatorPriority` into both
 `jsTsDeclarationRule`/`kotlinDeclarationRule`; when the flag is on, a
 newline at paren/bracket depth > 0 (brace depth 0) is ALSO treated as
 spanning multiple lines, closing the blind spot. Flag-off pipeline
@@ -257,7 +257,7 @@ unmodified `main` before this pass):
   braces (e.g. `SuppliersTest.java`'s
   `for(...) Object unused = Suppliers.synchronizedSupplier(...).get();`).
   Flagged prominently as a real, pre-existing bug worth a future session's
-  attention, but unrelated to `line-split-operator-priority` and out of
+  attention, but unrelated to `line-split-by-operator-priority` and out of
   scope here.
   One genuine in-scope bug found and fixed: `findTernarySplits` mistook a
   generic wildcard type argument's `?` (`Optional<?>`, `Collection<?
@@ -379,7 +379,7 @@ but does **not** fully resolve (2 residual files). Flag-on at
 residuals (byte-identical diff shape to the flag-off run) plus **one new
 file**, `guava/src/com/google/common/cache/LocalCache.java`, not present in
 either default-indent run nor in the flag-off-indent2 run -- i.e. a
-flag-*dependent* (only appears with `line-split-operator-priority=on`),
+flag-*dependent* (only appears with `line-split-by-operator-priority=on`),
 `indent-size=2`-*dependent* (only appears at indent-size 2) non-idempotency,
 newly discovered by this pass. Diffed: an operator-split assignment RHS's
 continuation line (`|| ticker == NULL_TICKER ) ? null : ticker;`, tier-1
@@ -498,13 +498,13 @@ indentWidth`.
     (`enforceCallLineBreaking`'s own per-side gap check) of a NEWLINE in a
     gap suppressing a rewrite for that side.
 - `src/com/jxmake/formatter/FormatterCurly.java` — exactly ONE gated call
-  site: `if( config.lineSplitOperatorPriority() ) { text =
+  site: `if( config.lineSplitByOperatorPriority() ) { text =
   miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) ); }`,
   positioned immediately after `blockRule.alignBracelessElseIfChain(...)`
   runs and before the `enforceCallLineBreaking` calls that follow it. See
   Resolved Design Decisions D1 below for why this deviates from inserting
   before all four existing `enforceCallLineBreaking` call sites.
-- `src/com/jxmake/formatter/Config.java` — `line-split-operator-priority`
+- `src/com/jxmake/formatter/Config.java` — `line-split-by-operator-priority`
   key fully wired (`ALL_KEYS`, field, accessor, `GROUPS`, `describeAll`
   case, `fromRawMap` parsing).
 
@@ -564,7 +564,7 @@ Full text: `RDD_KEY_340`.
   unconditionally here: everything between its old position and
   `enforceOperatorLineBreaking`'s position (Phase 4 cosmetic spacing,
   `alignBracelessElseIfChain`) runs regardless of the
-  `line-split-operator-priority` flag, and `alignBracelessElseIfChain`
+  `line-split-by-operator-priority` flag, and `alignBracelessElseIfChain`
   itself can change a block's line count (collapsing a braceless `if`/body
   onto one line) — an unconditional move would have changed
   `addClosingComments`' decisions, and thus output, even with the flag
@@ -693,7 +693,7 @@ Full text: `RDD_KEY_340`.
   hand-authored §6 example and re-indents it to the alignment group's `=`
   column, a decision `enforceOperatorLineBreaking`'s own `hasNewlineBetween`
   guard then leaves stale forever after. Fixed via a new
-  `lineSplitOperatorPriority` flag (threaded into `MiscRuleCore`/
+  `lineSplitByOperatorPriority` flag (threaded into `MiscRuleCore`/
   `ScopePipelineCurly` post-construction, same "avoid threading a new param
   through every constructor overload" precedent as
   `normalizeCommentMultiSentenceCase`) gating a new
@@ -739,10 +739,10 @@ Full text: `RDD_KEY_340`.
   that follows doesn't reapply `enforceOperatorLineBreaking`'s own ternary
   spacing either, mangling `?`/`:` spacing on top of losing the split. Fixed
   narrowly and flag-gated (same precedent as D12): a new
-  `lineSplitOperatorPriority` field + setter on
+  `lineSplitByOperatorPriority` field + setter on
   `DeclarationAlignmentRuleCurly` (consulted only by `spansMultipleLines`;
   harmless on the C/C++/Java subclass, which never calls that method), wired
-  from `ScopePipelineCurly.setLineSplitOperatorPriority` into both
+  from `ScopePipelineCurly.setLineSplitByOperatorPriority` into both
   `jsTsDeclarationRule`/`kotlinDeclarationRule`; when on, a newline at
   paren/bracket depth > 0 (brace depth 0) also counts as multi-line. Flag-off
   pipeline byte-for-byte unchanged. Verified against the real, unmodified
@@ -825,7 +825,7 @@ open.
 A separate, pre-existing, flag-independent baseline of 42/1655 guava files
 also differ round1-vs-round2 regardless of this feature (e.g.
 `Functions.java`'s anonymous-class closing-brace indentation) — confirmed
-unrelated to `line-split-operator-priority` (reproduces with the flag
+unrelated to `line-split-by-operator-priority` (reproduces with the flag
 off), not investigated, out of scope for this job. **2026-08-25
 `indent-size=2` follow-up (`RDD_KEY_344`):** re-verified the 42-file
 baseline reproduces unchanged at default `indent-size` on the fresh clone

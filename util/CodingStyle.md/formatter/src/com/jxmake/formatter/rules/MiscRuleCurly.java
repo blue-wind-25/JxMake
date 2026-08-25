@@ -2148,7 +2148,7 @@ public static final class Signature {
         return lineIndent(tokens, q);
     }
     /**
-     * {@code line-split-operator-priority} (RDD_KEY_340, amended by a mid-implementation scope
+     * {@code line-split-by-operator-priority} (RDD_KEY_340, amended by a mid-implementation scope
      * addendum -- see that key's follow-up row): splits a too-long `if`/`while`/`switch` condition,
      * `for(...)` header, or a bare `return`/assignment-RHS expression with no enclosing call
      * parens. `if`/`while`/`switch`/return/assignment-RHS split at a three-tier operator priority

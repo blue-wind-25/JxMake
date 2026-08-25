@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-//%JXM_CFMT_CFG line-split-operator-priority=on;indent-size=2
+//%JXM_CFMT_CFG line-split-by-operator-priority=on;indent-size=2
 
 package test;
 

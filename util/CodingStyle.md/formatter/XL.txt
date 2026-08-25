@@ -259,7 +259,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-- line-split-operator-priority: declaration/condition collapse-on-round2
+- line-split-by-operator-priority: declaration/condition collapse-on-round2
   flap, JS/TS manifestation fixed, original Java/guava manifestation still
   unreproduced (STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
@@ -267,7 +267,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- line-split-operator-priority: single-line function-body closing-brace
+- line-split-by-operator-priority: single-line function-body closing-brace
   placement, opening-brace half already fixed -- the straightforward fix
   (re-run scopePipeline.process()) was already tried and reverted twice for
   an analogous case, real regression risk, not just estimated difficulty
@@ -277,7 +277,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-- line-split-operator-priority: Kotlin return/assignment-RHS split needs a
+- line-split-by-operator-priority: Kotlin return/assignment-RHS split needs a
   real ASI-equivalent to work at all (method-chaining, multi-line if/when
   expressions, elvis continuation, trailing lambdas) -- large, separately-
   scoped subsystem, explicit corruption risk if done naively (RDD_KEY_347,

@@ -4425,6 +4425,13 @@ Real-code regressions:
                                                         valid split point, found via a square/okio sample
                                                         dogfood.
 
+  real_code_regressions_241_inp/out.ts               -- line-split-operator-priority: a bare `:` with no
+                                                        preceding real ternary `?` (a function-type-alias
+                                                        parameter list's type annotations, and a trailing
+                                                        object-literal property after a nullish-coalescing
+                                                        fallback) was mistaken for a ternary else-branch,
+                                                        found via an angular/angular sample dogfood.
+
 How Tests Are Run
 -----------------
 

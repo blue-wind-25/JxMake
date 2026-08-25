@@ -2523,15 +2523,25 @@ public static final class Signature {
         return isOp(nt, ">") || nt.type == TokenType.ANGLE_BRACKET_CLOSE;
     }
     /**
-     * Same depth-tracking shape as {@link #findOperatorSplits}, for tier-2 ternary `?`/`:` -- every
-     * top-level `?` and `:` OP token at the candidate's shallowest depth is a split point (a
-     * chained ternary splits at each). Never called for Kotlin (see this file's tiered-split doc
-     * comments).
+     * Same depth-tracking shape as {@link #findOperatorSplits}, for tier-2 ternary `?`/`:`. Unlike
+     * tier-1's `&&`/`||`/`+`/`-` (each independently splittable), a `:` is only ever a genuine
+     * ternary else-branch when it's paired with an actual preceding `?` opener at the SAME depth --
+     * so this tracks a per-depth count of not-yet-paired `?` openers ({@code pendingQuestionAtDepth})
+     * and only adds a `:` to {@code occ} when one is available (decrementing it), rather than
+     * unconditionally treating every depth-0-relative `:` as splittable regardless of context. Two
+     * `?` shapes are excluded from ever opening a pair (and thus never added to {@code occ} either):
+     * {@link #isGenericWildcardQuestion} (`Optional<?>`/`List<? extends X>`/`Map<K, ?>`) and
+     * {@link #isOptionalMarkerQuestion} (TS/Java optional-parameter or optional-property marker,
+     * `x?: T` / `y?: number` -- a real ternary's `?` is never immediately followed by `:`, since the
+     * true-branch expression can never be empty). A chained ternary (`a ? b : c ? d : e`) still
+     * splits at every `?`/`:` pair, same as before this guard. Never called for Kotlin (see this
+     * file's tiered-split doc comments).
      */
     private List<Integer> findTernarySplits(final List<Token> tokens, final int from, final int to)
     {
-              int         depth = 0;
-        final List<int[]> occ   = new ArrayList<>();
+              int               depth                  = 0;
+        final List<int[]>       occ                    = new ArrayList<>();
+        final Map<Integer, Integer> pendingQuestionAtDepth = new HashMap<>();
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.PUNCT) {
@@ -2540,17 +2550,49 @@ public static final class Signature {
             }
             else if( t.type == TokenType.OP && isOp(
                 t, "?"
-            ) && isGenericWildcardQuestion(
+            ) && ( isGenericWildcardQuestion(
                 tokens, i
-            ) ) {
-                // Skip -- `Optional<?>`/`List<? extends X>`/`Map<K, ?>` wildcard, not a ternary
+            ) || isOptionalMarkerQuestion(
+                tokens, i
+            ) ) ) {
+                // Skip -- generic wildcard, or a TS/Java optional-parameter/-property marker; either
+                // way, not a real ternary opener, so it neither joins `occ` nor primes a pending pair
             }
-            else if( t.type == TokenType.OP && ( isOp(t, "?") || isOp(t, ":") ) ) {
+            else if( t.type == TokenType.OP && isOp(t, "?") ) {
                 occ.add( new int[] { i, depth } );
+                pendingQuestionAtDepth.merge(depth, 1, Integer::sum);
+            }
+            else if( t.type == TokenType.OP && isOp(t, ":") ) {
+                final int pending = pendingQuestionAtDepth.getOrDefault(depth, 0);
+                if(pending > 0) {
+                    pendingQuestionAtDepth.put(depth, pending - 1);
+                    occ.add( new int[] { i, depth } );
+                }
+                // else: no unpaired `?` at this depth -- a type annotation, object-literal property,
+                // or similar bare `:`, not a genuine ternary else-branch; leave unsplit
             }
         } // for
 
         return occurrencesAtShallowestDepth(occ);
+    }
+    /**
+     * {@code true} if the `?` OP token at {@code idx} is immediately followed (skipping whitespace/
+     * comments) by `:` -- a TS/Java optional-parameter or optional-property marker (`x?: T`,
+     * `y?: number`), not a real ternary opener. A genuine ternary's `?` can never be immediately
+     * followed by `:`, since the true-branch expression is never empty -- so this check alone is
+     * sufficient, no lookback needed. Mirrors {@link #isGenericWildcardQuestion}'s and
+     * {@link #isPointerTypeBeforeAngleClose}'s "check the adjacent bound" pattern. Found via
+     * real-code testing against `angular/angular` (`url_tree.ts`'s `PathCompareFn` type alias,
+     * `resource.ts`'s trailing `?? { isActive: false }` object literal) -- both misfired because
+     * {@link #findTernarySplits} previously treated ANY depth-matching `:` as ternary-splittable
+     * with no requirement that a real `?` preceded it at all.
+     */
+    private boolean isOptionalMarkerQuestion(final List<Token> tokens, final int idx)
+    {
+        final int nextIdx = nextSignificantIndex(tokens, idx + 1);
+        if(nextIdx < 0) return false;
+
+        return isOp(tokens.get(nextIdx), ":");
     }
     /**
      * Shared tail of {@link #findBinaryOpSplits}/{@link #findTernarySplits}: given {@code occ}

@@ -4,6 +4,54 @@ Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
 status: see `STATE_DOGFOOD.md`.
 
+**2026-08-25 real-code TS dogfood (`angular/angular` sample, flag forced on,
+`RDD_KEY_349`):** first real-code TS-specific validation of this feature's
+`?.`/`??`/optional-param landmine safety at scale (prior TS coverage was only
+the hand-written `test/line_split_operator_priority_{inp,out}.ts` fixture).
+Cloned `angular/angular` fresh (shallow, 1788 `.ts` files under
+`packages/*/src/**`) and hand-selected 27 files by grepping for real `?.`/
+`??` usage, real optional-parameter signatures, long tier-1/tier-3 candidates,
+and a genuine ternary, all filtered to lines near/over the tool's default
+`line-length=100` (no adaptation needed this time — angular's own style
+naturally crosses 100 in these shapes, unlike the tighter `fmtlib/fmt`/
+`square/okio` corpora). A flag-off control at the same config isolated the
+feature's own effect: 15/27 files differed flag-on-vs-off, the other 12
+(`?.`/`??`-only/optional-param-only) were byte-identical — blast radius
+matches the targeted shapes exactly. Confirmed correct on real code: tier-1
+`&&`/`||`/`+` splits (`ingest.ts`, `service.ts`, `format_date.ts`,
+`shadow_css.ts`, and 6 more); a genuine ternary still splits operator-leading
+(`strip_nonrequired_parentheses.ts`'s `return requiredParens.has(expr) ?
+expr : expr.expr;`); `?.`/`??` never mistaken for ternary
+(`navigation_transition.ts`'s `currentNavigation?.targetBrowserUrl ??
+currentNavigation?.extractedUrl` byte-identical flag-on-vs-off); a real
+optional-parameter signature's `?` untouched even when its function got
+reflowed for an unrelated reason (`url_tree.ts`'s `isActive(url, router,
+matchOptions?: Partial<IsActiveMatchOptions>)`); tier-3 confirmed sound via a
+synthetic repro (no real tier-3-in-condition candidates in this draw, same
+gap as the `square/okio` pass). One genuine, real, in-scope bug found and
+fixed (D11) — general to the whole curly family but a serious TS-specific
+landmine: `findTernarySplits` treated ANY depth-matching `:` as a valid
+ternary split candidate with no requirement that a real `?` opener preceded
+it, misfiring on ordinary TS type-annotation/object-literal colons
+(`url_tree.ts`'s `type PathCompareFn = (container: UrlSegmentGroup, ...) =>
+boolean;`, `resource.ts`'s `?? { isActive: false }`). Fixed via a per-depth
+pending-`?` counter plus a new `isOptionalMarkerQuestion` guard (a `?`
+immediately followed by `:` — TS/Java's optional-parameter marker — can
+never be a genuine ternary opener). New fixture
+`test/real_code_regressions_241_{inp,out}.ts`. `make test`: 360/360 ->
+361/361. Idempotency: 26/27 sampled files byte-identical round1-vs-round2
+post-fix; 1 known recurrence (`create_application.ts`, the documented
+declaration/condition collapse-on-round2 flap, not chased — see Known
+Out-of-Scope Finding below). `js_ts_syntax_check.sh`: 26/27 clean; 1 file
+(`structure.ts`) flagged 7 pre-existing "',' expected" errors, confirmed
+flag-independent and unrelated to this feature (reproduces identically with
+the flag off and on the raw unformatted original) — a stray `;` inserted
+inside an object-literal spread-with-type-cast expression
+(`{...(x as T);}`), likely an `enforceSemicolonInsertion`-family ASI bug
+akin to `RDD_KEY_339`'s but a different trigger shape; flagged for a future
+JS/TS-job session, not fixed here (out of scope for this job). Full text:
+`RDD_KEY_349`.
+
 **2026-08-25 real-code Kotlin dogfood (`square/okio` sample, flag forced on,
 `RDD_KEY_347`):** first real-code Kotlin-specific validation of this feature
 (prior real-code passes were Java/C++ only, via `pcpp_java`/`google/guava`/
@@ -498,6 +546,41 @@ Full text: `RDD_KEY_340`.
   so `STATE_COMMON.md`'s round1==round2 fixture requirement can't be met;
   verified via a documented manual repro instead. `make test`: 360/360 before
   and after, zero regressions (flag- and C/C++-gated change).
+- **D11 — a bare `:` needs a real preceding ternary `?` at the same depth;
+  `?` immediately followed by `:` is never a ternary opener.** `RDD_KEY_349`,
+  `angular/angular` TS dogfood. `findTernarySplits` previously treated EVERY
+  depth-matching `:` OP token as a valid ternary else-branch split candidate
+  unconditionally — harmless for C/C++/Java/Kotlin (a bare, unpaired `:`
+  rarely appears inside an if/while/return/assignment span there) but a
+  serious landmine for TypeScript, where a bare `:` is extremely common
+  (function-type-alias/arrow-function parameter type annotations,
+  object-type-literal and plain-object-literal property colons). Found via
+  `url_tree.ts`'s `type PathCompareFn = (container: UrlSegmentGroup,
+  containee: UrlSegmentGroup, matrixParams: ParamMatchOptions) => boolean;`
+  (three parameter-type-annotation colons, zero real `?` anywhere in the
+  RHS, all three wrongly split as if three ternary else-branches) and
+  `resource.ts`'s `... ?? { isActive: false };` (the trailing object
+  literal's own property colon — the `??` itself never matches the ternary
+  `?` scan, since it's tokenized as its own distinct `"??"` OP text, but the
+  old unconditional colon check still fired on the unrelated property colon
+  that happened to be the sole depth-0 `:` present). Fixed via a new
+  per-depth pending-`?`-count tracker (`pendingQuestionAtDepth`, a
+  `Map<Integer,Integer>`): a genuine ternary `?` (past the existing
+  `isGenericWildcardQuestion` exclusion) increments its depth's pending
+  count and is still added to `occ` as before; a `:` is only added to `occ`
+  — and only then decrements the count — when a pending `?` actually exists
+  at its exact depth, otherwise it's left alone. A second, related shape
+  also excluded via a new `isOptionalMarkerQuestion` helper (mirrors
+  `isGenericWildcardQuestion`'s/`isPointerTypeBeforeAngleClose`'s
+  "check the immediately-adjacent token" pattern): a `?` immediately
+  followed by `:` (TS/Java's optional-parameter/-property marker, `x?: T`)
+  can never be a genuine ternary opener, since a real ternary's true-branch
+  expression is never empty — excluded from priming the pending-count, so
+  its paired `:` also correctly finds no pending `?` and is left alone too.
+  Chained ternaries (`a ? b : c ? d : e`) are unaffected — each `?`/`:` pair
+  still resolves via the same per-depth counter. New fixture
+  `test/real_code_regressions_241_{inp,out}.ts`. `make test`: 360/360 ->
+  361/361.
 
 ---
 
@@ -707,9 +790,14 @@ in the dogfood summary above).
   arithmetic operator (`arr[i - 1]`) mistaken for a valid tier-1 split
   point when no depth-0 tier-1/tier-3 operator exists elsewhere in the
   condition.
+- `test/real_code_regressions_241_{inp,out}.ts` — `RDD_KEY_349` fix (first
+  TS-specific real-code fixture for this job): a bare `:` with no preceding
+  real ternary `?` (a function-type-alias parameter list's type
+  annotations, and a trailing object-literal property colon after a
+  nullish-coalescing fallback) mistaken for a ternary else-branch.
 - `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 ->
-  359/359 -> 360/360 forward + idempotency, zero regressions (360 after
-  `RDD_KEY_347`'s `real_code_regressions_240` fixture).
+  359/359 -> 360/360 -> 361/361 forward + idempotency, zero regressions
+  (361 after `RDD_KEY_349`'s `real_code_regressions_241` fixture).
 - **2026-08-25 real-code C/C++ dogfood (`RDD_KEY_346`):** `fmtlib/fmt`
   sample (17 files, flag forced on) — first C/C++-specific real-code
   validation of this feature. Confirmed correct tier-1/tier-3 splits, a
@@ -736,6 +824,18 @@ in the dogfood summary above).
   open (needs a new helper, out of scope). No fixture (no real trigger of
   this shape is fully idempotent with only half the bug fixed). `make test`:
   360/360 before and after, zero regressions.
+- **2026-08-25 real-code TS dogfood (`RDD_KEY_349`):** `angular/angular`
+  sample (27 files, flag forced on) — first TS-specific real-code
+  validation of this feature's `?.`/`??`/optional-param landmine safety at
+  scale. Confirmed correct tier-1/tier-2 (genuine ternary) splits, `?.`/`??`
+  never mistaken for ternary, and a real optional-parameter `?` staying
+  untouched, all on real code; tier-3 mechanism confirmed sound via a
+  synthetic repro (no real tier-3-in-condition candidates in this corpus
+  draw). Found and fixed 1 genuine split-point bug (D11, general to the
+  curly family but a TS-specific landmine in practice: a bare `:` with no
+  preceding real ternary `?`). `js_ts_syntax_check.sh`: 26/27 clean; the 1
+  flagged file's errors confirmed pre-existing and flag-independent
+  (unrelated bug, out of scope, flagged for a future JS/TS-job session).
 
 ---
 
@@ -761,3 +861,10 @@ in the dogfood summary above).
 - [~] Single-line function-body brace-placement flap (`RDD_KEY_348`, D10) —
       half fixed (opening-`{` staleness); closing-`}` staleness needs a new
       narrowly-scoped re-run helper, left for a future session.
+- [x] Real-code TS dogfood (`angular/angular` sample, flag forced on,
+      `RDD_KEY_349`) — 1 bug found and fixed (D11, a bare `:` mistaken for a
+      ternary else-branch with no preceding real `?`, a TS-specific
+      landmine); `?.`/`??`/optional-param safety and tier-1/tier-2
+      correctness confirmed on real code at scale. 1 pre-existing,
+      flag-independent, unrelated bug found and flagged (not fixed, out of
+      scope for this job) via `js_ts_syntax_check.sh`.

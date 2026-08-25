@@ -274,11 +274,6 @@ Use sub-agent. This can be a substantial work.
   fires on real source (stripOptionalSemicolons runs first), still unfixed
   (RDD_KEY_347, STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
-- Re-dogfood `line-split-operator-priority` against a real TS corpus (e.g.
-  reuse/reclone an angular-scale checkout) with the flag forced on — the
-  `?.`/`??`/optional-param landmines were only checked via hand-written
-  fixtures so far, never at scale against real TS source.
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===

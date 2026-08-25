@@ -1046,3 +1046,31 @@ No `RDD_KEY` added. (Note: `Makefile` and `XL.txt` appeared modified in the
 working tree at session start from prior, unrelated work — left alone and
 excluded from this pass's commit, per the standing rule to never touch
 files outside a session's own changes.)
+
+**2026-08-25: recurring pass, real `src/`** (100 files, `*.java` only,
+flag forced off via `JXMAKE_CODE_FORMATTER_LINE_SPLIT_BY_OPERATOR_
+PRIORITY=off` to guarantee the default explicitly rather than rely on it),
+after this session's `line-split-by-operator-priority` rename/static-import/
+dedup follow-up work. Fresh round1/round2 to `/tmp/fmt_round1`/`/tmp/
+fmt_round2`; idempotent (`diff -rq` empty). Content-diff (`java_content_
+diff.sh`, batch): 96/100 OK, 4 MISMATCH (`FormatterCurly.java`,
+`ScopePipelineCurly.java`, `BlockStructureRule.java`, `MiscRuleCore.java` —
+exactly the files this session's own manual edits touched); a raw
+byte-diff also flagged `Config.java`/`MiscRuleCurly.java` (2 more of this
+session's edited files) as differing though the content-diff checker judged
+them structurally unchanged. All 6 reviewed by hand: ordinary cosmetic
+re-style only (paren/brace spacing, declaration-alignment column re-width,
+call-wrap reflow of hand-written multi-line calls into the formatter's own
+preferred shape, a sentence-initial comment-capitalization quirk on two
+method names — `addClosingComments`/`enforceOperatorLineBreaking` —
+matching the already-documented `comment-normalization-classifier`
+not-consulting-the-exception-list behavior, `// if`/`// for opText`
+closing-brace annotations, one trailing-period stripped). No content/token
+loss, no column-0-flush lines (`tools/detect_flushed_left_lines.py`: 100
+files scanned, zero hits). `java_syntax_check.sh`: 100/100 clean. Adopted;
+`make clean && make test` **363/363 forward + idempotency, fully green**
+from the newly-adopted `src/`. `tools/gru/*.java` (13 files) compiled
+cleanly against the freshly-rebuilt `target/classes` (only the standard
+obsolete `-source`/`-target 8` javac warnings, zero errors) — the GRU tools
+still build against this session's renamed/refactored formatter classes.
+No `RDD_KEY` added (no bug found).

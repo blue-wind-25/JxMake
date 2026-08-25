@@ -213,12 +213,12 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     public void setLineSplitByOperatorPriority(final boolean value)
     {
         this.miscRule.setLineSplitByOperatorPriority(value);
-        if(this.jsTsDeclarationRule != null) {
-            this.jsTsDeclarationRule.setLineSplitByOperatorPriority(value);
-        }
-        if(this.kotlinDeclarationRule != null) {
-            this.kotlinDeclarationRule.setLineSplitByOperatorPriority(value);
-        }
+        if(this.jsTsDeclarationRule != null) this.jsTsDeclarationRule.setLineSplitByOperatorPriority(
+            value
+        );
+        if(this.kotlinDeclarationRule != null) this.kotlinDeclarationRule.setLineSplitByOperatorPriority(
+            value
+        );
     }
 
     /**
@@ -2099,9 +2099,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final int          depth
     )
     {
-        final Set<Member> keep = Collections.newSetFromMap(
-            new IdentityHashMap<>()
-        );
+        final Set<Member> keep = Collections.newSetFromMap( new IdentityHashMap<>() );
         keep.addAll(filtered);
         final List<String> result = new ArrayList<>();
               int          i      = 0;

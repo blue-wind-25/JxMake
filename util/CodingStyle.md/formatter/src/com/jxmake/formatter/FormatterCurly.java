@@ -21,6 +21,7 @@ import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
+
 import static com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement;
 
 /**
@@ -104,9 +105,9 @@ public final class FormatterCurly extends FormatterCore {
             // JSX_SPAN tokens at all (every non-.jsx/.tsx file, by construction).
             if(lang.isJsxSyntax) {
                 for(final Token t : tokens) {
-                    if(t.type == TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) {
-                        recordOpeningTagMeasurement(t.jsxOpeningTagEndOffset, lineLengthLimit);
-                    }
+                    if(t.type == TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) recordOpeningTagMeasurement(
+                        t.jsxOpeningTagEndOffset, lineLengthLimit
+                    );
                 } // for
             } // if
             return tokens;
@@ -426,7 +427,7 @@ public final class FormatterCurly extends FormatterCore {
         // cosmetic (found via arrow-kt/arrow's `Iterable.kt` `separateEither`, RDD_KEY_174). Moved
         // ahead of addClosingComments so its line-count decisions always see the final line count.
         if(lang.isKotlin) text = kotlinRule.formatWhenExpressions( tokenizer.apply(text) );
-        // addClosingComments (+ enforceSwitchExpressionArrowAlignment, which stays paired
+        // AddClosingComments (+ enforceSwitchExpressionArrowAlignment, which stays paired
         // immediately after it) is only run HERE when line-split-by-operator-priority is off. When
         // that flag is on, enforceOperatorLineBreaking (further below, gated the same way) can
         // still EXPAND a block's line count after this point -- splitting a long if/while/for
@@ -492,7 +493,7 @@ public final class FormatterCurly extends FormatterCore {
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
         if( config.lineSplitByOperatorPriority() ) {
             text = miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) );
-            // enforceOperatorLineBreaking can turn a single-line function body's `return`
+            // EnforceOperatorLineBreaking can turn a single-line function body's `return`
             // expression multi-line (e.g. `constexpr auto count() -> int { return B ? 1 : 0; }`'s
             // ternary) -- but enforceFunctionDefinitionAllmanBraceStyle already ran twice above
             // (Phase 1, and again after enforceCallLineBreaking) while the body still looked like
@@ -517,7 +518,7 @@ public final class FormatterCurly extends FormatterCore {
             if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
                 tokenizer.apply(text)
             );
-        }
+        } // if
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );

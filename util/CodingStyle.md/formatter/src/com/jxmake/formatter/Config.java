@@ -54,10 +54,9 @@ public final class Config {
         "jsx-in-ts"
     };
 
-    private static final Set<String> ALL_KEYS_SET =
-            Collections.unmodifiableSet(
-                new LinkedHashSet<String>( Arrays.asList(ALL_KEYS) )
-            );
+    private static final Set<String> ALL_KEYS_SET = Collections.unmodifiableSet(
+        new LinkedHashSet<String>( Arrays.asList(ALL_KEYS) )
+    );
 
     private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
     private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
@@ -100,7 +99,7 @@ public final class Config {
      * {@code MiscRuleCurly.enforceOperatorLineBreaking}.
      */
     private boolean lineSplitByOperatorPriority = false;
-    private int     serverPort                = 17173;
+    private int     serverPort                  = 17173;
     /**
      * {@code server-concurrency} -- thread-pool size {@code ServerMode.start} uses for the
      * HTTP server's executor. Default 1: today's implicit single-threaded {@code HttpServer}
@@ -652,10 +651,7 @@ public final class Config {
         return result;
     }
 
-    private static Set<String> minus(
-        final Set<String> a,
-        final Set<String> b
-    )
+    private static Set<String> minus(final Set<String> a, final Set<String> b)
     {
         final Set<String> result = new LinkedHashSet<String>(a);
         result.removeAll(b);

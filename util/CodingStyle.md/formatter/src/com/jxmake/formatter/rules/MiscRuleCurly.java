@@ -2306,7 +2306,7 @@ public static final class Signature {
     private boolean hasTopLevelComma(final List<Token> tokens, final int from, final int to)
     {
         int depth = 0;
-        for( int i = from; i <= to; ++i ) {
+        for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.PUNCT) {
                      if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
@@ -2457,7 +2457,7 @@ public static final class Signature {
      * Shared paren/bracket depth delta behind {@link #findBinaryOpSplits}/{@link #findTernarySplits}:
      * {@code +1} for `(`/`[`, {@code -1} for `)`/`]`, {@code 0} for anything else (including a
      * non-{@code PUNCT} token, so callers may apply it unconditionally inside their own
-     * {@code PUNCT}-gated block without re-checking the token type).
+     * {@code PUNCT}-gated block without re-checking the token type)
      */
     private int parenBracketDepthDelta(final Token t)
     {
@@ -2501,14 +2501,16 @@ public static final class Signature {
                      if( "[".equals(t.text) ) ++bracketDepth;
                 else if( "]".equals(t.text) ) --bracketDepth;
             }
-            else if( bracketDepth == 0 && t.type == TokenType.OP && isBinaryOperatorContext(tokens, i) ) {
+            else if( bracketDepth == 0 && t.type == TokenType.OP && isBinaryOperatorContext(
+                tokens, i
+            ) ) {
                 for(final String opText : opTexts) {
                     if( isOp(t, opText) ) {
                         if( "*".equals(opText) && isPointerTypeBeforeAngleClose(tokens, i) ) break;
                         occ.add( new int[] { i, depth } );
                         break;
                     }
-                }
+                } // for opText
             }
         } // for i
 
@@ -2552,8 +2554,8 @@ public static final class Signature {
      */
     private List<Integer> findTernarySplits(final List<Token> tokens, final int from, final int to)
     {
-              int               depth                  = 0;
-        final List<int[]>       occ                    = new ArrayList<>();
+              int                   depth                  = 0;
+        final List<int[]>           occ                    = new ArrayList<>();
         final Map<Integer, Integer> pendingQuestionAtDepth = new HashMap<>();
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
@@ -2580,7 +2582,7 @@ public static final class Signature {
                     pendingQuestionAtDepth.put(depth, pending - 1);
                     occ.add( new int[] { i, depth } );
                 }
-                // else: no unpaired `?` at this depth -- a type annotation, object-literal property,
+                // Else: no unpaired `?` at this depth -- a type annotation, object-literal property,
                 // or similar bare `:`, not a genuine ternary else-branch; leave unsplit
             }
         } // for
@@ -2604,7 +2606,7 @@ public static final class Signature {
         final int nextIdx = nextSignificantIndex(tokens, idx + 1);
         if(nextIdx < 0) return false;
 
-        return isOp(tokens.get(nextIdx), ":");
+        return isOp( tokens.get(nextIdx), ":" );
     }
     /**
      * Shared tail of {@link #findBinaryOpSplits}/{@link #findTernarySplits}: given {@code occ}

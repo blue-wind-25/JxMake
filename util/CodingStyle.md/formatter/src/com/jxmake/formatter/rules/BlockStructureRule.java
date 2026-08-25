@@ -850,7 +850,7 @@ public class BlockStructureRule {
         // google/guava real-code testing (`SuppliersTest.java` and 7 other files: `if (...) {
         // Supplier<String> supplier = ...; }` collapsed to the illegal braceless `if (...)
         // Supplier<String> supplier = ...;`).
-        if( ( lang.isC || lang.isCpp || lang.isJava )
+        if( (lang.isC || lang.isCpp || lang.isJava)
                 && sig.get(0).type == TokenType.IDENTIFIER
                 && isNonPrimitiveDeclarationLead(sig)
         ) return false;
@@ -923,53 +923,58 @@ public class BlockStructureRule {
     private boolean isNonPrimitiveDeclarationLead(final List<Token> sig)
     {
         final int n = sig.size();
-        int       i = 0;
+              int i = 0;
 
         // Qualified name: IDENTIFIER (('.' | '::') IDENTIFIER)* -- `::` is C++'s own scope-
         // resolution separator (`std::string`), tokenized as a single `OP`, alongside `.` for
         // Java's package/nested-type qualification.
         if( sig.get(i).type != TokenType.IDENTIFIER ) return false;
         ++i;
-        while( i + 1 < n
-                && ( isPunct( sig.get(i), "." ) || isOp( sig.get(i), "::" ) )
-                && sig.get(i + 1).type == TokenType.IDENTIFIER
-        ) {
-            i += 2;
-        }
+        while( i + 1 < n && ( isPunct(
+            sig.get(i), "."
+        ) || isOp(
+            sig.get(i), "::"
+        ) ) && sig.get(
+            i + 1
+        ).type == TokenType.IDENTIFIER ) i += 2;
 
-        // Optional generic argument list.
+        // Optional generic argument list
         if( i < n && sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN ) {
             int depth = 1;
             ++i;
-            while( i < n && depth > 0 ) {
+            while(i < n && depth > 0) {
                      if( sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN )  ++depth;
                 else if( sig.get(i).type == TokenType.ANGLE_BRACKET_CLOSE ) --depth;
                 ++i;
             }
-            if( depth != 0 ) return false; // unbalanced -- not actually a generic type here
-        }
+            if(depth != 0) return false; // Unbalanced -- not actually a generic type here
+        } // if
 
         // Optional array-type brackets (`Foo[] arr = ...;`).
-        while( i + 1 < n && isPunct( sig.get(i), "[" ) && isPunct( sig.get(i + 1), "]" ) ) {
-            i += 2;
-        }
+        while( i + 1 < n && isPunct( sig.get(i), "[" ) && isPunct( sig.get(i + 1), "]" ) ) i += 2;
 
         // Optional C/C++ pointer/reference declarator run (`MyClass* obj = ...;`, `MyClass& ref =
         // ...;`, `const MyClass* const p = ...;`) -- `*`/`&`/`&&` between the type and the variable
         // name, and a `const`/`volatile` qualifier can appear on either side of them. Harmless for
         // Java (never produces this token shape) but needed for C/C++, which this method is
         // reached for equally (the caller gates on `lang.isC || lang.isCpp || lang.isJava`).
-        while( i < n
-                && ( isOp( sig.get(i), "*" ) || isOp( sig.get(i), "&" ) || isOp( sig.get(i), "&&" )
-                        || "const".equals( sig.get(i).text ) || "volatile".equals( sig.get(i).text ) )
-        ) {
-            ++i;
-        }
+        while( i < n && ( isOp(
+            sig.get(i), "*"
+        ) || isOp(
+            sig.get(i), "&"
+        ) || isOp(
+            sig.get(i), "&&"
+        ) || "const".equals(
+            sig.get(i).text
+        ) || "volatile".equals(
+            sig.get(i).text
+        ) ) ) ++i;
 
-        // Require the variable name, then a declaration-only follow token.
+        // Require the variable name, then a declaration-only follow token
         if( i >= n || sig.get(i).type != TokenType.IDENTIFIER ) return false;
         ++i;
-        if( i >= n ) return false;
+        if(i >= n) return false;
+
         return isOp( sig.get(i), "=" ) || isPunct( sig.get(i), ";" )
                 || isPunct( sig.get(i), "," ) || isPunct( sig.get(i), "[" );
     }

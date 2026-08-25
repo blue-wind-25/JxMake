@@ -1291,20 +1291,18 @@ public static final class Assignment {
                 // shape). Falls through to the verbatim multi-physical-line fallback below (same
                 // path already used for a call-wrap-produced multi-line RHS), which reproduces the
                 // second line's original text -- including its indentation -- unchanged.
-                if( breakBeforeOperator != null && !( lineSplitByOperatorPriority
-                        && breakBeforeOperator
-                        && isOperatorSplitContinuationIndent(stmt, targetIdx, newlineIdx) ) ) {
-                    return Assignment.multiLine(
-                        stmt.get(targetIdx),
-                        lhsText,
-                        stmt.get(opIdx),
-                        breakBeforeOperator,
-                        line1,
-                        line2,
-                        trailingComment,
-                        blankBefore
-                    );
-                } // if
+                if( breakBeforeOperator != null && !( lineSplitByOperatorPriority && breakBeforeOperator && isOperatorSplitContinuationIndent(
+                    stmt, targetIdx, newlineIdx
+                ) ) ) return Assignment.multiLine(
+                    stmt.get(targetIdx),
+                    lhsText,
+                    stmt.get(opIdx),
+                    breakBeforeOperator,
+                    line1,
+                    line2,
+                    trailingComment,
+                    blankBefore
+                ); // If
             } // if
         } // if
         final List<Token> value = new ArrayList<>( stmt.subList(valueFrom, valueTo) );
@@ -2748,8 +2746,7 @@ public static final class Assignment {
      * `[.!?]` + whitespace + lowercase-letter sentence-boundary matcher, shared with {@link
      * com.jxmake.formatter.rules.ToolingCommentNormalizer}'s identical use of the same pattern
      */
-    protected static final Pattern SENTENCE_BOUNDARY =
-            Pattern.compile("[.!?]\\s+([a-z])");
+    protected static final Pattern SENTENCE_BOUNDARY = Pattern.compile("[.!?]\\s+([a-z])");
 
     protected void capitalizeMultiSentence(
         final List<String>  contents,
@@ -2770,7 +2767,7 @@ public static final class Assignment {
         // detection already relied on elsewhere in this codebase's comment-grammar handling
         // (dot-count/trailing-period logic), applied here to an internal sentence start rather
         // than only the trailing period.
-        final Matcher matcher = SENTENCE_BOUNDARY.matcher(combinedText);
+        final Matcher                 matcher     = SENTENCE_BOUNDARY.matcher(combinedText);
         final Map<Integer, Character> capitalized = new HashMap<>();
 
         // Every boundary below has targetWordIndex > 0 (letterPos == 0 is skipped just below), and
@@ -2949,10 +2946,9 @@ public static final class Assignment {
      */
     protected CommentDecision classifyComment(final String content, final int targetWordIndex)
     {
-        final CommentFeatureVector features =
-                CommentFeatureExtractor.extract(
-                    content, lang, TokenType.COMMENT_LINE, targetWordIndex
-                );
+        final CommentFeatureVector features = CommentFeatureExtractor.extract(
+            content, lang, TokenType.COMMENT_LINE, targetWordIndex
+        );
 
         return GruAbstainResolver.resolve(
             features, content, targetWordIndex, gruClassifier, gruWeightsPath

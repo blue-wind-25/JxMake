@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-//%JXM_CFMT_CFG line-split-operator-priority=on
+//%JXM_CFMT_CFG line-split-by-operator-priority=on
 
 public class T {
     public static <E extends Enum<E>> boolean isWildcard(Class<E> type) {

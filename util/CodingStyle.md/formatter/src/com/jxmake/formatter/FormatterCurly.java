@@ -8,6 +8,7 @@
 package com.jxmake.formatter;
 
 import java.util.List;
+import java.util.function.Function;
 
 import com.jxmake.formatter.rules.BlockStructureRule;
 import com.jxmake.formatter.rules.CppSpecificRule;
@@ -18,7 +19,10 @@ import com.jxmake.formatter.rules.MiscRuleCurly;
 import com.jxmake.formatter.rules.SwitchRule;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
+import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
+
+import static com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement;
 
 /**
  * Curly-brace-family formatter (C/C++/Java/Kotlin) -- everything in this file used to live
@@ -92,7 +96,7 @@ public final class FormatterCurly extends FormatterCore {
         final int indentWidth     = config.indentSize();
         final int lineLengthLimit = config.lineLength();
 
-        final java.util.function.Function<String, List<Token>> tokenizer = (final String s) -> {
+        final Function<String, List<Token>> tokenizer = (final String s) -> {
             final List<Token> tokens = tokenizerCore.tokenize(s);
             TokenizerCore.markFrozenSpans(tokens, formatOff);
             // STATE_JS_TS.md's Step 2 "context 11" scoping session, Increment 1
@@ -101,7 +105,7 @@ public final class FormatterCurly extends FormatterCore {
             // JSX_SPAN tokens at all (every non-.jsx/.tsx file, by construction).
             if(lang.isJsxSyntax) {
                 for(final Token t : tokens) {
-                    if(t.type == com.jxmake.formatter.tokenizer.TokenizerCore.TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement(
+                    if(t.type == TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) recordOpeningTagMeasurement(
                         t.jsxOpeningTagEndOffset, lineLengthLimit
                     );
                 } // for
@@ -191,6 +195,11 @@ public final class FormatterCurly extends FormatterCore {
             lineLengthLimit,
             lineLengthWithCommentLimit
         );
+        // RDD_KEY_350: guards `parseAssignment`'s STYLE.md §6 multi-line-RHS recognition against
+        // misclassifying `enforceOperatorLineBreaking`'s own continuation-line output shape (see
+        // STATE_LINE_SPLIT_OP.md's Known Out-of-Scope Finding). No-op when the flag is off
+        // (default), matching every other gated call in this method.
+        scopePipeline.setLineSplitByOperatorPriority( config.lineSplitByOperatorPriority() );
         text = scopePipeline.process(text);
 
         // Phase 1: structural/brace passes.
@@ -418,8 +427,8 @@ public final class FormatterCurly extends FormatterCore {
         // cosmetic (found via arrow-kt/arrow's `Iterable.kt` `separateEither`, RDD_KEY_174). Moved
         // ahead of addClosingComments so its line-count decisions always see the final line count.
         if(lang.isKotlin) text = kotlinRule.formatWhenExpressions( tokenizer.apply(text) );
-        // addClosingComments (+ enforceSwitchExpressionArrowAlignment, which stays paired
-        // immediately after it) is only run HERE when line-split-operator-priority is off. When
+        // AddClosingComments (+ enforceSwitchExpressionArrowAlignment, which stays paired
+        // immediately after it) is only run HERE when line-split-by-operator-priority is off. When
         // that flag is on, enforceOperatorLineBreaking (further below, gated the same way) can
         // still EXPAND a block's line count after this point -- splitting a long if/while/for
         // condition or return/assignment RHS across multiple lines -- so running
@@ -430,7 +439,7 @@ public final class FormatterCurly extends FormatterCore {
         // after enforceOperatorLineBreaking instead (see that later call site) -- keeping this
         // flag-off branch byte-for-byte identical to the pre-fix, single unconditional call so
         // every existing flag-off fixture/pipeline stays unaffected.
-        if( !config.lineSplitOperatorPriority() ) {
+        if( !config.lineSplitByOperatorPriority() ) {
             text = blockRule.addClosingComments( tokenizer.apply(text) );
             if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
                 tokenizer.apply(text)
@@ -482,8 +491,25 @@ public final class FormatterCurly extends FormatterCore {
         // for why an earlier collapse-time attempt was stale. Shared across all languages: C/C++/
         // Java grew their own opt-in braceless chain-collapse alongside Kotlin's.
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
-        if( config.lineSplitOperatorPriority() ) {
+        if( config.lineSplitByOperatorPriority() ) {
             text = miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) );
+            // EnforceOperatorLineBreaking can turn a single-line function body's `return`
+            // expression multi-line (e.g. `constexpr auto count() -> int { return B ? 1 : 0; }`'s
+            // ternary) -- but enforceFunctionDefinitionAllmanBraceStyle already ran twice above
+            // (Phase 1, and again after enforceCallLineBreaking) while the body still looked like
+            // a one-liner, and deliberately left its `{` K&R per RDD_KEY_75 ("never Allman-convert
+            // a one-liner"). That decision is now stale, same "widened by a later pass" shape as
+            // the enforceCallLineBreaking-triggered re-run above (see that call site's own
+            // comment) -- re-run it here, flag-on only, and ahead of addClosingComments below for
+            // the same reason as that pass's own reordering (RDD_KEY_343): the `{`-onto-its-own-
+            // line newline this can introduce must be visible to any enclosing block's own
+            // closing-comment line-count threshold decision. C/C++ only -- the identical one-liner-
+            // defer behavior in JavaSpecificRule/KotlinSpecificRule/JsTsSpecificRule's own Allman-
+            // brace passes was never given this re-run treatment either (not yet confirmed to need
+            // it by real-code dogfood), so left as-is rather than speculatively widened.
+            if(isCOrCpp) text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(
+                tokenizer.apply(text)
+            );
             // See the flag-off addClosingComments call site above (Phase 3) for why this pair is
             // deferred to here, flag-on only: enforceOperatorLineBreaking can expand a block's
             // line count, and addClosingComments' STYLE.md §7 threshold decision must see that
@@ -492,7 +518,7 @@ public final class FormatterCurly extends FormatterCore {
             if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
                 tokenizer.apply(text)
             );
-        }
+        } // if
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceCallLineBreaking( tokenizer.apply(text) );
         text = miscRule.enforceComplexityPadding( tokenizer.apply(text) );

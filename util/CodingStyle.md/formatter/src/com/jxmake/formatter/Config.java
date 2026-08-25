@@ -15,9 +15,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class Config {
 
@@ -29,7 +31,7 @@ public final class Config {
     static final String STYLE_FMT_FILE_NAME = ".jxmake-code-formatter";
 
     private static final String[] ALL_KEYS = {
-        "line-length", "line-length-with-comment", "line-split-operator-priority",
+        "line-length", "line-length-with-comment", "line-split-by-operator-priority",
         "indent-size", "indent-style", "server-port",
         "server-concurrency", "client-read-ahead",
         "closing-comment-min-lines", "format-macros", "line-endings",
@@ -52,10 +54,9 @@ public final class Config {
         "jsx-in-ts"
     };
 
-    private static final java.util.Set<String> ALL_KEYS_SET =
-            Collections.unmodifiableSet(
-                new java.util.LinkedHashSet<String>( Arrays.asList(ALL_KEYS) )
-            );
+    private static final Set<String> ALL_KEYS_SET = Collections.unmodifiableSet(
+        new LinkedHashSet<String>( Arrays.asList(ALL_KEYS) )
+    );
 
     private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
     private static final String[] LINE_ENDINGS_CHOICES = { "lf", "crlf", "preserve" };
@@ -86,7 +87,7 @@ public final class Config {
     private int    indentSize            = DEFAULT_INDENT_SIZE;
     private String indentStyle           = DEFAULT_INDENT_STYLE;
     /**
-     * {@code line-split-operator-priority} -- default off: when a curly-family (C/C++/Java/
+     * {@code line-split-by-operator-priority} -- default off: when a curly-family (C/C++/Java/
      * Kotlin/JS/TS) `if`/`while`/`switch` condition, `for(...)` header, or a bare `return`/
      * assignment-RHS expression with no enclosing call parens, is too long, splits at a three-tier
      * operator priority ladder -- `&&`/`||`/`+`/`-` first (equal priority), then `?:` ternary
@@ -97,8 +98,8 @@ public final class Config {
      * same ladder per clause if a clause is itself still too long. See
      * {@code MiscRuleCurly.enforceOperatorLineBreaking}.
      */
-    private boolean lineSplitOperatorPriority = false;
-    private int     serverPort                = 17173;
+    private boolean lineSplitByOperatorPriority = false;
+    private int     serverPort                  = 17173;
     /**
      * {@code server-concurrency} -- thread-pool size {@code ServerMode.start} uses for the
      * HTTP server's executor. Default 1: today's implicit single-threaded {@code HttpServer}
@@ -324,9 +325,9 @@ public final class Config {
         return indentStyle;
     }
 
-    public boolean lineSplitOperatorPriority()
+    public boolean lineSplitByOperatorPriority()
     {
-        return lineSplitOperatorPriority;
+        return lineSplitByOperatorPriority;
     }
 
     public int serverPort()
@@ -537,7 +538,7 @@ public final class Config {
         groups.put(
             "Structural constants",
             new String[] {
-                "line-length", "line-length-with-comment", "line-split-operator-priority",
+                "line-length", "line-length-with-comment", "line-split-by-operator-priority",
                 "indent-size", "indent-style"
             }
         );
@@ -633,7 +634,7 @@ public final class Config {
     {
         final Config               defaults = new Config();
         final List<ConfigProperty> result   = new ArrayList<ConfigProperty>();
-        final java.util.Set<String> seen    = new java.util.LinkedHashSet<String>();
+        final Set<String>          seen     = new LinkedHashSet<String>();
         for( final Map.Entry<String, String[]> groupEntry : GROUPS.entrySet() ) {
             final String group = groupEntry.getKey();
             for( final String key : groupEntry.getValue() ) {
@@ -650,12 +651,9 @@ public final class Config {
         return result;
     }
 
-    private static java.util.Set<String> minus(
-        final java.util.Set<String> a,
-        final java.util.Set<String> b
-    )
+    private static Set<String> minus(final Set<String> a, final Set<String> b)
     {
-        final java.util.Set<String> result = new java.util.LinkedHashSet<String>(a);
+        final Set<String> result = new LinkedHashSet<String>(a);
         result.removeAll(b);
 
         return result;
@@ -711,8 +709,8 @@ public final class Config {
                               + "trailing comment into its own wrap decision, so this key has no effect elsewhere.";
                 break;
 
-            case "line-split-operator-priority":
-                defaultValue  = defaults.lineSplitOperatorPriority ? "on" : "off";
+            case "line-split-by-operator-priority":
+                defaultValue  = defaults.lineSplitByOperatorPriority ? "on" : "off";
                 allowedValues = ON_OFF_CHOICES;
                 note          = "Curly-brace family only (C/C++/Java/Kotlin/JS/TS) — splits a too-long "
                               + "if/while/switch condition, for(...) header, or a bare return/assignment-RHS "
@@ -1019,8 +1017,8 @@ public final class Config {
         config.lineLengthWithComment              = parseInt(
             raw, "line-length-with-comment", config.lineLengthWithComment
         );
-        config.lineSplitOperatorPriority          = parseBoolean(
-            raw, "line-split-operator-priority", config.lineSplitOperatorPriority
+        config.lineSplitByOperatorPriority        = parseBoolean(
+            raw, "line-split-by-operator-priority", config.lineSplitByOperatorPriority
         );
         config.indentSize                         = parseInt(raw, "indent-size", config.indentSize);
         config.indentStyle                        = parseChoice(

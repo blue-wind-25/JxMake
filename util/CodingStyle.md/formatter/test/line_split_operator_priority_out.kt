@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-//%JXM_CFMT_CFG line-split-operator-priority=on
+//%JXM_CFMT_CFG line-split-by-operator-priority=on
 
 fun primaryTierIf(a: Boolean, b: Boolean, c: Boolean)
 {

@@ -14,13 +14,17 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.classifier.CommentClassifier;
 import com.jxmake.formatter.classifier.CommentDecision;
 import com.jxmake.formatter.classifier.CommentFeatureExtractor;
+import com.jxmake.formatter.classifier.CommentFeatureVector;
 import com.jxmake.formatter.classifier.gru.GruAbstainResolver;
 import com.jxmake.formatter.classifier.gru.GruClassifier;
 import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
@@ -58,6 +62,18 @@ public abstract class MiscRuleCore {
     public void setNormalizeCommentMultiSentenceCase(final boolean value)
     {
         this.normalizeCommentMultiSentenceCase = value;
+    }
+    // `line-split-by-operator-priority` -- default off, set post-construction via
+    // {@link #setLineSplitByOperatorPriority} for the same reason as
+    // `normalizeCommentMultiSentenceCase` above (many MiscRuleCore/MiscRuleCurly constructor
+    // overloads; this flag is only consulted by `parseAssignment`'s narrow RDD_KEY_350 guard).
+    // See STATE_LINE_SPLIT_OP.md's Known Out-of-Scope Finding, "Continuation-line
+    // alignment-padding drift on operator-split RHS".
+    protected boolean lineSplitByOperatorPriority = false;
+
+    public void setLineSplitByOperatorPriority(final boolean value)
+    {
+        this.lineSplitByOperatorPriority = value;
     }
     public final int indentWidth;
     public final int lineLengthLimit;
@@ -1254,7 +1270,30 @@ public static final class Assignment {
                     line2Start, valueTo
                 ) );
                 final Boolean     breakBeforeOperator = classifyMultiLineBreak(line1, line2);
-                if(breakBeforeOperator != null) return Assignment.multiLine(
+                // `line-split-by-operator-priority` follow-up (RDD_KEY_350): that feature's own
+                // continuation-line convention (Project Layout, STATE_LINE_SPLIT_OP.md --
+                // "unpadded, operator-LEADING ... each continuation line at baseIndent + one
+                // indentWidth") happens to satisfy this method's own STYLE.md §6 "breaking before
+                // an operator" shape exactly. On a fresh format that pass hasn't run yet when this
+                // one does (Phase 0, well before Phase 4's `enforceOperatorLineBreaking`), so no
+                // collision occurs there -- but reformatting that pass's own already-split output
+                // feeds this method a genuinely two-physical-line RHS whose second line sits at
+                // exactly `baseIndent + indentWidth`, which this method then misclassifies as a
+                // hand-authored STYLE.md §6 example and re-indents to the group's `=` column
+                // (`lhsWidth - 1`), a stale decision `enforceOperatorLineBreaking`'s own
+                // `hasNewlineBetween` guard then leaves untouched forever after -- a round1-vs-
+                // round2 flap, not a corruption. Guarded on `lineSplitByOperatorPriority` (false
+                // unless the flag is on, so the flag-off pipeline -- including every existing
+                // STYLE.md §6 fixture -- is byte-for-byte unchanged) and on the exact
+                // `baseIndent + indentWidth` column match (a genuine hand-authored §6 example's
+                // *rendered* column is `lhsWidth`-derived, essentially never coincident with one
+                // bare extra indent level, so this narrowly targets only the operator-split output
+                // shape). Falls through to the verbatim multi-physical-line fallback below (same
+                // path already used for a call-wrap-produced multi-line RHS), which reproduces the
+                // second line's original text -- including its indentation -- unchanged.
+                if( breakBeforeOperator != null && !( lineSplitByOperatorPriority && breakBeforeOperator && isOperatorSplitContinuationIndent(
+                    stmt, targetIdx, newlineIdx
+                ) ) ) return Assignment.multiLine(
                     stmt.get(targetIdx),
                     lhsText,
                     stmt.get(opIdx),
@@ -1263,7 +1302,7 @@ public static final class Assignment {
                     line2,
                     trailingComment,
                     blankBefore
-                );
+                ); // If
             } // if
         } // if
         final List<Token> value = new ArrayList<>( stmt.subList(valueFrom, valueTo) );
@@ -1272,6 +1311,43 @@ public static final class Assignment {
             stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
             trailingComment, blankBefore
         );
+    }
+    /**
+     * `line-split-by-operator-priority` follow-up (RDD_KEY_350) -- {@code true} iff
+     * {@code newlineIdx} (the assignment RHS's sole internal `NEWLINE`) is immediately followed
+     * by a `WHITESPACE` token exactly {@code indentWidth} characters wider than
+     * {@code targetIdx}'s own leading indentation, i.e. the statement's base indent plus exactly
+     * one indent level -- the precise
+     * shape {@code MiscRuleCurly.renderFragment}/{@code renderTieredSplit} render an
+     * operator-leading continuation line at (see this job's Project Layout: "each continuation line
+     * at baseIndent + one indentWidth"). Both indentations are read directly from `stmt`'s own raw
+     * `WHITESPACE` tokens (present verbatim -- `splitAssignmentStatements` includes a statement's
+     * leading `NEWLINE`+indent in its own `stmt` list, not the previous statement's), a zero-width
+     * indent (no `WHITESPACE` token present, e.g. a statement flush against an opening `{`) counting
+     * as 0 on either side.
+     */
+    private boolean isOperatorSplitContinuationIndent(
+        final List<Token> stmt,
+        final int         targetIdx,
+        final int         newlineIdx
+    )
+    {
+        final int baseIndentLen  = whitespaceTokenLengthAt(stmt, targetIdx - 1);
+        final int line2IndentLen = whitespaceTokenLengthAt(stmt, newlineIdx + 1);
+
+        return line2IndentLen == baseIndentLen + indentWidth;
+    }
+    /**
+     * Length of the {@code WHITESPACE} token at {@code idx} in {@code stmt}, or {@code 0} if
+     * {@code idx} is out of range or not a `WHITESPACE` token (e.g. a statement flush against an
+     * opening `{`, with no leading indent token at all) -- shared by
+     * {@link #isOperatorSplitContinuationIndent}'s two symmetric indent-length reads.
+     */
+    private int whitespaceTokenLengthAt(final List<Token> stmt, final int idx)
+    {
+        if( idx < 0 || idx >= stmt.size() || stmt.get(idx).type != TokenType.WHITESPACE ) return 0;
+
+        return stmt.get(idx).text.length();
     }
     /**
      * Classifies a multi-line right-hand side's break point per STYLE.md §6: {@code true} if
@@ -1985,7 +2061,7 @@ public static final class Assignment {
     }
     /**
      * A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token
-     * (see {@link com.jxmake.formatter.tokenizer.TokenizerCore.TokenType#PREPROCESSOR}'s own
+     * (see {@link TokenType#PREPROCESSOR}'s own
      * doc), so its trailing `//` comment never becomes a separate {@code COMMENT_LINE} token and
      * is skipped by the loop above. Applies the same capitalization rule directly to the text
      * portion after a top-level (not inside a string/char literal) `//`, if any.
@@ -2374,7 +2450,7 @@ public static final class Assignment {
             // itself meant as the stopword "a" -- only match stopwords that are at least 2
             // characters, so a short identifier-like label isn't mistaken for the article "a".
             if( w.length() >= 2 && PROSE_STOPWORDS.contains(
-                w.toLowerCase(java.util.Locale.ROOT)
+                w.toLowerCase(Locale.ROOT)
             ) ) return false;
         } // for
 
@@ -2670,8 +2746,7 @@ public static final class Assignment {
      * `[.!?]` + whitespace + lowercase-letter sentence-boundary matcher, shared with {@link
      * com.jxmake.formatter.rules.ToolingCommentNormalizer}'s identical use of the same pattern
      */
-    protected static final java.util.regex.Pattern SENTENCE_BOUNDARY =
-            java.util.regex.Pattern.compile("[.!?]\\s+([a-z])");
+    protected static final Pattern SENTENCE_BOUNDARY = Pattern.compile("[.!?]\\s+([a-z])");
 
     protected void capitalizeMultiSentence(
         final List<String>  contents,
@@ -2692,7 +2767,7 @@ public static final class Assignment {
         // detection already relied on elsewhere in this codebase's comment-grammar handling
         // (dot-count/trailing-period logic), applied here to an internal sentence start rather
         // than only the trailing period.
-        final java.util.regex.Matcher matcher = SENTENCE_BOUNDARY.matcher(combinedText);
+        final Matcher                 matcher     = SENTENCE_BOUNDARY.matcher(combinedText);
         final Map<Integer, Character> capitalized = new HashMap<>();
 
         // Every boundary below has targetWordIndex > 0 (letterPos == 0 is skipped just below), and
@@ -2797,7 +2872,7 @@ public static final class Assignment {
         final String precedingWord = text.substring(wordStart, punctPos);
         if( precedingWord.length() <= 1 ) return false;
         if( MULTI_SENTENCE_ABBREVIATIONS.contains(
-            precedingWord.toLowerCase(java.util.Locale.ROOT)
+            precedingWord.toLowerCase(Locale.ROOT)
         ) ) return false;
 
         int followingEnd = letterPos;
@@ -2871,10 +2946,9 @@ public static final class Assignment {
      */
     protected CommentDecision classifyComment(final String content, final int targetWordIndex)
     {
-        final com.jxmake.formatter.classifier.CommentFeatureVector features =
-                CommentFeatureExtractor.extract(
-                    content, lang, TokenType.COMMENT_LINE, targetWordIndex
-                );
+        final CommentFeatureVector features = CommentFeatureExtractor.extract(
+            content, lang, TokenType.COMMENT_LINE, targetWordIndex
+        );
 
         return GruAbstainResolver.resolve(
             features, content, targetWordIndex, gruClassifier, gruWeightsPath

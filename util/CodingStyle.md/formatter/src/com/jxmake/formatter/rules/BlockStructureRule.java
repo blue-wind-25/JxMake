@@ -850,7 +850,7 @@ public class BlockStructureRule {
         // google/guava real-code testing (`SuppliersTest.java` and 7 other files: `if (...) {
         // Supplier<String> supplier = ...; }` collapsed to the illegal braceless `if (...)
         // Supplier<String> supplier = ...;`).
-        if( ( lang.isC || lang.isCpp || lang.isJava )
+        if( (lang.isC || lang.isCpp || lang.isJava)
                 && sig.get(0).type == TokenType.IDENTIFIER
                 && isNonPrimitiveDeclarationLead(sig)
         ) return false;
@@ -923,53 +923,58 @@ public class BlockStructureRule {
     private boolean isNonPrimitiveDeclarationLead(final List<Token> sig)
     {
         final int n = sig.size();
-        int       i = 0;
+              int i = 0;
 
         // Qualified name: IDENTIFIER (('.' | '::') IDENTIFIER)* -- `::` is C++'s own scope-
         // resolution separator (`std::string`), tokenized as a single `OP`, alongside `.` for
         // Java's package/nested-type qualification.
         if( sig.get(i).type != TokenType.IDENTIFIER ) return false;
         ++i;
-        while( i + 1 < n
-                && ( isPunct( sig.get(i), "." ) || isOp( sig.get(i), "::" ) )
-                && sig.get(i + 1).type == TokenType.IDENTIFIER
-        ) {
-            i += 2;
-        }
+        while( i + 1 < n && ( isPunct(
+            sig.get(i), "."
+        ) || isOp(
+            sig.get(i), "::"
+        ) ) && sig.get(
+            i + 1
+        ).type == TokenType.IDENTIFIER ) i += 2;
 
-        // Optional generic argument list.
+        // Optional generic argument list
         if( i < n && sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN ) {
             int depth = 1;
             ++i;
-            while( i < n && depth > 0 ) {
+            while(i < n && depth > 0) {
                      if( sig.get(i).type == TokenType.ANGLE_BRACKET_OPEN )  ++depth;
                 else if( sig.get(i).type == TokenType.ANGLE_BRACKET_CLOSE ) --depth;
                 ++i;
             }
-            if( depth != 0 ) return false; // unbalanced -- not actually a generic type here
-        }
+            if(depth != 0) return false; // Unbalanced -- not actually a generic type here
+        } // if
 
         // Optional array-type brackets (`Foo[] arr = ...;`).
-        while( i + 1 < n && isPunct( sig.get(i), "[" ) && isPunct( sig.get(i + 1), "]" ) ) {
-            i += 2;
-        }
+        while( i + 1 < n && isPunct( sig.get(i), "[" ) && isPunct( sig.get(i + 1), "]" ) ) i += 2;
 
         // Optional C/C++ pointer/reference declarator run (`MyClass* obj = ...;`, `MyClass& ref =
         // ...;`, `const MyClass* const p = ...;`) -- `*`/`&`/`&&` between the type and the variable
         // name, and a `const`/`volatile` qualifier can appear on either side of them. Harmless for
         // Java (never produces this token shape) but needed for C/C++, which this method is
         // reached for equally (the caller gates on `lang.isC || lang.isCpp || lang.isJava`).
-        while( i < n
-                && ( isOp( sig.get(i), "*" ) || isOp( sig.get(i), "&" ) || isOp( sig.get(i), "&&" )
-                        || "const".equals( sig.get(i).text ) || "volatile".equals( sig.get(i).text ) )
-        ) {
-            ++i;
-        }
+        while( i < n && ( isOp(
+            sig.get(i), "*"
+        ) || isOp(
+            sig.get(i), "&"
+        ) || isOp(
+            sig.get(i), "&&"
+        ) || "const".equals(
+            sig.get(i).text
+        ) || "volatile".equals(
+            sig.get(i).text
+        ) ) ) ++i;
 
-        // Require the variable name, then a declaration-only follow token.
+        // Require the variable name, then a declaration-only follow token
         if( i >= n || sig.get(i).type != TokenType.IDENTIFIER ) return false;
         ++i;
-        if( i >= n ) return false;
+        if(i >= n) return false;
+
         return isOp( sig.get(i), "=" ) || isPunct( sig.get(i), ";" )
                 || isPunct( sig.get(i), "," ) || isPunct( sig.get(i), "[" );
     }
@@ -3363,13 +3368,25 @@ public class BlockStructureRule {
                     // chain outright -- otherwise every subsequent reformat loses the chain
                     // (and, with it, both alignments) the moment the first round's left-padding
                     // makes indentLen stop matching verbatim.
-                    if( chain.size() == 1 && jIndent < indentLen && indentLen - jIndent == "else if(".length() - "if(".length() ) {
+                    if( chain.size() == 1 && jIndent < indentLen
+                            && indentLen - jIndent == "else if(".length() - "if(".length()
+                            && lines[j].regionMatches(jIndent, "else if(", 0, 8) ) {
                         // Strip the stale left-padding back off `lines[i]` so every later step
                         // (kwLen/leftPad computation, prefixEnd measurement) operates on a fresh,
                         // un-padded baseline exactly like a first-round chain -- re-deriving the pad
                         // from scratch below, rather than re-detecting "already correctly padded" as
                         // a special case, is both simpler and immune to the pad amount ever silently
-                        // drifting out of sync with the current chain's own widths
+                        // drifting out of sync with the current chain's own widths. The `lines[j]`
+                        // shape check (added alongside this comment) confirms `j` actually IS an
+                        // `else if(` sibling before mutating `lines[i]` -- previously this branch
+                        // fired on the numeric indent delta alone, so an unrelated next line that
+                        // merely happened to sit exactly 5 columns shallower (e.g. a block comment
+                        // opening a wholly separate, later `if`'s own multi-line condition) got
+                        // speculatively de-indented into `lines[i]` even though the chain attempt
+                        // was then rejected a few lines down (`chain.size() < 2`) -- the mutation was
+                        // never rolled back on that rejection, permanently corrupting an unrelated
+                        // `if` line's indentation. Found via a `google/guava` idempotency spot-check
+                        // (`WriteReplaceOverridesTest.java`).
                         lines[i]  = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
                         indentLen = jIndent;
                         matchAt   = jIndent;

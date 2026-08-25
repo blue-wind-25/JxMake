@@ -8,8 +8,11 @@
 package com.jxmake.formatter;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.IntPredicate;
 
 import com.jxmake.formatter.rules.DeclarationAlignmentRuleCurly;
@@ -19,6 +22,7 @@ import com.jxmake.formatter.rules.GetterSetterRuleCurly;
 import com.jxmake.formatter.rules.JsTsDeclarationAlignmentRule;
 import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule;
 import com.jxmake.formatter.rules.KotlinDeclarationAlignmentRule.Row;
+import com.jxmake.formatter.rules.KotlinGetterSetterRule;
 import com.jxmake.formatter.rules.KotlinSignatureRule;
 import com.jxmake.formatter.rules.KotlinSignatureRule.FunctionTail;
 import com.jxmake.formatter.rules.KotlinSignatureRule.KotlinSignature;
@@ -30,6 +34,7 @@ import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
 
+import static com.jxmake.formatter.rules.MiscRuleCore.DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT;
 import static com.jxmake.formatter.rules.MiscRuleCore.matchBraceForward;
 import static com.jxmake.formatter.rules.MiscRuleCore.matchParenBackward;
 import static com.jxmake.formatter.rules.MiscRuleCore.matchParenForward;
@@ -145,7 +150,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         this(lang, indentStyle, normalizeCommentStartCase, normalizeCommentEndPeriod,
                 commentNormalizationClassifier, gruClassifier, gruWeightsPath, formatOff, indentWidth,
                 lineLengthLimit,
-                com.jxmake.formatter.rules.MiscRuleCore.DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT);
+                DEFAULT_LINE_LENGTH_WITH_COMMENT_LIMIT);
     }
 
     /**
@@ -172,9 +177,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         this.tokenizer             = new TokenizerCurly(lang);
         this.declarationRule       = new DeclarationAlignmentRuleCurly(lang, lineLengthLimit);
         this.getterSetterRule      = lang.isKotlin
-                ? new com.jxmake.formatter.rules.KotlinGetterSetterRule(
-                    lang, indentWidth, lineLengthLimit
-                )
+                ? new KotlinGetterSetterRule(lang, indentWidth, lineLengthLimit)
                 : new GetterSetterRuleCurly(lang, indentWidth, lineLengthLimit);
         this.miscRule              = new MiscRuleCurly(
             lang, normalizeCommentStartCase, normalizeCommentEndPeriod,
@@ -192,6 +195,30 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         this.jsTsDeclarationRule   = (lang.isJs || lang.isTs)
                                    ? new JsTsDeclarationAlignmentRule(lang, lineLengthLimit) : null;
         this.formatOff             = formatOff;
+    }
+
+    /**
+     * `line-split-by-operator-priority` follow-up (RDD_KEY_350/RDD_KEY_351) -- forwards to this
+     * instance's own internal {@code miscRule} (a separate instance from {@code FormatterCurly}'s
+     * own, per this class's "own copy of every rule" construction above), whose
+     * {@code parseAssignment} needs the flag to guard against misclassifying that feature's own
+     * continuation-line output as a hand-authored STYLE.md §6 multi-line right-hand side, and to
+     * {@code jsTsDeclarationRule}/{@code kotlinDeclarationRule} (RDD_KEY_351 -- the only two callers
+     * of {@code DeclarationAlignmentRuleCurly.spansMultipleLines}, whose paren-depth carve-out needs
+     * the same flag to avoid re-flattening an already operator-split declaration nested inside a
+     * call's parens). Default false (matching the flag's own default), set post-construction same as
+     * `MiscRuleCurly.setNormalizeCommentMultiSentenceCase`. Both declaration-alignment fields are
+     * `null` unless the language matches (see this class's constructor), guarded accordingly.
+     */
+    public void setLineSplitByOperatorPriority(final boolean value)
+    {
+        this.miscRule.setLineSplitByOperatorPriority(value);
+        if(this.jsTsDeclarationRule != null) this.jsTsDeclarationRule.setLineSplitByOperatorPriority(
+            value
+        );
+        if(this.kotlinDeclarationRule != null) this.kotlinDeclarationRule.setLineSplitByOperatorPriority(
+            value
+        );
     }
 
     /**
@@ -2072,9 +2099,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final int          depth
     )
     {
-        final java.util.Set<Member> keep = java.util.Collections.newSetFromMap(
-            new java.util.IdentityHashMap<>()
-        );
+        final Set<Member> keep = Collections.newSetFromMap( new IdentityHashMap<>() );
         keep.addAll(filtered);
         final List<String> result = new ArrayList<>();
               int          i      = 0;

@@ -475,6 +475,29 @@ Full text: `RDD_KEY_340`.
   tier-1 op, but the nested `+`s are still the best available split point).
   New fixture `test/real_code_regressions_240_{inp,out}.kt`. `make test`:
   359/359 -> 360/360.
+- **D10 — partial fix for the single-line function-body brace-placement
+  flap; closing-brace half left open.** `RDD_KEY_348`. Root-caused as two
+  independent stale decisions, both made before `enforceOperatorLineBreaking`
+  ever runs: (1) `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`'s
+  opening-`{` one-liner-defer decision (`RDD_KEY_75`); (2)
+  `ScopePipelineCurly`'s foundational `scopePipeline.process()` scope-tree
+  render (runs once, before Phase 1), whose closing-`}`-own-line decision is
+  even earlier than (1). Fixed (1) only: a third re-run of
+  `cppRule.enforceFunctionDefinitionAllmanBraceStyle`, gated on the flag and
+  `isCOrCpp`, added immediately after `enforceOperatorLineBreaking` and ahead
+  of the flag-on `addClosingComments` call (same D6 line-count-visibility
+  reasoning). (2) left unfixed: re-running `scopePipeline.process()` wholesale
+  is the same fix class already tried and reverted twice for an analogous
+  JS/TS case (`RDD_KEY_246`) -- a safe fix needs a new, narrowly-scoped
+  closing-brace-reapply helper that doesn't exist yet, not attempted blind
+  under this follow-up's time-box. Verified at the tool's actual DEFAULT
+  config (not a lowered dogfood `line-length`): round1's opening-`{`
+  placement now matches round2 exactly; the closing-`}` placement stays
+  non-idempotent. No fixture registered -- no accessible real trigger of this
+  bug shape is fully idempotent yet (both stale decisions always co-occur),
+  so `STATE_COMMON.md`'s round1==round2 fixture requirement can't be met;
+  verified via a documented manual repro instead. `make test`: 360/360 before
+  and after, zero regressions (flag- and C/C++-gated change).
 
 ---
 
@@ -595,6 +618,26 @@ flag-dependent (does not reproduce with the flag off at the same
 stays valid C++; not a corruption/crash, same framing as the findings
 above.
 
+**2026-08-25 follow-up, root cause fully isolated, HALF FIXED
+(`RDD_KEY_348`, D10).** The single flap above is actually two independent
+stale-decision passes, both made before `enforceOperatorLineBreaking` runs:
+(1) `CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle`'s opening-`{`
+one-liner-defer decision (fixed: a third re-run was added immediately after
+`enforceOperatorLineBreaking`, flag- and C/C++-gated); (2)
+`ScopePipelineCurly.process()`'s foundational closing-`}`-own-line decision,
+made even earlier (before Phase 1) — not fixed, since a safe fix needs a new
+narrowly-scoped re-run helper that doesn't exist yet, and re-running
+`process()` wholesale is the same fix class already reverted twice for an
+analogous JS/TS bug (`RDD_KEY_246`). Confirmed via a repro built specifically
+against the tool's actual DEFAULT config (not a lowered dogfood
+`line-length`) that this is a real, in-scope bug. Post-fix, the opening-`{`
+placement is now idempotent (matches what round2 already produced); the
+closing-`}` placement is still not — the flap's diff surface is narrowed,
+not eliminated. Still **not fully fixed** — the closing-brace half remains
+open for a future session. No fixture: no real trigger of this bug shape is
+fully idempotent yet with only (1) fixed, so no case exists that would pass
+`make test`'s round1==round2 check.
+
 **Kotlin `return`/top-level-`=`-assignment operator-split branches never
 actually fire on real source (found 2026-08-25, `square/okio` dogfood,
 `RDD_KEY_347`, not fixed).** Unlike `if`/`while`/`switch`/`for` (which
@@ -687,6 +730,12 @@ in the dogfood summary above).
   source at all (see Known Out-of-Scope Finding above).
   `kotlin_syntax_check.sh`: 21/21 clean on all sampled files, both before
   and after the fix.
+- **2026-08-25 follow-up fix (`RDD_KEY_348`, D10):** half-fixed the
+  single-line function-body brace-placement flap (see Known Out-of-Scope
+  Finding above) — opening-`{` staleness fixed, closing-`}` staleness left
+  open (needs a new helper, out of scope). No fixture (no real trigger of
+  this shape is fully idempotent with only half the bug fixed). `make test`:
+  360/360 before and after, zero regressions.
 
 ---
 
@@ -709,3 +758,6 @@ in the dogfood summary above).
       `RDD_KEY_347`) — 1 bug found and fixed (D9, general curly-family),
       1 new gap found and documented (Kotlin return/assignment split
       never fires, time-boxed, not chased).
+- [~] Single-line function-body brace-placement flap (`RDD_KEY_348`, D10) —
+      half fixed (opening-`{` staleness); closing-`}` staleness needs a new
+      narrowly-scoped re-run helper, left for a future session.

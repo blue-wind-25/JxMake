@@ -267,8 +267,8 @@ Use sub-agent. This can be a substantial work.
   STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
 - line-split-operator-priority: single-line function-body brace placement
-  not re-evaluated after a return-expression operator split, still unfixed
-  (RDD_KEY_346, STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
+  flap, opening-brace half fixed, closing-brace half still unfixed
+  (RDD_KEY_346/348, STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
 - line-split-operator-priority: Kotlin return/assignment-RHS split never
   fires on real source (stripOptionalSemicolons runs first), still unfixed

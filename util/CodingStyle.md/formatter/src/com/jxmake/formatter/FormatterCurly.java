@@ -484,6 +484,23 @@ public final class FormatterCurly extends FormatterCore {
         text = blockRule.alignBracelessElseIfChain( tokenizer.apply(text) );
         if( config.lineSplitOperatorPriority() ) {
             text = miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) );
+            // enforceOperatorLineBreaking can turn a single-line function body's `return`
+            // expression multi-line (e.g. `constexpr auto count() -> int { return B ? 1 : 0; }`'s
+            // ternary) -- but enforceFunctionDefinitionAllmanBraceStyle already ran twice above
+            // (Phase 1, and again after enforceCallLineBreaking) while the body still looked like
+            // a one-liner, and deliberately left its `{` K&R per RDD_KEY_75 ("never Allman-convert
+            // a one-liner"). That decision is now stale, same "widened by a later pass" shape as
+            // the enforceCallLineBreaking-triggered re-run above (see that call site's own
+            // comment) -- re-run it here, flag-on only, and ahead of addClosingComments below for
+            // the same reason as that pass's own reordering (RDD_KEY_343): the `{`-onto-its-own-
+            // line newline this can introduce must be visible to any enclosing block's own
+            // closing-comment line-count threshold decision. C/C++ only -- the identical one-liner-
+            // defer behavior in JavaSpecificRule/KotlinSpecificRule/JsTsSpecificRule's own Allman-
+            // brace passes was never given this re-run treatment either (not yet confirmed to need
+            // it by real-code dogfood), so left as-is rather than speculatively widened.
+            if(isCOrCpp) text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(
+                tokenizer.apply(text)
+            );
             // See the flag-off addClosingComments call site above (Phase 3) for why this pair is
             // deferred to here, flag-on only: enforceOperatorLineBreaking can expand a block's
             // line count, and addClosingComments' STYLE.md §7 threshold decision must see that

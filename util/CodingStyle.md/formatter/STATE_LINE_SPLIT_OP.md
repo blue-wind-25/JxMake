@@ -158,6 +158,79 @@ remaining round1-vs-round2 differing files are this flap class anymore.
 That spot-check surfaced a different, still-unfixed, pre-existing flap —
 see the new entry in "Known Out-of-Scope Finding" below.
 
+**2026-08-25 follow-up (`indent-size=2` spot-check on the two Known
+Out-of-Scope flaps, low-priority per the tracker's standing "indent-size
+fallback" practice):** reused the existing `google/guava` clone (fresh
+`git clone --depth 1`, re-verified at exactly 1655 `.java` files excluding
+`android/`, same selection as Pass 3/`RDD_KEY_342`/`RDD_KEY_343`) and the
+same methodology (`.jxmake-code-formatter` at the corpus root, manually
+copied into round 1's output before round 2 since `--preserve-tree` doesn't
+copy dotfiles, batch `xargs` invocation). `make test` confirmed green
+(356/356) before starting; no `src/` changes made this pass.
+
+Four conditions run: flag on/off crossed with `indent-size` default(4)/2.
+Baseline reproduction first surfaced an unexpected result: at default
+`indent-size`, flag-on and flag-off produced **byte-identical differing-file
+lists** (42/1655 each) -- i.e. **flap (a) (the declaration/condition
+collapse-on-round2 flap) did not reproduce at all in this fresh clone**, at
+0/1655, not the documented 38/1655. Individually re-checked all four named
+example files (`MinMaxPriorityQueue.java`, `CharMatcher.java`,
+`TreeRangeSet.java`, `Streams.java`) both in the batch run and via an
+isolated single-file solo re-format (ruling out a batch/script artifact):
+all four are round1-byte-identical-to-round2 at default `indent-size`,
+flag forced on -- `src/` is unchanged since `RDD_KEY_343`'s fix commit
+(confirmed via `git log`, no commits touching `src/` since), so this is a
+guava-corpus-content difference between today's fresh clone and whatever
+commit the original Pass 3/`RDD_KEY_343` spot-checks cloned, not a src
+regression or a re-fix -- not chased further (out of scope; flagged below).
+Flap (b) (the flag-independent baseline) reproduced exactly as documented:
+42/1655, identical file list flag-on vs. flag-off, `Functions.java` included.
+
+With `indent-size=2` added: flag-off dropped from 42 to **2**/1655
+differing files (`CollectionToArrayTester.java`,
+`WriteReplaceOverridesTest.java` -- both already part of the 42-file
+default-indent baseline, same flap-(b) class, diff shape unchanged in kind
+just relocated to different lines/columns) -- i.e. flap (b) **mostly
+self-resolves under `indent-size=2`** (40 of 42 files become idempotent)
+but does **not** fully resolve (2 residual files). Flag-on at
+`indent-size=2` showed **3**/1655 differing files: the same 2 flap-(b)
+residuals (byte-identical diff shape to the flag-off run) plus **one new
+file**, `guava/src/com/google/common/cache/LocalCache.java`, not present in
+either default-indent run nor in the flag-off-indent2 run -- i.e. a
+flag-*dependent* (only appears with `line-split-operator-priority=on`),
+`indent-size=2`-*dependent* (only appears at indent-size 2) non-idempotency,
+newly discovered by this pass. Diffed: an operator-split assignment RHS's
+continuation line (`|| ticker == NULL_TICKER ) ? null : ticker;`, tier-1
+`||`-leading per this feature's own output shape) sits at column 8 on round
+1 but gets re-indented to column 34 (aligned under the assignment's `=`
+column, matching the surrounding declaration-alignment group's padding) on
+round 2 -- a third, distinct flap shape from both (a) (whole-expression
+collapse-to-one-line) and (b) (`Functions.java`'s anonymous-class-brace
+shape): a continuation-line *alignment-padding* drift, not a
+line-count/collapse issue. Root cause not investigated (per this task's
+explicit low-priority/no-rabbit-hole scope) -- flagged as a third Known
+Out-of-Scope Finding below for a future session.
+
+`java_syntax_check.sh` (batch, all 1655 round1 files at flag-on +
+`indent-size=2`): 1655/1655 clean, zero errors -- confirmed individually for
+all five named example files (`MinMaxPriorityQueue.java`, `CharMatcher.java`,
+`TreeRangeSet.java`, `Streams.java`, `Functions.java`) plus the newly-found
+`LocalCache.java`. Consistent with the standing "neither flap causes
+corruption" framing -- unchanged.
+
+**Net finding:** `indent-size=2` does **not** cleanly resolve either
+documented flap. Flap (a) could not be meaningfully re-tested against this
+corpus draw at all (it wasn't present at the default-indent baseline either,
+for reasons not investigated) -- no conclusion possible from this corpus for
+flap (a) specifically. Flap (b) partially self-resolves (40/42, ~95%) but
+leaves 2 residual files, and additionally surfaces a brand-new,
+flag-and-indent-size-dependent alignment-padding flap not previously seen at
+default `indent-size`. No fix attempted; both existing flaps remain
+undocumented-root-cause/not-fixed, and the new alignment-padding flap is
+added as a third Known Out-of-Scope Finding rather than chased, per this
+task's explicit scope. `make test` re-confirmed 356/356 at the end (no
+`src/` changes made this pass). Full text: `RDD_KEY_344`.
+
 ---
 
 ## Purpose
@@ -288,6 +361,14 @@ Full text: `RDD_KEY_340`.
   pre-fix flag-off pipeline), and is skipped there + re-run immediately
   after `enforceOperatorLineBreaking` when the flag is on. New fixture:
   `test/real_code_regressions_236_{inp,out}.java`.
+- **D7 — `indent-size=2` does not resolve either Known Out-of-Scope
+  flap.** Spot-check, `RDD_KEY_344`. Flap (a) didn't reproduce at all in a
+  fresh guava clone even at default `indent-size` (corpus-content-sensitive,
+  not investigated), so no conclusion for it specifically. Flap (b) mostly
+  self-resolves at `indent-size=2` (40/42) but not fully (2 residual files),
+  and `indent-size=2` + flag-on additionally surfaces a third, previously
+  unseen flap (continuation-line alignment-padding drift on an
+  operator-split assignment RHS) not chased further per this task's scope.
 
 ---
 
@@ -308,12 +389,51 @@ pre-existing (reproduces identically against the pipeline from before
 `RDD_KEY_343`'s fix) and unrelated to `addClosingComments`/closing
 comments — likely a different later pass (declaration-alignment or
 `enforceComplexityPadding` are the leading suspects) rejoining what
-`enforceOperatorLineBreaking` split, but root cause not investigated. A
-separate, pre-existing, flag-independent baseline of 42/1655 guava files
+`enforceOperatorLineBreaking` split, but root cause not investigated.
+**2026-08-25 `indent-size=2` follow-up (`RDD_KEY_344`):** tried per this
+tracker's usual first move on an idempotency-only flap — did not resolve,
+but also did not reproduce at all against a *fresh* guava re-clone even at
+default `indent-size` (0/1655, not 38/1655, including all four named
+example files individually re-checked and confirmed round1-byte-identical
+to round2 both in the corpus batch run and via an isolated single-file
+re-format). `src/` is unchanged since `RDD_KEY_343` landed (confirmed via
+`git log`), so this is most likely guava-corpus-content drift between the
+two clones' commits, not a fix or a regression — not investigated further
+(out of scope). Net: no conclusion possible on whether `indent-size=2`
+would resolve this flap, since this corpus draw no longer reproduces the
+flap to test against; still **not fixed, root cause not investigated**.
+
+A separate, pre-existing, flag-independent baseline of 42/1655 guava files
 also differ round1-vs-round2 regardless of this feature (e.g.
 `Functions.java`'s anonymous-class closing-brace indentation) — confirmed
 unrelated to `line-split-operator-priority` (reproduces with the flag
-off), not investigated, out of scope for this job.
+off), not investigated, out of scope for this job. **2026-08-25
+`indent-size=2` follow-up (`RDD_KEY_344`):** re-verified the 42-file
+baseline reproduces unchanged at default `indent-size` on the fresh clone
+(byte-identical file list flag-on vs. flag-off). At `indent-size=2` the
+baseline **mostly self-resolves**: only 2 of the 42 files
+(`CollectionToArrayTester.java`, `WriteReplaceOverridesTest.java`) remain
+non-idempotent (same flap-(b) diff class, just relocated to different
+lines), the other 40 become idempotent. Still **not fixed, root cause not
+investigated** for the 2 residual files — `indent-size=2` is not a full
+workaround, only a partial one, for this specific flap.
+
+**Continuation-line alignment-padding drift on operator-split RHS (found
+2026-08-25, during the `indent-size=2` spot-check above, `RDD_KEY_344`, not
+fixed).** A third, distinct flap from both (a) and (b), only observed at
+`indent-size=2` with the flag on (does not reproduce at default
+`indent-size`, and does not reproduce with the flag off at either indent
+size): `google/guava`'s `LocalCache.java`, an operator-split (tier-1 `||`)
+continuation line of an assignment RHS inside a declaration-alignment group
+(`this.ticker = ( ticker == Ticker.systemTicker()\n || ticker ==
+NULL_TICKER ) ? null : ticker;`) sits at column 8 on round 1 but is
+re-indented to column 34 (aligned under the assignment group's `=` column)
+on round 2 — an alignment-padding-width recomputation difference between
+rounds, not a collapse-to-one-line or brace-indentation issue like (a)/(b).
+Root cause not investigated (explicitly out of scope for the low-priority
+`indent-size=2` spot-check task that found it) — flagged here for a future
+session. `java_syntax_check.sh` confirms both rounds' output stays valid
+Java; not a corruption/crash, same framing as (a) and (b).
 
 ---
 

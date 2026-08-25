@@ -2235,7 +2235,7 @@ public static final class Signature {
                 final int rhsStart = nextSignificantIndex(tokens, i + 1);
                 if(rhsStart >= 0) {
                     final int semiIdx = findStatementSemicolon(tokens, rhsStart);
-                    if(semiIdx > rhsStart) {
+                    if( semiIdx > rhsStart && !hasTopLevelComma(tokens, rhsStart, semiIdx - 1) ) {
                         final String rendered = tryOperatorSplit(
                             tokens, rhsStart, semiIdx - 1, lineIndent(tokens, i)
                         );
@@ -2286,6 +2286,38 @@ public static final class Signature {
         } // for
 
         return -1;
+    }
+    /**
+     * {@code true} if a depth-0 PUNCT `,` exists in {@code tokens[from, to]} (inclusive both
+     * ends), using the same `(`/`[`/`{` bracket-tracking convention as
+     * {@link #findStatementSemicolon}. Guards the top-level `=` assignment candidate in
+     * {@link #enforceOperatorLineBreaking}: that candidate's span runs from the first `=` all the
+     * way to the statement's own closing `;`, so a depth-0 comma inside it means the statement is
+     * actually a multi-declarator list (`uint64_t a = x, b = y;`) or a rare bare comma-operator
+     * expression -- either way, more than one independent initializer shares the span, and the
+     * shallowest-depth operator scan behind {@link #findBinaryOpSplits} has no notion of a
+     * declarator boundary, so left unguarded it interleaves split points across unrelated
+     * initializers. Found via real-code testing against `fmtlib/fmt`'s bigint-multiply helper
+     * (`uint64_t ac = a * c, bc = b * c, ad = a * d, bd = b * d;`), which rendered as
+     * `uint64_t ac = a` / `* c, bc = b` / `* c, ad = a` / ... -- syntactically valid but not the
+     * shape this feature is meant to produce. Declining to split the whole statement (rather than
+     * attempting a per-declarator split) is the safe, conservative choice.
+     */
+    private boolean hasTopLevelComma(final List<Token> tokens, final int from, final int to)
+    {
+        int depth = 0;
+        for( int i = from; i <= to; ++i ) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.PUNCT) {
+                     if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
+                else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) {
+                    if(depth > 0) --depth;
+                }
+                else if( depth == 0 && ",".equals(t.text) ) return true;
+            } // if
+        } // for
+
+        return false;
     }
     /**
      * Attempts a tiered operator-priority split of {@code tokens[from, to]} (inclusive both ends)
@@ -2444,6 +2476,7 @@ public static final class Signature {
             else if( t.type == TokenType.OP && isBinaryOperatorContext(tokens, i) ) {
                 for(final String opText : opTexts) {
                     if( isOp(t, opText) ) {
+                        if( "*".equals(opText) && isPointerTypeBeforeAngleClose(tokens, i) ) break;
                         occ.add( new int[] { i, depth } );
                         break;
                     }
@@ -2452,6 +2485,27 @@ public static final class Signature {
         } // for i
 
         return occurrencesAtShallowestDepth(occ);
+    }
+    /**
+     * {@code true} if the `*` OP token at {@code idx} is immediately followed (skipping
+     * whitespace/comments) by `>` or {@link TokenType#ANGLE_BRACKET_CLOSE} -- a pointer-type
+     * declarator closing a template argument list (`dynamic_cast<std::filebuf*>(...)`,
+     * `std::vector<Base*>`), not a binary multiplication. {@link #isBinaryOperatorContext} alone
+     * can't tell these two shapes apart: it only looks at the PRECEDING token, and an ordinary
+     * identifier precedes both `a * b` and `Type*>` equally. Mirrors
+     * {@link #isGenericWildcardQuestion}'s own "also check the trailing bound" approach for
+     * tier-2's `?`. Guards {@link #findBinaryOpSplits} only for {@code opText.equals("*")} --
+     * `/` has no equivalent type-declarator meaning, so it's never checked here. Found via
+     * real-code testing against `fmtlib/fmt`'s `ostream.h`/`std.h`
+     * (`dynamic_cast<std::filebuf*>(os.rdbuf())`, `dynamic_cast<some_error*>(&ex)`).
+     */
+    private boolean isPointerTypeBeforeAngleClose(final List<Token> tokens, final int idx)
+    {
+        final int nextIdx = nextSignificantIndex(tokens, idx + 1);
+        if(nextIdx < 0) return false;
+        final Token nt = tokens.get(nextIdx);
+
+        return isOp(nt, ">") || nt.type == TokenType.ANGLE_BRACKET_CLOSE;
     }
     /**
      * Same depth-tracking shape as {@link #findOperatorSplits}, for tier-2 ternary `?`/`:` -- every

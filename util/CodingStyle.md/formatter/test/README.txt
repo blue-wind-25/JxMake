@@ -4410,6 +4410,15 @@ Real-code regressions:
                                                         with a following line, with no rollback when that
                                                         chain attempt was then rejected.
 
+  real_code_regressions_239_inp/out.cpp              -- line-split-operator-priority: two real-code
+                                                        split-point bugs found via an fmtlib/fmt sample
+                                                        dogfood. (1) a comma-separated multi-declarator
+                                                        statement's operator scan crossed unrelated
+                                                        declarators' own initializers, interleaving split
+                                                        points across them. (2) a pointer type closing a
+                                                        template argument list (`Type*>`) was mistaken for a
+                                                        binary multiplication split point.
+
 How Tests Are Run
 -----------------
 

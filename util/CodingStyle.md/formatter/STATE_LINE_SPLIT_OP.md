@@ -231,6 +231,38 @@ added as a third Known Out-of-Scope Finding rather than chased, per this
 task's explicit scope. `make test` re-confirmed 356/356 at the end (no
 `src/` changes made this pass). Full text: `RDD_KEY_344`.
 
+**2026-08-25 real-code C/C++ dogfood (`fmtlib/fmt` sample, flag forced on,
+`RDD_KEY_346`):** first C/C++-specific real-code validation of this feature
+(every prior real-code pass above was Java, via `pcpp_java`/`google/guava`).
+Cloned `fmtlib/fmt` fresh and sampled 17 files (15 of 16 `include/fmt/*.h`
+headers, `src/os.cc`, `src/fmt-c.cc` -- excluding two trivial C++20-module
+shim files with no real content) by grepping for tier-1/2/3/`for`-header/
+unary-`*`-near-arithmetic candidates; every sampled file had at least one
+hit. Since `fmt`'s own source is already clang-formatted tight (observed
+max line length 100 across the whole sampled tree), forcing the flag on at
+the tool's own default `line-length=100` found almost nothing to split --
+`line-length` was lowered to `60` via `.jxmake-code-formatter` (disclosed
+methodology adaptation, same spirit as the `indent-size` fallback rule) to
+get real signal; every finding below was independently confirmed to still
+reproduce at the tool's own default `line-length=100` via a minimal
+extracted repro. Confirmed on real code: tier-1 `&&` split (`base.h`'s
+`is_constant_evaluated`), tier-3 `*`/`/` splits (`os.cc`'s `sizeof(DWORD) *
+CHAR_BIT`, `format.h`'s bigint-multiply lines), a real `for(...)` header
+split whose `sizeof(args) / sizeof(*args)` clause correctly stayed
+un-split at the unary `*args` deref (`base.h`) -- D4's landmine guard holds
+on real code, not just the hand-written fixture. Two genuine in-scope bugs
+found and fixed (see D8) -- both narrowly scoped in `MiscRuleCurly.java`,
+new fixture `test/real_code_regressions_239_{inp,out}.cpp`. `make test`:
+358/358 -> 359/359. Two already-documented flap classes recurred in this
+new corpus at the aggressive `line-length=60` (not re-chased, see the new
+Known Out-of-Scope Finding entries below): a single-line function body's
+opening brace not re-Allman-ed until round 2 once its return expression is
+operator-split, and the continuation-line alignment-padding drift
+(`RDD_KEY_344` Finding 3) now confirmed NOT `indent-size=2`/guava-specific.
+Both confirmed flag-dependent via a targeted flag-off re-run (2 of the 6
+affected files differ flag-off too -- confirmed flag-independent, general
+curly-family, not investigated, out of scope). Full text: `RDD_KEY_346`.
+
 ---
 
 ## Purpose
@@ -241,7 +273,7 @@ condition, a `for(...)` header, or a bare `return`/assignment-RHS
 expression with no enclosing call parens is too long, splits it at
 operator boundaries instead of leaving it long or falling straight to
 today's call-argument-paren wrapping. **Fully implemented, `make test`
-green (356/356).**
+green (359/359).**
 
 Output shape: unpadded, operator-LEADING (the operator token leads each
 continuation line), each continuation line at `baseIndent + one
@@ -369,6 +401,26 @@ Full text: `RDD_KEY_340`.
   and `indent-size=2` + flag-on additionally surfaces a third, previously
   unseen flap (continuation-line alignment-padding drift on an
   operator-split assignment RHS) not chased further per this task's scope.
+- **D8 — two real-code C/C++ split-point bugs, `fmtlib/fmt` dogfood.**
+  `RDD_KEY_346`. (1) The top-level `=` assignment candidate's span (first
+  `=` to the statement's own final `;`) had no awareness of a
+  comma-separated multi-declarator list (`uint64_t ac = a * c, bc = b * c,
+  ...;`), so `findBinaryOpSplits`'s depth-0 scan (tracks `(`/`[` nesting
+  only, not statement-level commas) interleaved split points across
+  unrelated declarators' own initializers. Fixed via a new
+  `hasTopLevelComma` guard that declines the whole `=` candidate when a
+  depth-0 comma exists in its RHS span -- conservative: only a trailing
+  declarator with no comma before the final `;` (unambiguous on its own)
+  still gets considered. (2) `isBinaryOperatorContext` only inspects the
+  token PRECEDING a candidate `*`/`/`, so a pointer type closing a
+  template argument list (`dynamic_cast<std::filebuf*>(...)`) was
+  indistinguishable from real multiplication and got split mid-type. Fixed
+  via a new `isPointerTypeBeforeAngleClose` helper (mirrors
+  `isGenericWildcardQuestion`'s "also check the trailing bound" pattern)
+  excluding a `*` immediately followed by `>`/`ANGLE_BRACKET_CLOSE` from
+  tier-3's scan only (`/` has no equivalent meaning, left unguarded). New
+  fixture `test/real_code_regressions_239_{inp,out}.cpp` (both bugs, one
+  file). `make test`: 358/358 -> 359/359.
 
 ---
 
@@ -454,6 +506,41 @@ Root cause not investigated (explicitly out of scope for the low-priority
 session. `java_syntax_check.sh` confirms both rounds' output stays valid
 Java; not a corruption/crash, same framing as (a) and (b).
 
+**2026-08-25 follow-up (`fmtlib/fmt` C/C++ dogfood, `RDD_KEY_346`):**
+confirmed this same flap class is NOT `indent-size=2`-specific or
+guava/Java-specific — it reproduces at default `indent-size` in a wholly
+different corpus (`fmtlib/fmt`) and language (C/C++) purely from a lower
+`line-length` (60, this dogfood's own methodology adaptation), on tier-1
+`+` rather than tier-1 `||` (`include/fmt/color.h`'s
+`buffer[size++] = static_cast<Char>('0'\n + value / 10u);`, also seen in
+`chrono.h`/`format.h`). Confirmed flag-dependent (does not reproduce with
+the flag off at the same `line-length=60`). Root cause still not
+investigated — broadens this finding's known scope but doesn't change its
+status.
+
+**Single-line function-body brace placement not re-evaluated after a
+return-expression operator split (found 2026-08-25, `fmtlib/fmt` dogfood,
+`RDD_KEY_346`, not fixed).** A fourth, distinct flap: a single-line
+function body whose `return` expression contains an operator eligible for
+splitting (`template <bool B = false> constexpr auto count() -> int {
+return B ? 1 : 0; }`-shaped, e.g. `include/fmt/base.h`'s `count()`,
+`include/fmt/compile.h`'s `str()`, `include/fmt/format.h`'s `size()`) is
+correctly operator-split on round 1, but keeps its opening `{` attached to
+the signature line (`... -> int { return B` / `? 1` / `: 0; }`) instead of
+being moved onto its own line by whatever later pass normally re-flows a
+now-multi-line body to this codebase's Allman brace style — that move only
+happens on round 2, once the body is already multi-line on input. Same
+general "an earlier pipeline decision doesn't see
+`enforceOperatorLineBreaking`'s post-split shape" family as `RDD_KEY_342`/
+`RDD_KEY_343` (D5/D6), but for single-line-function-body brace placement
+rather than a collapsed condition body or a closing-comment line-count
+threshold — root cause not isolated to a specific method, not chased
+(explicitly out of scope per this dogfood pass's time-box). Confirmed
+flag-dependent (does not reproduce with the flag off at the same
+`line-length=60`). `cpp_syntax_check.sh` confirms both rounds' output
+stays valid C++; not a corruption/crash, same framing as the findings
+above.
+
 ---
 
 ## Testing
@@ -476,9 +563,23 @@ Java; not a corruption/crash, same framing as (a) and (b).
   `while` loop whose nested braceless `if` condition split pushes the
   loop's own content-line count past `closing-comment-min-lines`, only
   visible to `addClosingComments` after the reordering fix.
-- `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 forward
-  + idempotency, zero regressions (356 after `RDD_KEY_343`'s
-  `real_code_regressions_236` fixture).
+- `test/real_code_regressions_239_{inp,out}.cpp` — `RDD_KEY_346` fix (first
+  C/C++-specific real-code fixture for this job): a comma-separated
+  multi-declarator assignment statement (tier-3 split points interleaved
+  across unrelated declarators) and a pointer type closing a template
+  argument list (`Type*>` mistaken for tier-3 multiplication), combined in
+  one file.
+- `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 ->
+  359/359 forward + idempotency, zero regressions (359 after
+  `RDD_KEY_346`'s `real_code_regressions_239` fixture).
+- **2026-08-25 real-code C/C++ dogfood (`RDD_KEY_346`):** `fmtlib/fmt`
+  sample (17 files, flag forced on) — first C/C++-specific real-code
+  validation of this feature. Confirmed correct tier-1/tier-3 splits, a
+  real `for(...)` header split, and D4's unary-`*` landmine guard holding
+  on real code. Found and fixed 2 genuine split-point bugs (D8). Found 2
+  already-documented flap classes recurring in this new corpus (not
+  chased, see Known Out-of-Scope Finding above). `cpp_syntax_check.sh`: 0
+  errors on all 17 sampled files, both before and after the fix.
 
 ---
 
@@ -494,3 +595,6 @@ Java; not a corruption/crash, same framing as (a) and (b).
 - [x] Register fixtures in `Makefile`; `make test` green.
 - [x] `CLAUDE.md` job table row; this state file.
 - [x] `README.md` sync (user-facing only, no internal vocabulary).
+- [x] Real-code C/C++ dogfood (`fmtlib/fmt` sample, flag forced on,
+      `RDD_KEY_346`) — 2 bugs found and fixed, 2 known flaps recurred
+      (documented, not chased).

@@ -136,9 +136,23 @@ public abstract class GetterSetterRuleCore {
         final boolean     isJsOrTs = lang.isJs || lang.isTs;
               int         start    = 0;
               int         depth    = 0;
-        // JS/TS-only: tracks `(`/`[` nesting separately from `depth` (which only tracks `{`/`}`,
-        // unchanged for every other language) so the ASI newline check below never fires inside
-        // a parameter list or array/computed-member expression
+        // Tracks `(`/`[` nesting separately from `depth` (which only tracks `{`/`}`, unchanged
+        // for every other purpose): (1) JS/TS-only, so the ASI newline check below never fires
+        // inside a parameter list or array/computed-member expression; (2) every language, so the
+        // depth-0 `;`-split below (next `if`) never mistakes a `for(init; cond; incr)` header's
+        // own top-level-looking clause separators -- sitting at `depth == 0` since they're inside
+        // `(...)`, not `{...}` -- for a real member terminator. Left unguarded, a braceless
+        // single-statement `for(...) body;` (STYLE.md's collapsed-body shape) that fits on one
+        // physical line was split into bogus fragments at the header's own `;`s, and one of those
+        // fragments' trailing piece (`incr) body;`) could itself spuriously re-parse as a
+        // one-liner getter/setter-style member via `parseOneLinerMember`'s generic
+        // `identifier(...)` matching, pairing up with a sibling fragment into a bogus 2+ member
+        // "group" that then got column-aligned -- corrupting the for-loop header's own spacing.
+        // Reproduces only when the collapsed body is a genuine one-liner (a still-braced/
+        // multi-line body's own dangling closing `}` already fails `parseOneLinerMember`'s
+        // `hasNewlineBetween` check), which is why a fresh format of braced source was clean but
+        // reformatting that format's own already-collapsed output was not -- found via a
+        // `google/guava` idempotency spot-check (`CollectionToArrayTester.java`).
         int parenDepth = 0;
         int i          = 0;
         int lastSigIdx = -1;
@@ -184,7 +198,7 @@ public abstract class GetterSetterRuleCore {
                 lastSigIdx = i - 1;
                 continue;
             } // if
-            if( depth == 0 && isPunct(t, ";") ) {
+            if( depth == 0 && parenDepth == 0 && isPunct(t, ";") ) {
                 ++i;
                 final int end = consumeTrailingSameLine(scopeTokens, i);
                 members.add( new int[] {start, end} );
@@ -192,18 +206,18 @@ public abstract class GetterSetterRuleCore {
                 lastSigIdx = -1;
                 continue;
             } // if
-            if(isJsOrTs) {
-                if( t.type == TokenType.PUNCT && ( isPunct(
-                    t, "("
-                ) || isPunct(
-                    t, "["
-                ) ) ) parenDepth++;
-                else if( t.type == TokenType.PUNCT && ( isPunct(
-                    t, ")"
-                ) || isPunct(
-                    t, "]"
-                ) ) ) parenDepth--;
-            } // if
+            // Every language: keep `parenDepth` current so the depth-0 `;`-split above (and,
+            // JS/TS-only, the ASI newline check further above) never fires inside `(...)`/`[...]`.
+            if( t.type == TokenType.PUNCT && ( isPunct(
+                t, "("
+            ) || isPunct(
+                t, "["
+            ) ) ) parenDepth++;
+            else if( t.type == TokenType.PUNCT && ( isPunct(
+                t, ")"
+            ) || isPunct(
+                t, "]"
+            ) ) ) parenDepth--;
             if(t.type != TokenType.WHITESPACE && t.type != TokenType.NEWLINE && t.type != TokenType.COMMENT_LINE && t.type != TokenType.COMMENT_BLOCK) lastSigIdx = i;
             ++i;
         } // while

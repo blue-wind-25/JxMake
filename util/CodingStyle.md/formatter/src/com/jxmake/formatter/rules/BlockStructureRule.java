@@ -3363,13 +3363,25 @@ public class BlockStructureRule {
                     // chain outright -- otherwise every subsequent reformat loses the chain
                     // (and, with it, both alignments) the moment the first round's left-padding
                     // makes indentLen stop matching verbatim.
-                    if( chain.size() == 1 && jIndent < indentLen && indentLen - jIndent == "else if(".length() - "if(".length() ) {
+                    if( chain.size() == 1 && jIndent < indentLen
+                            && indentLen - jIndent == "else if(".length() - "if(".length()
+                            && lines[j].regionMatches(jIndent, "else if(", 0, 8) ) {
                         // Strip the stale left-padding back off `lines[i]` so every later step
                         // (kwLen/leftPad computation, prefixEnd measurement) operates on a fresh,
                         // un-padded baseline exactly like a first-round chain -- re-deriving the pad
                         // from scratch below, rather than re-detecting "already correctly padded" as
                         // a special case, is both simpler and immune to the pad amount ever silently
-                        // drifting out of sync with the current chain's own widths
+                        // drifting out of sync with the current chain's own widths. The `lines[j]`
+                        // shape check (added alongside this comment) confirms `j` actually IS an
+                        // `else if(` sibling before mutating `lines[i]` -- previously this branch
+                        // fired on the numeric indent delta alone, so an unrelated next line that
+                        // merely happened to sit exactly 5 columns shallower (e.g. a block comment
+                        // opening a wholly separate, later `if`'s own multi-line condition) got
+                        // speculatively de-indented into `lines[i]` even though the chain attempt
+                        // was then rejected a few lines down (`chain.size() < 2`) -- the mutation was
+                        // never rolled back on that rejection, permanently corrupting an unrelated
+                        // `if` line's indentation. Found via a `google/guava` idempotency spot-check
+                        // (`WriteReplaceOverridesTest.java`).
                         lines[i]  = lines[i].substring(0, jIndent) + lines[i].substring(indentLen);
                         indentLen = jIndent;
                         matchAt   = jIndent;

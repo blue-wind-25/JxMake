@@ -418,6 +418,25 @@ lines), the other 40 become idempotent. Still **not fixed, root cause not
 investigated** for the 2 residual files — `indent-size=2` is not a full
 workaround, only a partial one, for this specific flap.
 
+**2026-08-25 follow-up, the 2 residual files FIXED (`RDD_KEY_345`, owned by
+the C/C++/Java job, not this one — see `STATE_C_CPP_JAVA.md`'s "Known Gaps
+— Fixed" and its own `RDD_KEY_345` entry for the full writeup).** Root-
+caused as two distinct, flag-independent, general curly-family bugs, not
+specific to `indent-size=2` or to guava's own style: (1)
+`CollectionToArrayTester.java`'s flap was `GetterSetterRuleCore.splitMembers`
+mistaking a braceless single-line `for(init; cond; incr) body;` statement's
+own header `;`s for member terminators (no `(`/`[` depth tracking outside
+JS/TS), letting bogus header fragments pair up into a fake column-aligned
+"member group"; (2) `WriteReplaceOverridesTest.java`'s flap was
+`BlockStructureRule.alignBracelessElseIfChain` speculatively de-indenting an
+unrelated `if(` line based on a numeric indent-delta coincidence, with no
+rollback when the chain attempt was then rejected. Both fixed narrowly;
+verified against the real guava files (indent-size 2 and default, flag on
+and off) that round1 is now byte-identical to round2 in every combination.
+`make test`: 356/356 -> 358/358, zero regressions. This job's own dogfood
+does not need re-running for this — the fix lives entirely in shared
+curly-family code owned by the other job.
+
 **Continuation-line alignment-padding drift on operator-split RHS (found
 2026-08-25, during the `indent-size=2` spot-check above, `RDD_KEY_344`, not
 fixed).** A third, distinct flap from both (a) and (b), only observed at

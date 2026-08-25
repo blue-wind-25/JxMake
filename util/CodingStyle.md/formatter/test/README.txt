@@ -4397,6 +4397,19 @@ Real-code regressions:
                                                         decision on a fresh format, only appearing on a second
                                                         formatting pass.
 
+  real_code_regressions_237_inp/out.java             -- getter/setter one-liner grouping idempotency fix: a
+                                                        braceless single-statement `for(a; b; c) body;` loop's
+                                                        own header semicolons were mistaken for member
+                                                        terminators, letting bogus fragments of the header
+                                                        pair up into a fake column-aligned group and garble
+                                                        the header's spacing on a second formatting pass.
+
+  real_code_regressions_238_inp/out.java             -- braceless if/else-if chain alignment idempotency fix:
+                                                        an unrelated `if`'s indentation was speculatively
+                                                        stripped while probing whether it continued a chain
+                                                        with a following line, with no rollback when that
+                                                        chain attempt was then rejected.
+
 How Tests Are Run
 -----------------
 

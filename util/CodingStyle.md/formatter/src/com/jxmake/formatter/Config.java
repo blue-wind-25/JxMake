@@ -15,9 +15,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class Config {
 
@@ -52,9 +54,9 @@ public final class Config {
         "jsx-in-ts"
     };
 
-    private static final java.util.Set<String> ALL_KEYS_SET =
+    private static final Set<String> ALL_KEYS_SET =
             Collections.unmodifiableSet(
-                new java.util.LinkedHashSet<String>( Arrays.asList(ALL_KEYS) )
+                new LinkedHashSet<String>( Arrays.asList(ALL_KEYS) )
             );
 
     private static final String[] INDENT_STYLE_CHOICES = { "spaces", "tabs", "auto" };
@@ -633,7 +635,7 @@ public final class Config {
     {
         final Config               defaults = new Config();
         final List<ConfigProperty> result   = new ArrayList<ConfigProperty>();
-        final java.util.Set<String> seen    = new java.util.LinkedHashSet<String>();
+        final Set<String>          seen     = new LinkedHashSet<String>();
         for( final Map.Entry<String, String[]> groupEntry : GROUPS.entrySet() ) {
             final String group = groupEntry.getKey();
             for( final String key : groupEntry.getValue() ) {
@@ -650,12 +652,12 @@ public final class Config {
         return result;
     }
 
-    private static java.util.Set<String> minus(
-        final java.util.Set<String> a,
-        final java.util.Set<String> b
+    private static Set<String> minus(
+        final Set<String> a,
+        final Set<String> b
     )
     {
-        final java.util.Set<String> result = new java.util.LinkedHashSet<String>(a);
+        final Set<String> result = new LinkedHashSet<String>(a);
         result.removeAll(b);
 
         return result;

@@ -8,6 +8,7 @@
 package com.jxmake.formatter;
 
 import java.util.List;
+import java.util.function.Function;
 
 import com.jxmake.formatter.rules.BlockStructureRule;
 import com.jxmake.formatter.rules.CppSpecificRule;
@@ -18,7 +19,9 @@ import com.jxmake.formatter.rules.MiscRuleCurly;
 import com.jxmake.formatter.rules.SwitchRule;
 import com.jxmake.formatter.tokenizer.TokenizerCore;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
+import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
 import com.jxmake.formatter.tokenizer.TokenizerCurly;
+import static com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement;
 
 /**
  * Curly-brace-family formatter (C/C++/Java/Kotlin) -- everything in this file used to live
@@ -92,7 +95,7 @@ public final class FormatterCurly extends FormatterCore {
         final int indentWidth     = config.indentSize();
         final int lineLengthLimit = config.lineLength();
 
-        final java.util.function.Function<String, List<Token>> tokenizer = (final String s) -> {
+        final Function<String, List<Token>> tokenizer = (final String s) -> {
             final List<Token> tokens = tokenizerCore.tokenize(s);
             TokenizerCore.markFrozenSpans(tokens, formatOff);
             // STATE_JS_TS.md's Step 2 "context 11" scoping session, Increment 1
@@ -101,9 +104,9 @@ public final class FormatterCurly extends FormatterCore {
             // JSX_SPAN tokens at all (every non-.jsx/.tsx file, by construction).
             if(lang.isJsxSyntax) {
                 for(final Token t : tokens) {
-                    if(t.type == com.jxmake.formatter.tokenizer.TokenizerCore.TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) com.jxmake.formatter.tokenizer.JsxWrapDiagnostics.recordOpeningTagMeasurement(
-                        t.jsxOpeningTagEndOffset, lineLengthLimit
-                    );
+                    if(t.type == TokenType.JSX_SPAN && t.jsxOpeningTagEndOffset >= 0) {
+                        recordOpeningTagMeasurement(t.jsxOpeningTagEndOffset, lineLengthLimit);
+                    }
                 } // for
             } // if
             return tokens;

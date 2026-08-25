@@ -14,13 +14,17 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.jxmake.formatter.Lang;
 import com.jxmake.formatter.classifier.CommentClassifier;
 import com.jxmake.formatter.classifier.CommentDecision;
 import com.jxmake.formatter.classifier.CommentFeatureExtractor;
+import com.jxmake.formatter.classifier.CommentFeatureVector;
 import com.jxmake.formatter.classifier.gru.GruAbstainResolver;
 import com.jxmake.formatter.classifier.gru.GruClassifier;
 import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
@@ -1330,14 +1334,22 @@ public static final class Assignment {
         final int         newlineIdx
     )
     {
-        final int baseIndentLen = (targetIdx > 0 && stmt.get(
-            targetIdx - 1
-        ).type == TokenType.WHITESPACE) ? stmt.get( targetIdx - 1 ).text.length() : 0;
-        final int line2IndentLen = (newlineIdx + 1 < stmt.size() && stmt.get(
-            newlineIdx + 1
-        ).type == TokenType.WHITESPACE) ? stmt.get( newlineIdx + 1 ).text.length() : 0;
+        final int baseIndentLen  = whitespaceTokenLengthAt(stmt, targetIdx - 1);
+        final int line2IndentLen = whitespaceTokenLengthAt(stmt, newlineIdx + 1);
 
         return line2IndentLen == baseIndentLen + indentWidth;
+    }
+    /**
+     * Length of the {@code WHITESPACE} token at {@code idx} in {@code stmt}, or {@code 0} if
+     * {@code idx} is out of range or not a `WHITESPACE` token (e.g. a statement flush against an
+     * opening `{`, with no leading indent token at all) -- shared by
+     * {@link #isOperatorSplitContinuationIndent}'s two symmetric indent-length reads.
+     */
+    private int whitespaceTokenLengthAt(final List<Token> stmt, final int idx)
+    {
+        if( idx < 0 || idx >= stmt.size() || stmt.get(idx).type != TokenType.WHITESPACE ) return 0;
+
+        return stmt.get(idx).text.length();
     }
     /**
      * Classifies a multi-line right-hand side's break point per STYLE.md §6: {@code true} if
@@ -2051,7 +2063,7 @@ public static final class Assignment {
     }
     /**
      * A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token
-     * (see {@link com.jxmake.formatter.tokenizer.TokenizerCore.TokenType#PREPROCESSOR}'s own
+     * (see {@link TokenType#PREPROCESSOR}'s own
      * doc), so its trailing `//` comment never becomes a separate {@code COMMENT_LINE} token and
      * is skipped by the loop above. Applies the same capitalization rule directly to the text
      * portion after a top-level (not inside a string/char literal) `//`, if any.
@@ -2440,7 +2452,7 @@ public static final class Assignment {
             // itself meant as the stopword "a" -- only match stopwords that are at least 2
             // characters, so a short identifier-like label isn't mistaken for the article "a".
             if( w.length() >= 2 && PROSE_STOPWORDS.contains(
-                w.toLowerCase(java.util.Locale.ROOT)
+                w.toLowerCase(Locale.ROOT)
             ) ) return false;
         } // for
 
@@ -2736,8 +2748,8 @@ public static final class Assignment {
      * `[.!?]` + whitespace + lowercase-letter sentence-boundary matcher, shared with {@link
      * com.jxmake.formatter.rules.ToolingCommentNormalizer}'s identical use of the same pattern
      */
-    protected static final java.util.regex.Pattern SENTENCE_BOUNDARY =
-            java.util.regex.Pattern.compile("[.!?]\\s+([a-z])");
+    protected static final Pattern SENTENCE_BOUNDARY =
+            Pattern.compile("[.!?]\\s+([a-z])");
 
     protected void capitalizeMultiSentence(
         final List<String>  contents,
@@ -2758,7 +2770,7 @@ public static final class Assignment {
         // detection already relied on elsewhere in this codebase's comment-grammar handling
         // (dot-count/trailing-period logic), applied here to an internal sentence start rather
         // than only the trailing period.
-        final java.util.regex.Matcher matcher = SENTENCE_BOUNDARY.matcher(combinedText);
+        final Matcher matcher = SENTENCE_BOUNDARY.matcher(combinedText);
         final Map<Integer, Character> capitalized = new HashMap<>();
 
         // Every boundary below has targetWordIndex > 0 (letterPos == 0 is skipped just below), and
@@ -2863,7 +2875,7 @@ public static final class Assignment {
         final String precedingWord = text.substring(wordStart, punctPos);
         if( precedingWord.length() <= 1 ) return false;
         if( MULTI_SENTENCE_ABBREVIATIONS.contains(
-            precedingWord.toLowerCase(java.util.Locale.ROOT)
+            precedingWord.toLowerCase(Locale.ROOT)
         ) ) return false;
 
         int followingEnd = letterPos;
@@ -2937,7 +2949,7 @@ public static final class Assignment {
      */
     protected CommentDecision classifyComment(final String content, final int targetWordIndex)
     {
-        final com.jxmake.formatter.classifier.CommentFeatureVector features =
+        final CommentFeatureVector features =
                 CommentFeatureExtractor.extract(
                     content, lang, TokenType.COMMENT_LINE, targetWordIndex
                 );

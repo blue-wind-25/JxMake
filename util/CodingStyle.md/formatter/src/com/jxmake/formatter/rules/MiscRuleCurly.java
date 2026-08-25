@@ -2454,6 +2454,20 @@ public static final class Signature {
         return findBinaryOpSplits(tokens, from, to, "*", "/");
     }
     /**
+     * Shared paren/bracket depth delta behind {@link #findBinaryOpSplits}/{@link #findTernarySplits}:
+     * {@code +1} for `(`/`[`, {@code -1} for `)`/`]`, {@code 0} for anything else (including a
+     * non-{@code PUNCT} token, so callers may apply it unconditionally inside their own
+     * {@code PUNCT}-gated block without re-checking the token type).
+     */
+    private int parenBracketDepthDelta(final Token t)
+    {
+        if(t.type != TokenType.PUNCT) return 0;
+        if( "(".equals(t.text) || "[".equals(t.text) ) return 1;
+        if( ")".equals(t.text) || "]".equals(t.text) ) return -1;
+
+        return 0;
+    }
+    /**
      * Shared depth-tracking scan behind {@link #findOperatorSplits}/{@link #findMulDivSplits}: every
      * {@code opTexts}-matching OP token in binary-operator context, restricted to the shallowest
      * bracket depth any of them occurs at within {@code [from, to]}. `[`/`]` array-subscript
@@ -2483,8 +2497,7 @@ public static final class Signature {
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.PUNCT) {
-                     if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
-                else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
+                depth += parenBracketDepthDelta(t);
                      if( "[".equals(t.text) ) ++bracketDepth;
                 else if( "]".equals(t.text) ) --bracketDepth;
             }
@@ -2545,8 +2558,7 @@ public static final class Signature {
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.PUNCT) {
-                     if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
-                else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
+                depth += parenBracketDepthDelta(t);
             }
             else if( t.type == TokenType.OP && isOp(
                 t, "?"

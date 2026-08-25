@@ -259,9 +259,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 8: Low priority ===
 
-- line-split-by-operator-priority: declaration/condition collapse-on-round2
-  flap, JS/TS manifestation fixed, original Java/guava manifestation still
-  unreproduced (STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -329,6 +327,11 @@ Use sub-agent. This can be a substantial work.
 - [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
   resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s
   Open Questions.
+
+- [LINE_SPLIT_OP] Declaration/condition collapse-on-round2 flap, original Java/`google/guava`
+  manifestation — NOT REPRODUCED after two separate, thorough attempts (RDD_KEY_344,
+  RDD_KEY_351); the only live recurrence actually found (JS/TS, a different mechanism) is
+  FIXED. See `STATE_LINE_SPLIT_OP.md` Known Out-of-Scope Finding.
 
 ####################################################################################################
 ####################################################################################################

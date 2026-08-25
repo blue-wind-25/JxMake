@@ -195,16 +195,23 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     }
 
     /**
-     * `line-split-operator-priority` follow-up (RDD_KEY_350) -- forwards to this instance's own
-     * internal {@code miscRule} (a separate instance from {@code FormatterCurly}'s own, per this
-     * class's "own copy of every rule" construction above), whose {@code parseAssignment} needs the
-     * flag to guard against misclassifying that feature's own continuation-line output as a
-     * hand-authored STYLE.md §6 multi-line right-hand side. Default false (matching the flag's own
-     * default), set post-construction same as {@code MiscRuleCurly.setNormalizeCommentMultiSentenceCase}.
+     * `line-split-operator-priority` follow-up (RDD_KEY_350/RDD_KEY_351) -- forwards to this
+     * instance's own internal {@code miscRule} (a separate instance from {@code FormatterCurly}'s
+     * own, per this class's "own copy of every rule" construction above), whose
+     * {@code parseAssignment} needs the flag to guard against misclassifying that feature's own
+     * continuation-line output as a hand-authored STYLE.md §6 multi-line right-hand side, and to
+     * {@code jsTsDeclarationRule}/{@code kotlinDeclarationRule} (RDD_KEY_351 -- the only two callers
+     * of {@code DeclarationAlignmentRuleCurly.spansMultipleLines}, whose paren-depth carve-out needs
+     * the same flag to avoid re-flattening an already operator-split declaration nested inside a
+     * call's parens). Default false (matching the flag's own default), set post-construction same as
+     * `MiscRuleCurly.setNormalizeCommentMultiSentenceCase`. Both declaration-alignment fields are
+     * `null` unless the language matches (see this class's constructor), guarded accordingly.
      */
     public void setLineSplitOperatorPriority(final boolean value)
     {
         this.miscRule.setLineSplitOperatorPriority(value);
+        if(this.jsTsDeclarationRule != null) this.jsTsDeclarationRule.setLineSplitOperatorPriority(value);
+        if(this.kotlinDeclarationRule != null) this.kotlinDeclarationRule.setLineSplitOperatorPriority(value);
     }
 
     /**

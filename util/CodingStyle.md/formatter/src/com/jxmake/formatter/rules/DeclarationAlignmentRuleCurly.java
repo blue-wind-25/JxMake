@@ -83,6 +83,23 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     private final ModifierPriority modifierPriority;
     private final Set<String>      typeKeywords;
 
+    /**
+     * `line-split-operator-priority` follow-up (RDD_KEY_351) -- guards a narrow broadening of
+     * {@link #spansMultipleLines}'s depth check (see that method's own javadoc). Default false
+     * (flag-off pipeline byte-for-byte unchanged); set post-construction from
+     * {@code ScopePipelineCurly.setLineSplitOperatorPriority}, same "avoid threading a new
+     * constructor param" precedent as {@code MiscRuleCore.lineSplitOperatorPriority}
+     * (RDD_KEY_350). Consulted by the JS/TS and Kotlin declaration-alignment subclasses, which are
+     * the only callers of {@code spansMultipleLines} -- harmless on this base class and the C/C++/
+     * Java subclass path, which never calls that method.
+     */
+    protected boolean lineSplitOperatorPriority = false;
+
+    public void setLineSplitOperatorPriority(final boolean value)
+    {
+        this.lineSplitOperatorPriority = value;
+    }
+
     public DeclarationAlignmentRuleCurly(final Lang lang)
     {
         this(lang, MiscRuleCurly.DEFAULT_LINE_LENGTH_LIMIT);
@@ -1694,6 +1711,29 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
      * all and so is correctly unaffected by either carve-out. Shared by every curly-family
      * declaration-alignment subclass that needs this bailout (originally Kotlin-only, then
      * duplicated verbatim into the JS/TS sibling -- pulled up here).
+     *
+     * <p>{@code line-split-operator-priority} follow-up (RDD_KEY_351): the paren-depth carve-out's
+     * "safe to flatten, a later call-wrap pass will re-derive it" assumption assumed the only thing
+     * that could ever put a newline strictly inside a call's parens was {@code
+     * MiscRule.enforceCallLineBreaking} wrapping that same call's own top-level comma-separated
+     * arguments -- a shape that pass genuinely can re-wrap on this same pass. {@code
+     * enforceOperatorLineBreaking} breaks that assumption: its tier-2 ternary/tier-1 scan can find
+     * and split an operator nested arbitrarily deep inside an array literal's spread argument
+     * (`[a, ...( cond ? b : c ), d]`) at whatever depth is "shallowest available" (see D9's
+     * `findBinaryOpSplits` note), landing its own newline at paren/bracket depth > 0 with no
+     * enclosing call argument list any pass re-wraps -- so on a reformat, this method's carve-out
+     * still says "safe to flatten" and this class's generic {@code renderTokens}-based rendering
+     * (which does not reapply {@code enforceOperatorLineBreaking}'s own ternary/operator spacing
+     * conventions) both drops the split AND leaves stray tight spacing behind, with nothing left
+     * to re-split it (the collapsed line no longer contains the top-level `if`/`while`/`switch`/
+     * `for`/return/assignment-RHS shape {@code enforceOperatorLineBreaking} itself scans for, or
+     * simply now fits under the line-length limit once flattened). Found via `angular/angular`'s
+     * `create_application.ts` (`RDD_KEY_349`'s real-code TS dogfood already flagged this file as a
+     * recurrence of this job's "declaration/condition collapse-on-round2" Known Out-of-Scope
+     * Finding, not chased there). Fixed narrowly, flag-gated: when {@code lineSplitOperatorPriority}
+     * is on, ALSO treat a newline at paren/bracket depth > 0 (brace depth 0) as spanning multiple
+     * lines, closing the blind spot the carve-out leaves; the flag-off pipeline (including every
+     * existing fixture relying on the original carve-out) is byte-for-byte unchanged.
      */
     protected boolean spansMultipleLines(final List<Token> stmt, final Token afterToken)
     {
@@ -1706,7 +1746,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
                 else if( isPunct(t, "{") ) braceDepth++;
                 else if( isPunct(t, "}") ) braceDepth--;
-                else if( t.type == TokenType.NEWLINE && ( braceDepth > 0 || (parenDepth == 0 && braceDepth == 0) ) ) return true;
+                else if( t.type == TokenType.NEWLINE && ( braceDepth > 0 || (parenDepth == 0 && braceDepth == 0)
+                        || (lineSplitOperatorPriority && parenDepth > 0 && braceDepth == 0) ) ) return true;
             } // if
             if(t == afterToken) seen = true;
         } // for

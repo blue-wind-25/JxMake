@@ -260,7 +260,8 @@ Use sub-agent. This can be a substantial work.
 === TIER 8: Low priority ===
 
 - line-split-operator-priority: declaration/condition collapse-on-round2
-  flap, still unfixed (STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
+  flap, JS/TS manifestation fixed, original Java/guava manifestation still
+  unreproduced (STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
 Use sub-agent. This can be a substantial work.
 

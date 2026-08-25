@@ -4,6 +4,83 @@ Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
 status: see `STATE_DOGFOOD.md`.
 
+**2026-08-25 follow-up investigation + partial fix (declaration/condition
+collapse-on-round2 flap, `RDD_KEY_351`, D13):** re-investigated the
+"Declaration/condition collapse-on-round2 flap" Known Out-of-Scope Finding
+below. First tried hard to reproduce the ORIGINAL Java/`google/guava`
+manifestation: (a) re-ran the exact four named files
+(`MinMaxPriorityQueue.java`/`CharMatcher.java`/`TreeRangeSet.java`/
+`Streams.java`) against the scratchpad's existing fresh guava clone (reused,
+not re-cloned) at default config, flag on — 0/4 differ, matching
+`RDD_KEY_344`'s prior non-repro; (b) ran the full 1655-file corpus at a
+lowered `line-length=60` (an untried combination — `RDD_KEY_344` only tried
+non-default `indent-size`) — 44/1655 files differ flag-on, all confirmed by
+a line-count-based hunk scan to be either the pre-existing flag-independent
+baseline (40 files, unrelated) or a `for(...)`-header-clause indentation
+drift (4 files, a distinct flap shape, not chased — same "differs but does
+not collapse line count" shape, out of scope for this task), zero files
+showing the specific "many lines collapse to one" shape; (c) a hand-written
+minimal Java repro of the exact `int result = (cond) ? A : B;` declaration
+shape, and the real `MinMaxPriorityQueue.java` file run in isolation, both
+round-trip clean (round1==round2) against current `src/` — confirms
+`RDD_KEY_344`'s guess that the original guava commit's specific trigger is
+gone from this corpus draw, not a src regression. **Net: the original
+Java-specific manifestation still does not reproduce anywhere; genuinely
+not confirmable one way or the other from this corpus, same conclusion as
+`RDD_KEY_344`.**
+
+However, `RDD_KEY_349`'s TS dogfood had already flagged one live recurrence
+of this same finding (`angular/angular`'s `create_application.ts`) without
+chasing it. Re-investigating that recurrence found a real, different, fully
+root-caused bug (not `D12`'s `parseAssignment` mechanism — that method
+always bails for any JS/TS `const`/`let`/`var` target, so it was never in
+play here): `DeclarationAlignmentRuleCurly.spansMultipleLines`'s depth
+tracking (shared by `JsTsDeclarationAlignmentRule`/
+`KotlinDeclarationAlignmentRule`, the only two callers) has a pre-existing
+blind spot, unrelated in origin to this feature -- a NEWLINE is only
+recognized as "spans multiple lines" when it sits inside a `{`...`}` brace
+body or at full top-level (paren/bracket depth 0); a newline sitting
+strictly inside a call/array's parens or brackets (depth > 0, no enclosing
+brace) is deliberately treated as safe-to-flatten, on the assumption that
+only `enforceCallLineBreaking`'s own call-argument wrap could ever have put
+it there, safely re-derivable next pass. `enforceOperatorLineBreaking`
+breaks that assumption: its ternary/tier-1 scan can find and split an
+operator nested arbitrarily deep inside an array literal's spread argument
+(`[a, ...( cond ? b : c ), d]`), landing a newline at paren/bracket depth >
+0 that nothing re-derives on a reformat -- `spansMultipleLines` still calls
+it safe to flatten, and the generic JS/TS row-rendering path that follows
+doesn't reapply `enforceOperatorLineBreaking`'s own ternary spacing
+conventions either, so the flattened result also has mangled tight spacing
+around `?`/`:` (`ngDevMode ?[validAppIdInitializer] :[]`). Fixed narrowly,
+flag-gated (same "avoid threading a new constructor param" / narrow-guard
+precedent as D12): a new `lineSplitOperatorPriority` field + setter on
+`DeclarationAlignmentRuleCurly` (consulted only by `spansMultipleLines`,
+harmless on the C/C++/Java subclass path which never calls that method),
+wired from `ScopePipelineCurly.setLineSplitOperatorPriority` into both
+`jsTsDeclarationRule`/`kotlinDeclarationRule`; when the flag is on, a
+newline at paren/bracket depth > 0 (brace depth 0) is ALSO treated as
+spanning multiple lines, closing the blind spot. Flag-off pipeline
+byte-for-byte unchanged (every existing fixture relying on the original
+carve-out unaffected). Verified against the real, unmodified
+`angular/angular` `create_application.ts` file: previously 26/27 sampled
+files were round1-byte-identical-to-round2 (this file the sole exception,
+per `RDD_KEY_349`); now 27/27, and `create_application.ts`'s
+array-literal/spread/ternary declaration renders correctly (proper
+per-element multi-line layout, correct ternary spacing) instead of
+collapsing with mangled spacing. `js_ts_syntax_check.sh` re-run on the fix:
+26/27 clean, the 1 remaining flagged file (`structure.ts`) confirmed the
+same pre-existing, unrelated, flag-independent bug `RDD_KEY_349` already
+flagged (not this fix's doing). Also re-verified zero regressions on
+`square/okio` (313 Kotlin files, `line-length=70`, fully idempotent both
+before and after) and `google/guava` (`line-length=60`, same 44-file diff
+count before and after -- this fix doesn't touch the Java/C/C++ path at
+all). New fixture `test/real_code_regressions_243_{inp,out}.ts`. `make
+test`: 362/362 -> 363/363. **Status: the JS/TS manifestation of this
+finding that `RDD_KEY_349` flagged is now fixed; the ORIGINAL Java/guava
+manifestation this finding was first found from remains genuinely
+unreproduced (not confirmed fixed, not confirmed still broken) -- this
+finding is only PARTIALLY closed.** Full text: `RDD_KEY_351`.
+
 **2026-08-25 follow-up fix (continuation-line alignment-padding drift,
 `RDD_KEY_350`, D12):** root-caused and fixed the "Continuation-line
 alignment-padding drift on operator-split RHS" Known Out-of-Scope Finding
@@ -378,7 +455,7 @@ condition, a `for(...)` header, or a bare `return`/assignment-RHS
 expression with no enclosing call parens is too long, splits it at
 operator boundaries instead of leaving it long or falling straight to
 today's call-argument-paren wrapping. **Fully implemented, `make test`
-green (362/362).**
+green (363/363).**
 
 Output shape: unpadded, operator-LEADING (the operator token leads each
 continuation line), each continuation line at `baseIndent + one
@@ -638,6 +715,52 @@ Full text: `RDD_KEY_340`.
   `indent-size=2`): round1 now byte-identical to round2. New fixture
   `test/real_code_regressions_242_{inp,out}.java`. `make test`: 361/361 ->
   362/362.
+- **D13 — a paren/bracket-nested newline in a JS/TS/Kotlin declaration's
+  initializer must also count as "spans multiple lines" once operator-split
+  output can land one there; fixes one recurrence of the
+  declaration/condition collapse-on-round2 finding, not the original
+  Java/guava one.** `RDD_KEY_351`, re-investigating `RDD_KEY_349`'s
+  `create_application.ts` recurrence. Root cause: unlike D12
+  (`parseAssignment`, which always bails for JS/TS `const`/`let`/`var`
+  targets and so was never in play here), this is
+  `DeclarationAlignmentRuleCurly.spansMultipleLines` (shared by
+  `JsTsDeclarationAlignmentRule`/`KotlinDeclarationAlignmentRule`, its only
+  two callers) — a pre-existing, feature-independent design choice that only
+  ever recognized a NEWLINE as "spans multiple lines" inside a `{`...`}`
+  brace body or at full paren/bracket depth 0, deliberately treating a
+  newline strictly inside a call/array's parens/brackets as safe to flatten
+  (the assumption being only `enforceCallLineBreaking`'s own argument-wrap
+  could have put it there, safely re-derivable next pass).
+  `enforceOperatorLineBreaking` breaks that assumption: it can split an
+  operator nested arbitrarily deep inside an array literal's spread argument
+  (`[a, ...( cond ? b : c ), d]`), landing its own newline at paren/bracket
+  depth > 0 with nothing left to re-derive it on a reformat — the old
+  carve-out still calls it safe to flatten, and the generic row-rendering
+  that follows doesn't reapply `enforceOperatorLineBreaking`'s own ternary
+  spacing either, mangling `?`/`:` spacing on top of losing the split. Fixed
+  narrowly and flag-gated (same precedent as D12): a new
+  `lineSplitOperatorPriority` field + setter on
+  `DeclarationAlignmentRuleCurly` (consulted only by `spansMultipleLines`;
+  harmless on the C/C++/Java subclass, which never calls that method), wired
+  from `ScopePipelineCurly.setLineSplitOperatorPriority` into both
+  `jsTsDeclarationRule`/`kotlinDeclarationRule`; when on, a newline at
+  paren/bracket depth > 0 (brace depth 0) also counts as multi-line. Flag-off
+  pipeline byte-for-byte unchanged. Verified against the real, unmodified
+  `angular/angular` `create_application.ts` file: the TS dogfood sample went
+  from 26/27 to 27/27 round1-byte-identical-to-round2, with correct output
+  (proper per-element array layout, correct ternary spacing) instead of a
+  collapsed, mangled-spacing line. Zero regressions on `square/okio` (313
+  files) or `google/guava` (1655 files, lowered `line-length`, unaffected —
+  this fix doesn't touch the Java/C/C++ path). New fixture
+  `test/real_code_regressions_243_{inp,out}.ts`. `make test`: 362/362 ->
+  363/363. **Despite extensive re-investigation (fresh-clone re-check, a
+  full-corpus lowered-`line-length` run, and an isolated single-file/hand-
+  written repro), the ORIGINAL Java/`google/guava` manifestation this
+  finding was first found from (`MinMaxPriorityQueue.java`/`CharMatcher.java`/
+  `TreeRangeSet.java`/`Streams.java`) still does not reproduce anywhere —
+  same conclusion as `RDD_KEY_344`. This finding is only PARTIALLY closed:
+  the JS/TS manifestation is fixed, the original Java one remains an open,
+  unreproducible question.**
 
 ---
 
@@ -671,6 +794,33 @@ two clones' commits, not a fix or a regression — not investigated further
 (out of scope). Net: no conclusion possible on whether `indent-size=2`
 would resolve this flap, since this corpus draw no longer reproduces the
 flap to test against; still **not fixed, root cause not investigated**.
+
+**2026-08-25 follow-up, one recurrence FIXED, original manifestation still
+unreproduced (`RDD_KEY_351`, D13).** Re-investigated after `RDD_KEY_349`'s
+TS dogfood flagged `angular/angular`'s `create_application.ts` as a live
+recurrence of this same finding without chasing it. Tried hard again to
+reproduce the ORIGINAL Java/guava manifestation first: the four named files
+against a fresh guava clone (0/4 differ, same as `RDD_KEY_344`), the full
+1655-file corpus at a lowered `line-length=60` (an untried combination —
+zero files showed a line-count-collapse shape), and an isolated
+single-file/hand-written repro of the exact declaration shape (round-trips
+clean) — **the original Java manifestation still does not reproduce
+anywhere; still not confirmed fixed or broken.** But the flagged TS
+recurrence turned out to be a real, different, fully root-caused bug (not
+D12's `parseAssignment` mechanism, which always bails for JS/TS
+`const`/`let`/`var`): `DeclarationAlignmentRuleCurly.spansMultipleLines`
+(shared by `JsTsDeclarationAlignmentRule`/`KotlinDeclarationAlignmentRule`)
+only ever recognized a NEWLINE as "spans multiple lines" inside a brace body
+or at full paren/bracket depth 0, deliberately treating a newline strictly
+inside a call/array's parens as safe to flatten (assuming only
+`enforceCallLineBreaking`'s own argument-wrap could put it there) —
+`enforceOperatorLineBreaking` breaks that assumption by splitting an
+operator nested inside an array literal's spread argument, landing a
+newline at paren/bracket depth > 0 that nothing re-derives on a reformat.
+Fixed narrowly, flag-gated (see D13) — full text `RDD_KEY_351`. **This
+finding is now only PARTIALLY closed**: the JS/TS manifestation is fixed;
+the original Java manifestation (the rest of this section, below) remains
+open.
 
 A separate, pre-existing, flag-independent baseline of 42/1655 guava files
 also differ round1-vs-round2 regardless of this feature (e.g.
@@ -881,9 +1031,15 @@ in the dogfood summary above).
   operator-split assignment RHS continuation line inside a multi-declaration
   alignment group, re-indented under the group's `=` column on a second
   format instead of keeping its first-format indentation.
+- `test/real_code_regressions_243_{inp,out}.ts` — `RDD_KEY_351` fix
+  (adapted from the real `angular/angular` `create_application.ts`
+  trigger): a declaration's already-multi-line array-literal initializer,
+  with a newline sitting inside a spread argument's parens rather than at
+  the top level, mistaken for single-line and re-flattened with mangled
+  ternary spacing.
 - `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 ->
-  359/359 -> 360/360 -> 361/361 -> 362/362 forward + idempotency, zero
-  regressions (362 after `RDD_KEY_350`'s `real_code_regressions_242`
+  359/359 -> 360/360 -> 361/361 -> 362/362 -> 363/363 forward + idempotency,
+  zero regressions (363 after `RDD_KEY_351`'s `real_code_regressions_243`
   fixture).
 - **2026-08-25 real-code C/C++ dogfood (`RDD_KEY_346`):** `fmtlib/fmt`
   sample (17 files, flag forced on) — first C/C++-specific real-code
@@ -968,3 +1124,12 @@ in the dogfood summary above).
       continuation-line output on a reformat; fixed via a narrow, flag-gated
       indent-shape guard. Verified against the real, unmodified
       `google/guava` `LocalCache.java` file that surfaced the finding.
+- [~] Declaration/condition collapse-on-round2 flap (`RDD_KEY_351`, D13) —
+      PARTIALLY fixed. The JS/TS manifestation `RDD_KEY_349` flagged
+      (`angular/angular`'s `create_application.ts`) is root-caused and fixed
+      (`spansMultipleLines`'s paren-depth blind spot, flag-gated). The
+      ORIGINAL Java/`google/guava` manifestation this finding was first
+      found from still does not reproduce anywhere despite a fresh-clone
+      re-check, a full-corpus lowered-`line-length` run, and an isolated
+      repro attempt — genuinely unconfirmed, left open for a future session
+      with a different guava commit or a real novel trigger.

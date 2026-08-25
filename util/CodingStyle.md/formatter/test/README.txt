@@ -4439,6 +4439,13 @@ Real-code regressions:
                                                         instead of keeping its first-format indentation, found
                                                         via a google/guava sample dogfood.
 
+  real_code_regressions_243_inp/out.ts               -- line-split-operator-priority: a declaration's
+                                                        already-multi-line array-literal initializer, with a
+                                                        newline sitting inside a spread argument's parens
+                                                        rather than at the top level, was mistaken for
+                                                        single-line and re-flattened with mangled ternary
+                                                        spacing, found via an angular/angular sample dogfood.
+
 How Tests Are Run
 -----------------
 

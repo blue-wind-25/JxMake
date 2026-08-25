@@ -195,6 +195,19 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     }
 
     /**
+     * `line-split-operator-priority` follow-up (RDD_KEY_350) -- forwards to this instance's own
+     * internal {@code miscRule} (a separate instance from {@code FormatterCurly}'s own, per this
+     * class's "own copy of every rule" construction above), whose {@code parseAssignment} needs the
+     * flag to guard against misclassifying that feature's own continuation-line output as a
+     * hand-authored STYLE.md §6 multi-line right-hand side. Default false (matching the flag's own
+     * default), set post-construction same as {@code MiscRuleCurly.setNormalizeCommentMultiSentenceCase}.
+     */
+    public void setLineSplitOperatorPriority(final boolean value)
+    {
+        this.miscRule.setLineSplitOperatorPriority(value);
+    }
+
+    /**
      * Wraps {@link TokenizerCore#tokenize} and stamps frozen-span state (RDD_KEY_90 §A) on every
      * re-tokenize, same as {@code Formatter}'s tokenizer wrapper. {@code startFrozen} must be the
      * frozen state observed at {@code s}'s own starting boundary -- a substring extracted mid-file

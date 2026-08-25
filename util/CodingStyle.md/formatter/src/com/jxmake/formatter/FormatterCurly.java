@@ -191,6 +191,11 @@ public final class FormatterCurly extends FormatterCore {
             lineLengthLimit,
             lineLengthWithCommentLimit
         );
+        // RDD_KEY_350: guards `parseAssignment`'s STYLE.md §6 multi-line-RHS recognition against
+        // misclassifying `enforceOperatorLineBreaking`'s own continuation-line output shape (see
+        // STATE_LINE_SPLIT_OP.md's Known Out-of-Scope Finding). No-op when the flag is off
+        // (default), matching every other gated call in this method.
+        scopePipeline.setLineSplitOperatorPriority( config.lineSplitOperatorPriority() );
         text = scopePipeline.process(text);
 
         // Phase 1: structural/brace passes.

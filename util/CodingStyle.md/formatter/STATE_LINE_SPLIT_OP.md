@@ -4,6 +4,25 @@ Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
 status: see `STATE_DOGFOOD.md`.
 
+**2026-08-25 follow-up fix (continuation-line alignment-padding drift,
+`RDD_KEY_350`, D12):** root-caused and fixed the "Continuation-line
+alignment-padding drift on operator-split RHS" Known Out-of-Scope Finding
+(`RDD_KEY_344`/`RDD_KEY_346`). Reproduced minimally (adapted from the real
+`google/guava` `LocalCache.java` trigger) rather than re-cloning guava. Root
+cause: not declaration-alignment padding as originally theorized, but
+`MiscRuleCore.parseAssignment`'s pre-existing STYLE.md §6 "multi-line
+right-hand side" feature, which runs before `enforceOperatorLineBreaking`
+ever executes and misclassifies that pass's own already-split output (on a
+reformat) as a hand-authored §6 example, re-indenting it to the alignment
+group's `=` column. Fixed via a narrow, flag-gated guard in
+`parseAssignment` (`isOperatorSplitContinuationIndent`) that recognizes and
+leaves alone a continuation line sitting at exactly
+`enforceOperatorLineBreaking`'s own documented indent convention. Verified
+against the real, unmodified `google/guava` `LocalCache.java` file that
+surfaced the finding: round1 now byte-identical to round2. New fixture
+`test/real_code_regressions_242_{inp,out}.java`. `make test`: 361/361 ->
+362/362. Full text: `RDD_KEY_350`.
+
 **2026-08-25 real-code TS dogfood (`angular/angular` sample, flag forced on,
 `RDD_KEY_349`):** first real-code TS-specific validation of this feature's
 `?.`/`??`/optional-param landmine safety at scale (prior TS coverage was only
@@ -359,7 +378,7 @@ condition, a `for(...)` header, or a bare `return`/assignment-RHS
 expression with no enclosing call parens is too long, splits it at
 operator boundaries instead of leaving it long or falling straight to
 today's call-argument-paren wrapping. **Fully implemented, `make test`
-green (359/359).**
+green (362/362).**
 
 Output shape: unpadded, operator-LEADING (the operator token leads each
 continuation line), each continuation line at `baseIndent + one
@@ -581,6 +600,44 @@ Full text: `RDD_KEY_340`.
   still resolves via the same per-depth counter. New fixture
   `test/real_code_regressions_241_{inp,out}.ts`. `make test`: 360/360 ->
   361/361.
+- **D12 — continuation-line alignment-padding drift fixed via a narrow,
+  flag-gated guard in `parseAssignment`, not a declaration-alignment
+  padding-width fix.** `RDD_KEY_350`, fixing the "Continuation-line
+  alignment-padding drift on operator-split RHS" Known Out-of-Scope Finding
+  (`RDD_KEY_344`/`RDD_KEY_346`). Root cause was not declaration-alignment
+  padding-width computation (that finding's original leading theory) but
+  `MiscRuleCore.parseAssignment`'s pre-existing, unconditional STYLE.md §6
+  "multi-line right-hand side" feature (`RDD_KEY_51`): it runs (via
+  `ScopePipelineCurly.applyAssignmentsPass`) before `enforceOperatorLineBreaking`
+  ever executes, so a fresh format never sees a pre-split RHS collide with
+  it, but a reformat of already-split output does — the split RHS's
+  operator-leading second line matches §6's own documented "breaking before
+  an operator" shape exactly, so `parseAssignment` misclassifies it as a
+  hand-authored §6 example and re-indents it to the alignment group's `=`
+  column, a decision `enforceOperatorLineBreaking`'s own `hasNewlineBetween`
+  guard then leaves stale forever after. Fixed via a new
+  `lineSplitOperatorPriority` flag (threaded into `MiscRuleCore`/
+  `ScopePipelineCurly` post-construction, same "avoid threading a new param
+  through every constructor overload" precedent as
+  `normalizeCommentMultiSentenceCase`) gating a new
+  `isOperatorSplitContinuationIndent` check: when the flag is on and a
+  two-line RHS's second line sits at exactly the statement's own indent plus
+  one `indentWidth` — `enforceOperatorLineBreaking`'s own documented
+  continuation convention, essentially never coincident with a genuine §6
+  example's `=`-column-derived indent — `parseAssignment` leaves it as the
+  pre-existing verbatim multi-line fallback instead of reclassifying it.
+  Flag-off pipeline byte-for-byte unchanged (every existing fixture,
+  including every §6/declaration-alignment shape, unaffected). One narrow,
+  deliberately accepted trade-off: a hand-authored §6 example whose
+  continuation coincidentally sits at that exact indent, with the flag on,
+  is now left verbatim instead of realigned to `=` — confirmed harmless
+  (flag-off behavior for the same input is unaffected, and the coincidence
+  requires both the niche opt-in flag and an unusual hand-typed indent
+  choice). Verified against the real, unmodified `google/guava`
+  `LocalCache.java` file that surfaced the finding (flag on,
+  `indent-size=2`): round1 now byte-identical to round2. New fixture
+  `test/real_code_regressions_242_{inp,out}.java`. `make test`: 361/361 ->
+  362/362.
 
 ---
 
@@ -677,6 +734,30 @@ different corpus (`fmtlib/fmt`) and language (C/C++) purely from a lower
 the flag off at the same `line-length=60`). Root cause still not
 investigated — broadens this finding's known scope but doesn't change its
 status.
+
+**2026-08-25 follow-up, FIXED (`RDD_KEY_350`, D12).** Root-caused: not a
+declaration-alignment padding-width computation as this finding's original
+leading theory guessed — `MiscRuleCore.parseAssignment`/`groupAssignments`
+(STYLE.md §6's own pre-existing "multi-line right-hand side" feature,
+`RDD_KEY_51`), which runs via `ScopePipelineCurly.applyAssignmentsPass` well
+before `enforceOperatorLineBreaking` ever executes. On a fresh format the RHS
+is still single-line at that point, so nothing collides; on a reformat, this
+pass now sees the already-split two-physical-line RHS, and since its second
+line happens to start with an operator, misclassifies it as a hand-authored
+§6 example and re-indents it to the alignment group's `=` column — a stale
+decision `enforceOperatorLineBreaking`'s own `hasNewlineBetween` idempotency
+guard then leaves untouched forever after. Fixed via a new, flag-gated
+`isOperatorSplitContinuationIndent` guard in `parseAssignment`: when the flag
+is on and a two-line RHS's second line sits at exactly the statement's own
+indent plus one `indentWidth` (this feature's own documented continuation
+convention, essentially never coincident with a genuine §6 example's
+`=`-column-derived indent), `parseAssignment` leaves it as the verbatim
+multi-line fallback instead of reclassifying it — undisturbed,
+byte-for-byte, on every subsequent round. Verified against the real,
+unmodified `google/guava` `LocalCache.java` file (flag on, `indent-size=2`):
+round1 now byte-identical to round2. New fixture
+`test/real_code_regressions_242_{inp,out}.java`. `make test`: 361/361 ->
+362/362. Full text: `RDD_KEY_350`.
 
 **Single-line function-body brace placement not re-evaluated after a
 return-expression operator split (found 2026-08-25, `fmtlib/fmt` dogfood,
@@ -795,9 +876,15 @@ in the dogfood summary above).
   real ternary `?` (a function-type-alias parameter list's type
   annotations, and a trailing object-literal property colon after a
   nullish-coalescing fallback) mistaken for a ternary else-branch.
+- `test/real_code_regressions_242_{inp,out}.java` — `RDD_KEY_350` fix
+  (adapted from the real `google/guava` `LocalCache.java` trigger): an
+  operator-split assignment RHS continuation line inside a multi-declaration
+  alignment group, re-indented under the group's `=` column on a second
+  format instead of keeping its first-format indentation.
 - `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 ->
-  359/359 -> 360/360 -> 361/361 forward + idempotency, zero regressions
-  (361 after `RDD_KEY_349`'s `real_code_regressions_241` fixture).
+  359/359 -> 360/360 -> 361/361 -> 362/362 forward + idempotency, zero
+  regressions (362 after `RDD_KEY_350`'s `real_code_regressions_242`
+  fixture).
 - **2026-08-25 real-code C/C++ dogfood (`RDD_KEY_346`):** `fmtlib/fmt`
   sample (17 files, flag forced on) — first C/C++-specific real-code
   validation of this feature. Confirmed correct tier-1/tier-3 splits, a
@@ -836,6 +923,13 @@ in the dogfood summary above).
   preceding real ternary `?`). `js_ts_syntax_check.sh`: 26/27 clean; the 1
   flagged file's errors confirmed pre-existing and flag-independent
   (unrelated bug, out of scope, flagged for a future JS/TS-job session).
+- **2026-08-25 follow-up fix (`RDD_KEY_350`, D12):** fixed the
+  continuation-line alignment-padding drift flap (see Known Out-of-Scope
+  Finding above, now marked FIXED) — root-caused to `parseAssignment`'s
+  STYLE.md §6 multi-line-RHS feature misclassifying operator-split output on
+  a reformat; fixed via a narrow, flag-gated indent-shape guard. Verified
+  against the real, unmodified `google/guava` `LocalCache.java` file that
+  surfaced the finding. `make test`: 361/361 -> 362/362, zero regressions.
 
 ---
 
@@ -868,3 +962,9 @@ in the dogfood summary above).
       correctness confirmed on real code at scale. 1 pre-existing,
       flag-independent, unrelated bug found and flagged (not fixed, out of
       scope for this job) via `js_ts_syntax_check.sh`.
+- [x] Continuation-line alignment-padding drift flap fixed (`RDD_KEY_350`,
+      D12) — root-caused to `parseAssignment`'s STYLE.md §6 multi-line-RHS
+      feature misclassifying `enforceOperatorLineBreaking`'s own
+      continuation-line output on a reformat; fixed via a narrow, flag-gated
+      indent-shape guard. Verified against the real, unmodified
+      `google/guava` `LocalCache.java` file that surfaced the finding.

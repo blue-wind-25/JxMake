@@ -59,6 +59,18 @@ public abstract class MiscRuleCore {
     {
         this.normalizeCommentMultiSentenceCase = value;
     }
+    // `line-split-operator-priority` -- default off, set post-construction via
+    // {@link #setLineSplitOperatorPriority} for the same reason as
+    // `normalizeCommentMultiSentenceCase` above (many MiscRuleCore/MiscRuleCurly constructor
+    // overloads; this flag is only consulted by `parseAssignment`'s narrow RDD_KEY_350 guard).
+    // See STATE_LINE_SPLIT_OP.md's Known Out-of-Scope Finding, "Continuation-line
+    // alignment-padding drift on operator-split RHS".
+    protected boolean lineSplitOperatorPriority = false;
+
+    public void setLineSplitOperatorPriority(final boolean value)
+    {
+        this.lineSplitOperatorPriority = value;
+    }
     public final int indentWidth;
     public final int lineLengthLimit;
     // "code + comment" line-length limit (`line-length-with-comment` config key, default
@@ -1254,16 +1266,41 @@ public static final class Assignment {
                     line2Start, valueTo
                 ) );
                 final Boolean     breakBeforeOperator = classifyMultiLineBreak(line1, line2);
-                if(breakBeforeOperator != null) return Assignment.multiLine(
-                    stmt.get(targetIdx),
-                    lhsText,
-                    stmt.get(opIdx),
-                    breakBeforeOperator,
-                    line1,
-                    line2,
-                    trailingComment,
-                    blankBefore
-                );
+                // `line-split-operator-priority` follow-up (RDD_KEY_350): that feature's own
+                // continuation-line convention (Project Layout, STATE_LINE_SPLIT_OP.md --
+                // "unpadded, operator-LEADING ... each continuation line at baseIndent + one
+                // indentWidth") happens to satisfy this method's own STYLE.md §6 "breaking before
+                // an operator" shape exactly. On a fresh format that pass hasn't run yet when this
+                // one does (Phase 0, well before Phase 4's `enforceOperatorLineBreaking`), so no
+                // collision occurs there -- but reformatting that pass's own already-split output
+                // feeds this method a genuinely two-physical-line RHS whose second line sits at
+                // exactly `baseIndent + indentWidth`, which this method then misclassifies as a
+                // hand-authored STYLE.md §6 example and re-indents to the group's `=` column
+                // (`lhsWidth - 1`), a stale decision `enforceOperatorLineBreaking`'s own
+                // `hasNewlineBetween` guard then leaves untouched forever after -- a round1-vs-
+                // round2 flap, not a corruption. Guarded on `lineSplitOperatorPriority` (false
+                // unless the flag is on, so the flag-off pipeline -- including every existing
+                // STYLE.md §6 fixture -- is byte-for-byte unchanged) and on the exact
+                // `baseIndent + indentWidth` column match (a genuine hand-authored §6 example's
+                // *rendered* column is `lhsWidth`-derived, essentially never coincident with one
+                // bare extra indent level, so this narrowly targets only the operator-split output
+                // shape). Falls through to the verbatim multi-physical-line fallback below (same
+                // path already used for a call-wrap-produced multi-line RHS), which reproduces the
+                // second line's original text -- including its indentation -- unchanged.
+                if( breakBeforeOperator != null && !( lineSplitOperatorPriority
+                        && breakBeforeOperator
+                        && isOperatorSplitContinuationIndent(stmt, targetIdx, newlineIdx) ) ) {
+                    return Assignment.multiLine(
+                        stmt.get(targetIdx),
+                        lhsText,
+                        stmt.get(opIdx),
+                        breakBeforeOperator,
+                        line1,
+                        line2,
+                        trailingComment,
+                        blankBefore
+                    );
+                } // if
             } // if
         } // if
         final List<Token> value = new ArrayList<>( stmt.subList(valueFrom, valueTo) );
@@ -1272,6 +1309,34 @@ public static final class Assignment {
             stmt.get(targetIdx), lhsText, stmt.get(opIdx), value,
             trailingComment, blankBefore
         );
+    }
+    /**
+     * `line-split-operator-priority` follow-up (RDD_KEY_350) -- {@code true} iff {@code newlineIdx}
+     * (the assignment RHS's sole internal `NEWLINE`) is immediately followed by a `WHITESPACE`
+     * token exactly {@code indentWidth} characters wider than {@code targetIdx}'s own leading
+     * indentation, i.e. the statement's base indent plus exactly one indent level -- the precise
+     * shape {@code MiscRuleCurly.renderFragment}/{@code renderTieredSplit} render an
+     * operator-leading continuation line at (see this job's Project Layout: "each continuation line
+     * at baseIndent + one indentWidth"). Both indentations are read directly from `stmt`'s own raw
+     * `WHITESPACE` tokens (present verbatim -- `splitAssignmentStatements` includes a statement's
+     * leading `NEWLINE`+indent in its own `stmt` list, not the previous statement's), a zero-width
+     * indent (no `WHITESPACE` token present, e.g. a statement flush against an opening `{`) counting
+     * as 0 on either side.
+     */
+    private boolean isOperatorSplitContinuationIndent(
+        final List<Token> stmt,
+        final int         targetIdx,
+        final int         newlineIdx
+    )
+    {
+        final int baseIndentLen = (targetIdx > 0 && stmt.get(
+            targetIdx - 1
+        ).type == TokenType.WHITESPACE) ? stmt.get( targetIdx - 1 ).text.length() : 0;
+        final int line2IndentLen = (newlineIdx + 1 < stmt.size() && stmt.get(
+            newlineIdx + 1
+        ).type == TokenType.WHITESPACE) ? stmt.get( newlineIdx + 1 ).text.length() : 0;
+
+        return line2IndentLen == baseIndentLen + indentWidth;
     }
     /**
      * Classifies a multi-line right-hand side's break point per STYLE.md §6: {@code true} if

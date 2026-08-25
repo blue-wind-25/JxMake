@@ -4432,6 +4432,13 @@ Real-code regressions:
                                                         fallback) was mistaken for a ternary else-branch,
                                                         found via an angular/angular sample dogfood.
 
+  real_code_regressions_242_inp/out.java             -- line-split-operator-priority: an operator-split
+                                                        assignment RHS continuation line inside a
+                                                        multi-declaration alignment group got re-indented
+                                                        under the group's `=` column on a second format
+                                                        instead of keeping its first-format indentation, found
+                                                        via a google/guava sample dogfood.
+
 How Tests Are Run
 -----------------
 

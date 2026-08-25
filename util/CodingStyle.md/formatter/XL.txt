@@ -262,10 +262,6 @@ Use sub-agent. This can be a substantial work.
 - line-split-operator-priority: declaration/condition collapse-on-round2
   flap, still unfixed (STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
 
-- line-split-operator-priority: continuation-line alignment-padding drift
-  on an operator-split RHS, still unfixed (RDD_KEY_344/346,
-  STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===

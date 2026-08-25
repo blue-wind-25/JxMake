@@ -4,6 +4,44 @@ Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
 status: see `STATE_DOGFOOD.md`.
 
+**2026-08-25 real-code Kotlin dogfood (`square/okio` sample, flag forced on,
+`RDD_KEY_347`):** first real-code Kotlin-specific validation of this feature
+(prior real-code passes were Java/C++ only, via `pcpp_java`/`google/guava`/
+`fmtlib/fmt`). Cloned `square/okio` fresh (313 `.kt` files) and sampled 21
+files by grepping for real elvis (`?:`), tier-1 (`&&`/`||`/`+`/`-`) in
+conditions, tier-3 (`*`/`/`) in assignment/return/if shapes, and long
+nullable-type (`Type?`) declarations. `okio`'s own ~100-column style rarely
+crossed the tool's default `line-length=100`, so it was lowered to `70` for
+this dogfood run only (disclosed adaptation, same spirit as `RDD_KEY_346`);
+every finding re-confirmed at the tool's actual default too. Confirmed
+correct on real code: tier-1 `&&`/`-` split with recursion
+(`AsyncTimeout.kt`'s `awaitTimeout`); tier-3 mechanism confirmed sound via a
+synthetic if-condition repro (real `okio` conditions happened to contain no
+tier-3 operators in this draw); elvis (including chained `a ?: b ?: c`)
+never split as ternary across 15+ real occurrences; nullable-type `?` in
+long declarations never touched (`FsJs.kt`'s 103-char `readSync` signature,
+`NonJvmPlatform.kt`'s `String?` params) — D4's landmine guard holds on real
+Kotlin code. One genuine, real, in-scope bug found and fixed (general to the
+whole curly family, not Kotlin-specific): `findBinaryOpSplits` treated an
+arithmetic operator inside an array subscript (`arr[i - 1]`) as a valid
+split-point candidate whenever it was the shallowest-depth match found (no
+depth-0 restriction previously existed), found via `Options.kt`'s
+`byteStrings[i - 1][off] != byteStrings[i][off]` (no depth-0 tier-1 operator
+elsewhere in the condition). Fixed via a new `bracketDepth` (`[`/`]`-only)
+counter that excludes any occurrence found inside a subscript outright,
+regardless of `(`/`)` depth — narrower than a blanket depth-0-only
+restriction, which would also break the legitimate `(a + b) * (c + d)`
+nested-parens case. New fixture `test/real_code_regressions_240_{inp,out}.kt`.
+`make test`: 359/359 -> 360/360. Idempotency: all 21 sampled files
+byte-identical round1-vs-round2, both pre-fix and post-fix (this bug was a
+fresh-format false-positive, not a flap). `kotlin_syntax_check.sh`: 21/21
+clean both pre-fix and post-fix. A separate, real, root-caused gap was found
+and documented as a new Known Out-of-Scope Finding (not fixed, per this
+task's explicit time-box) rather than chased: Kotlin's `return`/top-level-`=`
+operator-split branches never actually fire on real Kotlin source at all
+(only `if`/`while`/`switch`/`for` work) — see that section below and
+`RDD_KEY_347`'s full text for the root cause. Full text: `RDD_KEY_347`.
+
 **2026-08-25 dogfood/validation (two-pass):** Pass 1 (flag off, routine
 self-adopt regression confirm) — Leg A (`tools/*`, 82 files) idempotent,
 zero content-changed files, nothing to adopt. Leg B (`src/**/*.java`, 100
@@ -421,6 +459,22 @@ Full text: `RDD_KEY_340`.
   tier-3's scan only (`/` has no equivalent meaning, left unguarded). New
   fixture `test/real_code_regressions_239_{inp,out}.cpp` (both bugs, one
   file). `make test`: 358/358 -> 359/359.
+- **D9 — array-subscript operator never a valid split point.**
+  `RDD_KEY_347`, `square/okio` Kotlin dogfood. `findBinaryOpSplits` picks
+  occurrences at "the shallowest depth present" among matches actually
+  found — not necessarily depth 0 — so a condition with no depth-0 tier-1/
+  tier-3 operator of its own (only a non-tier relational op like `!=`) but a
+  tier-1/tier-3 operator nested inside an array subscript (`arr[i - 1]`)
+  picked that nested operator as its only, therefore "shallowest," match,
+  splitting mid-subscript (`arr[i` / `- 1]...`) — valid Kotlin but never the
+  intended shape. Fixed via a new, separately-tracked `bracketDepth`
+  counter (`[`/`]` only) that excludes an occurrence outright whenever
+  `bracketDepth > 0`, regardless of its `(`/`)`-based `depth` — narrower
+  than a blanket depth-0-only restriction, which would also suppress the
+  legitimate parenthesized-grouping case (`(a + b) * (c + d)`, no depth-0
+  tier-1 op, but the nested `+`s are still the best available split point).
+  New fixture `test/real_code_regressions_240_{inp,out}.kt`. `make test`:
+  359/359 -> 360/360.
 
 ---
 
@@ -541,6 +595,42 @@ flag-dependent (does not reproduce with the flag off at the same
 stays valid C++; not a corruption/crash, same framing as the findings
 above.
 
+**Kotlin `return`/top-level-`=`-assignment operator-split branches never
+actually fire on real source (found 2026-08-25, `square/okio` dogfood,
+`RDD_KEY_347`, not fixed).** Unlike `if`/`while`/`switch`/`for` (which
+correctly operator-split for Kotlin, confirmed on real code — see the
+dogfood summary above), the `return`-expression and top-level `=`-assignment
+candidate branches in `enforceOperatorLineBreaking` never actually split
+anything for Kotlin, at any `line-length`, with or without an explicit
+trailing `;` in the source. Confirmed via real code (`square/okio`'s
+`Options.kt`: `val childNodesOffset = nodeOffset + node.intCount + 2 +
+(selectChoiceCount * 2)`, 87 chars, stays on one line even down to a
+synthetic `line-length=40`) and a minimal repro (`val x = a + b + (c * 2)`/
+`return a + b + (c * 2)`, both `fun` bodies, tried with and without an
+explicit `;`). Root cause: `KotlinSpecificRule.stripOptionalSemicolons` runs
+in Phase 1, well before `enforceOperatorLineBreaking` (Phase 4);
+`findStatementSemicolon` (shared by only the `return`/assignment candidate
+branches — `if`/`while`/`switch`/`for` locate their span via paren-matching
+instead, unaffected) looks solely for a literal `;` PUNCT token to find the
+statement's end, which no longer exists for Kotlin's semicolon-free
+statements by the time this pass runs — confirmed via the repro above
+showing an explicit `;` makes no difference, since it's already stripped
+upstream. Not fixed: a correct fix needs real Kotlin newline-sensitivity
+(an ASI-equivalent) distinguishing a genuine end-of-statement NEWLINE from a
+continuation NEWLINE across method-chaining (`.foo()` starting a new line),
+multi-line if/when-used-as-expression bodies, elvis continuation, and
+trailing lambdas — a materially bigger, separately-scoped feature with real
+risk of corrupting valid Kotlin source if a naive heuristic got a common
+shape wrong (e.g. reusing `GetterSetterRuleCore.isAsiContinuation`'s
+existing JS/TS-only ASI heuristic verbatim would still mis-handle
+method-chaining, since that heuristic only inspects the token BEFORE the
+candidate NEWLINE, not what follows it). Time-boxed per this task's explicit
+instructions rather than risked. Confirmed NOT a correctness/corruption bug
+in itself — the gap is a silent no-op, byte-identical to the flag-off
+baseline for these two statement shapes, and elvis-vs-ternary safety and
+nullable-type safety are both independently unaffected (verified separately
+in the dogfood summary above).
+
 ---
 
 ## Testing
@@ -569,9 +659,14 @@ above.
   across unrelated declarators) and a pointer type closing a template
   argument list (`Type*>` mistaken for tier-3 multiplication), combined in
   one file.
+- `test/real_code_regressions_240_{inp,out}.kt` — `RDD_KEY_347` fix (first
+  Kotlin-specific real-code fixture for this job): an array-subscript
+  arithmetic operator (`arr[i - 1]`) mistaken for a valid tier-1 split
+  point when no depth-0 tier-1/tier-3 operator exists elsewhere in the
+  condition.
 - `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 ->
-  359/359 forward + idempotency, zero regressions (359 after
-  `RDD_KEY_346`'s `real_code_regressions_239` fixture).
+  359/359 -> 360/360 forward + idempotency, zero regressions (360 after
+  `RDD_KEY_347`'s `real_code_regressions_240` fixture).
 - **2026-08-25 real-code C/C++ dogfood (`RDD_KEY_346`):** `fmtlib/fmt`
   sample (17 files, flag forced on) — first C/C++-specific real-code
   validation of this feature. Confirmed correct tier-1/tier-3 splits, a
@@ -580,6 +675,18 @@ above.
   already-documented flap classes recurring in this new corpus (not
   chased, see Known Out-of-Scope Finding above). `cpp_syntax_check.sh`: 0
   errors on all 17 sampled files, both before and after the fix.
+- **2026-08-25 real-code Kotlin dogfood (`RDD_KEY_347`):** `square/okio`
+  sample (21 files, flag forced on) — first Kotlin-specific real-code
+  validation of this feature. Confirmed correct tier-1 splits (with tier-1
+  recursion), elvis-vs-ternary safety, and nullable-type safety on real
+  code; tier-3 mechanism confirmed sound via a synthetic if-condition
+  repro (no real tier-3-in-condition candidates existed in this corpus
+  draw). Found and fixed 1 genuine split-point bug (D9, general to the
+  curly family). Found and documented (not fixed, time-boxed) 1 new gap:
+  Kotlin's `return`/assignment operator-split branches never fire on real
+  source at all (see Known Out-of-Scope Finding above).
+  `kotlin_syntax_check.sh`: 21/21 clean on all sampled files, both before
+  and after the fix.
 
 ---
 
@@ -598,3 +705,7 @@ above.
 - [x] Real-code C/C++ dogfood (`fmtlib/fmt` sample, flag forced on,
       `RDD_KEY_346`) — 2 bugs found and fixed, 2 known flaps recurred
       (documented, not chased).
+- [x] Real-code Kotlin dogfood (`square/okio` sample, flag forced on,
+      `RDD_KEY_347`) — 1 bug found and fixed (D9, general curly-family),
+      1 new gap found and documented (Kotlin return/assignment split
+      never fires, time-boxed, not chased).

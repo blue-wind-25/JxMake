@@ -77,6 +77,7 @@ Sorted by Language, then Status (DONE, DONE - PARTIAL FIX, DONE - OPEN Q, NOT ST
 | Kotlin | STATE_KOTLIN.md | kotlinx.coroutines | DONE | |
 | Kotlin | STATE_KOTLIN.md | square/kotlinpoet | DONE | |
 | Kotlin | STATE_KOTLIN.md | square/okio | DONE | |
+| Kotlin | STATE_LINE_SPLIT_OP.md | square/okio (line-split-operator-priority elvis/tier1/tier3 sample, flag forced on) | DONE - PARTIAL FIX | 21-file sample; 1 bug found and fixed (array-subscript operator false-positive, D9/RDD_KEY_347); elvis/nullable-type safety and tier-1/tier-3 correctness confirmed on real code; 1 new gap documented not fixed (Kotlin return/assignment split never fires, time-boxed) |
 | JSON/JSON5 | STATE_DATA_FORMATS.md | babel/babel | DONE | |
 | JSON/JSON5 | STATE_DATA_FORMATS.md | eslint/eslint | DONE | |
 | JSON/JSON5 | STATE_DATA_FORMATS.md | json5/json5 | DONE | |

@@ -2456,7 +2456,19 @@ public static final class Signature {
     /**
      * Shared depth-tracking scan behind {@link #findOperatorSplits}/{@link #findMulDivSplits}: every
      * {@code opTexts}-matching OP token in binary-operator context, restricted to the shallowest
-     * bracket depth any of them occurs at within {@code [from, to]}
+     * bracket depth any of them occurs at within {@code [from, to]}. `[`/`]` array-subscript
+     * nesting is tracked separately ({@code bracketDepth}) and excludes an occurrence outright
+     * (never added to {@code occ}, regardless of its `(`/`)` {@code depth}) rather than merely
+     * de-prioritizing it: an operator inside an index expression (`arr[i - 1]`) is never a
+     * meaningful split point the way a parenthesized arithmetic grouping's operator can be
+     * (`(a + b) * (c + d)` legitimately wants its nested `+`s available once no depth-0 tier-1 op
+     * exists) -- splitting mid-subscript reads poorly and was never the intent. Left unguarded,
+     * a condition with no depth-0 tier-1/tier-3 operator at all but a `[...]`-nested one (e.g.
+     * `byteStrings[i - 1][off] != byteStrings[i][off]`, no top-level `&&`/`||`/`+`/`-`, just a
+     * `!=` relational) picked that nested `-` as the "shallowest occurring" candidate purely
+     * because it was the only match found, splitting inside the subscript
+     * (`byteStrings[i` / `- 1][off] != ...`) -- syntactically valid but not the intended shape.
+     * Found via real-code testing against `square/okio`'s `Options.kt`.
      */
     private List<Integer> findBinaryOpSplits(
         final List<Token> tokens,
@@ -2465,15 +2477,18 @@ public static final class Signature {
         final String...   opTexts
     )
     {
-              int         depth = 0;
-        final List<int[]> occ   = new ArrayList<>(); // {tokenIndex, depth}
+              int         depth        = 0;
+              int         bracketDepth = 0;
+        final List<int[]> occ          = new ArrayList<>(); // {tokenIndex, depth}
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.PUNCT) {
                      if( "(".equals(t.text) || "[".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) ) --depth;
+                     if( "[".equals(t.text) ) ++bracketDepth;
+                else if( "]".equals(t.text) ) --bracketDepth;
             }
-            else if( t.type == TokenType.OP && isBinaryOperatorContext(tokens, i) ) {
+            else if( bracketDepth == 0 && t.type == TokenType.OP && isBinaryOperatorContext(tokens, i) ) {
                 for(final String opText : opTexts) {
                     if( isOp(t, opText) ) {
                         if( "*".equals(opText) && isPointerTypeBeforeAngleClose(tokens, i) ) break;

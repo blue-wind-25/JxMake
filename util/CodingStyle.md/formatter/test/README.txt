@@ -4419,6 +4419,12 @@ Real-code regressions:
                                                         template argument list (`Type*>`) was mistaken for a
                                                         binary multiplication split point.
 
+  real_code_regressions_240_inp/out.kt               -- line-split-operator-priority: an array-subscript
+                                                        operator (`arr[i - 1]`) with no depth-0 tier-1/tier-3
+                                                        operator elsewhere in the condition was mistaken for a
+                                                        valid split point, found via a square/okio sample
+                                                        dogfood.
+
 How Tests Are Run
 -----------------
 

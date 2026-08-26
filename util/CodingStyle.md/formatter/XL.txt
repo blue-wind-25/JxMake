@@ -285,26 +285,23 @@ Use sub-agent. This can be a substantial work.
 
 Use sub-agent. This can be a substantial work.
 
-=== TIER X: Dead ===
+=== TIER X: Dead (ordered by deadness -- hardest/least-revivable to implement first; [AI] items kept grouped) ===
 
-- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass rewrite. CLOSED — 4 sessions
-  each fixed only a narrow instance, none scoped the rewrite itself. See `STATE_C_CPP_JAVA.md`,
-  `RDD_KEY_330`.
-
-- [JS_TS] JSX full embedding-aware dispatcher (general HTML5-tree-construction reuse +
-  grammar-position `<` disambiguation). CLOSED — NOT FEASIBLE.
-
-- [PYTHON3] f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
-  2026-08-12, intentional scope. See `STATE_PYTHON3.md` §5.
-
-- [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping. CLOSED
-  2026-08-11. See `STATE_AI.md`.
+- [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM). CLOSED — permanently
+  NOT FEASIBLE.
 
 - [AI] Dedicated GRU for non-Latin/mixed-language comments. Assessed, not planned. CLOSED
   2026-08-10. See `STATE_AI.md`.
 
-- [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM). CLOSED — permanently
-  NOT FEASIBLE.
+- [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping. CLOSED
+  2026-08-11. See `STATE_AI.md`.
+
+- [JS_TS] JSX full embedding-aware dispatcher (general HTML5-tree-construction reuse +
+  grammar-position `<` disambiguation). CLOSED — NOT FEASIBLE.
+
+- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass rewrite. CLOSED — 4 sessions
+  each fixed only a narrow instance, none scoped the rewrite itself. See `STATE_C_CPP_JAVA.md`,
+  `RDD_KEY_330`.
 
 - [LINE_SPLIT_OP] Kotlin `return`/plain-assignment operator-priority line splitting. CLOSED —
   NOT FEASIBLE without a separately-scoped Kotlin ASI subsystem; real corruption risk from a naive
@@ -314,24 +311,27 @@ Use sub-agent. This can be a substantial work.
   error) on top of the already-documented statement-boundary-finding gap. See
   `STATE_LINE_SPLIT_OP.md`'s Known Out-of-Scope Finding, `RDD_KEY_347`.
 
-=== TIER Z: Closed, revisit only if new evidence surfaces ===
+- [PYTHON3] f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
+  2026-08-12, intentional scope. See `STATE_PYTHON3.md` §5.
 
-- [CURLY_GDR] GDR-2 (second multipass cycle) mis-scoping risk — NOT REPRODUCED. See
-  `STATE_CURLY_GDR.md`.
-
-- [CURLY_GDR] `GdrTokenizer` nested-block-comment gap — CLOSED, FIXED 2026-08-21. Kotlin block
-  comments genuinely nest; `scanBlockComment` now counts nesting depth for Kotlin only (gated on
-  language, C/C++/Java/JS/TS untouched). Fixture `real_code_regressions_227`. `make test`:
-  339/339 → 340/340. See `RDD_KEY_333` in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
-
-- [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
-  resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s
-  Open Questions.
+=== TIER Z: Closed, revisit only if new evidence surfaces (ordered by importance/reopen-likelihood, highest first) ===
 
 - [LINE_SPLIT_OP] Declaration/condition collapse-on-round2 flap, original Java/`google/guava`
   manifestation — NOT REPRODUCED after two separate, thorough attempts (RDD_KEY_344,
   RDD_KEY_351); the only live recurrence actually found (JS/TS, a different mechanism) is
   FIXED. See `STATE_LINE_SPLIT_OP.md` Known Out-of-Scope Finding.
+
+- [CURLY_GDR] GDR-2 (second multipass cycle) mis-scoping risk — NOT REPRODUCED. See
+  `STATE_CURLY_GDR.md`.
+
+- [HTML5_TCG] Level-4 adoption-agency "two simultaneous orphaned formatting elements" —
+  resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s
+  Open Questions.
+
+- [CURLY_GDR] `GdrTokenizer` nested-block-comment gap — CLOSED, FIXED 2026-08-21. Kotlin block
+  comments genuinely nest; `scanBlockComment` now counts nesting depth for Kotlin only (gated on
+  language, C/C++/Java/JS/TS untouched). Fixture `real_code_regressions_227`. `make test`:
+  339/339 → 340/340. See `RDD_KEY_333` in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
 ####################################################################################################
 ####################################################################################################

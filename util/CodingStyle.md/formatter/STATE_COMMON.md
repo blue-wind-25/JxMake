@@ -768,10 +768,15 @@ unconsolidated, same as the `setOf` precedent's three leftover copies. No
 source changes made; `make test` re-run to confirm still 350/350 forward +
 idempotency (no regression, since nothing was touched).
 
-**2026-08-26 cleanup-pass follow-up (duplicate bracket-matching methods):**
-`KotlinSpecificRule.matchBraceForward` and `SwitchRule.matchBrace` were
+**2026-08-26 cleanup-pass follow-up (duplicate bracket-matching methods, unreachable gdr convenience overloads):**
+(1) `KotlinSpecificRule.matchBraceForward` and `SwitchRule.matchBrace` were
 un-migrated duplicates of `MiscRuleCore.matchBraceForward` (already the
 delegation target for `matchParenForward` in both files). Both now delegate.
+(2) Five unreachable convenience-overload methods in the `gdr` package removed:
+`GdrTokenizer.tokenize(String)`, `GdrReindenter.compute(String, int)` (2-arg),
+`GdrReindenter.compute(String, int, boolean)` (3-arg), `GdrRewriter.rewrite(String, int)` (2-arg),
+`GdrRewriter.rewrite(String, int, boolean)` (3-arg) — all had zero external call sites,
+only delegating internally to their full-parameter-list counterparts.
 No fixture needed (behaviorally a no-op). `make test`: 364/364 forward +
 idempotency, clean.
 

@@ -63,27 +63,6 @@ public final class GdrReindenter {
     {
     }
 
-    /**
-     * Equivalent to {@code compute(source, indentSize, false)} -- the ordinary pre-pass behavior
-     * (full {@code braceLevel + pbLevel}, no postMode restriction). Kept as the default entry point
-     * so every existing caller (smoke tests, direct callers) is unaffected by the new
-     * {@code postMode} parameter.
-     */
-    public static List<GdrIndentTarget> compute(String source, int indentSize)
-    {
-        return compute(source, indentSize, false);
-    }
-
-    /**
-     * Equivalent to {@code compute(source, indentSize, postMode, false)} -- {@code
-     * kotlinNestedBlockComments} off. Kept so every caller besides {@link
-     * com.jxmake.formatter.gdr.GdrPipelineGate} is unaffected by the new parameter (RDD_KEY_333).
-     */
-    public static List<GdrIndentTarget> compute(String source, int indentSize, boolean postMode)
-    {
-        return compute(source, indentSize, postMode, false);
-    }
-
     public static List<GdrIndentTarget> compute(
         String  source,
         int     indentSize,

@@ -930,3 +930,19 @@ landed).
   Re-verified clean against the fixed JAR once C5's actual bug was patched.
   See Category 1 table's C4/C5 rows for detail; C4's ~44-file estimate folds
   into C5's count.
+
+- **2026-08-26 follow-up: `KotlinSpecificRule.lineStartIndex` vs.
+  `TokenNavigationRule.lineStartIndex` — closed, no divergence.** The
+  2026-08-22 `e6fb770` commit that promoted the shared token-navigation
+  helpers explicitly excluded this method as a "real behavioral
+  divergence," left unconfirmed since (see that method's own doc comment
+  in `KotlinSpecificRule.java` prior to this session, and `RDD_LOG.md`'s
+  `RDD_KEY_354`). Re-derived by hand and confirmed empirically (67-case
+  reflection-based driver, 0 mismatches including out-of-range idx) that
+  the two are equivalent: `Token.isGapToken` always treats `NEWLINE` as a
+  gap token, so scanning forward "at-or-after" the nearest preceding
+  `NEWLINE` and scanning "strictly-after" it always land on the same
+  token. `KotlinSpecificRule.lineStartIndex` now delegates to
+  `TokenNavigationRule.lineStartIndex`; full detail in `RDD_KEY_354`.
+  `e6fb770`'s other exclusion, `isEnumBodyBrace`, was not investigated
+  this session and remains a genuinely open, unconfirmed exclusion.

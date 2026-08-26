@@ -1158,26 +1158,13 @@ public class KotlinSpecificRule {
     }
 
     /**
-     * The index of the first significant token on the physical line containing {@code idx} --
-     * same purpose as {@code CppSpecificRule.lineStartIndex}/{@code TokenNavigationRule.lineStartIndex}.
-     * Kept as its own local copy rather than delegating to the shared one -- flagged in a prior
-     * session (2026-08-22 morning) as having real behavioral divergence from the shared
-     * implementation, not merely superficial dissimilarity, but that finding was not
-     * independently re-derived/re-verified since. Do not merge without re-confirming the specific
-     * divergence first.
+     * The index of the first significant token on the physical line containing {@code idx}.
+     * Delegates to {@link TokenNavigationRule#lineStartIndex} -- same result for every input
+     * (re-verified 2026-08-26; see STATE_KOTLIN.md).
      */
     private int lineStartIndex(final List<Token> tokens, final int idx)
     {
-        int newlineIdx = -1;
-        for(int i = idx; i >= 0; --i) {
-            if( tokens.get(i).type == TokenType.NEWLINE ) {
-                newlineIdx = i;
-                break;
-            }
-        }
-        final int firstSig = nextSignificantIndexAtOrAfter(tokens, newlineIdx < 0 ? 0 : newlineIdx);
-
-        return firstSig < 0 ? idx : firstSig;
+        return TokenNavigationRule.lineStartIndex(tokens, idx);
     }
 
     /**

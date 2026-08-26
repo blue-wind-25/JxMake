@@ -8,6 +8,9 @@ Dogfood corpus status: see `STATE_DOGFOOD.md`.
 
 ## Project Layout
 
+C/C++/Java-relevant files only (repo also holds other jobs' languages, not listed here —
+see their own STATE_*.md files):
+
 ```
 util/CodingStyle.md/formatter/
   STATE_C_CPP_JAVA.md        ← this file
@@ -21,11 +24,13 @@ util/CodingStyle.md/formatter/
       Main.java
       Config.java
       ServerMode.java
-      Formatter.java (FormatterCore + FormatterCurly, curly logic in FormatterCurly)
+      Lang.java
+      InFileConfig.java
+      FormatterCore.java / FormatterCurly.java
       IndentationDetector.java
-      ScopePipeline.java (ScopePipelineCore + ScopePipelineCurly)
+      ScopePipelineCore.java / ScopePipelineCurly.java
       tokenizer/
-        TokenizerCore.java (TokenizerCore + TokenizerCurly)
+        TokenizerCore.java / TokenizerCurly.java
       grid/
         ColumnGrid.java
         ModifierPriority.java
@@ -34,11 +39,11 @@ util/CodingStyle.md/formatter/
       evaluator/
         ComplexityPaddingEvaluator.java
       rules/
-        DeclarationAlignmentRule.java (DeclarationAlignmentRuleCore + DeclarationAlignmentRuleCurly)
+        DeclarationAlignmentRuleCore.java / DeclarationAlignmentRuleCurly.java
         BlockStructureRule.java
         SwitchRule.java
-        GetterSetterRule.java (GetterSetterRuleCore + GetterSetterRuleCurly)
-        MiscRule.java (MiscRuleCore + MiscRuleCurly)
+        GetterSetterRuleCore.java / GetterSetterRuleCurly.java
+        MiscRuleCore.java / MiscRuleCurly.java
         CppSpecificRule.java
         JavaSpecificRule.java
 ```

@@ -75,7 +75,7 @@ public class kotlin_syntax_check {
         boolean anyError = false;
 
         for(String arg : args) {
-            String  source   = new String(
+            String source = new String(
                 java.nio.file.Files.readAllBytes( java.nio.file.Paths.get(arg) )
             );
             if( hasSyntaxError(source) ) anyError = true;

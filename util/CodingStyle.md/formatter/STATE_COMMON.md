@@ -816,7 +816,7 @@ find src         -type f -name '*.java' -print0 | xargs -0 ./tools/verifiers/jav
 find /tmp/fmt_r1 -type f -name '*.java' -print0 | xargs -0 ./tools/verifiers/java_syntax_check.sh
 
 find /tmp/fmt_r1 -type f -name '*.java' | while read -r file; do realpath --relative-to="/tmp/fmt_r1" "$file"; done > /tmp/java_rel_path_file_list.txt
-./tools/verifiers/java_content_diff.sh /tmp/fmt_r1 /tmp/tools_r1 /tmp/java_rel_path_file_list.txt
+./tools/verifiers/java_content_diff.sh /tmp/fmt_r1 /tmp/fmt_r1 /tmp/java_rel_path_file_list.txt
 
 JAVA_VERSION=8
 CLASS_DIR=/tmp/fmt_classes
@@ -824,12 +824,14 @@ JAR_FILE=/tmp/fmt_output.jar
 MANIFEST=/tmp/fmt_manifest.txt
 MAIN_CLASS=com.jxmake.formatter.Main
 
+cp code-formatter-ai-assist-weights.json /tmp
+
 mkdir -p "$CLASS_DIR"
 printf 'Main-Class: %s\n' $MAIN_CLASS > $MANIFEST
 find /tmp/fmt_r1 -type f -name "*.java" -print0 | xargs -0 javac -encoding UTF-8 -source "$JAVA_VERSION" -target "$JAVA_VERSION" -d "$CLASS_DIR"
 jar cfm "$JAR_FILE" "$MANIFEST" -C "$CLASS_DIR" .
 
-make _test_serial JAR_FILE=$JAR_FILE
+make test JAR_FILE=$JAR_FILE
 
 make clean
 cp -Rvf /tmp/fmt_r1/* src

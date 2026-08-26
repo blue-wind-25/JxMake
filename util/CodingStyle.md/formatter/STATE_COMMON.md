@@ -804,18 +804,24 @@ an unrelated task.
    because this is self-referential.
 
 **Tools/compiler used** (formatter + GRU tools source), exact commands:
-
 ```bash
 ### Formatter
 rm -rvf /tmp/fmt_r1 /tmp/fmt_r2
 find src         -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r1 --preserve-tree --root src
 find /tmp/fmt_r1 -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r2 --preserve-tree --root /tmp/fmt_r1
+diff -ru src         /tmp/fmt_r2
 diff -ru /tmp/fmt_r1 /tmp/fmt_r2
 
+find src         -type f -name '*.java' -print0 | xargs -0 ./tools/verifiers/java_syntax_check.sh
+find /tmp/fmt_r1 -type f -name '*.java' -print0 | xargs -0 ./tools/verifiers/java_syntax_check.sh
+
+find /tmp/fmt_r1 -type f -name '*.java' | while read -r file; do realpath --relative-to="/tmp/fmt_r1" "$file"; done > /tmp/java_rel_path_file_list.txt
+./tools/verifiers/java_content_diff.sh /tmp/fmt_r1 /tmp/tools_r1 /tmp/java_rel_path_file_list.txt
+
 JAVA_VERSION=8
-CLASS_DIR=/tmp/classes
-JAR_FILE=/tmp/output.jar
-MANIFEST=/tmp/manifest.txt
+CLASS_DIR=/tmp/fmt_classes
+JAR_FILE=/tmp/fmt_output.jar
+MANIFEST=/tmp/fmt_manifest.txt
 MAIN_CLASS=com.jxmake.formatter.Main
 
 mkdir -p "$CLASS_DIR"
@@ -825,40 +831,47 @@ jar cfm "$JAR_FILE" "$MANIFEST" -C "$CLASS_DIR" .
 
 make _test_serial JAR_FILE=$JAR_FILE
 
-rm -rvf /tmp/fmt_r1b /tmp/fmt_r2b
-find src          -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r1b --preserve-tree --root src
-find /tmp/fmt_r1b -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r2b --preserve-tree --root /tmp/fmt_r1b
-diff -ru /tmp/fmt_r1b /tmp/fmt_r2b
-diff -ru /tmp/fmt_r1  /tmp/fmt_r1b
-diff -ru /tmp/fmt_r2  /tmp/fmt_r2b
-
 make clean
 cp -Rvf /tmp/fmt_r1/* src
 make test
 make test-server
+make test-server-concurrent
 make bench
 
-### GRU tools (verifiers tools should also use the same method)
-cd tools/gru
-rm -rvf /tmp/gru_tools
-mkdir /tmp/gru_tools
-cp *.{java,py} /tmp/gru_tools
-find /tmp/gru_tools    -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r1
-find /tmp/gru_tools_r1 -type f -print0 | xargs -0 ../../code-formatter.sh --out /tmp/gru_tools_r2
-diff -ru /tmp/gru_tools_r1 /tmp/gru_tools_r2
+### Tools
+cd tools
+rm -rvf /tmp/tools /tmp/tools_r1 /tmp/tools_r2
+mkdir /tmp/tools
 
-find /tmp/gru_tools    -type f -name '*.java' -print0 | xargs -0 ../verifiers/java_syntax_check.sh
-find /tmp/gru_tools_r1 -type f -name '*.java' -print0 | xargs -0 ../verifiers/java_syntax_check.sh
-find /tmp/gru_tools_r2 -type f -name '*.java' -print0 | xargs -0 ../verifiers/java_syntax_check.sh
+find . -type f \( -name "*.java" -o -name "*.js" -o -name "*.py" -o -name "*.sh" -o -name "*.ps1" \) -exec cp --parents -t /tmp/tools {} +
 
-find /tmp/gru_tools    -type f -name '*.py' -print0 | xargs -0 ../verifiers/python_syntax_check.sh
-find /tmp/gru_tools_r1 -type f -name '*.py' -print0 | xargs -0 ../verifiers/python_syntax_check.sh
-find /tmp/gru_tools_r2 -type f -name '*.py' -print0 | xargs -0 ../verifiers/python_syntax_check.sh
+find /tmp/tools    -type f -print0 | xargs -0 ../code-formatter.sh --out /tmp/tools_r1 --preserve-tree --root /tmp/tools
+find /tmp/tools_r1 -type f -print0 | xargs -0 ../code-formatter.sh --out /tmp/tools_r2 --preserve-tree --root /tmp/tools_r1
+diff -ru /tmp/tools    /tmp/tools_r1
+diff -ru /tmp/tools_r1 /tmp/tools_r2
 
-# Compare each stage's *.java and *.py content against the previous stage via
-# ../verifiers/java_content_diff.sh / python_content_diff.sh, one file at a time
-# (orig vs r1, then r1 vs r2), then adopt:
-cp -vf /tmp/gru_tools_r1/*.{java,py} .
+find /tmp/tools    -type f -name '*.java' -print0 | xargs -0 ./verifiers/java_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.java' -print0 | xargs -0 ./verifiers/java_syntax_check.sh
+
+find /tmp/tools    -type f -name '*.js' -print0 | xargs -0 ./verifiers/js_ts_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.js' -print0 | xargs -0 ./verifiers/js_ts_syntax_check.sh
+
+find /tmp/tools    -type f -name '*.py' -print0 | xargs -0 ./verifiers/python_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.py' -print0 | xargs -0 ./verifiers/python_syntax_check.sh
+
+find /tmp/tools    -type f -name '*.sh' -print0 | xargs -0 ./verifiers/bash_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.sh' -print0 | xargs -0 ./verifiers/bash_syntax_check.sh
+
+find /tmp/tools -type f -name '*.java' | while read -r file; do realpath --relative-to="/tmp/tools" "$file"; done > /tmp/java_rel_path_file_list.txt
+./verifiers/java_content_diff.sh /tmp/tools /tmp/tools_r1 /tmp/java_rel_path_file_list.txt
+
+find /tmp/tools -type f -name '*.js' | while read -r file; do realpath --relative-to="/tmp/tools" "$file"; done > /tmp/js_rel_path_file_list.txt
+./verifiers/js_ts_content_diff.sh /tmp/tools /tmp/tools_r1 /tmp/js_rel_path_file_list.txt
+
+find /tmp/tools -type f -name '*.py' | while read -r file; do realpath --relative-to="/tmp/tools" "$file"; done > /tmp/py_rel_path_file_list.txt
+./verifiers/python_content_diff.sh /tmp/tools /tmp/tools_r1 /tmp/py_rel_path_file_list.txt
+
+rsync -av --no-perms /tmp/tools_r1/ .
 ```
 
 No syntax errors; AST differed only in comments. `java_content_diff.java`

@@ -31,19 +31,19 @@ const ts = require('typescript');
 
 function scriptKindFor(file)
 {
-  // `.tsx`/`.jsx` need their own dedicated ScriptKind, not a fallback to plain TS/JS -- the
-  // TypeScript compiler's TS/JS parsers don't do JSX disambiguation at all (a bare `<T>` is
-  // always a type-assertion cast, never a JSX element), so a `.tsx` file parsed as plain TS
-  // (the old fallback here, since it doesn't end in exactly `.ts`) makes every real JSX
-  // element in the file a parse error, and a `.tsx` file's real TS generics (parsed as plain
-  // JS, since `.tsx` isn't `.ts`) make every generic a parse error instead. Found via
-  // STATE_JS_TS.md's Step 2 Increment 5 real-corpus dogfood: excalidraw/excalidraw's `.tsx`
-  // files with generic-heavy hooks (`useState<T>()`, etc.) were false-failing under the old
-  // JS fallback.
-  if( file.endsWith('.tsx') ) return ts.ScriptKind.TSX;
-  if( file.endsWith('.jsx') ) return ts.ScriptKind.JSX;
+    // `.tsx`/`.jsx` need their own dedicated ScriptKind, not a fallback to plain TS/JS -- the
+    // TypeScript compiler's TS/JS parsers don't do JSX disambiguation at all (a bare `<T>` is
+    // always a type-assertion cast, never a JSX element), so a `.tsx` file parsed as plain TS
+    // (the old fallback here, since it doesn't end in exactly `.ts`) makes every real JSX
+    // element in the file a parse error, and a `.tsx` file's real TS generics (parsed as plain
+    // JS, since `.tsx` isn't `.ts`) make every generic a parse error instead. Found via
+    // STATE_JS_TS.md's Step 2 Increment 5 real-corpus dogfood: excalidraw/excalidraw's `.tsx`
+    // files with generic-heavy hooks (`useState<T>()`, etc.) were false-failing under the old
+    // JS fallback.
+    if(file.endsWith('.tsx')) return ts.ScriptKind.TSX;
+    if(file.endsWith('.jsx')) return ts.ScriptKind.JSX;
 
-  return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
+    return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 } // scriptKindFor
 
 // `export Foo from './Bar';` (bare default re-export, no `{ }`/`*`) is a real,
@@ -60,56 +60,57 @@ const LEGACY_EXPORT_DEFAULT_FROM = /^(\s*)export\s+([A-Za-z_$][\w$]*)\s+from(\s+
 
 function rewriteLegacyExportDefaultFrom(source)
 {
-  return source
-    .split('\n')
-    .map( (line) => line.replace(LEGACY_EXPORT_DEFAULT_FROM, '$1export { default as $2 } from$3') )
-    .join('\n');
+    return source
+        .split('\n')
+        .map((line) => line.replace(LEGACY_EXPORT_DEFAULT_FROM, '$1export { default as $2 } from$3'))
+        .join('\n');
 } // rewriteLegacyExportDefaultFrom
 
 function checkFile(fileName)
 {
-    const source = rewriteLegacyExportDefaultFrom( fs.readFileSync(fileName, 'utf8') );
+    const source = rewriteLegacyExportDefaultFrom(fs.readFileSync(fileName, 'utf8'));
 
-  const sf = ts.createSourceFile(
-    fileName,
-    source,
-    ts.ScriptTarget.Latest,
-    /*SetParentNodes*/ true,
-    scriptKindFor(fileName) );
+    const sf = ts.createSourceFile(
+        fileName,
+        source,
+        ts.ScriptTarget.Latest,
+        /*SetParentNodes*/
+        true,
+        scriptKindFor(fileName));
 
-  return sf.parseDiagnostics;
+    return sf.parseDiagnostics;
 } // checkFile
 
 function main()
 {
-  if(process.argv.length < 3) {
-    console.error('Usage: js_ts_syntax_check.sh <file.(js|ts)> [file2.(js|ts) ...]');
-    process.exit(2);
-  }
+    if(process.argv.length < 3) {
+        console.error('Usage: js_ts_syntax_check.sh <file.(js|ts)> [file2.(js|ts) ...]');
+        process.exit(2);
+    }
 
     let ok = true;
 
-  for( const file of process.argv.slice(2) ) {
-    const diagnostics = checkFile(file);
+    for(const file of process.argv.slice(2)) {
+        const diagnostics = checkFile(file);
 
-    if(diagnostics.length !== 0) {
-        ok = false;
+        if(diagnostics.length !== 0) {
+            ok = false;
 
-      for(const d of diagnostics) {
-        const pos = d.file.getLineAndCharacterOfPosition(d.start);
+            for(const d of diagnostics) {
+                const pos = d.file.getLineAndCharacterOfPosition(d.start);
 
-        console.error(
-            '%s:%d:%d: %s',
-            file,
-            pos.line + 1,
-            pos.character + 1,
-            ts.flattenDiagnosticMessageText(d.messageText, '\n')
-        );
-      } // for
-    } // if
-  } // for
+                console.error(
+                    '%s:%d:%d: %s',
+                    file,
+                    pos.line + 1,
+                    pos.character + 1,
+                    ts.flattenDiagnosticMessageText(d.messageText, '\n')
+                );
+            } // for
+        } // if
+    } // for
 
-  process.exit(ok ? 0 : 1);
+    process.exit(ok ? 0 : 1);
 } // main
 
 main();

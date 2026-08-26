@@ -74,24 +74,24 @@
  */
 'use strict';
 
-const fs   = require('fs');
+const fs = require('fs');
 const path = require('path');
-const ts   = require('typescript');
+const ts = require('typescript');
 
 function normalizeWhitespace(s)
 {
-  return s.trim().replace(/\s+/g, ' ');
+    return s.trim().replace(/\s+/g, ' ');
 }
 
 function scriptKindFor(file)
 {
-  return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
+    return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 }
 
 function parse(source, fileName)
 {
-  return ts.createSourceFile(
-    fileName, source, ts.ScriptTarget.Latest, /*SetParentNodes*/ true, scriptKindFor(fileName) );
+    return ts.createSourceFile(
+        fileName, source, ts.ScriptTarget.Latest, /*SetParentNodes*/ true, scriptKindFor(fileName));
 }
 
 /**
@@ -130,85 +130,88 @@ function parse(source, fileName)
  */
 function isBareableArrowParam(fn)
 {
-  if(fn.parameters.length !== 1) return false;
+    if(fn.parameters.length !== 1) return false;
     const p = fn.parameters[0];
 
-  return !p.dotDotDotToken && !p.type && !p.initializer && !p.questionToken && ts.isIdentifier(
-      p.name
-  );
+    return !p.dotDotDotToken && !p.type && !p.initializer && !p.questionToken && ts.isIdentifier(
+        p.name
+    );
 } // isBareableArrowParam
 
 function isPlainIncDec(n)
 {
-  return ( ts.isPostfixUnaryExpression(n) || ts.isPrefixUnaryExpression(n) )
-      && (n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken);
+    return (ts.isPostfixUnaryExpression(n) || ts.isPrefixUnaryExpression(n)) &&
+        (n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken);
 }
 
 function canonicalize(node)
 {
     const parts = [];
-  ( function walk(n)
-  {
-    if( ts.isBlock(n) && n.statements.length === 1 ) {
-      walk( n.statements[0] );
-      return;
-    }
-    // A `/** ... */` JSDoc comment is parsed by the TS compiler as a real
-    // AST child of its following declaration (even with no @tags), unlike
-    // an ordinary `//`/`/* */` comment. Skip it here -- it's already
-    // covered by collectComments() (which works off raw source ranges,
-    // independent of AST attachment), so including its raw text here too
-    // would both double-count it and bypass that path's period-stripping/
-    // case-normalization tolerance, false-flagging exactly the same
-    // intentional transformations this canonicalization is meant to
-    // tolerate.
-    if( ts.isJSDoc(n) ) return;
-    if( ts.isArrowFunction(n) && isBareableArrowParam(n) ) {
-      for( const k of n.getChildren() ) {
-        if(k.kind === ts.SyntaxKind.OpenParenToken || k.kind === ts.SyntaxKind.CloseParenToken) continue;
-        walk(k);
-      }
-      return;
-    } // if
-    if( ts.isForStatement(n) ) {
-      for( const k of n.getChildren() ) {
-        if( n.incrementor && k === n.incrementor && isPlainIncDec(k) ) {
-          parts.push(k.operator === ts.SyntaxKind.PlusPlusToken ? '++' : '--');
-          walk(k.operand);
+    (function walk(n)
+    {
+        if(ts.isBlock(n) && n.statements.length === 1) {
+            walk(n.statements[0]);
+            return;
         }
-        else walk(k);
-      } // for
-      return;
-    } // if
-    const kids = n.getChildren();
-    if(kids.length === 0) {
-        const t = n.getText();
-      if(t.length > 0) parts.push(t);
-    }
-    else {
-      for(const k of kids) walk(k);
-    }
-  } )(node);
+        // A `/** ... */` JSDoc comment is parsed by the TS compiler as a real
+        // AST child of its following declaration (even with no @tags), unlike
+        // an ordinary `//`/`/* */` comment. Skip it here -- it's already
+        // covered by collectComments() (which works off raw source ranges,
+        // independent of AST attachment), so including its raw text here too
+        // would both double-count it and bypass that path's period-stripping/
+        // case-normalization tolerance, false-flagging exactly the same
+        // intentional transformations this canonicalization is meant to
+        // tolerate.
+        if(ts.isJSDoc(n)) return;
+        if(ts.isArrowFunction(n) && isBareableArrowParam(n)) {
+            for(const k of n.getChildren()) {
+                if(k.kind === ts.SyntaxKind.OpenParenToken || k.kind === ts.SyntaxKind.CloseParenToken) continue;
+                walk(k);
+            }
+            return;
+        } // if
+        if(ts.isForStatement(n)) {
+            for(const k of n.getChildren()) {
+                if(n.incrementor && k === n.incrementor && isPlainIncDec(k)) {
+                    parts.push(k.operator === ts.SyntaxKind.PlusPlusToken ? '++' : '--');
+                    walk(k.operand);
+                }
+                else walk(k);
+            } // for
+            return;
+        } // if
+        const kids = n.getChildren();
+        if(kids.length === 0) {
+            const t = n.getText();
+            if(t.length > 0) parts.push(t);
+        }
+        else {
+            for(const k of kids) walk(k);
+        }
+    })(node);
 
-  return normalizeWhitespace( parts.join(' ') );
+    return normalizeWhitespace(parts.join(' '));
 } // canonicalize
 
 function isImportStatement(stmt)
 {
-  return ts.isImportDeclaration(stmt) || ts.isImportEqualsDeclaration(stmt);
+    return ts.isImportDeclaration(stmt) || ts.isImportEqualsDeclaration(stmt);
 }
 
 function topLevelBuckets(sourceFile)
 {
     const imports = [];
-    const others  = [];
-  for(const stmt of sourceFile.statements) {
-    if( isImportStatement(stmt) ) imports.push( canonicalize(stmt) );
-    else                          others.push( canonicalize(stmt) );
-  }
-  imports.sort();
+    const others = [];
+    for(const stmt of sourceFile.statements) {
+        if(isImportStatement(stmt)) imports.push(canonicalize(stmt));
+        else others.push(canonicalize(stmt));
+    }
+    imports.sort();
 
-  return { imports, others };
+    return {
+        imports,
+        others
+    };
 } // topLevelBuckets
 
 /**
@@ -222,30 +225,30 @@ function topLevelBuckets(sourceFile)
 function collectComments(sourceFile, sourceText)
 {
     const seen = new Set();
-    const out  = [];
+    const out = [];
 
-  function addRangesAt(pos)
-  {
-    const ranges = ts.getLeadingCommentRanges(sourceText, pos) ||[];
-    for(const r of ranges) {
-        const key = r.pos + ':' + r.end;
-      if( seen.has(key) ) continue;
-      seen.add(key);
-      out.push( stripCommentDelims( sourceText.slice(r.pos, r.end) ) );
-    }
-  } // addRangesAt
+    function addRangesAt(pos)
+    {
+        const ranges = ts.getLeadingCommentRanges(sourceText, pos) || [];
+        for(const r of ranges) {
+            const key = r.pos + ':' + r.end;
+            if(seen.has(key)) continue;
+            seen.add(key);
+            out.push(stripCommentDelims(sourceText.slice(r.pos, r.end)));
+        }
+    } // addRangesAt
 
-  addRangesAt(0);
-  ( function walk(n)
-  {
-    addRangesAt( n.getFullStart() );
-    n.forEachChild(walk);
-  } )(sourceFile);
-  addRangesAt(sourceText.length);
+    addRangesAt(0);
+    (function walk(n)
+    {
+        addRangesAt(n.getFullStart());
+        n.forEachChild(walk);
+    })(sourceFile);
+    addRangesAt(sourceText.length);
 
-  out.sort();
+    out.sort();
 
-  return out;
+    return out;
 } // collectComments
 
 /**
@@ -259,54 +262,54 @@ function collectComments(sourceFile, sourceText)
 function stripSoleTrailingPeriod(t)
 {
     const trimmed = t.replace(/\s+$/, '');
-  if( trimmed.endsWith('.') && !trimmed.endsWith('..') ) return trimmed.slice(0, -1);
+    if(trimmed.endsWith('.') && !trimmed.endsWith('..')) return trimmed.slice(0, -1);
 
-  return trimmed;
+    return trimmed;
 }
 
 function stripCommentDelims(text)
 {
     let t = text.trim();
-       if( t.startsWith('///') ) t = t.slice(3);
-  else if( t.startsWith('//') )  t = t.slice(2);
-  else if( t.startsWith('/**') ) t = t.slice( 3, Math.max(3, t.length - 2) );
-  else if( t.startsWith('/*') )  t = t.slice( 2, Math.max(2, t.length - 2) );
+    if(t.startsWith('///')) t = t.slice(3);
+    else if(t.startsWith('//')) t = t.slice(2);
+    else if(t.startsWith('/**')) t = t.slice(3, Math.max(3, t.length - 2));
+    else if(t.startsWith('/*')) t = t.slice(2, Math.max(2, t.length - 2));
     t = stripSoleTrailingPeriod(t);
 
-  return normalizeWhitespace(t).toLowerCase();
+    return normalizeWhitespace(t).toLowerCase();
 } // stripCommentDelims
 
 function diffMultisets(label, a, b)
 {
     const mismatches = [];
-    const bCopy      = b.slice();
-    const onlyInA    = [];
-  for(const s of a) {
-    const idx = bCopy.indexOf(s);
-    if(idx === -1) onlyInA.push(s);
-    else           bCopy.splice(idx, 1);
-  }
-  if(onlyInA.length > 0) mismatches.push(
-      label + ': present in original, missing from formatted: ' + JSON.stringify(onlyInA)
-  );
-  if(bCopy.length > 0) mismatches.push(
-      label + ': present in formatted, missing from original: ' + JSON.stringify(bCopy)
-  );
+    const bCopy = b.slice();
+    const onlyInA = [];
+    for(const s of a) {
+        const idx = bCopy.indexOf(s);
+        if(idx === -1) onlyInA.push(s);
+        else bCopy.splice(idx, 1);
+    }
+    if(onlyInA.length > 0) mismatches.push(
+        label + ': present in original, missing from formatted: ' + JSON.stringify(onlyInA)
+    );
+    if(bCopy.length > 0) mismatches.push(
+        label + ': present in formatted, missing from original: ' + JSON.stringify(bCopy)
+    );
 
-  return mismatches;
+    return mismatches;
 } // diffMultisets
 
 function pad2(n)
 {
-  return n < 10 ? '0' + n : '' + n;
+    return n < 10 ? '0' + n : '' + n;
 }
 
 function pad3(n)
 {
-       if(n < 10)  return '00' + n;
-  else if(n < 100) return '0' + n;
+    if(n < 10) return '00' + n;
+    else if(n < 100) return '0' + n;
 
-  return '' + n;
+    return '' + n;
 }
 
 /**
@@ -320,9 +323,9 @@ function timestampNow()
 {
     const d = new Date();
 
-  return d.getFullYear() + '-' + pad2( d.getMonth() + 1 ) + '-' + pad2( d.getDate() ) +
-    ' ' + pad2( d.getHours() ) + ':' + pad2( d.getMinutes() ) + ':' + pad2( d.getSeconds() ) +
-    '.' + pad3( d.getMilliseconds() );
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
+        ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) +
+        '.' + pad3(d.getMilliseconds());
 } // timestampNow
 
 /**
@@ -334,7 +337,7 @@ function timestampNow()
  */
 function printTimestampedHeader(relPath)
 {
-  console.log( '[' + timestampNow() + '] ' + relPath );
+    console.log('[' + timestampNow() + '] ' + relPath);
 }
 
 /**
@@ -358,133 +361,135 @@ function printTimestampedHeader(relPath)
 function compareOne(origPath, fmtPath, origLabel, fmtLabel)
 {
     const origSrc = fs.readFileSync(origPath, 'utf8');
-    const fmtSrc  = fs.readFileSync(fmtPath, 'utf8');
+    const fmtSrc = fs.readFileSync(fmtPath, 'utf8');
 
-    const origFile = parse( origSrc, path.basename(origPath) );
-    const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
+    const origFile = parse(origSrc, path.basename(origPath));
+    const fmtFile = parse(fmtSrc, path.basename(fmtPath));
 
     const mismatches = [];
 
     const origBuckets = topLevelBuckets(origFile);
-    const fmtBuckets  = topLevelBuckets(fmtFile);
+    const fmtBuckets = topLevelBuckets(fmtFile);
 
-  mismatches.push( ...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports) );
+    mismatches.push(...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports));
 
-  if(origBuckets.others.length !== fmtBuckets.others.length) mismatches.push(
-      'non-import top-level statement count changed: ' + origBuckets.others.length + ' -> ' + fmtBuckets.others.length
-  );
-    const n = Math.min(origBuckets.others.length, fmtBuckets.others.length);
-  for(let i = 0; i < n; ++i) {
-    if( origBuckets.others[i] !== fmtBuckets.others[i] ) mismatches.push(
-        'non-import top-level statement #' + i + ' structure/content differs'
+    if(origBuckets.others.length !== fmtBuckets.others.length) mismatches.push(
+        'non-import top-level statement count changed: ' + origBuckets.others.length + ' -> ' + fmtBuckets.others.length
     );
-  }
+    const n = Math.min(origBuckets.others.length, fmtBuckets.others.length);
+    for(let i = 0; i < n; ++i) {
+        if(origBuckets.others[i] !== fmtBuckets.others[i]) mismatches.push(
+            'non-import top-level statement #' + i + ' structure/content differs'
+        );
+    }
 
-  mismatches.push( ...diffMultisets(
-    'comments', collectComments(origFile, origSrc), collectComments(fmtFile, fmtSrc) ) );
+    mismatches.push(...diffMultisets(
+        'comments', collectComments(origFile, origSrc), collectComments(fmtFile, fmtSrc)));
 
-  if(mismatches.length === 0) {
-    console.log('OK: content preserved (' + origLabel + ' == ' + fmtLabel + ')');
+    if(mismatches.length === 0) {
+        console.log('OK: content preserved (' + origLabel + ' == ' + fmtLabel + ')');
 
-    return true;
-  }
-  else {
-    console.log('MISMATCH: content differs between ' + origLabel + ' and ' + fmtLabel);
-    for(const m of mismatches) console.log('  ' + m);
+        return true;
+    }
+    else {
+        console.log('MISMATCH: content differs between ' + origLabel + ' and ' + fmtLabel);
+        for(const m of mismatches) console.log('  ' + m);
 
-    return false;
-  }
+        return false;
+    }
 } // compareOne
 
 function printUsage()
 {
-  console.error('Usage: js_ts_content_diff.sh <original.(js|ts)> <formatted.(js|ts)>');
-  console.error(
-      '       js_ts_content_diff.sh <original_base_dir> <formatted_base_dir> <js_ts_rel_path_file_list.txt>'
-  );
+    console.error('Usage: js_ts_content_diff.sh <original.(js|ts)> <formatted.(js|ts)>');
+    console.error(
+        '       js_ts_content_diff.sh <original_base_dir> <formatted_base_dir> <js_ts_rel_path_file_list.txt>'
+    );
 }
 
 function runSingle(origArg, fmtArg)
 {
-  printTimestampedHeader(origArg);
+    printTimestampedHeader(origArg);
 
     const origExists = fs.existsSync(origArg);
-    const fmtExists  = fs.existsSync(fmtArg);
-  if(!origExists || !fmtExists) {
-         if(!origExists && !fmtExists) console.log(
-             'WARNING: both ' + origArg + ' and ' + fmtArg + ' are missing'
-         );
-    else if(!origExists)               console.log('WARNING: ' + origArg + ' is missing');
-    else                                console.log('WARNING: ' + fmtArg + ' is missing');
-    process.exit(1);
-  } // if
+    const fmtExists = fs.existsSync(fmtArg);
+    if(!origExists || !fmtExists) {
+        if(!origExists && !fmtExists) console.log(
+            'WARNING: both ' + origArg + ' and ' + fmtArg + ' are missing'
+        );
+        else if(!origExists) console.log('WARNING: ' + origArg + ' is missing');
+        else console.log('WARNING: ' + fmtArg + ' is missing');
+        process.exit(1);
+    } // if
 
-  if( !compareOne(origArg, fmtArg, origArg, fmtArg) ) process.exit(1);
+    if(!compareOne(origArg, fmtArg, origArg, fmtArg)) process.exit(1);
 } // runSingle
 
 function runBatch(origBaseDir, fmtBaseDir, fileListPath)
 {
     const relPaths = fs.readFileSync(fileListPath, 'utf8').split('\n');
 
-  let okCount = 0, mismatchCount = 0, missingCount = 0;
+    let okCount = 0,
+        mismatchCount = 0,
+        missingCount = 0;
 
-  for(let rel of relPaths) {
-    rel = rel.trim();
-    if(rel === '') continue;
+    for(let rel of relPaths) {
+        rel = rel.trim();
+        if(rel === '') continue;
 
-    const origPath = path.join(origBaseDir, rel);
-    const fmtPath  = path.join(fmtBaseDir, rel);
+        const origPath = path.join(origBaseDir, rel);
+        const fmtPath = path.join(fmtBaseDir, rel);
 
-    printTimestampedHeader(rel);
+        printTimestampedHeader(rel);
 
-    const origExists = fs.existsSync(origPath);
-    const fmtExists  = fs.existsSync(fmtPath);
-    if(!origExists && !fmtExists) {
-      console.log(
-          '  WARNING: missing from both ' + origBaseDir + ' and ' + fmtBaseDir + ' -- skipping'
-      );
-      ++missingCount;
-      continue;
-    } // if
-    if(!origExists) {
-      console.log('  WARNING: missing from ' + origBaseDir + ' -- skipping');
-      ++missingCount;
-      continue;
-    }
-    if(!fmtExists) {
-      console.log('  WARNING: missing from ' + fmtBaseDir + ' -- skipping');
-      ++missingCount;
-      continue;
-    }
+        const origExists = fs.existsSync(origPath);
+        const fmtExists = fs.existsSync(fmtPath);
+        if(!origExists && !fmtExists) {
+            console.log(
+                '  WARNING: missing from both ' + origBaseDir + ' and ' + fmtBaseDir + ' -- skipping'
+            );
+            ++missingCount;
+            continue;
+        } // if
+        if(!origExists) {
+            console.log('  WARNING: missing from ' + origBaseDir + ' -- skipping');
+            ++missingCount;
+            continue;
+        }
+        if(!fmtExists) {
+            console.log('  WARNING: missing from ' + fmtBaseDir + ' -- skipping');
+            ++missingCount;
+            continue;
+        }
 
-    try {
-      if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
-      else                                          ++mismatchCount;
-    }
-    catch(e) {
-      console.log('  ERROR: ' + e);
-      ++mismatchCount;
-    }
-  } // for
+        try {
+            if(compareOne(origPath, fmtPath, rel, rel)) ++okCount;
+            else ++mismatchCount;
+        }
+        catch (e) {
+            console.log('  ERROR: ' + e);
+            ++mismatchCount;
+        }
+    } // for
 
-  console.log('');
-  console.log(
-    'SUMMARY: ' + okCount + ' OK, ' + mismatchCount + ' MISMATCH/ERROR, ' + missingCount +
-    ' MISSING (of ' + (okCount + mismatchCount + missingCount) + ' files checked)'
-  );
+    console.log('');
+    console.log(
+        'SUMMARY: ' + okCount + ' OK, ' + mismatchCount + ' MISMATCH/ERROR, ' + missingCount +
+        ' MISSING (of ' + (okCount + mismatchCount + missingCount) + ' files checked)'
+    );
 
-  if(mismatchCount > 0 || missingCount > 0) process.exit(1);
+    if(mismatchCount > 0 || missingCount > 0) process.exit(1);
 } // runBatch
 
 function main()
 {
     const args = process.argv.slice(2);
-       if(args.length === 2) runSingle( args[0], args[1] );
-  else if(args.length === 3) runBatch( args[0], args[1], args[2] );
-  else                       {
-    printUsage();
-    process.exit(2);
-  }
+    if(args.length === 2) runSingle(args[0], args[1]);
+    else if(args.length === 3) runBatch(args[0], args[1], args[2]);
+    else {
+        printUsage();
+        process.exit(2);
+    }
 } // main
 
 main();

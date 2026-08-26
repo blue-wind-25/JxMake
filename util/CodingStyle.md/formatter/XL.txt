@@ -70,23 +70,26 @@ Use one sub-agent as needed, the sub-agent can launch up to one more research su
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 
-Compact [all / all modified today] `STATE_*.md` files (NOT `RDD_LOG.md` -- it's the canonical
-full-text store the STATE files already point to via `RDD_KEY_n`, don't summarize it).
-Use at most 5 sub-agents in parallel - balance the job between the sub-agents based on the
-file sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.
-`STATE_COMMON.md` needs extra care: compact its narrative/history sections only; leave the
-process rule text and the job table word-for-word, not paraphrased. Be careful not to lose important
-information, such as the tools/compiler used, special formatter config (e.g., `indent-size`, etc.),
-exception/benchmark/helper information, root cause, chain of reason, failed attempt at bug fix,
-`RDD_KEY_n` references, etc. Basically, compact the prose but keep the information intact.
-There is no size/percentage target -- judge by content (merge redundant narrative, cut
-resolved back-and-forth, keep the final answer not the discussion that led to it); if a
-section is already dense, leave it alone rather than cutting to hit a number. Commit each
-file's compaction separately so a bad pass is easy to isolate/revert. Before and after each
-file, run `grep -c 'RDD_KEY_' <file>` and confirm the count is unchanged. Since sub-agents run
-in parallel with no coordination and some `RDD_KEY_n` chains span files, if a cross-file
-wording/job-pointer inconsistency is noticed, leave it as-is and note it in the commit message
-rather than editing the other file.
+Compact [all / all modified today] `STATE_*.md` files:
+- Use at most 4 sub-agents in parallel - balance the job between the sub-agents based on the file
+  sizes. Each sub-agent touches only its assigned file(s) -- no cross-file/cross-job edits.
+- Be careful not to lose important information, such as the tools/compiler used, special formatter
+  config (e.g., `indent-size`, etc.), exception/benchmark/helper information, root cause, chain of
+  reason, failed attempt at bug fix, `RDD_KEY_n` references, etc. Merge redundant narrative, cut
+  resolved back-and-forth, keep the final answer not the discussion that led to it); if a section
+  is already dense, leave it alone rather than cutting to hit a number. Basically, compact the prose
+  but keep the information intact.
+- There is no size/percentage target.
+- Commit each file's compaction separately so a bad pass is easy to isolate/revert.
+- Before and after each file, run `grep -c 'RDD_KEY_' <file>` and confirm the count is unchanged.
+  Since sub-agents run in parallel with no coordination and some `RDD_KEY_n` chains span files,
+  if a cross-file wording/job-pointer inconsistency is noticed, leave it as-is and note it in the
+  commit message rather than editing the other file.
+- State files with `## Project Layout` may have stale information. Update or remove this section
+  based on your judgment. If you do scan the project source code, use command line tools such as
+  `ls`, `grep`, etc., do NOT read the source code files in full.
+- `STATE_COMMON.md` needs extra care: compact its narrative/history sections only; leave the
+  process rule text and the job table word-for-word, not paraphrased.
 
 Compact (use one sub-agent) `STATE_COMMON.md`.
 Compact (use one sub-agent) `STATE_C_CPP_JAVA.md`.
@@ -419,3 +422,72 @@ and then:
    JAR may produce regressions due to missing GRU weights. Perform bug fixes as needed.
 
 ####################################################################################################
+
+
+
+```bash
+### Formatter
+rm -rvf /tmp/fmt_r1 /tmp/fmt_r2
+find src         -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r1 --preserve-tree --root src
+find /tmp/fmt_r1 -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r2 --preserve-tree --root /tmp/fmt_r1
+diff -ru /tmp/fmt_r1 /tmp/fmt_r2
+
+JAVA_VERSION=8
+CLASS_DIR=/tmp/classes
+JAR_FILE=/tmp/output.jar
+MANIFEST=/tmp/manifest.txt
+MAIN_CLASS=com.jxmake.formatter.Main
+
+mkdir -p "$CLASS_DIR"
+printf 'Main-Class: %s\n' $MAIN_CLASS > $MANIFEST
+find /tmp/fmt_r1 -type f -name "*.java" -print0 | xargs -0 javac -encoding UTF-8 -source "$JAVA_VERSION" -target "$JAVA_VERSION" -d "$CLASS_DIR"
+jar cfm "$JAR_FILE" "$MANIFEST" -C "$CLASS_DIR" .
+
+make _test_serial JAR_FILE=$JAR_FILE
+
+rm -rvf /tmp/fmt_r1b /tmp/fmt_r2b
+find src          -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r1b --preserve-tree --root src
+find /tmp/fmt_r1b -type f -print0 | xargs -0 java -jar $JAR_FILE --out /tmp/fmt_r2b --preserve-tree --root /tmp/fmt_r1b
+diff -ru /tmp/fmt_r1b /tmp/fmt_r2b
+diff -ru /tmp/fmt_r1  /tmp/fmt_r1b
+diff -ru /tmp/fmt_r2  /tmp/fmt_r2b
+
+make clean
+cp -Rvf /tmp/fmt_r1/* src
+make test
+make test-server
+make bench
+
+
+
+### Tools
+cd tools
+rm -rvf /tmp/tools /tmp/tools_r1 /tmp/tools_r2
+mkdir /tmp/tools
+
+find . -type f \( -name "*.java" -o -name "*.js" -o -name "*.py" -o -name "*.sh" -o -name "*.ps1" \) -exec cp --parents -t /tmp/tools {} +
+
+find /tmp/tools    -type f -print0 | xargs -0 ../code-formatter.sh --out /tmp/tools_r1 --preserve-tree --root /tmp/tools
+find /tmp/tools_r1 -type f -print0 | xargs -0 ../code-formatter.sh --out /tmp/tools_r2 --preserve-tree --root /tmp/tools_r1
+diff -ru /tmp/tools    /tmp/tools_r1
+diff -ru /tmp/tools_r1 /tmp/tools_r2
+
+find /tmp/tools    -type f -name '*.java' -print0 | xargs -0 ./verifiers/java_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.java' -print0 | xargs -0 ./verifiers/java_syntax_check.sh
+
+find /tmp/tools    -type f -name '*.js' -print0 | xargs -0 ./verifiers/js_ts_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.js' -print0 | xargs -0 ./verifiers/js_ts_syntax_check.sh
+
+find /tmp/tools    -type f -name '*.py' -print0 | xargs -0 ./verifiers/python_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.py' -print0 | xargs -0 ./verifiers/python_syntax_check.sh
+
+find /tmp/tools    -type f -name '*.sh' -print0 | xargs -0 ./verifiers/bash_syntax_check.sh
+find /tmp/tools_r1 -type f -name '*.sh' -print0 | xargs -0 ./verifiers/bash_syntax_check.sh
+
+# Compare each stage's *.java and *.py content against the previous stage via
+# ../verifiers/java_content_diff.sh / python_content_diff.sh, one file at a time
+# (orig vs r1, then r1 vs r2), then adopt:
+
+
+cp -vf /tmp/tools_r1/*.{java,py} .
+```

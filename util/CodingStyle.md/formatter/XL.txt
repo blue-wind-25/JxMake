@@ -265,11 +265,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Bug] ===
 
-- line-split-by-operator-priority: single-line function-body closing-brace
-  placement, opening-brace half already fixed -- the straightforward fix
-  (re-run scopePipeline.process()) was already tried and reverted twice for
-  an analogous case, real regression risk, not just estimated difficulty
-  (RDD_KEY_246/348, STATE_LINE_SPLIT_OP.md D10).
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 

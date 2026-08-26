@@ -1291,16 +1291,16 @@ gets split across operator boundaries the first time can sometimes collapse back
 second pass, or vice versa. The result is always valid, compilable code in every case — only the
 line-splitting shape differs between passes.
 
-A related, narrower case: a single-line function body whose contents get split onto multiple lines
-by this option can, on the very first formatting pass, leave its closing brace attached to the same
-line as the split content instead of moving it to its own line (most reliably observed in C/C++),
-for example:
+A related, narrower case affects Java and TypeScript specifically: a single-line function body
+whose contents get split onto multiple lines by this option can, on the very first formatting pass,
+leave its opening brace attached to the function's signature line instead of moving it to its own
+line, for example:
 
-```cpp
-constexpr auto pick() -> int
-{ return someVeryLongConditionExpressionName > anotherVeryLongThresholdName
+```java
+int pick() { return someVeryLongConditionExpressionNameHereYes > anotherVeryLongThresholdNameHereYes
     ? 1111111
-    : 2222222; }
+    : 2222222;
+}
 ```
 
 Running the formatter a second time on its own output corrects this. Both are known,

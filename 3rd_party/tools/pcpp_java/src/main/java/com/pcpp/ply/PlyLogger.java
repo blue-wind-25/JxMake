@@ -16,7 +16,7 @@ public class PlyLogger {
         this.writer = writer;
     }
 
-    /** Convenience constructor wrapping System.err. */
+    /** Convenience constructor wrapping System.err */
     public PlyLogger()
     {
         this( new PrintWriter(System.err, true) );

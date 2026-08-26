@@ -46,7 +46,7 @@ public class Production {
 
     /**
      * Human-readable rule string, e.g. "expr -> expr PLUS term"
-     * or "epsilon -> &lt;empty&gt;" for empty productions.
+     * or "epsilon -> &lt;empty&gt;" for empty productions
      */
     public final String str;
 

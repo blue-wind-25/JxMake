@@ -49,7 +49,7 @@ class _MakefileLexer(RegexLexer):
     filenames = ["Makefile", "makefile"]
 
     # GNU Make built-in functions — sorted longest-first so e.g. filter-out
-    # is tried before filter and findstring before find.
+    # is tried before filter and findstring before find
     _BUILTIN_FUNCS = (
         "findstring", "filter-out", "firstword",  "addprefix",  "addsuffix",
         "patsubst",   "wordlist",   "lastword",    "realpath",   "basename",
@@ -642,13 +642,13 @@ def _formatter_lockfile_port() -> int | None:
 _formatter     = HtmlFormatter(style="default", nowrap=True)
 _src_formatter = HtmlFormatter(style="default", linenos="table")
 
-# Light-mode Pygments CSS, brace-escaped for str.format().
+# Light-mode Pygments CSS, brace-escaped for str.format()
 _PYGMENTS_CSS = (
     _src_formatter.get_style_defs(".highlight")
     .replace("{", "{{")
     .replace("}", "}}")
 )
-# Dark-mode token CSS scoped under .dark, using monokai palette.
+# Dark-mode token CSS scoped under .dark, using monokai palette
 _DARK_PYGMENTS_CSS = (
     HtmlFormatter(style="monokai").get_style_defs(".dark .highlight")
     .replace("{", "{{")
@@ -1116,7 +1116,7 @@ class MDRHandler(SimpleHTTPRequestHandler):
         if self._not_modified(st.st_mtime): return
         try:
             # Os.scandir caches is_dir() and stat() results — avoids a second
-            # stat() call per entry compared to os.listdir() + os.path.isdir().
+            # stat() call per entry compared to os.listdir() + os.path.isdir()
             with os.scandir(dir_path) as it:
                 entries = sorted(it, key=lambda e: (not e.is_dir(), e.name.lower()))
         except OSError:

@@ -41,7 +41,7 @@ public class LexToken {
         this.expanded_from = null;
     }
 
-    /** Deep-copy constructor (mirrors copy.copy behaviour used throughout pcpp). */
+    /** Deep-copy constructor (mirrors copy.copy behaviour used throughout pcpp) */
     public LexToken copy()
     {
         LexToken t = new LexToken();

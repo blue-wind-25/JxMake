@@ -19,7 +19,7 @@ package com.pcpp.ply;
  */
 public class LexRule {
 
-    /** Symbolic rule name, e.g. {@code "t_ID"} or {@code "t_INITIAL_error"}. */
+    /** Symbolic rule name, e.g. {@code "t_ID"} or {@code "t_INITIAL_error"} */
     public final String name;
     /** Regex pattern string */
     public final String pattern;

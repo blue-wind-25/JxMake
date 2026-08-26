@@ -96,14 +96,12 @@ added a `headInsertionModeClosed` boolean field (reset at the top of each
 `insertImplicitBodyIfNeeded` call) plus a `HEAD_ELIGIBLE_ELEMENTS` lookup set (`title`, `script`,
 `style`, `meta`, `link`, `base`, `noscript` — the spec's own "in head" vocabulary). An explicit
 `<head>` sets the flag `true` and is skipped as before; while `false`, a head-eligible sibling is
-also skipped (belongs to an implicit head, not body); the first sibling that is neither closes the
-flag and becomes the synthesis point. Verified via a minimal repro (`<html>` with
-`<meta>`/`<title>`/`<script>` then `<h1>`/`<p>`, no `<head>` tag, `html5-tc-gap-level=1`): before
-the fix all five siblings landed inside the synthesized `<body>`; after, `<meta>`/`<title>`/
-`<script>` stay outside `<body>` as direct `<html>` children while `<h1>`/`<p>` still wrap
-correctly. Explicit-`<head>` case (e.g. `html_tc_gap_level1_body_insertion_{inp,out}.html`)
-unchanged, byte-identical via `make test`. `README.md`'s Level-1 known-gap bullet updated to drop
-this sub-gap (bare-fragment-wrapping sub-gap unaffected, still documented). Fixtures:
+also skipped; the first sibling that is neither closes the flag and becomes the synthesis point.
+Verified via a minimal repro (`<meta>`/`<title>`/`<script>` then `<h1>`/`<p>`, no `<head>` tag):
+before, all five siblings landed inside the synthesized `<body>`; after, the head-eligible three
+stay outside as direct `<html>` children while `<h1>`/`<p>` still wrap correctly.
+Explicit-`<head>` fixtures unchanged, byte-identical via `make test`. `README.md`'s Level-1
+known-gap bullet updated to drop this sub-gap. Fixtures:
 `test/html_tc_gap_level1_body_insertion_{inp,out}.html`,
 `test/html_tc_gap_level0_body_unchanged_{inp,out}.html`,
 `test/html_tc_gap_level1_no_head_{inp,out}.html` (new — no explicit `<head>` at all, proves the

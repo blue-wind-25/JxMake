@@ -142,9 +142,8 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       `MakefileSpecificRule` (line-oriented, no tokenizer needed — only
       distinguishes tab-prefixed recipe lines, which are never touched).
       Smoke-tested manually (diff, idempotency, `--lang makefile`,
-      extensionless `Makefile`, `.mk` detection). **STALE, 2026-08-10**:
-      "no local test fixture pair registered yet" — not needed, already done
-      via the "Author local test fixture pairs" item below
+      extensionless `Makefile`, `.mk` detection). Local fixture pair
+      registered via the "Author local test fixture pairs" item below
       (`makefile_combined_{inp,out}.mk`, `[x]`). Comments remain untouched
       (out of scope, STYLE_TOOLING.md §0).
 - [x] Bash: build/extend a tokenizer sufficient to safely skip quoting,
@@ -169,8 +168,8 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       combined example, pipe-in-string/comment safety,
       heredoc/backtick/`$(...)` safety — byte-identical + idempotent). `make
       test` clean: 248/248 forward, 248/248 idempotency — purely additive.
-      **STALE, 2026-08-10**: "no local fixture pair yet" — done
-      (`bash_combined_{inp,out}.sh`, `[x]` below).
+      Local fixture pair registered (`bash_combined_{inp,out}.sh`, `[x]`
+      below).
 - [x] PowerShell: build/extend a tokenizer sufficient to safely skip
       string literals, here-strings, and comments.
       Landed as `Lang.isPowerShell`/`Lang.infer` `.ps1`/`.psm1` extension
@@ -191,10 +190,9 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       can refuse here-string-body/full-comment lines. Smoke-tested: kind
       map for all construct types, purity, multi-construct identity,
       `--lang powershell` + extension infer, idempotent. `make test` clean:
-      248/248 forward, 248/248 idempotency — purely additive. **STALE,
-      2026-08-10**: "no local fixture pair yet" — done
-      (`powershell_combined_{inp,out}.ps1`, `[x]` below). §3.1–§3.6
-      transforms landed in subsequent checklist items.
+      248/248 forward, 248/248 idempotency — purely additive. Local fixture
+      pair registered (`powershell_combined_{inp,out}.ps1`, `[x]` below).
+      §3.1–§3.6 transforms landed in subsequent checklist items.
 - [x] Implement PowerShell §3.1 brace-depth indentation.
       Naive brace-depth reindent over code-kind `{`/`}` only (opaque
       strings/here-strings/comments never contribute). Pure-code lines are

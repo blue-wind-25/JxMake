@@ -188,16 +188,13 @@ bracket-complexity → §2–9 → fixtures → real-code testing.
 
 ## Open Questions
 
-`STYLE_PYTHON3.md`'s own "Known Open Items" (§10) states its prior open
-items (decorators, f-strings, type-hint signature wrapping) were already
-resolved via Q&A and folded into §4–§6; nothing is left unresolved in the
-style doc itself. The former implementation-architecture-level open item
-(indent-size/style conversion granularity) is now resolved — see "Indent-
-Size/Style Conversion" below.
-
-None remain — the former `python-import-sort`/`python-import-blank-lines`
-wiring gap (see "Config Keys Wiring — DONE (RDD_KEY_247)" below) was
-resolved 2026-08-06.
+None remain. `STYLE_PYTHON3.md`'s own "Known Open Items" (§10) states its
+prior open items (decorators, f-strings, type-hint signature wrapping) were
+already resolved via Q&A and folded into §4–§6. The former
+implementation-architecture-level open item (indent-size/style conversion
+granularity) is resolved — see "Indent-Size/Style Conversion" below. The
+former `python-import-sort`/`python-import-blank-lines` wiring gap (see
+"Config Keys Wiring — DONE (RDD_KEY_247)" below) was resolved 2026-08-06.
 
 ---
 
@@ -608,13 +605,12 @@ language's dogfood precedent for a newly-landed rule.
       not corrupted. 8-case smoke + `make test` 114/114.
 
       **DECIDED CLOSED [2026-08-12], not a future job — do not re-add to a
-      checklist/XL.txt tier that implies revisiting.** Internal expression
-      re-spacing matches `black`/`ruff format` convention (both also leave
-      f-string interiors alone), so the gap is intentional scope, not a
-      missed feature. Fixing it would need a real Python-expression
-      tokenizer/spacer — reusing the C-family `needsSpaceBetween` (see the
-      operator list above) risks silent semantic corruption, not just a
-      style miss. See `XL.txt` TIER X: Dead.
+      checklist/XL.txt tier that implies revisiting.** Matches `black`/`ruff
+      format` convention (both also leave f-string interiors alone), so the
+      gap is intentional scope. Fixing it for real would need a genuine
+      Python-expression tokenizer/spacer — reusing the C-family
+      `needsSpaceBetween` risks silent semantic corruption, not just a style
+      miss. See `XL.txt` TIER X: Dead.
 
       **§6 (Function Signature Wrapping) — alignment slice.** New
       `MiscRuleIndent.PyParam` (name/type/default triples, trailing-comma

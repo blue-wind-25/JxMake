@@ -423,13 +423,12 @@ and then:
 
 ####################################################################################################
 
-
-
 ```bash
 ### Formatter
 rm -rvf /tmp/fmt_r1 /tmp/fmt_r2
 find src         -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r1 --preserve-tree --root src
 find /tmp/fmt_r1 -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r2 --preserve-tree --root /tmp/fmt_r1
+diff -ru src         /tmp/fmt_r2
 diff -ru /tmp/fmt_r1 /tmp/fmt_r2
 
 JAVA_VERSION=8
@@ -457,8 +456,6 @@ cp -Rvf /tmp/fmt_r1/* src
 make test
 make test-server
 make bench
-
-
 
 ### Tools
 cd tools

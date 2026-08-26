@@ -12,7 +12,7 @@ package com.example.pp;
 // method definition" bug recorded in STATE.md's Known Gaps: a `#endif` (or any
 // preprocessor line) sitting directly before a method definition inside a class
 // body must not get glued onto the same output line as the method's own modifiers,
-// regardless of blank lines separating them in the source.
+// regardless of blank lines separating them in the source
 
 public class Toggle {
 #ifdef FEATURE_X

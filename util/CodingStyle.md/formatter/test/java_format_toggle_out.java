@@ -8,7 +8,7 @@ package com.example.toggle;
 // Exercises the JXM_CFMT_DIS/JXM_CFMT_ENA formatting-toggle markers (STATE.md Task A):
 // both the line-comment and block-comment marker forms, in the middle of a class body,
 // must leave everything between DIS and ENA byte-for-byte untouched while normal
-// formatting still applies immediately before and after each frozen region.
+// formatting still applies immediately before and after each frozen region
 
 public class FormatToggle {
 

@@ -291,22 +291,31 @@ Use sub-agent. This can be a substantial work.
 
 === TIER X: Dead (ordered by revivability -- most-revivable to least-revivable first; [AI] items kept grouped) ===
 
-- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass rewrite. CLOSED — unscoped
-  across 4 attempts, not ruled infeasible. See `STATE_C_CPP_JAVA.md`, `RDD_KEY_330`.
-
 - [PYTHON3] f-string internal expression re-spacing. CLOSED 2026-08-12, intentional scope. See
   `STATE_PYTHON3.md` §5.
 
+- [JS_TS] JSX full embedding-aware dispatcher. CLOSED — general HTML5-tree-construction-reuse
+  approach assessed and rejected (no grammar-position lexer, real structural divergence from
+  HTML5, whitespace-significance hazard); superseded by a narrower JSX-scoped child-indentation
+  parser that already covers the practical need. See `STATE_JS_TS.md`, `RDD_KEY_312`.
+
+- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass rewrite. CLOSED as a rewrite
+  candidate — 4 sessions each fixed a narrow instance via gate extensions, none scoped a full
+  rewrite; explicitly marked not to be re-added as a rewrite item. See `STATE_C_CPP_JAVA.md`,
+  `RDD_KEY_330`.
+
 - [LINE_SPLIT_OP] Kotlin `return`/plain-assignment operator-priority line splitting. CLOSED —
-  NOT FEASIBLE without a separately-scoped Kotlin ASI subsystem. See `STATE_LINE_SPLIT_OP.md`'s
-  Known Out-of-Scope Finding, `RDD_KEY_347`.
-
-- [JS_TS] JSX full embedding-aware dispatcher. CLOSED — NOT FEASIBLE. See `STATE_JS_TS.md`.
-
-- [AI] Mid-word-dot sentence-boundary detection. CLOSED 2026-08-11. See `STATE_AI.md`.
+  NOT FEASIBLE without a separately-scoped Kotlin ASI subsystem (no narrower substitute exists).
+  See `STATE_LINE_SPLIT_OP.md`'s Known Out-of-Scope Finding, `RDD_KEY_347`.
 
 - [AI] Dedicated GRU for non-Latin/mixed-language comments. Assessed, not planned. CLOSED
   2026-08-10. See `STATE_AI.md`.
+
+- [AI] Mid-word-dot sentence-boundary detection (GRU/task-separation approach). CLOSED 2026-08-11,
+  decided against, still stands. A narrow mechanical (non-ML) extension — masking known
+  abbreviations and extension-shaped mid-word dots out of the `dotCount` check — was implemented
+  2026-08-27 as a separate, bounded owner decision; the GRU approach itself remains dead. See
+  `STATE_AI.md`.
 
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM). CLOSED — permanently
   NOT FEASIBLE. See `STATE_AI.md`.

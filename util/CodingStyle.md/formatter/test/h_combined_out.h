@@ -13,7 +13,7 @@
 #include "platform.h"
 #include "types.h"
 
-// Combined .h test: header guard, extern C, declarations, structs, macros.
+// Combined .h test: header guard, extern C, declarations, structs, macros
 
 #define ENGINE_VERSION_MAJOR 2
 #define ENGINE_VERSION_MINOR 1

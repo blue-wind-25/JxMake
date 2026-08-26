@@ -2651,20 +2651,15 @@ public static final class Assignment {
     protected void stripSoleTrailingPeriodAcrossLines(final List<String> lines)
     {
         if( !normalizeCommentEndPeriod || lines.isEmpty() ) return;
+        final String joined = String.join("\n", lines);
         if(commentNormalizationClassifier) {
-            final String joined = String.join("\n", lines);
             if( classifyComment( joined, lastTokenIndex(joined) ) != CommentDecision.YES ) return;
         }
-        int dotCount = 0;
-        for(final String l : lines) {
-            for( int i = 0; i < l.length(); ++i ) {
-                if( l.charAt(i) == '.' ) dotCount++;
-            }
-        }
-        if(dotCount != 1) return;
         final int    lastIdx = lines.size() - 1;
         final String last    = lines.get(lastIdx);
         if( last.isEmpty() || last.charAt( last.length() - 1 ) != '.' ) return;
+        if( endsWithDottedAbbreviation( last, last.length() ) ) return;
+        if( significantDotCount(joined) != 1 ) return;
         // Same trailing-whitespace-before-the-period fix as `stripSoleTrailingPeriod`
         lines.set( lastIdx, trimTrailing( last.substring( 0, last.length() - 1 ) ) );
     }
@@ -2967,8 +2962,80 @@ public static final class Assignment {
         return size == 0 ? 0 : size - 1;
     }
     /**
-     * Strips the trailing `.` only when it is the sole `.` in `content` -- this also leaves an
-     * ellipsis (`...`) untouched for free, since an ellipsis's dot count is never exactly 1.
+     * Known abbreviations whose own internal/trailing `.` must never count toward
+     * {@link #significantDotCount}'s tally, and must never itself be treated as the
+     * sentence-ending dot to strip (see {@link #endsWithDottedAbbreviation}) -- e.g./i.e./etc.
+     * always keep their own period whether or not they happen to fall at a sentence's end.
+     */
+    private static final String[] DOTTED_ABBREVIATIONS = {
+        "e.g.", "i.e.", "etc.", "et al.", "et. al."
+    };
+    /**
+     * Matches a `.` immediately followed by 1-8 letters/digits with no more letters/digits after
+     * (no leading/trailing whitespace requirement) -- a file-extension/version-fragment shape
+     * (`.hpp`, `.java`, `.cfg`, `` `.ini` `` inside backticks) rather than sentence-ending
+     * punctuation. Deliberately not anchored to whitespace before the dot, since backtick-wrapped
+     * or comma-adjacent extensions (`` `.hpp`, ``) are the common real-code case.
+     */
+    private static final Pattern EXTENSION_LIKE_DOT = Pattern.compile("\\.[A-Za-z][A-Za-z0-9]{0,7}(?![A-Za-z0-9])");
+    /**
+     * {@code true} if {@code content[0, end)} ends with one of {@link #DOTTED_ABBREVIATIONS} at a
+     * word boundary -- used to refuse stripping entirely when the "trailing period" candidate is
+     * actually an abbreviation's own required period, not sentence-ending punctuation.
+     */
+    private static boolean endsWithDottedAbbreviation(final String content, final int end)
+    {
+        final String lower = content.substring(0, end).toLowerCase(Locale.ROOT);
+        for(final String abbr : DOTTED_ABBREVIATIONS) {
+            if( !lower.endsWith(abbr) ) continue;
+            final int abbrStart = end - abbr.length();
+            if( abbrStart == 0 || !Character.isLetterOrDigit( content.charAt(abbrStart - 1) ) ) return true;
+        }
+
+        return false;
+    }
+    /**
+     * Counts `.` occurrences in {@code content} that are neither part of a known
+     * {@link #DOTTED_ABBREVIATIONS} entry nor an {@link #EXTENSION_LIKE_DOT} shape -- both mask
+     * to same-length spaces first (preserving all other positions) so what remains is only
+     * genuine standalone/sentence-ending-candidate dots (including a real ellipsis, still caught
+     * as 3+ by the caller's `!= 1` check).
+     */
+    private static int significantDotCount(final String content)
+    {
+        String masked = content;
+        for(final String abbr : DOTTED_ABBREVIATIONS) {
+            final Matcher m = Pattern.compile(
+                "(?<![A-Za-z0-9])" + Pattern.quote(abbr), Pattern.CASE_INSENSITIVE
+            ).matcher(masked);
+            final StringBuffer sb = new StringBuffer();
+            while( m.find() ) {
+                final char[] spaces = new char[ m.group().length() ];
+                Arrays.fill(spaces, ' ');
+                m.appendReplacement( sb, Matcher.quoteReplacement( new String(spaces) ) );
+            }
+            m.appendTail(sb);
+            masked = sb.toString();
+        }
+        final boolean[] isExtensionDot = new boolean[masked.length()];
+        final Matcher   extMatcher     = EXTENSION_LIKE_DOT.matcher(masked);
+        while( extMatcher.find() ) {
+            for( int i = extMatcher.start(); i < extMatcher.end(); ++i ) isExtensionDot[i] = true;
+        }
+        int dotCount = 0;
+        for( int i = 0; i < masked.length(); ++i ) {
+            if( masked.charAt(i) == '.' && !isExtensionDot[i] ) dotCount++;
+        }
+
+        return dotCount;
+    }
+    /**
+     * Strips the trailing `.` only when it is the sole significant `.` in `content` per
+     * {@link #significantDotCount} -- this also leaves an ellipsis (`...`) untouched for free,
+     * since an ellipsis's dot count is never exactly 1. Known abbreviations (`e.g.`, `i.e.`,
+     * `etc.`) and file-extension/version-fragment shapes (`.hpp`, `v1.0`) no longer block
+     * stripping just by existing elsewhere in the comment (2026-08-27 mechanical-only extension,
+     * see STATE_AI.md's 2026-08-27 finding -- this never touches the GRU/classifier pipeline).
      */
     protected String stripSoleTrailingPeriod(final String content)
     {
@@ -2979,11 +3046,8 @@ public static final class Assignment {
         int end = content.length();
         while( end > 0 && Character.isWhitespace( content.charAt(end - 1) ) ) end--;
         if( end == 0 || content.charAt(end - 1) != '.' ) return content;
-        int dotCount = 0;
-        for( int i = 0; i < content.length(); ++i ) {
-            if( content.charAt(i) == '.' ) dotCount++;
-        }
-        if(dotCount != 1) return content;
+        if( endsWithDottedAbbreviation(content, end) ) return content;
+        if( significantDotCount( content.substring(0, end) ) != 1 ) return content;
         // Also trim any whitespace that was between the last word and the period being
         // stripped (e.g. "...specified type ." -> "...specified type", not "...specified
         // type " with a stray trailing space) -- otherwise the trailing space survives this

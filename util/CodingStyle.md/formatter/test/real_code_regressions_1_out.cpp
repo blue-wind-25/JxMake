@@ -10,7 +10,7 @@
 // separate lines; (3) a borderline-length line's "fits?" measurement ran before later
 // spacing-padding was applied, so first-format and re-format disagreed on whether to break it,
 // and a while-loop body's closing-comment line-count threshold was evaluated before a
-// line-count-expanding pass ran, so it only fired on a second format pass.
+// line-count-expanding pass ran, so it only fired on a second format pass
 
 #include <bit>
 #include <cstdint>

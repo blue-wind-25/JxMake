@@ -234,6 +234,69 @@ natural-language judgment call with no tractable mechanical heuristic — see
 the 2026-08-11 disposition above for why the permanent limitation stands and
 the GRU task-separation fix isn't being pursued.
 
+**2026-08-27 finding — the classifier structurally cannot weigh in on this
+decision at all, independent of dot content.** Verified directly (standalone
+harness against `CommentFeatureExtractor`/`CommentClassifier`/
+`GruAbstainResolver`, real trained weights): `classifyComment`'s
+strip-trailing-period call site passes `targetWordIndex = lastTokenIndex(
+content)` (the trailing word), not `0`. `hasLeadingKeywordMatch` is gated
+`targetWordIndex == 0 && ...` (the 2026-07-30 fix noted above this file's
+Gate 2 description), so Gate 2 — the only gate besides the non-Latin-script
+gate that can produce `ABSTAIN` — can never fire for this call site. Every
+other gate answers "is this prose or code/noise," an orthogonal question.
+Result: absent non-Latin script/decorative/code-shape content, this call is
+architecturally locked to `YES` regardless of how many dots the comment
+has or where they sit — confirmed empirically: feeding the classifier the
+`.hpp`/`e.g.` example above with its dots kept, removed, or masked produced
+`YES` in every case, GRU never actually reached (rule stage already
+resolves non-ABSTAIN). This means the `dotCount != 1` mechanical check is
+not a rough backstop next to classifier judgment on this decision — it is
+the *entire* safeguard, and a purely mechanical improvement to it (e.g.
+excluding known abbreviations/extension-shaped mid-token dots from
+`dotCount`) would not add a task dimension to the classifier's shared label
+column at all — it's already fully decoupled from that pipeline for this
+call site. This undercuts the specific risk the 2026-08-11 closure cited
+(degrading the classifier's 92.4%+ precision by mixing in a second task).
+Does not by itself reopen the item — the 2026-08-11 "do not revisit without
+a new explicit owner decision" bar still applies — but narrows what such a
+decision would actually be risking.
+
+**2026-08-27 — new explicit owner decision made: narrow mechanical
+extension implemented (not the GRU/task-separation approach, which remains
+dead per above).** Since the classifier can't touch this decision either
+way (see finding above), the fix is purely mechanical, in
+`MiscRuleCore.stripSoleTrailingPeriod`/`stripSoleTrailingPeriodAcrossLines`:
+before the existing `dotCount != 1` bail-out, mask out two bounded
+categories of non-sentence-ending dots so they no longer inflate the count:
+
+- **Known abbreviations** (`DOTTED_ABBREVIATIONS`: `e.g.`, `i.e.`, `etc.`,
+  `et al.`, `et. al.`) — matched case-insensitively, word-boundary-guarded.
+  If the comment's trailing word is itself one of these abbreviations,
+  stripping is refused outright (`endsWithDottedAbbreviation`) — that
+  period belongs to the abbreviation, not to sentence-ending punctuation.
+- **Extension/version-fragment-shaped mid-word dots** (`EXTENSION_LIKE_DOT`:
+  `\.[A-Za-z][A-Za-z0-9]{0,7}` not followed by more alnum) — covers `.hpp`,
+  `.h`, `.md`, `.java`, `.ini`, etc., including backtick-wrapped inline-code
+  spans (backticks aren't alnum, so they don't interfere with the regex).
+
+Deliberately out of scope by the regex's own construction (requires a
+letter immediately after the dot): version-number dots like `v1.0.` are
+left untouched, since a trailing digit after the dot doesn't match
+`[A-Za-z]` — confirmed via direct testing.
+
+**Side effect discovered and adopted**: any existing comment/chain that
+references a filename-shaped token (e.g. `STATE.md`) elsewhere in the same
+text now has that dot correctly excluded from the count too, which
+unblocks stripping of a genuine trailing sentence period previously blocked
+by it. Five fixtures exercised this
+(`h_combined`, `c_cpp_decl_gaps`, `java_format_toggle`,
+`java_preprocessor_method`, `real_code_regressions_1`) — each needed
+exactly a one-line `_out` fixture update (trailing period now stripped).
+Verified via `--out`-diff against each `_out` fixture (not `--diff` against
+`_inp`, and without forcing an incorrect `--lang`) that no other line
+changed, then regenerated the five fixtures and confirmed a full
+364/364 forward + idempotency `make test` pass.
+
 ---
 
 ## OPEN — corpus-generation and benchmarking follow-ups

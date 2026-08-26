@@ -6,7 +6,7 @@
 // Regression coverage for three DeclarationAlignmentRule fixes recorded under
 // STATE.md's "Known Gaps -- Fixed": the `* const` column gap, `typedef`
 // alignment inside a plain-variable group, and direct function-pointer
-// declarations (including multi-star `(**cb)`) joining a surrounding group.
+// declarations (including multi-star `(**cb)`) joining a surrounding group
 
 void gapExample(void)
 {

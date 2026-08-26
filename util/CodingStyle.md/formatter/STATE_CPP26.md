@@ -59,9 +59,9 @@ rule classes (primarily `CppSpecificRule.java`), same as C++20 was folded
 in additively with no separate `isCpp20`/`--lang cpp20` selector
 (`STYLE_CPP20.md` extends `STYLE_C_CPP.md` in place). See RDD_KEY_180.
 
-No `src/` files yet specific to this job — coverage (extending
-`CppSpecificRule.java` or similar) doesn't exist yet; when it lands it's
-gated on `isCpp`, not a new flag.
+No new classes — C++26 coverage lands inside existing `isCpp`-gated classes,
+primarily `CppSpecificRule.java` (see "Class Scoping" below and the
+Checklist for what has landed).
 
 ---
 
@@ -366,8 +366,8 @@ below (all landed). No open question remains for §5.
         the then-ACCEPTED `javaparser`/`JSONEncoderLite.java` gaps. **2026-08-16 cleanup pass:**
         the general shape was fixed 2026-08-07 (`RDD_KEY_251`, see `STATE_C_CPP_JAVA.md`), and
         both `javaparser`/`JSONEncoderLite.java` gaps are now closed too (`RDD_KEY_292`/`RDD_KEY_301`)
-        — not independently re-verified against these 33 `glaze` files (checkout gone, see
-        2026-08-15 note below) but plausibly fixed incidentally; re-open in
+        — plausibly fixed incidentally here too, but not independently re-verified against these 33
+        `glaze` files (original checkout gone, see the 2026-08-15 re-check note below); re-open in
         `STATE_C_CPP_JAVA.md`'s Known Gaps if a fresh `glaze` clone surfaces the drift again.
       - `glaze_asio.hpp`/`ordered_map_test.cpp`: member-initializer-list wrapping inserts a stray
         space after `.` (`other.index` -> `other. index`) on wrap — general init-list-wrapping
@@ -381,14 +381,12 @@ below (all landed). No open question remains for §5.
       `SwitchRule`/init-list-wrapping/operator-spacing in the C/C++/Java job.
 
       **2026-08-15 XL.txt sweep re-check: likely already resolved, not re-added to any backlog.**
-      Original `/tmp/glaze` checkout gone (system-cleaned), so exact files couldn't be re-diffed,
-      but hand-built repros matching each described shape (long-wrapped ctor with a
-      member-initializer-list referencing `other.field`; a declaration-alignment group with a
-      wrapped call argument) all came back byte-identical round1/round2 against the current JAR —
-      no dot-space corruption, no drift. Plausible cause: several general pass-ordering fixes
-      landed in `STATE_C_CPP_JAVA.md` since (RDD_KEY_193 assignment-pass re-run, RDD_KEY_290/291/293
-      openrewrite cluster fixes) incidentally cover the same mechanism. Not proven since original
-      corpus files unavailable — re-open in `STATE_C_CPP_JAVA.md`'s Known Gaps (not here) if a
+      Exact files couldn't be re-diffed (checkout gone), but hand-built repros matching each
+      described shape (long-wrapped ctor with a member-initializer-list referencing `other.field`;
+      a declaration-alignment group with a wrapped call argument) all came back byte-identical
+      round1/round2 against the current JAR — no dot-space corruption, no drift. Plausible cause:
+      several general pass-ordering fixes landed in `STATE_C_CPP_JAVA.md` since (RDD_KEY_193 assignment-pass re-run, RDD_KEY_290/291/293 openrewrite cluster fixes) incidentally cover the
+      same mechanism. Not proven — re-open in `STATE_C_CPP_JAVA.md`'s Known Gaps (not here) if a
       fresh `glaze` clone surfaces the same diffs.
 
       **2026-08-11: `json_patch_test.cpp` idempotency mismatch FIXED (RDD_KEY_285, full detail in

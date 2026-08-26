@@ -1289,6 +1289,18 @@ before/after detail available via `git log`/`git show`.
   `hpp_core_inp.hpp` legitimate 2-line §15 still padded. Fixture: `real_code_regressions_123`.
   See RDD_KEY_202.
 
+- **`isCommentRewritable` blocked capitalize/period-strip on ordinary `//` prose that merely
+  contains one space-flanked punctuation character** (found via the 2026-08-27 external-corpus
+  dogfood re-run) — FIXED. `looksCodeLike`'s own prose-vs-label filter (see the `RDD_KEY_202`
+  entry above) was already applied by `alignCommentSeparators` to its own matches, but
+  `isCommentRewritable` — the separate gate deciding whether a `//` comment may be rewritten at
+  all — still treated ANY `parseSeparatorComment` match as blocking, so a comment like
+  `// stat() call ... os.listdir() + os.path.isdir().` (one space-flanked `+`) never got its
+  trailing period stripped, while the byte-identical content as a `/* */` block comment (never
+  gated by `parseSeparatorComment`) formatted correctly. Fixed: `isCommentRewritable` now applies
+  the same `looksCodeLike` guard. Fixture: `real_code_regressions_245`. `make test` 364/364 ->
+  365/365. See RDD_KEY_355.
+
 - **`GetterSetterRuleCurly.parseOneLinerMember`'s breakable-width pre-check gated only on
   `isDefinition`** (`filesystem.hpp` `recursive_directory_iterator` shape) — FIXED (second,
   independent "Declaration-alignment column-padding non-idempotency" shape, after the

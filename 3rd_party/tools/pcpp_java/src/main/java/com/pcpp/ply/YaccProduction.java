@@ -231,7 +231,7 @@ public class YaccProduction {
 
         ParseSyntaxError()
         {
-            // Suppress stack trace for performance — this is a control-flow exception.
+            // Suppress stack trace for performance — this is a control-flow exception
             super(null, null, true, false);
         }
 

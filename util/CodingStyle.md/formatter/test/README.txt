@@ -4451,6 +4451,13 @@ Real-code regressions:
                                                         operator-split fragment instead of moving onto its own
                                                         line once the `return` expression was split.
 
+  real_code_regressions_245_inp/out.cpp              -- a `//` line comment was blocked from
+                                                        capitalization/period-stripping whenever its text
+                                                        happened to contain exactly one space-flanked
+                                                        punctuation character (e.g. a lone ` + `), because it
+                                                        was mistaken for a label/value alignment comment; the
+                                                        equivalent `/* */` block comment was unaffected.
+
 How Tests Are Run
 -----------------
 

@@ -92,7 +92,7 @@ public class LRTable {
 
         this.lr_productions = new ArrayList<>();
         for( Object[] row : tab.getProductions() ) {
-            // row = [str, name, len, func, file, line]  (same layout as Python tuple)
+            // Row = [str, name, len, func, file, line]  (same layout as Python tuple)
             String str  = (String)row[0];
             String name = (String)row[1];
             int    len  = (Integer)row[2];

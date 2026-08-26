@@ -90,7 +90,7 @@ public class CppLexer {
     private static final String PAT_STRING = "\"(?:[^\"\\\\\\n]|\\\\.)*+\"";
     // Char literal  'c' or L'c'
     private static final String PAT_CHAR = "(?:L)?'(?:[^'\\\\\\n]|\\\\.)*+'";
-    // Block comment — possessive *+ avoids Java regex stack overflow on long comments.
+    // Block comment — possessive *+ avoids Java regex stack overflow on long comments
     private static final String PAT_COMMENT1 = "/\\*(?:[^*]|\\*+(?!/))*+\\*/";
     // Line comment
     private static final String PAT_COMMENT2 = "//[^\\n]*";

@@ -304,8 +304,8 @@ public class LRGeneratedTable extends LRTable {
         int st = 0;
         for(List<LRItem> I : C) {
             Map<String, Integer>    st_action         = new LinkedHashMap<>();
-            Map<LRItem, LRItem>     st_actionp        = new IdentityHashMap<>(); // item → item for logging
-            Map<LRItem, Production> st_actionpProd    = new IdentityHashMap<>(); // token → prod for conflict resolution
+            Map<LRItem, LRItem>     st_actionp        = new IdentityHashMap<>(); // Item → item for logging
+            Map<LRItem, Production> st_actionpProd    = new IdentityHashMap<>(); // Token → prod for conflict resolution
             Map<String, Production> st_actionpByToken = new LinkedHashMap<>();
             Map<String, Integer>    st_goto           = new LinkedHashMap<>();
 
@@ -627,7 +627,7 @@ public class LRGeneratedTable extends LRTable {
                     j = lr0_cidhash.getOrDefault( System.identityHashCode(gNext), -1 );
                 } // while
 
-                // j is the final state — find matching completed item
+                // J is the final state — find matching completed item
                 if(j >= 0) {
                     for( LRItem r : C.get(j) ) {
                         if( !r.name.equals(p.name) ) continue;

@@ -2134,19 +2134,38 @@ public static final class Assignment {
                     group.add(next);
                     j = next;
                 }
-                final List<String> contents = new ArrayList<>();
-                for(final int idx : group) contents.add( tokens.get(idx).text.substring(2) );
+                final List<String>  contents          = new ArrayList<>();
+                final List<Boolean> hadLeadingOneSpace = new ArrayList<>();
+                for(final int idx : group) {
+                    final String raw = tokens.get(idx).text.substring(2);
+                    if( raw.startsWith(" ") ) {
+                        contents.add( raw.substring(1) );
+                        hadLeadingOneSpace.add(true);
+                    }
+                    else {
+                        contents.add(raw);
+                        hadLeadingOneSpace.add(false);
+                    } // if/else
+                } // for
                 final int lastIdx = group.size() - 1;
-                if( isCommentRewritable(
-                    tokens, group.get(lastIdx)
-                ) ) stripSoleTrailingPeriodAcrossLines(
-                    contents
-                );
+                // Capitalize before the strip decision -- same order (and same leading-space-
+                // stripped input) as `reformatMultiLineBlockComment` gives its own strip/
+                // capitalize classifier calls, so the GRU classifier sees equivalent text for a
+                // `//` chain and a `/* */` block with the same content (RDD_KEY -- see
+                // STATE_C_CPP_JAVA.md).
                 if( isCommentRewritable(
                     tokens, group.get(0)
                 ) ) contents.set(
                     0, capitalizeFirstLetter( contents.get(0) )
                 );
+                if( isCommentRewritable(
+                    tokens, group.get(lastIdx)
+                ) ) stripSoleTrailingPeriodAcrossLines(
+                    contents
+                );
+                for( int k = 0; k < contents.size(); ++k ) {
+                    if( hadLeadingOneSpace.get(k) ) contents.set( k, " " + contents.get(k) );
+                }
                 if(normalizeCommentMultiSentenceCase) {
                     final List<Boolean> rewritableFlags = new ArrayList<>();
                     for(final int idx : group) rewritableFlags.add(
@@ -2242,13 +2261,23 @@ public static final class Assignment {
     }
     /**
      * True iff the {@code COMMENT_LINE} token at {@code idx} may actually be rewritten (not a
-     * separator-alignment label, handled instead by {@link #alignCommentSeparators})
+     * separator-alignment label, handled instead by {@link #alignCommentSeparators}). A
+     * {@link #parseSeparatorComment} match is only treated as blocking rewrite when
+     * {@link #looksCodeLike} also accepts both its label and its rest -- the same false-positive
+     * guard {@link #alignCommentSeparators} already applies to its own matches (RDD_KEY_50/
+     * RDD_KEY_201): ordinary prose that merely contains one space-flanked punctuation character
+     * (e.g. "...os.listdir() + os.path.isdir()." with its lone " + ") must not be locked out of
+     * capitalization/period-stripping just because it superficially parses as a label/value pair.
+     * Without this, such a `//` comment silently diverged from the equivalent `/* *&#47;` block
+     * comment, which never consults {@code parseSeparatorComment} at all.
      */
     protected boolean isCommentRewritable(final List<Token> tokens, final int idx)
     {
-        final Token t = tokens.get(idx);
+        final Token     t = tokens.get(idx);
+        final SepMatch  m = parseSeparatorComment(t.text, idx);
+        if(m == null) return true;
 
-        return parseSeparatorComment(t.text, idx) == null;
+        return !looksCodeLike(m.label) || !looksCodeLike(m.rest);
     }
     /**
      * True iff the {@code COMMENT_LINE} token at {@code idx} is alone on its physical line (only

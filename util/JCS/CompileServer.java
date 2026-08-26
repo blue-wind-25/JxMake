@@ -65,7 +65,7 @@ public class CompileServer {
         catch(final NumberFormatException e) {
             System.err.println( "ERROR: Invalid port '" + args[0] + "'. Expected an integer." );
             System.exit(1);
-            return; // unreachable - satisfies definite assignment
+            return; // Unreachable - satisfies definite assignment
         }
 
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();

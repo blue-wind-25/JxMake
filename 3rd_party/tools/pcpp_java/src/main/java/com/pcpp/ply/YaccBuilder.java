@@ -112,7 +112,7 @@ public class YaccBuilder {
         for(GrammarRule rule : spec.rules) {
             List<Object[]> parsed = parseGrammarString(rule.pattern, rule.file, rule.line);
             for( Object[] g : parsed ) {
-                // g = [file, line, prodname, syms]
+                // G = [file, line, prodname, syms]
                 String file     = (String)g[0];
                 int    line     = (Integer)g[1];
                 String prodname = (String)g[2];

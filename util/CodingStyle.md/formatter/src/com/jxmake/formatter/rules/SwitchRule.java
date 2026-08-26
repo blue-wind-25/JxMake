@@ -1002,16 +1002,7 @@ public class SwitchRule {
     // ── Token-matching helpers ────────────────────────────────────────────────
     private int matchBrace(final List<Token> tokens, final int openIdx)
     {
-          int depth = 1;
-          int i     = openIdx + 1;
-    final int n     = tokens.size();
-        while(i < n && depth > 0) {
-                 if( isPunct( tokens.get(i), "{" ) ) depth++;
-            else if( isPunct( tokens.get(i), "}" ) ) depth--;
-            ++i;
-        }
-
-        return depth == 0 ? i - 1 : -1;
+        return MiscRuleCore.matchBraceForward(tokens, openIdx);
     }
 
     private int matchParen(final List<Token> tokens, final int openIdx)

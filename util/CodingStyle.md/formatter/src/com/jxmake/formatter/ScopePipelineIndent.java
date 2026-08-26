@@ -138,7 +138,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         // so ordering it first lets both compose (blank line inserted, then the join's own rewritten
         // text follows); ordering it second would let the wider replacement's jump-ahead strand the
         // zero-width entry as stale and silently drop it (see render()'s own javadoc for the general
-        // stale-entry posture this preserves).
+        // stale-entry posture this preserves)
         replacements.sort( Comparator.<Replacement>comparingInt(r -> r.start)
                 .thenComparingInt(r -> r.end - r.start) );
 
@@ -576,7 +576,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     /**
      * Returns {@code imp}'s {@code nameUnitTexts} reordered to match its own sorted {@code names},
      * or {@code null} if {@code imp} has no name list ({@code Kind.IMPORT}) or its names are
-     * already in sorted order (nothing to rebuild).
+     * already in sorted order (nothing to rebuild)
      */
     private List<String> sortedNameUnits(final PyImport imp)
     {
@@ -653,7 +653,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
                 // pre-existing single-module code's own >= 0 guards), `unitEnd` must never be -1 or
                 // include the trailing NEWLINE/whitespace gap: scan backward for the name's own last
                 // significant token instead of defaulting to `line.end` (which would splice the
-                // physical line's terminating NEWLINE text into this unit, corrupting the rebuild).
+                // physical line's terminating NEWLINE text into this unit, corrupting the rebuild)
                 int unitEnd = after >= 0 ? after : prevSignificant(
                     tokens, line.end - 1, unitStart - 1
                 ) + 1;
@@ -773,7 +773,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             // Scan the *whole* parenthesized span, not just [nameListStart, closeIdx) -- a comment
             // can sit right after the opening `(` itself, before any name (real-world find:
             // django/db/models/__init__.py's `from django.db.models.fields.related import (  #
-            // isort:skip`), and would otherwise go undetected by a narrower nameListStart-based scan.
+            // isort:skip`), and would otherwise go undetected by a narrower nameListStart-based scan
             final boolean hasComment = parenthesized && containsComment(
                 tokens, parenOpenIdx, closeIdx
             );
@@ -1523,7 +1523,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      * parameters (nothing to break out, same precedent as §4's zero-arg call); any parameter segment
      * fails {@link #classifySignatureParam}'s own per-parameter classification (an already-
      * documented gap inherited unchanged from §6's alignment slice); or the line already fits within
-     * {@code lineLength} as written (never force-wrap an already-short signature).
+     * {@code lineLength} as written (never force-wrap an already-short signature)
      */
     private Replacement tryWrapDefSignature(
         final List<Token> tokens,
@@ -1694,7 +1694,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             // padding then stacks on top of -- otherwise each round-trip grows the trailing
             // whitespace by another `maxNameLen`-derived amount, a genuine non-convergent
             // idempotency bug (found via `psf/black` dogfood re-run, `tests/data/cases/function.py`'s
-            // `**kwargs` final parameter).
+            // `**kwargs` final parameter)
             spans.add( new int[] { contentFirst, seg[1] } );
         } // for
         final List<String>      rendered = miscRule.renderPySignatureGroup(params);
@@ -1808,7 +1808,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     /**
      * Scans backward from {@code end - 1} for the nearest non-gap token strictly at/after {@code
      * start}, returning the index right after it (i.e. the exclusive end of the trimmed range), or
-     * {@code start} itself if no significant token is found in {@code [start, end)}.
+     * {@code start} itself if no significant token is found in {@code [start, end)}
      */
     private int trimEndIdx(final List<Token> tokens, final int start, final int end)
     {
@@ -1862,7 +1862,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
          * member) -- {@code bodyContentEnd} excludes a body trailing comment ({@code trimEndIdx}
          * treats it as a gap token), so {@link #flushCaseGroup}'s post-alignment length check needs
          * this to measure the line as it will actually appear, comment included, matching the same
-         * fix applied to {@link #tryQualifyJoinBody}'s two other call sites.
+         * fix applied to {@link #tryQualifyJoinBody}'s two other call sites
          */
         final int bodyLineEnd;
 
@@ -1907,7 +1907,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
      * or any non-{@code case} statement all break the group -- same boundary convention §2/§3 use),
      * and -- **all-or-nothing** per STYLE_PYTHON3.md §7 -- aligns the `:` column across a group only
      * when every member in it is already in compact one-line form; a group containing even one
-     * block-body {@code case} gets no alignment at all, not even for its own compact members.
+     * block-body {@code case} gets no alignment at all, not even for its own compact members
      */
     private List<Replacement> applyCaseColonAlignment(
         final List<Token>   tokens,
@@ -2090,7 +2090,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         for(final CaseLine c : group) {
             // All-or-nothing: a case that is neither already-compact nor §8-join-eligible (a
             // genuine block-body member -- e.g. a multi-statement body, an overflowing join, or a
-            // body that itself opens a nested block) abandons alignment for the whole group.
+            // body that itself opens a nested block) abandons alignment for the whole group
             if(!c.compact && !c.virtualJoin) return;
         }
         int maxLen = 0;

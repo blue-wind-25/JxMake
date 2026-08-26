@@ -98,7 +98,7 @@ public class PythonBracketComplexityEvaluator {
     /**
      * True if {@code tokens} contains a `for` KEYWORD at its own top level (depth 0 relative to
      * the content itself -- a `for` nested inside a deeper bracket within the content, e.g. an
-     * inner call's own comprehension argument, does not count for the outer content).
+     * inner call's own comprehension argument, does not count for the outer content)
      */
     private boolean containsTopLevelComprehension(final List<Token> tokens)
     {

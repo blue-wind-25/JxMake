@@ -600,7 +600,7 @@ public final class GruClassifier {
 
     /**
      * {@code W}-transpose times {@code v}: {@code result[j] = sum_i W[i][j] * v[i]}, where
-     * {@code W} is {@code v.length} rows by {@code resultLength} columns.
+     * {@code W} is {@code v.length} rows by {@code resultLength} columns
      */
     private static double[] matTVec(double[][] w, double[] v, int resultLength)
     {

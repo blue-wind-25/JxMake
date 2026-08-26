@@ -195,7 +195,7 @@ public final class XmlSpecificRule {
     /**
      * HTML5 tree-construction spec's "Adjust MathML attributes" step: inside real MathML foreign content
      * ({@code mathmlDepth > 0}), attribute and tag names are corrected to the mapped mixed-case spec name
-     * (e.g. `definitionurl` -> `definitionURL`).
+     * (e.g. `definitionurl` -> `definitionURL`)
      */
     private static final java.util.Map<String, String> MATHML_TAG_NAME_CASE_FIXUP = new java.util.HashMap<>();
     static {
@@ -406,7 +406,7 @@ public final class XmlSpecificRule {
 
     /**
      * Depth counter for `<math>` ancestors, tracked so MathML case fixup (e.g. `definitionurl` ->
-     * `definitionURL`) applies only inside MathML foreign content.
+     * `definitionURL`) applies only inside MathML foreign content
      */
     private int mathmlDepth;
 
@@ -849,7 +849,7 @@ public final class XmlSpecificRule {
                 pos = gt + 1;
             } // if
             // Else: no real closing tag followed (EOF, or an ancestor's close instead) -- tolerate
-            // silently, same posture as parseElement's own lang.isHtml5 implicit-close fallback.
+            // silently, same posture as parseElement's own lang.isHtml5 implicit-close fallback
         }
         finally {
             openTagStack.pop();
@@ -1008,7 +1008,7 @@ public final class XmlSpecificRule {
 
     /**
      * Builds a synthetic empty (open/close-with-nothing) element node, e.g. for an orphan
-     * {@code </p>} -- see the "p end tag" spec note in {@code RDD_LOG.md}'s {@code RDD_KEY_223}.
+     * {@code </p>} -- see the "p end tag" spec note in {@code RDD_LOG.md}'s {@code RDD_KEY_223}
      */
     private Node synthesizeEmptyElement(final String tagNameLower)
     {
@@ -1096,7 +1096,7 @@ public final class XmlSpecificRule {
             //  rendering always inserts a space after `<!--`, which would turn `<!--%` into `<!-- %`
             //  and permanently break the marker's required exact prefix on any subsequent parse
             //  (InFileConfig.java's own regex, and //  this method's own DIS/ENA literal-string checks
-            //  above, both require `<!--%` with no intervening space).
+            //  above, both require `<!--%` with no intervening space)
             n.commentVerbatim = true;
             n.commentText     = raw;
         } // if
@@ -1437,7 +1437,7 @@ public final class XmlSpecificRule {
      * byte-for-byte-verbatim span, from its own opening `<` through its own MATCHING `</tag>`
      * (correctly tracking nested same-name opens/closes so an inner `<ruby>` doesn't fool the
      * matching logic into stopping early) -- no interior parsing at all, so implied-end-tag
-     * children (`<rb>`/`<rt>`/`<rp>`/`<rtc>`, or any further nesting) are never touched.
+     * children (`<rb>`/`<rt>`/`<rp>`/`<rtc>`, or any further nesting) are never touched
      */
     private Node parseOpaqueImpliedEndTagElement(
         final int    tagStart,
@@ -1509,7 +1509,7 @@ public final class XmlSpecificRule {
     /**
      * Case-insensitive search for `tokenLower` (e.g. `"<ruby"`/`"</ruby"`) in `haystack` starting
      * at `from`, requiring a tag-boundary character (whitespace, `>`, `/`, or end-of-string)
-     * immediately after the match so `"<ruby"` doesn't false-match inside `"<rubytag"`.
+     * immediately after the match so `"<ruby"` doesn't false-match inside `"<rubytag"`
      */
     private int indexOfTagBoundary(final String tokenLower, final int from)
     {
@@ -1557,7 +1557,7 @@ public final class XmlSpecificRule {
         skipWs();
         if( eof() || s.charAt(pos) != '=' ) {
             if(lang.isHtml5) {
-                // HTML5 bare boolean attribute (e.g. `checked`, `disabled`) -- no `=value` at all.
+                // HTML5 bare boolean attribute (e.g. `checked`, `disabled`) -- no `=value` at all
                 return name;
             }
             throw new XmlParseException("expected '=' after attribute '" + name + "'");
@@ -1886,7 +1886,7 @@ public final class XmlSpecificRule {
         if( onlyChild != null && (onlyChild.type == NodeType.TEXT || onlyChild.type == NodeType.CDATA) ) {
             // `onlyChild` may itself carry a same-line trailing comment (e.g. `<td>text<!-- c
             // --></td>`) -- this inline fast path bypasses renderNode(onlyChild), so that comment
-            // must be spliced in here too or it's silently dropped (found via apache/ant dogfood).
+            // must be spliced in here too or it's silently dropped (found via apache/ant dogfood)
             final String childSuffix = onlyChild.trailingComment != null ? " " + wrapComment(
                 onlyChild.trailingComment
             ) : "";
@@ -2081,7 +2081,7 @@ public final class XmlSpecificRule {
         appendWrappedOpenTag(n, depth, out, ">");
     }
 
-    /** {@code closer} is the text that terminates the last attribute line (e.g. {@code ">"}, {@code "/>"}, or a void element's {@code ">"}). */
+    /** {@code closer} is the text that terminates the last attribute line (e.g. {@code ">"}, {@code "/>"}, or a void element's {@code ">"}) */
     private void appendWrappedOpenTag(
         final Node          n,
         final int           depth,

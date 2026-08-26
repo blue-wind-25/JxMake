@@ -255,7 +255,7 @@ public class java_content_diff {
     /**
      * {@code ignorableAddition} lets a caller exempt entries that are only
      * in {@code b} but are known, intentional new content (e.g. closing-
-     * brace annotations) rather than a genuine unexplained addition.
+     * brace annotations) rather than a genuine unexplained addition
      */
     static List<String> diffMultisets(
         String                               label,

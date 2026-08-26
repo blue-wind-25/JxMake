@@ -84,7 +84,7 @@ public class TokenizerIndent extends TokenizerCore {
 
     // Valid Python 3 string-prefix letters (case-insensitive, 1-2 chars, e.g. r/b/u/f/rb/br/
     // rf/fr) -- checked against a completed IDENTIFIER token immediately followed by a quote to
-    // decide whether that identifier is actually a string prefix rather than an ordinary name.
+    // decide whether that identifier is actually a string prefix rather than an ordinary name
     private static final Set<String> STRING_PREFIXES = setOf(
         "r", "b", "u", "f", "rb", "br", "rf", "fr"
     );

@@ -142,7 +142,7 @@ public final class ServerMode {
     /**
      * Reflectively resolves {@code ProcessHandle.of(pid)} -- the {@code java.util.Optional<
      * ProcessHandle>} boilerplate shared by {@link #isProcessAlive}/{@link #forceKill}, which
-     * each need this same lookup before checking presence/reading the handle.
+     * each need this same lookup before checking presence/reading the handle
      */
     private static Object processHandleOf(final long pid) throws ReflectiveOperationException
     {

@@ -401,7 +401,7 @@ public abstract class GetterSetterRuleCore {
         return end;
     }
 
-    /** True iff any `NEWLINE` token appears in [from, to) -- i.e. the span crosses a source line. */
+    /** True iff any `NEWLINE` token appears in [from, to) -- i.e. the span crosses a source line */
     protected boolean hasNewlineBetween(final List<Token> tokens, final int from, final int to)
     {
         for(int i = from; i < to; ++i) {

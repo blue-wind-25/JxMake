@@ -69,7 +69,7 @@ public final class GdrRewriter {
         // Defensive: GdrReindenter.compute already clamps each depth axis to
         // >= 0 (RDD_KEY_242), so `count` should never be negative in
         // practice -- this is a last-resort backstop against
-        // NegativeArraySizeException, not the primary fix.
+        // NegativeArraySizeException, not the primary fix
         if(count < 0) count = 0;
         StringBuilder sb = new StringBuilder(count);
         for(int i = 0; i < count; ++i) sb.append(' ');

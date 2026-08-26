@@ -522,6 +522,7 @@ indent-style                           = spaces      # spaces | tabs | auto
 line-endings                           = lf          # lf  | crlf | preserve
 append-new-line-at-eof                 = on          # on  | off -- only if the last line does not have it
 collapse-trailing-blank-lines-at-eof   = off         # off | on  -- removes existing trailing blank lines
+
 remove-trailing-spaces                 = on          # on  | off
 normalize-invisible-invalid-unicode    = on          # on  | off
 

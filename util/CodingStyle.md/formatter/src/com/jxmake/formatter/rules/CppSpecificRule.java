@@ -37,7 +37,7 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
  */
 public class CppSpecificRule {
 
-    /** STYLE_C_CPP.md §10: number of blank lines required between header zones. */
+    /** STYLE_C_CPP.md §10: number of blank lines required between header zones */
     private static final int HEADER_ZONE_BLANK_LINES = 2;
 
     private final Lang lang;
@@ -161,7 +161,7 @@ public class CppSpecificRule {
                     || !"new".equals( tokens.get(beforeName).text );
         }
         // Operator overloads: `operator<=>`, `operator==`, etc. — the OP token before `(` is
-        // the operator symbol; the token before that must be the `operator` keyword.
+        // the operator symbol; the token before that must be the `operator` keyword
         if(nameTok.type == TokenType.OP) {
             final int beforeOp = prevSignificantIndexBefore(tokens, nameIdx);
             return beforeOp >= 0 && tokens.get(beforeOp).type == TokenType.KEYWORD
@@ -300,7 +300,7 @@ public class CppSpecificRule {
         for( int i = 0; i < tokens.size(); ++i ) {
             if( !isPunct( tokens.get(i), "{" ) ) continue;
             // Walk past post-paren qualifiers (const, volatile, noexcept, override, final)
-            // so that e.g. `func() const {` is handled the same as `func() {`.
+            // so that e.g. `func() const {` is handled the same as `func() {`
             int closeParenIdx = prevSignificantIndexBefore(tokens, i);
             while( closeParenIdx >= 0 && isDefinitionQualifier(
                 tokens.get(closeParenIdx)
@@ -612,7 +612,7 @@ public class CppSpecificRule {
             // split keeps both characters on the first ANGLE_BRACKET_CLOSE token's text (">>")
             // and gives the second one a zero-width placeholder token right after, so any space
             // padding inserted between the two must land between two single-char emissions, not
-            // after a 2-char one.
+            // after a 2-char one
                  if(t.type == TokenType.ANGLE_BRACKET_OPEN)  out.append('<');
             else if(t.type == TokenType.ANGLE_BRACKET_CLOSE) out.append('>');
             else                                             out.append(t.text);
@@ -1559,7 +1559,7 @@ public class CppSpecificRule {
 
     /**
      * The directive keyword of a {@code PREPROCESSOR} token's text (e.g. `"ifndef"`, `"endif"`,
-     * `"pragma"`), or `""` if the text doesn't start with `#`.
+     * `"pragma"`), or `""` if the text doesn't start with `#`
      */
     private String directiveWord(final String text)
     {
@@ -1581,7 +1581,7 @@ public class CppSpecificRule {
     /**
      * The macro name of an `#ifndef NAME` / `#define NAME` directive's text, requiring nothing
      * else (e.g. a trailing comment) follow it on the line -- {@code null} if the shape doesn't
-     * match exactly.
+     * match exactly
      */
     private String extractDirectiveName(final String text, final String expectedDirective)
     {
@@ -1629,7 +1629,7 @@ public class CppSpecificRule {
      * (a {@code [start, end)} token-index range) with {@code renders.get(s)}'s replacement
      * text -- shared tail of every pass in this file that renders a `spans`/`renders` pair
      * built up by its own detection loop (requires-clause/contract-clause placement, contract
-     * `assert` spacing, attribute/splice-bracket padding).
+     * `assert` spacing, attribute/splice-bracket padding)
      */
     private String applySpans(
         final List<Token>  tokens,
@@ -1838,7 +1838,7 @@ public class CppSpecificRule {
     /**
      * True iff, scanning from just after {@code prevIdx} to just before {@code curIdx}, the
      * only tokens present are whitespace and exactly one newline -- i.e. the two `#define`
-     * tokens sit on immediately consecutive lines with no blank line between them.
+     * tokens sit on immediately consecutive lines with no blank line between them
      */
     private boolean isAdjacentDefineLine(
         final List<Token> tokens,

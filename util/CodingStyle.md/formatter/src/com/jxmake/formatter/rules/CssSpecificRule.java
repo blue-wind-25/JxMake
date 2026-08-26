@@ -467,7 +467,7 @@ public final class CssSpecificRule {
         } // for
     }
 
-    /** Tokenizes, parses, and re-renders {@code content} per STYLE_DATA_FORMATS.md §3. */
+    /** Tokenizes, parses, and re-renders {@code content} per STYLE_DATA_FORMATS.md §3 */
     public String format(final String content)
     {
         final List<Token> tokens = new CssTokenizer().tokenize(content);

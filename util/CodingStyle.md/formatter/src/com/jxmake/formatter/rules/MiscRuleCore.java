@@ -1341,7 +1341,7 @@ public static final class Assignment {
      * Length of the {@code WHITESPACE} token at {@code idx} in {@code stmt}, or {@code 0} if
      * {@code idx} is out of range or not a `WHITESPACE` token (e.g. a statement flush against an
      * opening `{`, with no leading indent token at all) -- shared by
-     * {@link #isOperatorSplitContinuationIndent}'s two symmetric indent-length reads.
+     * {@link #isOperatorSplitContinuationIndent}'s two symmetric indent-length reads
      */
     private int whitespaceTokenLengthAt(final List<Token> stmt, final int idx)
     {
@@ -2325,7 +2325,7 @@ public static final class Assignment {
         // A generated/genuine closing-comment label only ever follows a `}` that sits alone on
         // its own line (STYLE.md §7's rendering); a `}` sharing its line with the rest of a
         // one-liner body (`{ return v_; }`) can never carry one, so a trailing comment there
-        // (e.g. a one-liner getter's `// getter`) is just an ordinary comment.
+        // (e.g. a one-liner getter's `// getter`) is just an ordinary comment
         int q = p - 1;
         while( q >= 0 && tokens.get(q).type == TokenType.WHITESPACE ) q--;
 
@@ -2448,7 +2448,7 @@ public static final class Assignment {
         for(final String w : words) {
             // A single letter (e.g. the `A`/`BB` suffix in `Comment A`/`Comment BB`) is never
             // itself meant as the stopword "a" -- only match stopwords that are at least 2
-            // characters, so a short identifier-like label isn't mistaken for the article "a".
+            // characters, so a short identifier-like label isn't mistaken for the article "a"
             if( w.length() >= 2 && PROSE_STOPWORDS.contains(
                 w.toLowerCase(Locale.ROOT)
             ) ) return false;
@@ -2967,9 +2967,7 @@ public static final class Assignment {
      * sentence-ending dot to strip (see {@link #endsWithDottedAbbreviation}) -- e.g./i.e./etc.
      * always keep their own period whether or not they happen to fall at a sentence's end.
      */
-    private static final String[] DOTTED_ABBREVIATIONS = {
-        "e.g.", "i.e.", "etc.", "et al.", "et. al."
-    };
+    private static final String[] DOTTED_ABBREVIATIONS = { "e.g.", "i.e.", "etc.", "et al.", "et. al." };
     /**
      * Matches a `.` immediately followed by 1-8 letters/digits with no more letters/digits after
      * (no leading/trailing whitespace requirement) -- a file-extension/version-fragment shape
@@ -2977,11 +2975,13 @@ public static final class Assignment {
      * punctuation. Deliberately not anchored to whitespace before the dot, since backtick-wrapped
      * or comma-adjacent extensions (`` `.hpp`, ``) are the common real-code case.
      */
-    private static final Pattern EXTENSION_LIKE_DOT = Pattern.compile("\\.[A-Za-z][A-Za-z0-9]{0,7}(?![A-Za-z0-9])");
+    private static final Pattern EXTENSION_LIKE_DOT = Pattern.compile(
+        "\\.[A-Za-z][A-Za-z0-9]{0,7}(?![A-Za-z0-9])"
+    );
     /**
      * {@code true} if {@code content[0, end)} ends with one of {@link #DOTTED_ABBREVIATIONS} at a
      * word boundary -- used to refuse stripping entirely when the "trailing period" candidate is
-     * actually an abbreviation's own required period, not sentence-ending punctuation.
+     * actually an abbreviation's own required period, not sentence-ending punctuation
      */
     private static boolean endsWithDottedAbbreviation(final String content, final int end)
     {
@@ -2989,8 +2989,10 @@ public static final class Assignment {
         for(final String abbr : DOTTED_ABBREVIATIONS) {
             if( !lower.endsWith(abbr) ) continue;
             final int abbrStart = end - abbr.length();
-            if( abbrStart == 0 || !Character.isLetterOrDigit( content.charAt(abbrStart - 1) ) ) return true;
-        }
+            if( abbrStart == 0 || !Character.isLetterOrDigit(
+                content.charAt(abbrStart - 1)
+            ) ) return true;
+        } // for
 
         return false;
     }
@@ -3005,9 +3007,11 @@ public static final class Assignment {
     {
         String masked = content;
         for(final String abbr : DOTTED_ABBREVIATIONS) {
-            final Matcher m = Pattern.compile(
+            final Matcher      m  = Pattern.compile(
                 "(?<![A-Za-z0-9])" + Pattern.quote(abbr), Pattern.CASE_INSENSITIVE
-            ).matcher(masked);
+            ).matcher(
+                masked
+            );
             final StringBuffer sb = new StringBuffer();
             while( m.find() ) {
                 final char[] spaces = new char[ m.group().length() ];
@@ -3016,8 +3020,8 @@ public static final class Assignment {
             }
             m.appendTail(sb);
             masked = sb.toString();
-        }
-        final boolean[] isExtensionDot = new boolean[masked.length()];
+        } // for
+        final boolean[] isExtensionDot = new boolean[ masked.length() ];
         final Matcher   extMatcher     = EXTENSION_LIKE_DOT.matcher(masked);
         while( extMatcher.find() ) {
             for( int i = extMatcher.start(); i < extMatcher.end(); ++i ) isExtensionDot[i] = true;

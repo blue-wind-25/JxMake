@@ -264,7 +264,7 @@ public final class Lang {
         if( lower.endsWith(".html") || lower.endsWith(".htm") ) return "html5";
         // .jsx folds into "js" and .tsx into "ts" for detection/dispatch purposes this session --
         // JSX/TSX need their own future embedding-aware dispatcher (STATE_JS_TS.md Open Design
-        // Questions), not a distinct Lang flag yet; both are scaffold-only either way.
+        // Questions), not a distinct Lang flag yet; both are scaffold-only either way
         if( lower.endsWith(
             ".js"
         ) || lower.endsWith(

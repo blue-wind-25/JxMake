@@ -67,7 +67,7 @@ public class MiscRuleCurly extends MiscRuleCore {
 
     /**
      * Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
-     * config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor.
+     * config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor
      */
     public MiscRuleCurly(
         final Lang    lang,
@@ -648,7 +648,7 @@ public static final class Signature {
      * Computes the type-column width and name+comma-column width a type-column-padded
      * one-per-line param render needs -- pure function of {@code sig.params}, shared by
      * {@link #render}'s broken form and {@link #renderOnePerLine} (see that method's doc comment
-     * for why the rest of the two methods' rendering loops still stay separate).
+     * for why the rest of the two methods' rendering loops still stay separate)
      */
     private ParamColumnWidths paramColumnWidths(final Signature sig)
     {
@@ -674,7 +674,7 @@ public static final class Signature {
     /**
      * @param trailingLen length of any trailing same-line text after the signature's own `)`
      * (e.g. a constructor's member-initializer-list opener, `: field(`) that the line-length
-     * wrap decision below must also account for.
+     * wrap decision below must also account for
      */
     public List<String> render(
         final Signature sig,
@@ -2136,7 +2136,7 @@ public static final class Signature {
         if(!lang.isKotlin) return ownIndent;
         // `lineStart` need not be `nameIdx` itself (e.g. `throw IllegalStateException(` -- `throw`
         // leads); the merge-detection below only needs to know THIS line is the branch body's own
-        // line, which `lineStart` already tells us regardless of who leads it.
+        // line, which `lineStart` already tells us regardless of who leads it
         final int lineStart = lineStartIndex(tokens, nameIdx);
               int p         = lineStart - 1;
         while( p >= 0 && tokens.get(p).type == TokenType.WHITESPACE ) p--;
@@ -2508,7 +2508,7 @@ public static final class Signature {
      * paren-index-based variant, which checks a different, intentionally offset span for
      * {@code anyFrozen} -- see that method): {@code true} if a comment sits anywhere in
      * {@code [from, to]}, any token in {@code [from, to]} is frozen, or the span already spans a
-     * NEWLINE (the idempotency guard -- see {@link #hasNewlineBetween}'s doc comment).
+     * NEWLINE (the idempotency guard -- see {@link #hasNewlineBetween}'s doc comment)
      */
     private boolean blocksOperatorSplit(final List<Token> tokens, final int from, final int to)
     {

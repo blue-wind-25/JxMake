@@ -539,7 +539,7 @@ public final class GruTrainer {
                 int    examplesSeen    = 0;
                 int    i               = 0;
                 // Last scheduled LR actually applied this epoch (stays == learningRate flat when
-                // warmupSteps == 0, i.e. schedule disabled) -- reported on the epoch summary line.
+                // warmupSteps == 0, i.e. schedule disabled) -- reported on the epoch summary line
                 double lrThisEpoch = learningRate;
                 while( i < train.size() ) {
                     // BatchSize controls averaging granularity (one Adam step per this many
@@ -1719,7 +1719,7 @@ public final class GruTrainer {
         // Best-effort fallback for a --resume path that doesn't end in the expected suffix (e.g. a
         // user manually renamed the file) -- still deterministic, just less likely to find a real
         // sibling; readBestCheckpoint's caller already treats "no sibling found" as a handled,
-        // documented case, not a hard error.
+        // documented case, not a hard error
         return new File(path + CHECKPOINT_BEST_SUFFIX);
     }
 
@@ -1837,7 +1837,7 @@ public final class GruTrainer {
     /**
      * Loaded {@link GruWeights} plus the {@code explicitVocab} list it was built from -- {@code
      * GruWeights} itself only exposes the vocab as a {@code String[]}; callers here generally want
-     * the {@code List<String>} shape {@link #toJson} etc. already take.
+     * the {@code List<String>} shape {@link #toJson} etc. already take
      */
     private static final class LoadedWeights {
 
@@ -2309,7 +2309,7 @@ public final class GruTrainer {
         GruWeights build()
         {
             // GruWeights has no public constructor (see class javadoc above) -- round-trip through
-            // its own JSON schema instead, which is public API (GruWeights.load).
+            // its own JSON schema instead, which is public API (GruWeights.load)
             String json = toJson(this);
             try {
                 java.nio.file.Path tmp = Files.createTempFile("gru_trainer_init", ".json");

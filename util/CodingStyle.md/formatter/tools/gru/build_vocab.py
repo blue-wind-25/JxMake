@@ -77,7 +77,7 @@ KEYWORDS_KOTLIN = [
 ]
 # JS/TS reserved words + TS-only additions (STATE_JS_TS.md: implemented, no keyword-ambiguity
 # gate of its own yet, but still one of the "every supported/planned language" this vocab
-# promises coverage for).
+# promises coverage for)
 KEYWORDS_JS_TS = [
     "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete",
     "do", "else", "export", "extends", "false", "finally", "for", "function", "if", "import",
@@ -88,7 +88,7 @@ KEYWORDS_JS_TS = [
     "namespace", "declare", "never", "unknown", "satisfies",
 ]
 # Python3 reserved words (STATE_PYTHON3.md: scaffold-only in the formatter itself, but a
-# "planned language" per that file, so it still gets guaranteed vocab slots now).
+# "planned language" per that file, so it still gets guaranteed vocab slots now)
 KEYWORDS_PYTHON3 = [
     "False", "None", "True", "and", "as", "assert", "async", "await", "break", "class",
     "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global",

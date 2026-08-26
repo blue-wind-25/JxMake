@@ -338,7 +338,7 @@ public final class JsTsSpecificRule {
             // ternary break-before-operator (`cond\n  ? x\n  : y`), logical-operator chains,
             // etc. -- none of these operators can legally begin a new statement, so their
             // presence as the very next significant token means the previous line's statement
-            // isn't actually finished, regardless of its own last token.
+            // isn't actually finished, regardless of its own last token
             if( nextSig >= 0 && tokens.get(
                 nextSig
             ).type == TokenType.OP && LEADING_CONTINUATION_OPS.contains(
@@ -351,7 +351,7 @@ public final class JsTsSpecificRule {
             // next line (`export interface ParserOptions\n  extends ErrorHandlingOptions {`) --
             // a leading `extends`/`implements` can never begin a new statement, so the previous
             // line's declaration name isn't actually finished yet (vuejs/core dogfood,
-            // `compiler-core/src/options.ts`).
+            // `compiler-core/src/options.ts`)
             if( nextSig >= 0 && tokens.get(
                 nextSig
             ).type == TokenType.KEYWORD && ( "extends".equals(
@@ -2061,7 +2061,7 @@ public final class JsTsSpecificRule {
     /**
      * True when the nearest preceding significant token to {@code idx} is a statement boundary
      * (`;`, `{`, `}`) or there isn't one (start of file/scope) -- i.e. {@code idx} can validly
-     * start a new top-level statement.
+     * start a new top-level statement
      */
     private boolean isStatementBoundary(final List<Token> tokens, final int idx)
     {
@@ -3615,7 +3615,7 @@ public final class JsTsSpecificRule {
         int cursor = prevSignificantIndex(tokens, closeAngleIdx - 1);
         if( cursor < 0 || tokens.get(cursor).type != TokenType.IDENTIFIER ) return false;
         // Walk back over a dotted type name (`<Foo.Bar>`), same chain-walk shape as the arrow-
-        // parameter dotted-type bail-out above.
+        // parameter dotted-type bail-out above
         while(true) {
             final int dotIdx = prevSignificantIndex(tokens, cursor - 1);
             if( dotIdx < 0 || !isOp( tokens.get(dotIdx), "." ) ) break;
@@ -4227,7 +4227,7 @@ public final class JsTsSpecificRule {
     /**
      * Index one past the last token of the physical line containing token {@code idx} (i.e. the
      * index of the line's own trailing {@code NEWLINE}, or the token count if the file ends
-     * without one).
+     * without one)
      */
     private int lineEndIndex(final List<Token> tokens, final int idx)
     {
@@ -4255,7 +4255,7 @@ public final class JsTsSpecificRule {
     // ── §15 Import ordering ──────────────────────────────────────────────────────────
     /**
      * The three fixed §15 bucket names -- {@code groupOrder} must be an exact permutation of
-     * this set, mirroring {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s validation posture.
+     * this set, mirroring {@code JavaSpecificRule.IMPORT_GROUP_KEYS}'s validation posture
      */
     private static final Set<String> IMPORT_GROUP_KEYS = new HashSet<>( Arrays.asList(
         "builtin", "third-party", "local"

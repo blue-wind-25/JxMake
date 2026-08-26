@@ -30,7 +30,7 @@ public final class CommentedOutCodeGate {
 
     // Call-shape: an identifier (optionally dotted, e.g. "System.out.println") immediately
     // followed by "(" -- no intervening whitespace, since real English essentially never writes
-    // "word(" with no space before the parenthetical, but a real call/invocation always does.
+    // "word(" with no space before the parenthetical, but a real call/invocation always does
     private static final Pattern CALL_SHAPE = Pattern.compile(
         "\\b[A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)*\\("
     );
@@ -44,7 +44,7 @@ public final class CommentedOutCodeGate {
 
     // Increment/decrement-shape: "++" or "--" directly adjacent to a word character on at least
     // one side (e.g. "blockNo++", "--count") -- narrower than a bare "--" so a prose em-dash-style
-    // "--" surrounded by spaces on both sides doesn't match.
+    // "--" surrounded by spaces on both sides doesn't match
     private static final Pattern INCREMENT_DECREMENT_SHAPE = Pattern.compile(
         "\\w(?:\\+\\+|--)|(?:\\+\\+|--)\\w"
     );

@@ -45,7 +45,7 @@ public final class Main {
      */
     private static final int SERVER_STARTED_KEEP_ALIVE = -1;
 
-    /** Lowercase hex-nibble lookup table for {@link #sha256Hex} -- avoids a per-byte String.format call. */
+    /** Lowercase hex-nibble lookup table for {@link #sha256Hex} -- avoids a per-byte String.format call */
     private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
 
     private Main()

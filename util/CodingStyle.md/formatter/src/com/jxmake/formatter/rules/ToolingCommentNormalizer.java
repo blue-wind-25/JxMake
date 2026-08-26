@@ -247,7 +247,7 @@ final class ToolingCommentNormalizer {
 
         /**
          * {@code markerPrefix}/{@code markerSuffix} bracket each generated placeholder -- caller picks
-         * text guaranteed not to collide with real source content (e.g. Bash wraps in {@code U+0007}).
+         * text guaranteed not to collide with real source content (e.g. Bash wraps in {@code U+0007})
          */
         ChainCollector(final String markerPrefix, final String markerSuffix)
         {
@@ -327,7 +327,7 @@ final class ToolingCommentNormalizer {
             // placeholder's position -- entries are in strictly increasing position order (defer()
             // appends them in scan order), the same assumption resolveKind below already relies on,
             // so this avoids resolve()'s previous O(entryCount * transformed.length()) cost of a
-            // fresh whole-string String.replace per entry.
+            // fresh whole-string String.replace per entry
             final StringBuilder out = new StringBuilder( transformed.length() );
                   int           pos = 0;
             for(final Entry e : entries) {

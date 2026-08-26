@@ -28,7 +28,7 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 public class SwitchRule {
 
     // Fallback unit-width when a switch's own line indentation can't be used to derive the
-    // project's actual indent unit (see deriveUnit) -- STYLE.md §1 default.
+    // project's actual indent unit (see deriveUnit) -- STYLE.md §1 default
     private static final int DEFAULT_INDENT_WIDTH = MiscRuleCurly.DEFAULT_INDENT_WIDTH;
 
     private final TokenizerCurly tokenizer;
@@ -192,7 +192,7 @@ public class SwitchRule {
         // after the case label, `case 1: // note`) always forces that statement onto the next
         // physical line -- a `//` comment can never be followed by more code on the same line --
         // so such a case can never be rendered in the single-line inline form, unlike a `/* */`
-        // block comment in the same position (`case 1: /* note */ return 1;`), which can.
+        // block comment in the same position (`case 1: /* note */ return 1;`), which can
         for(int i = from; i < firstSig; ++i) {
             if( tokens.get(i).type == TokenType.COMMENT_LINE ) return true;
         }
@@ -394,7 +394,7 @@ public class SwitchRule {
 
             // Bound the tail shift at the start of the next label's (or closing `}`'s) own line --
             // not at c.bodyEnd itself, which sits mid-line at the next label's keyword and would
-            // otherwise pull that label's own leading indentation into this case's tail shift.
+            // otherwise pull that label's own leading indentation into this case's tail shift
             final int tailBound = lineStartOf(tokens, c.bodyEnd);
             final int tailDelta = tailIndent.length() - currentLineIndent(
                 tokens, braceClose
@@ -552,7 +552,7 @@ public class SwitchRule {
         return false;
     }
 
-    /** The leading whitespace text of the line containing tokens.get(anchorIdx), or "" if none. */
+    /** The leading whitespace text of the line containing tokens.get(anchorIdx), or "" if none */
     private String currentLineIndent(final List<Token> tokens, final int anchorIdx)
     {
         final Token first = tokens.get( lineStartOf(tokens, anchorIdx) );
@@ -560,7 +560,7 @@ public class SwitchRule {
         return first.type == TokenType.WHITESPACE ? first.text : "";
     }
 
-    /** Index of the first token of the line containing tokens.get(idx). */
+    /** Index of the first token of the line containing tokens.get(idx) */
     private int lineStartOf(final List<Token> tokens, final int idx)
     {
         int i = idx;
@@ -871,7 +871,7 @@ public class SwitchRule {
      * returns its index if found alone, -1 if there is no comment at all, or -2 if a comment is
      * present that does not match (more than one comment, or text that doesn't contain
      * "FALL-THROUGH") -- callers treat -2 as "don't guess, leave this case alone" so a user's own
-     * comment is never silently dropped.
+     * comment is never silently dropped
      */
     private int findFallthroughMarker(final List<Token> tokens, final int from, final int to)
     {
@@ -920,7 +920,7 @@ public class SwitchRule {
         for(final CaseRow row : rows) {
             if(row.callShaped) {
                 // Trailing "" keeps args from being the last cell, so ColumnGrid's
-                // ragged-row rule doesn't skip padding it when args is empty (e.g. "doA()").
+                // ragged-row rule doesn't skip padding it when args is empty (e.g. "doA()")
                 callGrid.addRow( new String[] {row.name, row.args, ""} );
             }
         } // for

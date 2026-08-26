@@ -251,7 +251,7 @@ public final class FormatterCurly extends FormatterCore {
         else if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §5: named function declarations/class methods move their `{` to its
             // own line (Allman) -- arrow-function block bodies, empty bodies, and one-liner
-            // (getter/setter-style) bodies stay K&R, excluded internally by the method itself.
+            // (getter/setter-style) bodies stay K&R, excluded internally by the method itself
             text = jsTsRule.enforceMethodDefinitionAllmanBraceStyle( tokenizer.apply(text) );
         }
         if(lang.isTs) {
@@ -478,7 +478,7 @@ public final class FormatterCurly extends FormatterCore {
         } // if
         if(lang.isTs) {
             // STYLE_JS_TS.md §11: `: type` colon spacing (declarator/parameter/return-type),
-            // TS-only -- JS has no type annotations.
+            // TS-only -- JS has no type annotations
             text = jsTsRule.enforceTypeColonSpacing( tokenizer.apply(text) );
             text = jsTsRule.enforceUnionIntersectionSpacing( tokenizer.apply(text) );
             text = jsTsRule.enforceUnionTypeContinuationIndent( tokenizer.apply(text) );
@@ -525,7 +525,7 @@ public final class FormatterCurly extends FormatterCore {
             // See the flag-off addClosingComments call site above (Phase 3) for why this pair is
             // deferred to here, flag-on only: enforceOperatorLineBreaking can expand a block's
             // line count, and addClosingComments' STYLE.md §7 threshold decision must see that
-            // final, post-split line count to stay round1/round2 idempotent (RDD_KEY_343).
+            // final, post-split line count to stay round1/round2 idempotent (RDD_KEY_343)
             text = blockRule.addClosingComments( tokenizer.apply(text) );
             if(lang.isJava) text = javaRule.enforceSwitchExpressionArrowAlignment(
                 tokenizer.apply(text)
@@ -540,7 +540,7 @@ public final class FormatterCurly extends FormatterCore {
             // (STATE_JS_TS.md) -- must run BEFORE enforceJsxSelfClosingAttributeWrap: every hole
             // it splices lives at an offset >= jsxOpeningTagEndOffset (children-position only),
             // so it never disturbs the opening-tag region the wrap pass below measures/rewrites,
-            // and can safely run first.
+            // and can safely run first
             text = jsTsRule.spliceJsxExpressionHoles( tokenizer.apply(text) );
             // STATE_JS_TS.md's narrow JSX-scoped child parser (2026-08-20 approach) -- re-derives
             // each direct child tag/fragment boundary line's own indentation from unambiguous JSX

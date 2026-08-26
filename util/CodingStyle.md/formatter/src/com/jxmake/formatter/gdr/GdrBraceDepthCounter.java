@@ -36,7 +36,7 @@ public final class GdrBraceDepthCounter {
             // Defensive: normally every '\n' is either its own NEWLINE
             // token or embedded in a multi-line token's text (both
             // handled below), so t.line should never outrun the local
-            // `line` cursor -- but don't silently miscount if it does.
+            // `line` cursor -- but don't silently miscount if it does
             while(line < t.line) {
                 result.add( new GdrLineBraceDepth(line, startOfLineDepth, depth) );
                 ++line;

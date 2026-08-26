@@ -388,7 +388,7 @@ public final class MiscRuleIndent extends MiscRuleCore {
         }
         // +1 unconditionally -- even a bare `=` (empty prefix) still needs its own leading space
         // before the `=` itself, same precedent as MiscRuleCore#render (RDD_KEY reasoning there:
-        // maxPrefixLen=2 from `>>=` still renders a 3-wide gap, i.e. naturalMax+1, not naturalMax).
+        // maxPrefixLen=2 from `>>=` still renders a 3-wide gap, i.e. naturalMax+1, not naturalMax)
         ++maxPrefixLen;
         final List<String> out = new ArrayList<>();
         for(final PyAssignment a : group) {
@@ -571,7 +571,7 @@ public final class MiscRuleIndent extends MiscRuleCore {
                 // "documented gap" note) and must not be treated as line-start here either; doing
                 // so would erase an earlier pass's own cosmetic continuation-indent rendering
                 // (found via real-code testing: `real_code_regressions_79/116/138_inp.py`'s
-                // multi-line signatures/union-type wraps).
+                // multi-line signatures/union-type wraps)
                 final boolean insideBrackets = t.parenDepth > 0;
                 final boolean backslash      = i > 0 && tokens.get(
                     i - 1

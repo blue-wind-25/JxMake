@@ -252,7 +252,7 @@ public final class JxMakeSpecificRule {
      * Splits an assignment statement's collapsed prefix (everything before the assign-op,
      * whitespace-collapsed) into its STYLE_JXMAKE.md §4 fields: optional `local`, optional
      * `const` (grammar order is always `local const`, never the reverse), then the var-name
-     * (`^`-prefixed for indirect assignment, which never carries modifiers).
+     * (`^`-prefixed for indirect assignment, which never carries modifiers)
      */
     private static AsgnItem parsePrefixFields(final String prefixCollapsed)
     {
@@ -667,7 +667,7 @@ public final class JxMakeSpecificRule {
     /**
      * Scans the logical line starting at {@code startIdx} (joining `\`-continued physical lines)
      * for a top-level (bracket/paren depth 0, outside any string/comment) `:` token -- distinguishes
-     * an {@code if} one-liner (STYLE_JXMAKE.md §2) from a block-form {@code if}.
+     * an {@code if} one-liner (STYLE_JXMAKE.md §2) from a block-form {@code if}
      */
     private static boolean isOneLinerIf(final List<String> lines, final int startIdx)
     {

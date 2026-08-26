@@ -32,7 +32,7 @@ public class BlockStructureRule {
     // A nested compound construct is not a "single EXPRESSION" (STYLE.md §10's own title) --
     // collapsing e.g. `if(x) { if(y) foo(); }` to `if(x) if(y) foo();` would introduce a
     // dangling-construct ambiguity that the worked examples (return/continue/break) never
-    // exercise, so such bodies are left braced rather than guessed at.
+    // exercise, so such bodies are left braced rather than guessed at
     private static final Set<String> COMPOUND_BODY_KEYWORDS = setOf(
         "if", "while", "for", "switch", "do", "try"
     );
@@ -42,10 +42,10 @@ public class BlockStructureRule {
         "if", "while", "for", "switch", "catch"
     );
 
-    // STYLE.md §11 K&R list: keywords whose body brace follows the bare keyword, no condition.
+    // STYLE.md §11 K&R list: keywords whose body brace follows the bare keyword, no condition
     private static final Set<String> BARE_KR_KEYWORDS = setOf("else", "do", "try", "finally");
 
-    // STYLE.md §7 default; overridable via `closing-comment-min-lines` once Config.java exists.
+    // STYLE.md §7 default; overridable via `closing-comment-min-lines` once Config.java exists
     private static final int DEFAULT_CLOSING_COMMENT_MIN_LINES = 5;
 
     // Primitive/built-in type keywords that can lead a local variable declaration in C/C++/Java
@@ -99,7 +99,7 @@ public class BlockStructureRule {
      * refuse to column-pad a chain branch past this width -- see that method's own javadoc for
      * why (vuejs/core real-code testing: a padded-but-still-fits-check-stale consequent call
      * could otherwise silently render over the limit with no downstream pass left to re-wrap
-     * it, since this pass runs last).
+     * it, since this pass runs last)
      */
     private final int lineLengthLimit;
     /**
@@ -637,7 +637,7 @@ public class BlockStructureRule {
         final String body      = renderInline(contents);
         final String candidate = prefix + " " + body;
         // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/scoping pass") -- see
-        // `refuseUnrescuableCollapse`'s javadoc for the full mechanism.
+        // `refuseUnrescuableCollapse`'s javadoc for the full mechanism
         if( refuseUnrescuableCollapse(
             tokens, kwIndex, kwIndex, block.closeBraceIndex - 1, candidate
         ) ) return null;
@@ -804,7 +804,7 @@ public class BlockStructureRule {
      * top-level statement per STYLE.md §10 -- extracted out of {@link #tryCollapse} so the
      * same check can be dry-run, without producing any rendered text, over every branch of an
      * {@code if}/{@code else if}/{@code else} chain (see {@link #chainAllBranchesCollapsible})
-     * to decide whether the *whole* chain qualifies before any single branch is touched.
+     * to decide whether the *whole* chain qualifies before any single branch is touched
      */
     private boolean isSingleStatementBody(final List<Token> contents)
     {
@@ -1398,7 +1398,7 @@ public class BlockStructureRule {
             // chains built entirely of originally-braced branches (the shape STYLE_C_CPP.md
             // §10's worked examples and this feature's own fixtures exercise); a chain with a
             // pre-existing brace-free branch bails conservatively rather than guessing at its
-            // (harder to locate without a closing brace) statement boundary.
+            // (harder to locate without a closing brace) statement boundary
             return false;
         } // while
     }
@@ -1620,7 +1620,7 @@ public class BlockStructureRule {
         return out.toString();
     }
 
-    /** True if the `{` at braceIdx opens a K&R-styled construct per STYLE.md §11 (see caller doc). */
+    /** True if the `{` at braceIdx opens a K&R-styled construct per STYLE.md §11 (see caller doc) */
     private boolean qualifiesForKAndR(final List<Token> tokens, final int braceIdx)
     {
         if( tokens.get(braceIdx).name != null ) return true;
@@ -2277,7 +2277,7 @@ public class BlockStructureRule {
     /**
      * True iff nothing but whitespace and exactly one NEWLINE sits between tokens at indices
      * {@code fromExclusive} and {@code toExclusive} -- i.e. the two lines are adjacent with no
-     * blank line between them.
+     * blank line between them
      */
     private boolean isSingleNewlineGap(
         final List<Token> tokens,
@@ -2335,7 +2335,7 @@ public class BlockStructureRule {
 
     /**
      * True if the `{` at {@code openIdx} is immediately followed (ignoring gap tokens) by its
-     * own matching `}`, i.e. an empty body -- {@code { }} or {@code {}}.
+     * own matching `}`, i.e. an empty body -- {@code { }} or {@code {}}
      */
     private boolean isEmptyBraceBody(final List<Token> tokens, final int openIdx)
     {
@@ -2402,7 +2402,7 @@ public class BlockStructureRule {
             // No existing NEWLINE in the gap to anchor indentation on -- discard the stale
             // inline separator (a bare same-line space, e.g. `{ enum Bar {`'s single space)
             // rather than reusing it as the new line's indentation, and synthesize a properly
-            // indented line instead.
+            // indented line instead
             sb.append("\n\n");
             if(indentIfNoNewline != null) sb.append(indentIfNoNewline);
             for(int i = 0; i < prefixEnd; ++i) {
@@ -2769,7 +2769,7 @@ public class BlockStructureRule {
         } // if
         // Qualified namespace name (`namespace alpha::beta::gamma {`): findConstructNameIndex
         // matches single-token identifiers only, so look up the first segment instead and render
-        // the closing-comment label with the STYLE.md-preferred space separator.
+        // the closing-comment label with the STYLE.md-preferred space separator
         if( name.indexOf(':') >= 0 ) {
             final String firstSegment = name.substring( 0, name.indexOf(':') );
             final int    qualNameIdx  = findConstructNameIndex(tokens, braceIdx, firstSegment);
@@ -3136,7 +3136,7 @@ public class BlockStructureRule {
     /**
      * The `while`/`switch` controlling expression's variable, only when it reduces to one bare
      * identifier (optionally negated, e.g. `!done`) -- anything more compound has no single
-     * representative variable, so this returns null and the caller falls back to a bare label.
+     * representative variable, so this returns null and the caller falls back to a bare label
      */
     // ── Named-construct header spacing (STYLE.md §11) ───────────────────────────
     /**

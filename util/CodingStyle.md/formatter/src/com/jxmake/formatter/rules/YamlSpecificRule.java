@@ -207,7 +207,7 @@ public final class YamlSpecificRule {
      * together" (that shape is common right after a nested block ends, e.g. a comment between
      * two top-level tasks in an Ansible playbook, and was previously lossy/non-idempotent:
      * {@link Item#blankBefore} alone can only represent one blank-line position, not one before
-     * *and* one after a comment run).
+     * *and* one after a comment run)
      */
     private static final class CommentLine {
 
@@ -944,7 +944,7 @@ public final class YamlSpecificRule {
             // A block scalar as a plain (non-keyed) sequence item's own value, e.g.
             // "- |\n    line one\n    line two" (a script/command string in a plain YAML
             // sequence) -- same block-scalar handling as the mapping-key and seqOfMapping-
-            // firstKey cases above, just without an intervening "key:" prefix.
+            // firstKey cases above, just without an intervening "key:" prefix
             item.inlineValue     = code;
             item.blockScalarBody = captureBlockScalarBody(innerCol - 2);
             return;
@@ -1128,7 +1128,7 @@ public final class YamlSpecificRule {
             // An empty inlineValue here means this isn't a real "|"/">" indicator but a key with
             // no value on its own line whose entire multi-line plain-scalar body was captured on
             // the following lines (see parseKeyItem's after.isEmpty() branch) -- omit the stray
-            // trailing space that a literal "|"/">" value would otherwise need.
+            // trailing space that a literal "|"/">" value would otherwise need
             if( item.inlineValue.isEmpty() ) out.append(keyPrefix).append('\n');
             else out.append(keyPrefix).append(' ').append(item.inlineValue).append('\n');
             if( !item.blockScalarBody.isEmpty() ) appendMultilineScalarBody(
@@ -1179,7 +1179,7 @@ public final class YamlSpecificRule {
                 // caller, which passes ln.indent, i.e. innerCol - 2) -- whose rendered equivalent
                 // is indent(depth) itself, NOT a "+2" offset (that offset is only correct for
                 // multilineScalarBody below, whose capture baseline is the value's own column,
-                // innerCol).
+                // innerCol)
                 appendMultilineScalarBody(item.blockScalarBody, depth, out);
             } // if
             return;

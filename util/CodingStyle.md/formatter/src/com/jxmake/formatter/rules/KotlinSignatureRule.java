@@ -312,7 +312,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
     /**
      * Parses one already-comma-split param slice as `[modifiers] name : type [= default]`,
      * returning null for anything that doesn't match -- an annotation-prefixed param, a
-     * destructuring lambda param, or any other shape with no STYLE_KOTLIN.md §7 worked example.
+     * destructuring lambda param, or any other shape with no STYLE_KOTLIN.md §7 worked example
      */
     private KotlinParam parseKotlinParam(
         final List<Token>          rawSlice,
@@ -440,7 +440,7 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         // distort the alignment of the others" precedent as STYLE.md's getter/setter grouping: the
         // grid only sees each row's bare name cell, not the leading-comment prefix rendered ahead of
         // it, so including such a row would silently pad its sibling rows' name columns out to a
-        // width that never actually lines up visually once the prefix is prepended.
+        // width that never actually lines up visually once the prefix is prepended
         final ColumnGrid    grid         = new ColumnGrid();
         final List<Integer> gridParamIdx = new ArrayList<>();
         final String[]      soloLine     = new String[ sig.params.size() ];

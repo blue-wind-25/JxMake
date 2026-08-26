@@ -127,7 +127,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      * separator -- i.e. the whole comment line is one opaque directive like `rtl:begin:ignore` or
      * `stylelint-disable`, not a prose sentence that merely happens to start with a
      * hyphenated/colon-containing word (e.g. "auto-generated file, do not edit" has more content
-     * after the first token and must NOT be treated as directive-like).
+     * after the first token and must NOT be treated as directive-like)
      */
     private static boolean isSingleTokenDirective(final String commentText, final int bodyStart)
     {
@@ -164,7 +164,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
      * {@code indentPrefix} before it), and every subsequent line gets {@code indentPrefix}
      * prepended in front of whatever whitespace it already has -- preserving the comment's
      * original *relative* indentation (e.g. an aligned {@code *} continuation, or hanging
-     * sentence indent) rather than the absolute column it happened to sit at in the source.
+     * sentence indent) rather than the absolute column it happened to sit at in the source
      */
     public static String reindentBlockComment(final String commentText, final String indentPrefix)
     {
@@ -174,7 +174,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
         for(int i = 1; i < lines.length; ++i) {
             // If this line already starts with exactly indentPrefix (e.g. re-formatting
             // already-formatted output at the same depth), strip it first so re-adding it below
-            // doesn't double up -- this is what makes the operation idempotent.
+            // doesn't double up -- this is what makes the operation idempotent
             final String line = lines[i].startsWith(
                 indentPrefix
             ) ? lines[i].substring(

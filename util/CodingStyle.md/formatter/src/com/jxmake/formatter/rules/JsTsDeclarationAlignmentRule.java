@@ -451,7 +451,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
      * declaration statements -- same grouping-break rule as the base class's {@code
      * groupDeclarations} (STYLE.md §5)/Kotlin's {@code groupAlignableDeclarations}: a blank line,
      * a standalone leading comment, or any statement that doesn't parse as a plain declaration
-     * (per this class's deliberately narrow {@link #parseDeclaration}) breaks the current group.
+     * (per this class's deliberately narrow {@link #parseDeclaration}) breaks the current group
      */
     public List<List<Row>> groupAlignableDeclarations(final List<Token> scopeTokens)
     {

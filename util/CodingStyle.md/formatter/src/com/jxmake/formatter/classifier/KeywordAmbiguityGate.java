@@ -281,7 +281,7 @@ public final class KeywordAmbiguityGate {
 
     // Full CPython keyword.kwlist (Python 3), plus the two soft keywords `match`/`case` used by
     // structural pattern matching -- included since they're the exact kind of "reads like an
-    // ordinary English word" false-friend this gate exists for.
+    // ordinary English word" false-friend this gate exists for
     private static final Set<String> KEYWORDS_PYTHON = setOf(
         "False",
         "None",

@@ -211,7 +211,7 @@ public class KotlinSpecificRule {
     /**
      * The first top-level (paren/bracket/brace-depth 0 relative to `from`) `->` OP token in
      * [from, limit), or -1 if none is found -- a nested `{`/`(` (e.g. a lambda inside the branch
-     * condition) is skipped over so its own `->` is never mistaken for the branch's.
+     * condition) is skipped over so its own `->` is never mistaken for the branch's
      */
     private int findTopLevelArrow(final List<Token> tokens, final int from, final int limit)
     {
@@ -1330,7 +1330,7 @@ public class KotlinSpecificRule {
         sb.append('\n').append('\n');
         if( i >= gap.size() ) {
             // No newline followed the same-line part (e.g. a trailing comment right before the
-            // terminator) -- nothing else in the gap supplies the next line's indentation.
+            // terminator) -- nothing else in the gap supplies the next line's indentation
             sb.append(indent);
             return sb.toString();
         }
@@ -2202,7 +2202,7 @@ public class KotlinSpecificRule {
      * True if the `{` at {@code braceIdx} is a named-construct body (already handled elsewhere),
      * a `when` body (own dedicated handling), or a control-flow body (`if`/`while`/`for`/
      * `catch`/`do`/`try`/`else`/`finally`, per STYLE.md's "never add/remove blank lines inside a
-     * control-flow block" rule) -- see {@link #stripLeadingBlankBeforeNonDeclarationStatement}.
+     * control-flow block" rule) -- see {@link #stripLeadingBlankBeforeNonDeclarationStatement}
      */
     private boolean isControlFlowOrWhenOrNamedBrace(final List<Token> tokens, final int braceIdx)
     {

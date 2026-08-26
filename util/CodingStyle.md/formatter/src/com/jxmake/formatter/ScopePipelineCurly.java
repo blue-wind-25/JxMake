@@ -132,7 +132,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
 
     /**
      * Full constructor additionally taking the {@code gru-classifier}/{@code gru-weights-path}
-     * config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor.
+     * config values (STATE_AI.md Step 3) -- see {@code MiscRuleCore}'s own full constructor
      */
     public ScopePipelineCurly(
         final Lang    lang,
@@ -456,7 +456,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         // Java re-enabled RDD_KEY_325 on top of RDD_KEY_321's corruption fix, together with a
         // Java-only pre-reindent of the recursed nested source (see the `lang.isJava` branch in
         // `processScope`'s span loop, below) that addresses RDD_KEY_322's cause (1) -- see
-        // `isJavaAnonClassBrace`'s doc comment for the full history.
+        // `isJavaAnonClassBrace`'s doc comment for the full history
         if(!lang.isCpp && !lang.isC && !lang.isKotlin && !lang.isJava) return new ArrayList<>();
 
         return findNestedBraces(
@@ -861,7 +861,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // A preprocessor directive belonging to this span's own leading gap (e.g. a
             // preceding sibling span ends right where a `#endif` starts) always sits at column
             // 0 and is never part of the actual construct -- skip it like a gap token so the
-            // real first token (e.g. `public`) becomes the anchor instead.
+            // real first token (e.g. `public`) becomes the anchor instead
             if( !isGapToken( tokens.get(i) ) && tokens.get(i).type != TokenType.PREPROCESSOR ) {
                 anchor = i;
                 break;
@@ -908,7 +908,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         // sibling span (e.g. one ending in a preprocessor directive) can leave this span's own
         // start coinciding with its first significant token, with the actual leading
         // newline+indent having been consumed as part of the PREVIOUS span instead -- bounding
-        // the search at span.start would then find nothing and silently fall back to "".
+        // the search at span.start would then find nothing and silently fall back to ""
         for(int j = anchor - 1; j >= 0; --j) {
             final Token tok = tokens.get(j);
             if(tok.type == TokenType.NEWLINE) return joinText(tokens, j + 1, anchor);
@@ -1262,7 +1262,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // Use firstIdx (the declaration's own first real token), not firstSpan.start: the
             // span's leading gap can contain a previous statement's trailing JXM_CFMT_ENA/DIS
             // marker (always itself stamped frozen -- see markFrozenSpans), which must not cause
-            // this unrelated, unfrozen declaration to be mistaken for frozen content.
+            // this unrelated, unfrozen declaration to be mistaken for frozen content
             if( anyFrozen(tokens, firstIdx, lastSpan.end) ) continue;
 
             final List<String> lines = declarationRule.render(group);
@@ -1355,7 +1355,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * value` is likewise name-before-type, reversed relative to C/Java), but JS/TS statements are
      * always `;`-terminated (STYLE_JS_TS.md §2), unlike Kotlin's newline-terminated properties --
      * {@link JsTsDeclarationAlignmentRule} still exposes {@code lastAnchor} the same way, so the
-     * same identity-based {@link #addKotlinDeclReplacement} splice-back helper is reused as-is.
+     * same identity-based {@link #addKotlinDeclReplacement} splice-back helper is reused as-is
      */
     private String applyJsTsDeclarationsPass(final List<Token> tokens)
     {
@@ -1534,7 +1534,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             final Span       firstSpan = findSpanContaining(spans, firstIdx);
             final Span       lastSpan  = findSpanContaining(spans, lastIdx);
             // See applyDeclarationsPass: use firstIdx, not firstSpan.start, so a marker in the
-            // leading gap doesn't falsely mark this unfrozen assignment group as frozen.
+            // leading gap doesn't falsely mark this unfrozen assignment group as frozen
             if( anyFrozen(tokens, firstIdx, lastSpan.end) ) continue;
 
             final String       rawLeadingGap = joinText(tokens, firstSpan.start, firstIdx);
@@ -1598,7 +1598,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             int throwsEndIdx = -1;
             // For Kotlin: handle an explicit `: ReturnType` between `)` and `{` (STYLE_KOTLIN.md
             // §9) -- absent entirely for a `Unit`-inferred function/constructor, where closeParenIdx
-            // above is already the real `)` and this is a no-op.
+            // above is already the real `)` and this is a no-op
             int kotlinTailEndIdx = -1;
             if( !isPunct( tokens.get(closeParenIdx), ")" ) ) {
                 if(lang.isKotlin) {
@@ -1905,7 +1905,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      * True iff two consecutive {@code TokenType.NEWLINE} tokens (a blank source line) appear
      * anywhere in {@code tokens[from, to)} -- used by {@code applySignaturePass}'s Kotlin
      * `: ReturnType` tail detection to refuse treating a candidate tail as reaching all the way
-     * to a later, unrelated declaration's `{` across a genuine statement/paragraph break.
+     * to a later, unrelated declaration's `{` across a genuine statement/paragraph break
      */
     private boolean hasTopLevelBlankLine(final List<Token> tokens, final int from, final int to)
     {
@@ -2522,7 +2522,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     // An empty/whitespace-only body (`{}`/`{ }`) has no statement to hang a
                     // trailing gap off of -- forcing a "\n" + indent here would turn a genuinely
                     // empty body into an expanded `{\n}`, which a prior fix deliberately stopped
-                    // doing (see STATE.md's java_modern empty-named-construct-body entry).
+                    // doing (see STATE.md's java_modern empty-named-construct-body entry)
                     childResult = rawChildResult;
                 } // if
                 else {

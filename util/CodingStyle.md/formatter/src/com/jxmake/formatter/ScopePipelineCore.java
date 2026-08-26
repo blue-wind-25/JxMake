@@ -327,7 +327,7 @@ public abstract class ScopePipelineCore {
     /**
      * True iff a {@code COMMENT_LINE}/{@code COMMENT_BLOCK} token sits anywhere in the pure-gap
      * run immediately before {@code closeBraceIdx} (i.e. between it and the nearest preceding
-     * non-gap token).
+     * non-gap token)
      */
     protected boolean trailingGapHasComment(final List<Token> tokens, final int closeBraceIdx)
     {

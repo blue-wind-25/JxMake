@@ -408,7 +408,7 @@ public final class BashSpecificRule {
             if( c == '\\' && i + 1 < content.length() ) {
                 // Root/code-mode backslash escape (e.g. a `\'` case-arm pattern like `\'*)` that
                 //  literally matches a leading quote character): the escaped character must never
-                //  be interpreted as opening a string/comment -- both chars are real code.
+                //  be interpreted as opening a string/comment -- both chars are real code
                 kind[i] = 'C';
                 buf.emit(c, 'C');
                 ++i;

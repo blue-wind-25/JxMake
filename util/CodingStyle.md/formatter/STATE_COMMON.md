@@ -807,9 +807,10 @@ an unrelated task.
 ```bash
 ### Formatter
 rm -rvf /tmp/fmt_r1 /tmp/fmt_r2
+
 find src         -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r1 --preserve-tree --root src
 find /tmp/fmt_r1 -type f -print0 | xargs -0 ./code-formatter.sh --out /tmp/fmt_r2 --preserve-tree --root /tmp/fmt_r1
-diff -ru src         /tmp/fmt_r2
+diff -ru src         /tmp/fmt_r1
 diff -ru /tmp/fmt_r1 /tmp/fmt_r2
 
 find src         -type f -name '*.java' -print0 | xargs -0 ./tools/verifiers/java_syntax_check.sh
@@ -824,13 +825,12 @@ JAR_FILE=/tmp/fmt_output.jar
 MANIFEST=/tmp/fmt_manifest.txt
 MAIN_CLASS=com.jxmake.formatter.Main
 
-cp code-formatter-ai-assist-weights.json /tmp
-
 mkdir -p "$CLASS_DIR"
 printf 'Main-Class: %s\n' $MAIN_CLASS > $MANIFEST
 find /tmp/fmt_r1 -type f -name "*.java" -print0 | xargs -0 javac -encoding UTF-8 -source "$JAVA_VERSION" -target "$JAVA_VERSION" -d "$CLASS_DIR"
 jar cfm "$JAR_FILE" "$MANIFEST" -C "$CLASS_DIR" .
 
+cp code-formatter-ai-assist-weights.json /tmp
 make test JAR_FILE=$JAR_FILE
 
 make clean
@@ -840,11 +840,14 @@ make test-server
 make test-server-concurrent
 make bench
 
-### Tools (you can use `https://beautifier.io` as a helper tool for JS)
-cd tools
-rm -rvf /tmp/tools /tmp/tools_r1 /tmp/tools_r2
-mkdir /tmp/tools
+rm /tmp/code-formatter-ai-assist-weights.json
+rm -rvf /tmp/fmt_r1 /tmp/fmt_r2
 
+### Tools (you can use `https://beautifier.io` as a helper tool for JS)
+rm -rvf /tmp/tools /tmp/tools_r1 /tmp/tools_r2
+
+cd tools
+mkdir /tmp/tools
 find . -type f \( -name "*.java" -o -name "*.js" -o -name "*.py" -o -name "*.sh" -o -name "*.ps1" \) -exec cp --parents -t /tmp/tools {} +
 
 find /tmp/tools    -type f -print0 | xargs -0 ../code-formatter.sh --out /tmp/tools_r1 --preserve-tree --root /tmp/tools
@@ -875,6 +878,8 @@ find /tmp/tools -type f -name '*.py' | while read -r file; do realpath --relativ
 
 rsync -av --no-perms /tmp/tools_r1/ .
 cd ..
+
+rm -rvf /tmp/tools /tmp/tools_r1 /tmp/tools_r2
 ```
 
 No syntax errors; AST differed only in comments. `java_content_diff.java`

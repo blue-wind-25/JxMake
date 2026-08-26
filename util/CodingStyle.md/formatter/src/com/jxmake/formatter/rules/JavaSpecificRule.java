@@ -479,7 +479,7 @@ public class JavaSpecificRule {
      * </pre>
      * An enum with no trailing members (the `;` is the very last thing before the enum's own `}`,
      * or absent entirely -- legal Java) is left untouched: there is nothing to separate the
-     * constant list from.
+     * constant list from
      */
     public String separateEnumConstantListTerminator(final List<Token> tokens)
     {
@@ -1286,7 +1286,7 @@ public class JavaSpecificRule {
     /**
      * Total text length of the run of WHITESPACE tokens immediately preceding {@code idx} --
      * the leading indentation of {@code idx}'s own physical line (0 if {@code idx} isn't first
-     * on its line, i.e. no WHITESPACE token directly precedes it).
+     * on its line, i.e. no WHITESPACE token directly precedes it)
      */
     private int lineIndentWidth(final List<Token> tokens, final int idx)
     {
@@ -1302,7 +1302,7 @@ public class JavaSpecificRule {
 
     /**
      * Renders {@code tokens} with each entry in {@code overrides} substituted for that token's
-     * own text -- same minimal-touch rendering precedent as {@code SwitchRule.render}.
+     * own text -- same minimal-touch rendering precedent as {@code SwitchRule.render}
      */
     private String render(final List<Token> tokens, final Map<Integer, String> overrides)
     {
@@ -1333,7 +1333,7 @@ public class JavaSpecificRule {
      * {@code permits} KEYWORD token that isn't actually part of the class/interface header it
      * appears to follow (e.g. a method named {@code permits} deep inside that class's body): a
      * genuine {@code permits} clause always sits between the {@code class}/{@code interface}
-     * keyword and that declaration's own body-opening {@code {}, with no {@code {} in between.
+     * keyword and that declaration's own body-opening {@code {}, with no {@code {} in between
      */
     private boolean hasPunctBetween(
         final List<Token> tokens,

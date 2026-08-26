@@ -925,7 +925,7 @@ public final class Config {
      * Same as {@link #resolve(Path, Map)}, plus an optional {@code inFileOverrides} layer (the
      * {@code JXM_CFMT_CFG} directive, see {@link InFileConfig}) applied with higher priority than
      * everything else, including {@code cliOverrides} -- it is the highest-priority layer, full
-     * stop (RDD_KEY_167 and the "In-file Config Support" design notes in STATE_COMMON.md).
+     * stop (RDD_KEY_167 and the "In-file Config Support" design notes in STATE_COMMON.md)
      */
     public static Config resolve(
         final Path                targetFile,

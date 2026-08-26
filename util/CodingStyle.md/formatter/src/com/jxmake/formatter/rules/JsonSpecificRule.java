@@ -459,7 +459,7 @@ public final class JsonSpecificRule {
         } // for
     }
 
-    /** Tokenizes, parses, and re-renders {@code content} per STYLE_DATA_FORMATS.md §1. */
+    /** Tokenizes, parses, and re-renders {@code content} per STYLE_DATA_FORMATS.md §1 */
     public String format(final String content)
     {
         final List<Token>  tokens          = new JsonTokenizer().tokenize(content);

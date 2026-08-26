@@ -20,7 +20,7 @@ public class CppModifierPriority extends ModifierPriority {
         PRIORITY.put("static", 1);
         // constexpr/consteval/constinit share one column -- mutually exclusive, exactly one
         // (or none) ever applies to a given declaration (STYLE_CPP20.md SS3, same shared-rank
-        // precedent as JavaModifierPriority's abstract/final/sealed).
+        // precedent as JavaModifierPriority's abstract/final/sealed)
         PRIORITY.put("constexpr", 2);
         PRIORITY.put("consteval", 2);
         PRIORITY.put("constinit", 2);

@@ -62,7 +62,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change
      */
     protected String renderTokens(final List<Token> tokens)
     {
@@ -549,7 +549,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change
      */
     protected List<List<Token>> splitStatements(final List<Token> scopeTokens)
     {
@@ -671,7 +671,7 @@ public abstract class DeclarationAlignmentRuleCore {
     /**
      * True iff {@code current} contains exactly one significant non-gap token followed by {@code :}
      * and that token is {@code public}, {@code private}, or {@code protected} -- i.e. this `:` is
-     * a C++ access-specifier label boundary, not a ternary or bitfield colon.
+     * a C++ access-specifier label boundary, not a ternary or bitfield colon
      */
     private boolean isAccessSpecifierColon(final List<Token> current)
     {
@@ -693,7 +693,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change
      */
     protected boolean hasCommentBefore(final List<Token> stmt)
     {
@@ -707,7 +707,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change
      */
     protected boolean hasBlankLineBefore(final List<Token> stmt)
     {
@@ -734,7 +734,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change
      */
     protected int lastSignificantIdx(final List<Token> tokens, final int from, final int to)
     {
@@ -747,7 +747,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change
      */
     protected Token findTrailingComment(final List<Token> stmt)
     {
@@ -762,7 +762,7 @@ public abstract class DeclarationAlignmentRuleCore {
 
     /**
      * Visibility raised private -> protected for {@code KotlinDeclarationAlignmentRule} reuse
-     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change.
+     * (STYLE_KOTLIN.md §6, RDD_KEY_103) -- purely additive, no behavior change
      */
     protected List<Token> significantOnly(final List<Token> stmt)
     {

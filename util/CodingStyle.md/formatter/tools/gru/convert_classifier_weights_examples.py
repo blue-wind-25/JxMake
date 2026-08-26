@@ -45,14 +45,14 @@ LANG_BY_STEM = {
     # Added 2026-07-31 (STATE_AI.md's "extend classifier_weights" session): js/ts got their own
     # examples_*.md files once KeywordAmbiguityGate gained real KEYWORDS_JS/KEYWORDS_TS sets --
     # a new examples_<lang>.md file is otherwise silently skipped by this script's glob.glob
-    # iteration unless its stem is added here too.
+    # iteration unless its stem is added here too
     "examples_js": "js",
     "examples_ts": "ts",
     # Added 2026-08-10 (STATE_AI.md's "grow hand-labeled hard-case corpus" session): python3 was
     # confirmed to be the only data-format/tooling language that actually reaches
     # KeywordAmbiguityGate (MiscRuleIndent wired `#`-comment normalization through the same
     # classifyComment path 2026-08-08) -- json5/css/yaml/toml/xml/html5/makefile/bash/powershell
-    # never reach it and deliberately have no examples_<lang>.md file.
+    # never reach it and deliberately have no examples_<lang>.md file
     "examples_python3": "python3",
 }
 
@@ -62,7 +62,7 @@ CELL_SPLIT_RE = re.compile(r"(?<!\\)\|")
 def escape(comment_text):
     # Mirrors extract_comments.py's escape() exactly, so downstream tooling (GruTrainer,
     # add_target_index.py-style unescaping) treats these rows identically to any other
-    # RDD_EXT_20/21 source.
+    # RDD_EXT_20/21 source
     return comment_text.replace("\\", "\\\\").replace("\n", "\\n").replace("\t", "\\t")
 
 

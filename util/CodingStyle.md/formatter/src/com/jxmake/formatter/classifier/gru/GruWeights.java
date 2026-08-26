@@ -351,7 +351,7 @@ public final class GruWeights {
      * {@code Pattern.compile} per call (this runs once per field on every weights-file load, ~20-30
      * fields), same match semantics as the regex it replaces: a {@code "key"} occurrence not
      * eventually followed by {@code :} (only whitespace in between) is skipped in favor of the next
-     * occurrence, matching {@code Matcher.find()}'s own scan-forward behavior.
+     * occurrence, matching {@code Matcher.find()}'s own scan-forward behavior
      */
     private static Object findOptionalValue(String json, String key)
     {

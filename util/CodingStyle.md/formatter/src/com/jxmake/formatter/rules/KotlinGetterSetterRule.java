@@ -82,7 +82,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
         "external"
     );
 
-    /** Modifiers that can precede a `val`/`var` property declaration (STYLE_KOTLIN.md §6/§8). */
+    /** Modifiers that can precede a `val`/`var` property declaration (STYLE_KOTLIN.md §6/§8) */
     private static final List<String> PROPERTY_MODIFIERS = withExtra(
         VISIBILITY_AND_INHERITANCE_MODIFIERS, "const", "lateinit"
     );
@@ -116,7 +116,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
      * Kotlin has no C/Java-style class-scope/`{ }`-nesting-vs-file-scope distinction that would
      * change this rule's behavior (no access-specifier labels, and top-level file-scope
      * expression-bodied functions are just as groupable as class members) -- always true, same
-     * unconditional posture as the base class's own {@code lang.isJava} branch.
+     * unconditional posture as the base class's own {@code lang.isJava} branch
      */
     @Override
     public List<List<Member>> groupOneLiners(final List<Token> scopeTokens, final int depth)
@@ -630,7 +630,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
      * column-aligned line per member: {@code [modifiers] val/var} / {@code name} /
      * {@code [: Type]} / {@code get() = expr}, mirroring §9's {@code render}'s 4-column shape
      * (declaration lead / name-or-call / colon-qualifier / tail) with a Kotlin-legal single-line
-     * property+accessor rendering (e.g. {@code val x    : Int    get() = 1}).
+     * property+accessor rendering (e.g. {@code val x    : Int    get() = 1})
      */
     private List<String> renderAccessorGroupRaw(final List<Token> tokens, final List<Member> group)
     {

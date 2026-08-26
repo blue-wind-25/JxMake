@@ -195,7 +195,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
      * returns null if it doesn't match this shape -- any other statement (a function call,
      * control-flow, a function/class declaration, an annotation-prefixed property, etc.)
      * breaks the group, same conservative "don't guess past an unrecognized shape" posture
-     * used throughout this codebase, rather than the base class's much broader C/Java grammar.
+     * used throughout this codebase, rather than the base class's much broader C/Java grammar
      */
     private KotlinDecl parseKotlinDeclaration(final List<Token> stmt)
     {
@@ -566,7 +566,7 @@ public class KotlinDeclarationAlignmentRule extends DeclarationAlignmentRuleCurl
         // multi-line-initializer and embedded-comment checks -- initTokens here is likewise built
         // from `sig` (comments and source-level NEWLINEs already stripped), so a multi-line call
         // (e.g. `Pair(\n 1, // first\n 2 // second\n)`) would otherwise get silently squished onto
-        // one line, and any embedded comment inside it silently dropped.
+        // one line, and any embedded comment inside it silently dropped
         if( spansMultipleLines(stmt, eqToken) || hasCommentAfter(stmt, eqToken) ) return null;
 
         final StringBuilder name = new StringBuilder("(");

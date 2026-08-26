@@ -26,7 +26,7 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 /**
  * Curly-brace-family tokenizer (C/C++/Java/Kotlin) -- everything in this file used to live
  * directly in {@link TokenizerCore} before the curly/indent/tags class-refactor
- * (STATE_COMMON.md's "Class Refactor" section); no behavior change, mechanical move only.
+ * (STATE_COMMON.md's "Class Refactor" section); no behavior change, mechanical move only
  */
 public class TokenizerCurly extends TokenizerCore {
 
@@ -1018,7 +1018,7 @@ public class TokenizerCurly extends TokenizerCore {
      * multiple physical lines via a trailing {@code \} continuation (e.g. a long boolean
      * condition) -- failing to consume those continuation lines here left their real `(`/`)`
      * tokens to be lexed as ordinary PUNCT by the caller, permanently desyncing every
-     * brace/paren-depth counter for the remainder of the file from that point on.
+     * brace/paren-depth counter for the remainder of the file from that point on
      */
     private Token emitPreprocessor()
     {
@@ -1110,7 +1110,7 @@ public class TokenizerCurly extends TokenizerCore {
      * exactly what would otherwise happen here: without this check, a text block's opening `"""`
      * mis-lexes as an empty string token followed by a single stray-quote token, exposing the
      * block's entire multi-line content -- braces, indentation, everything -- to every other rule
-     * in the pipeline).
+     * in the pipeline)
      */
     private boolean isTextBlockOpener()
     {
@@ -1482,7 +1482,7 @@ public class TokenizerCurly extends TokenizerCore {
                 } // if
                 // A genuine nested `}` (e.g. closing an object literal/block inside the
                 // interpolation expression) -- fall through to ordinary dispatch below, which
-                // correctly decrements the tokenizer's global braceDepth via emitCloseBrace.
+                // correctly decrements the tokenizer's global braceDepth via emitCloseBrace
             } // if
             else if(c == '{') {
                 ++holeDepth;
@@ -1765,7 +1765,7 @@ public class TokenizerCurly extends TokenizerCore {
      * nested `{`/`}` (e.g. a lambda literal passed inside the interpolation expression), string
      * literals (recursively, via {@link #skipKotlinString}), and char literals encountered along
      * the way -- so a `"`/`{`/`}` inside any of those never desynchronizes the depth count or gets
-     * mistaken for this block's own closing `}`.
+     * mistaken for this block's own closing `}`
      */
     private int skipKotlinInterpolationBlock(final int startIdx)
     {
@@ -1890,7 +1890,7 @@ public class TokenizerCurly extends TokenizerCore {
             // "?:" is Kotlin's Elvis operator (STYLE_KOTLIN.md §5) -- in JS/TS the same two
             // adjacent characters are an unrelated pair (TS's `name?: type` optional-marker `?`
             // immediately followed by an ordinary type-annotation `:`, no space between), so
-            // this single MULTI_CHAR_OPS entry must not swallow them together outside Kotlin.
+            // this single MULTI_CHAR_OPS entry must not swallow them together outside Kotlin
             if( "?:".equals(op) && !lang.isKotlin ) continue;
             // "T?::member" (nullable-type callable reference, e.g. `Array<*>?::contentEquals`)
             // is "?" (nullable-type marker) + "::" (callable reference), not elvis "?:" + ":".
@@ -2343,7 +2343,7 @@ public class TokenizerCurly extends TokenizerCore {
                                                           // localBrace==0->1 transition in
                                                           // progress isn't a value hole (e.g. a
                                                           // spread attribute) -- see
-                                                          // attrValueHoleRawRanges' own javadoc.
+                                                          // attrValueHoleRawRanges' own javadoc
         while(s < n) {
             final Token t = tokens.get( sig.get(s) );
             if( localBrace == 0 && isOp(t, "/") && s + 1 < n
@@ -2367,7 +2367,7 @@ public class TokenizerCurly extends TokenizerCore {
             // IDENTIFIER/`-`/IDENTIFIER -- a top-level `-` can never legally separate two real
             // JSX attributes any other way, so an IDENTIFIER immediately following one is always
             // a name continuation, not a fresh boundary (previously mis-split into two
-            // "attributes", corrupting the wrap output -- see STATE_JS_TS.md).
+            // "attributes", corrupting the wrap output -- see STATE_JS_TS.md)
             final boolean isHyphenatedNameContinuation = s > 0 && isOp(
                 tokens.get( sig.get(s - 1) ), "-"
             );
@@ -2479,7 +2479,7 @@ public class TokenizerCurly extends TokenizerCore {
     /**
      * True when the `(` token at {@code sig.get(parenS)} is a call-open -- immediately preceded
      * by an IDENTIFIER, `)`, or `]` (same notion `reclassifyAngleBrackets`'s generic-safe-token
-     * check already uses to distinguish a call from a bare grouping paren).
+     * check already uses to distinguish a call from a bare grouping paren)
      */
     private boolean isCallOpenParen(
         final List<Token>   tokens,

@@ -57,7 +57,7 @@ def is_comment_line(stripped):
 
 def is_closing_brace_line(stripped):
     # A lone `}`, or `} else {`/`} // comment`/`});` etc. -- anything that
-    # itself starts with `}` is a block-closer, not a suspicious body line.
+    # itself starts with `}` is a block-closer, not a suspicious body line
     return stripped.startswith("}")
 
 

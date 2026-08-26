@@ -508,7 +508,7 @@ public final class PowerShellSpecificRule {
     /**
      * A line is "pure" (eligible for structural §3.x rules) if its first non-whitespace character
      * is real code -- excludes here-string body lines and full-comment lines without over-rejecting
-     * normal code lines that merely contain a quoted string later on.
+     * normal code lines that merely contain a quoted string later on
      */
     static boolean[] computeLinePurity(final String content, final char[] kind, final int lineCount)
     {
@@ -652,7 +652,7 @@ public final class PowerShellSpecificRule {
                 out.add( indent(printDepth) + trimmed );
             }
             else {
-                // Non-pure (here-string body, full-line comment, etc.): leave byte-identical.
+                // Non-pure (here-string body, full-line comment, etc.): leave byte-identical
                 out.add(line);
             }
 
@@ -669,7 +669,7 @@ public final class PowerShellSpecificRule {
     /**
      * True when {@code line} ends (ignoring nothing -- PowerShell requires the backtick to be the
      * literal last character) with a code-kind backtick line-continuation -- i.e. the next physical
-     * line is a continuation of this statement and should be indented one level deeper.
+     * line is a continuation of this statement and should be indented one level deeper
      */
     private static boolean lineEndsWithBacktick(final String line, final char[] lk)
     {

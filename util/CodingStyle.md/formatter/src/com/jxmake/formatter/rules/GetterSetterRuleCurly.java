@@ -24,7 +24,7 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isPunct;
 
 /**
- * STYLE.md §14 / STYLE_JAVA.md §5 -- Getter/Setter/Checker Group Alignment.
+ * STYLE.md §14 / STYLE_JAVA.md §5 -- Getter/Setter/Checker Group Alignment
  */
 public class GetterSetterRuleCurly extends GetterSetterRuleCore {
 
@@ -278,7 +278,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
             // param's name (JS/TS untyped params, e.g. "set x(value)") -- in that case the
             // type/name separator space below must be omitted entirely, not just padded to a
             // zero-width type column, or a leading space leaks in before the param name (e.g.
-            // "x( value)").
+            // "x( value)")
             final boolean noTypeColumn = maxTypeWidth == 0;
 
             final ColumnGrid callGrid = new ColumnGrid();
@@ -303,7 +303,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
                     );
                 }
                 // Trailing "" keeps params from being the last cell so ColumnGrid pads it
-                // even when empty (e.g. "getX()").
+                // even when empty (e.g. "getX()")
                 callGrid.addRow( new String[] {cellText(tokens, m.nameFrom, m.nameIdx + 1),
                         paramsCell, ""} );
             } // for
@@ -508,7 +508,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
 
         // Extend nameIdx backwards for qualified names (e.g. "Processor::method"), for the
         // `operator` keyword of an operator-overload name (e.g. "operator="), and for a
-        // destructor's `~` marker (e.g. "~Engine") -- none of these are a real return type.
+        // destructor's `~` marker (e.g. "~Engine") -- none of these are a real return type
           int nameFrom   = nameIdx;
     final int beforeName = prevSignificant(tokens, nameFrom - 1, returnTypeFrom);
         if( beforeName >= 0 && beforeName >= returnTypeFrom && tokens.get(

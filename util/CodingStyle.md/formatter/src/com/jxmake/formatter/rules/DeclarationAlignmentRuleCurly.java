@@ -289,7 +289,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // previous statement by `pullTrailingSameLine`) must also break the group, just like
             // a blank line: `render(group)` fully regenerates the group's whole span, so a
             // comment surviving only in the raw leading gap of a mid-group declaration would be
-            // silently discarded otherwise.
+            // silently discarded otherwise
             final boolean isEnumConstantList = lang.isJava && isJavaEnumConstantListShape(stmt);
             // A `using`-alias declaration (RDD_KEY_283) has its own dedicated render layout
             // (`renderUsingAliasGroup`, keyed on the inverted name/`=`/type grammar) that can
@@ -359,7 +359,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
      * whole run of not-yet-placed non-statics accumulated since the last
      * flush is kept immediately before such a static, preserving their
      * relative order, rather than attempting a finer-grained reorder whose
-     * safety would be unclear.
+     * safety would be unclear
      */
     public List<Declaration> reorderStatics(final List<Declaration> group)
     {
@@ -616,7 +616,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             } // if
             String line = String.join( " ", rows.get(idx) );
             // Two spaces before a trailing same-line `//` comment (STYLE.md convention, e.g.
-            // `int[]   x  = { 1, 2, 3 };            // single-level -- pad`), not one.
+            // `int[]   x  = { 1, 2, 3 };            // single-level -- pad`), not one
             if(d.trailingComment != null) line += "  " + d.trailingComment.text;
             lines.add(line);
         } // for
@@ -671,7 +671,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     /**
      * Joins tokens into canonical spaced text: `*`/`&`/`::`/generics/`[`/`]`/`,`
      * attach tightly per STYLE_C_CPP.md §4 conventions (e.g. `uint8_t*`,
-     * `std::vector<int>`, `buffer[64]`); everything else gets a single space.
+     * `std::vector<int>`, `buffer[64]`); everything else gets a single space
      */
 
 
@@ -1274,7 +1274,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                           ).type == TokenType.IDENTIFIER;
                     for( int k = 0; isFuncPtrName && k < inner.size() - 1; ++k ) {
                         // A run of `*` may be tokenized as one merged rep-op (e.g. `**`) rather
-                        // than separate `*` tokens (see Token.isRepOp) -- accept either shape.
+                        // than separate `*` tokens (see Token.isRepOp) -- accept either shape
                         if( !isRepOp( inner.get(k), '*' ) ) isFuncPtrName = false;
                     }
                     // A leading statement keyword (`return`, `throw`, `synchronized`, ...) can
@@ -1377,7 +1377,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 // Use the original (comment-carrying) token slice for the parameter list, not
                 // the comment-stripped `body` -- a lone function-prototype declaration is fully
                 // regenerated from `Declaration` fields, so any interior parameter comment (e.g.
-                // `const K& /* Key */ k`) is only preserved if it's captured here.
+                // `const K& /* Key */ k`) is only preserved if it's captured here
                 final List<Token> rawParams = rawSliceBetween(
                     stmt, body.get(parenOpenIdx), body.get(sizeEnd - 1)
                 );
@@ -1645,7 +1645,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         );
     }
 
-    /** Parses the `Type name : width` shape of a C/C++ bitfield (STYLE_C_CPP.md §6). */
+    /** Parses the `Type name : width` shape of a C/C++ bitfield (STYLE_C_CPP.md §6) */
     private Declaration parseBitfield(
         final List<Token> modifiers,
         final List<Token> body,

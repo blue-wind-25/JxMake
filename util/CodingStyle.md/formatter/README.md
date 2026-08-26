@@ -1498,7 +1498,30 @@ degrading the model's main "is this substantive prose" job). The fixed list abov
 common real-world cases; anything outside it is treated conservatively (left as-is) rather than
 guessed at.
 
-#### 3. The GRU's residual false-positive rate on `NO` cases is accepted, not further reduced
+#### 3. Deploying the formatter jar without its GRU weights file silently under-capitalizes some keyword-led comments
+
+```java
+/* Inline on case */
+// Default case
+/* Else block */
+```
+
+normally get their leading letter capitalized, but stay exactly as written if the weights file
+(`code-formatter-ai-assist-weights.json`) isn't deployed alongside the jar.
+
+A comment that opens with a language keyword (`case`, `default`, `else`, `inline`, and similar) is
+genuinely ambiguous — it could be a short code reference or the start of a real English sentence —
+and when the surrounding words don't settle it one way or the other by themselves, the decision is
+handed to the GRU. If the weights file can't be found or read, that hand-off fails safe: the
+comment is left exactly as-is rather than guessed at, the same as if comment normalization were
+turned off for that one comment. No crash, no wrong output — just a quieter version of
+capitalization normalization than intended. A bare single-word comment with no other context (e.g.
+just `public`) is unaffected either way, since that case is already resolved without the GRU.
+
+No workaround beyond deploying the weights file next to the jar (the normal, documented deployment
+layout) — this is the fail-safe behaving as designed, not a bug to fix.
+
+#### 4. The GRU's residual false-positive rate on `NO` cases is accepted, not further reduced
 
 Lowering `abstainThreshold` below its shipped `0.76` recovers more `YES` resolutions (ambiguous
 comments the classifier confidently capitalizes) but raises the rate of wrongly capitalizing a

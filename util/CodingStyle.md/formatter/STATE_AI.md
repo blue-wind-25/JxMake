@@ -261,6 +261,38 @@ Does not by itself reopen the item — the 2026-08-11 "do not revisit without
 a new explicit owner decision" bar still applies — but narrows what such a
 decision would actually be risking.
 
+**2026-08-27 correction — the above is scoped to the strip-trailing-period
+call site only; the capitalize-first-letter call site genuinely depends on
+the GRU.** `capitalizeFirstLetter` calls `classifyComment(content, 0)` —
+`targetWordIndex = 0`, exactly what `hasLeadingKeywordMatch` requires — so
+a keyword-led comment with enough surrounding context to make the rule
+stage ABSTAIN (`KeywordAmbiguityGate.resolveAmbiguousKeyword`'s compiled
+constants are all negative, so a bare keyword alone always ABSTAINs, but a
+keyword followed by more prose-shaped words can tip the other way) really
+does route to the GRU for a live decision at this call site, unlike the
+trailing-period call site above. Verified by rebuilding a jar per the
+"Tools/compiler used" recipe (`STATE_COMMON.md`), running the full suite
+against it once with `code-formatter-ai-assist-weights.json` present next
+to the jar (364/364 pass) and once with that file deleted (357/364 — 7
+comment-capitalization fixtures fail, e.g. `/* Inline on case */` →
+`/* inline on case */`, `// Default case` → `// default case`, `/* Else
+block */` → `/* else block */`). This is the fail-safe working as
+designed, not a bug: `GruAbstainResolver.resolve` catches a missing/
+unreadable weights file and returns `ABSTAIN`, which callers treat exactly
+like `normalize-comment-start-case=off` for that one comment — so a
+degraded jar (no weights file deployed alongside it) conservatively
+under-normalizes some keyword-led comments' capitalization instead of
+guessing, rather than crashing or producing wrong output. It is a real,
+silent capability loss worth knowing about when deploying a jar without
+its weights file (see `README.md`'s Known Limitations), but not a defect —
+deploying the weights file alongside the jar (as the build recipe already
+does) avoids it entirely. A bare single-keyword comment with no following
+context (`/* public */`, `/* const ref string */`) is unaffected either
+way, since the rule stage alone already ABSTAINs (or, since neither is
+recognized as prose-shaped, correctly stays uncapitalized: see the
+mechanical `isCommentNoCapitalizeWord` gate for the classifier-off case) —
+the GRU has no live-vs-fail-safe difference to make there.
+
 **2026-08-27 — new explicit owner decision made: narrow mechanical
 extension implemented (not the GRU/task-separation approach, which remains
 dead per above).** Since the classifier can't touch this decision either

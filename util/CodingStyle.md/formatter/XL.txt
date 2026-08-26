@@ -484,10 +484,14 @@ find /tmp/tools_r1 -type f -name '*.py' -print0 | xargs -0 ./verifiers/python_sy
 find /tmp/tools    -type f -name '*.sh' -print0 | xargs -0 ./verifiers/bash_syntax_check.sh
 find /tmp/tools_r1 -type f -name '*.sh' -print0 | xargs -0 ./verifiers/bash_syntax_check.sh
 
-# Compare each stage's *.java and *.py content against the previous stage via
-# ../verifiers/java_content_diff.sh / python_content_diff.sh, one file at a time
-# (orig vs r1, then r1 vs r2), then adopt:
+find /tmp/tools -type f -name '*.java' | while read -r file; do realpath --relative-to="/tmp/tools" "$file"; done > /tmp/java_rel_path_file_list.txt
+./verifiers/java_content_diff.sh /tmp/tools /tmp/tools_r1 /tmp/java_rel_path_file_list.txt
 
+find /tmp/tools -type f -name '*.js' | while read -r file; do realpath --relative-to="/tmp/tools" "$file"; done > /tmp/js_rel_path_file_list.txt
+./verifiers/js_ts_content_diff.sh /tmp/tools /tmp/tools_r1 /tmp/js_rel_path_file_list.txt
 
-cp -vf /tmp/tools_r1/*.{java,py} .
+find /tmp/tools -type f -name '*.py' | while read -r file; do realpath --relative-to="/tmp/tools" "$file"; done > /tmp/py_rel_path_file_list.txt
+./verifiers/python_content_diff.sh /tmp/tools /tmp/tools_r1 /tmp/py_rel_path_file_list.txt
+
+rsync -av --no-perms /tmp/tools_r1/ .
 ```

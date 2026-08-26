@@ -74,9 +74,9 @@
  */
 'use strict';
 
-const fs = require('fs');
+const fs   = require('fs');
 const path = require('path');
-const ts = require('typescript');
+const ts   = require('typescript');
 
 function normalizeWhitespace(s)
 {
@@ -91,7 +91,7 @@ function scriptKindFor(file)
 function parse(source, fileName)
 {
     return ts.createSourceFile(
-        fileName, source, ts.ScriptTarget.Latest, /*SetParentNodes*/ true, scriptKindFor(fileName));
+        fileName, source, ts.ScriptTarget.Latest, /*SetParentNodes*/ true, scriptKindFor(fileName) );
 }
 
 /**
@@ -140,17 +140,17 @@ function isBareableArrowParam(fn)
 
 function isPlainIncDec(n)
 {
-    return (ts.isPostfixUnaryExpression(n) || ts.isPrefixUnaryExpression(n)) &&
+    return ( ts.isPostfixUnaryExpression(n) || ts.isPrefixUnaryExpression(n) ) &&
         (n.operator === ts.SyntaxKind.PlusPlusToken || n.operator === ts.SyntaxKind.MinusMinusToken);
 }
 
 function canonicalize(node)
 {
     const parts = [];
-    (function walk(n)
+    ( function walk(n)
     {
-        if(ts.isBlock(n) && n.statements.length === 1) {
-            walk(n.statements[0]);
+        if( ts.isBlock(n) && n.statements.length === 1 ) {
+            walk( n.statements[0] );
             return;
         }
         // A `/** ... */` JSDoc comment is parsed by the TS compiler as a real
@@ -162,17 +162,17 @@ function canonicalize(node)
         // case-normalization tolerance, false-flagging exactly the same
         // intentional transformations this canonicalization is meant to
         // tolerate.
-        if(ts.isJSDoc(n)) return;
-        if(ts.isArrowFunction(n) && isBareableArrowParam(n)) {
-            for(const k of n.getChildren()) {
+        if( ts.isJSDoc(n) ) return;
+        if( ts.isArrowFunction(n) && isBareableArrowParam(n) ) {
+            for( const k of n.getChildren() ) {
                 if(k.kind === ts.SyntaxKind.OpenParenToken || k.kind === ts.SyntaxKind.CloseParenToken) continue;
                 walk(k);
             }
             return;
         } // if
-        if(ts.isForStatement(n)) {
-            for(const k of n.getChildren()) {
-                if(n.incrementor && k === n.incrementor && isPlainIncDec(k)) {
+        if( ts.isForStatement(n) ) {
+            for( const k of n.getChildren() ) {
+                if( n.incrementor && k === n.incrementor && isPlainIncDec(k) ) {
                     parts.push(k.operator === ts.SyntaxKind.PlusPlusToken ? '++' : '--');
                     walk(k.operand);
                 }
@@ -188,9 +188,9 @@ function canonicalize(node)
         else {
             for(const k of kids) walk(k);
         }
-    })(node);
+    } )(node);
 
-    return normalizeWhitespace(parts.join(' '));
+    return normalizeWhitespace( parts.join(' ') );
 } // canonicalize
 
 function isImportStatement(stmt)
@@ -201,10 +201,10 @@ function isImportStatement(stmt)
 function topLevelBuckets(sourceFile)
 {
     const imports = [];
-    const others = [];
+    const others  = [];
     for(const stmt of sourceFile.statements) {
-        if(isImportStatement(stmt)) imports.push(canonicalize(stmt));
-        else others.push(canonicalize(stmt));
+        if( isImportStatement(stmt) ) imports.push( canonicalize(stmt) );
+        else                          others.push( canonicalize(stmt) );
     }
     imports.sort();
 
@@ -225,25 +225,25 @@ function topLevelBuckets(sourceFile)
 function collectComments(sourceFile, sourceText)
 {
     const seen = new Set();
-    const out = [];
+    const out  = [];
 
     function addRangesAt(pos)
     {
-        const ranges = ts.getLeadingCommentRanges(sourceText, pos) || [];
+        const ranges = ts.getLeadingCommentRanges(sourceText, pos) ||[];
         for(const r of ranges) {
             const key = r.pos + ':' + r.end;
-            if(seen.has(key)) continue;
+            if( seen.has(key) ) continue;
             seen.add(key);
-            out.push(stripCommentDelims(sourceText.slice(r.pos, r.end)));
+            out.push( stripCommentDelims( sourceText.slice(r.pos, r.end) ) );
         }
     } // addRangesAt
 
     addRangesAt(0);
-    (function walk(n)
+    ( function walk(n)
     {
-        addRangesAt(n.getFullStart());
+        addRangesAt( n.getFullStart() );
         n.forEachChild(walk);
-    })(sourceFile);
+    } )(sourceFile);
     addRangesAt(sourceText.length);
 
     out.sort();
@@ -262,7 +262,7 @@ function collectComments(sourceFile, sourceText)
 function stripSoleTrailingPeriod(t)
 {
     const trimmed = t.replace(/\s+$/, '');
-    if(trimmed.endsWith('.') && !trimmed.endsWith('..')) return trimmed.slice(0, -1);
+    if( trimmed.endsWith('.') && !trimmed.endsWith('..') ) return trimmed.slice(0, -1);
 
     return trimmed;
 }
@@ -270,10 +270,10 @@ function stripSoleTrailingPeriod(t)
 function stripCommentDelims(text)
 {
     let t = text.trim();
-    if(t.startsWith('///')) t = t.slice(3);
-    else if(t.startsWith('//')) t = t.slice(2);
-    else if(t.startsWith('/**')) t = t.slice(3, Math.max(3, t.length - 2));
-    else if(t.startsWith('/*')) t = t.slice(2, Math.max(2, t.length - 2));
+         if( t.startsWith('///') ) t = t.slice(3);
+    else if( t.startsWith('//') )  t = t.slice(2);
+    else if( t.startsWith('/**') ) t = t.slice( 3, Math.max(3, t.length - 2) );
+    else if( t.startsWith('/*') )  t = t.slice( 2, Math.max(2, t.length - 2) );
     t = stripSoleTrailingPeriod(t);
 
     return normalizeWhitespace(t).toLowerCase();
@@ -282,12 +282,12 @@ function stripCommentDelims(text)
 function diffMultisets(label, a, b)
 {
     const mismatches = [];
-    const bCopy = b.slice();
-    const onlyInA = [];
+    const bCopy      = b.slice();
+    const onlyInA    = [];
     for(const s of a) {
         const idx = bCopy.indexOf(s);
         if(idx === -1) onlyInA.push(s);
-        else bCopy.splice(idx, 1);
+        else           bCopy.splice(idx, 1);
     }
     if(onlyInA.length > 0) mismatches.push(
         label + ': present in original, missing from formatted: ' + JSON.stringify(onlyInA)
@@ -306,7 +306,7 @@ function pad2(n)
 
 function pad3(n)
 {
-    if(n < 10) return '00' + n;
+         if(n < 10)  return '00' + n;
     else if(n < 100) return '0' + n;
 
     return '' + n;
@@ -323,9 +323,9 @@ function timestampNow()
 {
     const d = new Date();
 
-    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) +
-        ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) +
-        '.' + pad3(d.getMilliseconds());
+    return d.getFullYear() + '-' + pad2( d.getMonth() + 1 ) + '-' + pad2( d.getDate() ) +
+        ' ' + pad2( d.getHours() ) + ':' + pad2( d.getMinutes() ) + ':' + pad2( d.getSeconds() ) +
+        '.' + pad3( d.getMilliseconds() );
 } // timestampNow
 
 /**
@@ -337,7 +337,7 @@ function timestampNow()
  */
 function printTimestampedHeader(relPath)
 {
-    console.log('[' + timestampNow() + '] ' + relPath);
+    console.log( '[' + timestampNow() + '] ' + relPath );
 }
 
 /**
@@ -361,30 +361,30 @@ function printTimestampedHeader(relPath)
 function compareOne(origPath, fmtPath, origLabel, fmtLabel)
 {
     const origSrc = fs.readFileSync(origPath, 'utf8');
-    const fmtSrc = fs.readFileSync(fmtPath, 'utf8');
+    const fmtSrc  = fs.readFileSync(fmtPath, 'utf8');
 
-    const origFile = parse(origSrc, path.basename(origPath));
-    const fmtFile = parse(fmtSrc, path.basename(fmtPath));
+    const origFile = parse( origSrc, path.basename(origPath) );
+    const fmtFile  = parse( fmtSrc, path.basename(fmtPath) );
 
     const mismatches = [];
 
     const origBuckets = topLevelBuckets(origFile);
-    const fmtBuckets = topLevelBuckets(fmtFile);
+    const fmtBuckets  = topLevelBuckets(fmtFile);
 
-    mismatches.push(...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports));
+    mismatches.push( ...diffMultisets('imports', origBuckets.imports, fmtBuckets.imports) );
 
     if(origBuckets.others.length !== fmtBuckets.others.length) mismatches.push(
         'non-import top-level statement count changed: ' + origBuckets.others.length + ' -> ' + fmtBuckets.others.length
     );
     const n = Math.min(origBuckets.others.length, fmtBuckets.others.length);
     for(let i = 0; i < n; ++i) {
-        if(origBuckets.others[i] !== fmtBuckets.others[i]) mismatches.push(
+        if( origBuckets.others[i] !== fmtBuckets.others[i] ) mismatches.push(
             'non-import top-level statement #' + i + ' structure/content differs'
         );
     }
 
-    mismatches.push(...diffMultisets(
-        'comments', collectComments(origFile, origSrc), collectComments(fmtFile, fmtSrc)));
+    mismatches.push( ...diffMultisets(
+        'comments', collectComments(origFile, origSrc), collectComments(fmtFile, fmtSrc) ) );
 
     if(mismatches.length === 0) {
         console.log('OK: content preserved (' + origLabel + ' == ' + fmtLabel + ')');
@@ -412,7 +412,7 @@ function runSingle(origArg, fmtArg)
     printTimestampedHeader(origArg);
 
     const origExists = fs.existsSync(origArg);
-    const fmtExists = fs.existsSync(fmtArg);
+    const fmtExists  = fs.existsSync(fmtArg);
     if(!origExists || !fmtExists) {
         if(!origExists && !fmtExists) console.log(
             'WARNING: both ' + origArg + ' and ' + fmtArg + ' are missing'
@@ -422,7 +422,7 @@ function runSingle(origArg, fmtArg)
         process.exit(1);
     } // if
 
-    if(!compareOne(origArg, fmtArg, origArg, fmtArg)) process.exit(1);
+    if( !compareOne(origArg, fmtArg, origArg, fmtArg) ) process.exit(1);
 } // runSingle
 
 function runBatch(origBaseDir, fmtBaseDir, fileListPath)
@@ -438,12 +438,12 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
         if(rel === '') continue;
 
         const origPath = path.join(origBaseDir, rel);
-        const fmtPath = path.join(fmtBaseDir, rel);
+        const fmtPath  = path.join(fmtBaseDir, rel);
 
         printTimestampedHeader(rel);
 
         const origExists = fs.existsSync(origPath);
-        const fmtExists = fs.existsSync(fmtPath);
+        const fmtExists  = fs.existsSync(fmtPath);
         if(!origExists && !fmtExists) {
             console.log(
                 '  WARNING: missing from both ' + origBaseDir + ' and ' + fmtBaseDir + ' -- skipping'
@@ -463,10 +463,10 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
         }
 
         try {
-            if(compareOne(origPath, fmtPath, rel, rel)) ++okCount;
-            else ++mismatchCount;
+            if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
+            else                                          ++mismatchCount;
         }
-        catch (e) {
+        catch(e) {
             console.log('  ERROR: ' + e);
             ++mismatchCount;
         }
@@ -484,9 +484,9 @@ function runBatch(origBaseDir, fmtBaseDir, fileListPath)
 function main()
 {
     const args = process.argv.slice(2);
-    if(args.length === 2) runSingle(args[0], args[1]);
-    else if(args.length === 3) runBatch(args[0], args[1], args[2]);
-    else {
+         if(args.length === 2) runSingle( args[0], args[1] );
+    else if(args.length === 3) runBatch( args[0], args[1], args[2] );
+    else                       {
         printUsage();
         process.exit(2);
     }

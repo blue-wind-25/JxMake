@@ -40,8 +40,8 @@ function scriptKindFor(file)
     // STATE_JS_TS.md's Step 2 Increment 5 real-corpus dogfood: excalidraw/excalidraw's `.tsx`
     // files with generic-heavy hooks (`useState<T>()`, etc.) were false-failing under the old
     // JS fallback.
-    if(file.endsWith('.tsx')) return ts.ScriptKind.TSX;
-    if(file.endsWith('.jsx')) return ts.ScriptKind.JSX;
+    if( file.endsWith('.tsx') ) return ts.ScriptKind.TSX;
+    if( file.endsWith('.jsx') ) return ts.ScriptKind.JSX;
 
     return file.endsWith('.ts') ? ts.ScriptKind.TS : ts.ScriptKind.JS;
 } // scriptKindFor
@@ -62,13 +62,15 @@ function rewriteLegacyExportDefaultFrom(source)
 {
     return source
         .split('\n')
-        .map((line) => line.replace(LEGACY_EXPORT_DEFAULT_FROM, '$1export { default as $2 } from$3'))
+        .map(
+            (line) => line.replace(LEGACY_EXPORT_DEFAULT_FROM, '$1export { default as $2 } from$3')
+        )
         .join('\n');
 } // rewriteLegacyExportDefaultFrom
 
 function checkFile(fileName)
 {
-    const source = rewriteLegacyExportDefaultFrom(fs.readFileSync(fileName, 'utf8'));
+    const source = rewriteLegacyExportDefaultFrom( fs.readFileSync(fileName, 'utf8') );
 
     const sf = ts.createSourceFile(
         fileName,
@@ -76,7 +78,7 @@ function checkFile(fileName)
         ts.ScriptTarget.Latest,
         /*SetParentNodes*/
         true,
-        scriptKindFor(fileName));
+        scriptKindFor(fileName) );
 
     return sf.parseDiagnostics;
 } // checkFile
@@ -90,7 +92,7 @@ function main()
 
     let ok = true;
 
-    for(const file of process.argv.slice(2)) {
+    for( const file of process.argv.slice(2) ) {
         const diagnostics = checkFile(file);
 
         if(diagnostics.length !== 0) {

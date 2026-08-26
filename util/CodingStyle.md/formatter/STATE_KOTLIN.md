@@ -100,6 +100,9 @@ util/CodingStyle.md/formatter/
         KotlinModifierPriority.java
       rules/
         KotlinSpecificRule.java
+        KotlinDeclarationAlignmentRule.java (extends DeclarationAlignmentRule)
+        KotlinSignatureRule.java (extends MiscRule)
+        KotlinGetterSetterRule.java (extends GetterSetterRule)
   test/
     kt_combined_inp.kt / kt_combined_out.kt
     kt_comments_inp.kt / kt_comments_out.kt
@@ -108,11 +111,6 @@ util/CodingStyle.md/formatter/
 Existing shared files under Hard Constraint are modified in place,
 additively, when Kotlin needs a shared capability it lacks (e.g. a new
 operator token) — never duplicated per-language.
-
-New Kotlin-only rule classes beyond `KotlinSpecificRule.java`:
-`KotlinDeclarationAlignmentRule` (extends `DeclarationAlignmentRule`),
-`KotlinSignatureRule` (extends `MiscRule`), `KotlinGetterSetterRule`
-(extends `GetterSetterRule`).
 
 ---
 

@@ -2311,7 +2311,7 @@ public static final class Signature {
     {
         final Map<Integer, Integer> gapToClose  = new HashMap<>();
         final Map<Integer, String>  gapToIndent = new HashMap<>();
-        for(int i = 0; i < tokens.size(); ++i) {
+        for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if( !isPunct(t, "{") || t.name != null ) continue;
             final int closeBraceIdx = matchBraceForward(tokens, i);
@@ -2330,10 +2330,10 @@ public static final class Signature {
             } // while
             if(!sameLine) continue; // `}` is already alone on its own line -- nothing to do
             if( anyFrozen(tokens, i, closeBraceIdx + 1) ) continue;
-            gapToClose.put( wsStart, closeBraceIdx );
+            gapToClose.put(wsStart, closeBraceIdx);
             gapToIndent.put( wsStart, lineIndent(tokens, i) );
         } // for
-        if(gapToClose.isEmpty()) return joinVerbatim(tokens);
+        if( gapToClose.isEmpty() ) return joinVerbatim(tokens);
 
         final StringBuilder out = new StringBuilder();
               int           i   = 0;
@@ -2359,7 +2359,9 @@ public static final class Signature {
      * `hasNewlineBetween` duplicate-sweep note in `STATE_COMMON.md`).
      */
     private boolean hasTopLevelNewlineInBody(
-        final List<Token> tokens, final int openBraceIdx, final int closeBraceIdx
+        final List<Token> tokens,
+        final int         openBraceIdx,
+        final int         closeBraceIdx
     )
     {
         int depth = 0;

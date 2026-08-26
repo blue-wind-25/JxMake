@@ -247,22 +247,20 @@ the GRU task-separation fix isn't being pursued.
   those, append confirmed corrections append-only. A hand pass (no LLM call)
   done that day directly motivated the commented-out-code gate below.
 
-  **2026-08-04 — persistence plumbing (user-commissioned)** so confirmed
-  corrections survive `make gru-acquire-corpus` regenerating
-  `sample_default.txt` from scratch every run: new committed file
-  `tools/gru/disagreement_corrections.txt` (named exception to RDD_EXT_19,
-  same footing as `sample_default.txt`/`code-formatter-ai-assist-weights.json`
-  per RDD_KEY_217), empty until a disagreement-sampling pass produces
-  confirmed rows; new `tools/gru/apply_disagreement_corrections.py`, wired
-  into `gru-acquire-corpus` right after the `classifier_weights_examples.tsv`
+  **2026-08-04 — persistence plumbing** so confirmed corrections survive
+  `make gru-acquire-corpus` regenerating `sample_default.txt` from scratch
+  every run: new committed file `tools/gru/disagreement_corrections.txt`
+  (named exception to RDD_EXT_19, same footing as `sample_default.txt`/
+  `code-formatter-ai-assist-weights.json` per RDD_KEY_217), empty until a
+  disagreement-sampling pass produces confirmed rows; new
+  `tools/gru/apply_disagreement_corrections.py`, wired into
+  `gru-acquire-corpus` right after the `classifier_weights_examples.tsv`
   append and before final dedup — *override* merge keyed on
   `<lang>/<targetWordIndex>/<escaped-comment-text>` (everything but
   `<label>`), dropping the conflicting auto-labeled row instead of leaving
-  both present (plain-append dedup can't collapse a same-text/different-label
-  pair). Smoke-tested standalone (override/new-row/empty-file no-op) against
-  synthetic scratch files.
+  both present. Smoke-tested standalone (override/new-row/empty-file no-op).
 
-  **2026-08-04 — the LLM disagreement pass itself, via the `grok` CLI (xAI
+  **2026-08-04 — the LLM disagreement pass, via the `grok` CLI (xAI
   Grok-4.3, headless).** Sampled 150 unique YES + 150 unique NO rows
   (`random.Random(42)`) from `sample_default.txt` (89305 YES / 3292 NO unique
   pools). Grok labeled all 300 blind to the existing label ($0.057, no
@@ -271,21 +269,18 @@ the GRU task-separation fix isn't being pursued.
   every disagreement: 44 confirmed genuine corrections (43 YES, 1 NO)
   appended to `disagreement_corrections.txt`; the other 30 were too ambiguous
   or confirmed the original label. Applying the 44 against the real corpus
-  verified clean (44/44 matched, 0 mismatches). Production already cleared
-  both bars (92.4% mean held-out CV precision at `abstainThreshold=0.7`, 2.7%
-  NO FP rate), so this pass was optional polish.
+  verified clean (44/44 matched). Production already cleared both bars
+  (92.4% mean held-out CV precision at `abstainThreshold=0.7`, 2.7% NO FP
+  rate), so this pass was optional polish.
 
   **2026-08-04 — retrained on the corrections, then reverted pending a real
   corpus-level CV.** After `make gru-acquire-corpus` (44/44 applied) and a
-  user retrain, two checks came back inconclusive, not a real signal: (1)
-  `GruEval` training-fit on the 522-row bench went 99.8%→99.4% (1→3 NO FPs) —
-  noise from a 44-row/93k-line perturbation; (2) a CV run was accidentally
-  pointed at `classifier_weights_examples.tsv` (the 522-row bench itself,
-  never touching `sample_default.txt`/corrections), so it only re-measured
-  the bench's own held-out generalization at its now-522-row size
-  (mean=88.78%, stdev=4.81%, down from the 474-row 92.4%±2.1% — the grown
-  bench is harder/higher-variance), unrelated to the corrections. Neither
-  isolates the 44 corrections' effect; that needs a CV run against the full
+  user retrain, two checks came back inconclusive: `GruEval` training-fit on
+  the 522-row bench went 99.8%→99.4% (noise from a 44-row/93k-line
+  perturbation), and a CV run was accidentally pointed at
+  `classifier_weights_examples.tsv` itself rather than the full corpus
+  (mean=88.78%, stdev=4.81%, unrelated to the corrections). Neither isolates
+  the 44 corrections' effect; that needs a CV run against the full
   `sample_default.txt` (~2700-4050s/round). Added `make gru-cv-corpus`
   (`GRU_CV_ROUNDS`/`GRU_CV_WORK_DIR`/`GRU_CV_LOG`/`GRU_CV_ARGS`) for the user
   to run unattended on CM5. **Reverted the retrained production artifacts**
@@ -296,10 +291,9 @@ the GRU task-separation fix isn't being pursued.
   `tools/gru/sample_default.2026-08-04-grok-corrections.txt`.
 
   **2026-08-05 — CLOSED via the CM5 `gru-cv-corpus` run: corrections NOT
-  adopted.** Confirmed the CM5 run used the pre-corrections corpus (a known
-  correction's row still showed the old `NO` label in every round file,
-  matching the reverted committed `sample_default.txt`). Real 5-round
-  full-corpus CV (`--eval-threshold 0.7`, 74793 train / 18699 test/round):
+  adopted.** Confirmed the CM5 run used the pre-corrections corpus. Real
+  5-round full-corpus CV (`--eval-threshold 0.7`, 74793 train / 18699
+  test/round):
 
   ```
   round 0: precision=99.32% (18472/18598, 101 abstain)
@@ -319,10 +313,9 @@ the GRU task-separation fix isn't being pursued.
   sweep, so `abstainThreshold` stays `0.7`.
 
   **Decision: do not adopt the Grok-corrections weights/corpus** — the
-  un-corrected corpus already clearing bars answers the blocking question
-  (is the 44-row batch a real improvement), no reason to pull in the
-  reverted snapshot. Moved the two `*-2026-08-04-grok-corrections.*`
-  snapshots and the archived 44-row batch
+  un-corrected corpus already clearing bars answers the blocking question,
+  no reason to pull in the reverted snapshot. Moved the two
+  `*-2026-08-04-grok-corrections.*` snapshots and the archived 44-row batch
   (`tools/gru/unused/disagreement_corrections.2026-08-04-grok.txt`) to
   `tools/gru/unused/` (see its README); live
   `tools/gru/disagreement_corrections.txt` emptied back to header-only
@@ -797,8 +790,8 @@ double REJECTED.** User-commissioned perf pass. `GruClassifier.java`
 
 **Benchmark:** synthetic 288-train/72-val (session-scratch only, never
 committed, never touches `sample_default.txt`), 6 languages, `--threads=1
---batch-size=1 --epochs=8 --patience=8 --seed=1`. **Baseline:** epoch 1
-(JIT) 3.9s, epochs 2-8 steady 3.6-3.7s/epoch (~12.5ms/example); total 32.8s.
+--batch-size=1 --epochs=8 --patience=8 --seed=1`. Baseline: epoch 1 (JIT)
+3.9s, epochs 2-8 steady 3.6-3.7s/epoch (~12.5ms/example); total 32.8s.
 
 **Fused-gate:** new `GruClassifier.gateInto(...)` — one flat loop per output
 row, exact original per-element op order (bit-identical). Applied to both

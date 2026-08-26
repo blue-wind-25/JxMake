@@ -1095,6 +1095,70 @@ baseline for these two statement shapes, and elvis-vs-ternary safety and
 nullable-type safety are both independently unaffected (verified separately
 in the dogfood summary above).
 
+**2026-08-26 re-investigation, CONFIRMED NOT FEASIBLE as a narrow fix, closed
+without implementing (no source change).** Re-opened this finding to
+seriously assess a narrow, safe fix (mirroring `if`/`while`/`for`'s own
+paren/depth-based span-finding instead of `findStatementSemicolon`) per this
+follow-up task's explicit instructions, rather than leaving the original
+assessment unchallenged. Read `KotlinSpecificRule.stripOptionalSemicolons`/
+`isTrailingSemicolon`, `MiscRuleCurly.findStatementSemicolon`/
+`enforceOperatorLineBreaking`'s return/assignment branches, and
+`GetterSetterRuleCore.isAsiContinuation` end-to-end; confirmed no other
+Kotlin-newline-sensitivity logic exists anywhere else in `src/` (repo-wide
+grep). A depth-tracking, newline-based statement-end scan (bail outright,
+rather than guess, whenever the token before or after the first depth-0
+candidate NEWLINE is ambiguous — declining the whole candidate exactly like
+today's silent no-op) looked initially promising for the four named
+continuation shapes: method-chaining and elvis both lead with a token
+(`.`/`?.`/`?:`) that can never legally start a new Kotlin statement, so
+detecting them with full confidence and bailing is straightforward; a
+brace-enclosed multi-line `if`/`when`-as-expression body is already handled
+for free by the same bracket-depth tracking `findStatementSemicolon` already
+does (a NEWLINE inside the body's own `{`...`}` is never at depth 0); a
+braceless multi-line `if`/`when`/`try` expression body and a trailing lambda
+starting on its own continuation line were judged too ambiguous for a cheap
+confident check and would need to be declined outright (an acceptable,
+narrow trade-off on their own).
+
+However, empirical testing against a real Kotlin compiler (downloaded
+`kotlin-compiler-2.4.0` fresh into this session, not present in the
+container by default — a real, compiled-and-executed `.kt` snippet, not just
+a syntax-only PSI parse) surfaced a second, independent, more fundamental
+problem that the original finding didn't name: this feature's own
+`renderTieredSplit`/`renderFragment` output shape is unconditionally
+**operator-leading** (the split operator starts the continuation line) for
+every language and every candidate kind, including `if`/`while`/`for`'s
+existing, already-shipped Kotlin support — safe there only because that
+split always happens strictly inside the condition's own `(...)`, where
+Kotlin (like most languages) does not treat a NEWLINE as statement-ending at
+all. A `return`/assignment RHS candidate is, by this whole candidate
+category's own definition, NOT inside any enclosing call parens, so an
+operator-leading split there would place a real top-level NEWLINE directly
+before the operator for the first time. Tested directly (compiled and RUN,
+not just parsed) with `kotlinc`: a value's initializer followed on the next
+line by a leading `&&`/`||` correctly continues as one expression (matches
+this feature's intended meaning) — but the same shape with a leading `+`/`-`
+silently compiles as **two separate statements** instead (the original
+initializer keeps its un-split value, and the leading `+`/`-` becomes a
+separate, no-op unary-prefix expression statement — a real, silent
+behavior-changing corruption, not caught by a syntax-only check), and the
+same shape with a leading `*`/`/` fails to compile at all (a hard syntax
+error). This means a safe implementation would need not only a real
+Kotlin-ASI-equivalent for span-finding, but ALSO a second, independent
+per-operator safety restriction on which operators this feature's existing,
+cross-language operator-leading rendering convention may ever use for a
+Kotlin return/assignment split specifically (in effect, a different render
+style for this one case, or restricting Kotlin's top-level tier-1 splits to
+`&&`/`||` only and refusing tier-3 `*`/`/` entirely) — confirming, with
+concrete evidence rather than the original finding's reasoning alone, that
+this is a materially bigger, separately-scoped feature, not a narrow fix.
+Per this follow-up task's explicit instructions, decided NOT to implement
+even the narrower span-finding-only piece on its own (it would still need
+the render-side restriction to be safe, which is out of this narrow fix's
+scope) — no `src/` change made. `XL.txt`'s `TIER 9 -- [Feature]` entry for
+this item moved to `TIER X: Dead` with a short closed-reason annotation
+pointing back here.
+
 ---
 
 ## Testing
@@ -1267,3 +1331,14 @@ in the dogfood summary above).
       re-check, a full-corpus lowered-`line-length` run, and an isolated
       repro attempt — genuinely unconfirmed, left open for a future session
       with a different guava commit or a real novel trigger.
+- [x] Kotlin `return`/plain-assignment operator-split gap (`RDD_KEY_347`) —
+      re-investigated 2026-08-26 to seriously assess a narrow, safe fix; a
+      real Kotlin compiler confirmed a second, independent corruption vector
+      beyond the original ASI/statement-boundary problem (this feature's
+      own cross-language operator-leading render convention itself silently
+      changes program behavior for a Kotlin `+`/`-` split and hard-errors
+      for a `*`/`/` split, outside the safety of an enclosing `if`/`while`/
+      `for` condition's parens). CLOSED as not feasible without a
+      separately-scoped Kotlin ASI subsystem; no `src/` change made. See the
+      dated follow-up on the Known Out-of-Scope Finding above and `XL.txt`'s
+      `TIER X: Dead` entry.

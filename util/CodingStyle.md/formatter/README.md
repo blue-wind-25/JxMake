@@ -1311,8 +1311,14 @@ currently-unresolved gaps; no workaround exists beyond running the formatter twi
 For Kotlin only, `line-split-by-operator-priority` currently splits an overlong `if`/`while`/`for`
 condition correctly, but never splits an overlong `return` expression or a plain (non-`if`/`while`)
 assignment's right-hand side — those are always left as one long line for Kotlin, even though the
-option covers both shapes for every other supported language. This is a known, currently-unresolved
-gap with no workaround beyond keeping those specific lines shorter by hand.
+option covers both shapes for every other supported language. This is a permanent, accepted design
+limitation rather than a temporary gap: Kotlin lets a statement omit its trailing `;` and instead
+relies on line breaks and surrounding context to know where a statement ends, in ways this option's
+line-splitting logic cannot safely re-derive for a `return`/assignment shape without a real risk of
+silently changing what the split code means (for example, method-chaining, a multi-line `if`/`when`
+used as an expression, an elvis-operator (`?:`) continuation, or a trailing lambda can all make a
+line break ambiguous in ways this option cannot safely resolve). No workaround exists beyond keeping
+those specific lines shorter by hand.
 
 ### Tag-based family (XML/HTML5)
 

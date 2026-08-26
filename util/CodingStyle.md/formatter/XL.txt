@@ -271,11 +271,7 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 9: May not worth pursuing -- [Feature] ===
 
-- line-split-by-operator-priority: Kotlin return/assignment-RHS split needs a
-  real ASI-equivalent to work at all (method-chaining, multi-line if/when
-  expressions, elvis continuation, trailing lambdas) -- large, separately-
-  scoped subsystem, explicit corruption risk if done naively (RDD_KEY_347,
-  STATE_LINE_SPLIT_OP.md Known Out-of-Scope Finding).
+NONE FOR NOW
 
 Use sub-agent. This can be a substantial work.
 
@@ -309,6 +305,14 @@ Use sub-agent. This can be a substantial work.
 
 - [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM). CLOSED — permanently
   NOT FEASIBLE.
+
+- [LINE_SPLIT_OP] Kotlin `return`/plain-assignment operator-priority line splitting. CLOSED —
+  NOT FEASIBLE without a separately-scoped Kotlin ASI subsystem; real corruption risk from a naive
+  heuristic, confirmed empirically (a real Kotlin compiler resolved a leading `+`/`-` continuation
+  on the next line as the start of a brand-new statement rather than a continuation of the previous
+  one, silently changing behavior, and resolved a leading `*`/`/` continuation as an outright syntax
+  error) on top of the already-documented statement-boundary-finding gap. See
+  `STATE_LINE_SPLIT_OP.md`'s Known Out-of-Scope Finding, `RDD_KEY_347`.
 
 === TIER Z: Closed, revisit only if new evidence surfaces ===
 

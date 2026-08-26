@@ -196,40 +196,30 @@ operator-split branches never actually fire on real Kotlin source at all
 
 **2026-08-25 dogfood/validation (two-pass):** Pass 1 (flag off, routine
 self-adopt regression confirm) — Leg A (`tools/*`, 82 files) idempotent,
-zero content-changed files, nothing to adopt. Leg B (`src/**/*.java`, 100
-files) idempotent; 3 files differed from committed `src/`
-(`Config.java`/`FormatterCurly.java`/`MiscRuleCurly.java`, exactly this
-session's own new-feature files, not yet self-formatted) — all reviewed by
-hand, ordinary cosmetic re-style (call-wrap width, spacing normalization,
-declaration-alignment column width), confirming the feature is a true
-no-op with the flag off; zero column-0-flush lines, zero content/comment
-loss. Trial JAR: `_test_serial` 348/350 — the 2 failures
-(`cpp_comments_inp.cpp`, `real_code_regressions_217_inp.java`) are the
-documented `gru-sync-weights` trial-JAR drift class, not chased. Adopted;
-`make clean && make test` 350/350 forward + idempotency, fully green. Leg
-C (external corpora, `../../JCS`/`../../MDXplorer`/
-`../../../3rd_party/tools/pcpp_java`/`colordiff.py`) — every formatted file
-byte-identical to committed originals, still at the prior fixed point,
-nothing to adopt; see `STATE_DOGFOOD.md`.
+nothing to adopt. Leg B (`src/**/*.java`, 100 files) idempotent; the only 3
+files differing from committed `src/` were this session's own new-feature
+files (`Config.java`/`FormatterCurly.java`/`MiscRuleCurly.java`, not yet
+self-formatted) — hand-reviewed as ordinary cosmetic re-style, confirming
+the feature is a true no-op with the flag off. Trial JAR: `_test_serial`
+348/350 (2 pre-existing `gru-sync-weights` trial-JAR-drift failures, not
+chased). Adopted; `make clean && make test` 350/350 forward + idempotency.
+Leg C (external corpora, `../../JCS`/`../../MDXplorer`/
+`../../../3rd_party/tools/pcpp_java`/`colordiff.py`) — byte-identical to
+committed originals, nothing to adopt; see `STATE_DOGFOOD.md`.
 
 Pass 2 (flag forced ON via `JXMAKE_CODE_FORMATTER_LINE_SPLIT_OPERATOR_
 PRIORITY=on`, scratch copy, read-only): corpus
 `../../../3rd_party/tools/pcpp_java` (43 `.java` files, ~10.7K LOC) —
 chosen over `../../JCS` (only 1 real `.java` file, rest shell/PowerShell
-scripts) as the smallest genuinely curly-family corpus among the four
-Pass-1 external candidates. round1/round2 `diff -ru` empty (idempotency,
-exercises `hasNewlineBetween`'s guard). `java_syntax_check.sh` clean on
-all 43 files. Only 3 files actually changed vs. the unformatted original
-(`LexTab.java`, `ParseTab.java`, `Preprocessor.java`) — small corpus, few
-lines cross the length threshold. Hand-eyeballed: `LexTab.java`/
-`ParseTab.java` show tier-1 `+` splits on long string-concatenation
-assignment RHS (operator-leading, one `indentWidth` continuation indent,
-correctly leaving `?`/`:` substrings *inside* string literals like
-`"...CPP_QUESTION..."` untouched since those are literal text, not real
-ternary tokens); `Preprocessor.java` shows a tier-1 `&&` split on a long
-`if` condition. All three match the designed shape exactly, no false
-positives. No bug found — Pass 2 fully clean, no new fixture needed. No
-files copied back anywhere (read-only per plan).
+scripts). round1/round2 `diff -ru` empty (idempotency, exercises
+`hasNewlineBetween`'s guard). `java_syntax_check.sh` clean on all 43
+files. Only 3 files actually changed vs. the unformatted original
+(`LexTab.java`, `ParseTab.java`, `Preprocessor.java`): tier-1 `+` splits on
+long string-concatenation assignment RHS (correctly leaving `?`/`:`
+substrings *inside* string literals like `"...CPP_QUESTION..."`
+untouched) and a tier-1 `&&` split on a long `if` condition — all three
+match the designed shape exactly, no false positives. Pass 2 fully clean,
+no new fixture needed, no files copied back (read-only per plan).
 
 Pass 3 (flag forced ON via `.jxmake-code-formatter`, scratch copy,
 read-only): corpus `google/guava` (`git clone --depth 1`, 1655 `.java`

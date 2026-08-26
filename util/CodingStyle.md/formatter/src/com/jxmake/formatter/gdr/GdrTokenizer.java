@@ -38,11 +38,6 @@ public final class GdrTokenizer {
         this.kotlinNestedBlockComments = kotlinNestedBlockComments;
     }
 
-    public static List<GdrToken> tokenize(String source)
-    {
-        return tokenize(source, false);
-    }
-
     /**
      * {@code kotlinNestedBlockComments}: Kotlin's own lexical grammar allows block comments to
      * nest (an inner opener starts a second level rather than being ordinary text, so only the

@@ -1439,13 +1439,12 @@ public final class JsTsSpecificRule {
      * pipeline (recursive-dispatch precedent: {@code XmlSpecificRule.renderScriptOrStyle}'s
      * embed-out/splice-back pattern for `<script>`/`<style>`), then splicing the formatted result
      * back into the span's own frozen text at the hole's original location. Attribute-value
-     * embeds are explicitly out of scope (children holes only, per the job's own scoping). Runs
-     * BEFORE {@link #enforceJsxSelfClosingAttributeWrap} -- every hole this pass discovers lives
-     * at an offset {@code >= jsxOpeningTagEndOffset} (holes are children-position only, by
-     * construction of how {@code findJsxSpanEnd} discovers them), so splicing here never touches
-     * the opening-tag region that wrap pass measures/rewrites, and the wrap pass's own
-     * {@code jsxOpeningTagEndOffset}/{@code jsxAttrBoundaries} offsets (both {@code < any hole's
-     * own start offset}) stay valid against this pass's output unchanged.
+     * embeds are also in scope (a later follow-up job extended the original children-only
+     * scoping -- see {@code rewriteJsxHoles}'s own handling of a hole whose offset is
+     * {@code < jsxOpeningTagEndOffset}). Runs BEFORE {@link #enforceJsxSelfClosingAttributeWrap};
+     * that wrap pass's own {@code jsxOpeningTagEndOffset}/{@code jsxAttrBoundaries} offsets are
+     * unaffected by this pass's splicing, since splicing only rewrites bytes strictly inside an
+     * already-recorded hole span, never the opening-tag structure around it.
      */
     public String spliceJsxExpressionHoles(final List<Token> tokens)
     {

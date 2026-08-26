@@ -4446,6 +4446,11 @@ Real-code regressions:
                                                         single-line and re-flattened with mangled ternary
                                                         spacing, found via an angular/angular sample dogfood.
 
+  real_code_regressions_244_inp/out.cpp              -- line-split-by-operator-priority: a single-line
+                                                        function body's closing brace stayed glued to the last
+                                                        operator-split fragment instead of moving onto its own
+                                                        line once the `return` expression was split.
+
 How Tests Are Run
 -----------------
 

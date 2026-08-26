@@ -2264,6 +2264,121 @@ public static final class Signature {
         return out.toString();
     }
     /**
+     * D14 follow-up fix for the "single-line function-body brace placement" flap
+     * (`RDD_KEY_348`/D10): {@code ScopePipelineCurly.processScope}'s foundational scope-tree
+     * render -- a one-time pass that runs once, before Phase 1, well before this method ever runs
+     * -- treats a non-named (function/loop/lambda) scope's body as a genuine one-liner whenever it
+     * still spans exactly one physical line AT THAT POINT in the pipeline, splicing its raw source
+     * back verbatim rather than routing it through the "force the trailing gap before `}` onto its
+     * own line" reindent logic a body already multi-line at that same point receives. Correct for
+     * a real one-liner; stale once {@link #enforceOperatorLineBreaking} (Phase 4) widens that same
+     * body to multiple physical lines via a return/condition/assignment operator split -- the
+     * closing `}` is left exactly where the pre-split source had it, glued to whatever fragment
+     * that method rendered last, instead of moving onto its own line the way a body already
+     * multi-line on input does.
+     *
+     * <p>Mirrors {@code ScopePipelineCurly.applyOversizedAggregateInitClosingBracePass}'s own "was
+     * this brace pair one physical line before, is it several now, is `}` still glued to the last
+     * one" shape -- but for a non-named scope's OWN body brace (a function/loop/lambda, identified
+     * the exact same way {@code ScopePipelineCurly.processScope} itself distinguishes a named vs.
+     * non-named scope: {@code Token.name == null} -- see {@code TokenizerCore.Token}'s own doc
+     * comment, "For `{`/`}` only: pushed/popped construct name, else null") rather than an
+     * aggregate initializer. Deliberately NOT a re-run of {@code scopePipeline.process()}/
+     * {@code processScope} itself -- the exact fix class already tried and reverted twice for an
+     * analogous JS/TS closing-brace staleness (`RDD_KEY_246`, "regressed unrelated already-correct
+     * constructs") -- this is instead a brand-new, narrowly-scoped helper that only ever touches
+     * the single gap immediately before a qualifying `}`, leaving every other pass's own decision
+     * (declaration/assignment grouping, signature wrapping, getter/setter one-liner grouping, ...)
+     * completely alone.
+     *
+     * <p>General to the whole curly family (C/C++/Java/Kotlin/JS/TS), NOT gated to C/C++ like
+     * {@code CppSpecificRule.enforceFunctionDefinitionAllmanBraceStyle}'s own re-run at this same
+     * call site: a manual repro confirmed the identical stale-decision shape for the closing brace
+     * also reproduces for Java and TypeScript (their own Allman-brace passes carry a SEPARATE,
+     * pre-existing gap on the *opening*-`{` side for this exact trigger, never given D10's
+     * C/C++-only re-run treatment either, so those two languages remain non-idempotent overall
+     * even after this fix -- not chased here, out of scope for this follow-up; see
+     * `STATE_LINE_SPLIT_OP.md`).
+     *
+     * <p>Only ever fires when the pair currently spans a genuine top-level newline ({@link
+     * #hasTopLevelNewlineInBody}, paren/bracket-depth-aware -- a one-liner body whose only newline
+     * comes from an ordinary call-argument wrap strictly inside a nested call's own parens is left
+     * untouched, same carve-out precedent as {@code applyOversizedAggregateInitClosingBracePass})
+     * AND `}` is not already alone on its own line -- both conditions are false for the vast
+     * majority of scopes, so this pass is a no-op on everything except the exact trigger shape.
+     */
+    public String reapplySingleLineFunctionBodyClosingBrace(final List<Token> tokens)
+    {
+        final Map<Integer, Integer> gapToClose  = new HashMap<>();
+        final Map<Integer, String>  gapToIndent = new HashMap<>();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            if( !isPunct(t, "{") || t.name != null ) continue;
+            final int closeBraceIdx = matchBraceForward(tokens, i);
+            if( closeBraceIdx < 0 || !hasTopLevelNewlineInBody(tokens, i, closeBraceIdx) ) continue;
+            int     wsStart  = closeBraceIdx;
+            boolean sameLine = false;
+            while(wsStart > i + 1) {
+                final Token pt = tokens.get(wsStart - 1);
+                if(pt.type == TokenType.NEWLINE) break;
+                if(pt.type == TokenType.WHITESPACE) {
+                    --wsStart;
+                    continue;
+                }
+                sameLine = true;
+                break;
+            } // while
+            if(!sameLine) continue; // `}` is already alone on its own line -- nothing to do
+            if( anyFrozen(tokens, i, closeBraceIdx + 1) ) continue;
+            gapToClose.put(wsStart, closeBraceIdx);
+            gapToIndent.put( wsStart, lineIndent(tokens, i) );
+        } // for
+        if( gapToClose.isEmpty() ) return joinVerbatim(tokens);
+
+        final StringBuilder out = new StringBuilder();
+              int           i   = 0;
+        while( i < tokens.size() ) {
+            final Integer closeIdx = gapToClose.get(i);
+            if(closeIdx != null) {
+                out.append('\n').append( gapToIndent.get(i) );
+                i = closeIdx;
+                continue;
+            } // if
+            out.append( tokens.get(i).text );
+            ++i;
+        } // while
+
+        return out.toString();
+    }
+    /**
+     * {@code true} if a {@code NEWLINE} appears anywhere in {@code (openBraceIdx, closeBraceIdx)}
+     * while paren/bracket depth (relative to {@code openBraceIdx}) is exactly 0 -- same semantics
+     * and rationale as {@code ScopePipelineCore.hasTopLevelNewline} (duplicated here rather than
+     * shared: unrelated class hierarchy, no common ancestor short of a bigger shared-utility move
+     * -- same precedent as this class's own {@link #hasNewlineBetween}, see the
+     * `hasNewlineBetween` duplicate-sweep note in `STATE_COMMON.md`).
+     */
+    private boolean hasTopLevelNewlineInBody(
+        final List<Token> tokens,
+        final int         openBraceIdx,
+        final int         closeBraceIdx
+    )
+    {
+        int depth = 0;
+        for(int i = openBraceIdx + 1; i < closeBraceIdx; ++i) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.PUNCT && ( "(".equals(t.text) || "[".equals(t.text) ) ) {
+                ++depth;
+            }
+            else if( t.type == TokenType.PUNCT && ( ")".equals(t.text) || "]".equals(t.text) ) ) {
+                --depth;
+            }
+            else if(t.type == TokenType.NEWLINE && depth == 0) return true;
+        } // for
+
+        return false;
+    }
+    /**
      * Finds the `;` PUNCT token terminating the statement starting at {@code from}, tracking local
      * bracket depth (`(`/`)`/`[`/`]`/`{`/`}`) so a `;` nested inside a lambda body, object literal,
      * or nested call is never mistaken for the statement's own terminator. Returns -1 if none is

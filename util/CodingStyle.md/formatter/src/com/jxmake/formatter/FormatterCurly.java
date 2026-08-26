@@ -510,6 +510,18 @@ public final class FormatterCurly extends FormatterCore {
             if(isCOrCpp) text = cppRule.enforceFunctionDefinitionAllmanBraceStyle(
                 tokenizer.apply(text)
             );
+            // D14 (`RDD_KEY_353`), closing-brace half of the same flap the re-run immediately
+            // above fixes the opening-brace half of: `ScopePipelineCurly.processScope`'s
+            // foundational scope-tree render decided, once, before Phase 1, whether a non-named
+            // (function/loop/lambda) one-liner body's closing `}` gets moved onto its own line --
+            // a decision that's stale once enforceOperatorLineBreaking just widened that same body
+            // to multiple physical lines. General to the whole curly family (not C/C++-gated like
+            // the re-run above -- confirmed via manual repro that Java/TypeScript hit the same
+            // closing-brace staleness too, even though their own opening-brace gap is separate and
+            // NOT fixed here). See `MiscRuleCurly.reapplySingleLineFunctionBodyClosingBrace`'s own
+            // doc comment for the full rationale and why this isn't a re-run of
+            // `scopePipeline.process()` itself (`RDD_KEY_246`).
+            text = miscRule.reapplySingleLineFunctionBodyClosingBrace( tokenizer.apply(text) );
             // See the flag-off addClosingComments call site above (Phase 3) for why this pair is
             // deferred to here, flag-on only: enforceOperatorLineBreaking can expand a block's
             // line count, and addClosingComments' STYLE.md §7 threshold decision must see that

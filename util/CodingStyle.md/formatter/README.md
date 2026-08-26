@@ -58,9 +58,12 @@ so a file containing real JSX tag syntax is safe to run through the formatter �
 portions round-trip unchanged while surrounding plain JS/TS gets normal formatting, except that any
 top-level `{...}` expression hole — whether in a JSX tree's *children* (e.g.
 `{items.map(x => <li>{x}</li>)}`) or in an opening tag's *attribute value* (e.g.
-`onClick={handler}`, `className={cond ? "a" : "b"}`) — is recursively formatted through the same
-JS/TS pipeline and spliced back in; spread attributes (`{...props}`) are left untouched, as are any
-other bytes of the span outside a hole.
+`onClick={() => handler(x)}`) — is recursively formatted through the same JS/TS pipeline and
+spliced back in for most expression shapes; a hole whose top-level expression is a bare
+binary/ternary/comparison operator (e.g. `cond?"a":"b"` or `a+b`, as opposed to a call or
+arrow-function expression) is currently left byte-for-byte unformatted rather than gaining normal
+operator spacing. Spread attributes (`{...props}`) are also left untouched, as are any other bytes
+of the span outside a hole.
 
 The pre-pass runs unconditionally on `.jsx`/`.tsx` **and** on plain `.js`/`.mjs`/`.cjs`
 (mirrors Prettier's own default — real-world `.js` files with embedded JSX, e.g. older
@@ -130,17 +133,22 @@ input file that doesn't resolve under `--root DIR` is a per-file error. Opt-in o
 ### Server mode (faster for batch)
 
 ```sh
-java -jar code-formatter-1.0.1.jar --server       # start server in background
+java -jar code-formatter-1.0.1.jar --server &     # start server (backgrounded via shell &)
 java -jar code-formatter-1.0.1.jar File.java      # auto-connects to running server
 java -jar code-formatter-1.0.1.jar --stop         # stop server
 ```
 
-The server amortizes JVM startup across a batch of files. If no server is running,
-the JAR falls back to standalone mode silently. `--server` is idempotent — safe to
-call from a Makefile target even if the server is already running.
+The server amortizes JVM startup across a batch of files. `--server` does not daemonize itself
+— it blocks in the foreground, keeping its listener threads alive, until `--stop` (or a signal)
+ends it, so background it yourself (`&`, `nohup ... &`, a service unit, etc.) as shown above. If
+no server is running, the JAR falls back to standalone mode silently. `--server` is idempotent —
+safe to call from a Makefile target even if the server is already running.
 
-**After SIGKILL or manual lockfile deletion:** the next invocation detects the stale
-lockfile (PID no longer alive), cleans it up, and starts fresh automatically.
+**After SIGKILL or manual lockfile deletion:** the lockfile is left in place until you run
+`--server` again — that next `--server` invocation detects the stale lockfile (PID no longer
+alive), cleans it up, and starts a fresh server. In the meantime, ordinary formatting
+invocations simply keep falling back to standalone mode (as above); they do not clean up the
+stale lockfile or start a server themselves.
 
 **Concurrency for many small requests (`server-concurrency` / `client-read-ahead`):**
 by default the server handles one request at a time (`server-concurrency = 1`, today's
@@ -324,11 +332,11 @@ globally, so a file can be prepared for GDR ahead of a project-wide flag flip.
 
 ```makefile
 fmt:
-    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar --server
-    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar $(SRCS)
+	java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar --server
+	java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar $(SRCS)
 
 fmt-check:
-    java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar --check $(SRCS)
+	java -jar util/CodingStyle.md/formatter/code-formatter-1.0.1.jar --check $(SRCS)
 ```
 
 ---
@@ -702,9 +710,8 @@ Each continuation line leads with its operator and is indented one level in from
 own indentation, for example:
 
 ```
-if( someVeryLongConditionNameHere
-    && anotherVeryLongConditionNameHere )
-{
+if(someVeryLongConditionNameHere
+    && anotherVeryLongConditionNameHere) {
     ...
 }
 ```
@@ -1248,24 +1255,17 @@ auto-detect C vs. C++ were judged too fragile to trust for a correctness-sensiti
 this. The override takes priority over extension-based inference for `.h` files specifically — see
 [In-file config overrides](#in-file-config-overrides) above.
 
-#### 8. `normalize-comment-start-case-multiline` can capitalize commented-out code inside a multi-line comment group
+#### 8. `normalize-comment-start-case-multiline` carries a residual risk of capitalizing commented-out code inside a multi-line comment group
 
 Affects the curly-brace family (C/C++/Java/Kotlin/JS/TS), the `#`-comment tooling family
 (E-INI/JxMakeFile/Makefile/Bash/PowerShell), and YAML/TOML. See "Config file format" → [Multi-sentence
 comment capitalization](#multi-sentence-comment-capitalization-normalize-comment-start-case-multiline)
-above for the full mechanism and its mechanical pre-filter.
-
-```
-// TODO: re-enable this test
-// import './rxjs/rxjs.spec';
-```
-
-With `normalize-comment-start-case-multiline = on`, this becomes:
-
-```
-// TODO: re-enable this test
-// Import './rxjs/rxjs.spec';
-```
+above for the full mechanism and its mechanical pre-filter. A built-in guard already recognizes many
+common leading code tokens (e.g. `import`) even inside an otherwise prose-like comment group and
+correctly leaves them lowercase, so this is no longer easy to trigger with an everyday example — but
+the guard is a recognized-token list, not a full understanding of the line's meaning, so a line of
+commented-out code whose leading word isn't on that list can still be capitalized as if it were the
+start of a new sentence.
 
 **Workaround:** leave this key off (the default) for codebases that keep a lot of commented-out
 code inside otherwise-prose comment groups; enabling it elsewhere is a judgment call.
@@ -1291,16 +1291,16 @@ gets split across operator boundaries the first time can sometimes collapse back
 second pass, or vice versa. The result is always valid, compilable code in every case — only the
 line-splitting shape differs between passes.
 
-A related, narrower case: a single-line function body whose contents get split onto multiple lines
-by this option can, on the very first formatting pass, leave its closing brace attached to the same
-line as the split content instead of moving it to its own line (most reliably observed in C/C++),
-for example:
+A related, narrower case affects Java and TypeScript specifically: a single-line function body
+whose contents get split onto multiple lines by this option can, on the very first formatting pass,
+leave its opening brace attached to the function's signature line instead of moving it to its own
+line, for example:
 
-```cpp
-constexpr auto pick() -> int
-{ return someVeryLongConditionExpressionName > anotherVeryLongThresholdName
+```java
+int pick() { return someVeryLongConditionExpressionNameHereYes > anotherVeryLongThresholdNameHereYes
     ? 1111111
-    : 2222222; }
+    : 2222222;
+}
 ```
 
 Running the formatter a second time on its own output corrects this. Both are known,
@@ -1311,8 +1311,14 @@ currently-unresolved gaps; no workaround exists beyond running the formatter twi
 For Kotlin only, `line-split-by-operator-priority` currently splits an overlong `if`/`while`/`for`
 condition correctly, but never splits an overlong `return` expression or a plain (non-`if`/`while`)
 assignment's right-hand side — those are always left as one long line for Kotlin, even though the
-option covers both shapes for every other supported language. This is a known, currently-unresolved
-gap with no workaround beyond keeping those specific lines shorter by hand.
+option covers both shapes for every other supported language. This is a permanent, accepted design
+limitation rather than a temporary gap: Kotlin lets a statement omit its trailing `;` and instead
+relies on line breaks and surrounding context to know where a statement ends, in ways this option's
+line-splitting logic cannot safely re-derive for a `return`/assignment shape without a real risk of
+silently changing what the split code means (for example, method-chaining, a multi-line `if`/`when`
+used as an expression, an elvis-operator (`?:`) continuation, or a trailing lambda can all make a
+line break ambiguous in ways this option cannot safely resolve). No workaround exists beyond keeping
+those specific lines shorter by hand.
 
 ### Tag-based family (XML/HTML5)
 

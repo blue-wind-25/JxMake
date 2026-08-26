@@ -179,6 +179,29 @@ JS/TS fixtures are active in the Makefile and passing.
   never reproduced against the real file. If a future dogfood run ever
   produces this again, check it against this note before treating it as new.
 
+- **`return(...)`-wrap operator-spacing blind spot (found 2026-08-26,
+  README.md code-snippet audit, not fixed).** A bare top-level
+  binary/ternary/comparison expression immediately inside `return (...)`
+  (e.g. `return (cond?"a":"b");`, `return (a+b);`) never gets normal operator
+  spacing, unlike the identical expression anywhere else (e.g.
+  `var z = (a+b);` correctly becomes `var z = (a + b);`). Not JSX-specific:
+  reproduces in a plain top-level `.js`/`.ts` statement with no JSX involved
+  at all, so this is a general JS/TS pipeline gap, not a
+  `spliceJsxExpressionHoles`/`formatJsxHoleInterior` bug -- but it does mean
+  every JSX `{...}` expression hole (children- or attribute-value-position)
+  whose sole content is a bare operator expression is silently spliced back
+  byte-for-byte unformatted, since hole interiors are dispatched through
+  exactly this `"return (" + interior + ");"` wrapper. Distinct from the
+  "`return(...)`-wrap body-not-reformatted finding" below (that one is about
+  an un-reformatted function/arrow BLOCK BODY; this one is about missing
+  operator spacing on a bare EXPRESSION, and reproduces with the block-body
+  question mark: `curly-general-scope-reindent` untested against this shape).
+  Root cause not investigated, not attempted -- out of scope for a
+  documentation-audit task; `README.md`'s "Single file" section (JSX hole
+  recursion description) was corrected to describe this accurately instead
+  of showing a stale example claiming full recursive formatting for every
+  hole shape.
+
 - **Template-literal-hole JSX (item 10) real-corpus validation** was folded
   into Step 2 Increment 5's 6-corpus dogfood pass (`excalidraw` specifically
   hit and fixed a template-hole semicolon-insertion bug — see below) — no

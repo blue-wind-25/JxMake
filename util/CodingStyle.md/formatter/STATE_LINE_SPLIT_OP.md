@@ -4,6 +4,14 @@ Read `STATE_COMMON.md` first — shared commit/ambiguity/testing conventions
 this file assumes; no other job's `STATE_*.md` is required. Dogfood corpus
 status: see `STATE_DOGFOOD.md`.
 
+**2026-08-26 follow-up fix (single-line function-body closing-brace
+placement, `RDD_KEY_353`, D14):** fixed the closing-`}` half of the flap D10
+(`RDD_KEY_348`) left open — see D14 below and the dated follow-up appended to
+the "Single-line function-body brace placement..." Known Out-of-Scope
+Finding further down. New fixture `test/real_code_regressions_244_{inp,out}.cpp`
+(the exact D10/`RDD_KEY_348` manual repro, now fully idempotent at the tool's
+actual default config). `make test`: 363/363 -> 364/364.
+
 **2026-08-25 follow-up investigation + partial fix (declaration/condition
 collapse-on-round2 flap, `RDD_KEY_351`, D13):** re-investigated the
 "Declaration/condition collapse-on-round2 flap" Known Out-of-Scope Finding
@@ -455,7 +463,7 @@ condition, a `for(...)` header, or a bare `return`/assignment-RHS
 expression with no enclosing call parens is too long, splits it at
 operator boundaries instead of leaving it long or falling straight to
 today's call-argument-paren wrapping. **Fully implemented, `make test`
-green (363/363).**
+green (364/364).**
 
 Output shape: unpadded, operator-LEADING (the operator token leads each
 continuation line), each continuation line at `baseIndent + one
@@ -497,13 +505,28 @@ indentWidth`.
     untouched unconditionally. Mirrors this class's standing precedent
     (`enforceCallLineBreaking`'s own per-side gap check) of a NEWLINE in a
     gap suppressing a rewrite for that side.
+  - `reapplySingleLineFunctionBodyClosingBrace(tokens)` (D14, `RDD_KEY_353`)
+    — re-derives the "should a non-named scope's closing `}` move onto its
+    own line" decision for a body `enforceOperatorLineBreaking` just widened
+    from one physical line to several, which
+    `ScopePipelineCurly.processScope`'s own, much-earlier one-time decision
+    never revisits. Language-general (all curly languages), gated only on
+    the flag; identifies a candidate `{` via `Token.name == null` (the same
+    named-vs-non-named-scope signal `processScope` itself uses), fires only
+    when the pair now spans a genuine top-level newline and `}` is not
+    already alone on its own line.
 - `src/com/jxmake/formatter/FormatterCurly.java` — exactly ONE gated call
   site: `if( config.lineSplitByOperatorPriority() ) { text =
   miscRule.enforceOperatorLineBreaking( tokenizer.apply(text) ); }`,
   positioned immediately after `blockRule.alignBracelessElseIfChain(...)`
   runs and before the `enforceCallLineBreaking` calls that follow it. See
   Resolved Design Decisions D1 below for why this deviates from inserting
-  before all four existing `enforceCallLineBreaking` call sites.
+  before all four existing `enforceCallLineBreaking` call sites. D10's
+  C/C++-only `enforceFunctionDefinitionAllmanBraceStyle` re-run and D14's
+  language-general `reapplySingleLineFunctionBodyClosingBrace` call both
+  live inside this same gated block, immediately after
+  `enforceOperatorLineBreaking` and ahead of the flag-on `addClosingComments`
+  call.
 - `src/com/jxmake/formatter/Config.java` — `line-split-by-operator-priority`
   key fully wired (`ALL_KEYS`, field, accessor, `GROUPS`, `describeAll`
   case, `fromRawMap` parsing).
@@ -761,6 +784,70 @@ Full text: `RDD_KEY_340`.
   same conclusion as `RDD_KEY_344`. This finding is only PARTIALLY closed:
   the JS/TS manifestation is fixed, the original Java one remains an open,
   unreproducible question.**
+- **D14 — closing-`}` half of the single-line function-body brace-placement
+  flap fixed via a new, narrowly-scoped, language-general re-run — not a
+  `scopePipeline.process()` re-run.** `RDD_KEY_353`, closing the gap D10
+  (`RDD_KEY_348`) left open. Root cause fully isolated (via targeted debug
+  prints removed before committing, per `STATE_COMMON.md`'s "prefer evidence
+  over reasoning"): `ScopePipelineCurly.processScope`'s foundational
+  scope-tree render (the one-time pass that runs once, before Phase 1, well
+  before `enforceOperatorLineBreaking` ever executes) decides, for every
+  non-named (function/loop/lambda) scope, whether its body is a genuine
+  one-liner by checking for a paren/bracket-depth-0 NEWLINE at THAT point in
+  the pipeline; when it still looks single-line, the body is spliced back
+  verbatim (`childResult = childSource`), entirely skipping the "force the
+  trailing gap before `}` onto its own line" reindent logic a body that is
+  ALREADY multi-line at that same point receives. `enforceOperatorLineBreaking`
+  (Phase 4) can turn exactly such a one-liner body multi-line via a
+  return/condition/assignment operator split, but that earlier decision is
+  never revisited, so the closing `}` stays glued to whatever fragment the
+  split rendered last. Fixed via a brand-new helper,
+  `MiscRuleCurly.reapplySingleLineFunctionBodyClosingBrace`, called once
+  immediately after `enforceOperatorLineBreaking` (and after D10's C/C++-only
+  `enforceFunctionDefinitionAllmanBraceStyle` re-run, same relative position),
+  gated only on `config.lineSplitByOperatorPriority()` — no language
+  restriction, since investigation showed the underlying stale decision lives
+  in `ScopePipelineCurly`, shared by every curly-family language, not just
+  C/C++. The new pass mirrors `ScopePipelineCurly.
+  applyOversizedAggregateInitClosingBracePass`'s own "was this brace pair one
+  physical line before, is it several now, is `}` still glued to the last
+  one" shape, but keyed on a non-named scope's own body brace (`Token.name ==
+  null`, the exact same signal `processScope` itself uses to distinguish a
+  named vs. non-named scope) rather than an aggregate initializer's `= {
+  ... };`. It only ever touches the single gap immediately before a
+  qualifying `}` when the pair now spans a genuine top-level newline
+  (paren/bracket-depth-aware, so an ordinary call-argument wrap strictly
+  inside a nested call's own parens is correctly left alone, same carve-out
+  precedent as the aggregate-init pass) — deliberately NOT a re-run of
+  `scopePipeline.process()`/`processScope` itself, the exact fix class
+  already tried and reverted twice for the analogous JS/TS closing-brace
+  staleness (`RDD_KEY_246`, "regressed unrelated already-correct
+  constructs"). Confirmed via manual repro that the identical closing-brace
+  staleness also reproduces for Java and TypeScript, not just C/C++ (README's
+  prior "most reliably observed in C/C++" language was investigated, not
+  assumed) — but those two languages have a SEPARATE, pre-existing gap on the
+  *opening*-`{` side of this same trigger (their own Allman-brace passes were
+  never given D10's re-run treatment either, a distinct, still-open gap not
+  fixed by this follow-up, out of scope here), so Java/TS remain
+  non-idempotent overall even after this fix; only C/C++ — where D10 already
+  fixed the opening-brace half — reaches full round1==round2 idempotency from
+  this fix alone. Verified at the tool's actual DEFAULT config (`line-length=
+  100`, no override), using the exact manual repro `RDD_KEY_348` built:
+  `constexpr auto pick() -> int { return someVeryLongConditionExpressionName
+  > anotherVeryLongThresholdName ? 1111111 : 2222222; }` — round1 now
+  byte-identical to round2 (previously divergent: round1 kept `}` glued to
+  `: 2222222;`, round2 alone). Also verified against the real, unmodified
+  `fmtlib/fmt` `base.h` file (the same corpus D8/D10 used, `line-length=60`
+  disclosed dogfood adaptation matching that prior session's own
+  methodology): the real `count()`/`str()`/`size()` triggers named in D10's
+  Known Out-of-Scope Finding are now round1-byte-identical-to-round2 across
+  the whole file. New fixture `test/real_code_regressions_244_{inp,out}.cpp`
+  (the D10/`RDD_KEY_348` manual repro, registered at the tool's actual
+  default config — no in-file `line-length` override needed). `make test`:
+  363/363 -> 364/364, zero regressions (confirmed the flag-off pipeline is
+  untouched — the new pass is gated entirely behind
+  `config.lineSplitByOperatorPriority()` — and that D10's own opening-brace
+  fix is undisturbed).
 
 ---
 
@@ -952,6 +1039,26 @@ open for a future session. No fixture: no real trigger of this bug shape is
 fully idempotent yet with only (1) fixed, so no case exists that would pass
 `make test`'s round1==round2 check.
 
+**2026-08-26 follow-up, closing-`}` half FIXED (`RDD_KEY_353`, D14) — this
+flap is now fully closed for C/C++.** Cause (2) above is fixed, not via a
+`scopePipeline.process()` re-run (still the closed-off fix class per
+`RDD_KEY_246`) but via a brand-new, narrowly-scoped helper,
+`MiscRuleCurly.reapplySingleLineFunctionBodyClosingBrace`, run once
+immediately after `enforceOperatorLineBreaking` (see D14 above for the full
+root-cause/fix writeup). Verified at the tool's actual DEFAULT config using
+the exact manual repro this row's own text names above
+(`constexpr auto pick() -> int { return ... ? 1111111 : 2222222; }`): round1
+is now byte-identical to round2. New fixture
+`test/real_code_regressions_244_{inp,out}.cpp`. Also confirmed general to
+the whole curly family, not C/C++-specific: the identical closing-brace
+staleness reproduces for Java and TypeScript too, but those two languages
+carry a SEPARATE, still-open, pre-existing gap on the *opening*-`{` side of
+this same trigger (their own Allman-brace passes were never given D10's
+C/C++-only re-run treatment) — not fixed by this follow-up, so Java/TS
+remain non-idempotent overall for this trigger shape even now; only C/C++
+reaches full round1==round2 idempotency from this fix alone. `make test`:
+363/363 -> 364/364, zero regressions.
+
 **Kotlin `return`/top-level-`=`-assignment operator-split branches never
 actually fire on real source (found 2026-08-25, `square/okio` dogfood,
 `RDD_KEY_347`, not fixed).** Unlike `if`/`while`/`switch`/`for` (which
@@ -987,6 +1094,70 @@ in itself — the gap is a silent no-op, byte-identical to the flag-off
 baseline for these two statement shapes, and elvis-vs-ternary safety and
 nullable-type safety are both independently unaffected (verified separately
 in the dogfood summary above).
+
+**2026-08-26 re-investigation, CONFIRMED NOT FEASIBLE as a narrow fix, closed
+without implementing (no source change).** Re-opened this finding to
+seriously assess a narrow, safe fix (mirroring `if`/`while`/`for`'s own
+paren/depth-based span-finding instead of `findStatementSemicolon`) per this
+follow-up task's explicit instructions, rather than leaving the original
+assessment unchallenged. Read `KotlinSpecificRule.stripOptionalSemicolons`/
+`isTrailingSemicolon`, `MiscRuleCurly.findStatementSemicolon`/
+`enforceOperatorLineBreaking`'s return/assignment branches, and
+`GetterSetterRuleCore.isAsiContinuation` end-to-end; confirmed no other
+Kotlin-newline-sensitivity logic exists anywhere else in `src/` (repo-wide
+grep). A depth-tracking, newline-based statement-end scan (bail outright,
+rather than guess, whenever the token before or after the first depth-0
+candidate NEWLINE is ambiguous — declining the whole candidate exactly like
+today's silent no-op) looked initially promising for the four named
+continuation shapes: method-chaining and elvis both lead with a token
+(`.`/`?.`/`?:`) that can never legally start a new Kotlin statement, so
+detecting them with full confidence and bailing is straightforward; a
+brace-enclosed multi-line `if`/`when`-as-expression body is already handled
+for free by the same bracket-depth tracking `findStatementSemicolon` already
+does (a NEWLINE inside the body's own `{`...`}` is never at depth 0); a
+braceless multi-line `if`/`when`/`try` expression body and a trailing lambda
+starting on its own continuation line were judged too ambiguous for a cheap
+confident check and would need to be declined outright (an acceptable,
+narrow trade-off on their own).
+
+However, empirical testing against a real Kotlin compiler (downloaded
+`kotlin-compiler-2.4.0` fresh into this session, not present in the
+container by default — a real, compiled-and-executed `.kt` snippet, not just
+a syntax-only PSI parse) surfaced a second, independent, more fundamental
+problem that the original finding didn't name: this feature's own
+`renderTieredSplit`/`renderFragment` output shape is unconditionally
+**operator-leading** (the split operator starts the continuation line) for
+every language and every candidate kind, including `if`/`while`/`for`'s
+existing, already-shipped Kotlin support — safe there only because that
+split always happens strictly inside the condition's own `(...)`, where
+Kotlin (like most languages) does not treat a NEWLINE as statement-ending at
+all. A `return`/assignment RHS candidate is, by this whole candidate
+category's own definition, NOT inside any enclosing call parens, so an
+operator-leading split there would place a real top-level NEWLINE directly
+before the operator for the first time. Tested directly (compiled and RUN,
+not just parsed) with `kotlinc`: a value's initializer followed on the next
+line by a leading `&&`/`||` correctly continues as one expression (matches
+this feature's intended meaning) — but the same shape with a leading `+`/`-`
+silently compiles as **two separate statements** instead (the original
+initializer keeps its un-split value, and the leading `+`/`-` becomes a
+separate, no-op unary-prefix expression statement — a real, silent
+behavior-changing corruption, not caught by a syntax-only check), and the
+same shape with a leading `*`/`/` fails to compile at all (a hard syntax
+error). This means a safe implementation would need not only a real
+Kotlin-ASI-equivalent for span-finding, but ALSO a second, independent
+per-operator safety restriction on which operators this feature's existing,
+cross-language operator-leading rendering convention may ever use for a
+Kotlin return/assignment split specifically (in effect, a different render
+style for this one case, or restricting Kotlin's top-level tier-1 splits to
+`&&`/`||` only and refusing tier-3 `*`/`/` entirely) — confirming, with
+concrete evidence rather than the original finding's reasoning alone, that
+this is a materially bigger, separately-scoped feature, not a narrow fix.
+Per this follow-up task's explicit instructions, decided NOT to implement
+even the narrower span-finding-only piece on its own (it would still need
+the render-side restriction to be safe, which is out of this narrow fix's
+scope) — no `src/` change made. `XL.txt`'s `TIER 9 -- [Feature]` entry for
+this item moved to `TIER X: Dead` with a short closed-reason annotation
+pointing back here.
 
 ---
 
@@ -1037,10 +1208,15 @@ in the dogfood summary above).
   with a newline sitting inside a spread argument's parens rather than at
   the top level, mistaken for single-line and re-flattened with mangled
   ternary spacing.
+- `test/real_code_regressions_244_{inp,out}.cpp` — `RDD_KEY_353` fix (the
+  exact `RDD_KEY_348`/D10 manual repro, registered at the tool's actual
+  default config): a single-line function body's closing `}` stayed glued to
+  the last operator-split fragment instead of moving onto its own line once
+  the `return` expression's ternary was split.
 - `make test`: 347/347 -> 350/350 -> 351/351 -> 355/355 -> 356/356 ->
-  359/359 -> 360/360 -> 361/361 -> 362/362 -> 363/363 forward + idempotency,
-  zero regressions (363 after `RDD_KEY_351`'s `real_code_regressions_243`
-  fixture).
+  359/359 -> 360/360 -> 361/361 -> 362/362 -> 363/363 -> 364/364 forward +
+  idempotency, zero regressions (364 after `RDD_KEY_353`'s
+  `real_code_regressions_244` fixture).
 - **2026-08-25 real-code C/C++ dogfood (`RDD_KEY_346`):** `fmtlib/fmt`
   sample (17 files, flag forced on) — first C/C++-specific real-code
   validation of this feature. Confirmed correct tier-1/tier-3 splits, a
@@ -1086,6 +1262,22 @@ in the dogfood summary above).
   a reformat; fixed via a narrow, flag-gated indent-shape guard. Verified
   against the real, unmodified `google/guava` `LocalCache.java` file that
   surfaced the finding. `make test`: 361/361 -> 362/362, zero regressions.
+- **2026-08-26 follow-up fix (`RDD_KEY_353`, D14):** fixed the closing-`}`
+  half of the single-line function-body brace-placement flap (see Known
+  Out-of-Scope Finding above, now fully closed for C/C++) — root-caused to
+  `ScopePipelineCurly.processScope`'s foundational scope-tree render leaving
+  a still-one-liner-at-that-point non-named scope's body spliced back
+  verbatim, never revisited once `enforceOperatorLineBreaking` later widens
+  it; fixed via a new, narrowly-scoped, language-general re-run helper (not
+  a `scopePipeline.process()` re-run). Verified at the tool's actual DEFAULT
+  config against the exact `RDD_KEY_348` manual repro (now round1==round2)
+  and against the real, unmodified `fmtlib/fmt` `base.h` file (`line-length=
+  60`, matching D8/D10's own dogfood methodology). Confirmed general to the
+  whole curly family (Java/TypeScript hit the same closing-brace staleness,
+  though a separate, still-open, pre-existing opening-brace gap keeps those
+  two non-idempotent overall). New fixture
+  `test/real_code_regressions_244_{inp,out}.cpp`. `make test`: 363/363 ->
+  364/364, zero regressions.
 
 ---
 
@@ -1108,9 +1300,15 @@ in the dogfood summary above).
       `RDD_KEY_347`) — 1 bug found and fixed (D9, general curly-family),
       1 new gap found and documented (Kotlin return/assignment split
       never fires, time-boxed, not chased).
-- [~] Single-line function-body brace-placement flap (`RDD_KEY_348`, D10) —
-      half fixed (opening-`{` staleness); closing-`}` staleness needs a new
-      narrowly-scoped re-run helper, left for a future session.
+- [x] Single-line function-body brace-placement flap (`RDD_KEY_348`, D10;
+      `RDD_KEY_353`, D14) — fully fixed for C/C++: opening-`{` staleness
+      fixed by D10, closing-`}` staleness fixed by D14 via a new,
+      narrowly-scoped, language-general re-run helper (not a
+      `scopePipeline.process()` re-run). Java/TypeScript hit the same
+      closing-brace staleness (also fixed by D14) but carry a SEPARATE,
+      still-open, pre-existing opening-brace gap (their own Allman-brace
+      passes never given D10's re-run treatment) — out of scope, not fixed,
+      those two languages remain non-idempotent overall for this trigger.
 - [x] Real-code TS dogfood (`angular/angular` sample, flag forced on,
       `RDD_KEY_349`) — 1 bug found and fixed (D11, a bare `:` mistaken for a
       ternary else-branch with no preceding real `?`, a TS-specific
@@ -1133,3 +1331,14 @@ in the dogfood summary above).
       re-check, a full-corpus lowered-`line-length` run, and an isolated
       repro attempt — genuinely unconfirmed, left open for a future session
       with a different guava commit or a real novel trigger.
+- [x] Kotlin `return`/plain-assignment operator-split gap (`RDD_KEY_347`) —
+      re-investigated 2026-08-26 to seriously assess a narrow, safe fix; a
+      real Kotlin compiler confirmed a second, independent corruption vector
+      beyond the original ASI/statement-boundary problem (this feature's
+      own cross-language operator-leading render convention itself silently
+      changes program behavior for a Kotlin `+`/`-` split and hard-errors
+      for a `*`/`/` split, outside the safety of an enclosing `if`/`while`/
+      `for` condition's parens). CLOSED as not feasible without a
+      separately-scoped Kotlin ASI subsystem; no `src/` change made. See the
+      dated follow-up on the Known Out-of-Scope Finding above and `XL.txt`'s
+      `TIER X: Dead` entry.

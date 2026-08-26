@@ -838,7 +838,7 @@ make test-server
 make test-server-concurrent
 make bench
 
-### Tools
+### Tools (you can use `https://beautifier.io` as a helper tool for JS)
 cd tools
 rm -rvf /tmp/tools /tmp/tools_r1 /tmp/tools_r2
 mkdir /tmp/tools
@@ -872,6 +872,7 @@ find /tmp/tools -type f -name '*.py' | while read -r file; do realpath --relativ
 ./verifiers/python_content_diff.sh /tmp/tools /tmp/tools_r1 /tmp/py_rel_path_file_list.txt
 
 rsync -av --no-perms /tmp/tools_r1/ .
+cd ..
 ```
 
 No syntax errors; AST differed only in comments. `java_content_diff.java`

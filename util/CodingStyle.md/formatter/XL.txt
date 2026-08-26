@@ -289,41 +289,34 @@ Use sub-agent. This can be a substantial work.
 
 Use sub-agent. This can be a substantial work.
 
-=== TIER X: Dead (ordered by deadness -- hardest/least-revivable to implement first; [AI] items kept grouped) ===
+=== TIER X: Dead (ordered by revivability -- most-revivable to least-revivable first; [AI] items kept grouped) ===
 
-- [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM). CLOSED — permanently
-  NOT FEASIBLE.
+- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass rewrite. CLOSED — unscoped
+  across 4 attempts, not ruled infeasible. See `STATE_C_CPP_JAVA.md`, `RDD_KEY_330`.
+
+- [PYTHON3] f-string internal expression re-spacing. CLOSED 2026-08-12, intentional scope. See
+  `STATE_PYTHON3.md` §5.
+
+- [LINE_SPLIT_OP] Kotlin `return`/plain-assignment operator-priority line splitting. CLOSED —
+  NOT FEASIBLE without a separately-scoped Kotlin ASI subsystem. See `STATE_LINE_SPLIT_OP.md`'s
+  Known Out-of-Scope Finding, `RDD_KEY_347`.
+
+- [JS_TS] JSX full embedding-aware dispatcher. CLOSED — NOT FEASIBLE. See `STATE_JS_TS.md`.
+
+- [AI] Mid-word-dot sentence-boundary detection. CLOSED 2026-08-11. See `STATE_AI.md`.
 
 - [AI] Dedicated GRU for non-Latin/mixed-language comments. Assessed, not planned. CLOSED
   2026-08-10. See `STATE_AI.md`.
 
-- [AI] Mid-word-dot sentence-boundary detection for trailing-period stripping. CLOSED
-  2026-08-11. See `STATE_AI.md`.
-
-- [JS_TS] JSX full embedding-aware dispatcher (general HTML5-tree-construction reuse +
-  grammar-position `<` disambiguation). CLOSED — NOT FEASIBLE.
-
-- [C_CPP_JAVA / JS_TS] `ScopePipelineCurly.processScope` double-pass rewrite. CLOSED — 4 sessions
-  each fixed only a narrow instance, none scoped the rewrite itself. See `STATE_C_CPP_JAVA.md`,
-  `RDD_KEY_330`.
-
-- [LINE_SPLIT_OP] Kotlin `return`/plain-assignment operator-priority line splitting. CLOSED —
-  NOT FEASIBLE without a separately-scoped Kotlin ASI subsystem; real corruption risk from a naive
-  heuristic, confirmed empirically (a real Kotlin compiler resolved a leading `+`/`-` continuation
-  on the next line as the start of a brand-new statement rather than a continuation of the previous
-  one, silently changing behavior, and resolved a leading `*`/`/` continuation as an outright syntax
-  error) on top of the already-documented statement-boundary-finding gap. See
-  `STATE_LINE_SPLIT_OP.md`'s Known Out-of-Scope Finding, `RDD_KEY_347`.
-
-- [PYTHON3] f-string internal expression re-spacing (`f"{x  +  1}"` not normalized). CLOSED
-  2026-08-12, intentional scope. See `STATE_PYTHON3.md` §5.
+- [AI] AI-assist Step 2 (argument-layout/getter-setter-grouping via LLM). CLOSED — permanently
+  NOT FEASIBLE. See `STATE_AI.md`.
 
 === TIER Z: Closed, revisit only if new evidence surfaces (ordered by importance/reopen-likelihood, highest first) ===
 
 - [LINE_SPLIT_OP] Declaration/condition collapse-on-round2 flap, original Java/`google/guava`
-  manifestation — NOT REPRODUCED after two separate, thorough attempts (RDD_KEY_344,
-  RDD_KEY_351); the only live recurrence actually found (JS/TS, a different mechanism) is
-  FIXED. See `STATE_LINE_SPLIT_OP.md` Known Out-of-Scope Finding.
+  manifestation — NOT REPRODUCED after two attempts (RDD_KEY_344, RDD_KEY_351); the only live
+  recurrence found (JS/TS, a different mechanism) is FIXED. See `STATE_LINE_SPLIT_OP.md` Known
+  Out-of-Scope Finding.
 
 - [CURLY_GDR] GDR-2 (second multipass cycle) mis-scoping risk — NOT REPRODUCED. See
   `STATE_CURLY_GDR.md`.
@@ -332,10 +325,8 @@ Use sub-agent. This can be a substantial work.
   resolved 2026-08-15 (RDD_KEY_295), documented limitation. See `STATE_HTML5_TCG.md`'s
   Open Questions.
 
-- [CURLY_GDR] `GdrTokenizer` nested-block-comment gap — CLOSED, FIXED 2026-08-21. Kotlin block
-  comments genuinely nest; `scanBlockComment` now counts nesting depth for Kotlin only (gated on
-  language, C/C++/Java/JS/TS untouched). Fixture `real_code_regressions_227`. `make test`:
-  339/339 → 340/340. See `RDD_KEY_333` in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
+- [CURLY_GDR] `GdrTokenizer` nested-block-comment gap — CLOSED, FIXED 2026-08-21. See
+  `RDD_KEY_333` in `RDD_LOG.md` / `STATE_CURLY_GDR.md`.
 
 ####################################################################################################
 ####################################################################################################
@@ -382,44 +373,5 @@ trap 'kill -- -$$ 2>/dev/null; wait' EXIT
 
 echo $$ > "$CG/cgroup.procs"
 exec  ~/mynpm/bin/claude "$@"
-
-####################################################################################################
-
-Launch a sub-agent to do this (ONLY for the files affected by this session's jobs -- see the GIT
-commit log for this session as needed):
-
-    Process the formatter's Java source code and make improvements in this priority order:
-     1. Refactor duplicated/common code.
-     2. If a clear opportunity arises, optimize for execution speed.
-     3. Perform other useful code clean-ups as needed.
-
-    Prioritize changes that are:
-     - Small and focused.
-     - Low-risk and behavior-preserving
-     - Consistent with the existing code style and architecture.
-     - Related to the stated tasks; avoid unrelated changes.
-
-    For optimizations, do not make speculative changes. Prefer optimizations where the
-    performance benefit is reasonably clear from the code.
-
-    After several trivial changes, or after completing one substantial change, run `make test`.
-    Fix any failures before continuing.
-
-    Commit completed changes incrementally. Do NOT accumulate all changes and make one large
-    commit. Each commit should contain a coherent set of related changes and have an appropriate
-    commit message.
-
-    Some of the code inside `tools/*` may use the formatter classes either directly or via its
-    JAR. Ensure the refactoring and optimization process do not break the `tools`.
-
-and then:
-
-   Apply the formatter to all the formatter's `*.java` source files inside `src/**/*.java`
-   subdirectories that WERE MODIFIED by the ABOVE job (readopt again).
-
-   Output the result to `/tmp/fmt_round1` and then `/tmp/fmt_round2`. Perform idempotency check
-   and content-diff check. If all OK, copy back the formatted round1 to the formatter's `src/**/`
-   subdirectories. Perform some eyeballing as needed. Running the test fixtures from the formatter
-   JAR may produce regressions due to missing GRU weights. Perform bug fixes as needed.
 
 ####################################################################################################

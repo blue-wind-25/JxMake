@@ -451,8 +451,9 @@ for the `$JDK`/`$KLIB` env setup and why each is needed):
 "$JDK/bin/java" -cp ".:$KLIB/kotlin-compiler.jar:$KLIB/kotlin-stdlib.jar" kotlin_syntax_check <file.kt> [file2.kt ...]
 ```
 
-Exits 0 and prints "OK: no syntax errors" when clean; exits 1 and prints
-each `PsiErrorElement`'s description + text range on a parse error.
+Exits 0 with no output when clean; exits 1 and prints each `PsiErrorElement`'s
+description + text range on a parse error (made silent-on-success to match
+every other `*_syntax_check` verifier's convention).
 Verified against this project's own `test/kt_combined_out.kt` (passes
 clean) and a deliberately corrupted copy with injected stray `}}}`
 (correctly reports errors at the right offsets).

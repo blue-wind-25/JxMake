@@ -68,15 +68,8 @@ function main()
     let anyError = false;
 
     for(const arg of args) {
-        const source   = fs.readFileSync(arg, 'utf8');
-        const hasError = hasSyntaxError(source);
-        if(hasError) {
-            console.log(`SYNTAX ERRORS FOUND in ${arg}`);
-            anyError = true;
-        }
-        else {
-            console.log(`OK: no syntax errors in ${arg}`);
-        }
+        const source = fs.readFileSync(arg, 'utf8');
+        if( hasSyntaxError(source) ) anyError = true;
     } // for
 
     if(anyError) process.exit(1);

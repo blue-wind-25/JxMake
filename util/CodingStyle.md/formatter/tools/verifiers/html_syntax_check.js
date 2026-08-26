@@ -17,8 +17,8 @@
 // error-tolerant (e.g. it silently auto-closes mismatched tags rather
 // than failing) so this will NOT catch most "malformed" HTML the way
 // an XML parser catches malformed XML -- it only reports the specific
-// set of conditions the spec defines as parse errors. Treat "OK" here
-// as "a browser can render this without an ambiguous/undefined DOM",
+// set of conditions the spec defines as parse errors. Treat a clean exit
+// here as "a browser can render this without an ambiguous/undefined DOM",
 // not "the markup is well-formed" in the XML sense.
 //
 // Install (once node/npm work):
@@ -63,15 +63,8 @@ function main()
     let anyError = false;
 
     for(const arg of args) {
-        const source   = fs.readFileSync(arg, 'utf8');
-        const hasError = hasSyntaxError(source);
-        if(hasError) {
-            console.log(`SYNTAX ERRORS FOUND in ${arg}`);
-            anyError = true;
-        }
-        else {
-            console.log(`OK: no syntax errors in ${arg}`);
-        }
+        const source = fs.readFileSync(arg, 'utf8');
+        if( hasSyntaxError(source) ) anyError = true;
     } // for
 
     if(anyError) process.exit(1);

@@ -114,15 +114,7 @@ public class java_syntax_check {
         for(String arg : args) {
             String source = Files.readString( Paths.get(arg) );
 
-            boolean hasError = hasSyntaxError(source);
-
-            if(hasError) {
-                System.out.println("SYNTAX ERRORS FOUND in " + arg);
-                anyError = true;
-            }
-            else {
-                System.out.println("OK: no syntax errors in " + arg);
-            }
+            if( hasSyntaxError(source) ) anyError = true;
         } // for
 
         if(anyError) System.exit(1);

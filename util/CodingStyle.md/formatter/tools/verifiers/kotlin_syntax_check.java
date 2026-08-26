@@ -78,14 +78,7 @@ public class kotlin_syntax_check {
             String  source   = new String(
                 java.nio.file.Files.readAllBytes( java.nio.file.Paths.get(arg) )
             );
-            boolean hasError = hasSyntaxError(source);
-            if(hasError) {
-                System.out.println("SYNTAX ERRORS FOUND in " + arg);
-                anyError = true;
-            }
-            else {
-                System.out.println("OK: no syntax errors in " + arg);
-            }
+            if( hasSyntaxError(source) ) anyError = true;
         } // for
 
         if(anyError) System.exit(1);

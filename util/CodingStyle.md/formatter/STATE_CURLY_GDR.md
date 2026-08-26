@@ -151,16 +151,13 @@ fixes were tried and reverted:
    unrelated preceding sibling statement).
 
 Both sessions concluded a real fix needs actual Kotlin statement-boundary/
-structural-depth tracking, not a local token-scan patch — "closer to
-`STATE_COMMON.md`'s GDR architectural TODO's territory than a self-contained
-fix." This fold executes that already-self-documented conclusion.
-
+structural-depth tracking, not a local token-scan patch — closer to this
+job's territory than a self-contained fix, which this fold executes.
 **Scoped as a sub-goal of this job:** once GDR's own structural-depth
 infrastructure lands, D3's fix should be revisited using that
 infrastructure, deriving a stable statement-start boundary the same way the
 pre-pass derives a stable reindent target — not as a standalone patch to
 `MiscRuleCurly`. D3 is not blocking GDR's own architecture work.
-
 `STATE_KOTLIN.md` points here instead of tracking D3 independently — see
 that file's D3 sections and its Step-5/dogfood summary lines.
 

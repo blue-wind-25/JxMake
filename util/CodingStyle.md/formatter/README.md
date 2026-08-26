@@ -1465,7 +1465,13 @@ to load/maintain, a cost disproportionate to the benefit, since the affected dec
 (leading-keyword/trailing-period ambiguity) is an English-prose-vs-code-keyword distinction that
 mostly doesn't apply to non-Latin text in the first place.
 
-#### 2. A trailing period next to more than one `.` in the same comment always survives — but capitalization still applies independently
+#### 2. A trailing period next to a decimal number or other unrecognized mid-word dot survives — but capitalization still applies independently
+
+```java
+// the value 3.14 rounds up.
+```
+
+stays exactly as written (the trailing period is not stripped), while
 
 ```java
 // see the .hpp file, e.g. widget.hpp.
@@ -1474,21 +1480,23 @@ mostly doesn't apply to non-Latin text in the first place.
 becomes
 
 ```java
-// See the .hpp file, e.g. widget.hpp.
+// See the .hpp file, e.g. widget.hpp
 ```
 
-The trailing-period stripper calls the classifier first, then discards its result via a mechanical
-bail-out whenever a comment contains more than one `.` — a file extension, an abbreviation like
-`e.g.`, or an ellipsis — even when the GRU already ran and produced a real answer. This bail only
-affects period-stripping: comment-start capitalization is a separate step and still runs
-normally, so the comment above is not left fully as-is — only its trailing period survives.
+The trailing-period stripper recognizes a fixed set of common non-sentence-ending dot shapes —
+file extensions/version-style tokens like `.hpp` (including inside backticks), and abbreviations
+like `e.g.`, `i.e.`, `etc.`, and `et al.` — and no longer lets those block stripping a genuine
+trailing period elsewhere in the same comment. It does not generalize beyond that fixed list:
+a decimal number (`3.14`), an ellipsis, or any other dot shape it doesn't recognize still counts
+against the comment, so its trailing period is left in place. Capitalization is a separate step
+and still runs normally either way.
 
-No workaround: distinguishing a mid-word/mid-token dot from a true sentence-ending dot is a
-separate judgment call the shared model was never trained on (no `task` dimension in the training
-schema, to keep it from degrading the model's main "is this substantive prose" job). Canceled, not
-merely deferred — reliably telling the two apart would need a second, separately-trained model
-(its own corpus and weights file) dedicated to that one narrow judgment call, which isn't planned
-given the limited benefit.
+No general workaround: reliably telling every kind of mid-word dot apart from a true
+sentence-ending one is a natural-language judgment call, and this project's shared
+comment-classification model is not trained on that distinction (training it in would risk
+degrading the model's main "is this substantive prose" job). The fixed list above covers the
+common real-world cases; anything outside it is treated conservatively (left as-is) rather than
+guessed at.
 
 #### 3. The GRU's residual false-positive rate on `NO` cases is accepted, not further reduced
 

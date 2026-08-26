@@ -357,31 +357,20 @@ JS/TS fixtures are active in the Makefile and passing.
   bakes literal tabs straight into every child line, real corruption, not
   just a width mismatch). Per the "2-3 attempts then keep the safer
   partial mitigation and document" guardrail, attempt 1 (the tab-bail) was
-  kept as final — real, verified improvement, documented below as an
-  accepted residual gap. `make test` reconfirmed clean at 329/329 forward
-  + idempotency after the fix (existing fixtures don't exercise tab-mixed
-  JSX root indentation, so none regressed or was added — a new one was
-  considered but skipped since it would itself fail the idempotency check
-  by design).
-
-  **Known residual gap (accepted, not silently missed):** a JSX root tag
-  whose own source line mixes tabs and spaces in its leading indentation
-  takes two `code-formatter` passes, not one, to settle into fully clean,
-  consistently-indented children (the first pass leaves children at their
-  original indentation rather than corrupting them with baked-in tabs; the
-  second, once the root line is tab-normalized by the general engine,
-  rewrites children correctly) — a narrow, low-likelihood shape matching
-  `STATE_COMMON.md`'s already-accepted "General scope-depth reindentation"
-  gap class, not force-fixed under this narrow pass's own scope. Already
-  user-facing documented in `README.md`'s `## Known Limitations` §5 (last
-  paragraph); not re-added to `XL.txt`.
+  kept as final — real, verified improvement, accepted as a residual gap
+  (converges after 2 passes instead of 1, narrow low-likelihood shape,
+  matching `STATE_COMMON.md`'s already-accepted "General scope-depth
+  reindentation" gap class; documented in `README.md`'s
+  `## Known Limitations` §5, not re-added to `XL.txt`). `make test`
+  reconfirmed clean at 329/329 forward + idempotency after the fix
+  (existing fixtures don't exercise tab-mixed JSX root indentation, so none
+  regressed or was added — a new one was considered but skipped since it
+  would itself fail the idempotency check by design).
 
   **Remaining scope, unchanged:** the general, reusable
-  HTML5-tree-construction-aware JSX child parser (grammar-position lexer,
-  HTML5-vs-JSX divergence audit) is still explicitly out of scope and not
-  designed — this session's narrow parser is purpose-built for JSX's own
-  explicit-closing-tag grammar (no implicit tag closing, no HTML5
-  parse-error recovery to emulate) and is NOT a step toward, nor a
+  HTML5-tree-construction-aware JSX child parser is still out of scope and
+  not designed — this session's narrow parser is purpose-built for JSX's
+  own explicit-closing-tag grammar and is NOT a step toward, nor a
   substitute design for, that general engine.
 
 - **Unrelated bug found, not fixed (out of this job's scope):**

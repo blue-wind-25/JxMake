@@ -843,7 +843,7 @@ make bench
 rm /tmp/code-formatter-ai-assist-weights.json
 rm -rvf /tmp/fmt_r1 /tmp/fmt_r2
 
-### Tools (you can use `https://beautifier.io` as a helper tool for JS)
+### Tools (you can use `https://beautifier.io` as a comparison tool for JS formatter)
 rm -rvf /tmp/tools /tmp/tools_r1 /tmp/tools_r2
 
 cd tools

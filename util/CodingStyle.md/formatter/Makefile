@@ -91,6 +91,7 @@ test-all:
 
 
 # clear && git status && echo && svn stat && echo
+# clear && git status -uno && echo && svn stat | grep -v '^\?' && echo
 # git stash list
 # git fsck --unreachable --no-reflogs
 

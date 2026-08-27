@@ -45,7 +45,7 @@ public final class GruSoftmaxSelfTest {
     private static void checkSoftmaxSumsToOne(final double[] logits)
     {
         final double[] p   = GruClassifier.softmax(logits);
-        double         sum = 0.0;
+              double   sum = 0.0;
         for(final double v : p) sum += v;
         if( Math.abs(
             sum - 1.0

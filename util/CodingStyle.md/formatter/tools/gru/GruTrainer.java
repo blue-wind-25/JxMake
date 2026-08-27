@@ -443,10 +443,12 @@ public final class GruTrainer {
         // doesn't bit-reproduce a non-interrupted run.
         Collections.shuffle(examples, random);
         final int           validationCount = Math.max( 1, examples.size() / 5 );
-        final List<Example> validation      = new ArrayList<>( examples.subList(0, validationCount) );
-              List<Example> train           = new ArrayList<>( examples.subList(
-            validationCount, examples.size()
+        final List<Example> validation      = new ArrayList<>( examples.subList(
+            0, validationCount
         ) );
+              List<Example> train           = new ArrayList<>( examples.subList(
+                  validationCount, examples.size()
+              ) );
         if( train.isEmpty() ) train = new ArrayList<>(examples);
 
         // Hand-labeled oversampling (see the --hand-labeled/--hand-labeled-repeat javadoc above):
@@ -476,7 +478,9 @@ public final class GruTrainer {
                 explicitVocab.size(), train.size(), validation.size(), maxEpochs, patience,
                 learningRate, batchSize, threads, warmupSteps, lrMin ) );
 
-        final AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
+        final AdamState adam               = resumed != null ? resumed.adam : new AdamState(
+            weights
+        );
               double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
         // `weights` is mutated in place by `adam.apply` every step, so a plain `bestWeights =
         // weights` reference assignment would silently drift to whatever `weights` is by the end
@@ -800,7 +804,9 @@ public final class GruTrainer {
         final GruClassifier.ForwardCache cache = GruClassifier.forward(
             weights, vocabulary, tokens, targetWordIndex
         );
-        final GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, classIndex);
+        final GruClassifier.Gradients gradients = GruClassifier.backward(
+            weights, cache, classIndex
+        );
 
         final double epsilon = 1e-5;
         System.out.println( String.format(
@@ -1123,7 +1129,10 @@ public final class GruTrainer {
         return sum;
     }
 
-    private static void addGradientsInto(final GruClassifier.Gradients dst, final GruClassifier.Gradients src)
+    private static void addGradientsInto(
+        final GruClassifier.Gradients dst,
+        final GruClassifier.Gradients src
+    )
     {
         for( final Map.Entry<Integer, double[]> entry : src.embeddingGrad.entrySet() ) {
             final double[] existing = dst.embeddingGrad.get( entry.getKey() );
@@ -1138,7 +1147,10 @@ public final class GruTrainer {
         addInto(dst.outB, src.outB);
     }
 
-    private static void addInto(final GruWeights.DirectionWeights dst, final GruWeights.DirectionWeights src)
+    private static void addInto(
+        final GruWeights.DirectionWeights dst,
+        final GruWeights.DirectionWeights src
+    )
     {
         addInto(dst.Wz, src.Wz);
         addInto(dst.Wr, src.Wr);
@@ -1246,7 +1258,12 @@ public final class GruTrainer {
          */
         final List<String> tokens;
 
-        Example(final String label, final int classIndex, final int targetWordIndex, final String text)
+        Example(
+            final String label,
+            final int    classIndex,
+            final int    targetWordIndex,
+            final String text
+        )
         {
             this.label           = label;
             this.classIndex      = classIndex;
@@ -1270,7 +1287,9 @@ public final class GruTrainer {
     private static List<Example> readExamples(final File examplesFile) throws IOException
     {
         final List<Example> examples = new ArrayList<>();
-        for( final String line : Files.readAllLines( examplesFile.toPath(), StandardCharsets.UTF_8 ) ) {
+        for( final String line : Files.readAllLines(
+            examplesFile.toPath(), StandardCharsets.UTF_8
+        ) ) {
             if( line.isEmpty() || line.startsWith("#") ) continue;
             final String[] parts = line.split("\t", 4);
             if(parts.length != 4) continue;
@@ -1323,7 +1342,9 @@ public final class GruTrainer {
     private static List<String> readVocab(final File vocabFile) throws IOException
     {
         final List<String> words = new ArrayList<>();
-        for( final String line : Files.readAllLines( vocabFile.toPath(), StandardCharsets.UTF_8 ) ) {
+        for( final String line : Files.readAllLines(
+            vocabFile.toPath(), StandardCharsets.UTF_8
+        ) ) {
             final String trimmed = line.trim();
             if( trimmed.isEmpty() || trimmed.startsWith("#") ) continue;
             words.add(trimmed);
@@ -1417,7 +1438,12 @@ public final class GruTrainer {
         return weights;
     }
 
-    private static void fillGlorot(final double[][] matrix, final Random random, final int fanIn, final int fanOut)
+    private static void fillGlorot(
+        final double[][] matrix,
+        final Random     random,
+        final int        fanIn,
+        final int        fanOut
+    )
     {
         for( final double[] row : matrix ) {
             for(int j = 0; j < row.length; ++j) row[j] = glorot(random, fanIn, fanOut);
@@ -1580,7 +1606,12 @@ public final class GruTrainer {
 
         } // class DirectionMoments
 
-        void apply(final GruWeights weights, final GruClassifier.Gradients gradients, final double lr, final int step)
+        void apply(
+            final GruWeights              weights,
+            final GruClassifier.Gradients gradients,
+            final double                  lr,
+            final int                     step
+        )
         {
             final double biasCorrection1 = 1.0 - Math.pow(BETA1, step);
             final double biasCorrection2 = 1.0 - Math.pow(BETA2, step);
@@ -1723,7 +1754,9 @@ public final class GruTrainer {
         return new File(path + CHECKPOINT_BEST_SUFFIX);
     }
 
-    private static void writeDoubleArray(final DataOutputStream out, final double[] values) throws IOException
+    private static void writeDoubleArray(
+        final DataOutputStream out, final double[] values
+    ) throws IOException
     {
         out.writeInt(values.length);
         for(final double v : values) out.writeDouble(v);
@@ -1738,7 +1771,9 @@ public final class GruTrainer {
         return values;
     }
 
-    private static void readDoubleArrayInto(final DataInputStream in, final double[] target) throws IOException
+    private static void readDoubleArrayInto(
+        final DataInputStream in, final double[] target
+    ) throws IOException
     {
         final int n = in.readInt();
         if(n != target.length) throw new IOException(
@@ -1747,7 +1782,9 @@ public final class GruTrainer {
         for(int i = 0; i < n; ++i) target[i] = in.readDouble();
     }
 
-    private static void writeDoubleArray2D(final DataOutputStream out, final double[][] rows) throws IOException
+    private static void writeDoubleArray2D(
+        final DataOutputStream out, final double[][] rows
+    ) throws IOException
     {
         out.writeInt(rows.length);
         for( final double[] row : rows ) writeDoubleArray(out, row);
@@ -1774,7 +1811,8 @@ public final class GruTrainer {
     }
 
     private static void writeDirectionWeights(
-        final DataOutputStream out, final GruWeights.DirectionWeights w
+        final DataOutputStream            out,
+        final GruWeights.DirectionWeights w
     ) throws IOException
     {
         writeDoubleArray2D(out, w.Wz);
@@ -1991,7 +2029,8 @@ public final class GruTrainer {
     }
 
     private static void writeDirectionMoments(
-        final DataOutputStream out, final AdamState.DirectionMoments m
+        final DataOutputStream           out,
+        final AdamState.DirectionMoments m
     ) throws IOException
     {
         writeDoubleArray2D(out, m.WzM);
@@ -2015,7 +2054,8 @@ public final class GruTrainer {
     }
 
     private static void readDirectionMomentsInto(
-        final DataInputStream in, final AdamState.DirectionMoments m
+        final DataInputStream            in,
+        final AdamState.DirectionMoments m
     ) throws IOException
     {
         readDoubleArray2DInto(in, m.WzM);
@@ -2038,7 +2078,9 @@ public final class GruTrainer {
         readDoubleArrayInto(in, m.bhV);
     }
 
-    private static void writeAdamState(final DataOutputStream out, final AdamState adam) throws IOException
+    private static void writeAdamState(
+        final DataOutputStream out, final AdamState adam
+    ) throws IOException
     {
         writeDoubleArray2D(out, adam.embeddingM);
         writeDoubleArray2D(out, adam.embeddingV);

@@ -160,7 +160,11 @@ public class java_content_diff {
     {
         final String[]      lines = s.split("\n", -1);
         final StringBuilder out   = new StringBuilder();
-        for(final String line : lines) out.append( line.replaceFirst("^\\s*\\*\\s?", "") ).append(' ');
+        for(final String line : lines) out.append(
+            line.replaceFirst("^\\s*\\*\\s?", "")
+        ).append(
+            ' '
+        );
 
         return normalizeWhitespace( out.toString() );
     }
@@ -247,7 +251,11 @@ public class java_content_diff {
         return out;
     }
 
-    static List<String> diffMultisets(final String label, final List<String> a, final List<String> b)
+    static List<String> diffMultisets(
+        final String       label,
+        final List<String> a,
+        final List<String> b
+    )
     {
         return diffMultisets(label, a, b, s -> false);
     }
@@ -318,7 +326,10 @@ public class java_content_diff {
      * tools' parsers fail in different ways.
      */
     static boolean compareOne(
-        final Path origPath, final Path fmtPath, final String origLabel, final String fmtLabel
+        final Path   origPath,
+        final Path   fmtPath,
+        final String origLabel,
+        final String fmtLabel
     ) throws Exception
     {
         final String origSrc = Files.readString(origPath);
@@ -426,7 +437,9 @@ public class java_content_diff {
     }
 
     static void runBatch(
-        final String origBaseDir, final String fmtBaseDir, final String fileListPath
+        final String origBaseDir,
+        final String fmtBaseDir,
+        final String fileListPath
     ) throws Exception
     {
         final List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );

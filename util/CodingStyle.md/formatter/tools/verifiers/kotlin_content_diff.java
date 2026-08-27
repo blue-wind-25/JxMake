@@ -435,7 +435,11 @@ public class kotlin_content_diff {
         return out;
     }
 
-    static List<String> diffMultisets(final String label, final List<String> a, final List<String> b)
+    static List<String> diffMultisets(
+        final String       label,
+        final List<String> a,
+        final List<String> b
+    )
     {
         final List<String> mismatches = new ArrayList<>();
         final List<String> bCopy      = new ArrayList<>(b);
@@ -520,7 +524,10 @@ public class kotlin_content_diff {
      * throwing.
      */
     static boolean compareOne(
-        final Path origPath, final Path fmtPath, final String origLabel, final String fmtLabel
+        final Path   origPath,
+        final Path   fmtPath,
+        final String origLabel,
+        final String fmtLabel
     ) throws Exception
     {
         final String origSrc = new String( Files.readAllBytes(origPath) );
@@ -612,7 +619,9 @@ public class kotlin_content_diff {
     }
 
     static void runBatch(
-        final String origBaseDir, final String fmtBaseDir, final String fileListPath
+        final String origBaseDir,
+        final String fmtBaseDir,
+        final String fileListPath
     ) throws Exception
     {
         final List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );

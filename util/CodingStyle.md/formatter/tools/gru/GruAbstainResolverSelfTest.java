@@ -67,7 +67,9 @@ public final class GruAbstainResolverSelfTest {
         // HasLeadingKeywordMatch=false, hasNonLatinScript=false -> CommentClassifier falls
         // through to the "main path", which always resolves YES per its own javadoc
         final CommentFeatureVector features = plainFeatures("Combined", "test", "file");
-        final Config               config   = configWith(true, "/nonexistent/gru/weights/path.json");
+        final Config               config   = configWith(
+            true, "/nonexistent/gru/weights/path.json"
+        );
 
         final CommentDecision result = GruAbstainResolver.resolve(
             features, "Combined test file.", 0, config
@@ -80,11 +82,15 @@ public final class GruAbstainResolverSelfTest {
     private static void checkRulesAbstain_gruClassifierOff_noLoadAttempt() throws IOException
     {
         final CommentFeatureVector features = nonLatinFeatures();
-        final Config               config   = configWith(false, "/nonexistent/gru/weights/path.json");
+        final Config               config   = configWith(
+            false, "/nonexistent/gru/weights/path.json"
+        );
 
         // The gru-classifier config key is off: the nonexistent weights path must never be
         // touched, so this must not throw and must return ABSTAIN without any load attempt
-        final CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
+        final CommentDecision result = GruAbstainResolver.resolve(
+            features, "中文 comment", 0, config
+        );
         if(result != CommentDecision.ABSTAIN) fail(
             "expected ABSTAIN when gru-classifier is off, got " + result
         );
@@ -93,9 +99,13 @@ public final class GruAbstainResolverSelfTest {
     private static void checkRulesAbstain_gruClassifierOn_weightsMissing_failSafeAbstain() throws IOException
     {
         final CommentFeatureVector features = nonLatinFeatures();
-        final Config               config   = configWith(true, "/nonexistent/gru/weights/path.json");
+        final Config               config   = configWith(
+            true, "/nonexistent/gru/weights/path.json"
+        );
 
-        final CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
+        final CommentDecision result = GruAbstainResolver.resolve(
+            features, "中文 comment", 0, config
+        );
         if(result != CommentDecision.ABSTAIN) fail(
             "expected fail-safe ABSTAIN on missing weights file, got " + result
         );
@@ -103,7 +113,9 @@ public final class GruAbstainResolverSelfTest {
 
     private static void checkRulesAbstain_gruClassifierOn_weightsPresent_stillAbstain() throws IOException
     {
-        final Path weightsPath = Files.createTempFile("gru_abstain_resolver_selftest_weights", ".json");
+        final Path weightsPath = Files.createTempFile(
+            "gru_abstain_resolver_selftest_weights", ".json"
+        );
         try {
             Files.write(
                 weightsPath, ("{" + "\"schemaVersion\": 1," + "\"vocabSize\": 100," + "\"hashBuckets\": 1024," + "\"embeddingDim\": 16," + "\"hiddenSize\": 224," + "\"sequenceCap\": 64," + "\"numClasses\": 3," + "\"abstainThreshold\": 0.5" + "}").getBytes(StandardCharsets.UTF_8)
@@ -112,7 +124,9 @@ public final class GruAbstainResolverSelfTest {
             final CommentFeatureVector features = nonLatinFeatures();
             final Config               config   = configWith( true, weightsPath.toString() );
 
-            final CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
+            final CommentDecision result = GruAbstainResolver.resolve(
+                features, "中文 comment", 0, config
+            );
             if(result != CommentDecision.ABSTAIN) fail(
                 "expected ABSTAIN (weights load succeeds but GruClassifier.classify is still " + "a stub), got " + result
             );
@@ -172,7 +186,11 @@ public final class GruAbstainResolverSelfTest {
         }
     }
 
-    private static CommentFeatureVector plainFeatures(final String target, final String prev, final String next)
+    private static CommentFeatureVector plainFeatures(
+        final String target,
+        final String prev,
+        final String next
+    )
     {
         return new CommentFeatureVector(
             target, prev, next, false, false, false, false,

@@ -56,6 +56,8 @@ here.
 ----------------------------------------------------------------------------------------------------
 CreateFileW
 ----------------------------------------------------------------------------------------------------
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
+
 DLL                : Kernel32.dll
 Header             : fileapi.h
 Calling convention : __stdcall (all Win32 API calls in this document use the standard Win32 calling
@@ -77,11 +79,11 @@ FFM notes          : `FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR)`
                      handle is compared against -1L (INVALID_HANDLE_VALUE) via `hInfFile.address()
                      == INVALID_HANDLE_VALUE`, and is always closed in a `finally` block.
 
-Source             : https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
-
 ----------------------------------------------------------------------------------------------------
 CloseHandle
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
+
 DLL          : Kernel32.dll
 Header       : handleapi.h
 
@@ -93,11 +95,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called on both the INF file han
                the elevated child process handle (`_shellExecuteElevatedAndWait`), each time from a
                `finally` block.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
-
 ----------------------------------------------------------------------------------------------------
 GetLastError
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
+
 DLL          : Kernel32.dll
 Header       : errhandlingapi.h
 
@@ -115,11 +117,11 @@ FFM notes    : `FunctionDescriptor.of(DW)`. Wrapped by the private `_lastError()
                these calls (e.g. moving logging after other cleanup calls) would silently corrupt
                the reported error code.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
-
 ----------------------------------------------------------------------------------------------------
 WaitForSingleObject
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
+
 DLL          : Kernel32.dll
 Header       : synchapi.h
 
@@ -134,11 +136,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Used in `_shellExecuteEleva
                60_000`. The returned code is compared against the local constant `WAIT_TIMEOUT =
                0x102`; on timeout the code calls TerminateProcess and reports RETCODE_TIMEOUT.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
-
 ----------------------------------------------------------------------------------------------------
 GetExitCodeProcess
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodeprocess
+
 DLL          : Kernel32.dll
 Header       : processthreadsapi.h
 
@@ -153,11 +155,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR)`. Called right after WaitFor
                value from `main()` flows all the way back to the un-elevated caller through this
                path.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodeprocess
-
 ----------------------------------------------------------------------------------------------------
 TerminateProcess
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess
+
 DLL          : Kernel32.dll
 Header       : processthreadsapi.h
 
@@ -170,11 +172,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Only reached on the WAIT_TI
                directly to returning RETCODE_TIMEOUT, so termination is best-effort/fire-and-forget
                rather than confirmed.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess
-
 ----------------------------------------------------------------------------------------------------
 LocalFree
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-localfree
+
 DLL          : Kernel32.dll
 Header       : winbase.h
 
@@ -192,11 +194,11 @@ FFM notes    : `FunctionDescriptor.of(PTR, PTR)` - return type is PTR (not DW) b
                released with LocalFree, never freed by any other means and never left for the arena
                to reclaim (the arena did not allocate it).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-localfree
-
 ----------------------------------------------------------------------------------------------------
 ShellExecuteExW
 ----------------------------------------------------------------------------------------------------
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw
+
 DLL                : Shell32.dll
 Header             : shellapi.h
 Calling convention : __stdcall
@@ -216,8 +218,6 @@ FFM notes          : `FunctionDescriptor.of(DW, PTR)` - single parameter, the st
                      specially and mapped to RETCODE_UAC_DECLINED, distinguishing "user clicked No
                      on the UAC prompt" from every other failure mode.
 
-Source             : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw
-
 Windows-specific caveats relevant to this implementation:
     - Because SEE_MASK_NOCLOSEPROCESS is set, the returned hProcess handle is the caller's
       responsibility to close (done in a `finally` in `_shellExecuteElevatedAndWait`).
@@ -235,14 +235,17 @@ Windows-specific caveats relevant to this implementation:
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SHELLEXECUTEINFOW
 ----------------------------------------------------------------------------------------------------
-Size/alignment as used here is 112 bytes, 8-byte aligned (x64).
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfow
+                     (struct member list cross-checked against the ShellExecuteExW page above; also
+                     generally well-known, stable Win32 struct).
 
-Field byte offsets, as hardcoded in the SEI_* constants in this file :
-                     cbSize(0,DWORD) fMask(4,DWORD) hwnd(8,HWND) lpVerb(16,LPCWSTR)
-                     lpFile(24,LPCWSTR) lpParameters(32,LPCWSTR) lpDirectory(40,LPCWSTR)
-                     nShow(48,int) hInstApp(56,HINSTANCE) lpIDList(64,void*) lpClass(72,LPCWSTR)
-                     hkeyClass(80,HKEY) dwHotKey(88,DWORD) hIcon/hMonitor(96,HANDLE)
-                     hProcess(104,HANDLE)
+Fields             : Field byte offsets, as hardcoded in the SEI_* constants in this file:
+                         cbSize(0,DWORD) fMask(4,DWORD) hwnd(8,HWND) lpVerb(16,LPCWSTR)
+                         lpFile(24,LPCWSTR) lpParameters(32,LPCWSTR) lpDirectory(40,LPCWSTR)
+                         nShow(48,int) hInstApp(56,HINSTANCE) lpIDList(64,void*) lpClass(72,LPCWSTR)
+                         hkeyClass(80,HKEY) dwHotKey(88,DWORD) hIcon/hMonitor(96,HANDLE)
+                         hProcess(104,HANDLE)
+                     Size/alignment as used here is 112 bytes, 8-byte aligned (x64).
 Purpose            : Describes a shell "verb" invocation (e.g. "open", "runas") plus the
                      file/parameters/window-state to launch it with, and receives back a process
                      handle and a pseudo-HINSTANCE result code.
@@ -262,9 +265,6 @@ Ownership/lifetime : All the LPCWSTR fields point into the same `Arena .ofConfin
                      kernel handle and IS the caller's responsibility (see CloseHandle above) - it
                      is not implicitly cleaned up by the arena.
 
-Source             : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfow
-                     (struct member list cross-checked against the ShellExecuteExW page above; also
-                     generally well-known, stable Win32 struct).
 
 ====================================================================================================
 SECTION B - Certificate Store / Self-Signed Certificate Layer (Crypt32.dll)
@@ -279,6 +279,8 @@ private-key linkage lives so it can be used later to sign the catalog).
 ----------------------------------------------------------------------------------------------------
 CertOpenStore
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certopenstore
+
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
@@ -299,11 +301,11 @@ FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, PTR)`. The first pa
                CERT_SYSTEM_STORE_LOCAL_MACHINE for "Root"/"TrustedPublisher" and
                CERT_SYSTEM_STORE_CURRENT_USER for "My".
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certopenstore
-
 ----------------------------------------------------------------------------------------------------
 CertCloseStore
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certclosestore
+
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
@@ -314,11 +316,11 @@ Purpose      : Releases a store handle obtained from CertOpenStore.
 FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Always called with flags=0, matched 1:1 with
                every successful CertOpenStore call in this file, generally from `finally`.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certclosestore
-
 ----------------------------------------------------------------------------------------------------
 CertFindCertificateInStore
 ----------------------------------------------------------------------------------------------------
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfindcertificateinstore
+
 DLL                : Crypt32.dll
 Header             : wincrypt.h
 
@@ -330,28 +332,27 @@ Purpose            : Iterative certificate-store search primitive; used here in 
                      (single call, no continuation) to check whether a certificate with a given
                      subject substring already exists.
 
-FFM notes          : `FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR)` - wait, actual
-                     descriptor in the file is `FunctionDescriptor.of(PTR, PTR, DW, DW, DW, PTR,
-                     PTR)`, 6 parameters matching the 7-parameter native prototype (return type + 6
-                     inputs = 7 slots total, consistent with the prototype above). dwFindType is
-                     always the module constant CERT_FIND_SUBJECT_STR_W = (8 << 16) | 7 (the
-                     standard encoding of CERT_COMPARE_NAME_STR_W shifted by CERT_COMPARE_SHIFT,
-                     OR'd with CERT_INFO_SUBJECT_FLAG - a well-documented but easy-to-miscount bit
-                     pattern, worth double-checking against wincrypt.h if this value is ever
-                     touched). Used in `isProviderAlreadyTrusted` (search by provider name across
-                     "Root"/"TrustedPublisher") and in `_elevatedCreateAndSignCatalog` (locate the
-                     signing cert in CurrentUser\My by provider name before calling `_signCatalog`).
+FFM notes          : `FunctionDescriptor.of(PTR, PTR, DW, DW, DW, PTR, PTR)` - 7 slots: 1 return
+                     type (PTR/PCCERT_CONTEXT) followed by 6 argument layouts, one per parameter
+                     listed above. dwFindType is always the module constant CERT_FIND_SUBJECT_STR_W
+                     = (8 << 16) | 7 (the standard encoding of CERT_COMPARE_NAME_STR_W shifted by
+                     CERT_COMPARE_SHIFT, OR'd with CERT_INFO_SUBJECT_FLAG - a well-documented but
+                     easy-to-miscount bit pattern, worth double-checking against wincrypt.h if this
+                     value is ever touched). Used in `isProviderAlreadyTrusted` (search by provider
+                     name across "Root"/"TrustedPublisher") and in `_elevatedCreateAndSignCatalog`
+                     (locate the signing cert in CurrentUser\My by provider name before calling
+                     `_signCatalog`).
 
 Ownership/lifetime : every non-NULL PCCERT_CONTEXT this returns MUST be released with
                      CertFreeCertificateContext exactly once by the caller, independent of the store
                      it came from - the code does this consistently, either immediately
                      (isProviderAlreadyTrusted) or via a `finally` around the `_signCatalog` call.
 
-Source             : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfindcertificateinstore
-
 ----------------------------------------------------------------------------------------------------
 CertFreeCertificateContext
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfreecertificatecontext
+
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
@@ -366,11 +367,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR)`. See ownership note above; also 
                share ownership of the original context handle - the store keeps its own
                copy/reference).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfreecertificatecontext
-
 ----------------------------------------------------------------------------------------------------
 CertStrToNameW
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certstrtonamew
+
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
@@ -395,11 +396,11 @@ FFM caveat   : because both calls read the SAME `subjectStr`/`cbSubject` MemoryS
                this pattern is correct but fragile - anyone changing the subject string encoding
                without re-running the sizing call would silently truncate.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certstrtonamew
-
 ----------------------------------------------------------------------------------------------------
 CertCreateSelfSignCertificate
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certcreateselfsigncertificate
+
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
@@ -413,8 +414,9 @@ Purpose      : Builds an in-memory, self-signed X.509 certificate from a subject
                round-trip involved, which is exactly why this tool can produce a usable code-signing
                certificate entirely offline.
 
-FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR)` - 8 parameters
-               matching the prototype's 1 return + 8 params exactly. Called with:
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR)` - 9 slots: 1
+               return type (PTR/PCCERT_CONTEXT) followed by 8 argument layouts, one per parameter
+               listed above. Called with:
                hCryptProvOrNCryptKey = the NCrypt key handle from Section C (hKey);
                pSubjectIssuerBlob = the CertStrToNameW-encoded "CN=<providerName>" blob; dwFlags = 0
                (neither CERT_CREATE_SELFSIGN_NO_KEY_INFO nor _NO_SIGN is set - the default behavior,
@@ -424,8 +426,6 @@ FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR)` - 
                caveat below); start/end time = NULL, NULL (defaults to "now" through "now + 1
                year"); pExtensions = the Enhanced Key Usage extension array built earlier in the
                same method.
-
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certcreateselfsigncertificate
 
 Windows-specific behavior relevant to this implementation:
     If pSignatureAlgorithm were left NULL, Microsoft's own reference documents that the function
@@ -442,6 +442,8 @@ Windows-specific behavior relevant to this implementation:
 ----------------------------------------------------------------------------------------------------
 CertAddCertificateContextToStore
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certaddcertificatecontexttostore
+
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
@@ -462,11 +464,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW, PTR)`. dwAddDisposition 
                anchor, and TrustedPublisher marks it as an explicitly trusted publisher without
                which most driver-signature UI still warns).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certaddcertificatecontexttostore
-
 ----------------------------------------------------------------------------------------------------
 CryptEncodeObjectEx
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptencodeobjectex
+
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
@@ -493,11 +495,11 @@ FFM notes    : `FunctionDescriptor.of(DW, DW, PTR, PTR, DW, PTR, PTR, PTR)` - 7 
                via `_astr`) with a hand-built SPC_LINK struct as pvStructInfo, to encode the catalog
                member's SIP-indirect "file link" payload (see Section D).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptencodeobjectex
-
 ----------------------------------------------------------------------------------------------------
 CryptSIPRetrieveSubjectGuid
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mssip/nf-mssip-cryptsipretrievesubjectguid
+
 DLL          : Crypt32.dll (despite mssip.h being the SIP-family header)
 Header       : mssip.h
 
@@ -516,8 +518,6 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR)` - 3 inputs. Called onc
                treating the failure as fatal - this fallback is a deliberate design choice in this
                file, not something Microsoft's documentation prescribes for this specific situation.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mssip/nf-mssip-cryptsipretrievesubjectguid
-
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ATTR_BLOB / CERT_NAME_BLOB (generic CRYPTOAPI_BLOB shape)
 ----------------------------------------------------------------------------------------------------
@@ -527,11 +527,11 @@ Source       : general Win32 crypto-API knowledge - this "{cbData; pbData;}" sha
                structures in wincrypt.h; documented at
                https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attr_blob
 
-Fields, byte offset, type :
-               cbData (0, DWORD) - number of bytes in the buffer pbData points to
-               pbData (8, BYTE*) - pointer to the raw byte buffer
-               Size 16, align 8 (the 4 bytes between cbData and pbData are x64 padding for
-               pointer alignment, not a real field).
+Parameters   : Fields, byte offset, type:
+                   cbData (0, DWORD) - number of bytes in the buffer pbData points to
+                   pbData (8, BYTE*) - pointer to the raw byte buffer
+               Size 16, align 8 (the 4 bytes between cbData and pbData are x64 padding for pointer
+               alignment, not a real field).
 Purpose      : The universal "counted byte buffer" shape Crypt32 uses everywhere - encoded names,
                encoded extensions, digests, etc.
 
@@ -544,7 +544,7 @@ STRUCTURE: CERT_ENHKEY_USAGE
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_enhkey_usage
 
 Fields       : cUsageIdentifier (0, DWORD - count), rgpszUsageIdentifier (8, LPSTR* - array of OID
-               strings) Size 16, align 8.
+               strings); size 16, align 8.
 Purpose      : Lists the Enhanced Key Usage OIDs a certificate extension should grant - here, a
                single-entry array containing only "Code Signing" (1.3.6.1.5.5.7.3.3).
 
@@ -558,7 +558,7 @@ STRUCTURE: CERT_EXTENSION
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extension
 
 Fields       : pszObjId (0, LPSTR), fCritical (8, BOOL), Value (16, CRYPT_ATTR_BLOB - the
-               DER-encoded extension payload) Size 32, align 8 (Value's own 16-byte blob shape
+               DER-encoded extension payload); size 32, align 8 (Value's own 16-byte blob shape
                occupies bytes 16-31).
 Purpose      : One X.509 certificate extension entry - here, wraps the already DER-encoded Enhanced
                Key Usage payload under OID szOID_ENHANCED_KEY_USAGE = "2.5.29.37".
@@ -572,7 +572,7 @@ STRUCTURE: CERT_EXTENSIONS
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extensions
 
-Fields       : cExtension (0, DWORD), rgExtension (8, PCERT_EXTENSION - array) Size 16, align 8.
+Fields       : cExtension (0, DWORD), rgExtension (8, PCERT_EXTENSION - array); size 16, align 8.
 Purpose      : The array wrapper CertCreateSelfSignCertificate's pExtensions parameter expects -
                here, always a single-element array containing the CERT_EXTENSION above.
 
@@ -583,7 +583,7 @@ Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-w
 
 Fields       : pwszContainerName (0, LPWSTR), pwszProvName (8, LPWSTR), dwProvType (16, DWORD),
                dwFlags (20, DWORD), cProvParam (24, DWORD), rgProvParam (32, PCRYPT_KEY_PROV_PARAM -
-               array, unused here -> NULL), dwKeySpec (40, DWORD) Size 48, align 8.
+               array, unused here -> NULL), dwKeySpec (40, DWORD); size 48, align 8.
 Purpose      : Tells CertCreateSelfSignCertificate (and, later, anything that reads the resulting
                certificate's CERT_KEY_PROV_INFO_PROP_ID) which provider and key container the
                certificate's private key actually lives in, so it can be re-acquired without
@@ -601,7 +601,7 @@ STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_algorithm_identifier
 
 Fields       : pszObjId (0, LPSTR - algorithm OID), Parameters (8, CRYPT_OBJID_BLOB - optional
-               algorithm parameters blob) Size 24, align 8.
+               algorithm parameters blob); size 24, align 8.
 Purpose      : Identifies a signature/hash algorithm by OID, with room for algorithm-specific
                parameters.
 
@@ -616,9 +616,10 @@ STRUCTURE: CERT_CONTEXT (partial - reinterpret only)
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_context
 
-Fields relevant to this file :
-               dwCertEncodingType (0, DWORD), pbCertEncoded (8, BYTE*), cbCertEncoded (16, DWORD),
-               pCertInfo (24, PCERT_INFO), hCertStore (32, HCERTSTORE) Size 40, align 8.
+Fields       : Only the ones relevant to this file:
+                   dwCertEncodingType (0, DWORD), pbCertEncoded (8, BYTE*),
+                   cbCertEncoded (16, DWORD), pCertInfo (24, PCERT_INFO),
+                   hCertStore (32, HCERTSTORE); size 40, align 8.
 Purpose      : The structure behind every PCCERT_CONTEXT handle Crypt32 hands out; this file only
                cares about pulling the raw DER bytes back out of an already-created certificate.
 
@@ -645,6 +646,8 @@ be a real, provider-persisted key rather than an ephemeral in-memory one.
 ----------------------------------------------------------------------------------------------------
 NCryptOpenStorageProvider
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptopenstorageprovider
+
 DLL          : Ncrypt.dll
 Header       : ncrypt.h
 
@@ -659,11 +662,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Always called with psz
                with Windows) and dwFlags=0. The returned handle is read out of the out-parameter
                MemorySegment with `hProviderOut.get(PTR, 0)`.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptopenstorageprovider
-
 ----------------------------------------------------------------------------------------------------
 NCryptCreatePersistedKey
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptcreatepersistedkey
+
 DLL          : Ncrypt.dll
 Header       : ncrypt.h
 
@@ -682,11 +685,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW, DW)`. Called w
                key-spec value CNG still accepts here for interop with code written against the older
                API shape).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptcreatepersistedkey
-
 ----------------------------------------------------------------------------------------------------
 NCryptSetProperty
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptsetproperty
+
 DLL          : Ncrypt.dll
 Header       : ncrypt.h
 
@@ -706,11 +709,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW)`. Called twice 
                unsupported property name on some provider) would only surface indirectly, if at all,
                later.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptsetproperty
-
 ----------------------------------------------------------------------------------------------------
 NCryptFinalizeKey
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfinalizekey
+
 DLL          : Ncrypt.dll
 Header       : ncrypt.h
 
@@ -724,11 +727,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Called with dwFlags=0. This
                IS checked (unlike NCryptSetProperty above); on failure both the key and provider
                handles are released before returning RETCODE_EXCEPTION.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfinalizekey
-
 ----------------------------------------------------------------------------------------------------
 NCryptFreeObject
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfreeobject
+
 DLL          : Ncrypt.dll
 Header       : ncrypt.h
 
@@ -744,8 +747,6 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called on both hKey and hProvid
                the certificate's CRYPT_KEY_PROV_INFO_PROP_ID is what lets the key be re-opened by
                name later, not the live handle).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfreeobject
-
 
 ====================================================================================================
 SECTION D - Catalog Building Layer (Wintrust.dll)
@@ -759,6 +760,8 @@ is the standard indirection Microsoft designed for exactly this case).
 ----------------------------------------------------------------------------------------------------
 CryptCATAdminAcquireContext2
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminacquirecontext2
+
 DLL          : Wintrust.dll
 Header       : mscat.h
 
@@ -778,11 +781,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW)`. pgSubsystem 
                both backends produce catalogs hashed the same way). pStrongHashPolicy and dwFlags
                are NULL/0 (no extra policy enforcement requested).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminacquirecontext2
-
 ----------------------------------------------------------------------------------------------------
 CryptCATAdminCalcHashFromFileHandle2
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadmincalchashfromfilehandle2
+
 DLL          : Wintrust.dll
 Header       : mscat.h
 
@@ -792,18 +795,18 @@ Return value : BOOL
 Purpose      : Computes the file digest (using the hash algorithm bound to hCatAdmin, here SHA-256)
                that will be embedded as this catalog member's identifying hash.
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW)`. Same two-pass size-then-fill pattern
-               as CertStrToNameW: first call with pbHash=NULL to learn the digest length via
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW)`. Same two-pass size-then-fill
+               pattern as CertStrToNameW: first call with pbHash=NULL to learn the digest length via
                pcbHash, then again with an allocated buffer of that length. The resulting bytes are
                both kept as a raw MemorySegment (`hashBuf`, later embedded directly into the
                SIP_INDIRECT_DATA struct as the Digest blob) and separately hex-encoded into `hexTag`
                (used as the member's reference tag string passed to CryptCATPutMemberInfo).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadmincalchashfromfilehandle2
-
 ----------------------------------------------------------------------------------------------------
 CryptCATAdminReleaseContext
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminreleasecontext
+
 DLL          : Wintrust.dll
 Header       : mscat.h
 
@@ -814,11 +817,11 @@ Purpose      : Releases a context obtained from CryptCATAdminAcquireContext2.
 FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Called with flags=0 in the outer `finally` of
                `_elevatedCreateAndSignCatalog`, after the INF file handle has already been closed.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminreleasecontext
-
 ----------------------------------------------------------------------------------------------------
 CryptCATOpen
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatopen
+
 DLL          : Wintrust.dll
 Header       : mscat.h
 
@@ -841,11 +844,11 @@ FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW)`. Called with f
                the mscat.h function family about which of the two failure sentinels a given catalog
                function uses.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatopen
-
 ----------------------------------------------------------------------------------------------------
 CryptCATClose
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatclose
+
 DLL          : Wintrust.dll
 Header       : mscat.h
 
@@ -862,11 +865,11 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called in the `finally` around 
                failure, an early return generally means the catalog was closed with an incomplete
                member and would need to be regenerated on retry rather than reused).
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatclose
-
 ----------------------------------------------------------------------------------------------------
 CryptCATPutMemberInfo
 ----------------------------------------------------------------------------------------------------
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputmemberinfo
+
 DLL                : Wintrust.dll
 Header             : mscat.h
 
@@ -879,7 +882,7 @@ Purpose            : Adds one member entry to an open catalog, keyed by a GUID i
                      "kind" of subject it is (matching whatever SIP subsystem will later verify it)
                      and carrying that subject's SIP-indirect digest data.
 
-FFM notes          : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR)` - 6 inputs.
+FFM notes          : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, PTR, DW, DW, PTR)` - 7 inputs.
                      pwszFileName is the INF's bare filename; pwszReferenceTag is the hex-encoded
                      SHA-256 digest string (`hexTag`); pgSubjectType is whatever GUID
                      CryptSIPRetrieveSubjectGuid resolved (or the DRIVER_ACTION_VERIFY fallback);
@@ -892,11 +895,11 @@ Ownership/lifetime : the returned CRYPTCATMEMBER* belongs to the catalog object 
                      immediately as an input to the two CryptCATPutAttrInfo calls that follow and is
                      never freed independently - it becomes invalid once CryptCATClose runs.
 
-Source             : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputmemberinfo
-
 ----------------------------------------------------------------------------------------------------
 CryptCATPutAttrInfo
 ----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputattrinfo
+
 DLL          : Wintrust.dll
 Header       : mscat.h
 
@@ -906,7 +909,7 @@ Return value : CRYPTCATATTRIBUTE* (owned by the catalog member, caller must not 
                failure.
 Purpose      : Attaches one named, typed attribute to an existing catalog member.
 
-FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR)` - 5 inputs. Called twice per
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR)` - 6 inputs. Called twice per
                member, both times with dwAttrTypeAndAction = CRYPTCAT_ATTR_AUTHENTICATED(0x10000000)
                | CRYPTCAT_ATTR_NAMEASCII (0x1) | CRYPTCAT_ATTR_DATAASCII(0x10000) - i.e. an
                authenticated (covered by the catalog's own signature) attribute whose name is ASCII
@@ -921,17 +924,15 @@ FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR)` - 5 inputs. C
                i.e. character count including the NUL terminator, times 2 bytes per UTF-16 code unit
                - matching the UTF-16LE encoding `_wstr` produces for pbData.
 
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputattrinfo
-
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: GUID
 ----------------------------------------------------------------------------------------------------
 Source       : general, extremely stable Win32 knowledge (guiddef.h); shape documented at
                https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
 
-Fields       : Data1 (0, DWORD), Data2 (4, WORD), Data3 (6, WORD), Data4 (8, BYTE[8]) Size 16, align
-               4 (note: 4-byte alignment, not 8 - GUID is one of the few structures in this file
-               that is NOT 8-byte aligned, because it contains no pointer-sized fields).
+Fields       : Data1 (0, DWORD), Data2 (4, WORD), Data3 (6, WORD), Data4 (8, BYTE[8]); size 16,
+               align 4 (note: 4-byte alignment, not 8 - GUID is one of the few structures in this
+               file that is NOT 8-byte aligned, because it contains no pointer-sized fields).
 Purpose      : The standard 128-bit Windows GUID/UUID representation.
 
 FFM notes    : Built by the private `_guid(arena, long[] parts)` helper, which takes an 11-element
@@ -948,68 +949,69 @@ FFM notes    : Built by the private `_guid(arena, long[] parts)` helper, which t
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SPC_LINK - VERIFIED
 ----------------------------------------------------------------------------------------------------
-Source       : No Microsoft Learn prose page exists for this structure (a direct check at the
-               expected learn.microsoft.com wintrust/ns-wintrust-spc_link URL returns 404). Field
-               composition is instead confirmed via two other official Microsoft sources: (1)
-               WinTrust.h, the Windows SDK/WDK header, and (2) Microsoft's win32metadata-generated
-               API reference, at
-               https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Security/WinTrust/struct.SPC_LINK.html
-               Both confirm the same dwLinkChoice (DWORD) + union {pwszUrl, Moniker, pwszFile}
-               composition, with named constants SPC_URL_LINK_CHOICE=1 / SPC_MONIKER_LINK_CHOICE=2 /
-               SPC_FILE_LINK_CHOICE=3, matching this file's own dwLinkChoice=3 (pwszFile) exactly.
-               Neither source states byte offsets; the offsets below (0 and 8) are derived from
-               standard x64 struct-layout/alignment rules, the same derivation used throughout this
-               document.
-Fields, as built in this file :
-               dwLinkChoice (0, DWORD), then a union at offset 8 whose active member here is
-               pwszFile (LPWSTR) - i.e. this code only ever exercises the "this SPC_LINK identifies
-               a file, by name" variant (dwLinkChoice = 3 = SPC_FILE_LINK_CHOICE, in the code's own
-               naming), never the URL or "moniker" (serialized-object) variants the same union can
-               hold in a fuller SPC_LINK implementation. Size 16, align 8, matching what's allocated
-               in this file.
-Purpose (as used here) :
-               a placeholder reference to the "subject file" this piece of SIP-indirect data
-               describes, using the conventional literal string "<<<Obsolete>>>" as the file name -
-               a long-standing Authenticode convention (predating this file, not invented here) for
-               marking this link as intentionally non-resolvable/not meant to be followed, used when
-               the catalog itself (not this embedded link) is the actual source of truth for
-               locating the subject.
+Source    : No Microsoft Learn prose page exists for this structure (a direct check at the expected
+            learn.microsoft.com wintrust/ns-wintrust-spc_link URL returns 404). Field composition is
+            instead confirmed via two other official Microsoft sources:
+                (1) WinTrust.h, the Windows SDK/WDK header, and
+                (2) Microsoft's win32metadata-generated API reference, at
+                    https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Security/WinTrust/struct.SPC_LINK.html
+            Both confirm the same dwLinkChoice (DWORD) + union {pwszUrl, Moniker, pwszFile}
+            composition, with named constants SPC_URL_LINK_CHOICE=1 / SPC_MONIKER_LINK_CHOICE=2 /
+            SPC_FILE_LINK_CHOICE=3, matching this file's own dwLinkChoice=3 (pwszFile) exactly.
+            Neither source states byte offsets; the offsets below (0 and 8) are derived from
+            standard x64 struct-layout/alignment rules, the same derivation used throughout this
+            document.
 
-FFM notes    : encoded via CryptEncodeObjectEx with lpszStructType = "1.3.6.1.4.1.311.2.1.25"
-               (SPC_CAB_DATA_OBJID) before being embedded into the SIP_INDIRECT_DATA struct below -
-               this specific OID choice for a non-CAB, non-PE (INF) subject remains a separate,
-               still-open question - unrelated to the struct layout verified above - see the
-               file-level comment block near the top of WindowsDriverInstaller_FFM.java for the
-               open question this raises (whether pnputil validates this successfully on a real
-               machine, and what to check first if not).
+Fields    : As built in this file:
+                dwLinkChoice (0, DWORD), then a union at offset 8 whose active member here is
+                pwszFile (LPWSTR) - i.e. this code only ever exercises the "this SPC_LINK identifies
+                a file, by name" variant (dwLinkChoice = 3 = SPC_FILE_LINK_CHOICE, in the code's own
+                naming), never the URL or "moniker" (serialized-object) variants the same union can
+                hold in a fuller SPC_LINK implementation; size 16, align 8, matching what's
+                allocated in this file.
+Purpose   : As used here:
+                a placeholder reference to the "subject file" this piece of SIP-indirect data
+                describes, using the conventional literal string "<<<Obsolete>>>" as the file name -
+                a long-standing Authenticode convention (predating this file, not invented here) for
+                marking this link as intentionally non-resolvable/not meant to be followed, used
+                when the catalog itself (not this embedded link) is the actual source of truth for
+                locating the subject.
+
+FFM notes : Encoded via CryptEncodeObjectEx with lpszStructType = "1.3.6.1.4.1.311.2.1.25"
+            (SPC_CAB_DATA_OBJID) before being embedded into the SIP_INDIRECT_DATA struct below -
+            this specific OID choice for a non-CAB, non-PE (INF) subject remains a separate,
+            still-open question - unrelated to the struct layout verified above - see the
+            file-level comment block near the top of WindowsDriverInstaller_FFM.java for the open
+            question this raises (whether pnputil validates this successfully on a real machine, and
+            what to check first if not).
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIP_INDIRECT_DATA - VERIFIED
 ----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/mssip/ns-mssip-sip_indirect_data
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/mssip/ns-mssip-sip_indirect_data
 
-Fields, as built in this file (three 24/24/16-byte groups back to back, matching the
-Learn-documented {Data, DigestAlgorithm, Digest} fields) :
-               Data.pszObjId             (0,  LPSTR)  - here, the same SPC_CAB_DATA_OBJID
-               Data.cbData               (8,  DWORD)  - length of the encoded SPC_LINK
-               Data.pbData               (16, BYTE*)  - the encoded SPC_LINK bytes
-               DigestAlgorithm.pszObjId  (24, LPSTR)  - here, szOID_NIST_sha256
-                                                        ("2.16.840.1.101.3.4.2.1")
-               DigestAlgorithm.cbData    (32, DWORD)  - 0 (no algorithm parameters)
-               DigestAlgorithm.pbData    (40, BYTE*)  - NULL
-               Digest.cbData             (48, DWORD)  - the SHA-256 digest length
-               Digest.pbData             (56, BYTE*)  - the SHA-256 digest bytes
-                                                        (`hashBuf`, the same buffer
-                                                        CryptCATAdminCalcHashFromFileHandle2
-                                                        filled in)
-               Size 64, align 8.
+Fields    : As built in this file (three 24/24/16-byte groups back to back, matching the
+            Learn-documented {Data, DigestAlgorithm, Digest} fields) :
+                Data.pszObjId            ( 0, LPSTR) - here, the same SPC_CAB_DATA_OBJID
+                Data.cbData              ( 8, DWORD) - length of the encoded SPC_LINK
+                Data.pbData              (16, BYTE*) - the encoded SPC_LINK bytes
+                DigestAlgorithm.pszObjId (24, LPSTR) - here, szOID_NIST_sha256
+                                                       ("2.16.840.1.101.3.4.2.1")
+                DigestAlgorithm.cbData   (32, DWORD) - 0 (no algorithm parameters)
+                DigestAlgorithm.pbData   (40, BYTE*) - NULL
+                Digest.cbData            (48, DWORD) - the SHA-256 digest length
+                Digest.pbData            (56, BYTE*) - the SHA-256 digest bytes
+                                                       (`hashBuf`, the same buffer
+                                                       CryptCATAdminCalcHashFromFileHandle2
+                                                       filled in)
+                Size 64, align 8.
 
-Purpose (as used here) :
-               the payload CryptCATPutMemberInfo's cbSIPIndirectData/pbSIPIndirectData parameters
-               require - ties the catalog member to both "what file this claims to be about"
-               (indirectly, via the encoded SPC_LINK) and "what its digest is" (directly, via the
-               embedded SHA-256 bytes), which is what a verifier reads back to confirm the catalog
-               member matches the actual on-disk INF.
+Purpose   : As used here:
+                the payload CryptCATPutMemberInfo's cbSIPIndirectData/pbSIPIndirectData parameters
+                require - ties the catalog member to both "what file this claims to be about"
+                (indirectly, via the encoded SPC_LINK) and "what its digest is" (directly, via the
+                embedded SHA-256 bytes), which is what a verifier reads back to confirm the catalog
+                member matches the actual on-disk INF.
 
 
 ====================================================================================================
@@ -1027,6 +1029,8 @@ instead of LoadLibrary/GetProcAddress.
 ----------------------------------------------------------------------------------------------------
 SignerSignEx2
 ----------------------------------------------------------------------------------------------------
+Source             : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
+
 DLL                : Mssign32.dll
 Header             : none (explicitly undeclared by Microsoft; see above)
 Calling convention : WINAPI (__stdcall) Parameters (13, in the exact order below - VERIFIED against
@@ -1065,8 +1069,6 @@ FFM notes          : `FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, DW, PTR,
                      Microsoft's own note that a context may still have been allocated on certain
                      partial-failure paths.
 
-Source             : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
-
 Windows-specific caveats relevant to this implementation:
     - Minimum supported client is Windows 8 per Microsoft's own requirements table
     - not a concern here since this backend already restricts itself to Windows 10+.
@@ -1076,6 +1078,11 @@ Windows-specific caveats relevant to this implementation:
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------
+Source       : general Mssign32/Signer* API family knowledge - this function is documented alongside
+               the SIGNER_* structure pages, e.g. referenced from
+               https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
+               ("free... by calling the SignerFreeSignerContext function").
+
 DLL          : Mssign32.dll
 Header       : none (undeclared, same as SignerSignEx2)
 
@@ -1087,11 +1094,6 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR)`. This file does not otherwise in
                of the returned SIGNER_CONTEXT (e.g. to pull the signed blob back out) - it is only
                used as a success/failure signal via SignerSignEx2's HRESULT, and the context itself
                is freed immediately once read.
-
-Source       : general Mssign32/Signer* API family knowledge - this function is documented alongside
-               the SIGNER_* structure pages, e.g. referenced from
-               https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
-               ("free... by calling the SignerFreeSignerContext function").
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED

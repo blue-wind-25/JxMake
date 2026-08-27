@@ -59,6 +59,7 @@ import jxm.xb.*;
  * plain CryptCATPutAttrInfo "HASH" attribute. If pnputil/Device Installer rejects catalogs built
  * this way on a real Windows 10+ box, that is the first place to look.
  */
+@SuppressWarnings("restricted")
 public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     // Marker argument that switches main() into "elevated helper op" mode - never used interactively

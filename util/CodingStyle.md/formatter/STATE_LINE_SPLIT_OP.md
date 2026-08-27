@@ -25,69 +25,36 @@ lowered `line-length=60` (an untried combination — `RDD_KEY_344` only tried
 non-default `indent-size`) — 44/1655 files differ flag-on, all confirmed by
 a line-count-based hunk scan to be either the pre-existing flag-independent
 baseline (40 files, unrelated) or a `for(...)`-header-clause indentation
-drift (4 files, a distinct flap shape, not chased — same "differs but does
-not collapse line count" shape, out of scope for this task), zero files
-showing the specific "many lines collapse to one" shape; (c) a hand-written
-minimal Java repro of the exact `int result = (cond) ? A : B;` declaration
-shape, and the real `MinMaxPriorityQueue.java` file run in isolation, both
-round-trip clean (round1==round2) against current `src/` — confirms
-`RDD_KEY_344`'s guess that the original guava commit's specific trigger is
-gone from this corpus draw, not a src regression. **Net: the original
-Java-specific manifestation still does not reproduce anywhere; genuinely
-not confirmable one way or the other from this corpus, same conclusion as
-`RDD_KEY_344`.**
+drift (4 files, a distinct flap shape, not chased), zero files showing the
+specific "many lines collapse to one" shape; (c) a hand-written minimal
+Java repro of the exact `int result = (cond) ? A : B;` declaration shape,
+and the real `MinMaxPriorityQueue.java` file run in isolation, both
+round-trip clean against current `src/` — confirms `RDD_KEY_344`'s guess
+that the original guava commit's specific trigger is gone from this corpus
+draw, not a src regression. **Net: the original Java-specific manifestation
+still does not reproduce anywhere, same conclusion as `RDD_KEY_344`.**
 
 However, `RDD_KEY_349`'s TS dogfood had already flagged one live recurrence
 of this same finding (`angular/angular`'s `create_application.ts`) without
-chasing it. Re-investigating that recurrence found a real, different, fully
-root-caused bug (not `D12`'s `parseAssignment` mechanism — that method
-always bails for any JS/TS `const`/`let`/`var` target, so it was never in
-play here): `DeclarationAlignmentRuleCurly.spansMultipleLines`'s depth
-tracking (shared by `JsTsDeclarationAlignmentRule`/
-`KotlinDeclarationAlignmentRule`, the only two callers) has a pre-existing
-blind spot, unrelated in origin to this feature -- a NEWLINE is only
-recognized as "spans multiple lines" when it sits inside a `{`...`}` brace
-body or at full top-level (paren/bracket depth 0); a newline sitting
-strictly inside a call/array's parens or brackets (depth > 0, no enclosing
-brace) is deliberately treated as safe-to-flatten, on the assumption that
-only `enforceCallLineBreaking`'s own call-argument wrap could ever have put
-it there, safely re-derivable next pass. `enforceOperatorLineBreaking`
-breaks that assumption: its ternary/tier-1 scan can find and split an
-operator nested arbitrarily deep inside an array literal's spread argument
-(`[a, ...( cond ? b : c ), d]`), landing a newline at paren/bracket depth >
-0 that nothing re-derives on a reformat -- `spansMultipleLines` still calls
-it safe to flatten, and the generic JS/TS row-rendering path that follows
-doesn't reapply `enforceOperatorLineBreaking`'s own ternary spacing
-conventions either, so the flattened result also has mangled tight spacing
-around `?`/`:` (`ngDevMode ?[validAppIdInitializer] :[]`). Fixed narrowly,
-flag-gated (same "avoid threading a new constructor param" / narrow-guard
-precedent as D12): a new `lineSplitByOperatorPriority` field + setter on
-`DeclarationAlignmentRuleCurly` (consulted only by `spansMultipleLines`,
-harmless on the C/C++/Java subclass path which never calls that method),
-wired from `ScopePipelineCurly.setLineSplitByOperatorPriority` into both
-`jsTsDeclarationRule`/`kotlinDeclarationRule`; when the flag is on, a
-newline at paren/bracket depth > 0 (brace depth 0) is ALSO treated as
-spanning multiple lines, closing the blind spot. Flag-off pipeline
-byte-for-byte unchanged (every existing fixture relying on the original
-carve-out unaffected). Verified against the real, unmodified
-`angular/angular` `create_application.ts` file: previously 26/27 sampled
-files were round1-byte-identical-to-round2 (this file the sole exception,
-per `RDD_KEY_349`); now 27/27, and `create_application.ts`'s
-array-literal/spread/ternary declaration renders correctly (proper
-per-element multi-line layout, correct ternary spacing) instead of
-collapsing with mangled spacing. `js_ts_syntax_check.sh` re-run on the fix:
-26/27 clean, the 1 remaining flagged file (`structure.ts`) confirmed the
-same pre-existing, unrelated, flag-independent bug `RDD_KEY_349` already
-flagged (not this fix's doing). Also re-verified zero regressions on
-`square/okio` (313 Kotlin files, `line-length=70`, fully idempotent both
-before and after) and `google/guava` (`line-length=60`, same 44-file diff
-count before and after -- this fix doesn't touch the Java/C/C++ path at
-all). New fixture `test/real_code_regressions_243_{inp,out}.ts`. `make
-test`: 362/362 -> 363/363. **Status: the JS/TS manifestation of this
-finding that `RDD_KEY_349` flagged is now fixed; the ORIGINAL Java/guava
-manifestation this finding was first found from remains genuinely
-unreproduced (not confirmed fixed, not confirmed still broken) -- this
-finding is only PARTIALLY closed.** Full text: `RDD_KEY_351`.
+chasing it. Re-investigating found a real, different, fully root-caused bug
+(not D12's `parseAssignment` mechanism, which always bails for JS/TS
+`const`/`let`/`var` targets so was never in play here) — see D13 below for
+the full root-cause/fix writeup
+(`DeclarationAlignmentRuleCurly.spansMultipleLines`'s paren/bracket-depth
+blind spot). Verified against the real, unmodified `create_application.ts`:
+previously 26/27 sampled files were round1-byte-identical-to-round2 (this
+file the sole exception, per `RDD_KEY_349`); now 27/27, rendering correctly
+instead of collapsing with mangled ternary spacing. `js_ts_syntax_check.sh`
+re-run: 26/27 clean, the 1 remaining flagged file (`structure.ts`) confirmed
+the same pre-existing, unrelated, flag-independent bug `RDD_KEY_349` already
+flagged. Zero regressions re-verified on `square/okio` (313 Kotlin files)
+and `google/guava` (same 44-file diff count before/after — this fix doesn't
+touch the Java/C/C++ path). New fixture
+`test/real_code_regressions_243_{inp,out}.ts`. `make test`: 362/362 ->
+363/363. **Status: the JS/TS manifestation is now fixed; the ORIGINAL
+Java/guava manifestation this finding was first found from remains
+genuinely unreproduced — this finding is only PARTIALLY closed.** Full
+text: `RDD_KEY_351`.
 
 **2026-08-25 follow-up fix (continuation-line alignment-padding drift,
 `RDD_KEY_350`, D12):** root-caused and fixed the "Continuation-line
@@ -133,15 +100,10 @@ reflowed for an unrelated reason (`url_tree.ts`'s `isActive(url, router,
 matchOptions?: Partial<IsActiveMatchOptions>)`); tier-3 confirmed sound via a
 synthetic repro (no real tier-3-in-condition candidates in this draw, same
 gap as the `square/okio` pass). One genuine, real, in-scope bug found and
-fixed (D11) — general to the whole curly family but a serious TS-specific
-landmine: `findTernarySplits` treated ANY depth-matching `:` as a valid
-ternary split candidate with no requirement that a real `?` opener preceded
-it, misfiring on ordinary TS type-annotation/object-literal colons
-(`url_tree.ts`'s `type PathCompareFn = (container: UrlSegmentGroup, ...) =>
-boolean;`, `resource.ts`'s `?? { isActive: false }`). Fixed via a per-depth
-pending-`?` counter plus a new `isOptionalMarkerQuestion` guard (a `?`
-immediately followed by `:` — TS/Java's optional-parameter marker — can
-never be a genuine ternary opener). New fixture
+fixed — general to the whole curly family but a serious TS-specific
+landmine: `findTernarySplits` mistook a bare `:` with no preceding real
+ternary `?` for a split candidate (see D11 below for the full root-cause/
+fix writeup). New fixture
 `test/real_code_regressions_241_{inp,out}.ts`. `make test`: 360/360 ->
 361/361. Idempotency: 26/27 sampled files byte-identical round1-vs-round2
 post-fix; 1 known recurrence (`create_application.ts`, the documented
@@ -174,16 +136,10 @@ never split as ternary across 15+ real occurrences; nullable-type `?` in
 long declarations never touched (`FsJs.kt`'s 103-char `readSync` signature,
 `NonJvmPlatform.kt`'s `String?` params) — D4's landmine guard holds on real
 Kotlin code. One genuine, real, in-scope bug found and fixed (general to the
-whole curly family, not Kotlin-specific): `findBinaryOpSplits` treated an
-arithmetic operator inside an array subscript (`arr[i - 1]`) as a valid
-split-point candidate whenever it was the shallowest-depth match found (no
-depth-0 restriction previously existed), found via `Options.kt`'s
-`byteStrings[i - 1][off] != byteStrings[i][off]` (no depth-0 tier-1 operator
-elsewhere in the condition). Fixed via a new `bracketDepth` (`[`/`]`-only)
-counter that excludes any occurrence found inside a subscript outright,
-regardless of `(`/`)` depth — narrower than a blanket depth-0-only
-restriction, which would also break the legitimate `(a + b) * (c + d)`
-nested-parens case. New fixture `test/real_code_regressions_240_{inp,out}.kt`.
+whole curly family, not Kotlin-specific, D9 below): `findBinaryOpSplits`
+mistook an arithmetic operator inside an array subscript (`arr[i - 1]`,
+found via `Options.kt`) for a valid split-point candidate — see D9 for the
+full root-cause/fix writeup. New fixture `test/real_code_regressions_240_{inp,out}.kt`.
 `make test`: 359/359 -> 360/360. Idempotency: all 21 sampled files
 byte-identical round1-vs-round2, both pre-fix and post-fix (this bug was a
 fresh-format false-positive, not a flap). `kotlin_syntax_check.sh`: 21/21
@@ -193,6 +149,7 @@ task's explicit time-box) rather than chased: Kotlin's `return`/top-level-`=`
 operator-split branches never actually fire on real Kotlin source at all
 (only `if`/`while`/`switch`/`for` work) — see that section below and
 `RDD_KEY_347`'s full text for the root cause. Full text: `RDD_KEY_347`.
+
 
 **2026-08-25 dogfood/validation (two-pass):** Pass 1 (flag off, routine
 self-adopt regression confirm) — Leg A (`tools/*`, 82 files) idempotent,
@@ -287,129 +244,60 @@ line non-idempotency flap): root-caused via `google/guava`'s
 NonSerializableMemoizingSupplier || delegate instanceof
 MemoizingSupplier) return delegate;` — 118 chars once
 `BlockStructureRule.tryCollapse` joins the single-statement body onto the
-condition's closing-paren line — confirmed to stay unsplit and identical
-across round 1 AND round 2 pre-fix, i.e. a persistent miss, not a
-self-correcting flap as Pass 3 first assumed for that specific line; the
-"self-correcting on round 2" behavior Pass 3 observed happens for *other*
-lines in the same corpus once round 1's own edits shift what round 2 sees.
-Root cause: `MiscRuleCurly.tryOperatorSplit`'s fits-check measured only
-`[lineStartIndex(from), to]` (the condition's own span, stopping at the
-closing paren) rather than the true rendered physical line, so it never
-saw the collapsed body text that `BlockStructureRule.tryCollapse` (running
-earlier in the pipeline, well before `enforceOperatorLineBreaking`) had
-already joined onto that same line, and undercounted the width. Fix:
-extend the measured span through `effectiveLineEndIndex(tokens, to)` (the
-existing helper that walks forward to the true end of the physical output
-line, tracking bracket depth). Extending the fits-check window uncovered a
-second, narrower issue: it now unconditionally counted a trailing same-
-line comment against the plain 100-char limit, over-splitting lines that
-legitimately fit under the wider 120-char `line-length-with-comment`
-limit (found via `Streams.java`'s alignment-grouped `isParallel`
-declaration). Fixed by mirroring `enforceCallLineBreaking`'s own existing
-comment-aware-limit pattern (`effectiveLimit = hasCommentBetween(tokens,
-to, lineEnd) ? lineLengthWithCommentLimit : lineLengthLimit`). New
-fixture: `test/real_code_regressions_235_{inp,out}.java` (adapted from the
-real `Suppliers.java` `memoize` shape), round1/round2 empty diff confirmed
-for it specifically. Re-verified against a fresh `google/guava` clone
-(1655 files, same methodology as Pass 3, flag forced on for both rounds
-via a copied `.jxmake-code-formatter`): round1/round2 diff dropped from
-100 to 47 files, all 47 confirmed (by sampling) to be the pre-existing
-closing-comment-min-lines flap (finding 1) only — finding 2's non-
-idempotency, including the exact `Suppliers.java:129` line, is now stable
-across both rounds. `java_syntax_check.sh` on all 1655 round1 files: zero
-errors. `make test`: 355/355 forward + idempotency. Full text:
-`RDD_KEY_342`.
+condition's closing-paren line) — confirmed a persistent miss (identical
+across round 1 AND round 2 pre-fix), not a self-correcting flap as Pass 3
+first assumed for that specific line; see D5 below for the fits-check root
+cause and fix (extend the measured span through
+`effectiveLineEndIndex`, then guard the resulting over-split against a
+trailing same-line comment via `enforceCallLineBreaking`'s existing
+comment-aware-limit pattern, found via `Streams.java`'s `isParallel`
+declaration). New fixture: `test/real_code_regressions_235_{inp,out}.java`
+(adapted from the real `Suppliers.java` `memoize` shape), round1/round2
+empty diff confirmed for it specifically. Re-verified against a fresh
+`google/guava` clone (1655 files, same methodology as Pass 3): round1/
+round2 diff dropped from 100 to 47 files, all 47 confirmed (by sampling)
+to be the pre-existing closing-comment-min-lines flap (finding 1) only —
+finding 2's non-idempotency, including the exact `Suppliers.java:129`
+line, is now stable across both rounds. `java_syntax_check.sh` on all 1655
+round1 files: zero errors. `make test`: 355/355 forward + idempotency.
+Full text: `RDD_KEY_342`.
 
-**2026-08-25 follow-up (closing-comment-min-lines flap fix):** the
-remaining Known Out-of-Scope Finding from the section above — splitting a
-condition can push an enclosing `for`/`while`/`if`/`switch` block's line
-count across the `closing-comment-min-lines` threshold, but
-`addClosingComments` ran before `enforceOperatorLineBreaking` in the
-pipeline, so a fresh format's decision didn't see the post-split line
-count while a reformat of already-split output did — root-caused and
-fixed via `RDD_KEY_343` (see D6 in Resolved Design Decisions below): the
-`addClosingComments`/`enforceSwitchExpressionArrowAlignment` pair now runs
-after `enforceOperatorLineBreaking` when the flag is on, gated so the
-flag-off pipeline is byte-for-byte unchanged. New fixture
-`test/real_code_regressions_236_{inp,out}.java`. `make test`: 356/356
-forward + idempotency. Spot-checked against a fresh `google/guava` clone
-(flag forced on, same methodology as Pass 3/4): confirmed zero of the
-remaining round1-vs-round2 differing files are this flap class anymore.
-That spot-check surfaced a different, still-unfixed, pre-existing flap —
-see the new entry in "Known Out-of-Scope Finding" below.
+**2026-08-25 follow-up (closing-comment-min-lines flap fix, `RDD_KEY_343`,
+D6):** the remaining Known Out-of-Scope Finding from the section above —
+splitting a condition can push an enclosing block's line count across the
+`closing-comment-min-lines` threshold, but `addClosingComments` ran before
+`enforceOperatorLineBreaking`, so a fresh format's decision didn't see the
+post-split count while a reformat of already-split output did. See D6
+below for the full root-cause/fix writeup (flag-gated reordering of the
+`addClosingComments`/`enforceSwitchExpressionArrowAlignment` pair). New
+fixture `test/real_code_regressions_236_{inp,out}.java`. `make test`:
+356/356 forward + idempotency. Spot-checked against a fresh `google/guava`
+clone: confirmed zero of the remaining round1-vs-round2 differing files
+are this flap class anymore. That spot-check surfaced a different,
+still-unfixed, pre-existing flap — see the new entry in "Known
+Out-of-Scope Finding" below.
 
 **2026-08-25 follow-up (`indent-size=2` spot-check on the two Known
-Out-of-Scope flaps, low-priority per the tracker's standing "indent-size
-fallback" practice):** reused the existing `google/guava` clone (fresh
-`git clone --depth 1`, re-verified at exactly 1655 `.java` files excluding
-`android/`, same selection as Pass 3/`RDD_KEY_342`/`RDD_KEY_343`) and the
-same methodology (`.jxmake-code-formatter` at the corpus root, manually
-copied into round 1's output before round 2 since `--preserve-tree` doesn't
-copy dotfiles, batch `xargs` invocation). `make test` confirmed green
-(356/356) before starting; no `src/` changes made this pass.
-
-Four conditions run: flag on/off crossed with `indent-size` default(4)/2.
-Baseline reproduction first surfaced an unexpected result: at default
-`indent-size`, flag-on and flag-off produced **byte-identical differing-file
-lists** (42/1655 each) -- i.e. **flap (a) (the declaration/condition
-collapse-on-round2 flap) did not reproduce at all in this fresh clone**, at
-0/1655, not the documented 38/1655. Individually re-checked all four named
-example files (`MinMaxPriorityQueue.java`, `CharMatcher.java`,
-`TreeRangeSet.java`, `Streams.java`) both in the batch run and via an
-isolated single-file solo re-format (ruling out a batch/script artifact):
-all four are round1-byte-identical-to-round2 at default `indent-size`,
-flag forced on -- `src/` is unchanged since `RDD_KEY_343`'s fix commit
-(confirmed via `git log`, no commits touching `src/` since), so this is a
-guava-corpus-content difference between today's fresh clone and whatever
-commit the original Pass 3/`RDD_KEY_343` spot-checks cloned, not a src
-regression or a re-fix -- not chased further (out of scope; flagged below).
-Flap (b) (the flag-independent baseline) reproduced exactly as documented:
-42/1655, identical file list flag-on vs. flag-off, `Functions.java` included.
-
-With `indent-size=2` added: flag-off dropped from 42 to **2**/1655
-differing files (`CollectionToArrayTester.java`,
-`WriteReplaceOverridesTest.java` -- both already part of the 42-file
-default-indent baseline, same flap-(b) class, diff shape unchanged in kind
-just relocated to different lines/columns) -- i.e. flap (b) **mostly
-self-resolves under `indent-size=2`** (40 of 42 files become idempotent)
-but does **not** fully resolve (2 residual files). Flag-on at
-`indent-size=2` showed **3**/1655 differing files: the same 2 flap-(b)
-residuals (byte-identical diff shape to the flag-off run) plus **one new
-file**, `guava/src/com/google/common/cache/LocalCache.java`, not present in
-either default-indent run nor in the flag-off-indent2 run -- i.e. a
-flag-*dependent* (only appears with `line-split-by-operator-priority=on`),
-`indent-size=2`-*dependent* (only appears at indent-size 2) non-idempotency,
-newly discovered by this pass. Diffed: an operator-split assignment RHS's
-continuation line (`|| ticker == NULL_TICKER ) ? null : ticker;`, tier-1
-`||`-leading per this feature's own output shape) sits at column 8 on round
-1 but gets re-indented to column 34 (aligned under the assignment's `=`
-column, matching the surrounding declaration-alignment group's padding) on
-round 2 -- a third, distinct flap shape from both (a) (whole-expression
-collapse-to-one-line) and (b) (`Functions.java`'s anonymous-class-brace
-shape): a continuation-line *alignment-padding* drift, not a
-line-count/collapse issue. Root cause not investigated (per this task's
-explicit low-priority/no-rabbit-hole scope) -- flagged as a third Known
-Out-of-Scope Finding below for a future session.
-
-`java_syntax_check.sh` (batch, all 1655 round1 files at flag-on +
-`indent-size=2`): 1655/1655 clean, zero errors -- confirmed individually for
-all five named example files (`MinMaxPriorityQueue.java`, `CharMatcher.java`,
-`TreeRangeSet.java`, `Streams.java`, `Functions.java`) plus the newly-found
-`LocalCache.java`. Consistent with the standing "neither flap causes
-corruption" framing -- unchanged.
-
-**Net finding:** `indent-size=2` does **not** cleanly resolve either
-documented flap. Flap (a) could not be meaningfully re-tested against this
-corpus draw at all (it wasn't present at the default-indent baseline either,
-for reasons not investigated) -- no conclusion possible from this corpus for
-flap (a) specifically. Flap (b) partially self-resolves (40/42, ~95%) but
-leaves 2 residual files, and additionally surfaces a brand-new,
-flag-and-indent-size-dependent alignment-padding flap not previously seen at
-default `indent-size`. No fix attempted; both existing flaps remain
-undocumented-root-cause/not-fixed, and the new alignment-padding flap is
-added as a third Known Out-of-Scope Finding rather than chased, per this
-task's explicit scope. `make test` re-confirmed 356/356 at the end (no
-`src/` changes made this pass). Full text: `RDD_KEY_344`.
+Out-of-Scope flaps, `RDD_KEY_344`, low-priority per the tracker's standing
+"indent-size fallback" practice):** reused the existing `google/guava`
+clone (1655 `.java` files, same selection as Pass 3/`RDD_KEY_342`/
+`RDD_KEY_343`); `make test` green (356/356) before starting, no `src/`
+changes made this pass. Four conditions run: flag on/off crossed with
+`indent-size` default(4)/2. Full numeric breakdown and per-flap detail
+lives in the "Known Out-of-Scope Finding" section below (search
+`RDD_KEY_344`) — net result: flap (a) (declaration/condition collapse)
+did not reproduce at all in this fresh clone (0/1655 vs. the documented
+38/1655, a corpus-content difference between clones, not a src regression
+or fix); flap (b) (flag-independent baseline, 42/1655 at default indent)
+mostly self-resolves at `indent-size=2` (40/42 become idempotent) but
+leaves 2 residual files; flag-on at `indent-size=2` additionally surfaces
+one brand-new file (`LocalCache.java`) with a third, distinct
+flag-and-indent-size-dependent flap shape (continuation-line
+alignment-padding drift, not a collapse/brace issue) — added as a new
+Known Out-of-Scope Finding. `java_syntax_check.sh`: 1655/1655 clean, zero
+errors (neither flap causes corruption). **Net: `indent-size=2` does not
+cleanly resolve either documented flap.** No fix attempted; `make test`
+re-confirmed 356/356 at the end. Full text: `RDD_KEY_344`.
 
 **2026-08-25 real-code C/C++ dogfood (`fmtlib/fmt` sample, flag forced on,
 `RDD_KEY_346`):** first C/C++-specific real-code validation of this feature

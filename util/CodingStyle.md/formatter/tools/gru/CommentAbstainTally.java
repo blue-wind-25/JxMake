@@ -40,7 +40,7 @@ public final class CommentAbstainTally {
 
     private static final String USAGE = "Usage: CommentAbstainTally <extracted-comments-path>";
 
-    public static void main(String[] args) throws IOException
+    public static void main(final String[] args) throws IOException
     {
         if(args.length != 1) {
             System.err.println(USAGE);
@@ -60,7 +60,7 @@ public final class CommentAbstainTally {
               int                total         = 0;
               int                malformed     = 0;
 
-        try ( BufferedReader reader = new BufferedReader(
+        try ( final BufferedReader reader = new BufferedReader(
             new InputStreamReader( Files.newInputStream( input.toPath() ), StandardCharsets.UTF_8 )
         ) ) {
             String line;

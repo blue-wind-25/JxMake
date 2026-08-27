@@ -24,7 +24,7 @@ public final class GruWeightsSelfTest {
 
     private static int failures = 0;
 
-    public static void main(String[] args) throws IOException
+    public static void main(final String[] args) throws IOException
     {
         checkLoadsValidFile();
         checkMissingField();
@@ -45,11 +45,11 @@ public final class GruWeightsSelfTest {
 
     private static void checkLoadsValidFile() throws IOException
     {
-        Path path = writeTemp(
+        final Path path = writeTemp(
             "{" + "\"schemaVersion\": 1," + "\"vocabSize\": 3500," + "\"hashBuckets\": 1024," + "\"embeddingDim\": 16," + "\"hiddenSize\": 224," + "\"sequenceCap\": 64," + "\"numClasses\": 3," + "\"abstainThreshold\": 0.5" + "}"
         );
         try {
-            GruWeights w = GruWeights.load(path);
+            final GruWeights w = GruWeights.load(path);
             expectEquals("schemaVersion", 1, w.schemaVersion);
             expectEquals("vocabSize", 3500, w.vocabSize);
             expectEquals("hashBuckets", 1024, w.hashBuckets);
@@ -61,7 +61,7 @@ public final class GruWeightsSelfTest {
                 "abstainThreshold = " + w.abstainThreshold + ", expected 0.5"
             );
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             fail( "valid file unexpectedly failed to load: " + e.getMessage() );
         }
         finally {
@@ -71,12 +71,12 @@ public final class GruWeightsSelfTest {
 
     private static void checkMissingField() throws IOException
     {
-        Path path = writeTemp("{\"schemaVersion\": 1, \"vocabSize\": 3500}");
+        final Path path = writeTemp("{\"schemaVersion\": 1, \"vocabSize\": 3500}");
         try {
             GruWeights.load(path);
             fail("missing-field file unexpectedly loaded without error");
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             if( !e.getMessage().contains(
                 "missing required field"
             ) ) fail(
@@ -90,12 +90,12 @@ public final class GruWeightsSelfTest {
 
     private static void checkWrongSchemaVersion() throws IOException
     {
-        Path path = writeTemp("{\"schemaVersion\": 99}");
+        final Path path = writeTemp("{\"schemaVersion\": 99}");
         try {
             GruWeights.load(path);
             fail("wrong-schema-version file unexpectedly loaded without error");
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             if( !e.getMessage().contains(
                 "schemaVersion"
             ) ) fail(
@@ -109,12 +109,12 @@ public final class GruWeightsSelfTest {
 
     private static void checkMalformedNumber() throws IOException
     {
-        Path path = writeTemp("{\"schemaVersion\": \"one\"}");
+        final Path path = writeTemp("{\"schemaVersion\": \"one\"}");
         try {
             GruWeights.load(path);
             fail("malformed-number file unexpectedly loaded without error");
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             // Expected: findFieldValue's regex only matches numeric values, so a quoted
             // "one" is treated the same as a missing field -- both are hard errors, which
             // is the important property (never silently misparses), not a specific message
@@ -126,14 +126,14 @@ public final class GruWeightsSelfTest {
 
     private static void checkUnreadableFile()
     {
-        Path path = Paths.get(
+        final Path path = Paths.get(
             System.getProperty("java.io.tmpdir"), "gru_weights_does_not_exist.json"
         );
         try {
             GruWeights.load(path);
             fail("nonexistent file unexpectedly loaded without error");
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             if( !e.getMessage().contains(
                 "not readable"
             ) ) fail(
@@ -144,14 +144,14 @@ public final class GruWeightsSelfTest {
 
     private static void checkNonPositiveDimensionRejected() throws IOException
     {
-        Path path = writeTemp(
+        final Path path = writeTemp(
             "{" + "\"schemaVersion\": 1," + "\"vocabSize\": 3500," + "\"hashBuckets\": 1024," + "\"embeddingDim\": 16," + "\"hiddenSize\": 0," + "\"sequenceCap\": 64," + "\"numClasses\": 3," + "\"abstainThreshold\": 0.5" + "}"
         );
         try {
             GruWeights.load(path);
             fail("zero hiddenSize unexpectedly loaded without error");
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             if( !e.getMessage().contains(
                 "must be positive"
             ) ) fail(
@@ -165,14 +165,14 @@ public final class GruWeightsSelfTest {
 
     private static void checkAbstainThresholdOutOfRangeRejected() throws IOException
     {
-        Path path = writeTemp(
+        final Path path = writeTemp(
             "{" + "\"schemaVersion\": 1," + "\"vocabSize\": 3500," + "\"hashBuckets\": 1024," + "\"embeddingDim\": 16," + "\"hiddenSize\": 224," + "\"sequenceCap\": 64," + "\"numClasses\": 3," + "\"abstainThreshold\": 1.5" + "}"
         );
         try {
             GruWeights.load(path);
             fail("out-of-range abstainThreshold unexpectedly loaded without error");
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             if( !e.getMessage().contains(
                 "abstainThreshold"
             ) ) fail(
@@ -184,20 +184,20 @@ public final class GruWeightsSelfTest {
         }
     }
 
-    private static void expectEquals(String field, int expected, int actual)
+    private static void expectEquals(final String field, final int expected, final int actual)
     {
         if(expected != actual) fail(field + " = " + actual + ", expected " + expected);
     }
 
-    private static Path writeTemp(String content) throws IOException
+    private static Path writeTemp(final String content) throws IOException
     {
-        Path path = Files.createTempFile("gru_weights_selftest", ".json");
+        final Path path = Files.createTempFile("gru_weights_selftest", ".json");
         Files.write( path, content.getBytes(StandardCharsets.UTF_8) );
 
         return path;
     }
 
-    private static void fail(String message)
+    private static void fail(final String message)
     {
         ++failures;
         System.err.println("FAIL: " + message);

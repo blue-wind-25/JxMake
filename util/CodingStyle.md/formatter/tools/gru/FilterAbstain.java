@@ -42,7 +42,7 @@ public final class FilterAbstain {
 
     private static final String USAGE = "Usage: FilterAbstain <extracted-comments-path> <out-path>";
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
         if(args.length != 2) {
             System.err.println(USAGE);
@@ -51,10 +51,10 @@ public final class FilterAbstain {
         }
 
         int total = 0, kept = 0;
-        try ( BufferedReader reader = new BufferedReader(
+        try ( final BufferedReader reader = new BufferedReader(
             new InputStreamReader( Files.newInputStream( Paths.get( args[0] ) ), StandardCharsets.UTF_8 )
         );
-              PrintWriter out = new PrintWriter(
+              final PrintWriter out = new PrintWriter(
                   Files.newBufferedWriter( Paths.get( args[1] ), StandardCharsets.UTF_8 )
               ) ) {
             String line;
@@ -66,7 +66,7 @@ public final class FilterAbstain {
                 final String text     = unescape( line.substring(tab + 1) );
                 final Lang   lang;
                 try { lang = new Lang(langName); }
-                catch(IllegalArgumentException e) { continue; }
+                catch(final IllegalArgumentException e) { continue; }
 
                 ++total;
                 final CommentFeatureVector features = CommentFeatureExtractor.extract(

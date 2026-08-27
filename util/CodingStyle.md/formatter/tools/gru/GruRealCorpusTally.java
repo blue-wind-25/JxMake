@@ -47,7 +47,7 @@ public final class GruRealCorpusTally {
 
     private static final String USAGE = "Usage: GruRealCorpusTally <weights-path> <extracted-comments-path> <threshold> [threshold ...]";
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
         if(args.length < 3) {
             System.err.println(USAGE);
@@ -74,9 +74,9 @@ public final class GruRealCorpusTally {
 
               int                total        = 0, ruleDecided = 0, ruleAbstain = 0;
         final Map<Double, int[]> perThreshold = new LinkedHashMap<>();               // [YES, NO, ABSTAIN]
-        for(double t : thresholds) perThreshold.put( t, new int[3] );
+        for(final double t : thresholds) perThreshold.put( t, new int[3] );
 
-        try ( BufferedReader reader = new BufferedReader(
+        try ( final BufferedReader reader = new BufferedReader(
             new InputStreamReader( Files.newInputStream(corpusPath), StandardCharsets.UTF_8 )
         ) ) {
             String line;
@@ -88,7 +88,7 @@ public final class GruRealCorpusTally {
                 final String text     = unescape( line.substring(tab + 1) );
                 final Lang   lang;
                 try { lang = new Lang(langName); }
-catch(IllegalArgumentException e) { continue; }
+catch(final IllegalArgumentException e) { continue; }
 
                 ++total;
                 final CommentFeatureVector features   = CommentFeatureExtractor.extract(
@@ -102,7 +102,7 @@ catch(IllegalArgumentException e) { continue; }
                 ++ruleAbstain;
 
                 final double[] probs = classifier.probabilities(text, 0);
-                for(double t : thresholds) {
+                for(final double t : thresholds) {
                     final CommentDecision verdict = probs == null ? CommentDecision.ABSTAIN : GruClassifier.decide(
                         probs, t
                     );
@@ -120,7 +120,7 @@ catch(IllegalArgumentException e) { continue; }
             "GruRealCorpusTally: " + total + " comment(s) read, " + ruleDecided
                 + " rule-decided (skipped), " + ruleAbstain + " rule-ABSTAIN'd (GRU-eligible)"
         );
-        for(double t : thresholds) {
+        for(final double t : thresholds) {
             final int[] c   = perThreshold.get(t);
             final int   sum = c[0] + c[1] + c[2];
             System.out.printf(

@@ -70,10 +70,10 @@ public final class ExtractPoolA {
               int               malformed = 0;
               int               kept      = 0;
 
-        try ( BufferedReader reader = new BufferedReader(
+        try ( final BufferedReader reader = new BufferedReader(
             new InputStreamReader( Files.newInputStream( input.toPath() ), StandardCharsets.UTF_8 )
         );
-             BufferedWriter writer = new BufferedWriter(
+             final BufferedWriter writer = new BufferedWriter(
                 new OutputStreamWriter( Files.newOutputStream( new java.io.File( args[1] ).toPath() ),
                         StandardCharsets.UTF_8 ) ) ) {
             String line;

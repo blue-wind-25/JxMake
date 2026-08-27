@@ -19,7 +19,7 @@ public final class GruSoftmaxSelfTest {
     private static       int    failures = 0;
     private static final double EPSILON  = 1e-9;
 
-    public static void main(String[] args)
+    public static void main(final String[] args)
     {
         checkSoftmaxSumsToOne( new double[] {1.0, 2.0, 3.0} );
         checkSoftmaxSumsToOne( new double[] {0.0, 0.0, 0.0} );
@@ -42,11 +42,11 @@ public final class GruSoftmaxSelfTest {
         }
     }
 
-    private static void checkSoftmaxSumsToOne(double[] logits)
+    private static void checkSoftmaxSumsToOne(final double[] logits)
     {
-        double[] p   = GruClassifier.softmax(logits);
-        double   sum = 0.0;
-        for(double v : p) sum += v;
+        final double[] p   = GruClassifier.softmax(logits);
+        double         sum = 0.0;
+        for(final double v : p) sum += v;
         if( Math.abs(
             sum - 1.0
         ) > EPSILON ) fail(
@@ -56,8 +56,8 @@ public final class GruSoftmaxSelfTest {
 
     private static void checkSoftmaxUniformOnEqualLogits()
     {
-        double[] p = GruClassifier.softmax( new double[] { 5.0, 5.0, 5.0 } );
-        for(double v : p) {
+        final double[] p = GruClassifier.softmax( new double[] { 5.0, 5.0, 5.0 } );
+        for(final double v : p) {
             if( Math.abs( v - (1.0 / 3.0) ) > EPSILON ) {
                 fail( "softmax of equal logits not uniform: " + java.util.Arrays.toString(p) );
                 return;
@@ -67,8 +67,8 @@ public final class GruSoftmaxSelfTest {
 
     private static void checkSoftmaxNumericallyStableOnLargeLogits()
     {
-        double[] p = GruClassifier.softmax( new double[] { 1000.0, 1000.0, 1000.0 } );
-        for(double v : p) {
+        final double[] p = GruClassifier.softmax( new double[] { 1000.0, 1000.0, 1000.0 } );
+        for(final double v : p) {
             if( Double.isNaN(v) || Double.isInfinite(v) ) {
                 fail(
                     "softmax of large equal logits produced NaN/Infinity: " + java.util.Arrays.toString(p)
@@ -80,7 +80,7 @@ public final class GruSoftmaxSelfTest {
 
     private static void checkSoftmaxHighestLogitHighestProbability()
     {
-        double[] p = GruClassifier.softmax( new double[] { 1.0, 5.0, 2.0 } );
+        final double[] p = GruClassifier.softmax( new double[] { 1.0, 5.0, 2.0 } );
         if( !( p[1] > p[0] && p[1] > p[2] ) ) fail(
             "softmax did not rank highest logit's probability highest: " + java.util.Arrays.toString(p)
         );
@@ -88,7 +88,7 @@ public final class GruSoftmaxSelfTest {
 
     private static void checkSoftmaxEmpty()
     {
-        double[] p = GruClassifier.softmax( new double[0] );
+        final double[] p = GruClassifier.softmax( new double[0] );
         if(p.length != 0) fail(
             "softmax of empty logits should return empty array, got " + java.util.Arrays.toString(p)
         );
@@ -97,14 +97,14 @@ public final class GruSoftmaxSelfTest {
     private static void checkDecideReturnsClassAboveThreshold()
     {
         // CLASS_ORDER = {YES, NO, ABSTAIN}; index 1 (NO) clearly above threshold
-        CommentDecision d = GruClassifier.decide( new double[] { 0.1, 0.8, 0.1 }, 0.5 );
+        final CommentDecision d = GruClassifier.decide( new double[] { 0.1, 0.8, 0.1 }, 0.5 );
         if(d != CommentDecision.NO) fail("decide() expected NO for [0.1, 0.8, 0.1], got " + d);
     }
 
     private static void checkDecideAbstainsBelowThreshold()
     {
         // Top class (index 0, YES) at 0.4 does not clear a 0.5 threshold.
-        CommentDecision d = GruClassifier.decide( new double[] { 0.4, 0.35, 0.25 }, 0.5 );
+        final CommentDecision d = GruClassifier.decide( new double[] { 0.4, 0.35, 0.25 }, 0.5 );
         if(d != CommentDecision.ABSTAIN) fail(
             "decide() expected ABSTAIN for a sub-threshold top class, got " + d
         );
@@ -113,7 +113,7 @@ public final class GruSoftmaxSelfTest {
     private static void checkDecideAbstainsExactlyAtThreshold()
     {
         // "top class must clear" (strictly greater than) the threshold, not just meet it
-        CommentDecision d = GruClassifier.decide( new double[] { 0.5, 0.3, 0.2 }, 0.5 );
+        final CommentDecision d = GruClassifier.decide( new double[] { 0.5, 0.3, 0.2 }, 0.5 );
         if(d != CommentDecision.ABSTAIN) fail(
             "decide() expected ABSTAIN when top class exactly equals threshold, got " + d
         );
@@ -125,12 +125,12 @@ public final class GruSoftmaxSelfTest {
             GruClassifier.decide( new double[] {0.5, 0.5}, 0.5 );
             fail("decide() should reject a probability array not matching CLASS_ORDER length");
         }
-        catch(IllegalArgumentException expected) {
+        catch(final IllegalArgumentException expected) {
             // Expected
         }
     }
 
-    private static void fail(String message)
+    private static void fail(final String message)
     {
         ++failures;
         System.err.println("FAIL: " + message);

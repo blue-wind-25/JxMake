@@ -91,36 +91,36 @@ public class java_content_diff {
 
         private final String source;
 
-        SourceFile(String className, String source)
+        SourceFile(final String className, final String source)
         {
             super( URI.create("string:///" + className + Kind.SOURCE.extension), Kind.SOURCE );
             this.source = source;
         }
 
         @Override
-        public CharSequence getCharContent(boolean ignoreEncodingErrors)
+        public CharSequence getCharContent(final boolean ignoreEncodingErrors)
         {
             return source;
         }
 
     } // class SourceFile
 
-    static CompilationUnitTree parse(String source) throws IOException
+    static CompilationUnitTree parse(final String source) throws IOException
     {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if(compiler == null) throw new IllegalStateException(
             "No system compiler found (need a JDK, not a JRE)"
         );
-        JavaFileObject                          file  = new SourceFile("Test", source);
-        JavacTask                               task  = (JavacTask)compiler.getTask(
+        final JavaFileObject                          file  = new SourceFile("Test", source);
+        final JavacTask                               task  = (JavacTask)compiler.getTask(
             null, null, null, Arrays.asList("-proc:none"), null, Arrays.asList(file)
         );
-        Iterable<? extends CompilationUnitTree> trees = task.parse();
+        final Iterable<? extends CompilationUnitTree> trees = task.parse();
 
         return trees.iterator().next();
     }
 
-    static String normalizeWhitespace(String s)
+    static String normalizeWhitespace(final String s)
     {
         return s.trim().replaceAll("\\s+", " ");
     }
@@ -134,7 +134,7 @@ public class java_content_diff {
      * dropped content. An ellipsis ("...") is untouched since its dot count
      * isn't 1, matching {@code MiscRuleCore.stripSoleTrailingPeriod}.
      */
-    static String normalizeTrailingPeriod(String s)
+    static String normalizeTrailingPeriod(final String s)
     {
         if( s.endsWith(
             "."
@@ -156,11 +156,11 @@ public class java_content_diff {
      * (the line's own marker plus the following line's) that isn't part of
      * the actual comment text.
      */
-    static String normalizeCommentBody(String s)
+    static String normalizeCommentBody(final String s)
     {
-        String[]      lines = s.split("\n", -1);
-        StringBuilder out   = new StringBuilder();
-        for(String line : lines) out.append( line.replaceFirst("^\\s*\\*\\s?", "") ).append(' ');
+        final String[]      lines = s.split("\n", -1);
+        final StringBuilder out   = new StringBuilder();
+        for(final String line : lines) out.append( line.replaceFirst("^\\s*\\*\\s?", "") ).append(' ');
 
         return normalizeWhitespace( out.toString() );
     }
@@ -179,13 +179,13 @@ public class java_content_diff {
      * Raw-text comment scan: skips string/char literals so a "//" or "/*"
      * inside a literal is never mistaken for a comment start
      */
-    static List<String> extractComments(String src)
+    static List<String> extractComments(final String src)
     {
-        List<String> out = new ArrayList<>();
-        int          n   = src.length();
-        int          i   = 0;
+        final List<String> out = new ArrayList<>();
+        final int          n   = src.length();
+              int          i   = 0;
         while(i < n) {
-            char c = src.charAt(i);
+            final char c = src.charAt(i);
             if(c == '"') {
                 ++i;
                 while( i < n && src.charAt(i) != '"' ) {
@@ -203,8 +203,8 @@ public class java_content_diff {
                 ++i;
             }
             else if( c == '/' && i + 1 < n && src.charAt(i + 1) == '/' ) {
-                int start = i + 2;
-                int end   = src.indexOf('\n', start);
+                final int start = i + 2;
+                      int end   = src.indexOf('\n', start);
                 if(end < 0) end = n;
                 out.add(
                     normalizeTrailingPeriod( normalizeCommentBody( src.substring(start, end) ).toLowerCase() )
@@ -212,8 +212,8 @@ public class java_content_diff {
                 i = end;
             }
             else if( c == '/' && i + 1 < n && src.charAt(i + 1) == '*' ) {
-                int start = i + 2;
-                int end   = src.indexOf("*/", start);
+                final int start = i + 2;
+                      int end   = src.indexOf("*/", start);
                 if(end < 0) end = n;
                 out.add(
                     normalizeTrailingPeriod( normalizeCommentBody( src.substring(start, end) ).toLowerCase() )
@@ -228,10 +228,10 @@ public class java_content_diff {
         return out;
     }
 
-    static List<String> importMultiset(CompilationUnitTree cu)
+    static List<String> importMultiset(final CompilationUnitTree cu)
     {
-        List<String> out = new ArrayList<>();
-        for( ImportTree imp : cu.getImports() ) out.add(
+        final List<String> out = new ArrayList<>();
+        for( final ImportTree imp : cu.getImports() ) out.add(
             ( imp.isStatic() ? "static " : "" ) + imp.getQualifiedIdentifier().toString()
         );
         out.sort(null);
@@ -239,15 +239,15 @@ public class java_content_diff {
         return out;
     }
 
-    static List<String> topLevelDecls(CompilationUnitTree cu)
+    static List<String> topLevelDecls(final CompilationUnitTree cu)
     {
-        List<String> out = new ArrayList<>();
-        for( Tree t : cu.getTypeDecls() ) out.add( normalizeWhitespace( t.toString() ) );
+        final List<String> out = new ArrayList<>();
+        for( final Tree t : cu.getTypeDecls() ) out.add( normalizeWhitespace( t.toString() ) );
 
         return out;
     }
 
-    static List<String> diffMultisets(String label, List<String> a, List<String> b)
+    static List<String> diffMultisets(final String label, final List<String> a, final List<String> b)
     {
         return diffMultisets(label, a, b, s -> false);
     }
@@ -258,16 +258,16 @@ public class java_content_diff {
      * brace annotations) rather than a genuine unexplained addition
      */
     static List<String> diffMultisets(
-        String                               label,
-        List<String>                         a,
-        List<String>                         b,
-        java.util.function.Predicate<String> ignorableAddition
+        final String                               label,
+        final List<String>                         a,
+        final List<String>                         b,
+        final java.util.function.Predicate<String> ignorableAddition
     )
     {
-        List<String> mismatches = new ArrayList<>();
-        List<String> bCopy      = new ArrayList<>(b);
-        List<String> onlyInA    = new ArrayList<>();
-        for(String s : a) {
+        final List<String> mismatches = new ArrayList<>();
+        final List<String> bCopy      = new ArrayList<>(b);
+        final List<String> onlyInA    = new ArrayList<>();
+        for(final String s : a) {
             if( !bCopy.remove(s) ) onlyInA.add(s);
         }
         bCopy.removeIf(ignorableAddition);
@@ -292,7 +292,7 @@ public class java_content_diff {
      * file and when, mirroring Main.main's/ServerMode.FormatHandler's own
      * "processing <file>" trace precedent (STATE_COMMON.md).
      */
-    static void printTimestampedHeader(String relPath)
+    static void printTimestampedHeader(final String relPath)
     {
         System.out.println( "[" + LocalDateTime.now().format(TIMESTAMP_FORMAT) + "] " + relPath );
     }
@@ -318,20 +318,20 @@ public class java_content_diff {
      * tools' parsers fail in different ways.
      */
     static boolean compareOne(
-        Path origPath, Path fmtPath, String origLabel, String fmtLabel
+        final Path origPath, final Path fmtPath, final String origLabel, final String fmtLabel
     ) throws Exception
     {
-        String origSrc = Files.readString(origPath);
-        String fmtSrc  = Files.readString(fmtPath);
+        final String origSrc = Files.readString(origPath);
+        final String fmtSrc  = Files.readString(fmtPath);
 
-        CompilationUnitTree origCu = parse(origSrc);
-        CompilationUnitTree fmtCu  = parse(fmtSrc);
+        final CompilationUnitTree origCu = parse(origSrc);
+        final CompilationUnitTree fmtCu  = parse(fmtSrc);
 
-        List<String> mismatches = new ArrayList<>();
+        final List<String> mismatches = new ArrayList<>();
 
         // Package name must be unchanged
-        String origPkg = origCu.getPackageName() == null ? "" : origCu.getPackageName().toString();
-        String fmtPkg  = fmtCu.getPackageName() == null ? "" : fmtCu.getPackageName().toString();
+        final String origPkg = origCu.getPackageName() == null ? "" : origCu.getPackageName().toString();
+        final String fmtPkg  = fmtCu.getPackageName() == null ? "" : fmtCu.getPackageName().toString();
         if( !origPkg.equals(
             fmtPkg
         ) ) mismatches.add(
@@ -346,12 +346,12 @@ public class java_content_diff {
         // Top-level type declarations: in original relative order, canonicalized
         // via javac's pretty-printer (drops whitespace/comments, keeps structure/
         // identifiers/literals)
-        List<String> origDecls = topLevelDecls(origCu);
-        List<String> fmtDecls  = topLevelDecls(fmtCu);
+        final List<String> origDecls = topLevelDecls(origCu);
+        final List<String> fmtDecls  = topLevelDecls(fmtCu);
         if( origDecls.size() != fmtDecls.size() ) mismatches.add(
             "top-level declaration count changed: " + origDecls.size() + " -> " + fmtDecls.size()
         );
-        int n = Math.min( origDecls.size(), fmtDecls.size() );
+        final int n = Math.min( origDecls.size(), fmtDecls.size() );
         for(int i = 0; i < n; ++i) {
             if( !origDecls.get(
                 i
@@ -377,7 +377,7 @@ public class java_content_diff {
             System.out.println(
                 "MISMATCH: content differs between " + origLabel + " and " + fmtLabel
             );
-            for(String m : mismatches) System.out.println("  " + m);
+            for(final String m : mismatches) System.out.println("  " + m);
 
             return false;
         }
@@ -391,15 +391,15 @@ public class java_content_diff {
         );
     }
 
-    static void runSingle(String origArg, String fmtArg) throws Exception
+    static void runSingle(final String origArg, final String fmtArg) throws Exception
     {
-        Path origPath = Paths.get(origArg);
-        Path fmtPath  = Paths.get(fmtArg);
+        final Path origPath = Paths.get(origArg);
+        final Path fmtPath  = Paths.get(fmtArg);
 
         printTimestampedHeader(origArg);
 
-        boolean origExists = Files.exists(origPath);
-        boolean fmtExists  = Files.exists(fmtPath);
+        final boolean origExists = Files.exists(origPath);
+        final boolean fmtExists  = Files.exists(fmtPath);
         if(!origExists || !fmtExists) {
                  if(!origExists && !fmtExists) System.out.println(
                      "WARNING: both " + origArg + " and " + fmtArg + " are missing"
@@ -413,11 +413,11 @@ public class java_content_diff {
             System.exit(1);
         } // if
 
-        boolean ok;
+        final boolean ok;
         try {
             ok = compareOne(origPath, fmtPath, origArg, fmtArg);
         }
-        catch(Exception e) {
+        catch(final Exception e) {
             System.err.println("ERROR: failed to parse " + origArg + " or " + fmtArg + ": " + e);
             System.exit(2);
             return;
@@ -426,10 +426,10 @@ public class java_content_diff {
     }
 
     static void runBatch(
-        String origBaseDir, String fmtBaseDir, String fileListPath
+        final String origBaseDir, final String fmtBaseDir, final String fileListPath
     ) throws Exception
     {
-        List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );
+        final List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );
 
         int okCount = 0, mismatchCount = 0, missingCount = 0;
 
@@ -437,13 +437,13 @@ public class java_content_diff {
             rel = rel.trim();
             if( rel.isEmpty() ) continue;
 
-            Path origPath = Paths.get(origBaseDir, rel);
-            Path fmtPath  = Paths.get(fmtBaseDir, rel);
+            final Path origPath = Paths.get(origBaseDir, rel);
+            final Path fmtPath  = Paths.get(fmtBaseDir, rel);
 
             printTimestampedHeader(rel);
 
-            boolean origExists = Files.exists(origPath);
-            boolean fmtExists  = Files.exists(fmtPath);
+            final boolean origExists = Files.exists(origPath);
+            final boolean fmtExists  = Files.exists(fmtPath);
             if(!origExists && !fmtExists) {
                 System.out.println(
                     "  WARNING: missing from both " + origBaseDir + " and " + fmtBaseDir + " -- skipping"
@@ -466,7 +466,7 @@ public class java_content_diff {
                 if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
                 else                                          ++mismatchCount;
             }
-            catch(Exception e) {
+            catch(final Exception e) {
                 System.out.println("  ERROR: " + e);
                 ++mismatchCount;
             }
@@ -481,7 +481,7 @@ public class java_content_diff {
         if(mismatchCount > 0 || missingCount > 0) System.exit(1);
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
              if(args.length == 2) runSingle( args[0], args[1] );
         else if(args.length == 3) runBatch( args[0], args[1], args[2] );

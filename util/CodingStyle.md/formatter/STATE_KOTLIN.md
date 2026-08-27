@@ -873,19 +873,16 @@ D3 flap in the same diff — counted once under its dominant D1 shape). No
 5th bucket shape needed — all 40 sampled files fit one of D1-D4.
 
 **DONE, 2026-08-11 — this recommendation is stale, do not re-flag as an open
-item.** `kotlin_content_diff` ran end-to-end across the full 16153-file
-corpus (see `STATE_DOGFOOD.md`'s `JetBrains/kotlin` row): 15583 OK, 570
-MISMATCH, all sampled as already-documented checker-tolerance gaps on
-legitimate transforms — no new bug found, `RDD_KEY_278`/`RDD_KEY_279`
-validated at full-corpus scale. **D3 fixed 2026-08-16** (tracked and landed
-in `STATE_CURLY_GDR.md`, `RDD_KEY_298` — see the fold note above); no
-further open item here.
+item.** The full-corpus `kotlin_content_diff` run (stats above, and
+`STATE_DOGFOOD.md`'s `JetBrains/kotlin` row) already covers this: no new
+bug found, `RDD_KEY_278`/`RDD_KEY_279` validated at full-corpus scale.
+**D3 fixed 2026-08-16** (`STATE_CURLY_GDR.md`, `RDD_KEY_298` — see the fold
+note above); no further open item here.
 
 ## D3 investigation history (2026-07-31 design session + 2026-08-01 implementation attempt, RDD_KEY_226; fixed 2026-08-16, RDD_KEY_298)
 
-**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02 and fixed there
-2026-08-16 (see D3 table row above and `STATE_CURLY_GDR.md`'s D3 checklist
-item / `RDD_KEY_298` for the landed fix).** Kept here only for the two
+**Folded into `STATE_CURLY_GDR.md` as of 2026-08-02, fixed there 2026-08-16
+(`RDD_KEY_298`, see D3 table row above).** Kept here only for the two
 reverted fix attempts' detail, absent from `RDD_LOG.md`'s terse
 `RDD_KEY_221`/`RDD_KEY_226` topic line. Root cause (RDD_KEY_221):
 `MiscRuleCurly.renderCallCandidate`'s no-newline fits-check measures a

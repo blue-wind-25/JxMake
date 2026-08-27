@@ -422,16 +422,10 @@ uncommented in the Makefile's `INP_FILES` (see Checklist).
      IMPLEMENTED in the grouped job `STATE_HTML5_TCG.md`** (split off
      2026-08-02, tc gap job in `CLAUDE.md`'s routing table; that file is now
      authoritative for this gap — see it for each level's implementation
-     notes/known limitations). Initial `html/syntax/` session fixed 4 bugs
-     (EOF-implied-close; `<image>`->`<img>` rewrite; `<head>`/`<body>`
-     implied-close-trigger; `<xmp>` raw-text); a follow-up
-     (`real_code_regressions_110`) generalized `<image>` into
-     `TAG_NAME_REWRITES` and broadened the tolerant-close fallback from
-     EOF-only to any mismatched/unrecognized closing tag, fixing 3 of 9
-     residual files. A separate crash site (raw-text elements whose literal
-     closing tag never appears before EOF) was found and FIXED
-     (`real_code_regressions_111`) — capture-verbatim instead of throwing.
-     The three remaining gaps (foster-parenting-driven tree reshaping,
+     notes/known limitations). Initial-session bugs and follow-up fixes
+     (`real_code_regressions_109`/`110`/`111`) are detailed in the
+     Checklist's HTML5 dogfood results below. The three gaps that remained
+     after those fixes (foster-parenting-driven tree reshaping,
      `foreign_content_009/010.html`; misnested `<form>` reconstruction
      inside `<template>`; implicit `<body>` start-tag insertion, distinct
      from the already-fixed `<head>`/`<body>` implied-close trigger) all

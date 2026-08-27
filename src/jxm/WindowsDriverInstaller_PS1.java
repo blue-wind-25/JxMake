@@ -217,6 +217,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "                              New-FileCatalog -Path '%s' -CatalogFilePath '%s'            \r\n" +
                 "                                  -CatalogVersion 2.0;                                    \r\n" +
                 "                              Set-AuthenticodeSignature -FilePath '%s' -Certificate $cert \r\n" +
+                "                                  -HashAlgorithm SHA256                                  \r\n" +
                 "                                  | Out-File `\"$tmpOutLog`\"                             \r\n" +
                 "                          `\"\"                                                           \r\n" +
                 "                          -Verb RunAs -Wait -PassThru                                     \r\n" +

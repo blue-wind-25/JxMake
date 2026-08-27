@@ -455,7 +455,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             return _shellExecuteElevatedAndWait(javaExe, params.toString(), System.getProperty("user.dir"), waitTimeMinutes, logFile);
         }
         finally {
-            try { Files.deleteIfExists(logFile); } catch(final Exception ignored) {}
+            try { Files.deleteIfExists(logFile); }
+            catch(final Exception ignored) {}
         }
     }
 
@@ -564,6 +565,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final long   X509_ENHANCED_KEY_USAGE    = 36L;
     private static final String szOID_ENHANCED_KEY_USAGE   = "2.5.29.37";
     private static final String szOID_PKIX_KP_CODE_SIGNING = "1.3.6.1.5.5.7.3.3";
+    private static final String szOID_RSA_SHA256RSA        = "1.2.840.113549.1.1.11";
 
     // CRYPT_ATTR_BLOB / CERT_NAME_BLOB (wincrypt.h) : { DWORD cbData; BYTE *pbData; } - size 16, align 8
     private static MemorySegment _blob(final Arena arena, final int cbData, final MemorySegment pbData)
@@ -679,9 +681,17 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             keyProvInfo.set( PTR                 , 32, MemorySegment.NULL                    );
             keyProvInfo.set( ValueLayout.JAVA_INT, 40, AT_SIGNATURE                          );
 
-            // 5. Create the self-signed certificate (default SHA256RSA signature algorithm, 1 year validity)
+            // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
+            //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on
+            //    given every other signing/hashing step in this file is deliberately pinned to SHA-256; 1 year validity)
+            // CRYPT_ALGORITHM_IDENTIFIER : { LPSTR pszObjId; CRYPT_OBJID_BLOB Parameters; } - size 24, align 8
+            final MemorySegment sigAlgId = arena.allocate(24, 8);
+            sigAlgId.set( PTR                 ,  0, _astr(arena, szOID_RSA_SHA256RSA) );
+            sigAlgId.set( ValueLayout.JAVA_INT,  8, 0                                 );
+            sigAlgId.set( PTR                 , 16, MemorySegment.NULL                );
+
             final MemorySegment certCtx = (MemorySegment) _CertCreateSelfSignCertificate.invoke(
-                hKey, subjectBlob, 0, keyProvInfo, MemorySegment.NULL, MemorySegment.NULL, MemorySegment.NULL, extensions
+                hKey, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, MemorySegment.NULL, extensions
             );
             if( certCtx == null || certCtx.address() == 0L ) {
                 log.append("CertCreateSelfSignCertificate failed, GetLastError=").append( _lastError() );

@@ -53,11 +53,16 @@ import jxm.xb.*;
  *
  * Because none of this can be exercised on a non-Windows build machine, every native call site
  * below is commented with the Windows SDK header (wincrypt.h / ncrypt.h / mscat.h / shellapi.h)
- * that documents it. The catalog-creation path (createAndSignCatalog) is the highest-risk area :
- * it deliberately avoids building a full SPC_INDIRECT_DATA_CONTENT/SIP_SUBJECTINFO blob (that
- * struct is undocumented in terms of exact field layout) and instead stores the file hash as a
- * plain CryptCATPutAttrInfo "HASH" attribute. If pnputil/Device Installer rejects catalogs built
- * this way on a real Windows 10+ box, that is the first place to look.
+ * that documents it. The catalog-creation path (createAndSignCatalog) builds the member entry
+ * through the CryptCATOpen/CryptCATPutMemberInfo/CryptCATPutAttrInfo/CryptCATClose API family -
+ * that family is the documented, intended way to populate a catalog's member list, but per the
+ * CryptCATPutMemberInfo reference (mscat.h), its cbSIPIndirectData/pbSIPIndirectData parameters
+ * are non-optional : the caller must supply a SIP_INDIRECT_DATA struct (digest algorithm, digest,
+ * and an ASN.1-encoded SPC_LINK "<<<Obsolete>>>" placeholder for the subject file), which is what
+ * this member-creation step now builds and passes in, alongside "File"/"OSAttr" member attributes.
+ * If pnputil/Device Installer still rejects catalogs built this way on a real Windows 10+ box, the
+ * next thing to check is whether CryptSIPRetrieveSubjectGuid is actually resolving the INF-specific
+ * SIP subject GUID rather than falling back to DRIVER_ACTION_VERIFY.
  */
 @SuppressWarnings("restricted")
 public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
@@ -742,7 +747,20 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int   CRYPTCAT_OPEN_CREATENEW     = 0x00000001;
     private static final int   CRYPTCAT_VERSION_2          = 0x00000200;
     private static final int   CRYPTCAT_ATTR_AUTHENTICATED = 0x10000000;
+    private static final int   CRYPTCAT_ATTR_NAMEASCII     = 0x00000001;
+    private static final int   CRYPTCAT_ATTR_DATAASCII     = 0x00010000;
     private static final long[] DRIVER_ACTION_VERIFY_PARTS = { 0xF750E6C3L, 0x38EEL, 0x11d1L, 0x85L, 0xE5L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
+
+    // wincrypt.h / mssign32 SPC_LINK "Obsolete" placeholder - the standard way a non-PE (INF/CAB) catalog
+    // member's SIP-indirect data references its subject file, per the SPC_INDIRECT_DATA_CONTENT scheme
+    private static final int    SPC_FILE_LINK_CHOICE = 3;
+    private static final String SPC_CAB_DATA_OBJID   = "1.3.6.1.4.1.311.2.1.25";
+    private static final String szOID_NIST_sha256    = "2.16.840.1.101.3.4.2.1";
+
+    // OSAttr member attribute value - this backend targets Windows 10+ only (see isUsable()), so the
+    // member is scoped to major OS version "10.0" rather than the broader legacy OS-version lists
+    // catalog-building tools historically used
+    private static final String CATALOG_OS_ATTR = "10.0";
 
     // GUID (guiddef.h) : { DWORD Data1; WORD Data2; WORD Data3; BYTE Data4[8]; } - size 16, align 4
     private static MemorySegment _guid(final Arena arena, final long[] parts)
@@ -815,7 +833,37 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     MemorySegment.copy(_guid(arena, DRIVER_ACTION_VERIFY_PARTS), 0, subjectGuid, 0, 16);
                 }
 
-                // 3. Create the v2 catalog and add a single hash-only member for the INF
+                // 3. Build the SIP-indirect data CryptCATPutMemberInfo requires : an ASN.1-encoded SPC_LINK
+                //    (the standard "<<<Obsolete>>>" file-link placeholder used for a non-PE/CAB-typed subject
+                //    such as an INF) wrapped in a SIP_INDIRECT_DATA struct together with the digest algorithm/hash
+                // SPC_LINK : { DWORD dwLinkChoice; union{ LPWSTR pwszUrl; SPC_SERIALIZED_OBJECT Moniker; LPWSTR pwszFile; }; }
+                final MemorySegment spcLink = arena.allocate(16, 8);
+                spcLink.set( ValueLayout.JAVA_INT, 0, SPC_FILE_LINK_CHOICE            );
+                spcLink.set( PTR                 , 8, _wstr( arena, "<<<Obsolete>>>") );
+
+                final MemorySegment spcLinkEncPtrOut = arena.allocate(PTR);
+                final MemorySegment spcLinkEncLenOut = arena.allocate(ValueLayout.JAVA_INT);
+                if( (int) _CryptEncodeObjectEx.invoke( X509_ASN_ENCODING, _astr(arena, SPC_CAB_DATA_OBJID), spcLink, CRYPT_ENCODE_ALLOC_FLAG, MemorySegment.NULL, spcLinkEncPtrOut, spcLinkEncLenOut ) == 0 ) {
+                    log.append("CryptEncodeObjectEx(SPC_CAB_DATA) failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+                final MemorySegment spcLinkEnc    = spcLinkEncPtrOut.get(PTR, 0);
+                final int           spcLinkEncLen = spcLinkEncLenOut.get(ValueLayout.JAVA_INT, 0);
+
+                // SIP_INDIRECT_DATA : { CRYPT_ATTRIBUTE_TYPE_VALUE Data; CRYPT_ALGORITHM_IDENTIFIER DigestAlgorithm;
+                //                       CRYPT_HASH_BLOB Digest; } - size 64, align 8 (three {ptr/DWORD-and-pad,ptr}
+                //                       pairs of 24, 24, and 16 bytes respectively)
+                final MemorySegment sipData = arena.allocate(64, 8);
+                sipData.set( PTR                 ,  0, _astr(arena, SPC_CAB_DATA_OBJID) );
+                sipData.set( ValueLayout.JAVA_INT,  8, spcLinkEncLen                    );
+                sipData.set( PTR                 , 16, spcLinkEnc                       );
+                sipData.set( PTR                 , 24, _astr(arena, szOID_NIST_sha256)  );
+                sipData.set( ValueLayout.JAVA_INT, 32, 0                                );
+                sipData.set( PTR                 , 40, MemorySegment.NULL               );
+                sipData.set( ValueLayout.JAVA_INT, 48, cbHash                           );
+                sipData.set( PTR                 , 56, hashBuf                          );
+
+                // 4. Create the v2 catalog and add a single member for the INF, carrying that SIP-indirect data
                 final MemorySegment hCatalog = (MemorySegment) _CryptCATOpen.invoke(
                     _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, CRYPTCAT_VERSION_2, 0
                 );
@@ -826,23 +874,38 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                 try {
                     final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
-                        hCatalog, _wstr(arena, fileName), _wstr(arena, hexTag.toString() ), subjectGuid, 0, 0, MemorySegment.NULL
+                        hCatalog, _wstr(arena, fileName), _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
                     );
                     if(pMember == null || pMember.address() == 0L) {
                         log.append("CryptCATPutMemberInfo failed, GetLastError=").append( _lastError() );
                         return RETCODE_EXCEPTION;
                     }
 
-                    final MemorySegment attr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
-                        hCatalog, pMember, _wstr(arena, "HASH"), CRYPTCAT_ATTR_AUTHENTICATED, cbHash, hashBuf
+                    // "File" / "OSAttr" member attributes - matches what catalog-verification tooling expects
+                    // alongside the SIP-indirect digest, scoping the member to this backend's Windows 10+ target
+                    final MemorySegment fileAttr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
+                        hCatalog, pMember, _wstr(arena, "File"),
+                        CRYPTCAT_ATTR_AUTHENTICATED | CRYPTCAT_ATTR_NAMEASCII | CRYPTCAT_ATTR_DATAASCII,
+                        (fileName.length() + 1) * 2, _wstr( arena, fileName.toLowerCase(Locale.ROOT) )
                     );
-                    if(attr == null || attr.address() == 0L) {
-                        log.append("CryptCATPutAttrInfo failed, GetLastError=").append( _lastError() );
+                    if(fileAttr == null || fileAttr.address() == 0L) {
+                        log.append("CryptCATPutAttrInfo(File) failed, GetLastError=").append( _lastError() );
+                        return RETCODE_EXCEPTION;
+                    }
+
+                    final MemorySegment osAttr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
+                        hCatalog, pMember, _wstr(arena, "OSAttr"),
+                        CRYPTCAT_ATTR_AUTHENTICATED | CRYPTCAT_ATTR_NAMEASCII | CRYPTCAT_ATTR_DATAASCII,
+                        (CATALOG_OS_ATTR.length() + 1) * 2, _wstr(arena, CATALOG_OS_ATTR)
+                    );
+                    if(osAttr == null || osAttr.address() == 0L) {
+                        log.append("CryptCATPutAttrInfo(OSAttr) failed, GetLastError=").append( _lastError() );
                         return RETCODE_EXCEPTION;
                     }
                 }
                 finally {
                     _CryptCATClose.invoke(hCatalog);
+                    _LocalFree.invoke(spcLinkEnc);
                 }
             }
             finally {

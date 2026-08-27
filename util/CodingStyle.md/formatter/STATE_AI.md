@@ -65,7 +65,7 @@ Qwen2.5-Coder-3B-Instruct-GGUF (tested: `qwen2.5-coder-3b-instruct-q4_k_m.gguf`)
 
 Never externally logged — no `RDD_LOG.md` entry, no collision risk with
 `RDD_KEY_n`. Related `RDD_KEY_86`/`87`/`88` (externally logged) are in
-`STATE.md`'s main index.
+`STATE_C_CPP_JAVA.md`'s main index.
 
 | Key | Topic |
 |---|---|
@@ -102,7 +102,7 @@ sentence-ending vs mid-token trailing dot) a small **purpose-trained**
 classifier (the GRU's ~500k-parameter footprint) can plausibly handle,
 unlike a small instruction-tuned LLM (NOT FEASIBLE, see below). Builds on
 the already-implemented rule-based comment-grammar classifier (Task H in
-`STATE.md`, `RDD_KEY_94`–98): `CommentFeatureExtractor`/`CommentFeatureVector`,
+`STATE_C_CPP_JAVA.md`, `RDD_KEY_94`–98): `CommentFeatureExtractor`/`CommentFeatureVector`,
 `NonLatinScriptGate`, `KeywordAmbiguityGate`, `CommentClassifier`/
 `CommentClassifierWeights` (`YES`/`NO`/`ABSTAIN`), gated behind
 `comment-normalization-classifier` (defaults `on` since the 2026-07-30
@@ -751,24 +751,23 @@ close to but not bit-identical to old per-example (documented README.txt).
 `--batch-size` resumable hyperparameter; checkpoint format 1→2.
 **Validation:** compile clean; `--check-gradients=5` →
 `maxRelativeError=0.000001 (PASS)`; batch-size 1/8/16 all decreasing loss;
-kill/resume restored `batchSize=4` without `--batch-size` on CLI. Confined
-`tools/gru/GruTrainer.java`; `make test` not run (same scoping as
-checkpointing). Not attempted: dropout, LR schedule, auto abstain-threshold
-tuning — per 50%-session finding #5.
+kill/resume restored `batchSize=4` without `--batch-size` on CLI.
 
-**`GruTrainer` learning-rate warmup + cosine decay (user-commissioned).**
-Resumable `--warmup-steps=N` (default 0), `--lr-min=N` (default 0.0).
-Step-granularity via Adam step counter (per mini-batch), not epoch. Decay
-horizon reuses `--epochs` (`stepsPerEpoch * maxEpochs`, same on resume).
-`computeScheduledLr` returns `baseLr` when `warmupSteps <= 0` — unmodified
-invocation byte-identical to flat-lr. Formula step `s` in
+**`GruTrainer` learning-rate warmup + cosine decay (user-commissioned,
+same day).** Resumable `--warmup-steps=N` (default 0), `--lr-min=N`
+(default 0.0). Step-granularity via Adam step counter (per mini-batch), not
+epoch. Decay horizon reuses `--epochs` (`stepsPerEpoch * maxEpochs`, same on
+resume). `computeScheduledLr` returns `baseLr` when `warmupSteps <= 0` —
+unmodified invocation byte-identical to flat-lr. Formula step `s` in
 `(warmupSteps, totalSteps]`: `lr = lrMin + 0.5*(baseLr-lrMin)*(1+cos(pi*
 progress))`, `progress` clamped `[0,1]`. Checkpoint format 2→3.
 **Validation:** compile clean; `--check-gradients=5` PASS; no
 `--warmup-steps` held LR flat (true no-op); schedule-enabled matched
 hand-computed values (step 3 = baseLr; step 60 = lrMin); kill/resume
-continued decay smoothly. Confined `tools/gru/GruTrainer.java`; `make test`
-not run. Not attempted: dropout, auto abstain-threshold tuning.
+continued decay smoothly. **Both features:** confined to
+`tools/gru/GruTrainer.java`; `make test` not run (same scoping as
+checkpointing); dropout, LR schedule (for the first)/auto abstain-threshold
+tuning (for both) not attempted, per 50%-session finding #5.
 
 **GRU retrain on 125-example bench: 50.0% → 56.0%, still below 67.7%.**
 Post-mini-batch/post-schedule train (`--threads=3 --epochs=5 --patience=3`,
@@ -820,17 +819,14 @@ pairs:
 | `examples_js.md` | `case`, `delete`, `throw`, `while` | 25-32 |
 | `examples_ts.md` | `any`, `never`, `number`, `public` | 25-32 |
 
-TSV: `wrote 173 hand-labeled example(s)` — 125+48 exact. **Deferred (out of
-scope this session, done next session):** `derive_weights.py`,
-`CommentClassifierWeights.java`/`weights.md` re-derivation,
-`make gru-acquire-corpus`, GRU retrain.
+TSV: `wrote 173 hand-labeled example(s)` — 125+48 exact.
 
-**`derive_weights.py`'s `DATASET` auto-extending from `examples_*.md`.** Latent
-sync bug: `DATASET` was hand-transcribed Python mirror, not parsed from files
-— 48 new rows had no entries. **Fix:** `load_dataset()` parsing
-`examples_*.md` (same header-column-lookup as
-`convert_classifier_weights_examples.py`; `LANG_BY_STEM` duplicated not
-imported). **Verified:** all 125 prior rows identical (spot-check); all 173
+**`derive_weights.py`'s `DATASET` auto-extending from `examples_*.md`.**
+Latent sync bug found while re-deriving for this set: `DATASET` was a
+hand-transcribed Python mirror, not parsed from files — 48 new rows had no
+entries. **Fix:** `load_dataset()` parsing `examples_*.md` (same
+header-column-lookup as `convert_classifier_weights_examples.py`;
+`LANG_BY_STEM` duplicated not imported). **Verified:** all 125 prior rows identical (spot-check); all 173
 current with zero manual transcription. Full 173-row: precision 106/173
 (61.3%, down from 82/125=65.6% — expected dilution from harder rows, not
 parser regression). New constants: `KEYWORD_BIAS=-0.05634,
@@ -846,9 +842,9 @@ with string-literal fix: 96836 → 96695 raw comments (141 fewer spurious),
 auto-labeled NO 3103 → 3023 (80 fewer, leaked DTD/URL now excluded).
 `sample_default.txt`: 92348 → 92952 lines; zero remaining leakage
 (`grep -c "DTD Enterprise JavaBeans"` → 0). 173 hand-labeled folded
-unchanged. **Not done:** GRU retrain / hard-case bench re-run.
+unchanged.
 
-**Grew hand-labeled further: 173 → 221 rows.** Same process, next
+**Grew hand-labeled further: 173 → 221 rows**, same process, next
 zero-coverage keywords:
 
 | File | Keywords targeted | Rows added |
@@ -862,8 +858,7 @@ zero-coverage keywords:
 
 Each batch exactly 4 zero-feature YES + 4 zero-feature NO (balanced — can't
 repeat KEYWORD_BIAS-flip alone). TSV: `wrote 221 hand-labeled example(s)` —
-173+48 exact. **Not done this session (out of scope):** `derive_weights.py`,
-`make gru-acquire-corpus`, GRU retrain — done next session.
+173+48 exact.
 
 **Re-derived weights + regenerated corpus for 221-row set.** `KEYWORD_BIAS`
 stayed negative (`-0.04180` vs `-0.05634` at 173); four feature weights within
@@ -871,8 +866,8 @@ few percent of 173-row — boundary stable across four growth passes. 130/221
 classified as labeled (58.8%, down from 61.3% at 173 — expected dilution).
 Updated `CommentClassifierWeights.java`/`weights.md` "second growth pass,
 same day". `make test`: 225/225. `make gru-acquire-corpus`:
-`sample_default.txt` 92809 lines, all 221 hand-labeled. **Not done:** GRU
-retrain / hard-case bench (done 2026-08-02 below).
+`sample_default.txt` 92809 lines, all 221 hand-labeled. GRU retrain /
+hard-case bench done 2026-08-02, below.
 
 ---
 
@@ -1119,15 +1114,14 @@ hoc, not part of `make test`) on current 522-row
 | GRU, fresh retrain, threshold=0.5 | 99.43% | 519/522 |
 | GRU, fresh retrain, threshold=0.7 | 99.81% | 518/519 (3 abstain) |
 
-**Caveat (same as every prior on-benchmark GRU figure):** training-fit, not
-held-out — 522 hand-labeled rows folded directly into `sample_default.txt`
-(with repeat oversampling) that GRU just trained on, same shape as
-98.7%-vs-86.3% gap on 2026-08-02. Not directly comparable to linear's
-77.97%, which *is* genuine same-set fit (linear isn't trained against
-`sample_default.txt`). Fair GRU-vs-linear needs fresh `cross_validate.py` on
-grown 522-row set — **not done this session** (not requested; 5-round CV at
-this corpus size runs many hours per `gru_log.txt` epoch timings,
-~792s/epoch). `code-formatter-ai-assist-weights.json`'s `abstainThreshold`
+**Caveat (training-fit, not held-out — same 98.7%-vs-86.3% shape as
+2026-08-02):** 522 hand-labeled rows folded directly into
+`sample_default.txt` (with repeat oversampling) that GRU just trained on.
+Not directly comparable to linear's 77.97%, which *is* genuine same-set fit
+(linear isn't trained against `sample_default.txt`). Fair GRU-vs-linear
+needs fresh `cross_validate.py` on grown 522-row set — **not done this
+session** (not requested; 5-round CV at this corpus size runs many hours per
+`gru_log.txt` epoch timings, ~792s/epoch). `code-formatter-ai-assist-weights.json`'s `abstainThreshold`
 reset to `0.5` by this retrain (previously-applied `0.7` override from
 2026-08-02 threshold sweep not carried over — flagged in case user wants to
 reapply before weights go live).
@@ -1329,10 +1323,10 @@ a fresh multi-hour `cross_validate.py` CV run) against the 594-row
 hand-labeled bench (`target/gru/classifier_weights_examples.tsv`, same
 convert script as always):** `threshold=0.7 total=594 abstain=0 decided=594
 correct=594 precision=100.0% (yesCorrect=135/135, noCorrect=459/459)`.
-**Same caveat as every prior on-bench figure:** this 594-row set is
-oversampled directly into training data, so 100% is training-fit, not a
-true generalization measure — same shape as the 98.7%-vs-86.3% gap on
-2026-08-02. A genuine held-out number needs `cross_validate.py`
+**Same training-fit caveat as always** (this 594-row set is oversampled
+directly into training data, so 100% isn't a generalization measure — same
+shape as the 98.7%-vs-86.3% gap on 2026-08-02). A genuine held-out number
+needs `cross_validate.py`
 (`make gru-cv-corpus`), which the user deferred for time. Weights not yet
 promoted to `$(CLASS_DIR)`/repo root/`code-formatter-ai-assist-weights.json`
 as of this entry — still sitting in `target/gru/`.

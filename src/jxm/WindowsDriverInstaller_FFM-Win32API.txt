@@ -245,7 +245,7 @@ Fields             : Field byte offsets, as hardcoded in the SEI_* constants in 
                          nShow(48,int) hInstApp(56,HINSTANCE) lpIDList(64,void*) lpClass(72,LPCWSTR)
                          hkeyClass(80,HKEY) dwHotKey(88,DWORD) hIcon/hMonitor(96,HANDLE)
                          hProcess(104,HANDLE)
-                     Size/alignment as used here is 112 bytes, 8-byte aligned (x64).
+Size               : 112 bytes, 8-byte aligned (x64).
 Purpose            : Describes a shell "verb" invocation (e.g. "open", "runas") plus the
                      file/parameters/window-state to launch it with, and receives back a process
                      handle and a pseudo-HINSTANCE result code.
@@ -530,8 +530,8 @@ Source       : general Win32 crypto-API knowledge - this "{cbData; pbData;}" sha
 Parameters   : Fields, byte offset, type:
                    cbData (0, DWORD) - number of bytes in the buffer pbData points to
                    pbData (8, BYTE*) - pointer to the raw byte buffer
-               Size 16, align 8 (the 4 bytes between cbData and pbData are x64 padding for pointer
-               alignment, not a real field).
+Size         : 16 bytes, 8-byte aligned (the 4 bytes between cbData and pbData are x64 padding for
+               pointer alignment, not a real field).
 Purpose      : The universal "counted byte buffer" shape Crypt32 uses everywhere - encoded names,
                encoded extensions, digests, etc.
 
@@ -544,7 +544,8 @@ STRUCTURE: CERT_ENHKEY_USAGE
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_enhkey_usage
 
 Fields       : cUsageIdentifier (0, DWORD - count), rgpszUsageIdentifier (8, LPSTR* - array of OID
-               strings); size 16, align 8.
+               strings).
+Size         : 16 bytes, 8-byte aligned.
 Purpose      : Lists the Enhanced Key Usage OIDs a certificate extension should grant - here, a
                single-entry array containing only "Code Signing" (1.3.6.1.5.5.7.3.3).
 
@@ -558,8 +559,8 @@ STRUCTURE: CERT_EXTENSION
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extension
 
 Fields       : pszObjId (0, LPSTR), fCritical (8, BOOL), Value (16, CRYPT_ATTR_BLOB - the
-               DER-encoded extension payload); size 32, align 8 (Value's own 16-byte blob shape
-               occupies bytes 16-31).
+               DER-encoded extension payload).
+Size         : 32 bytes, 8-byte aligned (Value's own 16-byte blob shape occupies bytes 16-31).
 Purpose      : One X.509 certificate extension entry - here, wraps the already DER-encoded Enhanced
                Key Usage payload under OID szOID_ENHANCED_KEY_USAGE = "2.5.29.37".
 
@@ -572,7 +573,8 @@ STRUCTURE: CERT_EXTENSIONS
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extensions
 
-Fields       : cExtension (0, DWORD), rgExtension (8, PCERT_EXTENSION - array); size 16, align 8.
+Fields       : cExtension (0, DWORD), rgExtension (8, PCERT_EXTENSION - array).
+Size         : 16 bytes, 8-byte aligned.
 Purpose      : The array wrapper CertCreateSelfSignCertificate's pExtensions parameter expects -
                here, always a single-element array containing the CERT_EXTENSION above.
 
@@ -583,7 +585,8 @@ Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-w
 
 Fields       : pwszContainerName (0, LPWSTR), pwszProvName (8, LPWSTR), dwProvType (16, DWORD),
                dwFlags (20, DWORD), cProvParam (24, DWORD), rgProvParam (32, PCRYPT_KEY_PROV_PARAM -
-               array, unused here -> NULL), dwKeySpec (40, DWORD); size 48, align 8.
+               array, unused here -> NULL), dwKeySpec (40, DWORD).
+Size         : 48 bytes, 8-byte aligned.
 Purpose      : Tells CertCreateSelfSignCertificate (and, later, anything that reads the resulting
                certificate's CERT_KEY_PROV_INFO_PROP_ID) which provider and key container the
                certificate's private key actually lives in, so it can be re-acquired without
@@ -601,7 +604,8 @@ STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_algorithm_identifier
 
 Fields       : pszObjId (0, LPSTR - algorithm OID), Parameters (8, CRYPT_OBJID_BLOB - optional
-               algorithm parameters blob); size 24, align 8.
+               algorithm parameters blob).
+Size         : 24 bytes, 8-byte aligned.
 Purpose      : Identifies a signature/hash algorithm by OID, with room for algorithm-specific
                parameters.
 
@@ -619,7 +623,8 @@ Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-w
 Fields       : Only the ones relevant to this file:
                    dwCertEncodingType (0, DWORD), pbCertEncoded (8, BYTE*),
                    cbCertEncoded (16, DWORD), pCertInfo (24, PCERT_INFO),
-                   hCertStore (32, HCERTSTORE); size 40, align 8.
+                   hCertStore (32, HCERTSTORE).
+Size         : 40 bytes, 8-byte aligned.
 Purpose      : The structure behind every PCCERT_CONTEXT handle Crypt32 hands out; this file only
                cares about pulling the raw DER bytes back out of an already-created certificate.
 
@@ -930,9 +935,10 @@ STRUCTURE: GUID
 Source       : general, extremely stable Win32 knowledge (guiddef.h); shape documented at
                https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
 
-Fields       : Data1 (0, DWORD), Data2 (4, WORD), Data3 (6, WORD), Data4 (8, BYTE[8]); size 16,
-               align 4 (note: 4-byte alignment, not 8 - GUID is one of the few structures in this
-               file that is NOT 8-byte aligned, because it contains no pointer-sized fields).
+Fields       : Data1 (0, DWORD), Data2 (4, WORD), Data3 (6, WORD), Data4 (8, BYTE[8]).
+Size         : 16 bytes, 4-byte aligned (note: 4-byte alignment, not 8 - GUID is one of the few
+               structures in this file that is NOT 8-byte aligned, because it contains no
+               pointer-sized fields).
 Purpose      : The standard 128-bit Windows GUID/UUID representation.
 
 FFM notes    : Built by the private `_guid(arena, long[] parts)` helper, which takes an 11-element
@@ -967,8 +973,8 @@ Fields    : As built in this file:
                 pwszFile (LPWSTR) - i.e. this code only ever exercises the "this SPC_LINK identifies
                 a file, by name" variant (dwLinkChoice = 3 = SPC_FILE_LINK_CHOICE, in the code's own
                 naming), never the URL or "moniker" (serialized-object) variants the same union can
-                hold in a fuller SPC_LINK implementation; size 16, align 8, matching what's
-                allocated in this file.
+                hold in a fuller SPC_LINK implementation.
+Size      : 16 bytes, 8-byte aligned, matching what's allocated in this file.
 Purpose   : As used here:
                 a placeholder reference to the "subject file" this piece of SIP-indirect data
                 describes, using the conventional literal string "<<<Obsolete>>>" as the file name -
@@ -1004,7 +1010,7 @@ Fields    : As built in this file (three 24/24/16-byte groups back to back, matc
                                                        (`hashBuf`, the same buffer
                                                        CryptCATAdminCalcHashFromFileHandle2
                                                        filled in)
-                Size 64, align 8.
+Size      : 64 bytes, 8-byte aligned.
 
 Purpose   : As used here:
                 the payload CryptCATPutMemberInfo's cbSIPIndirectData/pbSIPIndirectData parameters
@@ -1102,7 +1108,8 @@ Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-
 
 Fields       : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, must be a pointer to a zero DWORD,
                not itself zero/NULL), dwSubjectChoice (16, DWORD), union at 24 (active member here:
-               pSignerFileInfo, SIGNER_FILE_INFO*) Size 32, align 8.
+               pSignerFileInfo, SIGNER_FILE_INFO*).
+Size         : 32 bytes, 8-byte aligned.
 Purpose      : Identifies what is being signed - a file (this file's only used case, dwSubjectChoice
                = SIGNER_SUBJECT_FILE = 1) or a BLOB (SIGNER_SUBJECT_BLOB = 2, unused here).
 
@@ -1117,7 +1124,8 @@ STRUCTURE: SIGNER_FILE_INFO - VERIFIED
 Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-file-info
 
 Fields       : cbSize (0, DWORD), pwszFileName (8, LPCWSTR), hFile (16, HANDLE, optional - may be
-               NULL) Size 24, align 8.
+               NULL).
+Size         : 24 bytes, 8-byte aligned.
 Purpose      : Identifies the specific file to sign, by path and/or by an already-open handle.
 
 FFM notes    : pwszFileName is set to the .cat path; hFile is left MemorySegment.NULL - the code
@@ -1132,7 +1140,8 @@ Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-
 
 Fields       : cbSize (0, DWORD), dwCertChoice (4, DWORD), union at 8 (active member here:
                pCertStoreInfo, SIGNER_CERT_STORE_INFO*), hwnd (16, HWND - documented as currently
-               unused/ignored by the function) Size 24, align 8.
+               unused/ignored by the function).
+Size         : 24 bytes, 8-byte aligned.
 Purpose      : Identifies the signing certificate - either an SPC file (SIGNER_CERT_SPC_FILE=1), a
                certificate-store lookup (SIGNER_CERT_STORE=2, what this file uses), or an SPC chain
                (SIGNER_CERT_SPC_CHAIN=3).
@@ -1146,7 +1155,8 @@ STRUCTURE: SIGNER_CERT_STORE_INFO - VERIFIED
 Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info
 
 Fields       : cbSize (0, DWORD), pSigningCert (8, PCCERT_CONTEXT), dwCertPolicy (16, DWORD),
-               hCertStore (24, HCERTSTORE, optional) Size 32, align 8.
+               hCertStore (24, HCERTSTORE, optional).
+Size         : 32 bytes, 8-byte aligned.
 Purpose      : Specifies both the exact signing certificate context and the policy for pulling in
                the rest of its chain from the given store when building the signature's certificate
                chain.
@@ -1165,7 +1175,8 @@ Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-
 Fields       : cbSize (0, DWORD), algidHash (4, ALG_ID), dwAttrChoice (8, DWORD), union at 16
                (active member would be pAttrAuthcode, SIGNER_ATTR_AUTHCODE* - unused here,
                dwAttrChoice=SIGNER_NO_ATTR), psAuthenticated (24, PCRYPT_ATTRIBUTES, optional),
-               psUnauthenticated (32, PCRYPT_ATTRIBUTES, optional) Size 40, align 8.
+               psUnauthenticated (32, PCRYPT_ATTRIBUTES, optional).
+Size         : 40 bytes, 8-byte aligned.
 Purpose      : Specifies the hash algorithm for the signature and any extra Authenticode-specific or
                user-supplied signed/unsigned attributes.
 

@@ -165,12 +165,12 @@ ifeq ($(shell test "$(JAVA_MAJOR)" -ge 25 && echo true), true)
 endif
 
 ##### Exclude source code files that rely on the Foreign Function and Memory (FFM) API when
-##### building with Java versions earlier than 25 (required by JavaDoesUSB) or if the required
-##### dependency JAR files are missing
+##### building with Java versions earlier than 25 (required by JavaDoesUSB, and by
+##### WindowsDriverInstaller_FFM) or if the required dependency JAR files are missing
 ifeq ($(shell ( test "$(JAVA_MAJOR)" -lt 25 ) && echo true), true)
-    ExcludeUSB      := ProgBootUSB ProgBootLUFAHID ProgBootAVRDFU ProgBootSTM32DFU
-    JAVA_CLASSES    := $(call filter_out_multi,$(ExcludeUSB),$(JAVA_CLASSES))
-    JAVA_SOURCES_PP := $(call filter_out_multi,$(ExcludeUSB),$(JAVA_SOURCES_PP))
+    ExcludeFFM      := ProgBootUSB ProgBootLUFAHID ProgBootAVRDFU ProgBootSTM32DFU WindowsDriverInstaller_FFM
+    JAVA_CLASSES    := $(call filter_out_multi,$(ExcludeFFM),$(JAVA_CLASSES))
+    JAVA_SOURCES_PP := $(call filter_out_multi,$(ExcludeFFM),$(JAVA_SOURCES_PP))
 endif
 
 

@@ -167,11 +167,10 @@ landed in. Fixtures: `test/html_tc_gap_level4_adoption_agency_{inp,out}.html`,
 
 - Each level has its own fixture pair(s) plus a combined smoke test proving all levels landed so
   far fire correctly together, in order, without disturbing earlier levels' guards.
-- Item 9 (final full-suite re-validation, 2026-08-03): re-ran all three dogfood corpora at level
-  `0` and level `4`, plus full `make test` (236/236). Every mismatch traced to an
-  already-documented, unrelated cause (RDD_KEY_223's gap, lowercase-prose-comment non-bug,
-  level-1's own pre-existing Gutenberg-fragment wrapping behavior) — none attributable to level 4,
-  confirming real-world safety at max level.
+- Item 9 (final full-suite re-validation, 2026-08-03, see Status above for the corpora/`make test`
+  numbers): every mismatch traced to an already-documented, unrelated cause (RDD_KEY_223's gap,
+  lowercase-prose-comment non-bug, level-1's own pre-existing Gutenberg-fragment wrapping behavior)
+  — none attributable to level 4, confirming real-world safety at max level.
 - **2026-08-11 (level-1 no-`<head>` fix):** `make -k test` after the fix: 552 PASS, one
   pre-existing unrelated failure (`test/real_code_regressions_148_inp.kt`, a Kotlin
   comment-normalization drift, confirmed present identically against the unmodified `HEAD` version

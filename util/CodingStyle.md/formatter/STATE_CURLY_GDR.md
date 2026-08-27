@@ -219,10 +219,12 @@ validation are recorded in the Checklist below.
 - Check `../README.txt` for a formatter config-keys section before editing
   it — as of last check it has none, so no edit needed; verify this
   assumption still holds if revisiting.
-- Update `STATE_KOTLIN.md`'s D3 entries (its Category-2/D3 table row and the
+- ~~Update `STATE_KOTLIN.md`'s D3 entries (its Category-2/D3 table row and the
   "2026-07-31"/"2026-08-01" D3 session sections) to point at the actual fix
   commit and new `RDD_KEY_n` once the D3 revisit lands, rather than leaving
-  them pointing at this file's "folded, not yet fixed" state.
+  them pointing at this file's "folded, not yet fixed" state.~~ — done
+  (`STATE_KOTLIN.md`'s D3 table row and session sections already point at
+  `RDD_KEY_298`).
 
 ---
 

@@ -93,8 +93,11 @@ public abstract class WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Generates a formatted WinUSB INF string for a specific hardware ID
-    public static String generateWinUSBInf(final String vid, final String pid)
+    // Generates a formatted WinUSB INF string for a specific hardware ID. catalogFileName must be the exact
+    // basename (e.g. "drv_1234_5678_9042380952345.cat") of the .cat file that will sit alongside this INF -
+    // see _saveInfToFileAndSign() below, since Windows requires CatalogFile= to name a real file in the same
+    // directory as the INF, and rejects the package (signature not found) otherwise
+    public static String generateWinUSBInf(final String vid, final String pid, final String catalogFileName)
     {
         final String hwId = String.format( "USB\\VID_%s&PID_%s", vid.toUpperCase(), pid.toUpperCase() );
 
@@ -104,7 +107,7 @@ public abstract class WindowsDriverInstaller {
             "Class       = USBDevice                                                         \r\n" +
             "ClassGUID   = {88BAE032-5A81-49f0-BC3D-A4FF138216D6}                            \r\n" +
             "Provider    = %ManufacturerName%                                                \r\n" +
-            "CatalogFile = WinUSB.cat                                                        \r\n" +
+            "CatalogFile = " + catalogFileName + "                                           \r\n" +
             "DriverVer   = 05/02/2026,1.0.0.0                                                \r\n" +
             "                                                                                \r\n" +
             "[Manufacturer]                                                                  \r\n" +
@@ -133,8 +136,9 @@ public abstract class WindowsDriverInstaller {
             "DeviceName       = \"WinUSB Automated Driver\"                                  \r\n" ;
     }
 
-    // Generates a formatted HID INF string for a specific hardware ID
-    public static String generateHIDInf(final String vid, final String pid)
+    // Generates a formatted HID INF string for a specific hardware ID. catalogFileName must be the exact
+    // basename of the .cat file that will sit alongside this INF - see generateWinUSBInf() above
+    public static String generateHIDInf(final String vid, final String pid, final String catalogFileName)
     {
         final String hwId = String.format( "USB\\VID_%s&PID_%s", vid.toUpperCase(), pid.toUpperCase() );
 
@@ -144,7 +148,7 @@ public abstract class WindowsDriverInstaller {
             "Class       = HIDClass                               \r\n" +
             "ClassGUID   = {745a17a0-74d3-11d0-b6fe-00a0c90f57da} \r\n" +
             "Provider    = %ManufacturerName%                     \r\n" +
-            "CatalogFile = hid_device.cat                         \r\n" +
+            "CatalogFile = " + catalogFileName + "                \r\n" +
             "DriverVer   = 05/02/2026,1.0.0.0                     \r\n" +
             "                                                     \r\n" +
             "[Manufacturer]                                       \r\n" +
@@ -166,8 +170,9 @@ public abstract class WindowsDriverInstaller {
             "DeviceName       = \"HID Automated Driver\"          \r\n" ;
     }
 
-    // Generates a formatted CDC-ACM INF string for a specific hardware ID
-    public static String generateCDCACMInf(final String vid, final String pid)
+    // Generates a formatted CDC-ACM INF string for a specific hardware ID. catalogFileName must be the exact
+    // basename of the .cat file that will sit alongside this INF - see generateWinUSBInf() above
+    public static String generateCDCACMInf(final String vid, final String pid, final String catalogFileName)
     {
         final String hwId = String.format( "USB\\VID_%s&PID_%s", vid.toUpperCase(), pid.toUpperCase() );
 
@@ -177,7 +182,7 @@ public abstract class WindowsDriverInstaller {
             "Class       = Ports                                              \r\n" +
             "ClassGUID   = {4d36e978-e325-11ce-bfc1-08002be10318}             \r\n" +
             "Provider    = %ManufacturerName%                                 \r\n" +
-            "CatalogFile = cdc_acm.cat                                        \r\n" +
+            "CatalogFile = " + catalogFileName + "                            \r\n" +
             "DriverVer   = 05/02/2026,1.0.0.0                                 \r\n" +
             "                                                                 \r\n" +
             "[Manufacturer]                                                   \r\n" +
@@ -212,8 +217,9 @@ public abstract class WindowsDriverInstaller {
             "DeviceName       = \"CDC-ACM Automated Driver\"                  \r\n" ;
     }
 
-    // Generates a formatted multi-port CDC-ACM INF string for a specific hardware ID
-    public static String generateMultiCDCACMInf(final String vid, final String pid, final int numInterfaces)
+    // Generates a formatted multi-port CDC-ACM INF string for a specific hardware ID. catalogFileName must be
+    // the exact basename of the .cat file that will sit alongside this INF - see generateWinUSBInf() above
+    public static String generateMultiCDCACMInf(final String vid, final String pid, final int numInterfaces, final String catalogFileName)
     {
         final String        vidPid = String.format( "VID_%s&PID_%s", vid.toUpperCase(), pid.toUpperCase() );
         final StringBuilder sb     = new StringBuilder();
@@ -224,7 +230,7 @@ public abstract class WindowsDriverInstaller {
         sb.append("Class       = Ports                                              \r\n");
         sb.append("ClassGUID   = {4d36e978-e325-11ce-bfc1-08002be10318}             \r\n");
         sb.append("Provider    = %ManufacturerName%                                 \r\n");
-        sb.append("CatalogFile = multi_cdc.cat                                      \r\n");
+        sb.append("CatalogFile = ").append(catalogFileName).append("                \r\n");
         sb.append("DriverVer   = 05/02/2026,1.0.0.0                                 \r\n");
         sb.append("                                                                 \r\n");
 
@@ -281,12 +287,18 @@ public abstract class WindowsDriverInstaller {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private static String _saveInfToFile(final String vid, final String pid, final String infText)
+    // Reserves a uniquely-named temp .inf file and writes infTextForCatalog's result into it. The .inf's
+    // basename (not chosen until Files.createTempFile returns) is what createAndSignCatalog() below will
+    // derive the .cat file's name from, so infTextForCatalog is only called once that basename is known -
+    // it must embed the given catalogFileName verbatim as this INF's CatalogFile= value (see
+    // generateWinUSBInf() and friends), or Windows will reject the package as unsigned/mismatched
+    private static String _saveInfToFile(final String vid, final String pid, final java.util.function.Function<String, String> infTextForCatalog)
     {
         try {
-            final Path tempPath = Files.createTempFile("drv_" + vid + "_" + pid + "_", ".inf");
+            final Path   tempPath        = Files.createTempFile("drv_" + vid + "_" + pid + "_", ".inf");
+            final String catalogFileName = tempPath.getFileName().toString().replaceFirst("\\.inf$", ".cat");
 
-            Files.write( tempPath, infText.getBytes(StandardCharsets.UTF_8) );
+            Files.write( tempPath, infTextForCatalog.apply(catalogFileName).getBytes(StandardCharsets.UTF_8) );
 
             return tempPath.toAbsolutePath().toString();
 
@@ -298,9 +310,9 @@ public abstract class WindowsDriverInstaller {
         }
     }
 
-    private XCom.Pair<Integer, String> _saveInfToFileAndSign(final String vid, final String pid, final String infText)
+    private XCom.Pair<Integer, String> _saveInfToFileAndSign(final String vid, final String pid, final java.util.function.Function<String, String> infTextForCatalog)
     {
-        final String infPath = _saveInfToFile(vid, pid, infText);
+        final String infPath = _saveInfToFile(vid, pid, infTextForCatalog);
         if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
         if( isProviderAlreadyTrusted(PROVIDER_NAME).first() == RETCODE_OK ) {
@@ -320,7 +332,7 @@ public abstract class WindowsDriverInstaller {
 
     public XCom.Pair<Integer, String> installWinUSBInf(final String vid, final String pid)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, generateWinUSBInf(vid, pid) );
+        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateWinUSBInf(vid, pid, catalogFileName) );
         if( res.first() != RETCODE_OK ) return res;
 
         return installDriver( res.second() );
@@ -328,7 +340,7 @@ public abstract class WindowsDriverInstaller {
 
     public XCom.Pair<Integer, String> installHIDInf(final String vid, final String pid)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, generateHIDInf(vid, pid) );
+        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateHIDInf(vid, pid, catalogFileName) );
         if( res.first() != RETCODE_OK ) return res;
 
         return installDriver( res.second() );
@@ -336,7 +348,7 @@ public abstract class WindowsDriverInstaller {
 
     public XCom.Pair<Integer, String> installCDCACMInf(final String vid, final String pid)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, generateCDCACMInf(vid, pid) );
+        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateCDCACMInf(vid, pid, catalogFileName) );
         if( res.first() != RETCODE_OK ) return res;
 
         return installDriver( res.second() );
@@ -344,7 +356,7 @@ public abstract class WindowsDriverInstaller {
 
     public XCom.Pair<Integer, String> installMultiCDCACMInf(final String vid, final String pid, int numInterfaces)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, generateMultiCDCACMInf(vid, pid, numInterfaces) );
+        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateMultiCDCACMInf(vid, pid, numInterfaces, catalogFileName) );
         if( res.first() != RETCODE_OK ) return res;
 
         return installDriver( res.second() );

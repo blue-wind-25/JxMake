@@ -21,7 +21,7 @@ public final class GruTokenizerSelfTest {
 
     private static int failures = 0;
 
-    public static void main(String[] args)
+    public static void main(final String[] args)
     {
         checkTokenize( "matrix.", asList("matrix", ".") );
         checkTokenize( "// for i", asList("/", "/", "for", "i") );
@@ -44,9 +44,9 @@ public final class GruTokenizerSelfTest {
         }
     }
 
-    private static void checkTokenize(String input, List<String> expected)
+    private static void checkTokenize(final String input, final List<String> expected)
     {
-        List<String> actual = GruClassifier.tokenize(input);
+        final List<String> actual = GruClassifier.tokenize(input);
         if( !actual.equals(
             expected
         ) ) fail(
@@ -54,22 +54,22 @@ public final class GruTokenizerSelfTest {
         );
     }
 
-    private static void checkHashDeterministic(String token)
+    private static void checkHashDeterministic(final String token)
     {
-        int a = GruClassifier.hashBucket(token);
-        int b = GruClassifier.hashBucket(token);
+        final int a = GruClassifier.hashBucket(token);
+        final int b = GruClassifier.hashBucket(token);
         if(a != b) fail( "hashBucket(" + quote(token) + ") not deterministic: " + a + " vs " + b );
     }
 
-    private static void checkHashInRange(String token)
+    private static void checkHashInRange(final String token)
     {
-        int h = GruClassifier.hashBucket(token);
+        final int h = GruClassifier.hashBucket(token);
         if(h < 0 || h >= GruClassifier.HASH_BUCKETS) fail(
             "hashBucket(" + quote(token) + ") = " + h + " out of range [0, " + GruClassifier.HASH_BUCKETS + ")"
         );
     }
 
-    private static void checkHashDistinct(String a, String b)
+    private static void checkHashDistinct(final String a, final String b)
     {
         if( GruClassifier.hashBucket(
             a
@@ -80,18 +80,18 @@ public final class GruTokenizerSelfTest {
         );
     }
 
-    private static void fail(String message)
+    private static void fail(final String message)
     {
         ++failures;
         System.err.println("FAIL: " + message);
     }
 
-    private static String quote(String s)
+    private static String quote(final String s)
     {
         return "\"" + s + "\"";
     }
 
-    private static List<String> asList(String... items)
+    private static List<String> asList(final String... items)
     {
         return java.util.Arrays.asList(items);
     }

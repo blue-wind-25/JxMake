@@ -99,9 +99,9 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  */
 public class kotlin_content_diff {
 
-    static KtFile parse(String source)
+    static KtFile parse(final String source)
     {
-        KotlinCoreEnvironment env = KotlinCoreEnvironment.createForProduction(
+        final KotlinCoreEnvironment env = KotlinCoreEnvironment.createForProduction(
             Disposer.newDisposable(),
             new CompilerConfiguration(),
             EnvironmentConfigFiles.JVM_CONFIG_FILES
@@ -110,7 +110,7 @@ public class kotlin_content_diff {
         return new KtPsiFactory( env.getProject() ).createFile(source);
     }
 
-    static String normalizeWhitespace(String s)
+    static String normalizeWhitespace(final String s)
     {
         return s.trim().replaceAll("\\s+", " ");
     }
@@ -139,50 +139,50 @@ public class kotlin_content_diff {
      * braceless-collapsed body is still caught by the ordinary per-leaf
      * comparison below.
      */
-    static boolean isCollapsibleControlBlock(ASTNode n)
+    static boolean isCollapsibleControlBlock(final ASTNode n)
     {
-        PsiElement psi = n.getPsi();
+        final PsiElement psi = n.getPsi();
         if( !(psi instanceof KtBlockExpression) ) return false;
         if( !( psi.getParent() instanceof KtContainerNodeForControlStructureBody ) ) return false;
 
         return ( (KtBlockExpression) psi ).getStatements().size() == 1;
     }
 
-    static void collectLeafText(ASTNode n, StringBuilder sb)
+    static void collectLeafText(final ASTNode n, final StringBuilder sb)
     {
-        PsiElement psi = n.getPsi();
+        final PsiElement psi = n.getPsi();
         if(psi instanceof PsiWhiteSpace || psi instanceof PsiComment || psi instanceof KDoc) return;
-        ASTNode[] children = n.getChildren(null);
+        final ASTNode[] children = n.getChildren(null);
         if(children.length == 0) {
-            String t = n.getText();
+            final String t = n.getText();
             if( !t.isEmpty() ) sb.append(t).append(' ');
         }
         else if( isCollapsibleControlBlock(n) ) {
-            for(ASTNode c : children) {
-                IElementType et = c.getElementType();
+            for(final ASTNode c : children) {
+                final IElementType et = c.getElementType();
                 if(et == KtTokens.LBRACE || et == KtTokens.RBRACE) continue;
                 collectLeafText(c, sb);
             }
         }
         else {
-            for(ASTNode c : children) collectLeafText(c, sb);
+            for(final ASTNode c : children) collectLeafText(c, sb);
         }
     }
 
-    static String canonicalize(PsiElement e)
+    static String canonicalize(final PsiElement e)
     {
-        StringBuilder sb = new StringBuilder();
+        final StringBuilder sb = new StringBuilder();
         collectLeafText( e.getNode(), sb );
 
         return normalizeWhitespace( sb.toString() );
     }
 
-    static List<String> importMultiset(KtFile file)
+    static List<String> importMultiset(final KtFile file)
     {
-        List<String> out = new ArrayList<>();
-        for( KtImportDirective imp : file.getImportDirectives() ) {
-            String fq    = imp.getImportedFqName() == null ? "" : imp.getImportedFqName().asString();
-            String alias = imp.getAliasName() == null ? "" : ( " as " + imp.getAliasName() );
+        final List<String> out = new ArrayList<>();
+        for( final KtImportDirective imp : file.getImportDirectives() ) {
+            final String fq    = imp.getImportedFqName() == null ? "" : imp.getImportedFqName().asString();
+            final String alias = imp.getAliasName() == null ? "" : ( " as " + imp.getAliasName() );
             out.add( fq + ( imp.isAllUnder() ? ".*" : "" ) + alias );
         }
         out.sort(null);
@@ -190,10 +190,10 @@ public class kotlin_content_diff {
         return out;
     }
 
-    static List<String> topLevelDecls(KtFile file)
+    static List<String> topLevelDecls(final KtFile file)
     {
-        List<String> out = new ArrayList<>();
-        for( KtDeclaration d : file.getDeclarations() ) out.add( canonicalize(d) );
+        final List<String> out = new ArrayList<>();
+        for( final KtDeclaration d : file.getDeclarations() ) out.add( canonicalize(d) );
 
         return out;
     }
@@ -203,19 +203,19 @@ public class kotlin_content_diff {
      * see collectLeafText's comment on why PsiElement.getChildren()/
      * PsiTreeUtil can't be used to reach these for stub-based elements.
      */
-    static void collectComments(ASTNode n, List<String> out)
+    static void collectComments(final ASTNode n, final List<String> out)
     {
-        PsiElement psi = n.getPsi();
+        final PsiElement psi = n.getPsi();
         if(psi instanceof PsiComment || psi instanceof KDoc) {
             out.add( stripCommentDelims( n.getText() ) );
             return;
         }
-        for( ASTNode c : n.getChildren(null) ) collectComments(c, out);
+        for( final ASTNode c : n.getChildren(null) ) collectComments(c, out);
     }
 
-    static List<String> commentMultiset(KtFile file)
+    static List<String> commentMultiset(final KtFile file)
     {
-        List<String> out = new ArrayList<>();
+        final List<String> out = new ArrayList<>();
         collectComments( file.getNode(), out );
         out.sort(null);
 
@@ -231,7 +231,7 @@ public class kotlin_content_diff {
      * `count() == 1` check) so a real ellipsis/decimal/abbreviation run at
      * the end of a comment is left alone.
      */
-    static String normalizeTrailingPeriod(String s)
+    static String normalizeTrailingPeriod(final String s)
     {
         if( s.endsWith(
             "."
@@ -259,12 +259,12 @@ public class kotlin_content_diff {
      * touch any other `*`/backtick adjacency shape, so it can't mask a
      * dropped/added/reordered word elsewhere in the comment body.
      */
-    static String normalizeKdocAsteriskFenceSpacing(String s)
+    static String normalizeKdocAsteriskFenceSpacing(final String s)
     {
         return s.replaceAll("\\*[ \\t]*(`+)", "* $1");
     }
 
-    static String stripCommentDelims(String text)
+    static String stripCommentDelims(final String text)
     {
         String t = text.trim();
              if( t.startsWith("///") ) t = t.substring(3);
@@ -340,19 +340,19 @@ public class kotlin_content_diff {
      * to have this inconsistency in the sample and keep one exact shape
      * each.
      */
-    static void collectNamedConstructClosings(PsiElement e, List<List<String>> out)
+    static void collectNamedConstructClosings(final PsiElement e, final List<List<String>> out)
     {
         if(e instanceof KtClassInitializer) {
             out.add( java.util.Collections.singletonList("init") );
         }
         else if(e instanceof KtClassOrObject) {
-            KtClassOrObject co = (KtClassOrObject)e;
+            final KtClassOrObject co = (KtClassOrObject)e;
             // getName() defaults an anonymous companion object to "Companion"
             // even with no explicit name written in source -- getNameIdentifier()
             // is null in exactly that case, which is what distinguishes
             // "companion object" from an explicitly-named "companion object Foo"
-            String       name     = ( co.getNameIdentifier() == null ) ? null : co.getName();
-            List<String> variants = new ArrayList<>();
+            final String       name     = ( co.getNameIdentifier() == null ) ? null : co.getName();
+            final List<String> variants = new ArrayList<>();
             if( co instanceof KtObjectDeclaration && ( (KtObjectDeclaration) co ).isCompanion() ) {
                 variants.add( (name == null) ? "companion object" : ("companion object " + name) );
             }
@@ -375,16 +375,16 @@ public class kotlin_content_diff {
             else {
                 variants.add("class " + name);
             }
-            List<String> normalized = new ArrayList<>();
-            for(String v : variants) normalized.add( normalizeWhitespace(v).toLowerCase() );
+            final List<String> normalized = new ArrayList<>();
+            for(final String v : variants) normalized.add( normalizeWhitespace(v).toLowerCase() );
             out.add(normalized);
         }
-        for( PsiElement c : e.getChildren() ) collectNamedConstructClosings(c, out);
+        for( final PsiElement c : e.getChildren() ) collectNamedConstructClosings(c, out);
     }
 
-    static List<List<String>> namedConstructClosingComments(KtFile file)
+    static List<List<String>> namedConstructClosingComments(final KtFile file)
     {
-        List<List<String>> out = new ArrayList<>();
+        final List<List<String>> out = new ArrayList<>();
         collectNamedConstructClosings(file, out);
 
         return out;
@@ -404,15 +404,15 @@ public class kotlin_content_diff {
      * exist at all) is still flagged as a genuine mismatch, unlike a
      * free-floating regex.
      */
-    static void collectWhenClosingComments(PsiElement e, List<List<String>> out)
+    static void collectWhenClosingComments(final PsiElement e, final List<List<String>> out)
     {
         if(e instanceof org.jetbrains.kotlin.psi.KtWhenExpression) {
-            org.jetbrains.kotlin.psi.KtWhenExpression w = (org.jetbrains.kotlin.psi.KtWhenExpression) e;
-            PsiElement   lp       = w.getLeftParenthesis();
-            PsiElement   rp       = w.getRightParenthesis();
-            List<String> variants = new ArrayList<>();
+            final org.jetbrains.kotlin.psi.KtWhenExpression w = (org.jetbrains.kotlin.psi.KtWhenExpression) e;
+            final PsiElement   lp       = w.getLeftParenthesis();
+            final PsiElement   rp       = w.getRightParenthesis();
+            final List<String> variants = new ArrayList<>();
             if(lp != null && rp != null) {
-                String rawSubject = w.getContainingFile().getText().substring(
+                final String rawSubject = w.getContainingFile().getText().substring(
                     lp.getTextRange().getEndOffset(), rp.getTextRange().getStartOffset()
                 );
                 variants.add(
@@ -424,23 +424,23 @@ public class kotlin_content_diff {
             }
             out.add(variants);
         } // if
-        for( PsiElement c : e.getChildren() ) collectWhenClosingComments(c, out);
+        for( final PsiElement c : e.getChildren() ) collectWhenClosingComments(c, out);
     }
 
-    static List<List<String>> whenClosingComments(KtFile file)
+    static List<List<String>> whenClosingComments(final KtFile file)
     {
-        List<List<String>> out = new ArrayList<>();
+        final List<List<String>> out = new ArrayList<>();
         collectWhenClosingComments(file, out);
 
         return out;
     }
 
-    static List<String> diffMultisets(String label, List<String> a, List<String> b)
+    static List<String> diffMultisets(final String label, final List<String> a, final List<String> b)
     {
-        List<String> mismatches = new ArrayList<>();
-        List<String> bCopy      = new ArrayList<>(b);
-        List<String> onlyInA    = new ArrayList<>();
-        for(String s : a) {
+        final List<String> mismatches = new ArrayList<>();
+        final List<String> bCopy      = new ArrayList<>(b);
+        final List<String> onlyInA    = new ArrayList<>();
+        for(final String s : a) {
             if( !bCopy.remove(s) ) onlyInA.add(s);
         }
         if( !onlyInA.isEmpty() ) mismatches.add(
@@ -463,15 +463,15 @@ public class kotlin_content_diff {
      * count
      */
     static List<String> diffCommentMultisets(
-        List<String>       a,
-        List<String>       b,
-        List<List<String>> namedConstructAllowed
+        final List<String>       a,
+        final List<String>       b,
+        final List<List<String>> namedConstructAllowed
     )
     {
-        List<String> mismatches = new ArrayList<>();
-        List<String> bCopy      = new ArrayList<>(b);
-        List<String> onlyInA    = new ArrayList<>();
-        for(String s : a) {
+        final List<String> mismatches = new ArrayList<>();
+        final List<String> bCopy      = new ArrayList<>(b);
+        final List<String> onlyInA    = new ArrayList<>();
+        for(final String s : a) {
             if( !bCopy.remove(s) ) onlyInA.add(s);
         }
         if( !onlyInA.isEmpty() ) mismatches.add(
@@ -483,8 +483,8 @@ public class kotlin_content_diff {
         // Each group represents ONE real declaration -- consume at most one
         // variant per group, so a single construct can excuse at most one
         // added comment, no matter how many acceptable shapes its group lists
-        for(List<String> group : namedConstructAllowed) {
-            for(String variant : group) {
+        for(final List<String> group : namedConstructAllowed) {
+            for(final String variant : group) {
                 if( bCopy.remove(variant) ) break;
             }
         }
@@ -507,7 +507,7 @@ public class kotlin_content_diff {
      * file and when, mirroring Main.main's/ServerMode.FormatHandler's own
      * "processing <file>" trace precedent (STATE_COMMON.md).
      */
-    static void printTimestampedHeader(String relPath)
+    static void printTimestampedHeader(final String relPath)
     {
         System.out.println( "[" + LocalDateTime.now().format(TIMESTAMP_FORMAT) + "] " + relPath );
     }
@@ -520,27 +520,27 @@ public class kotlin_content_diff {
      * throwing.
      */
     static boolean compareOne(
-        Path origPath, Path fmtPath, String origLabel, String fmtLabel
+        final Path origPath, final Path fmtPath, final String origLabel, final String fmtLabel
     ) throws Exception
     {
-        String origSrc = new String( Files.readAllBytes(origPath) );
-        String fmtSrc  = new String( Files.readAllBytes(fmtPath) );
+        final String origSrc = new String( Files.readAllBytes(origPath) );
+        final String fmtSrc  = new String( Files.readAllBytes(fmtPath) );
 
-        KtFile origFile = parse(origSrc);
-        KtFile fmtFile  = parse(fmtSrc);
+        final KtFile origFile = parse(origSrc);
+        final KtFile fmtFile  = parse(fmtSrc);
 
-        List<String> mismatches = new ArrayList<>();
+        final List<String> mismatches = new ArrayList<>();
 
         mismatches.addAll(
             diffMultisets( "imports", importMultiset(origFile), importMultiset(fmtFile) )
         );
 
-        List<String> origDecls = topLevelDecls(origFile);
-        List<String> fmtDecls  = topLevelDecls(fmtFile);
+        final List<String> origDecls = topLevelDecls(origFile);
+        final List<String> fmtDecls  = topLevelDecls(fmtFile);
         if( origDecls.size() != fmtDecls.size() ) mismatches.add(
             "top-level declaration count changed: " + origDecls.size() + " -> " + fmtDecls.size()
         );
-        int n = Math.min( origDecls.size(), fmtDecls.size() );
+        final int n = Math.min( origDecls.size(), fmtDecls.size() );
         for(int i = 0; i < n; ++i) {
             if( !origDecls.get(
                 i
@@ -551,7 +551,7 @@ public class kotlin_content_diff {
             );
         } // for
 
-        List<List<String>> closingCommentGroups = new ArrayList<>( namedConstructClosingComments(
+        final List<List<String>> closingCommentGroups = new ArrayList<>( namedConstructClosingComments(
             origFile
         ) );
         closingCommentGroups.addAll( whenClosingComments(origFile) );
@@ -572,7 +572,7 @@ public class kotlin_content_diff {
             System.out.println(
                 "MISMATCH: content differs between " + origLabel + " and " + fmtLabel
             );
-            for(String m : mismatches) System.out.println("  " + m);
+            for(final String m : mismatches) System.out.println("  " + m);
 
             return false;
         }
@@ -586,15 +586,15 @@ public class kotlin_content_diff {
         );
     }
 
-    static void runSingle(String origArg, String fmtArg) throws Exception
+    static void runSingle(final String origArg, final String fmtArg) throws Exception
     {
-        Path origPath = Paths.get(origArg);
-        Path fmtPath  = Paths.get(fmtArg);
+        final Path origPath = Paths.get(origArg);
+        final Path fmtPath  = Paths.get(fmtArg);
 
         printTimestampedHeader(origArg);
 
-        boolean origExists = Files.exists(origPath);
-        boolean fmtExists  = Files.exists(fmtPath);
+        final boolean origExists = Files.exists(origPath);
+        final boolean fmtExists  = Files.exists(fmtPath);
         if(!origExists || !fmtExists) {
                  if(!origExists && !fmtExists) System.out.println(
                      "WARNING: both " + origArg + " and " + fmtArg + " are missing"
@@ -612,10 +612,10 @@ public class kotlin_content_diff {
     }
 
     static void runBatch(
-        String origBaseDir, String fmtBaseDir, String fileListPath
+        final String origBaseDir, final String fmtBaseDir, final String fileListPath
     ) throws Exception
     {
-        List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );
+        final List<String> relPaths = Files.readAllLines( Paths.get(fileListPath) );
 
         int okCount = 0, mismatchCount = 0, missingCount = 0;
 
@@ -623,13 +623,13 @@ public class kotlin_content_diff {
             rel = rel.trim();
             if( rel.isEmpty() ) continue;
 
-            Path origPath = Paths.get(origBaseDir, rel);
-            Path fmtPath  = Paths.get(fmtBaseDir, rel);
+            final Path origPath = Paths.get(origBaseDir, rel);
+            final Path fmtPath  = Paths.get(fmtBaseDir, rel);
 
             printTimestampedHeader(rel);
 
-            boolean origExists = Files.exists(origPath);
-            boolean fmtExists  = Files.exists(fmtPath);
+            final boolean origExists = Files.exists(origPath);
+            final boolean fmtExists  = Files.exists(fmtPath);
             if(!origExists && !fmtExists) {
                 System.out.println(
                     "  WARNING: missing from both " + origBaseDir + " and " + fmtBaseDir + " -- skipping"
@@ -652,7 +652,7 @@ public class kotlin_content_diff {
                 if( compareOne(origPath, fmtPath, rel, rel) ) ++okCount;
                 else                                          ++mismatchCount;
             }
-            catch(Exception e) {
+            catch(final Exception e) {
                 System.out.println("  ERROR: " + e);
                 ++mismatchCount;
             }
@@ -667,7 +667,7 @@ public class kotlin_content_diff {
         if(mismatchCount > 0 || missingCount > 0) System.exit(1);
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
              if(args.length == 2) runSingle( args[0], args[1] );
         else if(args.length == 3) runBatch( args[0], args[1], args[2] );

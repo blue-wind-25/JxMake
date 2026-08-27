@@ -42,7 +42,7 @@ public final class GruEval {
         final double[] probabilities; // Null => classifier.probabilities() returned null (ABSTAIN
                                        // Unconditionally, e.g. out-of-range target index)
 
-        Scored(String label, double[] probabilities)
+        Scored(final String label, final double[] probabilities)
         {
             this.label         = label;
             this.probabilities = probabilities;
@@ -50,7 +50,7 @@ public final class GruEval {
 
     } // class Scored
 
-    public static void main(String[] args) throws IOException
+    public static void main(final String[] args) throws IOException
     {
         if(args.length < 2) {
             System.err.println(USAGE);
@@ -58,18 +58,18 @@ public final class GruEval {
             return;
         }
 
-        Path          weightsPath  = Paths.get( args[0] );
-        Path          examplesPath = Paths.get( args[1] );
-        GruClassifier classifier   = GruClassifier.load(weightsPath);
+        final Path          weightsPath  = Paths.get( args[0] );
+        final Path          examplesPath = Paths.get( args[1] );
+        final GruClassifier classifier   = GruClassifier.load(weightsPath);
 
         // Args[2..]: optional threshold sweep (see GruClassifier.probabilities/decide) -- if none
         // given, evaluate at the weights file's own trained abstainThreshold only, matching this
         // tool's original (pre-sweep) single-line-output behavior exactly.
-        double[] thresholds;
+        final double[] thresholds;
         if(args.length > 2) {
             thresholds = new double[args.length - 2];
             for(int i = 2; i < args.length; ++i) {
-                double t = Double.parseDouble( args[i] );
+                final double t = Double.parseDouble( args[i] );
                 if(t < 0.0 || t > 1.0) {
                     System.err.println("GruEval: threshold must be within [0.0, 1.0], got " + t);
                     System.exit(2);
@@ -82,34 +82,34 @@ public final class GruEval {
             thresholds = new double[] { classifier.abstainThreshold() };
         }
 
-        List<Scored> scored = new java.util.ArrayList<>();
-        for( String line : Files.readAllLines(examplesPath, StandardCharsets.UTF_8) ) {
+        final List<Scored> scored = new java.util.ArrayList<>();
+        for( final String line : Files.readAllLines(examplesPath, StandardCharsets.UTF_8) ) {
             if( line.isEmpty() ) continue;
-            String[] parts = line.split("\t", 4);
+            final String[] parts = line.split("\t", 4);
             if(parts.length != 4) continue;
-            String label       = parts[1];
-            int    targetIndex = Integer.parseInt( parts[2] );
-            String text        = unescape( parts[3] );
+            final String label       = parts[1];
+            final int    targetIndex = Integer.parseInt( parts[2] );
+            final String text        = unescape( parts[3] );
             scored.add( new Scored( label, classifier.probabilities(text, targetIndex) ) );
         } // for
 
-        for(double threshold : thresholds) evaluateAt(scored, threshold);
+        for(final double threshold : thresholds) evaluateAt(scored, threshold);
     }
 
-    private static void evaluateAt(List<Scored> scored, double threshold)
+    private static void evaluateAt(final List<Scored> scored, final double threshold)
     {
-        int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0;
-        int total      = scored.size();
-        for(Scored s : scored) {
-            CommentDecision verdict = s.probabilities == null ? CommentDecision.ABSTAIN : GruClassifier.decide(
+              int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0;
+        final int total      = scored.size();
+        for(final Scored s : scored) {
+            final CommentDecision verdict = s.probabilities == null ? CommentDecision.ABSTAIN : GruClassifier.decide(
                 s.probabilities, threshold
             );
             if(verdict == CommentDecision.ABSTAIN) {
                 ++abstain;
                 continue;
             }
-            boolean predictedYes = verdict == CommentDecision.YES;
-            boolean actualYes    = s.label.equals("YES");
+            final boolean predictedYes = verdict == CommentDecision.YES;
+            final boolean actualYes    = s.label.equals("YES");
             if(actualYes) {
                 if(predictedYes) yesCorrect++;
                 else             yesIncorrect++;
@@ -120,9 +120,9 @@ public final class GruEval {
             }
         } // for
 
-        int    decided   = total - abstain;
-        int    correct   = yesCorrect + noCorrect;
-        double precision = decided == 0 ? 0.0 : (double)correct / decided;
+        final int    decided   = total - abstain;
+        final int    correct   = yesCorrect + noCorrect;
+        final double precision = decided == 0 ? 0.0 : (double)correct / decided;
         System.out.println("threshold=" + threshold
                 + " total=" + total + " abstain=" + abstain + " decided=" + decided
                 + " correct=" + correct + " precision=" + precision
@@ -130,13 +130,13 @@ public final class GruEval {
                 + " noCorrect=" + noCorrect + " noIncorrect=" + noIncorrect);
     }
 
-    private static String unescape(String escaped)
+    private static String unescape(final String escaped)
     {
-        StringBuilder out = new StringBuilder();
+        final StringBuilder out = new StringBuilder();
         for( int i = 0; i < escaped.length(); ++i ) {
-            char c = escaped.charAt(i);
+            final char c = escaped.charAt(i);
             if( c == '\\' && i + 1 < escaped.length() ) {
-                char nxt = escaped.charAt(i + 1);
+                final char nxt = escaped.charAt(i + 1);
                 if(nxt == 'n') {
                     out.append('\n');
                     ++i;

@@ -45,7 +45,7 @@ public final class GruAbstainResolverSelfTest {
 
     private static int failures = 0;
 
-    public static void main(String[] args) throws IOException
+    public static void main(final String[] args) throws IOException
     {
         checkRulesResolveNonAbstain_gruNeverConsulted();
         checkRulesAbstain_gruClassifierOff_noLoadAttempt();
@@ -66,10 +66,10 @@ public final class GruAbstainResolverSelfTest {
     {
         // HasLeadingKeywordMatch=false, hasNonLatinScript=false -> CommentClassifier falls
         // through to the "main path", which always resolves YES per its own javadoc
-        CommentFeatureVector features = plainFeatures("Combined", "test", "file");
-        Config               config   = configWith(true, "/nonexistent/gru/weights/path.json");
+        final CommentFeatureVector features = plainFeatures("Combined", "test", "file");
+        final Config               config   = configWith(true, "/nonexistent/gru/weights/path.json");
 
-        CommentDecision result = GruAbstainResolver.resolve(
+        final CommentDecision result = GruAbstainResolver.resolve(
             features, "Combined test file.", 0, config
         );
         if(result != CommentDecision.YES) fail(
@@ -79,12 +79,12 @@ public final class GruAbstainResolverSelfTest {
 
     private static void checkRulesAbstain_gruClassifierOff_noLoadAttempt() throws IOException
     {
-        CommentFeatureVector features = nonLatinFeatures();
-        Config               config   = configWith(false, "/nonexistent/gru/weights/path.json");
+        final CommentFeatureVector features = nonLatinFeatures();
+        final Config               config   = configWith(false, "/nonexistent/gru/weights/path.json");
 
         // The gru-classifier config key is off: the nonexistent weights path must never be
         // touched, so this must not throw and must return ABSTAIN without any load attempt
-        CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
+        final CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
         if(result != CommentDecision.ABSTAIN) fail(
             "expected ABSTAIN when gru-classifier is off, got " + result
         );
@@ -92,10 +92,10 @@ public final class GruAbstainResolverSelfTest {
 
     private static void checkRulesAbstain_gruClassifierOn_weightsMissing_failSafeAbstain() throws IOException
     {
-        CommentFeatureVector features = nonLatinFeatures();
-        Config               config   = configWith(true, "/nonexistent/gru/weights/path.json");
+        final CommentFeatureVector features = nonLatinFeatures();
+        final Config               config   = configWith(true, "/nonexistent/gru/weights/path.json");
 
-        CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
+        final CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
         if(result != CommentDecision.ABSTAIN) fail(
             "expected fail-safe ABSTAIN on missing weights file, got " + result
         );
@@ -103,16 +103,16 @@ public final class GruAbstainResolverSelfTest {
 
     private static void checkRulesAbstain_gruClassifierOn_weightsPresent_stillAbstain() throws IOException
     {
-        Path weightsPath = Files.createTempFile("gru_abstain_resolver_selftest_weights", ".json");
+        final Path weightsPath = Files.createTempFile("gru_abstain_resolver_selftest_weights", ".json");
         try {
             Files.write(
                 weightsPath, ("{" + "\"schemaVersion\": 1," + "\"vocabSize\": 100," + "\"hashBuckets\": 1024," + "\"embeddingDim\": 16," + "\"hiddenSize\": 224," + "\"sequenceCap\": 64," + "\"numClasses\": 3," + "\"abstainThreshold\": 0.5" + "}").getBytes(StandardCharsets.UTF_8)
             );
 
-            CommentFeatureVector features = nonLatinFeatures();
-            Config               config   = configWith( true, weightsPath.toString() );
+            final CommentFeatureVector features = nonLatinFeatures();
+            final Config               config   = configWith( true, weightsPath.toString() );
 
-            CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
+            final CommentDecision result = GruAbstainResolver.resolve(features, "中文 comment", 0, config);
             if(result != CommentDecision.ABSTAIN) fail(
                 "expected ABSTAIN (weights load succeeds but GruClassifier.classify is still " + "a stub), got " + result
             );
@@ -129,9 +129,9 @@ public final class GruAbstainResolverSelfTest {
         // GruAbstainResolver.programDirectory()) instead of throwing or failing outright. This
         // test process runs against a classes directory (via -cp), not a packaged jar, so
         // programDirectory() should resolve to that classes directory itself.
-        Map<String, String> cliOverrides = new LinkedHashMap<String, String>();
+        final Map<String, String> cliOverrides = new LinkedHashMap<String, String>();
         cliOverrides.put("gru-classifier", "on");
-        Config config = Config.resolve(null, cliOverrides);
+        final Config config = Config.resolve(null, cliOverrides);
         if( !config.gruWeightsPath().isEmpty() ) fail(
             "expected default gru-weights-path to be empty, got " + config.gruWeightsPath()
         );
@@ -139,8 +139,8 @@ public final class GruAbstainResolverSelfTest {
         // No weights file is expected to actually exist at the derived location in this test
         // environment, so the end-to-end result must still be a fail-safe ABSTAIN (not a thrown
         // exception) -- proving the empty-path branch is exercised without crashing
-        CommentFeatureVector features = nonLatinFeatures();
-        CommentDecision      result   = GruAbstainResolver.resolve(
+        final CommentFeatureVector features = nonLatinFeatures();
+        final CommentDecision      result   = GruAbstainResolver.resolve(
             features, "中文 comment", 0, config
         );
         if(result != CommentDecision.ABSTAIN) fail(
@@ -153,11 +153,11 @@ public final class GruAbstainResolverSelfTest {
         // above, since a resolution failure and a resolution success with no file present both
         // end in ABSTAIN
         try {
-            Method programDirectory = com.jxmake.formatter.classifier.gru.GruAbstainResolver.class.getDeclaredMethod(
+            final Method programDirectory = com.jxmake.formatter.classifier.gru.GruAbstainResolver.class.getDeclaredMethod(
                 "programDirectory"
             );
             programDirectory.setAccessible(true);
-            Object resolved = programDirectory.invoke(null);
+            final Object resolved = programDirectory.invoke(null);
             if(resolved == null) fail(
                 "programDirectory() unexpectedly returned null in this test environment"
             );
@@ -167,12 +167,12 @@ public final class GruAbstainResolverSelfTest {
                 "programDirectory() returned a non-existent/non-directory path: " + resolved
             );
         }
-        catch(ReflectiveOperationException e) {
+        catch(final ReflectiveOperationException e) {
             fail("could not invoke programDirectory() via reflection: " + e);
         }
     }
 
-    private static CommentFeatureVector plainFeatures(String target, String prev, String next)
+    private static CommentFeatureVector plainFeatures(final String target, final String prev, final String next)
     {
         return new CommentFeatureVector(
             target, prev, next, false, false, false, false,
@@ -191,16 +191,16 @@ public final class GruAbstainResolverSelfTest {
         );
     }
 
-    private static Config configWith(boolean gruClassifierOn, String weightsPath)
+    private static Config configWith(final boolean gruClassifierOn, final String weightsPath)
     {
-        Map<String, String> cliOverrides = new LinkedHashMap<String, String>();
+        final Map<String, String> cliOverrides = new LinkedHashMap<String, String>();
         cliOverrides.put("gru-classifier", gruClassifierOn ? "on" : "off");
         cliOverrides.put("gru-weights-path", weightsPath);
 
         return Config.resolve(null, cliOverrides);
     }
 
-    private static void fail(String message)
+    private static void fail(final String message)
     {
         ++failures;
         System.err.println("FAIL: " + message);

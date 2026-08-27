@@ -39,22 +39,22 @@ import org.jetbrains.kotlin.psi.KtPsiFactory;
  */
 public class kotlin_syntax_check {
 
-    public static boolean hasSyntaxError(String source)
+    public static boolean hasSyntaxError(final String source)
     {
-        KotlinCoreEnvironment env = KotlinCoreEnvironment.createForProduction(
+        final KotlinCoreEnvironment env = KotlinCoreEnvironment.createForProduction(
             Disposer.newDisposable(),
             new CompilerConfiguration(),
             EnvironmentConfigFiles.JVM_CONFIG_FILES
         );
 
-        KtFile file = new KtPsiFactory( env.getProject() ).createFile(source);
+        final KtFile file = new KtPsiFactory( env.getProject() ).createFile(source);
 
-        Collection<PsiErrorElement> errors = PsiTreeUtil.findChildrenOfType(
+        final Collection<PsiErrorElement> errors = PsiTreeUtil.findChildrenOfType(
             file, PsiErrorElement.class
         );
 
         boolean anyErrors = false;
-        for(PsiErrorElement e : errors) {
+        for(final PsiErrorElement e : errors) {
             anyErrors = true;
             System.out.println(
                 e.getErrorDescription() +
@@ -65,7 +65,7 @@ public class kotlin_syntax_check {
         return anyErrors;
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
         if(args.length < 1) {
             System.err.println("Usage: kotlin_syntax_check.sh <file.kt> [file2.kt ...]");
@@ -74,8 +74,8 @@ public class kotlin_syntax_check {
 
         boolean anyError = false;
 
-        for(String arg : args) {
-            String source = new String(
+        for(final String arg : args) {
+            final String source = new String(
                 java.nio.file.Files.readAllBytes( java.nio.file.Paths.get(arg) )
             );
             if( hasSyntaxError(source) ) anyError = true;

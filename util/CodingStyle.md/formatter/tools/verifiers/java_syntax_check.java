@@ -40,7 +40,7 @@ public class java_syntax_check {
 
         private final String source;
 
-        SourceFile(String className, String source)
+        SourceFile(final String className, final String source)
         {
             super(
                 URI.create( "string:///" +
@@ -52,38 +52,38 @@ public class java_syntax_check {
         }
 
         @Override
-        public CharSequence getCharContent(boolean ignoreEncodingErrors)
+        public CharSequence getCharContent(final boolean ignoreEncodingErrors)
         {
             return source;
         }
 
     } // class SourceFile
 
-    public static boolean hasSyntaxError(String source) throws IOException
+    public static boolean hasSyntaxError(final String source) throws IOException
     {
 
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         if(compiler == null) throw new IllegalStateException(
             "No system compiler found (are you using a JDK instead of a JRE?)"
         );
 
-        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        final DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
-        JavaFileObject file = new SourceFile("Test", source);
+        final JavaFileObject file = new SourceFile("Test", source);
 
-        JavacTask task = (JavacTask)compiler.getTask(
+        final JavacTask task = (JavacTask)compiler.getTask(
             null, null, diagnostics, Arrays.asList("-proc:none"), null, Arrays.asList(file)
         );
 
         // Parse only
-        Iterable<? extends CompilationUnitTree> trees = task.parse();
+        final Iterable<? extends CompilationUnitTree> trees = task.parse();
 
         // Prevent "unused"
         trees.iterator().hasNext();
 
         boolean anyErrors = false;
 
-        for( Diagnostic<? extends JavaFileObject> d :
+        for( final Diagnostic<? extends JavaFileObject> d :
                 diagnostics.getDiagnostics() ) {
 
             if( d.getKind() == Diagnostic.Kind.ERROR ) {
@@ -101,7 +101,7 @@ public class java_syntax_check {
         return anyErrors;
     }
 
-    public static void main(String[] args) throws Exception
+    public static void main(final String[] args) throws Exception
     {
 
         if(args.length < 1) {
@@ -111,8 +111,8 @@ public class java_syntax_check {
 
         boolean anyError = false;
 
-        for(String arg : args) {
-            String source = Files.readString( Paths.get(arg) );
+        for(final String arg : args) {
+            final String source = Files.readString( Paths.get(arg) );
 
             if( hasSyntaxError(source) ) anyError = true;
         } // for

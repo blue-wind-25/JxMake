@@ -142,7 +142,7 @@ public final class GruTrainer {
     private static final String CHECKPOINT_CURRENT_SUFFIX = ".ckpt-current.bin";
     private static final String CHECKPOINT_BEST_SUFFIX    = ".ckpt-best.bin";
 
-    public static void main(String[] args)
+    public static void main(final String[] args)
     {
         if(args.length < 2) {
             System.err.println(USAGE);
@@ -150,15 +150,15 @@ public final class GruTrainer {
             return;
         }
 
-        File examplesFile = new File( args[0] );
+        final File examplesFile = new File( args[0] );
         if( !examplesFile.isFile() || !examplesFile.canRead() ) {
             System.err.println( "GruTrainer: labeled-examples file not readable: " + args[0] );
             System.exit(2);
             return;
         }
 
-        File weightsOut       = new File( args[1] );
-        File weightsOutParent = weightsOut.getAbsoluteFile().getParentFile();
+        final File weightsOut       = new File( args[1] );
+        final File weightsOutParent = weightsOut.getAbsoluteFile().getParentFile();
         if( weightsOutParent == null || !weightsOutParent.isDirectory() ) {
             System.err.println( "GruTrainer: output-weights-path parent directory does not exist: "
                     + args[1] );
@@ -166,9 +166,9 @@ public final class GruTrainer {
             return;
         }
 
-        Map<String, String> hyperparameters = new LinkedHashMap<>();
+        final Map<String, String> hyperparameters = new LinkedHashMap<>();
         for(int i = 2; i < args.length; ++i) {
-            String arg = args[i];
+            final String arg = args[i];
             if( !arg.startsWith("--") || arg.indexOf('=') < 0 ) {
                 System.err.println("GruTrainer: malformed hyperparameter arg (expected --key=value): "
                         + arg);
@@ -176,9 +176,9 @@ public final class GruTrainer {
                 System.exit(2);
                 return;
             } // if
-            int    eq    = arg.indexOf('=');
-            String key   = arg.substring(2, eq);
-            String value = arg.substring(eq + 1);
+            final int    eq    = arg.indexOf('=');
+            final String key   = arg.substring(2, eq);
+            final String value = arg.substring(eq + 1);
             if( key.isEmpty() ) {
                 System.err.println("GruTrainer: malformed hyperparameter arg (empty key): " + arg);
                 System.exit(2);
@@ -193,10 +193,10 @@ public final class GruTrainer {
         // faithfully restored. Loaded here (before the RDD_EXT_18 hyperparameter defaults just below)
         // so lr/epochs/patience/seed can fall back to the checkpoint's own recorded values instead of
         // the hardcoded starting defaults when resuming and the CLI doesn't explicitly override them.
-        String      resumePath = hyperparameters.get("resume");
-        ResumeState resumed    = null;
+        final String      resumePath = hyperparameters.get("resume");
+              ResumeState resumed    = null;
         if(resumePath != null) {
-            File resumeFile = new File(resumePath);
+            final File resumeFile = new File(resumePath);
             if( !resumeFile.isFile() || !resumeFile.canRead() ) {
                 System.err.println(
                     "GruTrainer: --resume checkpoint file not readable: " + resumePath
@@ -207,7 +207,7 @@ public final class GruTrainer {
             try {
                 resumed = loadCurrentCheckpoint(resumeFile);
             }
-            catch(IOException e) {
+            catch(final IOException e) {
                 System.err.println( "GruTrainer: could not load --resume checkpoint " + resumePath
                         + ": " + e.getMessage() );
                 System.exit(2);
@@ -221,16 +221,16 @@ public final class GruTrainer {
 
         // RDD_EXT_18 starting defaults, overridable via --key=value; fall back to the resumed
         // checkpoint's own recorded values (not the hardcoded RDD_EXT_18 defaults) when resuming
-        double learningRate = Double.parseDouble(
+        final double learningRate = Double.parseDouble(
             hyperparameters.getOrDefault( "lr", resumed != null ? String.valueOf(resumed.learningRate) : "0.001" )
         );
-        int    maxEpochs    = Integer.parseInt(
+        final int    maxEpochs    = Integer.parseInt(
             hyperparameters.getOrDefault( "epochs", resumed != null ? String.valueOf(resumed.maxEpochs) : "30" )
         );
-        int    patience     = Integer.parseInt(
+        final int    patience     = Integer.parseInt(
             hyperparameters.getOrDefault( "patience", resumed != null ? String.valueOf(resumed.patience) : "5" )
         );
-        long   seed         = Long.parseLong(
+        final long   seed         = Long.parseLong(
             hyperparameters.getOrDefault( "seed", resumed != null ? String.valueOf(resumed.seed) : "42" )
         );
         // Progress reporting (2026-07-29): large auto-labeled corpora (100k+ examples) take long
@@ -238,7 +238,7 @@ public final class GruTrainer {
         // once-per-epoch line. --progress-every=N prints a running line every N training examples
         // within the epoch (0 disables); default chosen so it fires a handful of times per epoch on
         // a ~100k-example corpus without flooding the console on small corpora.
-        int progressEvery = Integer.parseInt(
+        final int progressEvery = Integer.parseInt(
             hyperparameters.getOrDefault("progress-every", "1000")
         );
         // --threads=N (default 1, i.e. plain sequential per-batch computation): computes forward/
@@ -250,7 +250,7 @@ public final class GruTrainer {
         // averaged per Adam step), not a separate/competing mechanism. Left opt-in (default 1) rather
         // than defaulting to all cores, so a real training run doesn't unexpectedly saturate the
         // machine.
-        int threads = Integer.parseInt( hyperparameters.getOrDefault("threads", "1") );
+        final int threads = Integer.parseInt( hyperparameters.getOrDefault("threads", "1") );
         if(threads < 1) {
             System.err.println("GruTrainer: --threads must be >= 1, got " + threads);
             System.exit(2);
@@ -265,7 +265,7 @@ public final class GruTrainer {
         // trainExamples % batchSize != 0) naturally averages over however many examples it actually
         // has, since averageGradients divides by the batch's real non-skipped example count, not a
         // hardcoded batchSize.
-        int batchSize = Integer.parseInt(
+        final int batchSize = Integer.parseInt(
             hyperparameters.getOrDefault( "batch-size", resumed != null ? String.valueOf(resumed.batchSize) : "16" )
         );
         if(batchSize < 1) {
@@ -284,7 +284,7 @@ public final class GruTrainer {
         // duration concept alongside epochs/patience; early stopping via --patience simply cuts the
         // schedule off early, same as it already does for maxEpochs itself). See
         // computeScheduledLr/the epoch-loop call site below.
-        int warmupSteps = Integer.parseInt(
+        final int warmupSteps = Integer.parseInt(
             hyperparameters.getOrDefault( "warmup-steps", resumed != null ? String.valueOf(resumed.warmupSteps) : "0" )
         );
         if(warmupSteps < 0) {
@@ -294,7 +294,7 @@ public final class GruTrainer {
         }
         // --lr-min=N (default 0.0, resumable): the cosine decay's floor. Only meaningful when
         // --warmup-steps > 0; ignored (schedule disabled) otherwise.
-        double lrMin = Double.parseDouble(
+        final double lrMin = Double.parseDouble(
             hyperparameters.getOrDefault( "lr-min", resumed != null ? String.valueOf(resumed.lrMin) : "0.0" )
         );
         if(lrMin < 0) {
@@ -307,16 +307,16 @@ public final class GruTrainer {
         // compares GruClassifier.backward()'s analytic gradient for each against a numeric
         // finite-difference estimate, and exits. Use this to sanity-check backward() before relying
         // on it for further changes -- it never runs during normal training.
-        boolean checkGradients       = hyperparameters.containsKey("check-gradients");
-        int     checkGradientSamples = checkGradients ? Integer.parseInt(
+        final boolean checkGradients       = hyperparameters.containsKey("check-gradients");
+        final int     checkGradientSamples = checkGradients ? Integer.parseInt(
             hyperparameters.get("check-gradients")
         ) : 0;
 
-        List<Example> examples;
+        final List<Example> examples;
         try {
             examples = readExamples(examplesFile);
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             System.err.println( "GruTrainer: could not read labeled-examples file " + args[0] + ": "
                     + e.getMessage() );
             System.exit(2);
@@ -343,8 +343,8 @@ public final class GruTrainer {
         // convert_classifier_weights_examples.py), typically the same rows already present once in
         // the main file. Default 0 means fully disabled (identical behavior to before this flag
         // existed, even if --hand-labeled is passed without a repeat count).
-        String handLabeledPath   = hyperparameters.get("hand-labeled");
-        int    handLabeledRepeat = Integer.parseInt(
+        final String handLabeledPath   = hyperparameters.get("hand-labeled");
+        final int    handLabeledRepeat = Integer.parseInt(
             hyperparameters.getOrDefault("hand-labeled-repeat", "0")
         );
         if(handLabeledRepeat < 0) {
@@ -366,7 +366,7 @@ public final class GruTrainer {
                 System.exit(2);
                 return;
             } // if
-            File handLabeledFile = new File(handLabeledPath);
+            final File handLabeledFile = new File(handLabeledPath);
             if( !handLabeledFile.isFile() || !handLabeledFile.canRead() ) {
                 System.err.println(
                     "GruTrainer: --hand-labeled file not readable: " + handLabeledPath
@@ -377,7 +377,7 @@ public final class GruTrainer {
             try {
                 handLabeledExamples = readExamples(handLabeledFile);
             }
-            catch(IOException e) {
+            catch(final IOException e) {
                 System.err.println( "GruTrainer: could not read --hand-labeled file "
                         + handLabeledPath + ": " + e.getMessage() );
                 System.exit(2);
@@ -392,7 +392,7 @@ public final class GruTrainer {
             } // if
         } // if
 
-        List<String> explicitVocab;
+        final List<String> explicitVocab;
         if(resumed != null) {
             // Resuming: the vocab is whatever embedding-row layout the checkpoint's own weights were
             // trained against (embedded in the checkpoint itself, mirroring how GruWeights embeds its
@@ -402,13 +402,13 @@ public final class GruTrainer {
             explicitVocab = resumed.explicitVocab;
         } // if
         else {
-            String vocabPath = hyperparameters.getOrDefault("vocab", DEFAULT_VOCAB_PATH);
-            File   vocabFile = new File(vocabPath);
+            final String vocabPath = hyperparameters.getOrDefault("vocab", DEFAULT_VOCAB_PATH);
+            final File   vocabFile = new File(vocabPath);
             if( !vocabPath.isEmpty() && vocabFile.isFile() && vocabFile.canRead() ) {
                 try {
                     explicitVocab = readVocab(vocabFile);
                 }
-                catch(IOException e) {
+                catch(final IOException e) {
                     System.err.println(
                         "GruTrainer: could not read vocab file " + vocabPath + ": " + e.getMessage()
                     );
@@ -420,10 +420,10 @@ public final class GruTrainer {
                 explicitVocab = buildVocab(examples);
             }
         } // else
-        Vocabulary vocabulary = new Vocabulary(explicitVocab);
+        final Vocabulary vocabulary = new Vocabulary(explicitVocab);
 
-        Random     random  = new Random(seed);
-        GruWeights weights = resumed != null ? resumed.weights : randomInit(
+        final Random     random  = new Random(seed);
+        final GruWeights weights = resumed != null ? resumed.weights : randomInit(
             explicitVocab, vocabulary, random
         );
 
@@ -442,9 +442,9 @@ public final class GruTrainer {
         // accepted limitation (STATE_AI.md), not a bug: resume continues training validly, it just
         // doesn't bit-reproduce a non-interrupted run.
         Collections.shuffle(examples, random);
-        int           validationCount = Math.max( 1, examples.size() / 5 );
-        List<Example> validation      = new ArrayList<>( examples.subList(0, validationCount) );
-        List<Example> train           = new ArrayList<>( examples.subList(
+        final int           validationCount = Math.max( 1, examples.size() / 5 );
+        final List<Example> validation      = new ArrayList<>( examples.subList(0, validationCount) );
+              List<Example> train           = new ArrayList<>( examples.subList(
             validationCount, examples.size()
         ) );
         if( train.isEmpty() ) train = new ArrayList<>(examples);
@@ -466,8 +466,8 @@ public final class GruTrainer {
         // it needs train.size() (fixed at this point) and batchSize; recomputes identically on resume
         // from the same (resumable) train.size()/batchSize/maxEpochs, so it needs no persisted state
         // of its own.
-        int stepsPerEpoch      = ( train.size() + batchSize - 1 ) / batchSize;
-        int totalScheduleSteps = stepsPerEpoch * maxEpochs;
+        final int stepsPerEpoch      = ( train.size() + batchSize - 1 ) / batchSize;
+        final int totalScheduleSteps = stepsPerEpoch * maxEpochs;
 
         System.out.println( String.format(
                 "GruTrainer: starting -- vocabSize=%d, trainExamples=%d, validationExamples=%d,"
@@ -476,8 +476,8 @@ public final class GruTrainer {
                 explicitVocab.size(), train.size(), validation.size(), maxEpochs, patience,
                 learningRate, batchSize, threads, warmupSteps, lrMin ) );
 
-        AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
-        double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
+        final AdamState adam               = resumed != null ? resumed.adam : new AdamState(weights);
+              double    bestValidationLoss = resumed != null ? resumed.bestValidationLoss : Double.POSITIVE_INFINITY;
         // `weights` is mutated in place by `adam.apply` every step, so a plain `bestWeights =
         // weights` reference assignment would silently drift to whatever `weights` is by the end
         // of training instead of actually preserving the best-validation-loss epoch's numbers.
@@ -492,14 +492,14 @@ public final class GruTrainer {
         // silent wrong result.
         String bestWeightsJson;
         if(resumed != null) {
-            File   bestCheckpointFile = deriveBestCheckpointFile( new File(resumePath) );
-            String loadedBestJson     = null;
+            final File   bestCheckpointFile = deriveBestCheckpointFile( new File(resumePath) );
+                  String loadedBestJson     = null;
             if( bestCheckpointFile.isFile() && bestCheckpointFile.canRead() ) {
                 try {
-                    LoadedWeights bestLoaded = readBestCheckpoint(bestCheckpointFile);
+                    final LoadedWeights bestLoaded = readBestCheckpoint(bestCheckpointFile);
                     loadedBestJson = toJson(bestLoaded.weights, bestLoaded.explicitVocab);
                 }
-                catch(IOException e) {
+                catch(final IOException e) {
                     System.err.println( "GruTrainer: could not read sibling best-checkpoint "
                             + bestCheckpointFile + ": " + e.getMessage()
                             + " -- falling back to the resumed (latest-epoch) weights as the interim"
@@ -520,24 +520,24 @@ public final class GruTrainer {
         else {
             bestWeightsJson = toJson(weights, explicitVocab);
         }
-        int  epochsSinceImprovement = resumed != null ? resumed.epochsSinceImprovement : 0;
-        int  step                   = resumed != null ? resumed.step : 0;
-        int  startEpoch             = resumed != null ? resumed.epoch + 1 : 1;
-        long trainingStartNanos     = System.nanoTime();
+              int  epochsSinceImprovement = resumed != null ? resumed.epochsSinceImprovement : 0;
+              int  step                   = resumed != null ? resumed.step : 0;
+        final int  startEpoch             = resumed != null ? resumed.epoch + 1 : 1;
+        final long trainingStartNanos     = System.nanoTime();
 
-        File currentCheckpointFile = new File(
+        final File currentCheckpointFile = new File(
             weightsOut.getAbsolutePath() + CHECKPOINT_CURRENT_SUFFIX
         );
-        File bestCheckpointFile    = deriveBestCheckpointFile(currentCheckpointFile);
+        final File bestCheckpointFile    = deriveBestCheckpointFile(currentCheckpointFile);
 
-        ExecutorService executor = threads > 1 ? Executors.newFixedThreadPool(threads) : null;
+        final ExecutorService executor = threads > 1 ? Executors.newFixedThreadPool(threads) : null;
         try {
             for(int epoch = startEpoch; epoch <= maxEpochs; ++epoch) {
                 Collections.shuffle(train, random);
-                double trainLoss       = 0.0;
-                long   epochStartNanos = System.nanoTime();
-                int    examplesSeen    = 0;
-                int    i               = 0;
+                      double trainLoss       = 0.0;
+                final long   epochStartNanos = System.nanoTime();
+                      int    examplesSeen    = 0;
+                      int    i               = 0;
                 // Last scheduled LR actually applied this epoch (stays == learningRate flat when
                 // warmupSteps == 0, i.e. schedule disabled) -- reported on the epoch summary line
                 double lrThisEpoch = learningRate;
@@ -547,13 +547,13 @@ public final class GruTrainer {
                     // this batch's forward/backward computations run in parallel -- an orthogonal,
                     // composing axis, not a competing one. See the --threads/--batch-size javadoc
                     // above.
-                    int           batchEnd = Math.min( i + batchSize, train.size() );
-                    List<Example> batch    = train.subList(i, batchEnd);
+                    final int           batchEnd = Math.min( i + batchSize, train.size() );
+                    final List<Example> batch    = train.subList(i, batchEnd);
                     i = batchEnd;
-                    List<ComputedGradient> computed = computeBatch(
+                    final List<ComputedGradient> computed = computeBatch(
                         executor, weights, vocabulary, batch
                     );
-                    GruClassifier.Gradients averaged = averageGradients(computed);
+                    final GruClassifier.Gradients averaged = averageGradients(computed);
                     if(averaged != null) {
                         ++step;
                         lrThisEpoch = computeScheduledLr(
@@ -561,7 +561,7 @@ public final class GruTrainer {
                         );
                         adam.apply(weights, averaged, lrThisEpoch, step);
                     } // if
-                    for(ComputedGradient result : computed) {
+                    for(final ComputedGradient result : computed) {
                         ++examplesSeen;
                         if(result != null) trainLoss += result.loss;
                         if(progressEvery > 0 && examplesSeen % progressEvery == 0) printProgress(
@@ -583,20 +583,20 @@ public final class GruTrainer {
                 double validationLoss = 0.0;
                 int    vi             = 0;
                 while( vi < validation.size() ) {
-                    int           vEnd  = Math.min( vi + threads, validation.size() );
-                    List<Example> batch = validation.subList(vi, vEnd);
+                    final int           vEnd  = Math.min( vi + threads, validation.size() );
+                    final List<Example> batch = validation.subList(vi, vEnd);
                     vi = vEnd;
-                    List<Double> losses = computeValidationBatch(
+                    final List<Double> losses = computeValidationBatch(
                         executor, weights, vocabulary, batch
                     );
-                    for(Double loss : losses) {
+                    for(final Double loss : losses) {
                         if(loss != null) validationLoss += loss;
                     }
                 } // while
                 validationLoss /= validation.size();
 
-                double epochSeconds = ( System.nanoTime() - epochStartNanos ) / 1e9;
-                double totalSeconds = ( System.nanoTime() - trainingStartNanos ) / 1e9;
+                final double epochSeconds = ( System.nanoTime() - epochStartNanos ) / 1e9;
+                final double totalSeconds = ( System.nanoTime() - trainingStartNanos ) / 1e9;
                 System.out.println( String.format(
                         "GruTrainer: epoch %2d, trainLoss=%9.7f, validationLoss=%9.7f, lr=%9.7f, "
                                 + "epochSeconds=%6.1f, totalElapsedSeconds=%8.1f",
@@ -611,7 +611,7 @@ public final class GruTrainer {
                             bestCheckpointFile, weights, explicitVocab, bestValidationLoss
                         );
                     }
-                    catch(IOException e) {
+                    catch(final IOException e) {
                         // A failed checkpoint write must never abort a real training run -- it's a
                         // safety net, not the run's actual deliverable (the final JSON weights file
                         // still gets written normally at the end). Warn and keep training.
@@ -650,19 +650,19 @@ public final class GruTrainer {
             if(executor != null) executor.shutdown();
         }
 
-        byte[] weightsBytes     = bestWeightsJson.getBytes(StandardCharsets.UTF_8);
-        File   actualWeightsOut = weightsOut;
+        final byte[] weightsBytes     = bestWeightsJson.getBytes(StandardCharsets.UTF_8);
+              File   actualWeightsOut = weightsOut;
         try {
             Files.write( weightsOut.toPath(), weightsBytes );
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             System.err.println( "GruTrainer: could not write output weights file " + args[1] + ": "
                     + e.getMessage() );
             // Training can take minutes to hours; losing the trained weights entirely because the
             // final write failed (disk full, bad path, permissions) is far worse than writing them
             // somewhere unintended, so fall back to a /tmp path and loudly announce it rather than
             // exiting empty-handed
-            File fallback = new File(
+            final File fallback = new File(
                 System.getProperty("java.io.tmpdir"),
                 "gru-weights-fallback-" + System.currentTimeMillis() + ".json"
             );
@@ -673,7 +673,7 @@ public final class GruTrainer {
                         + " automatically, and rerun with a valid output path next time.");
                 actualWeightsOut = fallback;
             }
-            catch(IOException fallbackError) {
+            catch(final IOException fallbackError) {
                 System.err.println( "GruTrainer: fallback write to " + fallback + " also failed: "
                         + fallbackError.getMessage() + " -- trained weights lost." );
                 System.exit(2);
@@ -691,7 +691,7 @@ public final class GruTrainer {
             Files.deleteIfExists( currentCheckpointFile.toPath() );
             Files.deleteIfExists( bestCheckpointFile.toPath() );
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             System.err.println( "GruTrainer: warning -- could not delete checkpoint file(s) after"
                     + " successful completion: " + e.getMessage() );
         }
@@ -712,39 +712,39 @@ public final class GruTrainer {
      * so a prediction landing on ABSTAIN is counted here as simply "not predicted YES".
      */
     private static void printConfusionMatrix(
-        File          weightsFile,
-        Vocabulary    vocabulary,
-        List<Example> validation
+        final File          weightsFile,
+        final Vocabulary    vocabulary,
+        final List<Example> validation
     )
     {
-        GruWeights bestWeights;
+        final GruWeights bestWeights;
         try {
             bestWeights = GruWeights.load( weightsFile.toPath() );
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             System.err.println( "GruTrainer: could not reload " + weightsFile
                     + " to report confusion matrix: " + e.getMessage() );
             return;
         }
 
         int truePositive = 0, falsePositive = 0, trueNegative = 0, falseNegative = 0;
-        for(Example example : validation) {
+        for(final Example example : validation) {
             if( example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size() ) continue;
-            GruClassifier.ForwardCache cache =
+            final GruClassifier.ForwardCache cache =
                     GruClassifier.forward(
                         bestWeights, vocabulary, example.tokens, example.targetWordIndex
                     );
-            boolean predictedYes = argmax(cache.logits) == 0;
-            boolean actualYes    = example.classIndex == 0;
+            final boolean predictedYes = argmax(cache.logits) == 0;
+            final boolean actualYes    = example.classIndex == 0;
                  if(predictedYes && actualYes) truePositive++;
             else if(predictedYes)              falsePositive++;
             else if(actualYes)                 falseNegative++;
             else                               trueNegative++;
         } // for
 
-        double precision = truePositive + falsePositive == 0 ? 0.0 : (double)truePositive / (truePositive + falsePositive);
-        double recall    = truePositive + falseNegative == 0 ? 0.0 : (double)truePositive / (truePositive + falseNegative);
-        double f1        = precision + recall == 0 ? 0.0 : 2* precision * recall / (precision + recall);
+        final double precision = truePositive + falsePositive == 0 ? 0.0 : (double)truePositive / (truePositive + falsePositive);
+        final double recall    = truePositive + falseNegative == 0 ? 0.0 : (double)truePositive / (truePositive + falseNegative);
+        final double f1        = precision + recall == 0 ? 0.0 : 2* precision * recall / (precision + recall);
 
         System.out.println( String.format(
                 "GruTrainer: validation confusion matrix (positive=YES): tp=%d, fp=%d, tn=%d, fn=%d,"
@@ -752,7 +752,7 @@ public final class GruTrainer {
                 truePositive, falsePositive, trueNegative, falseNegative, precision, recall, f1) );
     }
 
-    private static int argmax(double[] values)
+    private static int argmax(final double[] values)
     {
         int best = 0;
         for(int i = 1; i < values.length; ++i) {
@@ -772,11 +772,11 @@ public final class GruTrainer {
      * confidence in backward() before further changes rely on it.
      */
     private static void checkGradients(
-        GruWeights    weights,
-        Vocabulary    vocabulary,
-        List<Example> examples,
-        Random        random,
-        int           samplesPerArray
+        final GruWeights    weights,
+        final Vocabulary    vocabulary,
+        final List<Example> examples,
+        final Random        random,
+        final int           samplesPerArray
     )
     {
         Example example  = examples.get( random.nextInt( examples.size() ) );
@@ -794,15 +794,15 @@ public final class GruTrainer {
             return;
         } // if
 
-        List<String> tokens          = example.tokens;
-        int          targetWordIndex = example.targetWordIndex;
-        int          classIndex      = example.classIndex;
-        GruClassifier.ForwardCache cache = GruClassifier.forward(
+        final List<String> tokens          = example.tokens;
+        final int          targetWordIndex = example.targetWordIndex;
+        final int          classIndex      = example.classIndex;
+        final GruClassifier.ForwardCache cache = GruClassifier.forward(
             weights, vocabulary, tokens, targetWordIndex
         );
-        GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, classIndex);
+        final GruClassifier.Gradients gradients = GruClassifier.backward(weights, cache, classIndex);
 
-        double epsilon = 1e-5;
+        final double epsilon = 1e-5;
         System.out.println( String.format(
                 "GruTrainer: gradient check against example label=%s -- epsilon=%9.7f,"
                         + " samplesPerArray=%d",
@@ -823,8 +823,8 @@ public final class GruTrainer {
         maxRelError = Math.max(
             maxRelError, checkArray2D("forward.Wz", weights.forward.Wz, gradients.forward.Wz, weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray)
         );
-        for( Map.Entry<Integer, double[]> entry : gradients.embeddingGrad.entrySet() ) {
-            int row = entry.getKey();
+        for( final Map.Entry<Integer, double[]> entry : gradients.embeddingGrad.entrySet() ) {
+            final int row = entry.getKey();
             maxRelError = Math.max(
                 maxRelError, checkArray1D( "embeddings[" + row + "]", weights.embeddings[row], entry.getValue(), weights, vocabulary, tokens, targetWordIndex, classIndex, random, epsilon, samplesPerArray )
             );
@@ -836,24 +836,24 @@ public final class GruTrainer {
     }
 
     private static double checkArray2D(
-        String       name,
-        double[][]   param,
-        double[][]   grad,
-        GruWeights   weights,
-        Vocabulary   vocabulary,
-        List<String> tokens,
-        int          targetWordIndex,
-        int          classIndex,
-        Random       random,
-        double       epsilon,
-        int          samples
+        final String       name,
+        final double[][]   param,
+        final double[][]   grad,
+        final GruWeights   weights,
+        final Vocabulary   vocabulary,
+        final List<String> tokens,
+        final int          targetWordIndex,
+        final int          classIndex,
+        final Random       random,
+        final double       epsilon,
+        final int          samples
     )
     {
         double maxRelError = 0.0;
         for(int s = 0; s < samples; ++s) {
-            int    i        = random.nextInt(param.length);
-            int    j        = random.nextInt( param[i].length );
-            double relError = checkOneEntry(
+            final int    i        = random.nextInt(param.length);
+            final int    j        = random.nextInt( param[i].length );
+            final double relError = checkOneEntry(
                 name + "[" + i + "][" + j + "]",
                 param[i],
                 j,
@@ -872,23 +872,23 @@ public final class GruTrainer {
     }
 
     private static double checkArray1D(
-        String       name,
-        double[]     param,
-        double[]     grad,
-        GruWeights   weights,
-        Vocabulary   vocabulary,
-        List<String> tokens,
-        int          targetWordIndex,
-        int          classIndex,
-        Random       random,
-        double       epsilon,
-        int          samples
+        final String       name,
+        final double[]     param,
+        final double[]     grad,
+        final GruWeights   weights,
+        final Vocabulary   vocabulary,
+        final List<String> tokens,
+        final int          targetWordIndex,
+        final int          classIndex,
+        final Random       random,
+        final double       epsilon,
+        final int          samples
     )
     {
         double maxRelError = 0.0;
         for(int s = 0; s < samples; ++s) {
-            int    i        = random.nextInt(param.length);
-            double relError = checkOneEntry(
+            final int    i        = random.nextInt(param.length);
+            final double relError = checkOneEntry(
                 name + "[" + i + "]",
                 param,
                 i,
@@ -907,31 +907,31 @@ public final class GruTrainer {
     }
 
     private static double checkOneEntry(
-        String       label,
-        double[]     param,
-        int          index,
-        double       analytic,
-        GruWeights   weights,
-        Vocabulary   vocabulary,
-        List<String> tokens,
-        int          targetWordIndex,
-        int          classIndex,
-        double       epsilon
+        final String       label,
+        final double[]     param,
+        final int          index,
+        final double       analytic,
+        final GruWeights   weights,
+        final Vocabulary   vocabulary,
+        final List<String> tokens,
+        final int          targetWordIndex,
+        final int          classIndex,
+        final double       epsilon
     )
     {
-        double original = param[index];
+        final double original = param[index];
         param[index] = original + epsilon;
-        double lossPlus = crossEntropyLoss(
+        final double lossPlus = crossEntropyLoss(
             GruClassifier.forward(weights, vocabulary, tokens, targetWordIndex).logits, classIndex
         );
         param[index] = original - epsilon;
-        double lossMinus = crossEntropyLoss(
+        final double lossMinus = crossEntropyLoss(
             GruClassifier.forward(weights, vocabulary, tokens, targetWordIndex).logits, classIndex
         );
         param[index] = original;
 
-        double numeric  = (lossPlus - lossMinus) / (2* epsilon);
-        double relError = Math.abs(
+        final double numeric  = (lossPlus - lossMinus) / (2* epsilon);
+        final double relError = Math.abs(
             numeric - analytic
         ) / Math.max(
             1e-8, Math.abs(numeric) + Math.abs(analytic)
@@ -952,7 +952,7 @@ public final class GruTrainer {
         final double loss;
         final GruClassifier.Gradients gradients;
 
-        ComputedGradient(double loss, GruClassifier.Gradients gradients)
+        ComputedGradient(final double loss, final GruClassifier.Gradients gradients)
         {
             this.loss      = loss;
             this.gradients = gradients;
@@ -961,16 +961,16 @@ public final class GruTrainer {
     } // class ComputedGradient
 
     private static ComputedGradient computeGradient(
-        GruWeights weights,
-        Vocabulary vocabulary,
-        Example    example
+        final GruWeights weights,
+        final Vocabulary vocabulary,
+        final Example    example
     )
     {
-        GruClassifier.ForwardCache cache = GruClassifier.forward(
+        final GruClassifier.ForwardCache cache = GruClassifier.forward(
             weights, vocabulary, example.tokens, example.targetWordIndex
         );
-        double loss = crossEntropyLoss(cache.logits, example.classIndex);
-        GruClassifier.Gradients gradients = GruClassifier.backward(
+        final double loss = crossEntropyLoss(cache.logits, example.classIndex);
+        final GruClassifier.Gradients gradients = GruClassifier.backward(
             weights, cache, example.classIndex
         );
         clipGradients(gradients, GRADIENT_CLIP_NORM);
@@ -987,15 +987,15 @@ public final class GruTrainer {
      * pre-existing single-threaded behavior of not computing anything for them).
      */
     private static List<ComputedGradient> computeBatch(
-        ExecutorService executor,
-        GruWeights      weights,
-        Vocabulary      vocabulary,
-        List<Example>   batch
+        final ExecutorService executor,
+        final GruWeights      weights,
+        final Vocabulary      vocabulary,
+        final List<Example>   batch
     )
     {
-        List<ComputedGradient> results = new ArrayList<>( batch.size() );
+        final List<ComputedGradient> results = new ArrayList<>( batch.size() );
         if(executor == null) {
-            for(Example example : batch) {
+            for(final Example example : batch) {
                 if( example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size() ) results.add(
                     null
                 );
@@ -1003,7 +1003,7 @@ public final class GruTrainer {
             }
             return results;
         } // if
-        List<Future<ComputedGradient>> futures = new ArrayList<>( batch.size() );
+        final List<Future<ComputedGradient>> futures = new ArrayList<>( batch.size() );
         for(final Example example : batch) {
             if( example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size() ) {
                 futures.add(null);
@@ -1018,7 +1018,7 @@ public final class GruTrainer {
                 } ) );
             }
         } // for
-        for(Future<ComputedGradient> future : futures) {
+        for(final Future<ComputedGradient> future : futures) {
             if(future == null) {
                 results.add(null);
                 continue;
@@ -1026,7 +1026,7 @@ public final class GruTrainer {
             try {
                 results.add( future.get() );
             }
-            catch(InterruptedException | ExecutionException e) {
+            catch(final InterruptedException | ExecutionException e) {
                 throw new RuntimeException("GruTrainer: parallel gradient computation failed", e);
             }
         } // for
@@ -1040,20 +1040,20 @@ public final class GruTrainer {
      * tradeoff, unlike training
      */
     private static List<Double> computeValidationBatch(
-        ExecutorService executor,
-        GruWeights      weights,
-        Vocabulary      vocabulary,
-        List<Example>   batch
+        final ExecutorService executor,
+        final GruWeights      weights,
+        final Vocabulary      vocabulary,
+        final List<Example>   batch
     )
     {
-        List<Double> results = new ArrayList<>( batch.size() );
+        final List<Double> results = new ArrayList<>( batch.size() );
         if(executor == null) {
-            for(Example example : batch) {
+            for(final Example example : batch) {
                 if( example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size() ) {
                     results.add(null);
                 }
                 else {
-                    GruClassifier.ForwardCache cache = GruClassifier.forward(
+                    final GruClassifier.ForwardCache cache = GruClassifier.forward(
                         weights, vocabulary, example.tokens, example.targetWordIndex
                     );
                     results.add( crossEntropyLoss(cache.logits, example.classIndex) );
@@ -1061,7 +1061,7 @@ public final class GruTrainer {
             } // for
             return results;
         } // if
-        List<Future<Double>> futures = new ArrayList<>( batch.size() );
+        final List<Future<Double>> futures = new ArrayList<>( batch.size() );
         for(final Example example : batch) {
             if( example.targetWordIndex < 0 || example.targetWordIndex >= example.tokens.size() ) {
                 futures.add(null);
@@ -1071,14 +1071,14 @@ public final class GruTrainer {
                     @Override
                     public Double call()
                     {
-                        GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, example.tokens, example.targetWordIndex);
+                        final GruClassifier.ForwardCache cache = GruClassifier.forward(weights, vocabulary, example.tokens, example.targetWordIndex);
 
                         return crossEntropyLoss(cache.logits, example.classIndex);
                     }
                 } ) );
             }
         } // for
-        for(Future<Double> future : futures) {
+        for(final Future<Double> future : futures) {
             if(future == null) {
                 results.add(null);
                 continue;
@@ -1086,7 +1086,7 @@ public final class GruTrainer {
             try {
                 results.add( future.get() );
             }
-            catch(InterruptedException | ExecutionException e) {
+            catch(final InterruptedException | ExecutionException e) {
                 throw new RuntimeException("GruTrainer: parallel validation computation failed", e);
             }
         } // for
@@ -1107,11 +1107,11 @@ public final class GruTrainer {
      * batch was skipped, matching the pre-mini-batch behavior of applying no Adam step for an
      * all-skipped batch.
      */
-    private static GruClassifier.Gradients averageGradients(List<ComputedGradient> computed)
+    private static GruClassifier.Gradients averageGradients(final List<ComputedGradient> computed)
     {
         GruClassifier.Gradients sum   = null;
         int count = 0;
-        for(ComputedGradient result : computed) {
+        for(final ComputedGradient result : computed) {
             if(result == null) continue;
             if(sum == null) sum = result.gradients;
             else            addGradientsInto(sum, result.gradients);
@@ -1123,10 +1123,10 @@ public final class GruTrainer {
         return sum;
     }
 
-    private static void addGradientsInto(GruClassifier.Gradients dst, GruClassifier.Gradients src)
+    private static void addGradientsInto(final GruClassifier.Gradients dst, final GruClassifier.Gradients src)
     {
-        for( Map.Entry<Integer, double[]> entry : src.embeddingGrad.entrySet() ) {
-            double[] existing = dst.embeddingGrad.get( entry.getKey() );
+        for( final Map.Entry<Integer, double[]> entry : src.embeddingGrad.entrySet() ) {
+            final double[] existing = dst.embeddingGrad.get( entry.getKey() );
             if(existing == null) dst.embeddingGrad.put( entry.getKey(), entry.getValue().clone() );
             else                 addInto( existing, entry.getValue() );
         }
@@ -1138,7 +1138,7 @@ public final class GruTrainer {
         addInto(dst.outB, src.outB);
     }
 
-    private static void addInto(GruWeights.DirectionWeights dst, GruWeights.DirectionWeights src)
+    private static void addInto(final GruWeights.DirectionWeights dst, final GruWeights.DirectionWeights src)
     {
         addInto(dst.Wz, src.Wz);
         addInto(dst.Wr, src.Wr);
@@ -1151,12 +1151,12 @@ public final class GruTrainer {
         addInto(dst.bh, src.bh);
     }
 
-    private static void addInto(double[][] dst, double[][] src)
+    private static void addInto(final double[][] dst, final double[][] src)
     {
         for(int i = 0; i < dst.length; ++i) addInto( dst[i], src[i] );
     }
 
-    private static void addInto(double[] dst, double[] src)
+    private static void addInto(final double[] dst, final double[] src)
     {
         for(int i = 0; i < dst.length; ++i) dst[i] += src[i];
     }
@@ -1165,9 +1165,9 @@ public final class GruTrainer {
      * Same field walk as {@link #clipGradients}'s scaling half, reused here to divide a summed
      * mini-batch gradient by its example count
      */
-    private static void scaleGradients(GruClassifier.Gradients g, double factor)
+    private static void scaleGradients(final GruClassifier.Gradients g, final double factor)
     {
-        for( double[] row : g.embeddingGrad.values() ) scale(row, factor);
+        for( final double[] row : g.embeddingGrad.values() ) scale(row, factor);
 
         scale(g.forward, factor);
         scale(g.backward, factor);
@@ -1189,18 +1189,18 @@ public final class GruTrainer {
      * mini-batch training's one-Adam-step-per-batch granularity rather than per-epoch.
      */
     private static double computeScheduledLr(
-        double baseLr,
-        double lrMin,
-        int    step,
-        int    warmupSteps,
-        int    totalSteps
+        final double baseLr,
+        final double lrMin,
+        final int    step,
+        final int    warmupSteps,
+        final int    totalSteps
     )
     {
         if(warmupSteps <= 0) return baseLr;
         if(step <= warmupSteps) return baseLr * step / (double) warmupSteps;
 
-        int    decaySteps = Math.max(1, totalSteps - warmupSteps);
-        double progress   = Math.min( 1.0, (step - warmupSteps) / (double)decaySteps );
+        final int    decaySteps = Math.max(1, totalSteps - warmupSteps);
+        final double progress   = Math.min( 1.0, (step - warmupSteps) / (double)decaySteps );
 
         return lrMin + 0.5 * (baseLr - lrMin) * ( 1 + Math.cos(Math.PI * progress) );
     }
@@ -1214,18 +1214,18 @@ public final class GruTrainer {
      * explicit {@code System.out.flush()} is needed.
      */
     private static void printProgress(
-        int    epoch,
-        int    examplesSeen,
-        int    totalExamples,
-        double lossSoFar,
-        long   epochStartNanos,
-        long   trainingStartNanos
+        final int    epoch,
+        final int    examplesSeen,
+        final int    totalExamples,
+        final double lossSoFar,
+        final long   epochStartNanos,
+        final long   trainingStartNanos
     )
     {
-        double elapsedSeconds      = ( System.nanoTime() - epochStartNanos ) / 1e9;
-        double perExampleSeconds   = elapsedSeconds / examplesSeen;
-        double etaSeconds          = perExampleSeconds* (totalExamples - examplesSeen);
-        double totalElapsedSeconds = ( System.nanoTime() - trainingStartNanos ) / 1e9;
+        final double elapsedSeconds      = ( System.nanoTime() - epochStartNanos ) / 1e9;
+        final double perExampleSeconds   = elapsedSeconds / examplesSeen;
+        final double etaSeconds          = perExampleSeconds* (totalExamples - examplesSeen);
+        final double totalElapsedSeconds = ( System.nanoTime() - trainingStartNanos ) / 1e9;
         System.out.println( String.format(
                 "GruTrainer: epoch %2d, progress %6d/%6d (%4.1f%%), avgTrainLoss=%7.5f, "
                         + "epochElapsedSeconds=%6.1f, epochEtaSeconds=%6.1f, totalElapsedSeconds=%8.1f",
@@ -1246,7 +1246,7 @@ public final class GruTrainer {
          */
         final List<String> tokens;
 
-        Example(String label, int classIndex, int targetWordIndex, String text)
+        Example(final String label, final int classIndex, final int targetWordIndex, final String text)
         {
             this.label           = label;
             this.classIndex      = classIndex;
@@ -1267,37 +1267,37 @@ public final class GruTrainer {
      * {@code #} (comments) and blank lines are skipped, matching {@code sample_examples.txt}'s
      * own illustrative-shape convention.
      */
-    private static List<Example> readExamples(File examplesFile) throws IOException
+    private static List<Example> readExamples(final File examplesFile) throws IOException
     {
-        List<Example> examples = new ArrayList<>();
-        for( String line : Files.readAllLines( examplesFile.toPath(), StandardCharsets.UTF_8 ) ) {
+        final List<Example> examples = new ArrayList<>();
+        for( final String line : Files.readAllLines( examplesFile.toPath(), StandardCharsets.UTF_8 ) ) {
             if( line.isEmpty() || line.startsWith("#") ) continue;
-            String[] parts = line.split("\t", 4);
+            final String[] parts = line.split("\t", 4);
             if(parts.length != 4) continue;
-            String label = parts[1];
+            final String label = parts[1];
             if( !label.equals("YES") && !label.equals("NO") ) continue;
-            int classIndex = label.equals("YES") ? 0 : 1; // GruClassifier.CLASS_ORDER: YES=0, NO=1
-            int targetWordIndex;
+            final int classIndex = label.equals("YES") ? 0 : 1; // GruClassifier.CLASS_ORDER: YES=0, NO=1
+            final int targetWordIndex;
             try {
                 targetWordIndex = Integer.parseInt( parts[2] );
             }
-            catch(NumberFormatException e) {
+            catch(final NumberFormatException e) {
                 continue;
             }
-            String text = unescape( parts[3] );
+            final String text = unescape( parts[3] );
             examples.add( new Example(label, classIndex, targetWordIndex, text) );
         } // for
 
         return examples;
     }
 
-    private static String unescape(String s)
+    private static String unescape(final String s)
     {
-        StringBuilder sb = new StringBuilder();
+        final StringBuilder sb = new StringBuilder();
         for( int i = 0; i < s.length(); ++i ) {
-            char c = s.charAt(i);
+            final char c = s.charAt(i);
             if( c == '\\' && i + 1 < s.length() ) {
-                char next = s.charAt(i + 1);
+                final char next = s.charAt(i + 1);
                 if(next == 'n') {
                     sb.append('\n');
                     ++i;
@@ -1320,11 +1320,11 @@ public final class GruTrainer {
         return sb.toString();
     }
 
-    private static List<String> readVocab(File vocabFile) throws IOException
+    private static List<String> readVocab(final File vocabFile) throws IOException
     {
-        List<String> words = new ArrayList<>();
-        for( String line : Files.readAllLines( vocabFile.toPath(), StandardCharsets.UTF_8 ) ) {
-            String trimmed = line.trim();
+        final List<String> words = new ArrayList<>();
+        for( final String line : Files.readAllLines( vocabFile.toPath(), StandardCharsets.UTF_8 ) ) {
+            final String trimmed = line.trim();
             if( trimmed.isEmpty() || trimmed.startsWith("#") ) continue;
             words.add(trimmed);
         }
@@ -1332,55 +1332,55 @@ public final class GruTrainer {
         return words;
     }
 
-    private static List<String> buildVocab(List<Example> examples)
+    private static List<String> buildVocab(final List<Example> examples)
     {
-        Set<String> seen = new LinkedHashSet<>();
-        for(Example example : examples) {
-            for( String token : GruClassifier.tokenize(example.text) ) seen.add(token);
+        final Set<String> seen = new LinkedHashSet<>();
+        for(final Example example : examples) {
+            for( final String token : GruClassifier.tokenize(example.text) ) seen.add(token);
         }
 
         return new ArrayList<>(seen);
     }
 
-    private static double crossEntropyLoss(double[] logits, int trueClassIndex)
+    private static double crossEntropyLoss(final double[] logits, final int trueClassIndex)
     {
-        double[] probabilities = GruClassifier.softmax(logits);
+        final double[] probabilities = GruClassifier.softmax(logits);
 
         return -Math.log( Math.max( probabilities[trueClassIndex], 1e-12 ) );
     }
 
     private static GruWeights randomInit(
-        List<String> explicitVocab,
-        Vocabulary   vocabulary,
-        Random       random
+        final List<String> explicitVocab,
+        final Vocabulary   vocabulary,
+        final Random       random
     )
     {
-        int        embeddingRows = vocabulary.totalEmbeddingRows();
-        double[][] embeddings    = new double[embeddingRows][EMBEDDING_DIM];
+        final int        embeddingRows = vocabulary.totalEmbeddingRows();
+        final double[][] embeddings    = new double[embeddingRows][EMBEDDING_DIM];
         for(int i = 0; i < embeddingRows; ++i) {
             for(int j = 0; j < EMBEDDING_DIM; ++j) embeddings[i][j] = glorot(
                 random, EMBEDDING_DIM, EMBEDDING_DIM
             );
         }
 
-        GruWeights.DirectionWeights forward = randomDirectionWeights(random);
-        GruWeights.DirectionWeights backward = randomDirectionWeights(random);
+        final GruWeights.DirectionWeights forward = randomDirectionWeights(random);
+        final GruWeights.DirectionWeights backward = randomDirectionWeights(random);
 
-        double[][] denseW = new double[DENSE_SIZE][2* HIDDEN_SIZE];
+        final double[][] denseW = new double[DENSE_SIZE][2* HIDDEN_SIZE];
         for(int i = 0; i < DENSE_SIZE; ++i) {
             for(int j = 0; j < 2 * HIDDEN_SIZE; ++j) denseW[i][j] = glorot(
                 random, 2 * HIDDEN_SIZE, DENSE_SIZE
             );
         }
-        double[] denseB = new double[DENSE_SIZE];
+        final double[] denseB = new double[DENSE_SIZE];
 
-        double[][] outW = new double[GruClassifier.CLASS_ORDER.length][DENSE_SIZE];
+        final double[][] outW = new double[GruClassifier.CLASS_ORDER.length][DENSE_SIZE];
         for(int i = 0; i < outW.length; ++i) {
             for(int j = 0; j < DENSE_SIZE; ++j) outW[i][j] = glorot(
                 random, DENSE_SIZE, outW.length
             );
         }
-        double[] outB = new double[GruClassifier.CLASS_ORDER.length];
+        final double[] outB = new double[GruClassifier.CLASS_ORDER.length];
 
         return new GruWeightsBuilder()
                 .schemaVersion(GruWeights.CURRENT_SCHEMA_VERSION)
@@ -1402,9 +1402,9 @@ public final class GruTrainer {
                 .build();
     }
 
-    private static GruWeights.DirectionWeights randomDirectionWeights(Random random)
+    private static GruWeights.DirectionWeights randomDirectionWeights(final Random random)
     {
-        GruWeights.DirectionWeights weights = GruWeights.DirectionWeights.zeros(
+        final GruWeights.DirectionWeights weights = GruWeights.DirectionWeights.zeros(
             HIDDEN_SIZE, EMBEDDING_DIM
         );
         fillGlorot(weights.Wz, random, EMBEDDING_DIM, HIDDEN_SIZE);
@@ -1417,16 +1417,16 @@ public final class GruTrainer {
         return weights;
     }
 
-    private static void fillGlorot(double[][] matrix, Random random, int fanIn, int fanOut)
+    private static void fillGlorot(final double[][] matrix, final Random random, final int fanIn, final int fanOut)
     {
-        for( double[] row : matrix ) {
+        for( final double[] row : matrix ) {
             for(int j = 0; j < row.length; ++j) row[j] = glorot(random, fanIn, fanOut);
         }
     }
 
-    private static double glorot(Random random, int fanIn, int fanOut)
+    private static double glorot(final Random random, final int fanIn, final int fanOut)
     {
-        double limit = Math.sqrt( 6.0 / (fanIn + fanOut) );
+        final double limit = Math.sqrt( 6.0 / (fanIn + fanOut) );
 
         return ( random.nextDouble() * 2 - 1 ) * limit;
     }
@@ -1437,12 +1437,12 @@ public final class GruTrainer {
      * than clipping each tensor independently, since it preserves the direction of
      * the update while only reducing its magnitude when necessary.
      */
-    private static void clipGradients(GruClassifier.Gradients gradients, double maxNorm)
+    private static void clipGradients(final GruClassifier.Gradients gradients, final double maxNorm)
     {
         double sumSquares = 0.0;
 
-        for( double[] row : gradients.embeddingGrad.values() ) {
-            for(double v : row) sumSquares += v * v;
+        for( final double[] row : gradients.embeddingGrad.values() ) {
+            for(final double v : row) sumSquares += v * v;
         }
 
         sumSquares += sumSquares(gradients.forward);
@@ -1452,12 +1452,12 @@ public final class GruTrainer {
         sumSquares += sumSquares(gradients.outW);
         sumSquares += sumSquares(gradients.outB);
 
-        double norm = Math.sqrt(sumSquares);
+        final double norm = Math.sqrt(sumSquares);
         if(norm <= maxNorm || norm == 0.0) return;
 
-        double scale = maxNorm / norm;
+        final double scale = maxNorm / norm;
 
-        for( double[] row : gradients.embeddingGrad.values() ) scale(row, scale);
+        for( final double[] row : gradients.embeddingGrad.values() ) scale(row, scale);
 
         scale(gradients.forward, scale);
         scale(gradients.backward, scale);
@@ -1467,30 +1467,30 @@ public final class GruTrainer {
         scale(gradients.outB, scale);
     }
 
-    private static double sumSquares(GruWeights.DirectionWeights w)
+    private static double sumSquares(final GruWeights.DirectionWeights w)
     {
         return sumSquares(w.Wz) + sumSquares(w.Wr) + sumSquares(w.Wh)
                 + sumSquares(w.Uz) + sumSquares(w.Ur) + sumSquares(w.Uh)
                 + sumSquares(w.bz) + sumSquares(w.br) + sumSquares(w.bh);
     }
 
-    private static double sumSquares(double[][] m)
+    private static double sumSquares(final double[][] m)
     {
         double s = 0.0;
-        for( double[] row : m ) s += sumSquares(row);
+        for( final double[] row : m ) s += sumSquares(row);
 
         return s;
     }
 
-    private static double sumSquares(double[] v)
+    private static double sumSquares(final double[] v)
     {
         double s = 0.0;
-        for(double x : v) s += x * x;
+        for(final double x : v) s += x * x;
 
         return s;
     }
 
-    private static void scale(GruWeights.DirectionWeights w, double factor)
+    private static void scale(final GruWeights.DirectionWeights w, final double factor)
     {
         scale(w.Wz, factor);
         scale(w.Wr, factor);
@@ -1503,12 +1503,12 @@ public final class GruTrainer {
         scale(w.bh, factor);
     }
 
-    private static void scale(double[][] m, double factor)
+    private static void scale(final double[][] m, final double factor)
     {
-        for( double[] row : m ) scale(row, factor);
+        for( final double[] row : m ) scale(row, factor);
     }
 
-    private static void scale(double[] v, double factor)
+    private static void scale(final double[] v, final double factor)
     {
         for(int i = 0; i < v.length; ++i) v[i] *= factor;
     }
@@ -1534,7 +1534,7 @@ public final class GruTrainer {
         final double[][] outWM,         outWV;
         final double[] outBM,           outBV;
 
-        AdamState(GruWeights weights)
+        AdamState(final GruWeights weights)
         {
             embeddingM = new double[weights.embeddings.length][weights.embeddingDim];
             embeddingV = new double[weights.embeddings.length][weights.embeddingDim];
@@ -1556,7 +1556,7 @@ public final class GruTrainer {
             final double[][] UzM, UzV, UrM, UrV, UhM, UhV;
             final double[] bzM, bzV, brM, brV, bhM,   bhV;
 
-            DirectionMoments(int hiddenSize, int embeddingDim)
+            DirectionMoments(final int hiddenSize, final int embeddingDim)
             {
                 WzM = new double[hiddenSize][embeddingDim];
                 WzV = new double[hiddenSize][embeddingDim];
@@ -1580,13 +1580,13 @@ public final class GruTrainer {
 
         } // class DirectionMoments
 
-        void apply(GruWeights weights, GruClassifier.Gradients gradients, double lr, int step)
+        void apply(final GruWeights weights, final GruClassifier.Gradients gradients, final double lr, final int step)
         {
-            double biasCorrection1 = 1.0 - Math.pow(BETA1, step);
-            double biasCorrection2 = 1.0 - Math.pow(BETA2, step);
+            final double biasCorrection1 = 1.0 - Math.pow(BETA1, step);
+            final double biasCorrection2 = 1.0 - Math.pow(BETA2, step);
 
-            for( Map.Entry<Integer, double[]> entry : gradients.embeddingGrad.entrySet() ) {
-                int row = entry.getKey();
+            for( final Map.Entry<Integer, double[]> entry : gradients.embeddingGrad.entrySet() ) {
+                final int row = entry.getKey();
                 update1D(
                     weights.embeddings[row], entry.getValue(), embeddingM[row],
                     embeddingV[row], lr, biasCorrection1, biasCorrection2
@@ -1619,12 +1619,12 @@ public final class GruTrainer {
         }
 
         private void applyDirection(
-            GruWeights.DirectionWeights weights,
-            GruWeights.DirectionWeights gradients,
-            DirectionMoments            moments,
-            double                      lr,
-            double                      biasCorrection1,
-            double                      biasCorrection2
+            final GruWeights.DirectionWeights weights,
+            final GruWeights.DirectionWeights gradients,
+            final DirectionMoments            moments,
+            final double                      lr,
+            final double                      biasCorrection1,
+            final double                      biasCorrection2
         )
         {
             update2D(
@@ -1666,32 +1666,32 @@ public final class GruTrainer {
         }
 
         private static void update1D(
-            double[] param,
-            double[] grad,
-            double[] m,
-            double[] v,
-            double   lr,
-            double   biasCorrection1,
-            double   biasCorrection2
+            final double[] param,
+            final double[] grad,
+            final double[] m,
+            final double[] v,
+            final double   lr,
+            final double   biasCorrection1,
+            final double   biasCorrection2
         )
         {
             for(int i = 0; i < param.length; ++i) {
                 m[i] = BETA1 * m[i] + (1 - BETA1) * grad[i];
                 v[i] = BETA2 * v[i] + (1 - BETA2) * grad[i] * grad[i];
-                double mHat = m[i] / biasCorrection1;
-                double vHat = v[i] / biasCorrection2;
+                final double mHat = m[i] / biasCorrection1;
+                final double vHat = v[i] / biasCorrection2;
                 param[i] -= lr * mHat / ( Math.sqrt(vHat) + EPSILON );
             } // for
         }
 
         private static void update2D(
-            double[][] param,
-            double[][] grad,
-            double[][] m,
-            double[][] v,
-            double     lr,
-            double     biasCorrection1,
-            double     biasCorrection2
+            final double[][] param,
+            final double[][] grad,
+            final double[][] m,
+            final double[][] v,
+            final double     lr,
+            final double     biasCorrection1,
+            final double     biasCorrection2
         )
         {
             for(int i = 0; i < param.length; ++i) update1D(
@@ -1709,9 +1709,9 @@ public final class GruTrainer {
      * written together from the same {@code weightsOut} base path (see the constant block above), so
      * this is a plain suffix swap, not a search.
      */
-    private static File deriveBestCheckpointFile(File currentCheckpointFile)
+    private static File deriveBestCheckpointFile(final File currentCheckpointFile)
     {
-        String path = currentCheckpointFile.getPath();
+        final String path = currentCheckpointFile.getPath();
         if( path.endsWith(CHECKPOINT_CURRENT_SUFFIX) ) return new File(
             path.substring( 0, path.length() - CHECKPOINT_CURRENT_SUFFIX.length() ) + CHECKPOINT_BEST_SUFFIX
         );
@@ -1723,50 +1723,50 @@ public final class GruTrainer {
         return new File(path + CHECKPOINT_BEST_SUFFIX);
     }
 
-    private static void writeDoubleArray(DataOutputStream out, double[] values) throws IOException
+    private static void writeDoubleArray(final DataOutputStream out, final double[] values) throws IOException
     {
         out.writeInt(values.length);
-        for(double v : values) out.writeDouble(v);
+        for(final double v : values) out.writeDouble(v);
     }
 
-    private static double[] readDoubleArray(DataInputStream in) throws IOException
+    private static double[] readDoubleArray(final DataInputStream in) throws IOException
     {
-        int      n      = in.readInt();
-        double[] values = new double[n];
+        final int      n      = in.readInt();
+        final double[] values = new double[n];
         for(int i = 0; i < n; ++i) values[i] = in.readDouble();
 
         return values;
     }
 
-    private static void readDoubleArrayInto(DataInputStream in, double[] target) throws IOException
+    private static void readDoubleArrayInto(final DataInputStream in, final double[] target) throws IOException
     {
-        int n = in.readInt();
+        final int n = in.readInt();
         if(n != target.length) throw new IOException(
             "checkpoint shape mismatch: expected length " + target.length + ", found " + n
         );
         for(int i = 0; i < n; ++i) target[i] = in.readDouble();
     }
 
-    private static void writeDoubleArray2D(DataOutputStream out, double[][] rows) throws IOException
+    private static void writeDoubleArray2D(final DataOutputStream out, final double[][] rows) throws IOException
     {
         out.writeInt(rows.length);
-        for( double[] row : rows ) writeDoubleArray(out, row);
+        for( final double[] row : rows ) writeDoubleArray(out, row);
     }
 
-    private static double[][] readDoubleArray2D(DataInputStream in) throws IOException
+    private static double[][] readDoubleArray2D(final DataInputStream in) throws IOException
     {
-        int        n    = in.readInt();
-        double[][] rows = new double[n][];
+        final int        n    = in.readInt();
+        final double[][] rows = new double[n][];
         for(int i = 0; i < n; ++i) rows[i] = readDoubleArray(in);
 
         return rows;
     }
 
     private static void readDoubleArray2DInto(
-        DataInputStream in, double[][] target
+        final DataInputStream in, final double[][] target
     ) throws IOException
     {
-        int n = in.readInt();
+        final int n = in.readInt();
         if(n != target.length) throw new IOException(
             "checkpoint shape mismatch: expected " + target.length + " rows, found " + n
         );
@@ -1774,7 +1774,7 @@ public final class GruTrainer {
     }
 
     private static void writeDirectionWeights(
-        DataOutputStream out, GruWeights.DirectionWeights w
+        final DataOutputStream out, final GruWeights.DirectionWeights w
     ) throws IOException
     {
         writeDoubleArray2D(out, w.Wz);
@@ -1789,18 +1789,18 @@ public final class GruTrainer {
     }
 
     private static GruWeights.DirectionWeights readDirectionWeights(
-        DataInputStream in
+        final DataInputStream in
     ) throws IOException
     {
-        double[][] Wz = readDoubleArray2D(in);
-        double[][] Wr = readDoubleArray2D(in);
-        double[][] Wh = readDoubleArray2D(in);
-        double[][] Uz = readDoubleArray2D(in);
-        double[][] Ur = readDoubleArray2D(in);
-        double[][] Uh = readDoubleArray2D(in);
-        double[]   bz = readDoubleArray(in);
-        double[]   br = readDoubleArray(in);
-        double[]   bh = readDoubleArray(in);
+        final double[][] Wz = readDoubleArray2D(in);
+        final double[][] Wr = readDoubleArray2D(in);
+        final double[][] Wh = readDoubleArray2D(in);
+        final double[][] Uz = readDoubleArray2D(in);
+        final double[][] Ur = readDoubleArray2D(in);
+        final double[][] Uh = readDoubleArray2D(in);
+        final double[]   bz = readDoubleArray(in);
+        final double[]   br = readDoubleArray(in);
+        final double[]   bh = readDoubleArray(in);
 
         return new GruWeights.DirectionWeights(Wz, Wr, Wh, Uz, Ur, Uh, bz, br, bh);
     }
@@ -1811,9 +1811,9 @@ public final class GruTrainer {
      * already enumerates -- same field list, not a separately-invented one
      */
     private static void writeWeightsBlock(
-        DataOutputStream out,
-        GruWeights       weights,
-        List<String>     explicitVocab
+        final DataOutputStream out,
+        final GruWeights       weights,
+        final List<String>     explicitVocab
     ) throws IOException
     {
         out.writeInt(weights.schemaVersion);
@@ -1824,7 +1824,7 @@ public final class GruTrainer {
         out.writeInt(weights.sequenceCap);
         out.writeInt(weights.numClasses);
         out.writeDouble(weights.abstainThreshold);
-        for(String word : explicitVocab) out.writeUTF(word);
+        for(final String word : explicitVocab) out.writeUTF(word);
         writeDoubleArray2D(out, weights.embeddings);
         writeDirectionWeights(out, weights.forward);
         writeDirectionWeights(out, weights.backward);
@@ -1844,7 +1844,7 @@ public final class GruTrainer {
         final List<String> explicitVocab;
         final GruWeights   weights;
 
-        LoadedWeights(List<String> explicitVocab, GruWeights weights)
+        LoadedWeights(final List<String> explicitVocab, final GruWeights weights)
         {
             this.explicitVocab = explicitVocab;
             this.weights       = weights;
@@ -1852,27 +1852,27 @@ public final class GruTrainer {
 
     } // class LoadedWeights
 
-    private static LoadedWeights readWeightsBlock(DataInputStream in) throws IOException
+    private static LoadedWeights readWeightsBlock(final DataInputStream in) throws IOException
     {
-        int          schemaVersion    = in.readInt();
-        int          vocabSize        = in.readInt();
-        int          hashBuckets      = in.readInt();
-        int          embeddingDim     = in.readInt();
-        int          hiddenSize       = in.readInt();
-        int          sequenceCap      = in.readInt();
-        int          numClasses       = in.readInt();
-        double       abstainThreshold = in.readDouble();
-        List<String> explicitVocab    = new ArrayList<>(vocabSize);
+        final int          schemaVersion    = in.readInt();
+        final int          vocabSize        = in.readInt();
+        final int          hashBuckets      = in.readInt();
+        final int          embeddingDim     = in.readInt();
+        final int          hiddenSize       = in.readInt();
+        final int          sequenceCap      = in.readInt();
+        final int          numClasses       = in.readInt();
+        final double       abstainThreshold = in.readDouble();
+        final List<String> explicitVocab    = new ArrayList<>(vocabSize);
         for(int i = 0; i < vocabSize; ++i) explicitVocab.add( in.readUTF() );
-        double[][] embeddings = readDoubleArray2D(in);
-        GruWeights.DirectionWeights forward  = readDirectionWeights(in);
-        GruWeights.DirectionWeights backward = readDirectionWeights(in);
-        double[][] denseW = readDoubleArray2D(in);
-        double[]   denseB = readDoubleArray(in);
-        double[][] outW   = readDoubleArray2D(in);
-        double[]   outB   = readDoubleArray(in);
+        final double[][] embeddings = readDoubleArray2D(in);
+        final GruWeights.DirectionWeights forward  = readDirectionWeights(in);
+        final GruWeights.DirectionWeights backward = readDirectionWeights(in);
+        final double[][] denseW = readDoubleArray2D(in);
+        final double[]   denseB = readDoubleArray(in);
+        final double[][] outW   = readDoubleArray2D(in);
+        final double[]   outB   = readDoubleArray(in);
 
-        GruWeights weights = new GruWeightsBuilder().schemaVersion(
+        final GruWeights weights = new GruWeightsBuilder().schemaVersion(
             schemaVersion
         ).vocabSize(
             vocabSize
@@ -1916,14 +1916,14 @@ public final class GruTrainer {
      * atomic-rename, see the constant block's javadoc.
      */
     private static void writeBestCheckpoint(
-        File         file,
-        GruWeights   weights,
-        List<String> explicitVocab,
-        double       bestValidationLoss
+        final File         file,
+        final GruWeights   weights,
+        final List<String> explicitVocab,
+        final double       bestValidationLoss
     ) throws IOException
     {
-        File tmp = new File( file.getPath() + ".tmp" );
-        try( DataOutputStream out = new DataOutputStream(
+        final File tmp = new File( file.getPath() + ".tmp" );
+        try( final DataOutputStream out = new DataOutputStream(
             new BufferedOutputStream( new FileOutputStream(tmp) )
         ) ) {
             out.writeInt(CHECKPOINT_MAGIC);
@@ -1944,9 +1944,9 @@ public final class GruTrainer {
      * power failure, even though a plain process kill can never corrupt the file (temp-file-then-
      * atomic-rename, see the constant block's javadoc)
      */
-    private static void fsyncFile(File f) throws IOException
+    private static void fsyncFile(final File f) throws IOException
     {
-        try( FileChannel ch = FileChannel.open( f.toPath(), StandardOpenOption.WRITE ) ) {
+        try( final FileChannel ch = FileChannel.open( f.toPath(), StandardOpenOption.WRITE ) ) {
             ch.force(true);
         }
     }
@@ -1956,34 +1956,34 @@ public final class GruTrainer {
      * directory as a {@link FileChannel} is not portable to Windows), acceptable here since this
      * tool only runs on this project's own Linux dev/build hosts
      */
-    private static void fsyncParentDirectory(File file) throws IOException
+    private static void fsyncParentDirectory(final File file) throws IOException
     {
-        File parent = file.getAbsoluteFile().getParentFile();
+        final File parent = file.getAbsoluteFile().getParentFile();
         if(parent == null) return;
-        try( FileChannel ch = FileChannel.open( parent.toPath(), StandardOpenOption.READ ) ) {
+        try( final FileChannel ch = FileChannel.open( parent.toPath(), StandardOpenOption.READ ) ) {
             ch.force(true);
         }
     }
 
-    private static LoadedWeights readBestCheckpoint(File file) throws IOException
+    private static LoadedWeights readBestCheckpoint(final File file) throws IOException
     {
-        try( DataInputStream in = new DataInputStream(
+        try( final DataInputStream in = new DataInputStream(
             new BufferedInputStream( new FileInputStream(file) )
         ) ) {
-            int magic = in.readInt();
+            final int magic = in.readInt();
             if(magic != CHECKPOINT_MAGIC) throw new IOException(
                 "not a GruTrainer checkpoint file (bad magic): " + file
             );
-            int formatVersion = in.readInt();
+            final int formatVersion = in.readInt();
             if(formatVersion != CHECKPOINT_FORMAT_VERSION) throw new IOException(
                 "unsupported checkpoint format version " + formatVersion + " in " + file
                         + " (expected " + CHECKPOINT_FORMAT_VERSION + ")"
             );
-            int kind = in.readInt();
+            final int kind = in.readInt();
             if(kind != 0) throw new IOException(
                 "expected a best-weights checkpoint (kind=0) but found kind=" + kind + " in " + file
             );
-            LoadedWeights loaded = readWeightsBlock(in);
+            final LoadedWeights loaded = readWeightsBlock(in);
             in.readDouble(); // BestValidationLoss -- informational only, caller doesn't need it back
 
             return loaded;
@@ -1991,7 +1991,7 @@ public final class GruTrainer {
     }
 
     private static void writeDirectionMoments(
-        DataOutputStream out, AdamState.DirectionMoments m
+        final DataOutputStream out, final AdamState.DirectionMoments m
     ) throws IOException
     {
         writeDoubleArray2D(out, m.WzM);
@@ -2015,7 +2015,7 @@ public final class GruTrainer {
     }
 
     private static void readDirectionMomentsInto(
-        DataInputStream in, AdamState.DirectionMoments m
+        final DataInputStream in, final AdamState.DirectionMoments m
     ) throws IOException
     {
         readDoubleArray2DInto(in, m.WzM);
@@ -2038,7 +2038,7 @@ public final class GruTrainer {
         readDoubleArrayInto(in, m.bhV);
     }
 
-    private static void writeAdamState(DataOutputStream out, AdamState adam) throws IOException
+    private static void writeAdamState(final DataOutputStream out, final AdamState adam) throws IOException
     {
         writeDoubleArray2D(out, adam.embeddingM);
         writeDoubleArray2D(out, adam.embeddingV);
@@ -2061,10 +2061,10 @@ public final class GruTrainer {
      * fills them rather than reassigning
      */
     private static AdamState readAdamStateInto(
-        DataInputStream in, GruWeights weights
+        final DataInputStream in, final GruWeights weights
     ) throws IOException
     {
-        AdamState adam = new AdamState(weights);
+        final AdamState adam = new AdamState(weights);
         readDoubleArray2DInto(in, adam.embeddingM);
         readDoubleArray2DInto(in, adam.embeddingV);
         readDirectionMomentsInto(in, adam.forward);
@@ -2094,25 +2094,25 @@ public final class GruTrainer {
      *  per-epoch shuffle sequence beyond that point. Accepted limitation, not a bug.
      */
     private static void writeCurrentCheckpoint(
-        File         file,
-        GruWeights   weights,
-        List<String> explicitVocab,
-        AdamState    adam,
-        int          epoch,
-        int          epochsSinceImprovement,
-        double       bestValidationLoss,
-        double       learningRate,
-        int          maxEpochs,
-        int          patience,
-        long         seed,
-        int          step,
-        int          batchSize,
-        int          warmupSteps,
-        double       lrMin
+        final File         file,
+        final GruWeights   weights,
+        final List<String> explicitVocab,
+        final AdamState    adam,
+        final int          epoch,
+        final int          epochsSinceImprovement,
+        final double       bestValidationLoss,
+        final double       learningRate,
+        final int          maxEpochs,
+        final int          patience,
+        final long         seed,
+        final int          step,
+        final int          batchSize,
+        final int          warmupSteps,
+        final double       lrMin
     ) throws IOException
     {
-        File tmp = new File( file.getPath() + ".tmp" );
-        try( DataOutputStream out = new DataOutputStream(
+        final File tmp = new File( file.getPath() + ".tmp" );
+        try( final DataOutputStream out = new DataOutputStream(
             new BufferedOutputStream( new FileOutputStream(tmp) )
         ) ) {
             out.writeInt(CHECKPOINT_MAGIC);
@@ -2143,21 +2143,21 @@ public final class GruTrainer {
      * deliverable), so this catches and warns instead of propagating
      */
     private static void writeCurrentCheckpointQuietly(
-        File         file,
-        GruWeights   weights,
-        List<String> explicitVocab,
-        AdamState    adam,
-        int          epoch,
-        int          epochsSinceImprovement,
-        double       bestValidationLoss,
-        double       learningRate,
-        int          maxEpochs,
-        int          patience,
-        long         seed,
-        int          step,
-        int          batchSize,
-        int          warmupSteps,
-        double       lrMin
+        final File         file,
+        final GruWeights   weights,
+        final List<String> explicitVocab,
+        final AdamState    adam,
+        final int          epoch,
+        final int          epochsSinceImprovement,
+        final double       bestValidationLoss,
+        final double       learningRate,
+        final int          maxEpochs,
+        final int          patience,
+        final long         seed,
+        final int          step,
+        final int          batchSize,
+        final int          warmupSteps,
+        final double       lrMin
     )
     {
         try {
@@ -2166,7 +2166,7 @@ public final class GruTrainer {
                 learningRate, maxEpochs, patience, seed, step, batchSize, warmupSteps, lrMin
             );
         }
-        catch(IOException e) {
+        catch(final IOException e) {
             System.err.println( "GruTrainer: warning -- could not write current-weights checkpoint to "
                     + file + ": " + e.getMessage() );
         }
@@ -2196,20 +2196,20 @@ public final class GruTrainer {
         final double       lrMin;
 
         ResumeState(
-            List<String> explicitVocab,
-            GruWeights   weights,
-            AdamState    adam,
-            int          epoch,
-            int          epochsSinceImprovement,
-            double       bestValidationLoss,
-            double       learningRate,
-            int          maxEpochs,
-            int          patience,
-            long         seed,
-            int          step,
-            int          batchSize,
-            int          warmupSteps,
-            double       lrMin
+            final List<String> explicitVocab,
+            final GruWeights   weights,
+            final AdamState    adam,
+            final int          epoch,
+            final int          epochsSinceImprovement,
+            final double       bestValidationLoss,
+            final double       learningRate,
+            final int          maxEpochs,
+            final int          patience,
+            final long         seed,
+            final int          step,
+            final int          batchSize,
+            final int          warmupSteps,
+            final double       lrMin
         )
         {
             this.explicitVocab          = explicitVocab;
@@ -2230,37 +2230,37 @@ public final class GruTrainer {
 
     } // class ResumeState
 
-    private static ResumeState loadCurrentCheckpoint(File file) throws IOException
+    private static ResumeState loadCurrentCheckpoint(final File file) throws IOException
     {
-        try( DataInputStream in = new DataInputStream(
+        try( final DataInputStream in = new DataInputStream(
             new BufferedInputStream( new FileInputStream(file) )
         ) ) {
-            int magic = in.readInt();
+            final int magic = in.readInt();
             if(magic != CHECKPOINT_MAGIC) throw new IOException(
                 "not a GruTrainer checkpoint file (bad magic): " + file
             );
-            int formatVersion = in.readInt();
+            final int formatVersion = in.readInt();
             if(formatVersion != CHECKPOINT_FORMAT_VERSION) throw new IOException(
                 "unsupported checkpoint format version " + formatVersion + " in " + file
                         + " (expected " + CHECKPOINT_FORMAT_VERSION + ")"
             );
-            int kind = in.readInt();
+            final int kind = in.readInt();
             if(kind != 1) throw new IOException(
                 "expected a current-weights checkpoint (kind=1) but found kind=" + kind + " in " + file
             );
-            LoadedWeights loaded                 = readWeightsBlock(in);
-            int           epoch                  = in.readInt();
-            int           epochsSinceImprovement = in.readInt();
-            double        bestValidationLoss     = in.readDouble();
-            double        learningRate           = in.readDouble();
-            int           maxEpochs              = in.readInt();
-            int           patience               = in.readInt();
-            long          seed                   = in.readLong();
-            int           step                   = in.readInt();
-            int           batchSize              = in.readInt();
-            int           warmupSteps            = in.readInt();
-            double        lrMin                  = in.readDouble();
-            AdamState     adam                   = readAdamStateInto(in, loaded.weights);
+            final LoadedWeights loaded                 = readWeightsBlock(in);
+            final int           epoch                  = in.readInt();
+            final int           epochsSinceImprovement = in.readInt();
+            final double        bestValidationLoss     = in.readDouble();
+            final double        learningRate           = in.readDouble();
+            final int           maxEpochs              = in.readInt();
+            final int           patience               = in.readInt();
+            final long          seed                   = in.readLong();
+            final int           step                   = in.readInt();
+            final int           batchSize              = in.readInt();
+            final int           warmupSteps            = in.readInt();
+            final double        lrMin                  = in.readDouble();
+            final AdamState     adam                   = readAdamStateInto(in, loaded.weights);
 
             return new ResumeState(
                 loaded.explicitVocab, loaded.weights, adam, epoch, epochsSinceImprovement,
@@ -2289,43 +2289,43 @@ public final class GruTrainer {
         private double[][] outW;
         private double[]   outB;
 
-        GruWeightsBuilder schemaVersion   (int                         v) { this.schemaVersion = v; return this;    }
-        GruWeightsBuilder vocabSize       (int                         v) { this.vocabSize = v; return this;        }
-        GruWeightsBuilder hashBuckets     (int                         v) { this.hashBuckets = v; return this;      }
-        GruWeightsBuilder embeddingDim    (int                         v) { this.embeddingDim = v; return this;     }
-        GruWeightsBuilder hiddenSize      (int                         v) { this.hiddenSize = v; return this;       }
-        GruWeightsBuilder sequenceCap     (int                         v) { this.sequenceCap = v; return this;      }
-        GruWeightsBuilder numClasses      (int                         v) { this.numClasses = v; return this;       }
-        GruWeightsBuilder abstainThreshold(double                      v) { this.abstainThreshold = v; return this; }
-        GruWeightsBuilder explicitVocab   (String[]                    v) { this.explicitVocab = v; return this;    }
-        GruWeightsBuilder embeddings      (double[][]                  v) { this.embeddings = v; return this;       }
-        GruWeightsBuilder forward         (GruWeights.DirectionWeights v) { this.forward = v; return this;          }
-        GruWeightsBuilder backward        (GruWeights.DirectionWeights v) { this.backward = v; return this;         }
-        GruWeightsBuilder denseW          (double[][]                  v) { this.denseW = v; return this;           }
-        GruWeightsBuilder denseB          (double[]                    v) { this.denseB = v; return this;           }
-        GruWeightsBuilder outW            (double[][]                  v) { this.outW = v; return this;             }
-        GruWeightsBuilder outB            (double[]                    v) { this.outB = v; return this;             }
+        GruWeightsBuilder schemaVersion   (final int                         v) { this.schemaVersion = v; return this;    }
+        GruWeightsBuilder vocabSize       (final int                         v) { this.vocabSize = v; return this;        }
+        GruWeightsBuilder hashBuckets     (final int                         v) { this.hashBuckets = v; return this;      }
+        GruWeightsBuilder embeddingDim    (final int                         v) { this.embeddingDim = v; return this;     }
+        GruWeightsBuilder hiddenSize      (final int                         v) { this.hiddenSize = v; return this;       }
+        GruWeightsBuilder sequenceCap     (final int                         v) { this.sequenceCap = v; return this;      }
+        GruWeightsBuilder numClasses      (final int                         v) { this.numClasses = v; return this;       }
+        GruWeightsBuilder abstainThreshold(final double                      v) { this.abstainThreshold = v; return this; }
+        GruWeightsBuilder explicitVocab   (final String[]                    v) { this.explicitVocab = v; return this;    }
+        GruWeightsBuilder embeddings      (final double[][]                  v) { this.embeddings = v; return this;       }
+        GruWeightsBuilder forward         (final GruWeights.DirectionWeights v) { this.forward = v; return this;          }
+        GruWeightsBuilder backward        (final GruWeights.DirectionWeights v) { this.backward = v; return this;         }
+        GruWeightsBuilder denseW          (final double[][]                  v) { this.denseW = v; return this;           }
+        GruWeightsBuilder denseB          (final double[]                    v) { this.denseB = v; return this;           }
+        GruWeightsBuilder outW            (final double[][]                  v) { this.outW = v; return this;             }
+        GruWeightsBuilder outB            (final double[]                    v) { this.outB = v; return this;             }
 
         GruWeights build()
         {
             // GruWeights has no public constructor (see class javadoc above) -- round-trip through
             // its own JSON schema instead, which is public API (GruWeights.load)
-            String json = toJson(this);
+            final String json = toJson(this);
             try {
-                java.nio.file.Path tmp = Files.createTempFile("gru_trainer_init", ".json");
+                final java.nio.file.Path tmp = Files.createTempFile("gru_trainer_init", ".json");
                 Files.write( tmp, json.getBytes(StandardCharsets.UTF_8) );
-                GruWeights result = GruWeights.load(tmp);
+                final GruWeights result = GruWeights.load(tmp);
                 Files.deleteIfExists(tmp);
                 return result;
             }
-            catch(IOException e) {
+            catch(final IOException e) {
                 throw new IllegalStateException(
                     "GruTrainer: failed to round-trip initial weights: " + e.getMessage(), e
                 );
             }
         }
 
-        private static String toJson(GruWeightsBuilder b)
+        private static String toJson(final GruWeightsBuilder b)
         {
             return GruTrainer.toJsonFields(
                 b.schemaVersion, b.vocabSize, b.hashBuckets, b.embeddingDim,
@@ -2336,7 +2336,7 @@ public final class GruTrainer {
 
     } // class GruWeightsBuilder
 
-    private static String toJson(GruWeights weights, List<String> explicitVocab)
+    private static String toJson(final GruWeights weights, final List<String> explicitVocab)
     {
         return toJsonFields(
             weights.schemaVersion, explicitVocab.size(), weights.hashBuckets, weights.embeddingDim,
@@ -2347,25 +2347,25 @@ public final class GruTrainer {
     }
 
     private static String toJsonFields(
-        int                         schemaVersion,
-        int                         vocabSize,
-        int                         hashBuckets,
-        int                         embeddingDim,
-        int                         hiddenSize,
-        int                         sequenceCap,
-        int                         numClasses,
-        double                      abstainThreshold,
-        String[]                    explicitVocab,
-        double[][]                  embeddings,
-        GruWeights.DirectionWeights forward,
-        GruWeights.DirectionWeights backward,
-        double[][]                  denseW,
-        double[]                    denseB,
-        double[][]                  outW,
-        double[]                    outB
+        final int                         schemaVersion,
+        final int                         vocabSize,
+        final int                         hashBuckets,
+        final int                         embeddingDim,
+        final int                         hiddenSize,
+        final int                         sequenceCap,
+        final int                         numClasses,
+        final double                      abstainThreshold,
+        final String[]                    explicitVocab,
+        final double[][]                  embeddings,
+        final GruWeights.DirectionWeights forward,
+        final GruWeights.DirectionWeights backward,
+        final double[][]                  denseW,
+        final double[]                    denseB,
+        final double[][]                  outW,
+        final double[]                    outB
     )
     {
-        StringBuilder sb = new StringBuilder();
+        final StringBuilder sb = new StringBuilder();
         sb.append("{\n");
         sb.append("  \"schemaVersion\": ").append(schemaVersion).append(",\n");
         sb.append("  \"vocabSize\": ").append(vocabSize).append(",\n");
@@ -2389,9 +2389,9 @@ public final class GruTrainer {
     }
 
     private static void appendDirection(
-        StringBuilder               sb,
-        String                      prefix,
-        GruWeights.DirectionWeights weights
+        final StringBuilder               sb,
+        final String                      prefix,
+        final GruWeights.DirectionWeights weights
     )
     {
         sb.append(
@@ -2495,9 +2495,9 @@ public final class GruTrainer {
         );
     }
 
-    private static String jsonArray1D(double[] values)
+    private static String jsonArray1D(final double[] values)
     {
-        StringBuilder sb = new StringBuilder("[");
+        final StringBuilder sb = new StringBuilder("[");
         for(int i = 0; i < values.length; ++i) {
             if(i > 0) sb.append(",");
             sb.append( values[i] );
@@ -2506,9 +2506,9 @@ public final class GruTrainer {
         return sb.append("]").toString();
     }
 
-    private static String jsonArray2D(double[][] rows)
+    private static String jsonArray2D(final double[][] rows)
     {
-        StringBuilder sb = new StringBuilder("[");
+        final StringBuilder sb = new StringBuilder("[");
         for(int i = 0; i < rows.length; ++i) {
             if(i > 0) sb.append(",");
             sb.append( jsonArray1D( rows[i] ) );
@@ -2517,9 +2517,9 @@ public final class GruTrainer {
         return sb.append("]").toString();
     }
 
-    private static String jsonStringArray(String[] values)
+    private static String jsonStringArray(final String[] values)
     {
-        StringBuilder sb = new StringBuilder("[");
+        final StringBuilder sb = new StringBuilder("[");
         for(int i = 0; i < values.length; ++i) {
             if(i > 0) sb.append(",");
             sb.append("\"").append( escapeJsonString( values[i] ) ).append("\"");
@@ -2528,7 +2528,7 @@ public final class GruTrainer {
         return sb.append("]").toString();
     }
 
-    private static String escapeJsonString(String s)
+    private static String escapeJsonString(final String s)
     {
         return s.replace(
             "\\", "\\\\"

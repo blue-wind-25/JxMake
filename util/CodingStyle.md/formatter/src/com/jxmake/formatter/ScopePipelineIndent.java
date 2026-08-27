@@ -2406,7 +2406,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
             // Only route through applySingleStatementBody's own generic join when
             // classifyCaseLine already confirmed a safe virtualJoin (which itself bails on a
             // header trailing comment) -- otherwise applySingleStatementBody's headerText would
-            // stop at colonIdx + 1 and silently drop that comment.
+            // stop at colonIdx + 1 and silently drop that comment
             return c != null && !c.compact && c.virtualJoin ? c.colonIdx : -1;
         } // if
         if( kw.type != TokenType.KEYWORD || !SINGLE_STMT_HEADER_KEYWORDS.contains(

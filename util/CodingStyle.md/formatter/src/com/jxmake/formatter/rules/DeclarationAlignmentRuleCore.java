@@ -250,7 +250,7 @@ public abstract class DeclarationAlignmentRuleCore {
             before, ")"
         ) || isPunct(
             before, "]"
-        ) ) ) return false; // function call / subscript, not a cast
+        ) ) ) return false; // Function call / subscript, not a cast
         // A control-flow keyword's own condition parens (`if(node instanceof X)`,
         // `while(cond)`, `for(...)`, `switch(...)`, `catch(...)`) has the exact same shape this
         // method looks for -- IDENTIFIER/KEYWORD-only content, and `if`/`while`/etc. are

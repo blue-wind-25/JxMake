@@ -72,7 +72,7 @@ public class KotlinSpecificRule {
         final int    labelStart;
         final int    bodyStart;
         final int    bodyEnd;    // Inclusive, last significant token of the body
-        final String label;      // raw "EXPR" / "else" text, whitespace-collapsed and trimmed
+        final String label;      // Raw "EXPR" / "else" text, whitespace-collapsed and trimmed
 
         WhenBranch(final int labelStart, final int bodyStart, final int bodyEnd, final String label)
         {

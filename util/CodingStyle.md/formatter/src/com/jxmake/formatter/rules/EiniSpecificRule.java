@@ -163,7 +163,7 @@ public final class EiniSpecificRule {
         String       key;
         char         sepChar;
         List<String> valueParts;
-        String       commentText; // null if none -- includes marker + normalized body
+        String       commentText; // Null if none -- includes marker + normalized body
 
     } // class KvItem
 

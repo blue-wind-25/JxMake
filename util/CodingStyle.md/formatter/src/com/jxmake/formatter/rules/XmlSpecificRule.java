@@ -1198,14 +1198,14 @@ public final class XmlSpecificRule {
             lowerTag  = n.tagName;
         }
         // See SVG_TAG_NAME_CASE_FIXUP -- opposite gate from TAG_NAME_REWRITES: only applies INSIDE
-        // real SVG foreign content (svgDepth > 0), never in plain HTML content.
+        // real SVG foreign content (svgDepth > 0), never in plain HTML content
         if( lang.isHtml5 && svgDepth > 0 && SVG_TAG_NAME_CASE_FIXUP.containsKey(
             lowerTag
         ) ) n.tagName = SVG_TAG_NAME_CASE_FIXUP.get(
             lowerTag
         );
         // See MATHML_TAG_NAME_CASE_FIXUP -- opposite gate from TAG_NAME_REWRITES: only applies INSIDE
-        // real MathML foreign content (mathmlDepth > 0), never in plain HTML content.
+        // real MathML foreign content (mathmlDepth > 0), never in plain HTML content
         if( lang.isHtml5 && mathmlDepth > 0 && MATHML_TAG_NAME_CASE_FIXUP.containsKey(
             lowerTag
         ) ) n.tagName = MATHML_TAG_NAME_CASE_FIXUP.get(

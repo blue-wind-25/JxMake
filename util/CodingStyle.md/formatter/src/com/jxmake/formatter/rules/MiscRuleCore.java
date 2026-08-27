@@ -1559,7 +1559,7 @@ public static final class Assignment {
             before, ")"
         ) || isPunct(
             before, "]"
-        ) ) ) return false; // function call / subscript, not a cast
+        ) ) ) return false; // Function call / subscript, not a cast
         if( before != null && before.type == TokenType.KEYWORD && CONTROL_FLOW_KEYWORDS.contains(
             before.text
         ) ) return false;
@@ -2134,7 +2134,7 @@ public static final class Assignment {
                     group.add(next);
                     j = next;
                 }
-                final List<String>  contents          = new ArrayList<>();
+                final List<String>  contents           = new ArrayList<>();
                 final List<Boolean> hadLeadingOneSpace = new ArrayList<>();
                 for(final int idx : group) {
                     final String raw = tokens.get(idx).text.substring(2);
@@ -2152,7 +2152,7 @@ public static final class Assignment {
                 // stripped input) as `reformatMultiLineBlockComment` gives its own strip/
                 // capitalize classifier calls, so the GRU classifier sees equivalent text for a
                 // `//` chain and a `/* */` block with the same content (RDD_KEY -- see
-                // STATE_C_CPP_JAVA.md).
+                // STATE_C_CPP_JAVA.md)
                 if( isCommentRewritable(
                     tokens, group.get(0)
                 ) ) contents.set(
@@ -2273,8 +2273,8 @@ public static final class Assignment {
      */
     protected boolean isCommentRewritable(final List<Token> tokens, final int idx)
     {
-        final Token     t = tokens.get(idx);
-        final SepMatch  m = parseSeparatorComment(t.text, idx);
+        final Token    t = tokens.get(idx);
+        final SepMatch m = parseSeparatorComment(t.text, idx);
         if(m == null) return true;
 
         return !looksCodeLike(m.label) || !looksCodeLike(m.rest);

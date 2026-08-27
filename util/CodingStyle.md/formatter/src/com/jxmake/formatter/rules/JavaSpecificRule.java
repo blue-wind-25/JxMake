@@ -1161,7 +1161,7 @@ public class JavaSpecificRule {
 
         final int     kwIdx;
         final int     bodyStartIdx; // First significant token after `->`
-        final String  label;        // raw "case ..." / "default" text, whitespace-collapsed and trimmed
+        final String  label;        // Raw "case ..." / "default" text, whitespace-collapsed and trimmed
         final boolean blockBody;    // Body starts with `{`
 
         ArrowCase(

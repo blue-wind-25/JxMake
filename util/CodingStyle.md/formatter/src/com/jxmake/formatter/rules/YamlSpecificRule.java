@@ -231,7 +231,7 @@ public final class YamlSpecificRule {
         List<String>      frozenLines;
         boolean           dangling;                            // Trailing comment(s)/blank with no following item at this block level
         String            key;                                 // Non-null for mapping items
-        String            inlineValue;                         // raw scalar/flow/anchor text after ':' or '- ' on the same line
+        String            inlineValue;                         // Raw scalar/flow/anchor text after ':' or '- ' on the same line
         String            trailingComment;
         List<Item>        children;                            // Nested block belonging to this item (mapping or sequence)
         boolean           seqOfMapping;                        // Sequence item whose value is an inline-first-key mapping

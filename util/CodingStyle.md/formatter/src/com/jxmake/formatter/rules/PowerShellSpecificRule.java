@@ -91,7 +91,7 @@ public final class PowerShellSpecificRule {
     private static final class PassAResult {
 
         String transformed;
-        char[] kind;        // per original character: 'C' / 'O'
+        char[] kind;        // Per original character: 'C' / 'O'
 
     } // class PassAResult
 
@@ -495,7 +495,7 @@ public final class PowerShellSpecificRule {
      */
     private static boolean isHereStringOpen(final String content, final int atIdx)
     {
-        int p = atIdx + 2; // past @ and quote
+        int p = atIdx + 2; // Past @ and quote
         while( p < content.length() && ( content.charAt(
             p
         ) == ' ' || content.charAt(
@@ -1053,7 +1053,7 @@ public final class PowerShellSpecificRule {
             else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
         }
 
-        return depth == 0; // the final | sits at depth 0 when the scan ends at depth 0
+        return depth == 0; // The final | sits at depth 0 when the scan ends at depth 0
     }
 
     private static boolean isDoublePipe(final String line, final int i)

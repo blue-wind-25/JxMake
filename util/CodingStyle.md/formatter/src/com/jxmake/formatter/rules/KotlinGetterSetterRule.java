@@ -228,7 +228,7 @@ public class KotlinGetterSetterRule extends GetterSetterRuleCurly {
         if( nextSignificant(tokens, scanFrom, declTo) >= 0 ) return null;
 
         // Accessor span: must start (after any leading gap) directly at `get` -- no blank line,
-        // no leading comment -- and be a bare `get() = expr` with nothing else in the span.
+        // no leading comment -- and be a bare `get() = expr` with nothing else in the span
         final int accFrom     = accSpan[0];
         final int accTo       = accSpan[1];
         final int accFirstSig = firstSignificantIndex(tokens, accFrom, accTo);

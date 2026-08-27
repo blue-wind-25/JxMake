@@ -370,7 +370,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
                 cells.add("}");
             }
             else if(isPureSpecifier) {
-                // call cell is NOT last: ColumnGrid pads it so = X; aligns.
+                // Call cell is NOT last: ColumnGrid pads it so = X; aligns
                 cells.add( callCells[idx] );
                 cells.add(m.pureSpecifier + ";");
             }

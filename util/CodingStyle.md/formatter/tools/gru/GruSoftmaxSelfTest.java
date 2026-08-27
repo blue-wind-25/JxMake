@@ -96,7 +96,7 @@ public final class GruSoftmaxSelfTest {
 
     private static void checkDecideReturnsClassAboveThreshold()
     {
-        // CLASS_ORDER = {YES, NO, ABSTAIN}; index 1 (NO) clearly above threshold.
+        // CLASS_ORDER = {YES, NO, ABSTAIN}; index 1 (NO) clearly above threshold
         CommentDecision d = GruClassifier.decide( new double[] { 0.1, 0.8, 0.1 }, 0.5 );
         if(d != CommentDecision.NO) fail("decide() expected NO for [0.1, 0.8, 0.1], got " + d);
     }

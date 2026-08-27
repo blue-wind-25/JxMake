@@ -1363,7 +1363,7 @@ public static final class Signature {
                     // nothing after it -- e.g. this codebase's own multi-line call style,
                     // `foo(\n  a,\n  b,\n);` -- `splitTopLevelCommas` (unlike its sibling
                     // `groupByOriginalLine`) doesn't drop it itself; without this, the collapsed
-                    // one-line form gained a spurious trailing `, ` before `)`.
+                    // one-line form gained a spurious trailing `, ` before `)`
                     while( !args.isEmpty() && significantOnly(
                         args.get( args.size() - 1 )
                     ).isEmpty() ) args.remove(

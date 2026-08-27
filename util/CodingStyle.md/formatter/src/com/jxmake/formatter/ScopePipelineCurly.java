@@ -75,7 +75,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     private final KotlinDeclarationAlignmentRule kotlinDeclarationRule;
     private final KotlinSignatureRule            kotlinSignatureRule;
     // STATE_JS_TS.md §11: JS/TS's `let x: Type = value` is likewise reversed relative to C/Java's
-    // `Type name = value` -- mirrors the Kotlin field above, null for every other language.
+    // `Type name = value` -- mirrors the Kotlin field above, null for every other language
     private final JsTsDeclarationAlignmentRule jsTsDeclarationRule;
     private final boolean                      formatOff;
 
@@ -2480,7 +2480,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // A `namespace` body is never indented (STYLE_C_CPP.md §7's closing-comment
                 // examples show namespace content flush with the namespace itself), unlike
                 // every other named construct (class/struct/enum) or function/loop body -- so
-                // it must not consume an indentation level the way `depth + 1` otherwise would.
+                // it must not consume an indentation level the way `depth + 1` otherwise would
                 final int    childDepth     = isNamespaceScope(
                     current, span.openBraceIdx
                 ) ? depth : depth + 1;

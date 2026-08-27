@@ -1328,7 +1328,7 @@ public final class JsTsSpecificRule {
             if(braceIdx != null) {
                 out.append('\n').append( lineIndent(tokens, i) );
                 out.append( tokens.get(braceIdx).text );
-                // Skip the original gap + `{` we just relocated.
+                // Skip the original gap + `{` we just relocated
                 i = braceIdx + 1;
                 continue;
             } // if

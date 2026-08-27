@@ -78,7 +78,7 @@ public class TokenizerCore {
         public final int       braceDepth;
         public final int       parenDepth;
         public final String    name;       // For `{`/`}` only: pushed/popped construct name, else null
-        public       boolean   frozen;     // set by markFrozenSpans; true = opaque pass-through, never transformed
+        public       boolean   frozen;     // Set by markFrozenSpans; true = opaque pass-through, never transformed
 
         // JSX_SPAN-only, STATE_JS_TS.md's Step 2 "context 11" scoping session, sub-context 1 --
         // NOT user-facing, additive-only structural data alongside the existing frozen/opaque

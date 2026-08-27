@@ -237,141 +237,110 @@ JS/TS fixtures are active in the Makefile and passing.
   checklist yet.
 
   **2026-08-20: full HTML5-tree-construction-aware JSX child parsing
-  evaluated and deferred (no code); superseded same day by a narrower
-  parser that WAS implemented.** Assessment re-confirmed the 2026-08-07
-  rejection reasoning (see "Rejected alternative design" under "JSX/TSX
-  implementation" below) still holds: (1) JSX structurally diverges from
-  real HTML5 (self-closing tags on arbitrary elements, case-sensitive
-  component names distinguishing DOM-vs-component, fragments `<>...</>`,
-  attribute-valued embeds like `onClick={handler}`) in ways the HTML5
-  tree-construction pass has never been verified to tolerate; (2) real
+  evaluated and deferred (no code), superseded same day by a narrower
+  parser that WAS implemented below.** Assessment re-confirmed the
+  2026-08-07 rejection reasoning (see "Rejected alternative design" under
+  "JSX/TSX implementation" below) still holds: JSX structurally diverges
+  from real HTML5 (self-closing tags on arbitrary elements, case-sensitive
+  component names, fragments, `onClick={handler}`-style attribute embeds)
+  in ways the HTML5 tree-construction pass isn't verified to tolerate; real
   JSX/HTML parsers resolve tag-open ambiguity via grammar-position lexer
-  modes, which this codebase's flat, regex/character-level `TokenizerCurly`
-  has no equivalent of anywhere, not just for JSX — building one is
-  foundational, not a JS/TS-job-scoped increment; (3) the
-  JSX-whitespace-is-significant hazard (Step 2's sub-context 2) means a
-  real re-parse-and-reformat of children risks an actual behavior change,
-  unlike every increment landed so far. **Decision: abandon** full
-  HTML5-tree-construction-aware JSX child parsing as a distinct job for now
-  rather than attempt a blind implementation — a genuine, safe version
-  needs its own design session at Step 1/Step 2 scale, not a
-  single-session attempt. No source touched.
+  modes this codebase's flat `TokenizerCurly` has no equivalent of; and the
+  JSX-whitespace-is-significant hazard means a real re-parse-and-reformat
+  of children risks an actual behavior change, unlike every increment
+  landed so far. **Decision: abandon** the general parser as a distinct job
+  for now — a genuine, safe version needs its own design session at
+  Step 1/Step 2 scale, not a single-session attempt. No source touched.
 
-  **Follow-up session, same day: narrow JSX-scoped child-indentation
-  parser IMPLEMENTED** —
+  **Same-day follow-up: narrow JSX-scoped child-indentation
+  parser IMPLEMENTED** (table above) —
   `JsTsSpecificRule.reindentJsxChildren`/`rewriteJsxChildIndentation`,
   wired into `FormatterCurly.java` right after `spliceJsxExpressionHoles`
-  and before `enforceJsxSelfClosingAttributeWrap` inside the
-  `lang.isJsxSyntax` block. Not a grammar-position lexer, no real
-  HTML5-style tree construction: walks a JSX_SPAN's children text once,
-  tracking only `{`/`}` brace depth (to ignore `<`/`>` inside expression
-  holes and their nested string/template-literal quoting) and a name stack
-  of open tag/fragment names (pushed on every non-self-closing top-level
-  `<Name ...>`/`<>` open, popped on the matching `</Name>`/`</>` close)
-  purely to compute each JSX-nesting depth. Rewrites ONLY the leading
-  whitespace of lines whose first non-whitespace character is `<`
-  (tag/fragment boundary lines), re-deriving it as
-  `baseIndent + depth * indentUnit` (`baseIndent` = the JSX_SPAN's own line
-  indentation via the existing `lineIndent` helper). Text runs, `{...}`
-  expression holes, string/template-literal contents, and any
-  non-tag-opening-line whitespace are never touched — the only rewrite
-  candidate is whitespace this codebase's own formatter placed, never
-  content between tags, which is what keeps the
-  JSX-whitespace-is-significant hazard out of play. Self-closing tags,
-  fragments (`<>...</>`, empty tag name), and nested children all share
-  the push/pop logic (self-closing tags never push); JSX comments
-  (`{/* ... */}`) need no special handling since `braceDepth > 0` already
-  keeps the scanner from looking at them.
+  and before `enforceJsxSelfClosingAttributeWrap`. Not a grammar-position
+  lexer, no real HTML5-style tree construction: walks a JSX_SPAN's children
+  text once, tracking only `{`/`}` brace depth (to ignore `<`/`>` inside
+  expression holes and their nested quoting) and a name stack of open
+  tag/fragment names (self-closing tags never push; `<>`/`</>` fragments
+  push/pop an empty name), purely to compute each tag/fragment-boundary
+  line's JSX nesting depth. Rewrites ONLY the leading whitespace of lines
+  whose first non-whitespace character is `<`, re-deriving it as
+  `baseIndent + depth * indentUnit` (`baseIndent` from the JSX_SPAN's own
+  line via `lineIndent`) — text runs, `{...}` holes, and quoted content are
+  never touched, which is what keeps the whitespace-significance hazard out
+  of play (only formatter-placed indentation is ever a rewrite candidate).
 
   Two bugs found and fixed via hand-tracing real fixture failures: (1) an
-  off-by-one in the depth formula — a direct child's depth was first
-  computed as `stack.size()` with an empty stack (0), one level too
-  shallow; fixed by seeding the stack with a sentinel empty-string entry
-  for the already-consumed root tag and using one `stack.size()` formula
-  for both open/close branches (close pops, including the sentinel, before
-  reading size), so the root's own closing tag naturally lands at depth 0.
-  (2) A real architectural gap: the original scan only ran tag-boundary
-  detection (and stack push/pop) when `<` was line-initial, so an inline
-  same-line open+close pair (e.g. `<span>Hello {name}</span>`) pushed its
-  open tag but never popped its close, permanently desyncing the stack for
-  every subsequent line-initial tag. Fixed by decoupling detection from
-  the rewrite decision: tag boundaries/push/pop are recognized for every
-  top-level (`braceDepth == 0`) `<...>` regardless of line position; only
-  the whitespace-rewrite side effect stays gated on the tag being
-  line-initial (a per-tag `lineInitial` flag) — necessary even though only
-  1 of the 6 originally-failing fixtures visibly exercised the inline-pair
-  case, since the pre-fix code would have silently produced wrong
-  indentation on any future file with an inline child pair followed by
-  more nested structure.
+  off-by-one depth formula (a direct child computed at `stack.size()` with
+  an empty stack, one level too shallow) — fixed by seeding the stack with
+  a sentinel entry for the already-consumed root tag, so one `stack.size()`
+  formula works for both open/close branches and the root's own closing
+  tag lands at depth 0. (2) A real architectural gap: tag-boundary
+  detection/stack push-pop only ran when `<` was line-initial, so an inline
+  same-line open+close pair (`<span>Hello {name}</span>`) pushed its open
+  tag but never popped its close, permanently desyncing the stack for every
+  subsequent line-initial tag — fixed by decoupling detection (runs for
+  every top-level `<...>` regardless of line position) from the
+  rewrite decision (still gated on a per-tag `lineInitial` flag); necessary
+  even though only 1 of the 6 originally-failing fixtures visibly exercised
+  the inline-pair case, since the bug would otherwise silently miscorrupt
+  any future file with an inline child pair followed by nested structure.
+  Full mechanism/fix detail also in `RDD_LOG.md`.
 
-  **Testing:** `make test` clean at 329/329 forward + idempotency (up from
-  323/329 pre-session; the 6 failures were exactly the JSX/TSX fixtures
-  this pass targets: `jsx_tsx_return_context`, `jsx_tsx_combined_sanity`,
-  `jsx_tsx_self_closing_wrap`, `jsx_tsx_fragment_shorthand`,
-  `jsx_in_plain_js`, `ts_jsx_optin` — no new fixtures needed). No external
-  dogfood corpus was available locally this session, so the 329-fixture
-  suite served as the regression gate; a fresh dogfood re-sweep against
-  the external corpora is a reasonable follow-up but wasn't required to
-  consider the increment done.
+  **Testing:** `make test` 323/329 → 329/329 forward + idempotency (the 6
+  failures were exactly the targeted JSX/TSX fixtures: `jsx_tsx_return_context`,
+  `jsx_tsx_combined_sanity`, `jsx_tsx_self_closing_wrap`,
+  `jsx_tsx_fragment_shorthand`, `jsx_in_plain_js`, `ts_jsx_optin` — no new
+  fixtures needed). No external dogfood corpus was available locally this
+  session, so the fixture suite served as the regression gate pending the
+  follow-up sweep below.
 
-  **2026-08-20 follow-up dogfood validation (later session):** all 6
-  `STATE_DOGFOOD.md` JSX/TSX corpora were checked out locally
-  (`/tmp/dogfood_react_tutorial`, `/tmp/reactstrap_dogfood`,
-  `/tmp/react_demos_dogfood`, `/tmp/ts_react_starter_dogfood`,
-  `/tmp/lemoncode_dogfood`, `/tmp/excalidraw_dogfood`) and run through
-  round1/round2 idempotency, ~1127 JSX/TSX files total (5 + 468 + 12 + 10
-  + 329 + 303). `dogfood_react_tutorial`/`ts_react_starter_dogfood`: clean.
-  `reactstrap_dogfood`/`excalidraw_dogfood`: diffs found but confirmed
-  pre-existing via disable-and-retest (temporarily removing the
-  `reindentJsxChildren` call reproduced the same diffs) — pre-existing
-  non-idempotency in the attribute-value-hole recursive-dispatch mechanism
-  (`formatJsxHoleInterior`, the 2026-08-19 feature) cascading into
-  inconsistent nested-array/object-literal or nested-JSX-in-array
-  placement across rounds; two `excalidraw` files (`PasteChartDialog.tsx`,
-  `TTDChatPanel.tsx`) had diffs that happened to include tag-boundary
-  lines too, but disable-and-retest confirmed the whole subtree shifts
-  from the pre-existing hole-recursion instability, not from
-  `rewriteJsxChildIndentation`. **Not caused by, and out of scope for,
-  RDD_KEY_312** — same gap class as the "General scope-depth
-  reindentation" job, already user-facing documented in `README.md`'s
-  `## Known Limitations` §5; not re-added to `XL.txt`. `react_demos_dogfood`:
-  only the already-documented `demo13/app.js`/`server.js` non-JSX minified
-  one-liner gap (below), no new JSX finding. `lemoncode_dogfood`: one
-  genuine bug **caused by** this pass, in
+  **2026-08-20 follow-up dogfood validation (table above):** all 6
+  `STATE_DOGFOOD.md` JSX/TSX corpora checked out locally and run through
+  round1/round2 idempotency, ~1127 JSX/TSX files total (5 + 468 + 12 + 10 +
+  329 + 303: `react_tutorial`/`reactstrap`/`react_demos`/`ts_react_starter`/
+  `lemoncode`/`excalidraw`). `react_tutorial`/`ts_react_starter`: clean.
+  `reactstrap`/`excalidraw`: diffs found but confirmed pre-existing via
+  disable-and-retest (temporarily removing the `reindentJsxChildren` call
+  reproduced the same diffs) — pre-existing non-idempotency in the
+  attribute-value-hole recursive-dispatch mechanism
+  (`formatJsxHoleInterior`, the 2026-08-19 feature), including two
+  `excalidraw` files whose diffs happened to include tag-boundary lines but
+  were confirmed to be the same pre-existing whole-subtree shift. **Not
+  caused by, and out of scope for, RDD_KEY_312** — same gap class as the
+  "General scope-depth reindentation" job, already user-facing documented
+  in `README.md`'s `## Known Limitations` §5; not re-added to `XL.txt`.
+  `react_demos`: only the already-documented `demo13/app.js`/`server.js`
+  non-JSX minified one-liner gap (below), no new JSX finding. `lemoncode`:
+  one genuine bug **caused by** this pass, in
   `old_class_components_samples/15 Lazy Loading/.../memberForm.tsx` (and
-  its structurally-identical `16 Custom Middleware/` sibling): the
-  source's JSX root tag has pre-existing tab+space-mixed indentation
-  (`\t\t    <form>`); this pass read that raw whitespace as `baseIndent`
-  and baked literal tabs into every rewritten child line, before a later,
+  its structurally-identical `16 Custom Middleware/` sibling): the source's
+  JSX root tag has pre-existing tab+space-mixed indentation
+  (`\t\t    <form>`); the pass read that raw whitespace as `baseIndent` and
+  baked literal tabs into every rewritten child line, while a later
   independent general-indent-engine pass separately renormalized the root
   tag's own line to pure spaces — leaving parent/children on mismatched
-  styles, and non-idempotent besides (round 2's now-tab-free baseIndent
-  produces a full correct rewrite round 1 didn't). Root cause confirmed
-  via disable-and-retest and direct `baseIndent` inspection across rounds.
-  Two fix attempts: (1) bail (`return null`, no rewrite) whenever
-  `baseIndent` contains a raw tab, consistent with the method's existing
-  "don't guess, bail" style — stops the tab-corruption but isn't one-pass
-  idempotent (round 1 keeps original raw child indentation, round 2's
-  now-tab-free root re-fires and rewrites correctly — *converges* after 2
-  passes); (2) removing the bail entirely — strictly worse (round 1 then
-  bakes literal tabs straight into every child line, real corruption, not
-  just a width mismatch). Per the "2-3 attempts then keep the safer
-  partial mitigation and document" guardrail, attempt 1 (the tab-bail) was
-  kept as final — real, verified improvement, accepted as a residual gap
-  (converges after 2 passes instead of 1, narrow low-likelihood shape,
-  matching `STATE_COMMON.md`'s already-accepted "General scope-depth
-  reindentation" gap class; documented in `README.md`'s
+  styles and non-idempotent (round 2's now-tab-free `baseIndent` produces a
+  correct rewrite round 1 didn't). Root cause confirmed via
+  disable-and-retest and direct `baseIndent` inspection across rounds. Two
+  fix attempts: (1) bail (`return null`) whenever `baseIndent` contains a
+  raw tab — stops the tab-corruption but isn't one-pass idempotent
+  (converges after 2 passes: round 2 fires once the root line is
+  tab-normalized); (2) removing the bail entirely — strictly worse (bakes
+  literal tabs into every child line on round 1 itself). Per the "2-3
+  attempts then keep the safer partial mitigation and document" guardrail,
+  attempt (1) was kept as final — accepted as a residual gap (converges
+  after 2 passes, narrow low-likelihood shape, matching the already-accepted
+  "General scope-depth reindentation" gap class; documented in `README.md`'s
   `## Known Limitations` §5, not re-added to `XL.txt`). `make test`
-  reconfirmed clean at 329/329 forward + idempotency after the fix
-  (existing fixtures don't exercise tab-mixed JSX root indentation, so none
-  regressed or was added — a new one was considered but skipped since it
-  would itself fail the idempotency check by design).
+  reconfirmed 329/329 forward + idempotency after the fix (no fixture added
+  for this shape — it would itself fail the idempotency check by design).
+  Full detail also in `RDD_LOG.md`.
 
   **Remaining scope, unchanged:** the general, reusable
   HTML5-tree-construction-aware JSX child parser is still out of scope and
-  not designed — this session's narrow parser is purpose-built for JSX's
-  own explicit-closing-tag grammar and is NOT a step toward, nor a
-  substitute design for, that general engine.
+  not designed — this narrow parser is purpose-built for JSX's own
+  explicit-closing-tag grammar and is NOT a step toward, nor a substitute
+  design for, that general engine.
 
 - **Unrelated bug found, not fixed (out of this job's scope):**
   `ruanyf/react-demos`'s `demo13/app.js` (compiled, non-JSX, minified
@@ -413,14 +382,13 @@ extended.
 
 **Design session (2026-08-12, no code, no RDD key).** Fleshed the portable
 idea into a concrete design, later implemented essentially as written:
-- **Enumerable expression-start context list** (11 items): after `return`;
-  after `=>`; after ternary `?`/`:` (both branches); call-argument start
-  (`(`/top-level `,`); array-element start (`[`/top-level `,`);
-  assignment-RHS (`=` and compound assignment ops); logical/nullish RHS
-  (`&&`/`||`/`??`); grouping-paren start (a `(` that is NOT a call-open);
-  recursively inside a JSX `{...}` hole; recursively inside a
-  template-literal `${}` hole; after `...` (spread). Explicitly NOT a
-  context: after IDENTIFIER/`)`/`]`/NUMBER/STRING — exactly the shapes
+- **Enumerable expression-start context list** — the same 11 items listed
+  under "Scope" above (return/`=>`/ternary/call-arg/array-element/
+  assignment-RHS/logical-RHS/grouping-paren/bare-`{`-hole/template-literal-
+  hole/spread), each expanded slightly at implementation time (e.g.
+  call-argument start covers both `(` and a top-level `,`; assignment-RHS
+  covers compound ops too). Explicitly NOT a context: after
+  IDENTIFIER/`)`/`]`/NUMBER/STRING — exactly the shapes
   `reclassifyAngleBrackets` already claims as generic-safe, never JSX-open.
 - **Token representation**: new `TokenType.JSX_SPAN`, raw `text` (incl.
   embedded newlines) from opening `<` through the matching close/self-close,
@@ -515,10 +483,10 @@ template-literal tokenization unconditionally (template literals are
 ubiquitous, unlike any JSX-only context); size the regression-test plan to
 the risk (every existing backtick fixture re-verified byte-identical, plus
 new fixtures for bare-JSX-in-hole, non-JSX-interpolation, nested-template,
-and an `if (x < 1)` safety-net case). Followed a suggested 5-step increment
+and an `if (x < 1)` safety-net case). Implemented as a 5-step increment
 breakdown (structural refactor with no new tokenization; real re-entry
 tokenization verified against non-JSX holes; JSX-detection wiring;
-nested-template fixture; real-corpus validation), written up below.
+nested-template fixture; real-corpus validation) below.
 
 **Item 10 (sub-contexts 0-3) implementation — LANDED 2026-08-13.**
 Implemented as one combined change (narrow `.jsx`/`.tsx`-only gate applied

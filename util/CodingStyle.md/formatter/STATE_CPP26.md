@@ -128,11 +128,9 @@ C/C++/Java job's) declaration-alignment rule — confirmed correct,
 pre-existing behavior with a plain non-reflection repro, expected output
 updated to match.
 
-**STALE, superseded — do not re-flag.** Leftover from before the
-corpus-scale pass ran; see "Test Fixtures (External, corpus-scale)" above,
-which lists all four candidates as DONE. Not an open item — a future
-session sourcing more §5 real-code coverage would need a brand-new
-candidate, a fresh task, not this one.
+**STALE, superseded — do not re-flag.** See "Test Fixtures (External,
+corpus-scale)" above (all four candidates DONE). Not an open item — new §5
+real-code coverage would need a brand-new candidate/task, not this one.
 
 ## Tools/compiler used
 (1) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.2.0/bin/g++`; PEGTL,

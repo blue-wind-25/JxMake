@@ -18,15 +18,18 @@ import java.nio.file.Path;
 import jxm.xb.*;
 
 
-// Base class for installing self-signed, catalog-signed Windows drivers (WinUSB / HID / CDC-ACM)
-// for USB devices identified by VID/PID. Two backends are provided:
-//     - WindowsDriverInstaller_PS1 : Drives powershell.exe / pnputil.exe as external processes.
-//                                     Works on Windows 7 and later (see that class for details).
-//     - WindowsDriverInstaller_FFM : Calls the relevant native Win32 APIs directly using the
-//                                     Java 25+ Foreign Function and Memory (FFM) API. Requires
-//                                     Windows 10 or later, and a JAR built with Java 25+.
-// Use create() to obtain an instance appropriate for the current JVM/OS - callers should not
-// instantiate the backends directly.
+/*
+ * Base class for installing self-signed, catalog-signed Windows drivers (WinUSB/HID/ CDC-ACM)
+ * for USB devices identified by VID/PID. Two backends are provided:
+ *     - WindowsDriverInstaller_PS1 : Drives powershell.exe / pnputil.exe as external processes.
+ *                                    Works on Windows 7 and later (see that class for details).
+ *     - WindowsDriverInstaller_FFM : Calls the relevant native Win32 APIs directly using the
+ *                                    Java 25+ Foreign Function and Memory (FFM) API. Requires
+ *                                    Windows 10 or later, and a JAR built with Java 25+.
+ *
+ * Use create() to obtain an instance appropriate for the current JVM/OS - callers should not
+ * instantiate the backends directly.
+ */
 public abstract class WindowsDriverInstaller {
 
     public static final int RETCODE_OK           =  0;
@@ -40,10 +43,12 @@ public abstract class WindowsDriverInstaller {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Factory method - always prefer the Java 25+ FFM backend over the PowerShell backend, since
-    // it avoids spawning powershell.exe/UAC-elevated child processes for every operation. The FFM
-    // class name is looked up by string (never referenced by type) because a JAR built with an
-    // older Java version will not contain that class at all - see the 'ExcludeFFM' Makefile logic.
+    /*
+     * Factory method - always prefer the Java 25+ FFM backend over the PowerShell backend, since
+     * it avoids spawning powershell.exe/UAC-elevated child processes for every operation. The FFM
+     * class name is looked up by string (never referenced by type) because a JAR built with an
+     * older Java version will not contain that class at all - see the 'ExcludeFFM' Makefile logic.
+     */
     public static WindowsDriverInstaller create()
     {
         try {
@@ -51,13 +56,14 @@ public abstract class WindowsDriverInstaller {
             final Class<?> ffmClass = Class.forName("jxm.WindowsDriverInstaller_FFM");
             final Object   instance = ffmClass.getDeclaredConstructor().newInstance();
 
-            if( (instance instanceof WindowsDriverInstaller wdi) && wdi.isUsable() ) return wdi;
+            if( (instance instanceof WindowsDriverInstaller) ) {
+                final WindowsDriverInstaller wdiInst = (WindowsDriverInstaller) instance;
+                if( wdiInst.isUsable() ) return wdiInst;
+            }
 
         }
         catch(final Throwable ignored) {
-            // Broad catch is intentional : this must also catch UnsupportedClassVersionError and
-            // other LinkageErrors (JAR built by a newer javac than this JVM supports), not just
-            // ClassNotFoundException (class excluded from an older-Java build of this JAR)
+            // Catch ClassNotFoundException, UnsupportedClassVersionError, and other LinkageErrors
         }
 
         return new WindowsDriverInstaller_PS1();

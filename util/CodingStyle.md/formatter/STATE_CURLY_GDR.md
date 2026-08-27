@@ -18,7 +18,10 @@ recognized rewrite (brace placement, spacing, alignment) requires touching it.
 against the originally-scoped corpora is now complete and passing under
 `-multipass`; the base single-pass ordering bug (`RDD_KEY_229`) is resolved
 as documentation (use multipass), not a source fix. D3 (Kotlin wrap-decision
-flap) remains open, needing infrastructure beyond this job's current scope.**
+flap) is RESOLVED (2026-08-16, seventh attempt, `RDD_KEY_298` — see
+Checklist/Resolved Design Decisions below); the base
+`curly-general-scope-reindent-postpass` variant is now also promoted out of
+EXPERIMENTAL (`RDD_KEY_332`/`RDD_KEY_333`), still `off` by default.**
 Split out of `STATE_COMMON.md`'s old "Architectural TODOs" section
 (risk-analysis writeup only, no implementation) on 2026-08-02.
 
@@ -216,10 +219,12 @@ validation are recorded in the Checklist below.
 - Check `../README.txt` for a formatter config-keys section before editing
   it — as of last check it has none, so no edit needed; verify this
   assumption still holds if revisiting.
-- Update `STATE_KOTLIN.md`'s D3 entries (its Category-2/D3 table row and the
+- ~~Update `STATE_KOTLIN.md`'s D3 entries (its Category-2/D3 table row and the
   "2026-07-31"/"2026-08-01" D3 session sections) to point at the actual fix
   commit and new `RDD_KEY_n` once the D3 revisit lands, rather than leaving
-  them pointing at this file's "folded, not yet fixed" state.
+  them pointing at this file's "folded, not yet fixed" state.~~ — done
+  (`STATE_KOTLIN.md`'s D3 table row and session sections already point at
+  `RDD_KEY_298`).
 
 ---
 
@@ -445,7 +450,7 @@ Executed — see Checklist's fixture items below.
 ## Checklist
 
 Status: **implementation complete, on/opt-in, real-code validated across
-every originally-scoped corpus. D3 remains open (item marked `[~]` below).**
+every originally-scoped corpus. D3 is resolved (`RDD_KEY_298`, see below).**
 
 - [x] Design/finalize `JXM_CFMT_GDR 0`/`1` directive semantics — resolved,
       `RDD_KEY_227`.
@@ -677,16 +682,15 @@ First real-code test (2026-08-02) ran against `angular/angular`'s TS
       GDR-adjacent infrastructure with sibling-candidate visibility (`RDD_KEY_235`). Full writeup:
       `RDD_KEY_253`.
 
-      **2026-08-09:** requested "one or two more tries"; concluded without a new code attempt after
-      re-reading the full six-attempt history and considering, then rejecting by inspection,
-      anchoring off GDR's existing `GdrLineBraceDepth`/`GdrParenBracketDepthCounter` data instead of
-      a fresh backward scan — GDR's counters record brace-*nesting depth*, not brace-*kind*
-      (lambda-body open vs. control-flow/declaration-block open vs. plain grouping), the actual
-      ambiguity every prior attempt tripped on, so the counters wouldn't supply construct-kind
-      awareness. No source touched; `make test` reconfirmed at 263/263. Per `STATE_COMMON.md`'s
-      evidence-over-reasoning guidance, treats the six-attempt record as already answering "try once
-      or twice more" — `README.md`'s Known Limitations already documents this gap. Closing D3 still
-      needs one of the two directions named above, not piecemeal retries.
+      **2026-08-09:** user requested "one or two more tries"; no new code attempt landed. Considered
+      and rejected by inspection: anchoring off GDR's existing `GdrLineBraceDepth`/
+      `GdrParenBracketDepthCounter` data instead of a fresh backward scan — GDR's counters record
+      brace-*nesting depth*, not brace-*kind* (lambda-body open vs. control-flow/declaration-block
+      open vs. plain grouping), the actual ambiguity every prior attempt tripped on. No source
+      touched; `make test` 263/263. Per `STATE_COMMON.md`'s evidence-over-reasoning guidance, the
+      six-attempt record already answers "try once or twice more" — `README.md`'s Known Limitations
+      already documents this gap; closing D3 still needs one of the two directions named above
+      (`RDD_KEY_253`), not piecemeal retries.
 
       **2026-08-16, seventh attempt (landed, RDD_KEY_298)** — mechanism/
       validation numbers: see RDD_KEY_298 in Resolved Design Decisions

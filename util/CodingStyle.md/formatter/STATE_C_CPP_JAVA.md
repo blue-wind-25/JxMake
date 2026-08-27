@@ -801,67 +801,56 @@ RDD_KEY_88.
 ## Known Gaps — Open
 
 - **[Shared with STATE_JS_TS.md] Call-wrap/collapse vs. declaration-alignment/padding fits-check
-  ordering — 2026-08-05 investigation session, no code change landed.** Full write-up in
-  `STATE_JS_TS.md`'s Open Questions (cluster #3 sibling entry) — concrete repro
-  (`microsoft/TypeScript`'s `commandLineParser.ts`) and all debugging happened there; cross-ref
-  only here. Root cause is NOT a single method's fits-check but
-  `ScopePipelineCurly.processScope`'s outer-first-then-recurse-into-child-spans architecture,
-  running the same declaration/assignment/signature/getter-setter passes twice over overlapping
-  token ranges within one `format()` call — shared curly-family infrastructure (C/C++/Java/
-  Kotlin/JS/TS), hence tracked in both jobs' files. A narrower, verified-safe refinement to
+  ordering — CLOSED 2026-08-21 as a rewrite candidate** (concrete instances kept getting fixed
+  narrowly instead of via an architecture change). Full original write-up/repro
+  (`microsoft/TypeScript`'s `commandLineParser.ts`) in `STATE_JS_TS.md`'s Open Questions (cluster
+  #3 sibling entry); cross-ref only here. Root cause: `ScopePipelineCurly.processScope`'s
+  outer-first-then-recurse-into-child-spans architecture re-runs the same declaration/assignment/
+  signature/getter-setter passes over overlapping token ranges within one `format()` call —
+  shared curly-family infrastructure (C/C++/Java/Kotlin/JS/TS), same risk class as
+  `STATE_CURLY_GDR.md`/`RDD_KEY_229`'s pre-pass-vs-post-pass GDR investigation (a circular
+  dependency between an outer pass's decision and an inner pass's re-derivation of the same span
+  from different intermediate text). A narrower fix to
   `JsTsDeclarationAlignmentRule.spansMultipleLines`'s bail condition was prototyped and reverted
-  (didn't fix the cited bug alone). No attempt to change `processScope`'s outer/inner double-pass
-  architecture itself — same risk class as `STATE_CURLY_GDR.md`/`RDD_KEY_229`'s pre-pass-vs-
-  post-pass GDR investigation (a genuine circular dependency between an outer pass's decisions and
-  an inner pass's re-derivation of the same span from different intermediate text). Left OPEN.
-  **2026-08-06/2026-08-07 update:** the `commandLineParser.ts` instance fixed by `RDD_KEY_248`
-  (`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`, a narrower JS/TS-gated re-run of
-  just closing-brace + declarations passes, not a `processScope` architecture change). A
-  2026-08-07 session found a sibling instance in a pass `RDD_KEY_248` doesn't re-run —
-  `ScopePipelineCurly.applyAssignmentsPass` (bare-assignment alignment), repro
-  `microsoft/TypeScript`'s `harness/collectionsImpl.ts`. **FIXED, RDD_KEY_270**: added
-  `applyAssignmentsPass` as a third pass inside the existing `closingBraceAndDeclarationsOnly`
-  re-run mode, same gate as `RDD_KEY_248`; `make test` 259/259 -> 260/260, zero regressions.
-  **2026-08-21 update, RDD_KEY_330:** an audit of every `processScope` recursion site for this
-  same shape found one genuine un-gated instance — the `openBraceIdx < 0` side channel (nested
-  call-argument function-expression/lambda/anonymous-class bodies, RDD_KEY_315/316/317/325) was
-  force-reindenting its recursed body's trailing gap unconditionally, with no `reRunMode !=
-  RERUN_MODE_FULL` gate unlike the main span loop's own equivalent step. Fixed for JS/TS/C++/
-  Kotlin (Java excluded — its own unconditional `RERUN_MODE_ASSIGNMENTS_ONLY` re-run needs this
-  force-reindent every time, not just on a stale re-derivation; blanket-gating it regressed
-  `real_code_regressions_29/221/223`). `make test`: 337/337, zero regressions, no new fixture (the
-  gate only changes behavior under a non-full re-run combined with this side channel, a
-  combination no existing fixture happens to visibly differ under). **The underlying risk class
-  itself remains open** — this closes one previously-un-audited instance of the existing narrow
-  mitigation pattern, not the architecture. Still no concrete unresolved instance named as of this
-  update.
-  **2026-08-21, CLOSED as a rewrite candidate:** across all four sessions above (RDD_KEY_248/270/
-  315/330), every one that found a concrete instance fixed it with a narrow gate extension; none
-  ever scoped a concrete design for a full architecture rewrite. Moved to `XL.txt` TIER X (dead) —
-  do not re-add to any tier as a rewrite item. A new concrete unresolved instance, if one surfaces,
-  should still be logged and fixed narrowly here, same as the four above — that does not reopen
-  the rewrite question.
+  (didn't fix the cited bug alone); `processScope`'s double-pass architecture itself was never
+  changed.
+
+  Three concrete instances found, each fixed narrowly: (1) the `commandLineParser.ts` case —
+  **FIXED, RDD_KEY_248** (`ScopePipelineCurly.reapplyClosingBraceAndDeclarationsPass`, a JS/TS-
+  gated re-run of just closing-brace + declarations passes). (2) a sibling instance in a pass
+  RDD_KEY_248 doesn't re-run — `applyAssignmentsPass` (bare-assignment alignment), repro
+  `microsoft/TypeScript`'s `harness/collectionsImpl.ts` — **FIXED, RDD_KEY_270**: added
+  `applyAssignmentsPass` as a third pass inside the same re-run mode; `make test` 259/259 ->
+  260/260. (3) a 2026-08-21 audit of every `processScope` recursion site found one genuine
+  un-gated instance — the `openBraceIdx < 0` side channel (nested call-argument function-
+  expression/lambda/anonymous-class bodies, RDD_KEY_315/316/317/325) force-reindented its recursed
+  body's trailing gap unconditionally — **FIXED, RDD_KEY_330** for JS/TS/C++/Kotlin (Java excluded
+  — its own unconditional `RERUN_MODE_ASSIGNMENTS_ONLY` re-run needs that force-reindent every
+  time; blanket-gating it regressed `real_code_regressions_29/221/223`); `make test`: 337/337,
+  zero regressions, no new fixture.
+
+  **2026-08-21, CLOSED as a rewrite candidate:** all three fixes above landed as a narrow gate
+  extension; none ever scoped a full architecture rewrite. Moved to `XL.txt` TIER X (dead) — do
+  not re-add to any tier as a rewrite item. A new concrete instance, if one surfaces, should still
+  be logged and fixed narrowly, same as above — that does not reopen the rewrite question.
 
 - **Non-idempotent switch-case re-indent on internally-inconsistent generated source**
   (`SwitchRule.applyNonInlineCaseIndent`) — RESOLVED 2026-08-07 for both the single-switch and
-  nested-switch-in-switch shapes (see "Known Gaps — Fixed" below, `RDD_KEY_251`). The disjoint
-  **second occurrence** below (different root cause — `ScopePipeline.applyDeclarationsPass`, not
-  `SwitchRule` — a lone declaration inside a switch body, not a case re-indent) — **CLOSED
-  2026-08-15, no longer reproduces (RDD_KEY_292).** Original write-up retained for context:
+  nested-switch-in-switch shapes (see "Known Gaps — Fixed" below, `RDD_KEY_251`). A disjoint
+  **second occurrence** — different root cause (`ScopePipeline.applyDeclarationsPass`, a lone
+  declaration inside a switch body, not a case re-indent) — found in local `src/jxm` dogfood
+  (candidate 23): `tool/JSONEncoderLite.java` had a lone declaration inside a deeply/
+  inconsistently hand-indented `switch default` block, drifting 1 space/round. Root-caused (no
+  committed repro) to the same bug class as the switch-case gap: raw-source-derived indent
+  diverging from scope-depth-derived indent when the source's raw indentation is structurally
+  inconsistent — here via the declarations pass instead of `SwitchRule`.
 
-  **Second occurrence** — local `src/jxm` dogfood (candidate 23): `tool/JSONEncoderLite.java` had
-  a lone declaration inside a deeply/inconsistently hand-indented `switch default` block, drifting
-  1 space/round. Root-caused (no committed repro) to the same bug class:
-  `ScopePipeline.applyDeclarationsPass`'s raw-source-derived indent diverging from
-  scope-depth-derived indent when the source's raw indentation is inconsistent with structural
-  depth — same shape as the (now-fixed) switch-case gap, via the declarations pass instead.
-
-  **2026-08-15 re-check:** a fix attempt against the real file (default config, `indent-size =
-  2`/`3`) plus several synthetic repros matching the description all converged idempotently — no
-  drift reproduces any more. Likely incidentally fixed by unrelated `applyDeclarationsPass`/
-  indent-normalization work since (e.g. RDD_KEY_231), not proven since the original repro was
-  never committed. Closed as no-longer-reproducing; reopen if a fresh instance surfaces. No
-  fixture (none ever existed for this occurrence).
+  **CLOSED 2026-08-15, no longer reproduces (RDD_KEY_292):** a fix attempt against the real file
+  (default config, `indent-size = 2`/`3`) plus several synthetic repros matching the description
+  all converged idempotently — no drift reproduces any more. Likely fixed incidentally by
+  unrelated `applyDeclarationsPass`/indent-normalization work since (e.g. RDD_KEY_231), not proven
+  since the original repro was never committed. Reopen if a fresh instance surfaces; no fixture
+  ever existed for this occurrence.
 
 - **`openrewrite/rewrite` full-tree re-verification (2026-08-09), 4 residual idempotency diffs —
   ALL 4 now resolved (3 FIXED 2026-08-15 via `RDD_KEY_290`/`RDD_KEY_291`/`RDD_KEY_293`; the 4th,
@@ -922,22 +911,20 @@ RDD_KEY_88.
   statement is one opaque top-level span, never recursed into -- unlike the identical body at
   declaration/statement position, which already recurses today.
 
-  Four attempts were tried and reverted before the fix landed:
+  Several attempts were tried and reverted/superseded before the fix landed:
   - **RDD_KEY_318** (2026-08-20, alongside the C/C++/Kotlin fix RDD_KEY_317): a side-channel
     `isJavaAnonClassBrace` detector (`new Type(args) {`, `new`-backward scan) produced visibly
     worse/garbled output than the pre-change baseline -- a Java anonymous-class body's content is
     a full member declaration (signature + its own nested brace body), unlike RDD_KEY_315's
     already-recursing declaration-position case or a JS/TS function-expression/C++/Kotlin lambda
     body (ordinary statements only), so the downstream pass didn't recognize the spliced content
-    as a legitimate child scope. Confirmed not a regression (restored pre-change source,
-    byte-identical to the Java-excluded build). Reverted by excluding Java from
-    `findNestedLambdaOrAnonClassBraces`'s language guard (detector left dead in source); same
-    posture as `RDD_KEY_235`'s `renderCallCandidate` fits-check gap.
+    as a legitimate child scope. Confirmed not a regression; reverted by excluding Java from
+    `findNestedLambdaOrAnonClassBraces`'s language guard (detector left dead in source; same
+    posture as `RDD_KEY_235`'s `renderCallCandidate` fits-check gap).
   - **RDD_KEY_319** (bounded follow-up, same day): corrected the diagnosis -- the corruption
     actually comes from an upstream pass (`applySignaturePass`/`applyGetterSetterPass`, not fully
     isolated) collapsing the nested method body before the side channel's splice ever runs, not a
-    downstream call-wrap interaction as first framed. No source change; gap stayed open. Full
-    repro/diagnosis: `RDD_LOG.md`'s `RDD_KEY_319`.
+    downstream call-wrap interaction as first framed. No source change; gap stayed open.
   - **RDD_KEY_321** (corruption FIXED, later 2026-08-20 session): correcting RDD_KEY_319's earlier
     misattribution, a debug-instrumented build traced the real culprit to
     `DeclarationAlignmentRuleCurly.parseDeclaration`'s `eqIdx` scan -- the only scan there with no
@@ -947,8 +934,9 @@ RDD_KEY_88.
     making `eqIdx` depth-aware like `colonIdx`; the repro now falls through to "not a declaration,
     leave untouched." Not Java-specific: the same bug pre-existed for C++ too (confirmed via
     `git show`-restored pre-fix source + a no-`.`/`->` repro -- RDD_KEY_317's own C++ repro had
-    dodged it only via an unrelated `.`/`->` guard). Verified idempotent, RDD_KEY_317 unaffected
-    (byte-identical). New fixtures `test/real_code_regressions_221_{inp,out}.java` (Java),
+    dodged it only via an unrelated `.`/`->` guard); fixed the same way. Verified idempotent,
+    RDD_KEY_317 unaffected (byte-identical). New fixtures
+    `test/real_code_regressions_221_{inp,out}.java` (Java),
     `test/real_code_regressions_222_{inp,out}.cpp` (C++). `make test`: 332/332 -> 334/334.
   - **RDD_KEY_322** (re-enabling Java's side channel on top of the RDD_KEY_321 fix, reverted, no
     net source change): no longer corrupts, but produces a *different* bug -- statements stay at
@@ -965,22 +953,20 @@ RDD_KEY_88.
     real fix needs either teaching the shared declarations/assignments passes depth-derived indent
     (high blast radius, every curly-family language -- same risk class RDD_KEY_315 originally
     declined) or reordering Allman-conversion timing (its own cross-pass-ordering risk); neither
-    attempted, judged not "easy" within this session's bounded-attempt scope. Full write-up:
-    `RDD_LOG.md`'s `RDD_KEY_322`.
+    attempted, judged not "easy" within this session's bounded-attempt scope.
   - **RDD_KEY_323** (user-suggested GDR re-test, same day, reverted, no net source change):
     re-tested `curly-general-scope-reindent`/`-multipass` against the re-enabled side channel
     (RDD_KEY_319's earlier "no difference" finding had predated the RDD_KEY_321 fix). With both
     flags, GDR now activates but produces a mismatched brace pair (method body reindented to 20sp,
     its closing `}` only to 12sp) -- stable/idempotent but not correct, a third moving part beyond
     RDD_KEY_322's two. Confirms GDR (itself off-by-default, documented high-risk,
-    `STATE_CURLY_GDR.md`) isn't a ready-made answer here. Full write-up: `RDD_LOG.md`'s
-    `RDD_KEY_323`.
+    `STATE_CURLY_GDR.md`) isn't a ready-made answer here.
   - **RDD_KEY_324** (GDR job follow-up, 2026-08-21, reverted, no net change to this job's files):
     the Curly GDR job's new POST-pass (`curly-general-scope-reindent-postpass`, experimental,
     default off) was tested against the same repro, same posture as RDD_KEY_319/322/323 -- shifts
     which brace pair mismatches (method body now aligned, but the previously-fine outer
     anonymous-class-body pair now mismatches instead) rather than fixing the mismatch class. See
-    `STATE_CURLY_GDR.md` (owned by that job) and `RDD_LOG.md`'s `RDD_KEY_324`.
+    `STATE_CURLY_GDR.md` (owned by that job).
 
   **Final fix (RDD_KEY_325, 2026-08-21):** re-enabled Java in both
   `findNestedLambdaOrAnonClassBraces` guards (kept this time) and landed a narrow, Java-only fix
@@ -1007,7 +993,7 @@ RDD_KEY_88.
   2-method anonymous-class repro (new fixture `test/real_code_regressions_223_{inp,out}.java`),
   both correct/idempotent/compile-clean. Updated `test/real_code_regressions_221_out.java` from
   its old "left untouched" baseline to the correctly-reformatted output. `make test`: 334/334 ->
-  335/335 forward + idempotency, zero regressions. Full write-up: `RDD_LOG.md`'s `RDD_KEY_325`.
+  335/335 forward + idempotency, zero regressions.
 
 
 - **C/C++ lambda and Kotlin lambda-literal call-argument bodies never split to

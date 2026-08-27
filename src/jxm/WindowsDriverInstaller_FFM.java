@@ -8,6 +8,7 @@
 package jxm;
 
 
+import java.io.File;
 import java.io.IOException;
 
 import java.lang.foreign.AddressLayout;
@@ -29,6 +30,7 @@ import java.nio.file.Paths;
 import java.security.SecureRandom;
 
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 import jxm.xb.*;
 
@@ -311,7 +313,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     infPath, logFile.toAbsolutePath()
                 );
 
-                return _shellExecuteElevatedAndWait("cmd.exe", params, 5, logFile);
+                return _shellExecuteElevatedAndWait("cmd.exe", params, System.getProperty("user.dir"), 5, logFile);
             }
             finally {
                 try { Files.deleteIfExists(logFile); } catch(final Exception ignored) {}
@@ -352,8 +354,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     // Launches 'file params' elevated (UAC prompt via lpVerb="runas"), waits up to waitTimeMinutes,
     // then reads back logFile (written by the elevated child itself - stdout/stderr cannot be piped
-    // across the UAC elevation boundary) exactly like WindowsDriverInstaller_PS1's temp-log convention
-    private static XCom.Pair<Integer, String> _shellExecuteElevatedAndWait(final String file, final String params, final int waitTimeMinutes, final Path logFile) throws Throwable
+    // across the UAC elevation boundary) exactly like WindowsDriverInstaller_PS1's temp-log convention.
+    // workDir is passed through as lpDirectory - ShellExecuteExW does NOT guarantee an elevated child
+    // otherwise inherits the caller's current working directory (this matters whenever 'params' embeds
+    // a relative path, e.g. a relative -cp entry when self-relaunching - see _runElevatedSelf() below)
+    private static XCom.Pair<Integer, String> _shellExecuteElevatedAndWait(final String file, final String params, final String workDir, final int waitTimeMinutes, final Path logFile) throws Throwable
     {
         try(
             final Arena arena = Arena.ofConfined()
@@ -366,7 +371,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             sei.set(PTR                , SEI_lpVerb, _wstr(arena, "runas"));
             sei.set(PTR                , SEI_lpFile, _wstr(arena, file));
             sei.set(PTR, SEI_lpParameters, _wstr(arena, params));
-            sei.set(PTR, SEI_lpDirectory , MemorySegment.NULL);
+            sei.set(PTR, SEI_lpDirectory , _wstr(arena, workDir));
             sei.set(ValueLayout.JAVA_INT, SEI_nShow, SW_HIDE);
             sei.set(PTR, SEI_hInstApp, MemorySegment.NULL);
             sei.set(PTR, SEI_lpIDList, MemorySegment.NULL);
@@ -413,20 +418,27 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
     }
 
-    // Relaunches this JVM (same classpath) elevated, running main() below in "elevated op" mode
+    // Relaunches this JVM (same classpath) elevated, running main() below in "elevated op" mode.
+    // Works regardless of how this process itself was launched (exploded class files with a relative
+    // "." classpath entry, a jar referenced via -cp <name> <mainClass>, or a jar referenced via -jar
+    // <name>) - java.class.path reports exactly what was resolved in each case, which is commonly a
+    // path relative to the parent's working directory. Since an elevated child's default working
+    // directory is not guaranteed to match the parent's even when lpDirectory is set correctly on
+    // every Windows version, every classpath entry is resolved to an absolute path up front instead
+    // of relying on that alone.
     private XCom.Pair<Integer, String> _runElevatedSelf(final String op, final String[] extraArgs, final int waitTimeMinutes) throws Throwable
     {
         final Path logFile = Files.createTempFile("wdi_ffm_" + op + "_", ".log");
         try {
             final String javaExe = _findJavaLauncher();
-            final String cp      = System.getProperty("java.class.path", ".");
+            final String cp      = _absoluteClassPath();
 
             final StringBuilder params = new StringBuilder();
             params.append("-cp \"").append(cp).append("\" jxm.WindowsDriverInstaller_FFM ")
                   .append(ELEVATED_OP_ARG).append(' ').append(op).append(" \"").append(logFile.toAbsolutePath()).append('"');
             for(final String a : extraArgs) params.append(" \"").append(a).append('"');
 
-            return _shellExecuteElevatedAndWait(javaExe, params.toString(), waitTimeMinutes, logFile);
+            return _shellExecuteElevatedAndWait(javaExe, params.toString(), System.getProperty("user.dir"), waitTimeMinutes, logFile);
         }
         finally {
             try { Files.deleteIfExists(logFile); } catch(final Exception ignored) {}
@@ -440,6 +452,22 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         final Path     javaw    = bin.resolve("javaw.exe");
 
         return ( Files.exists(javaw) ? javaw : bin.resolve("java.exe") ).toAbsolutePath().toString();
+    }
+
+    // Resolves every entry of java.class.path against this process's current working directory,
+    // regardless of whether this process was itself launched from exploded class files ("-cp .[..]"),
+    // a jar via "-cp somejar.jar SomeClass", or a jar via "-jar somejar.jar" - see _runElevatedSelf()
+    private static String _absoluteClassPath()
+    {
+        final String       cp     = System.getProperty("java.class.path", ".");
+        final StringBuilder result = new StringBuilder();
+
+        for(final String entry : cp.split(Pattern.quote(File.pathSeparator), -1)) {
+            if(result.length() > 0) result.append(File.pathSeparatorChar);
+            result.append( entry.isEmpty() ? "." : Paths.get(entry).toAbsolutePath().normalize().toString() );
+        }
+
+        return result.toString();
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,1214 @@
+====================================================================================================
+WindowsDriverInstaller_FFM.java - Win32 API / Native Structure Reference
+====================================================================================================
+
+Internal engineering reference. Not a Microsoft document and not a substitute for the Windows SDK.
+It exists to help a future maintainer of this class read the FFM (Java Foreign Function & Memory
+API) bindings without having to re-derive every struct offset and calling convention from scratch.
+
+Everything below describes what THIS FILE actually does - the field layouts, flag values, and
+calling sequences match the static block and the various `_elevated*`/`_signCatalog` helper methods
+in WindowsDriverInstaller_FFM.java as of the version this document was written against. Where a
+detail was confirmed against Microsoft's own reference pages, it is marked VERIFIED with a Source:
+line. Where something instead has to be reconstructed because Microsoft does not document it, it is
+marked RECONSTRUCTED / INFERRED, and the reasoning is spelled out so a future reader can judge how
+much to trust it.
+
+Some Source: URLs below (Microsoft Learn API reference pages in particular) may prompt for Microsoft
+account sign-in when opened directly in a browser, even though the underlying page is public
+reference documentation. This does not affect how those facts were verified - it only means a reader
+following the link by hand may hit a sign-in prompt.
+
+No third-party source code is reproduced or excerpted anywhere in this file.
+
+FFM conventions used throughout this file:
+
+  DW  = ValueLayout.JAVA_INT : used for DWORD, BOOL, LONG, HRESULT, ALG_ID - all 32-bit on Win32,
+                               regardless of the process being x64; Win32 kept these types 32-bit
+                               for ABI compatibility reasons unrelated to pointer width
+
+  PTR = ValueLayout.ADDRESS  : used for every HANDLE, HWND, HKEY, HCERTSTORE, LP*, or
+                               output-by-reference parameter
+
+All downcalls are bound through the private `_bind(linker, lib, name, fd)` helper, which does
+`linker.downcallHandle(lib.find(name).orElseThrow(...), fd)` - i.e. a plain default-convention
+downcall handle for each symbol, no critical/trivial linker options are used.
+
+DISCLAIMER:
+    Nothing in this file is copied or paraphrased from Microsoft's text - every description below is
+    written from scratch, using the SDK reference pages only to check facts (function/struct member
+    existence, order, size, and behavior), not as source text. All structure layouts, field offsets,
+    sizes, and alignments described here were independently derived and/or verified against public
+    Windows SDK headers and Microsoft Learn documentation.
+
+
+====================================================================================================
+SECTION A - Process / Elevation Layer (Kernel32.dll, Shell32.dll)
+====================================================================================================
+
+This layer exists because two operations later in the file (certificate creation/trust and catalog
+signing) need an elevated token, and the only way this FFM backend can get one is to relaunch its
+own JVM through ShellExecuteExW with lpVerb="runas" and wait on the resulting process handle.
+
+CreateFileW/CloseHandle appear again in Section D (used to open the INF file for hashing), not just
+here.
+
+----------------------------------------------------------------------------------------------------
+CreateFileW
+----------------------------------------------------------------------------------------------------
+DLL                : Kernel32.dll
+Header             : fileapi.h
+Calling convention : __stdcall (all Win32 API calls in this document use the standard Win32 calling
+                     convention; the FFM Linker's default downcall convention on Windows already
+                     matches this, so no explicit convention option is passed)
+
+Parameters         : lpFileName (LPCWSTR), dwDesiredAccess (DWORD), dwShareMode (DWORD),
+                     lpSecurityAttributes (LPSECURITY_ATTRIBUTES, optional), dwCreationDisposition
+                     (DWORD), dwFlagsAndAttributes (DWORD), hTemplateFile (HANDLE, optional)
+Return value       : HANDLE to the opened file, or INVALID_HANDLE_VALUE (-1 as a pointer-sized
+                     value) on failure.
+Purpose            : General-purpose file/device open call. This class uses only the
+                     read-a-file-that-already-exists path.
+
+FFM notes          : `FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR)` - 7 parameters,
+                     matches the prototype above 1:1. Used once, in `_elevatedCreateAndSignCatalog`,
+                     to open the INF file for GENERIC_READ/FILE_SHARE_READ/OPEN_EXISTING so its
+                     bytes can be hashed via CryptCATAdminCalcHashFromFileHandle2. The returned
+                     handle is compared against -1L (INVALID_HANDLE_VALUE) via `hInfFile.address()
+                     == INVALID_HANDLE_VALUE`, and is always closed in a `finally` block.
+
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
+
+----------------------------------------------------------------------------------------------------
+CloseHandle
+----------------------------------------------------------------------------------------------------
+DLL          : Kernel32.dll
+Header       : handleapi.h
+
+Parameters   : hObject (HANDLE)
+Return value : BOOL (nonzero on success)
+Purpose      : Releases any Win32 kernel handle (file, process, etc.).
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called on both the INF file handle (Section D) and
+               the elevated child process handle (`_shellExecuteElevatedAndWait`), each time from a
+               `finally` block.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
+
+----------------------------------------------------------------------------------------------------
+GetLastError
+----------------------------------------------------------------------------------------------------
+DLL          : Kernel32.dll
+Header       : errhandlingapi.h
+
+Parameters   : none
+Return value : DWORD, the calling thread's last-error code.
+Purpose      : Standard Win32 extended-error retrieval, read immediately after a Win32 call reports
+               failure.
+
+FFM notes    : `FunctionDescriptor.of(DW)`. Wrapped by the private `_lastError()` helper (`(int)
+               _GetLastError.invoke()`), called from nearly every failure branch in this file to
+               enrich the returned log/message. Caveat worth flagging for a future maintainer:
+               GetLastError's value is only meaningful immediately after the failing call, on the
+               same thread, before any other Win32 call runs - the code here is careful to call it
+               right after each checked API, which is correct, but any future refactor that reorders
+               these calls (e.g. moving logging after other cleanup calls) would silently corrupt
+               the reported error code.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
+
+----------------------------------------------------------------------------------------------------
+WaitForSingleObject
+----------------------------------------------------------------------------------------------------
+DLL          : Kernel32.dll
+Header       : synchapi.h
+
+Parameters   : hHandle (HANDLE), dwMilliseconds (DWORD)
+Return value : DWORD - WAIT_OBJECT_0 (0) on signal, WAIT_TIMEOUT (0x102) on timeout, WAIT_FAILED on
+               error.
+Purpose      : Blocks the calling thread until the given kernel object (here, always a process
+               handle) becomes signaled or the timeout elapses.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Used in `_shellExecuteElevatedAndWait` to wait
+               for the elevated child process, with the timeout computed as `waitTimeMinutes *
+               60_000`. The returned code is compared against the local constant `WAIT_TIMEOUT =
+               0x102`; on timeout the code calls TerminateProcess and reports RETCODE_TIMEOUT.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
+
+----------------------------------------------------------------------------------------------------
+GetExitCodeProcess
+----------------------------------------------------------------------------------------------------
+DLL          : Kernel32.dll
+Header       : processthreadsapi.h
+
+Parameters   : hProcess (HANDLE), lpExitCode (LPDWORD, out)
+Return value : BOOL
+Purpose      : Reads back the exit code of a (by then already-signaled) process.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR)`. Called right after WaitForSingleObject returns
+               non-timeout; the exit code buffer is a 4-byte arena allocation read back with
+               `exitCodeOut.get(ValueLayout.JAVA_INT, 0)`. This exit code becomes the returned
+               XCom.Pair's first element, i.e. the elevated child's own `System.exit(exitCode)`
+               value from `main()` flows all the way back to the un-elevated caller through this
+               path.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodeprocess
+
+----------------------------------------------------------------------------------------------------
+TerminateProcess
+----------------------------------------------------------------------------------------------------
+DLL          : Kernel32.dll
+Header       : processthreadsapi.h
+
+Parameters   : hProcess (HANDLE), uExitCode (UINT)
+Return value : BOOL
+Purpose      : Forcibly ends a process; here used only as a timeout backstop.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Only reached on the WAIT_TIMEOUT branch, called
+               with exit code 1. There is no follow-up wait after calling this - the code proceeds
+               directly to returning RETCODE_TIMEOUT, so termination is best-effort/fire-and-forget
+               rather than confirmed.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess
+
+----------------------------------------------------------------------------------------------------
+LocalFree
+----------------------------------------------------------------------------------------------------
+DLL          : Kernel32.dll
+Header       : winbase.h
+
+Parameters   : hMem (HLOCAL)
+Return value : HLOCAL (NULL on success, unlike most BOOL-returning Win32 calls)
+Purpose      : Frees memory that Crypt32 allocated on the caller's behalf via the
+               CRYPT_ENCODE_ALLOC_FLAG convention (see CryptEncodeObjectEx below).
+
+FFM notes    : `FunctionDescriptor.of(PTR, PTR)` - return type is PTR (not DW) because LocalFree
+               returns a handle, not a BOOL; the return value is discarded at every call site in
+               this file. Called on `ekuEncoded` (Section B) and `spcLinkEnc` (Section D), each in a
+               `finally` block matching the CryptEncodeObjectEx call that produced it. Ownership
+               rule: any buffer that CryptEncodeObjectEx returned via its out-pointer with
+               CRYPT_ENCODE_ALLOC_FLAG set was allocated by Crypt32's internal allocator and must be
+               released with LocalFree, never freed by any other means and never left for the arena
+               to reclaim (the arena did not allocate it).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-localfree
+
+----------------------------------------------------------------------------------------------------
+ShellExecuteExW
+----------------------------------------------------------------------------------------------------
+DLL                : Shell32.dll
+Header             : shellapi.h
+Calling convention : __stdcall
+
+Parameters         : pExecInfo (SHELLEXECUTEINFOW *, in/out - the struct is both filled in by the
+                     caller and partially filled in by the function, notably hProcess and hInstApp)
+Return value       : BOOL (TRUE on success; call GetLastError on FALSE)
+Purpose            : Launches a file/verb combination through the shell rather than through
+                     CreateProcess directly. This is what makes UAC elevation possible from user
+                     code: passing lpVerb="runas" tells the shell to invoke the "Run as
+                     administrator" activation path (an elevated COM moniker under the hood), which
+                     CreateProcess itself cannot do.
+
+FFM notes          : `FunctionDescriptor.of(DW, PTR)` - single parameter, the struct pointer. Called
+                     exactly once per elevated operation, from `_shellExecuteElevatedAndWait`.
+                     GetLastError()==1223 (ERROR_CANCELLED) after a FALSE return is treated
+                     specially and mapped to RETCODE_UAC_DECLINED, distinguishing "user clicked No
+                     on the UAC prompt" from every other failure mode.
+
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw
+
+Windows-specific caveats relevant to this implementation:
+    - Because SEE_MASK_NOCLOSEPROCESS is set, the returned hProcess handle is the caller's
+      responsibility to close (done in a `finally` in `_shellExecuteElevatedAndWait`).
+    - lpDirectory is explicitly set to the parent's `user.dir` because an elevated child's working
+      directory is not guaranteed to match the parent's; this matters here because the launched
+      command line embeds a (resolved-to-absolute, per `_absoluteClassPath()`) classpath, but if any
+      other relative path were ever added to the command line it would resolve against lpDirectory,
+      not the parent's cwd, unless lpDirectory is set correctly - which this code already does.
+    - Microsoft's own documentation notes COM should be initialized before calling ShellExecuteEx
+      for certain shell extensions; this code does not call CoInitializeEx before invoking it. This
+      has not caused an observed failure with the "runas" verb specifically (which does not go
+      through arbitrary shell extensions), but it is a latent gap relative to Microsoft's documented
+      best practice if the verb or target ever changes.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SHELLEXECUTEINFOW
+----------------------------------------------------------------------------------------------------
+Size/alignment as used here is 112 bytes, 8-byte aligned (x64).
+
+Field byte offsets, as hardcoded in the SEI_* constants in this file :
+                     cbSize(0,DWORD) fMask(4,DWORD) hwnd(8,HWND) lpVerb(16,LPCWSTR)
+                     lpFile(24,LPCWSTR) lpParameters(32,LPCWSTR) lpDirectory(40,LPCWSTR)
+                     nShow(48,int) hInstApp(56,HINSTANCE) lpIDList(64,void*) lpClass(72,LPCWSTR)
+                     hkeyClass(80,HKEY) dwHotKey(88,DWORD) hIcon/hMonitor(96,HANDLE)
+                     hProcess(104,HANDLE)
+Purpose            : Describes a shell "verb" invocation (e.g. "open", "runas") plus the
+                     file/parameters/window-state to launch it with, and receives back a process
+                     handle and a pseudo-HINSTANCE result code.
+
+FFM notes          : Built by hand in `_shellExecuteElevatedAndWait` via `arena.allocate(SEI_SIZE,
+                     8)` and explicit `.set(...)` calls at each SEI_* offset - there is no reusable
+                     "StructLayout" object, just raw offsets, which is why the comment block above
+                     the SEI_* constants exists as the canonical description of the layout. fMask is
+                     set to SEE_MASK_NOCLOSEPROCESS(0x40) | SEE_MASK_NOASYNC(0x100); nShow is
+                     SW_HIDE(0); lpVerb is always the literal "runas".
+
+Ownership/lifetime : All the LPCWSTR fields point into the same `Arena .ofConfined()` used for the
+                     rest of the call, so they stay valid for the whole synchronous ShellExecuteExW
+                     + WaitForSingleObject + GetExitCodeProcess sequence and are freed automatically
+                     when the try-with-resources arena closes - no manual cleanup needed for the
+                     strings themselves. hProcess, once received back into the struct, is a real
+                     kernel handle and IS the caller's responsibility (see CloseHandle above) - it
+                     is not implicitly cleaned up by the arena.
+
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfow
+                     (struct member list cross-checked against the ShellExecuteExW page above; also
+                     generally well-known, stable Win32 struct).
+
+====================================================================================================
+SECTION B - Certificate Store / Self-Signed Certificate Layer (Crypt32.dll)
+====================================================================================================
+
+This section covers everything used to check for/create/trust the self-signed code-signing
+certificate this tool generates. Two operating system certificate stores are relevant throughout:
+the per-machine "Root"/"TrustedPublisher" stores (which is what actually makes Windows trust a
+driver signed with this certificate) and the per-user "My" store (which is where the certificate's
+private-key linkage lives so it can be used later to sign the catalog).
+
+----------------------------------------------------------------------------------------------------
+CertOpenStore
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : lpszStoreProvider, dwMsgAndCertEncodingType (DWORD), hCryptProv (optional, unused
+               here -> 0), dwFlags (DWORD), pvPara (provider-specific, here a store name)
+Return value : HCERTSTORE, or NULL on failure.
+Purpose      : Opens (or implicitly creates) a certificate store of a given provider type at a given
+               scope (machine vs. user) and name.
+
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, PTR)`. The first parameter
+               (lpszStoreProvider) is passed as `_handleOf(CERT_STORE_PROV_SYSTEM_W)` where
+               CERT_STORE_PROV_SYSTEM_W = 10L - this is one of the "predefined, small-integer store
+               provider" values that wincrypt.h expects to be passed by value in the pointer-typed
+               parameter slot rather than as a real string pointer (a well-known, if unusual, Win32
+               ABI convention also used for several other "or provide LPCSTR" parameters in this API
+               family). Wrapped by the private `_certStoreOpen(arena, locationFlag, storeName)`
+               helper used throughout the rest of this file. Called with
+               CERT_SYSTEM_STORE_LOCAL_MACHINE for "Root"/"TrustedPublisher" and
+               CERT_SYSTEM_STORE_CURRENT_USER for "My".
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certopenstore
+
+----------------------------------------------------------------------------------------------------
+CertCloseStore
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : hCertStore (HCERTSTORE), dwFlags (DWORD - always 0 here)
+Return value : BOOL
+Purpose      : Releases a store handle obtained from CertOpenStore.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Always called with flags=0, matched 1:1 with
+               every successful CertOpenStore call in this file, generally from `finally`.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certclosestore
+
+----------------------------------------------------------------------------------------------------
+CertFindCertificateInStore
+----------------------------------------------------------------------------------------------------
+DLL                : Crypt32.dll
+Header             : wincrypt.h
+
+Parameters         : hCertStore (HCERTSTORE), dwCertEncodingType (DWORD), dwFindFlags (DWORD, always
+                     0 here), dwFindType (DWORD), pvFindPara (find-type-specific), pPrevCertContext
+                     (optional, always NULL here - meaning "start search from the beginning")
+Return value       : PCCERT_CONTEXT matching the search, or NULL if none found.
+Purpose            : Iterative certificate-store search primitive; used here in its simplest form
+                     (single call, no continuation) to check whether a certificate with a given
+                     subject substring already exists.
+
+FFM notes          : `FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR)` - wait, actual
+                     descriptor in the file is `FunctionDescriptor.of(PTR, PTR, DW, DW, DW, PTR,
+                     PTR)`, 6 parameters matching the 7-parameter native prototype (return type + 6
+                     inputs = 7 slots total, consistent with the prototype above). dwFindType is
+                     always the module constant CERT_FIND_SUBJECT_STR_W = (8 << 16) | 7 (the
+                     standard encoding of CERT_COMPARE_NAME_STR_W shifted by CERT_COMPARE_SHIFT,
+                     OR'd with CERT_INFO_SUBJECT_FLAG - a well-documented but easy-to-miscount bit
+                     pattern, worth double-checking against wincrypt.h if this value is ever
+                     touched). Used in `isProviderAlreadyTrusted` (search by provider name across
+                     "Root"/"TrustedPublisher") and in `_elevatedCreateAndSignCatalog` (locate the
+                     signing cert in CurrentUser\My by provider name before calling `_signCatalog`).
+
+Ownership/lifetime : every non-NULL PCCERT_CONTEXT this returns MUST be released with
+                     CertFreeCertificateContext exactly once by the caller, independent of the store
+                     it came from - the code does this consistently, either immediately
+                     (isProviderAlreadyTrusted) or via a `finally` around the `_signCatalog` call.
+
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfindcertificateinstore
+
+----------------------------------------------------------------------------------------------------
+CertFreeCertificateContext
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : pCertContext (PCCERT_CONTEXT)
+Return value : BOOL
+Purpose      : Decrements the refcount of / releases a certificate context.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. See ownership note above; also called on the
+               certificate this class itself creates (`CertCreateSelfSignCertificate`'s return
+               value), in a `finally` in `_elevatedCreateAndTrustProvider`, after it has already
+               been added to all three stores (adding a context to a store does not transfer or
+               share ownership of the original context handle - the store keeps its own
+               copy/reference).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfreecertificatecontext
+
+----------------------------------------------------------------------------------------------------
+CertStrToNameW
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : dwCertEncodingType (DWORD), pszX500 (LPCWSTR), dwStrType (DWORD), pvReserved (must be
+               NULL), pbEncoded (BYTE*, out, may be NULL to query size), pcbEncoded (DWORD*,
+               in/out), ppszError (LPCWSTR*, optional out)
+Return value : BOOL
+Purpose      : Parses a human-readable X.500 distinguished-name string (e.g. "CN=Some Publisher")
+               into its DER-encoded form, the format CertCreateSelfSignCertificate's subject
+               parameter requires.
+
+FFM notes    : `FunctionDescriptor.of(DW, DW, PTR, DW, PTR, PTR, PTR, PTR)` - 7 inputs. Called twice
+               in `_elevatedCreateAndTrustProvider`, following the standard Win32 "size then fill"
+               two-pass pattern: first with pbEncoded=NULL to learn the required buffer size via
+               pcbEncoded, then again with a freshly allocated buffer of that size. dwStrType is
+               always CERT_X500_NAME_STR(3); dwCertEncodingType is X509_ASN_ENCODING(1). ppszError
+               is always MemorySegment.NULL - this code does not currently retrieve the detailed
+               "which character was invalid" diagnostic CertStrToNameW can optionally provide, it
+               only checks GetLastError.
+FFM caveat   : because both calls read the SAME `subjectStr`/`cbSubject` MemorySegments, and the
+               second call's output buffer is sized exactly from the first call's reported length,
+               this pattern is correct but fragile - anyone changing the subject string encoding
+               without re-running the sizing call would silently truncate.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certstrtonamew
+
+----------------------------------------------------------------------------------------------------
+CertCreateSelfSignCertificate
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : hCryptProvOrNCryptKey (HCRYPTPROV_OR_NCRYPT_KEY_HANDLE, optional), pSubjectIssuerBlob
+               (PCERT_NAME_BLOB), dwFlags (DWORD), pKeyProvInfo (PCRYPT_KEY_PROV_INFO, optional),
+               pSignatureAlgorithm (PCRYPT_ALGORITHM_IDENTIFIER, optional), pStartTime (PSYSTEMTIME,
+               optional), pEndTime (PSYSTEMTIME, optional), pExtensions (PCERT_EXTENSIONS, optional)
+Return value : PCCERT_CONTEXT for the newly built certificate, or NULL.
+Purpose      : Builds an in-memory, self-signed X.509 certificate from a subject name, a private key
+               handle, and an optional extension list - no certificate authority or network
+               round-trip involved, which is exactly why this tool can produce a usable code-signing
+               certificate entirely offline.
+
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR)` - 8 parameters
+               matching the prototype's 1 return + 8 params exactly. Called with:
+               hCryptProvOrNCryptKey = the NCrypt key handle from Section C (hKey);
+               pSubjectIssuerBlob = the CertStrToNameW-encoded "CN=<providerName>" blob; dwFlags = 0
+               (neither CERT_CREATE_SELFSIGN_NO_KEY_INFO nor _NO_SIGN is set - the default behavior,
+               i.e. the certificate IS signed and DOES carry a CERT_KEY_PROV_INFO_PROP_ID pointing
+               back at the CNG key container); pKeyProvInfo = the hand-built CRYPT_KEY_PROV_INFO
+               (Section B structures below); pSignatureAlgorithm = an explicit SHA256RSA OID (see
+               caveat below); start/end time = NULL, NULL (defaults to "now" through "now + 1
+               year"); pExtensions = the Enhanced Key Usage extension array built earlier in the
+               same method.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certcreateselfsigncertificate
+
+Windows-specific behavior relevant to this implementation:
+    If pSignatureAlgorithm were left NULL, Microsoft's own reference documents that the function
+    defaults to SHA1RSA. This class deliberately never relies on that default - it always supplies
+    an explicit SHA256RSA CRYPT_ALGORITHM_IDENTIFIER, because every other hashing step in this file
+    (the catalog's own SIP digest, the SIGNER_SIGNATURE_INFO.algidHash used later) is likewise
+    pinned to SHA-256, and an inconsistently-hashed certificate would be an easy and hard-to-notice
+    source of a rejected signature. There is also a documented leap-day caveat around the
+    auto-computed pEndTime (a certificate created without an explicit pEndTime on Feb 29 can trip on
+    the "add one year" math); this code does not special-case that, since it always uses the default
+    +1-year window and a certificate created on a leap day is an edge case rare enough it has not
+    been addressed here - worth knowing about, not yet fixed.
+
+----------------------------------------------------------------------------------------------------
+CertAddCertificateContextToStore
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : hCertStore (HCERTSTORE), pCertContext (PCCERT_CONTEXT), dwAddDisposition (DWORD),
+               ppStoreContext (PCCERT_CONTEXT*, optional out - always NULL here)
+Return value : BOOL
+Purpose      : Copies a certificate context into a store (system stores in this case), optionally
+               replacing an existing entry with the same identity.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW, PTR)`. dwAddDisposition is always
+               CERT_STORE_ADD_REPLACE_EXISTING(3), so re-running the trust step is idempotent rather
+               than erroring on "already present". Called three times per successful trust
+               operation: once against CurrentUser\My (so the private-key-linked certificate itself
+               is discoverable there later by CertFindCertificateInStore) and once each against
+               LocalMachine\Root and LocalMachine\TrustedPublisher (which is the pair of stores that
+               actually makes Windows treat a driver signed with this certificate as trusted, per
+               standard Authenticode trust rules - Root establishes the certificate as a trust
+               anchor, and TrustedPublisher marks it as an explicitly trusted publisher without
+               which most driver-signature UI still warns).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certaddcertificatecontexttostore
+
+----------------------------------------------------------------------------------------------------
+CryptEncodeObjectEx
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : dwCertEncodingType (DWORD), lpszStructType (LPCSTR - may also be a small integer cast
+               to LPCSTR for "predefined" struct types), pvStructInfo (void*, the in-memory struct
+               to encode), dwFlags (DWORD), pvEncodePara (optional, always NULL here), pvEncoded
+               (out - either a caller buffer or, with CRYPT_ENCODE_ALLOC_FLAG, an out-pointer to a
+               LocalAlloc'd buffer), pcbEncoded (DWORD*, in/out size)
+Return value : BOOL
+Purpose      : General-purpose "encode this in-memory struct into its DER/ASN.1 byte form" primitive
+               - the single encoder this file reuses for two unrelated payloads (see below).
+
+FFM notes    : `FunctionDescriptor.of(DW, DW, PTR, PTR, DW, PTR, PTR, PTR)` - 7 inputs. Always
+               called with dwFlags = CRYPT_ENCODE_ALLOC_FLAG(0x8000), which tells Crypt32 to
+               allocate the output buffer itself (via LocalAlloc under the hood) and hand back a
+               pointer through pvEncoded - the caller must not supply its own buffer in this mode,
+               and must free the result with LocalFree (see LocalFree above), which this code does
+               in both call sites. Two distinct uses in this file: 1. lpszStructType =
+               `_handleOf(X509_ENHANCED_KEY_USAGE)` (36, a predefined small-integer struct-type
+               constant, same "cast a small int through the pointer slot" convention noted under
+               CertOpenStore above) with a hand-built CERT_ENHKEY_USAGE struct as pvStructInfo, to
+               encode the "this cert may be used for code signing" extension. 2. lpszStructType =
+               the OID string "1.3.6.1.4.1.311.2.1.25" (SPC_CAB_DATA_OBJID, passed as an ANSI LPCSTR
+               via `_astr`) with a hand-built SPC_LINK struct as pvStructInfo, to encode the catalog
+               member's SIP-indirect "file link" payload (see Section D).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptencodeobjectex
+
+----------------------------------------------------------------------------------------------------
+CryptSIPRetrieveSubjectGuid
+----------------------------------------------------------------------------------------------------
+DLL          : Crypt32.dll (despite mssip.h being the SIP-family header)
+Header       : mssip.h
+
+Parameters   : FileName (LPCWSTR), hFileIn (HANDLE, optional), pgSubject (GUID*, out)
+Return value : BOOL
+Purpose      : Asks the installed Subject Interface Package (SIP) providers which GUID identifies
+               the "kind of thing" a given file is, for Authenticode/WinVerifyTrust purposes - e.g.
+               a PE file resolves to the PE SIP GUID, a cabinet file to the CAB SIP GUID, and so on.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR)` - 3 inputs. Called once in
+               `_elevatedCreateAndSignCatalog`, passing the already-open INF file handle as hFileIn.
+               If it returns FALSE (no SIP provider claims to recognize a plain INF file, which is
+               plausible since there is no standard "INF SIP" registered on most systems), the code
+               falls back to using the well-known DRIVER_ACTION_VERIFY GUID directly (copied via
+               `MemorySegment.copy` into the same 16-byte/4-byte-aligned buffer) rather than
+               treating the failure as fatal - this fallback is a deliberate design choice in this
+               file, not something Microsoft's documentation prescribes for this specific situation.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mssip/nf-mssip-cryptsipretrievesubjectguid
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CRYPT_ATTR_BLOB / CERT_NAME_BLOB (generic CRYPTOAPI_BLOB shape)
+----------------------------------------------------------------------------------------------------
+Source       : general Win32 crypto-API knowledge - this "{cbData; pbData;}" shape (formally
+               CRYPTOAPI_BLOB, aliased under several names such as CERT_NAME_BLOB and
+               CRYPT_ATTR_BLOB depending on context) is one of the most fundamental, stable
+               structures in wincrypt.h; documented at
+               https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attr_blob
+
+Fields, byte offset, type :
+               cbData (0, DWORD) - number of bytes in the buffer pbData points to
+               pbData (8, BYTE*) - pointer to the raw byte buffer
+               Size 16, align 8 (the 4 bytes between cbData and pbData are x64 padding for
+               pointer alignment, not a real field).
+Purpose      : The universal "counted byte buffer" shape Crypt32 uses everywhere - encoded names,
+               encoded extensions, digests, etc.
+
+FFM notes    : Built by the private `_blob(arena, cbData, pbData)` helper. Used for the subject name
+               blob passed into CertCreateSelfSignCertificate as pSubjectIssuerBlob.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CERT_ENHKEY_USAGE
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_enhkey_usage
+
+Fields       : cUsageIdentifier (0, DWORD - count), rgpszUsageIdentifier (8, LPSTR* - array of OID
+               strings) Size 16, align 8.
+Purpose      : Lists the Enhanced Key Usage OIDs a certificate extension should grant - here, a
+               single-entry array containing only "Code Signing" (1.3.6.1.5.5.7.3.3).
+
+FFM notes    : Built inline in `_elevatedCreateAndTrustProvider` as `ekuStruct`; `oidArray` is a
+               1-element PTR array holding the ASCII-encoded OID string, passed as pvStructInfo to
+               CryptEncodeObjectEx with lpszStructType = X509_ENHANCED_KEY_USAGE(36).
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CERT_EXTENSION
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extension
+
+Fields       : pszObjId (0, LPSTR), fCritical (8, BOOL), Value (16, CRYPT_ATTR_BLOB - the
+               DER-encoded extension payload) Size 32, align 8 (Value's own 16-byte blob shape
+               occupies bytes 16-31).
+Purpose      : One X.509 certificate extension entry - here, wraps the already DER-encoded Enhanced
+               Key Usage payload under OID szOID_ENHANCED_KEY_USAGE = "2.5.29.37".
+
+FFM notes    : fCritical is set to 0 (not marked critical) - a verifier that does not understand
+               this extension is permitted to ignore it rather than reject the whole certificate,
+               which is the conventional, safer choice for this kind of usage-scoping extension.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CERT_EXTENSIONS
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extensions
+
+Fields       : cExtension (0, DWORD), rgExtension (8, PCERT_EXTENSION - array) Size 16, align 8.
+Purpose      : The array wrapper CertCreateSelfSignCertificate's pExtensions parameter expects -
+               here, always a single-element array containing the CERT_EXTENSION above.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CRYPT_KEY_PROV_INFO
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_key_prov_info
+
+Fields       : pwszContainerName (0, LPWSTR), pwszProvName (8, LPWSTR), dwProvType (16, DWORD),
+               dwFlags (20, DWORD), cProvParam (24, DWORD), rgProvParam (32, PCRYPT_KEY_PROV_PARAM -
+               array, unused here -> NULL), dwKeySpec (40, DWORD) Size 48, align 8.
+Purpose      : Tells CertCreateSelfSignCertificate (and, later, anything that reads the resulting
+               certificate's CERT_KEY_PROV_INFO_PROP_ID) which provider and key container the
+               certificate's private key actually lives in, so it can be re-acquired without
+               re-deriving it.
+
+FFM notes    : dwProvType/dwFlags/cProvParam are all left 0 here - dwProvType=0 together with a CNG
+               (NCrypt) key handle is the documented combination for "this is a CNG provider, not a
+               legacy CryptoAPI CSP" (the classic dwProvType constants like PROV_RSA_FULL only apply
+               to legacy CSPs). pwszProvName is always the literal string "Microsoft Software Key
+               Storage Provider". dwKeySpec is always AT_SIGNATURE(2).
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_algorithm_identifier
+
+Fields       : pszObjId (0, LPSTR - algorithm OID), Parameters (8, CRYPT_OBJID_BLOB - optional
+               algorithm parameters blob) Size 24, align 8.
+Purpose      : Identifies a signature/hash algorithm by OID, with room for algorithm-specific
+               parameters.
+
+FFM notes    : Used once, as `sigAlgId`, to force CertCreateSelfSignCertificate's signature
+               algorithm to SHA256RSA (OID "1.2.840.113549.1.1.11") instead of letting it default to
+               SHA1RSA (see the CertCreateSelfSignCertificate caveat above). Parameters is left
+               empty (cbData=0, pbData=NULL), which is normal for RSA-with-hash OIDs that do not
+               need extra encoded parameters.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CERT_CONTEXT (partial - reinterpret only)
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_context
+
+Fields relevant to this file :
+               dwCertEncodingType (0, DWORD), pbCertEncoded (8, BYTE*), cbCertEncoded (16, DWORD),
+               pCertInfo (24, PCERT_INFO), hCertStore (32, HCERTSTORE) Size 40, align 8.
+Purpose      : The structure behind every PCCERT_CONTEXT handle Crypt32 hands out; this file only
+               cares about pulling the raw DER bytes back out of an already-created certificate.
+
+FFM notes    : The code never allocates this struct - it only calls `certCtx.reinterpret(40)` on the
+               MemorySegment CertCreateSelfSignCertificate returned, purely to read
+               pbCertEncoded/cbCertEncoded back out (to obtain the exported DER bytes as a Java
+               byte[] via `pbCertEncoded.reinterpret(cbCertEncoded).toArray(...)`). This relies on
+               Microsoft's ABI guarantee that PCCERT_CONTEXT really does point at a
+               CERT_CONTEXT-shaped block with these fields at these offsets - true and stable across
+               all supported Windows versions, but worth flagging because `reinterpret` bypasses the
+               FFM API's normal bounds checking, so getting this offset table wrong would silently
+               read garbage or crash rather than throw a clear Java exception.
+
+
+====================================================================================================
+SECTION C - CNG Key Storage Layer (Ncrypt.dll)
+====================================================================================================
+
+This section creates the actual RSA private key the self-signed certificate is built around, using
+the modern Cryptography API: Next Generation (CNG) key-storage API rather than the legacy CryptoAPI
+CSP model - CNG is what Microsoft recommends for new code, and it's also what lets the resulting key
+be a real, provider-persisted key rather than an ephemeral in-memory one.
+
+----------------------------------------------------------------------------------------------------
+NCryptOpenStorageProvider
+----------------------------------------------------------------------------------------------------
+DLL          : Ncrypt.dll
+Header       : ncrypt.h
+
+Parameters   : phProvider (NCRYPT_PROV_HANDLE*, out), pszProviderName (LPCWSTR, optional - NULL
+               selects the default provider), dwFlags (DWORD)
+Return value : SECURITY_STATUS (an HRESULT-shaped NTSTATUS-like code; 0 = ERROR_SUCCESS)
+Purpose      : Opens a handle to a named Key Storage Provider (KSP) - the CNG analogue of acquiring
+               a legacy CryptoAPI provider context.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Always called with pszProviderName =
+               "Microsoft Software Key Storage Provider" (the standard software-only KSP that ships
+               with Windows) and dwFlags=0. The returned handle is read out of the out-parameter
+               MemorySegment with `hProviderOut.get(PTR, 0)`.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptopenstorageprovider
+
+----------------------------------------------------------------------------------------------------
+NCryptCreatePersistedKey
+----------------------------------------------------------------------------------------------------
+DLL          : Ncrypt.dll
+Header       : ncrypt.h
+
+Parameters   : hProvider (NCRYPT_PROV_HANDLE), phKey (NCRYPT_KEY_HANDLE*, out), pszAlgId (LPCWSTR),
+               pszKeyName (LPCWSTR, optional), dwLegacyKeySpec (DWORD), dwFlags (DWORD)
+Return value : SECURITY_STATUS
+Purpose      : Begins creating a new named (persisted) key inside the given provider. The key is not
+               yet usable/committed to storage until NCryptFinalizeKey is called - this lets the
+               caller set additional properties (key length, usage flags) in between.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW, DW)`. Called with pszAlgId = "RSA"
+               (BCRYPT_RSA_ALGORITHM), pszKeyName = a randomly-suffixed container name
+               (`providerName + "_" + <64-bit SecureRandom hex>` - this randomization is deliberate
+               so re-running the trust step does not collide with a previous run's leftover key
+               container name), and dwLegacyKeySpec = AT_SIGNATURE(2) (the classic CryptoAPI
+               key-spec value CNG still accepts here for interop with code written against the older
+               API shape).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptcreatepersistedkey
+
+----------------------------------------------------------------------------------------------------
+NCryptSetProperty
+----------------------------------------------------------------------------------------------------
+DLL          : Ncrypt.dll
+Header       : ncrypt.h
+
+Parameters   : hObject (NCRYPT_HANDLE), pszProperty (LPCWSTR), pbInput (PBYTE), cbInput (DWORD),
+               dwFlags (DWORD)
+Return value : SECURITY_STATUS
+Purpose      : Sets a named property on an NCrypt provider/key/secret handle - a generic key/value
+               mechanism CNG uses instead of dedicated per-property functions.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW)`. Called twice on the
+               not-yet-finalized key handle: once with property name "Length" and a 4-byte DWORD
+               value of 2048 (sets the RSA key size in bits before it's generated), and once with
+               property name "Key Usage" and a 4-byte DWORD value of NCRYPT_ALLOW_SIGNING_FLAG(0x2)
+               (restricts the key to signing-capable use). Both calls' return codes are NOT checked
+               in this file (the return value of `.invoke(...)` is discarded) - worth flagging for a
+               future maintainer, since a silently-ignored NCryptSetProperty failure (e.g. an
+               unsupported property name on some provider) would only surface indirectly, if at all,
+               later.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptsetproperty
+
+----------------------------------------------------------------------------------------------------
+NCryptFinalizeKey
+----------------------------------------------------------------------------------------------------
+DLL          : Ncrypt.dll
+Header       : ncrypt.h
+
+Parameters   : hKey (NCRYPT_KEY_HANDLE), dwFlags (DWORD)
+Return value : SECURITY_STATUS
+Purpose      : Completes/commits a key created with NCryptCreatePersistedKey - only after this call
+               is the key actually generated, persisted, and safe to use in operations like
+               CertCreateSelfSignCertificate.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Called with dwFlags=0. This call's return code
+               IS checked (unlike NCryptSetProperty above); on failure both the key and provider
+               handles are released before returning RETCODE_EXCEPTION.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfinalizekey
+
+----------------------------------------------------------------------------------------------------
+NCryptFreeObject
+----------------------------------------------------------------------------------------------------
+DLL          : Ncrypt.dll
+Header       : ncrypt.h
+
+Parameters   : hObject (NCRYPT_HANDLE)
+Return value : SECURITY_STATUS
+Purpose      : Generic release function for any NCrypt handle type (provider, key, secret, etc.) -
+               the CNG analogue of CloseHandle.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called on both hKey and hProvider, always in
+               `finally`, on every exit path out of `_elevatedCreateAndTrustProvider` after the
+               provider/key were successfully opened/created - including the success path (the key
+               handle does not need to stay open once CertCreateSelfSignCertificate has consumed it;
+               the certificate's CRYPT_KEY_PROV_INFO_PROP_ID is what lets the key be re-opened by
+               name later, not the live handle).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfreeobject
+
+
+====================================================================================================
+SECTION D - Catalog Building Layer (Wintrust.dll)
+====================================================================================================
+
+This section builds a v2 security catalog (.cat file) for the INF, the mechanism Windows driver
+installation uses to verify the INF's integrity without requiring the INF itself to be
+embedded-signed (INF files cannot carry an Authenticode signature the way a PE file can - a catalog
+is the standard indirection Microsoft designed for exactly this case).
+
+----------------------------------------------------------------------------------------------------
+CryptCATAdminAcquireContext2
+----------------------------------------------------------------------------------------------------
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : phCatAdmin (HCATADMIN*, out), pgSubsystem (const GUID*), pwszHashAlgorithm (LPCWSTR,
+               optional), pStrongHashPolicy (PCCERT_STRONG_SIGN_PARA, optional), dwFlags (DWORD)
+Return value : BOOL
+Purpose      : Acquires a catalog-administration context scoped to a given "subsystem" GUID (which
+               SIP/verification family the catalog is for) and hash algorithm - required before any
+               other CryptCATAdmin*/ CryptCAT* call in this family can be used.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW)`. pgSubsystem is always the
+               DRIVER_ACTION_VERIFY GUID (see the GUID structure entry below) - this scopes the
+               whole catalog to the driver installation verification subsystem, matching what
+               pnputil/the Device Installer actually validates against later. pwszHashAlgorithm is
+               always "SHA256" (matching the SHA-256 hash used consistently throughout the file, and
+               matching what WindowsDriverInstaller_PS1's New-FileCatalog defaults to as well, so
+               both backends produce catalogs hashed the same way). pStrongHashPolicy and dwFlags
+               are NULL/0 (no extra policy enforcement requested).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminacquirecontext2
+
+----------------------------------------------------------------------------------------------------
+CryptCATAdminCalcHashFromFileHandle2
+----------------------------------------------------------------------------------------------------
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatAdmin (HCATADMIN), hFile (HANDLE), pcbHash (DWORD*, in/out), pbHash (BYTE*, out,
+               optional to query size), dwFlags (DWORD)
+Return value : BOOL
+Purpose      : Computes the file digest (using the hash algorithm bound to hCatAdmin, here SHA-256)
+               that will be embedded as this catalog member's identifying hash.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW)`. Same two-pass size-then-fill pattern
+               as CertStrToNameW: first call with pbHash=NULL to learn the digest length via
+               pcbHash, then again with an allocated buffer of that length. The resulting bytes are
+               both kept as a raw MemorySegment (`hashBuf`, later embedded directly into the
+               SIP_INDIRECT_DATA struct as the Digest blob) and separately hex-encoded into `hexTag`
+               (used as the member's reference tag string passed to CryptCATPutMemberInfo).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadmincalchashfromfilehandle2
+
+----------------------------------------------------------------------------------------------------
+CryptCATAdminReleaseContext
+----------------------------------------------------------------------------------------------------
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatAdmin (HCATADMIN), dwFlags (DWORD)
+Return value : BOOL
+Purpose      : Releases a context obtained from CryptCATAdminAcquireContext2.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Called with flags=0 in the outer `finally` of
+               `_elevatedCreateAndSignCatalog`, after the INF file handle has already been closed.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminreleasecontext
+
+----------------------------------------------------------------------------------------------------
+CryptCATOpen
+----------------------------------------------------------------------------------------------------
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : pwszFileName (LPWSTR), fdwOpenFlags (DWORD), hProv (HCRYPTPROV, optional -> 0 here),
+               dwPublicVersion (DWORD), dwEncodingType (DWORD)
+Return value : HANDLE to the open catalog, or INVALID_HANDLE_VALUE.
+Purpose      : Creates or opens a .cat catalog file for editing.
+
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW)`. Called with fdwOpenFlags =
+               CRYPTCAT_OPEN_CREATENEW(0x1) (always creates a fresh catalog rather than opening an
+               existing one - consistent with this code always deriving `catPath` fresh from the INF
+               path) and dwPublicVersion = CRYPTCAT_VERSION_2(0x200), i.e. this file only ever
+               produces version-2 catalogs (the modern format; version 1 is legacy and not relevant
+               to a Windows-10+-only backend). dwEncodingType is passed as 0 in this call, differing
+               slightly from CRYPT_ASN_ENCODING used elsewhere in the file - this matches the
+               conventional usage for CryptCATOpen (the encoding-type parameter here scopes
+               attribute encoding within the catalog itself, and 0/unspecified is an accepted value
+               for this call specifically). The returned handle is checked against both NULL and
+               INVALID_HANDLE_VALUE(-1), since Microsoft's own documentation is inconsistent across
+               the mscat.h function family about which of the two failure sentinels a given catalog
+               function uses.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatopen
+
+----------------------------------------------------------------------------------------------------
+CryptCATClose
+----------------------------------------------------------------------------------------------------
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatalog (HANDLE)
+Return value : BOOL
+Purpose      : Closes/flushes a catalog handle opened by CryptCATOpen, writing the accumulated
+               members/attributes out to the .cat file on disk.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called in the `finally` around the
+               member/attribute-building block - this ordering matters: the catalog is not actually
+               persisted to disk with its members until this call runs, so it must run even on a
+               partial-failure path if the caller wants whatever was successfully added to be
+               flushed (in this code's case, since every step before this can also return early on
+               failure, an early return generally means the catalog was closed with an incomplete
+               member and would need to be regenerated on retry rather than reused).
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatclose
+
+----------------------------------------------------------------------------------------------------
+CryptCATPutMemberInfo
+----------------------------------------------------------------------------------------------------
+DLL                : Wintrust.dll
+Header             : mscat.h
+
+Parameters         : hCatalog (HANDLE), pwszFileName (LPWSTR, optional), pwszReferenceTag (LPWSTR),
+                     pgSubjectType (GUID*), dwCertVersion (DWORD), cbSIPIndirectData (DWORD),
+                     pbSIPIndirectData (BYTE*)
+Return value       : CRYPTCATMEMBER* (owned by the catalog, caller must not free), or NULL on
+                     failure.
+Purpose            : Adds one member entry to an open catalog, keyed by a GUID identifying what
+                     "kind" of subject it is (matching whatever SIP subsystem will later verify it)
+                     and carrying that subject's SIP-indirect digest data.
+
+FFM notes          : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR)` - 6 inputs.
+                     pwszFileName is the INF's bare filename; pwszReferenceTag is the hex-encoded
+                     SHA-256 digest string (`hexTag`); pgSubjectType is whatever GUID
+                     CryptSIPRetrieveSubjectGuid resolved (or the DRIVER_ACTION_VERIFY fallback);
+                     dwCertVersion is 0; cbSIPIndirectData/pbSIPIndirectData point at the 64-byte
+                     SIP_INDIRECT_DATA struct built just before this call (see below). Per
+                     Microsoft's own reference, these last two parameters are not optional despite
+                     being usable with a NULL/0 pair in older, simpler catalog tools that skip the
+                     extra indirect-data step - this file always supplies them.
+Ownership/lifetime : the returned CRYPTCATMEMBER* belongs to the catalog object itself; it is used
+                     immediately as an input to the two CryptCATPutAttrInfo calls that follow and is
+                     never freed independently - it becomes invalid once CryptCATClose runs.
+
+Source             : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputmemberinfo
+
+----------------------------------------------------------------------------------------------------
+CryptCATPutAttrInfo
+----------------------------------------------------------------------------------------------------
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatalog (HANDLE), pCatMember (CRYPTCATMEMBER*), pwszReferenceTag (LPWSTR),
+               dwAttrTypeAndAction (DWORD), cbData (DWORD), pbData (BYTE*)
+Return value : CRYPTCATATTRIBUTE* (owned by the catalog member, caller must not free), or NULL on
+               failure.
+Purpose      : Attaches one named, typed attribute to an existing catalog member.
+
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR)` - 5 inputs. Called twice per
+               member, both times with dwAttrTypeAndAction = CRYPTCAT_ATTR_AUTHENTICATED(0x10000000)
+               | CRYPTCAT_ATTR_NAMEASCII (0x1) | CRYPTCAT_ATTR_DATAASCII(0x10000) - i.e. an
+               authenticated (covered by the catalog's own signature) attribute whose name is ASCII
+               and whose data should be taken as-is rather than base64-decoded. The two attributes
+               added are "File" (the lowercased INF filename, UTF-16LE-encoded, matching what
+               catalog-consuming tooling conventionally expects for this attribute) and "OSAttr"
+               (the literal string "10.0", scoping this member to Windows 10/11 - since this backend
+               already refuses to run on anything below Windows 10 per `isUsable()`, this narrower
+               OS-attribute list was chosen deliberately instead of the broader, legacy-OS-inclusive
+               lists that catalog-building tools historically used for backward compatibility this
+               file does not need). Both calls' cbData is computed as `(string.length() + 1) * 2` -
+               i.e. character count including the NUL terminator, times 2 bytes per UTF-16 code unit
+               - matching the UTF-16LE encoding `_wstr` produces for pbData.
+
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputattrinfo
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: GUID
+----------------------------------------------------------------------------------------------------
+Source       : general, extremely stable Win32 knowledge (guiddef.h); shape documented at
+               https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
+
+Fields       : Data1 (0, DWORD), Data2 (4, WORD), Data3 (6, WORD), Data4 (8, BYTE[8]) Size 16, align
+               4 (note: 4-byte alignment, not 8 - GUID is one of the few structures in this file
+               that is NOT 8-byte aligned, because it contains no pointer-sized fields).
+Purpose      : The standard 128-bit Windows GUID/UUID representation.
+
+FFM notes    : Built by the private `_guid(arena, long[] parts)` helper, which takes an 11-element
+               long[] (Data1, Data2, Data3, then the 8 bytes of Data4 each as a separate element) -
+               this input shape mirrors how a GUID literal is normally written out in C
+               (`{0xF750E6C3,0x38EE,0x11d1,{0x85,0xE5,0x00,0xC0,0x4F,0xC2,0x95,0xEE}}`). Used for
+               DRIVER_ACTION_VERIFY (the well-known GUID F750E6C3-38EE-11D1-85E5-00C04FC295EE,
+               defined in softpub.h, that identifies the driver-verification SIP action/subsystem -
+               this value was cross-checked byte-for-byte against the public softpub.h definition
+               and is correct in this file) and for the per-file subject GUID buffer that
+               CryptSIPRetrieveSubjectGuid fills in (or that DRIVER_ACTION_VERIFY_PARTS is copied
+               into as a fallback).
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SPC_LINK - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : No Microsoft Learn prose page exists for this structure (a direct check at the
+               expected learn.microsoft.com wintrust/ns-wintrust-spc_link URL returns 404). Field
+               composition is instead confirmed via two other official Microsoft sources: (1)
+               WinTrust.h, the Windows SDK/WDK header, and (2) Microsoft's win32metadata-generated
+               API reference, at
+               https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Security/WinTrust/struct.SPC_LINK.html
+               Both confirm the same dwLinkChoice (DWORD) + union {pwszUrl, Moniker, pwszFile}
+               composition, with named constants SPC_URL_LINK_CHOICE=1 / SPC_MONIKER_LINK_CHOICE=2 /
+               SPC_FILE_LINK_CHOICE=3, matching this file's own dwLinkChoice=3 (pwszFile) exactly.
+               Neither source states byte offsets; the offsets below (0 and 8) are derived from
+               standard x64 struct-layout/alignment rules, the same derivation used throughout this
+               document.
+Fields, as built in this file :
+               dwLinkChoice (0, DWORD), then a union at offset 8 whose active member here is
+               pwszFile (LPWSTR) - i.e. this code only ever exercises the "this SPC_LINK identifies
+               a file, by name" variant (dwLinkChoice = 3 = SPC_FILE_LINK_CHOICE, in the code's own
+               naming), never the URL or "moniker" (serialized-object) variants the same union can
+               hold in a fuller SPC_LINK implementation. Size 16, align 8, matching what's allocated
+               in this file.
+Purpose (as used here) :
+               a placeholder reference to the "subject file" this piece of SIP-indirect data
+               describes, using the conventional literal string "<<<Obsolete>>>" as the file name -
+               a long-standing Authenticode convention (predating this file, not invented here) for
+               marking this link as intentionally non-resolvable/not meant to be followed, used when
+               the catalog itself (not this embedded link) is the actual source of truth for
+               locating the subject.
+
+FFM notes    : encoded via CryptEncodeObjectEx with lpszStructType = "1.3.6.1.4.1.311.2.1.25"
+               (SPC_CAB_DATA_OBJID) before being embedded into the SIP_INDIRECT_DATA struct below -
+               this specific OID choice for a non-CAB, non-PE (INF) subject remains a separate,
+               still-open question - unrelated to the struct layout verified above - see the
+               file-level comment block near the top of WindowsDriverInstaller_FFM.java for the
+               open question this raises (whether pnputil validates this successfully on a real
+               machine, and what to check first if not).
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SIP_INDIRECT_DATA - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mssip/ns-mssip-sip_indirect_data
+
+Fields, as built in this file (three 24/24/16-byte groups back to back, matching the
+Learn-documented {Data, DigestAlgorithm, Digest} fields) :
+               Data.pszObjId             (0,  LPSTR)  - here, the same SPC_CAB_DATA_OBJID
+               Data.cbData               (8,  DWORD)  - length of the encoded SPC_LINK
+               Data.pbData               (16, BYTE*)  - the encoded SPC_LINK bytes
+               DigestAlgorithm.pszObjId  (24, LPSTR)  - here, szOID_NIST_sha256
+                                                        ("2.16.840.1.101.3.4.2.1")
+               DigestAlgorithm.cbData    (32, DWORD)  - 0 (no algorithm parameters)
+               DigestAlgorithm.pbData    (40, BYTE*)  - NULL
+               Digest.cbData             (48, DWORD)  - the SHA-256 digest length
+               Digest.pbData             (56, BYTE*)  - the SHA-256 digest bytes
+                                                        (`hashBuf`, the same buffer
+                                                        CryptCATAdminCalcHashFromFileHandle2
+                                                        filled in)
+               Size 64, align 8.
+
+Purpose (as used here) :
+               the payload CryptCATPutMemberInfo's cbSIPIndirectData/pbSIPIndirectData parameters
+               require - ties the catalog member to both "what file this claims to be about"
+               (indirectly, via the encoded SPC_LINK) and "what its digest is" (directly, via the
+               embedded SHA-256 bytes), which is what a verifier reads back to confirm the catalog
+               member matches the actual on-disk INF.
+
+
+====================================================================================================
+SECTION E - Authenticode Signing Layer (Mssign32.dll)
+====================================================================================================
+
+This is the layer that actually applies a digital signature to the finished .cat file, using the
+certificate/key built in Sections B/C. Everything in this section is built from Microsoft Learn
+"conceptual" reference pages rather than a header file - Microsoft explicitly documents these
+functions and structures on learn.microsoft.com, but (per Microsoft's own notes on those pages) does
+not ship a header declaring them; a caller is expected to declare the prototypes itself and
+dynamically resolve the DLL export, which is exactly the pattern this file follows via SymbolLookup
+instead of LoadLibrary/GetProcAddress.
+
+----------------------------------------------------------------------------------------------------
+SignerSignEx2
+----------------------------------------------------------------------------------------------------
+DLL                : Mssign32.dll
+Header             : none (explicitly undeclared by Microsoft; see above)
+Calling convention : WINAPI (__stdcall) Parameters (13, in the exact order below - VERIFIED against
+                     Microsoft Learn): dwFlags (DWORD, in), pSubjectInfo (SIGNER_SUBJECT_INFO*, in),
+                     pSignerCert (SIGNER_CERT*, in), pSignatureInfo (SIGNER_SIGNATURE_INFO*, in),
+                     pProviderInfo (SIGNER_PROVIDER_INFO*, in, optional), dwTimestampFlags
+                     (DWORD, in, optional), pszTimestampAlgorithmOid (PCSTR, in, optional),
+                     pwszHttpTimeStamp (PCWSTR, in, optional), psRequest (PCRYPT_ATTRIBUTES, in,
+                     optional), pSipData (PVOID, in, optional), ppSignerContext (SIGNER_CONTEXT**,
+                     out), pCryptoPolicy (PCERT_STRONG_SIGN_PARA, in, optional), pReserved (PVOID,
+                     must be NULL)
+
+Return value       : HRESULT (S_OK on success)
+Purpose            : Produces (and, optionally, timestamps) an Authenticode signature over a file or
+                     blob, supporting nested/multiple signatures via the SIG_APPEND flag - the
+                     modern replacement for the older SignerSign family, and (per Microsoft) itself
+                     since superseded by SignerSignEx3 for newer scenarios, though SignerSignEx2
+                     remains fully supported and is what this file uses.
+
+FFM notes          : `FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR,
+                     PTR, PTR)` - 14 slots: 1 return type (DW/HRESULT) followed by 13 argument
+                     layouts, one per parameter listed above. Called in `_signCatalog` with:
+                     dwFlags=0 (no SIG_APPEND, no PE-page-hash flags - irrelevant here since the
+                     subject is a .cat file, not a PE); pProviderInfo=NULL (meaning "the certificate
+                     itself must already be associated with a usable CSP/KSP", which is satisfied
+                     here since pSignerCert routes through a certificate store lookup rather than a
+                     bare SPC file); dwTimestampFlags=0, pszTimestampAlgorithmOid=NULL,
+                     pwszHttpTimeStamp=NULL, psRequest=NULL (no timestamping is requested at all in
+                     this file - the produced signature has no trusted-timestamp counter-signature,
+                     meaning it will rely solely on the signing certificate's own (1-year, per
+                     Section B) validity window rather than surviving past that window the way a
+                     timestamped signature would); pSipData=NULL; pCryptoPolicy=NULL (no
+                     strong-signing policy enforcement requested); pReserved=NULL as required. The
+                     out-parameter ppSignerContext is always read back and, if non-NULL, freed via
+                     SignerFreeSignerContext regardless of the overall HRESULT - this matches
+                     Microsoft's own note that a context may still have been allocated on certain
+                     partial-failure paths.
+
+Source             : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
+
+Windows-specific caveats relevant to this implementation:
+    - Minimum supported client is Windows 8 per Microsoft's own requirements table
+    - not a concern here since this backend already restricts itself to Windows 10+.
+    - Microsoft's documented E_INVALIDARG case (SIGNER_TIMESTAMP_AUTHENTICODE combined with
+      SIG_APPEND) does not apply here since this file uses neither timestamping nor SIG_APPEND.
+
+----------------------------------------------------------------------------------------------------
+SignerFreeSignerContext
+----------------------------------------------------------------------------------------------------
+DLL          : Mssign32.dll
+Header       : none (undeclared, same as SignerSignEx2)
+
+Parameters   : pSignerContext (SIGNER_CONTEXT*)
+Return value : HRESULT
+Purpose      : Releases a SIGNER_CONTEXT allocated by a Signer* signing call.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. This file does not otherwise inspect the contents
+               of the returned SIGNER_CONTEXT (e.g. to pull the signed blob back out) - it is only
+               used as a success/failure signal via SignerSignEx2's HRESULT, and the context itself
+               is freed immediately once read.
+
+Source       : general Mssign32/Signer* API family knowledge - this function is documented alongside
+               the SIGNER_* structure pages, e.g. referenced from
+               https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
+               ("free... by calling the SignerFreeSignerContext function").
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-subject-info
+
+Fields       : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, must be a pointer to a zero DWORD,
+               not itself zero/NULL), dwSubjectChoice (16, DWORD), union at 24 (active member here:
+               pSignerFileInfo, SIGNER_FILE_INFO*) Size 32, align 8.
+Purpose      : Identifies what is being signed - a file (this file's only used case, dwSubjectChoice
+               = SIGNER_SUBJECT_FILE = 1) or a BLOB (SIGNER_SUBJECT_BLOB = 2, unused here).
+
+FFM notes    : pdwIndex is NOT left NULL in this file - it points at a dedicated zeroed DWORD
+               (`indexZero`), matching Microsoft's documented requirement that this reserved member
+               "must be set to zero" (i.e. the DWORD it points to must be zero, since the field
+               itself is a pointer, not a value).
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SIGNER_FILE_INFO - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-file-info
+
+Fields       : cbSize (0, DWORD), pwszFileName (8, LPCWSTR), hFile (16, HANDLE, optional - may be
+               NULL) Size 24, align 8.
+Purpose      : Identifies the specific file to sign, by path and/or by an already-open handle.
+
+FFM notes    : pwszFileName is set to the .cat path; hFile is left MemorySegment.NULL - the code
+               lets SignerSignEx2 open the file itself by path rather than supplying a pre-opened
+               handle, which is the simpler and, per Microsoft's own description of this optional
+               member, fully supported way to use this struct.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SIGNER_CERT - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
+
+Fields       : cbSize (0, DWORD), dwCertChoice (4, DWORD), union at 8 (active member here:
+               pCertStoreInfo, SIGNER_CERT_STORE_INFO*), hwnd (16, HWND - documented as currently
+               unused/ignored by the function) Size 24, align 8.
+Purpose      : Identifies the signing certificate - either an SPC file (SIGNER_CERT_SPC_FILE=1), a
+               certificate-store lookup (SIGNER_CERT_STORE=2, what this file uses), or an SPC chain
+               (SIGNER_CERT_SPC_CHAIN=3).
+
+FFM notes    : dwCertChoice = SIGNER_CERT_STORE(2); hwnd is left NULL, matching Microsoft's note
+               that this member is not currently used.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SIGNER_CERT_STORE_INFO - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info
+
+Fields       : cbSize (0, DWORD), pSigningCert (8, PCCERT_CONTEXT), dwCertPolicy (16, DWORD),
+               hCertStore (24, HCERTSTORE, optional) Size 32, align 8.
+Purpose      : Specifies both the exact signing certificate context and the policy for pulling in
+               the rest of its chain from the given store when building the signature's certificate
+               chain.
+
+FFM notes    : pSigningCert = the certificate found earlier via CertFindCertificateInStore;
+               dwCertPolicy = SIGNER_CERT_POLICY_STORE(0x1) (add all certificates present in the
+               store named by hCertStore - here, CurrentUser\My itself, reused via the `hMy` handle
+               already open at the call site, rather than opening a second store handle just for
+               this struct); hCertStore = that same `hMy` handle.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SIGNER_SIGNATURE_INFO - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-signature-info
+
+Fields       : cbSize (0, DWORD), algidHash (4, ALG_ID), dwAttrChoice (8, DWORD), union at 16
+               (active member would be pAttrAuthcode, SIGNER_ATTR_AUTHCODE* - unused here,
+               dwAttrChoice=SIGNER_NO_ATTR), psAuthenticated (24, PCRYPT_ATTRIBUTES, optional),
+               psUnauthenticated (32, PCRYPT_ATTRIBUTES, optional) Size 40, align 8.
+Purpose      : Specifies the hash algorithm for the signature and any extra Authenticode-specific or
+               user-supplied signed/unsigned attributes.
+
+FFM notes    : algidHash = CALG_SHA_256(0x0000800c) (the classic CryptoAPI ALG_ID constant for
+               SHA-256 - consistent with every other hash choice in this file); dwAttrChoice =
+               SIGNER_NO_ATTR(0) (no Authenticode-specific attributes requested); both
+               psAuthenticated and psUnauthenticated are left NULL (no extra signed/unsigned
+               attributes beyond what SignerSignEx2 adds by default for a standard signature).
+
+
+====================================================================================================
+SECTION F - Miscellaneous Notes for Future Maintainers
+====================================================================================================
+
+FFM string-building helpers (`_wstr`, `_astr`):
+    `_wstr` produces a NUL-terminated UTF-16LE buffer with 2-byte alignment - the correct native
+    representation for every LPCWSTR/LPWSTR parameter in this file. `_astr` produces
+    a NUL-terminated single-byte buffer with 1-byte alignment, used only for the handful of
+    parameters that are genuinely ANSI/8-bit in the real Win32 prototype (OID strings passed as
+    LPSTR - Crypt32's OID parameters are documented as narrow strings even in the "W" function
+    variants, since OIDs are ASCII by definition and Windows does not define a wide-character OID
+    type).
+
+Arena discipline: every native call site in this file uses either the
+    process-lifetime shared arena `_arena` (only for the resolved DLL/symbol lookups themselves, at
+    class-init time - never for per-call data) or a `try (Arena arena = Arena.ofConfined()) { ... }`
+    block scoped to a single logical operation. This means every MemorySegment built with `_wstr`/
+    `_astr`/`_blob`/`_guid`/inline `arena.allocate(...)` calls is automatically reclaimed when its
+    enclosing method returns - the only things that need EXPLICIT native-side cleanup are handles/
+    contexts the Win32 APIs themselves allocated (kernel HANDLEs, HCERTSTORE, PCCERT_CONTEXT,
+    NCRYPT_* handles, HCATADMIN, catalog HANDLEs, SIGNER_CONTEXT, and the two LocalFree-owned
+    CryptEncodeObjectEx output buffers) - none of which the arena knows about or will free for you.
+    This is the single most important invariant to preserve when editing this file: adding a new
+    native call that returns a handle/context means adding a matching, correctly-ordered release
+    call, almost always in a `finally` block, exactly like every existing call site does.
+
+Elevation architecture (ties Section A together with the rest of the file):
+    `createAndTrustProvider`/`createAndSignCatalog` (the two public entry points that need
+    elevation) never touch NCrypt/Crypt32/Wintrust/Mssign32 APIs directly from the calling
+    (non-elevated) process - they only build a command line and call `_runElevatedSelf`, which
+    relaunches this same JVM, elevated, with a hidden marker argument (`ELEVATED_OP_ARG`) that
+    routes `main()` into `_elevatedCreateAndTrustProvider`/ `_elevatedCreateAndSignCatalog` instead
+    of any normal entry point. The elevated child communicates its result back to the waiting parent
+    exclusively through its process exit code (read via GetExitCodeProcess) and a temp log file it
+    writes before exiting - there is no shared memory or pipe across the UAC elevation boundary,
+    which is a genuine Windows constraint (an elevated child runs in a different security context
+    and cannot easily inherit inherited standard-handle pipes from a non-elevated parent the way
+    a same-privilege child process could).

@@ -314,7 +314,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // Windows 10+ always supports pnputil /add-driver /install (unlike Windows 7)
                 final String params = String.format( "/c pnputil.exe /add-driver \"%s\" /install > \"%s\" 2>&1", infPath, logFile.toAbsolutePath() );
 
-                return _shellExecuteElevatedAndWait("cmd.exe", params, System.getProperty("user.dir"), 5, logFile);
+                return _shellExecuteElevatedAndWait( "cmd.exe", params, System.getProperty("user.dir"), 5, logFile );
             }
             finally {
                 try { Files.deleteIfExists(logFile); }
@@ -452,7 +452,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             for(final String a : extraArgs) params.append(" \"").append(a).append('"');
 
-            return _shellExecuteElevatedAndWait(javaExe, params.toString(), System.getProperty("user.dir"), waitTimeMinutes, logFile);
+            return _shellExecuteElevatedAndWait( javaExe, params.toString(), System.getProperty("user.dir"), waitTimeMinutes, logFile );
         }
         finally {
             try { Files.deleteIfExists(logFile); }

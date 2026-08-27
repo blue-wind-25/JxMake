@@ -66,7 +66,9 @@ public abstract class WindowsDriverInstaller {
             // Catch ClassNotFoundException, UnsupportedClassVersionError, and other LinkageErrors
         }
 
-        return new WindowsDriverInstaller_PS1();
+        final WindowsDriverInstaller wdiInst = new WindowsDriverInstaller_PS1();
+
+        return wdiInst.isUsable() ? wdiInst : null;
     }
 
     // Returns true if this backend can actually operate on the current JVM/OS combination

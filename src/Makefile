@@ -115,7 +115,7 @@ JDS_REL_17        := 17
 JDS_REL_21        := 21
 JDS_REL_25        := 25
 
-USE_JCS           := 1
+USE_JCS           := 0
 JDK_VER           ?= $(JDS_REL_8)
 JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))
@@ -948,14 +948,20 @@ $(JAR_FILE) : $(JAVA_SOURCES_PP) $(MAIN_CLASS) $(JAVA_CLASSES) $(JMF)
 		done;                                          \
 		cat $(JFL).tmp | sort >> $(JFL);               \
 	)
-	@(                                                                                                                 \
-		if [ "$(MAIN_CLASS)" == "$(APP_CLASS)" ]; then                                                             \
-			jar cfmv $(JAR_FILE) $(JMF) $(basename $(MAIN_CLASS))*.class `cat $(JFL)` ../LICENSE* > /dev/null; \
-		else                                                                                                       \
-			echo "Main-Class: $(basename $(MAIN_CLASS))" > $(CMF);                                             \
-			jar cfmv $(JAR_FILE) $(CMF) $(basename $(MAIN_CLASS))*.class `cat $(JFL)` ../LICENSE* > /dev/null; \
-			rm -f $(CMF);                                                                                      \
-		fi;                                                                                                        \
+	@(                                                                                                                          \
+		if [ "$(MAIN_CLASS)" == "$(APP_CLASS)" ]; then                                                                      \
+			MF=$(JMF);                                                                                                   \
+		else                                                                                                                \
+			echo "Main-Class: $(basename $(MAIN_CLASS))" > $(CMF);                                                      \
+			MF=$(CMF);                                                                                                    \
+		fi;                                                                                                                 \
+		rm -f $(JFL).argfile;                                                                                              \
+		printf 'cfmv\n%s\n%s\n' "$(JAR_FILE)" "$$MF" > $(JFL).argfile;                                                     \
+		for F in $(basename $(MAIN_CLASS))*.class ../LICENSE*; do echo "$$F" >> $(JFL).argfile; done;                      \
+		cat $(JFL) >> $(JFL).argfile;                                                                                      \
+		jar @$(JFL).argfile > /dev/null;                                                                                   \
+		rm -f $(JFL).argfile;                                                                                              \
+		[ "$(MAIN_CLASS)" == "$(APP_CLASS)" ] || rm -f $(CMF);                                                             \
 	)
 	@$(MAKE) -s clean_jxm_jar_tmp
 

@@ -1116,12 +1116,18 @@ Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
     guess that SIGNER_CERT was missing its cbSize field was wrong and was reverted (see
     WindowsDriverInstaller_FFM.java git history) - do not repeat that mistake; always re-check
     this document before touching a struct layout here.
-    Working hypothesis, not yet confirmed: the certificate found via CertFindCertificateInStore
-    for signing may not carry a usable private-key association (its CERT_KEY_PROV_INFO_PROP_ID
-    property may not have survived the CertAddCertificateContextToStore round trip from the
-    original CertCreateSelfSignCertificate context) - see CertGetCertificateContextProperty above
-    for the diagnostic checking this. Update this note with the actual root cause once resolved
-    (or remove it if the hypothesis is ruled out and a different cause is found).
+    Ruled out: the certificate found via CertFindCertificateInStore for signing does carry a
+    usable private-key association - the CertGetCertificateContextProperty diagnostic confirmed
+    CERT_KEY_PROV_INFO_PROP_ID survives the CertAddCertificateContextToStore round trip from the
+    original CertCreateSelfSignCertificate context, so this is not the cause.
+    Current experiment, not yet confirmed: SIGNER_CERT_STORE_INFO.dwCertPolicy was
+    SIGNER_CERT_POLICY_STORE with hCertStore set to the CurrentUser\My store handle. Per
+    Microsoft's docs, that policy value means "add ALL certificates in the store specified by
+    hCertStore" to the signature - broader than intended, since pSigningCert alone already fully
+    identifies the certificate to sign with, and hCertStore is documented as optional. Changed to
+    dwCertPolicy=0, hCertStore=NULL to test whether the store-wide enumeration was the actual
+    source of the invalid argument. Update this note with the actual root cause once resolved (or
+    remove this paragraph and record the next hypothesis if this one is also ruled out).
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

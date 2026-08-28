@@ -961,7 +961,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 }
 
                 try {
-                    return _signCatalog(arena, catPath, signingCert, hMy, log);
+                    return _signCatalog(arena, catPath, signingCert, log);
                 }
                 finally {
                     _CertFreeCertificateContext.invoke(signingCert);
@@ -980,7 +980,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int SIGNER_NO_ATTR            = 0;
     private static final int CALG_SHA_256              = 0x0000800c;
 
-    private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
+    private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final StringBuilder log) throws Throwable
     {
         // SIGNER_FILE_INFO : { DWORD cbSize; LPCWSTR pwszFileName; HANDLE hFile; } - size 24, align 8
         final MemorySegment fileInfo = arena.allocate(24, 8);
@@ -999,11 +999,20 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         subjectInfo.set(PTR                 , 24, fileInfo           );
 
         // SIGNER_CERT_STORE_INFO : { DWORD cbSize; PCCERT_CONTEXT pSigningCert; DWORD dwCertPolicy; HCERTSTORE hCertStore; } - size 32, align 8
+        //
+        // EXPERIMENT (root cause of SignerSignEx2 E_INVALIDARG still unconfirmed - see
+        // WindowsDriverInstaller_FFM-Win32API.txt): per Microsoft's docs, SIGNER_CERT_POLICY_STORE
+        // means "add ALL certificates in the store specified by hCertStore" - previously this passed
+        // hMy (all of CurrentUser\My) even though pSigningCert alone already fully identifies the
+        // certificate to sign with, and hCertStore is documented as optional. Dropping hCertStore/the
+        // STORE policy (dwCertPolicy=0, hCertStore=NULL) to test whether the store-wide enumeration
+        // was the actual source of the invalid argument. If the next CI run still fails, revert this
+        // and update the doc's open-investigation note with this ruled-out hypothesis too.
         final MemorySegment certStoreInfo = arena.allocate(32, 8);
-        certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                      );
-        certStoreInfo.set(PTR                 ,  8, signingCert             );
-        certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_STORE);
-        certStoreInfo.set(PTR                 , 24, hMy                     );
+        certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                );
+        certStoreInfo.set(PTR                 ,  8, signingCert       );
+        certStoreInfo.set(ValueLayout.JAVA_INT, 16, 0                 );
+        certStoreInfo.set(PTR                 , 24, MemorySegment.NULL);
 
         // SIGNER_CERT : { DWORD cbSize; DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8
         // VERIFIED against https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert

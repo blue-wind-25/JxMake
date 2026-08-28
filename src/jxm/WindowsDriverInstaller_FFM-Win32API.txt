@@ -1108,21 +1108,20 @@ Windows-specific caveats relevant to this implementation:
     - Microsoft's documented E_INVALIDARG case (SIGNER_TIMESTAMP_AUTHENTICODE combined with
       SIG_APPEND) does not apply here since this file uses neither timestamping nor SIG_APPEND.
 
-OPEN INVESTIGATION - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057), as of 2026-08-29:
-    Live Windows CI (GitHub Actions, mutating/UAC-enabled run) consistently reports this failure
-    from `_signCatalog`. Every struct passed to this call (SIGNER_SUBJECT_INFO, SIGNER_CERT,
+Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
+    Live Windows CI (GitHub Actions, mutating/UAC-enabled run) reports this failure from
+    `_signCatalog`. Every struct passed to this call (SIGNER_SUBJECT_INFO, SIGNER_CERT,
     SIGNER_CERT_STORE_INFO, SIGNER_SIGNATURE_INFO, SIGNER_FILE_INFO) and the 13-parameter call
-    itself have been re-verified against this document/Microsoft Learn and found correct - an
-    earlier guess that SIGNER_CERT was missing its cbSize field was WRONG and reverted (see
-    src/jxm git history, commits 4a6fcc6/daac2ed on WindowsDriverInstaller_FFM.java) - do not
-    repeat that mistake; always re-check this document before touching a struct layout here.
-    Current working hypothesis, not yet confirmed: the certificate found via
-    CertFindCertificateInStore for signing may not carry a usable private-key association (its
-    CERT_KEY_PROV_INFO_PROP_ID property may not have survived the CertAddCertificateContextToStore
-    round trip from the original CertCreateSelfSignCertificate context) - see
-    CertGetCertificateContextProperty above for the diagnostic added to check this. Once resolved,
-    replace this note with the actual root cause and fix (or remove it if the hypothesis is ruled
-    out and a different cause is found).
+    itself have been checked against this document/Microsoft Learn and found correct - a prior
+    guess that SIGNER_CERT was missing its cbSize field was wrong and was reverted (see
+    WindowsDriverInstaller_FFM.java git history) - do not repeat that mistake; always re-check
+    this document before touching a struct layout here.
+    Working hypothesis, not yet confirmed: the certificate found via CertFindCertificateInStore
+    for signing may not carry a usable private-key association (its CERT_KEY_PROV_INFO_PROP_ID
+    property may not have survived the CertAddCertificateContextToStore round trip from the
+    original CertCreateSelfSignCertificate context) - see CertGetCertificateContextProperty above
+    for the diagnostic checking this. Update this note with the actual root cause once resolved
+    (or remove it if the hypothesis is ruled out and a different cause is found).
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

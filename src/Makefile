@@ -70,15 +70,27 @@ _SPACE_           +=
 # On Windows, `:` collides with the drive-letter colon in absolute paths (e.g. `D:/a/...`), so the JVM classpath
 # separator must be `;` there instead of the Linux/macOS `:`
 CP_SEP            := $(if $(filter Windows_NT,$(OS)),;,:)
-CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(CUSTOM_JARS_DIR)/,$(JGIT_JARS))),)
-CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
+CP_CUSTOM_LIST    := $(if $(CUSTOM_DIR_EXISTS),$(addprefix $(CUSTOM_JARS_DIR)/,$(JGIT_JARS)),)
+CP_VENDOR_LIST    := $(if $(VENDOR_DIR_EXISTS),$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS)),)
+CP_CUSTOM         := $(if $(CP_CUSTOM_LIST),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(CP_CUSTOM_LIST)),)
+CP_VENDOR         := $(if $(CP_VENDOR_LIST),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(CP_VENDOR_LIST)),)
 CP_ALL            := $(CP_CUSTOM)$(CP_VENDOR)
 
 # Quoted because the Windows separator `;` is also a shell command separator - unquoted, the shell would split
 # the classpath into multiple commands at each `;`
-CP_COMPILE        := -cp ".$(CP_ALL)"
 CP_RUN            := -cp ".$(CP_ALL)"
 CP_JDS            := --class-path ".$(CP_ALL)"
+
+# javac (unlike $(JVM) above) is routed through ../util/cp_run.sh instead of a pre-joined ';'-string: the
+# JVM's `-cp` never showed the problem (it's only ever used interactively/in test targets on Linux), but
+# the Windows CI javac invocation started failing with "-Xlint:path Invalid filename" warnings under
+# -Werror even though the ';'-joined + quoted classpath is correct at the Make level (verified with
+# `OS=Windows_NT make -p`) - the mangling happens downstream, most likely in native GNU Make for Windows'
+# own command-line reconstruction before handing the recipe to the child shell, which has known quoting
+# quirks with a quoted argument containing ';'. cp_run.sh sidesteps all of that: Make only ever has to pass
+# it plain space-separated classpath entries (its native list form, no separator/quoting involved), and the
+# ';'/':' joining happens inside a real bash process instead.
+CP_JAVAC_ENTRIES  := . $(CP_CUSTOM_LIST) $(CP_VENDOR_LIST)
 
 JDK_PATH_8        := /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
 JDK_PATH_11       := /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64
@@ -109,7 +121,7 @@ JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
 
-JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) $(CP_COMPILE),$(JPATH)/bin/javac $(CP_COMPILE))
+JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) -cp ".$(CP_ALL)",../util/cp_run.sh $(JPATH)/bin/javac -cp $(CP_JAVAC_ENTRIES) --)
 # On Windows the executable is `java.exe`, not `java` - check both so `JAVA_MAJOR` detection below does not
 # silently fall through to a nonexistent `jre/bin/java path`
 JVM               := $(if $(wildcard $(JPATH)/bin/java $(JPATH)/bin/java.exe),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN)

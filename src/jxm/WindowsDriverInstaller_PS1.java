@@ -143,14 +143,23 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "$exitCode  = 0                                                                              \r\n" +
                 "try {                                                                                       \r\n" +
                 "    $script = \"                                                                            \r\n" +
-                "        $cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert            \r\n" +
-                "                    -CertStoreLocation 'Cert:\\CurrentUser\\My';                            \r\n" +
-                "        Export-Certificate -Cert $cert -FilePath '%s';                                      \r\n" +
+                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert -CertStoreLocation 'Cert:\\CurrentUser\\My';\r\n" +
+                "        Export-Certificate -Cert `$cert -FilePath '%s';                                     \r\n" +
                 "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;            \r\n" +
                 "        certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append \r\n" +
                 "    \"                                                                                      \r\n" +
-                "    $processHandler = Start-Process -FilePath 'powershell.exe'                              \r\n" +
-                "                          -ArgumentList \"-NoProfile -Command $script\"                     \r\n" +
+                // Escaping $cert as `$cert above keeps it literal text for the elevated child script to parse -
+                // since $script is itself a double-quoted string built in THIS (outer, unelevated) process, an
+                // unescaped $cert would be interpolated immediately using the outer scope's value (undefined,
+                // i.e. empty) instead of surviving as source text for the inner process to assign/read.
+                //
+                // Trailing backtick (`) with NO trailing whitespace before the line break is PowerShell's
+                // explicit line-continuation character - without it (or if padded with trailing spaces, which
+                // silently breaks it too), each line here parses as its own top-level statement (the previous
+                // line was already a syntactically complete Start-Process invocation), and a line starting with
+                // "-ArgumentList" then fails as "The term '-ArgumentList' is not recognized..."
+                "    $processHandler = Start-Process -FilePath 'powershell.exe' `\r\n" +
+                "                          -ArgumentList \"-NoProfile -Command $script\" `\r\n" +
                 "                          -Verb RunAs -Wait -PassThru                                       \r\n" +
                 "    if($processHandler) {                                                                   \r\n" +
                 "        $exitCode = $processHandler.ExitCode                                                \r\n" +
@@ -225,18 +234,18 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "$tmpOutLog = \"$env:TEMP\\cat_sign_%s_$PID.log\"                                          \r\n" +
                 "$exitCode  = 0                                                                            \r\n" +
                 "try {                                                                                     \r\n" +
-                "    $processHandler = Start-Process -FilePath 'powershell.exe'                            \r\n" +
-                "                          -ArgumentList \"-NoProfile -Command `\"                         \r\n" +
-                "                              $cert = Get-ChildItem Cert:\\CurrentUser\\My |              \r\n" +
-                "                                  Where-Object { $_.Subject -like '*CN=%s*' } |           \r\n" +
-                "                                  Select-Object -First 1;                                 \r\n" +
-                "                              if(-not $cert) { throw 'Certificate not found' };           \r\n" +
-                "                              New-FileCatalog -Path '%s' -CatalogFilePath '%s'            \r\n" +
-                "                                  -CatalogVersion 2.0;                                    \r\n" +
-                "                              Set-AuthenticodeSignature -FilePath '%s' -Certificate $cert \r\n" +
-                "                                  -HashAlgorithm SHA256                                   \r\n" +
-                "                                  | Out-File `\"$tmpOutLog`\"                             \r\n" +
-                "                          `\"\"                                                           \r\n" +
+                // See createAndTrustProvider() above for why $cert/$_ must be escaped as `$cert/`$_ here (to
+                // survive as literal text for the elevated child script instead of being interpolated now,
+                // in the outer/unelevated scope where they are undefined) and why the Start-Process/-ArgumentList
+                // continuation backticks below must have no trailing whitespace before the line break.
+                "    $script = \"                                                                          \r\n" +
+                "        `$cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { `$_.Subject -like '*CN=%s*' } | Select-Object -First 1;\r\n" +
+                "        if(-not `$cert) { throw 'Certificate not found' };                                \r\n" +
+                "        New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;             \r\n" +
+                "        Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 | Out-File `\"$tmpOutLog`\"; \r\n" +
+                "    \"                                                                                    \r\n" +
+                "    $processHandler = Start-Process -FilePath 'powershell.exe' `\r\n" +
+                "                          -ArgumentList \"-NoProfile -Command $script\" `\r\n" +
                 "                          -Verb RunAs -Wait -PassThru                                     \r\n" +
                 "    if($processHandler) {                                                                 \r\n" +
                 "        $exitCode = $processHandler.ExitCode                                              \r\n" +

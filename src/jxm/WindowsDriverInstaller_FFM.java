@@ -961,7 +961,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 }
 
                 try {
-                    return _signCatalog(arena, catPath, signingCert, log);
+                    return _signCatalog(arena, catPath, signingCert, hMy, log);
                 }
                 finally {
                     _CertFreeCertificateContext.invoke(signingCert);
@@ -979,9 +979,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int SIGNER_CERT_POLICY_STORE  = 0x1;
     private static final int SIGNER_CERT_POLICY_CHAIN  = 0x2;
     private static final int SIGNER_NO_ATTR            = 0;
+    private static final int SIGNER_AUTHCODE_ATTR      = 1;
     private static final int CALG_SHA_256              = 0x0000800c;
 
-    private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final StringBuilder log) throws Throwable
+    private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
     {
         // SIGNER_FILE_INFO : { DWORD cbSize; LPCWSTR pwszFileName; HANDLE hFile; } - size 24, align 8
         final MemorySegment fileInfo = arena.allocate(24, 8);
@@ -1000,22 +1001,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         subjectInfo.set(PTR                 , 24, fileInfo           );
 
         // SIGNER_CERT_STORE_INFO : { DWORD cbSize; PCCERT_CONTEXT pSigningCert; DWORD dwCertPolicy; HCERTSTORE hCertStore; } - size 32, align 8
-        //
-        // EXPERIMENT (root cause of SignerSignEx2 E_INVALIDARG still unconfirmed - see
-        // WindowsDriverInstaller_FFM-Win32API.txt): dwCertPolicy=0 (the previous value here, tried
-        // after ruling out SIGNER_CERT_POLICY_STORE with an hCertStore handle) is not one of the
-        // documented SIGNER_CERT_POLICY_* values (STORE=1, CHAIN=2, CHAIN_NO_ROOT=8) - Microsoft's
-        // docs give no indication 0 is an accepted policy value on its own. Switching to
-        // SIGNER_CERT_POLICY_CHAIN (build the signature's certificate list from pSigningCert's chain,
-        // which needs no hCertStore since chain-building already checks MY/CA/ROOT/SPC) to test
-        // whether the unrecognized policy value was the actual source of the invalid argument. If the
-        // next CI run still fails, update the doc's open-investigation note with this ruled-out
-        // hypothesis too.
+        // dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with hCertStore=hMy (CurrentUser\My, opened by the
+        // caller) - two independently-observed working callers of this same undocumented-header API
+        // both pass CHAIN together with a real store handle, not NULL, so restoring hCertStore here
+        // after the dwCertPolicy=0 and STORE-with-hCertStore experiments (both ruled out - see
+        // WindowsDriverInstaller_FFM-Win32API.txt) rather than assuming "optional" means "safe to omit".
         final MemorySegment certStoreInfo = arena.allocate(32, 8);
-        certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                );
-        certStoreInfo.set(PTR                 ,  8, signingCert       );
-        certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_CHAIN);
-        certStoreInfo.set(PTR                 , 24, MemorySegment.NULL);
+        certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                       );
+        certStoreInfo.set(PTR                 ,  8, signingCert              );
+        certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_CHAIN );
+        certStoreInfo.set(PTR                 , 24, hMy                     );
 
         // SIGNER_CERT : { DWORD cbSize; DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8
         // VERIFIED against https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
@@ -1026,15 +1021,31 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         signerCert.set(PTR                 ,  8, certStoreInfo     );
         signerCert.set(PTR                 , 16, MemorySegment.NULL);
 
+        // SIGNER_ATTR_AUTHCODE : { DWORD cbSize; BOOL fCommercial; BOOL fIndividual; LPCWSTR pwszName;
+        //                          LPCWSTR pwszInfo; } - size 32, align 8
+        // EXPERIMENT (root cause of SignerSignEx2 E_INVALIDARG still unconfirmed - see
+        // WindowsDriverInstaller_FFM-Win32API.txt): every dwAttrChoice/psAuthenticated combination
+        // tried so far left SIGNER_SIGNATURE_INFO.dwAttrChoice at SIGNER_NO_ATTR with no authcode
+        // attributes attached - the one thing not yet tried. Both independently-observed working
+        // callers of this same undocumented-header API populate this structure and set
+        // dwAttrChoice=SIGNER_AUTHCODE_ATTR, so try that here even though Microsoft's docs read as if
+        // SIGNER_NO_ATTR should be a valid, complete choice on its own.
+        final MemorySegment authCodeInfo = arena.allocate(32, 8);
+        authCodeInfo.set(ValueLayout.JAVA_INT,  0, 32                    );
+        authCodeInfo.set(ValueLayout.JAVA_INT,  4, 0                     );
+        authCodeInfo.set(ValueLayout.JAVA_INT,  8, 0                     );
+        authCodeInfo.set(PTR                 , 16, _wstr(arena, "")      );
+        authCodeInfo.set(PTR                 , 24, _wstr(arena, "")      );
+
         // SIGNER_SIGNATURE_INFO : { DWORD cbSize; ALG_ID algidHash; DWORD dwAttrChoice; union{...};
         //                           PCRYPT_ATTRIBUTES psAuthenticated; PCRYPT_ATTRIBUTES psUnauthenticated; } - size 40, align 8
         final MemorySegment sigInfo = arena.allocate(40, 8);
-        sigInfo.set(ValueLayout.JAVA_INT,  0, 40                );
-        sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256      );
-        sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_NO_ATTR    );
-        sigInfo.set(PTR                 , 16, MemorySegment.NULL);
-        sigInfo.set(PTR                 , 24, MemorySegment.NULL);
-        sigInfo.set(PTR                 , 32, MemorySegment.NULL);
+        sigInfo.set(ValueLayout.JAVA_INT,  0, 40                    );
+        sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256          );
+        sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_AUTHCODE_ATTR  );
+        sigInfo.set(PTR                 , 16, authCodeInfo          );
+        sigInfo.set(PTR                 , 24, MemorySegment.NULL    );
+        sigInfo.set(PTR                 , 32, MemorySegment.NULL    );
 
         final MemorySegment ppSignerContext = arena.allocate(PTR);
 

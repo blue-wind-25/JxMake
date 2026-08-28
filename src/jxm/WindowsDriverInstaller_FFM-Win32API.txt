@@ -1131,13 +1131,20 @@ Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
     define SIGNER_CERT_POLICY_STORE (1), SIGNER_CERT_POLICY_CHAIN (2), and
     SIGNER_CERT_POLICY_CHAIN_NO_ROOT (8) for this member, so 0 is unlikely to be an accepted
     combination on its own.
-    Current experiment, not yet confirmed: SIGNER_CERT_STORE_INFO.dwCertPolicy is now
-    SIGNER_CERT_POLICY_CHAIN (build the signature's certificate list from pSigningCert's own
-    chain; per Microsoft's docs this already checks the MY, CA, ROOT, and SPC stores, so it needs
-    no hCertStore - left NULL). Testing whether the previously-unrecognized policy value was the
-    actual source of the invalid argument. Update this note with the actual root cause once
-    resolved (or remove this paragraph and record the next hypothesis if this one is also ruled
-    out).
+    Ruled out: SIGNER_CERT_STORE_INFO.dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with hCertStore left
+    NULL - live CI again reported the identical E_INVALIDARG, so neither this alternate policy
+    value nor the store handle being NULL was the cause on its own.
+    Current experiment, not yet confirmed: two changes together, since every dwCertPolicy value and
+    every hCertStore choice tried individually has failed identically: (1)
+    SIGNER_CERT_STORE_INFO.dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with hCertStore restored to the
+    `hMy` handle (CHAIN policy combined with a real store handle rather than NULL); (2)
+    SIGNER_SIGNATURE_INFO.dwAttrChoice changed from SIGNER_NO_ATTR (unchanged since this backend's
+    very first attempt at this call, and therefore never previously ruled out) to
+    SIGNER_AUTHCODE_ATTR with a populated SIGNER_ATTR_AUTHCODE structure - see that structure's
+    entry above. Testing whether the missing Authenticode attribute structure, possibly combined
+    with the store handle, was the actual source of the invalid argument. Update this note with the
+    actual root cause once resolved (or remove this paragraph and record the next hypothesis if
+    this is also ruled out).
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
@@ -1220,10 +1227,11 @@ Purpose      : Specifies both the exact signing certificate context and the poli
                chain.
 
 FFM notes    : pSigningCert = the certificate found earlier via CertFindCertificateInStore;
-               dwCertPolicy = SIGNER_CERT_POLICY_STORE(0x1) (add all certificates present in the
-               store named by hCertStore - here, CurrentUser\My itself, reused via the `hMy` handle
-               already open at the call site, rather than opening a second store handle just for
-               this struct); hCertStore = that same `hMy` handle.
+               dwCertPolicy = SIGNER_CERT_POLICY_CHAIN(0x2) (build the signature's certificate list
+               from pSigningCert's own chain - this already checks the MY, CA, ROOT, and SPC stores
+               per Microsoft's docs); hCertStore = the `hMy` (CurrentUser\My) handle already open at
+               the call site, passed alongside CHAIN rather than left NULL (see the open-investigation
+               note below - two other implementations of this same call both do this).
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_SIGNATURE_INFO - VERIFIED
@@ -1231,18 +1239,38 @@ STRUCTURE: SIGNER_SIGNATURE_INFO - VERIFIED
 Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-signature-info
 
 Fields       : cbSize (0, DWORD), algidHash (4, ALG_ID), dwAttrChoice (8, DWORD), union at 16
-               (active member would be pAttrAuthcode, SIGNER_ATTR_AUTHCODE* - unused here,
-               dwAttrChoice=SIGNER_NO_ATTR), psAuthenticated (24, PCRYPT_ATTRIBUTES, optional),
-               psUnauthenticated (32, PCRYPT_ATTRIBUTES, optional).
+               (active member is pAttrAuthcode, SIGNER_ATTR_AUTHCODE* - see below), psAuthenticated
+               (24, PCRYPT_ATTRIBUTES, optional), psUnauthenticated (32, PCRYPT_ATTRIBUTES,
+               optional).
 Size         : 40 bytes, 8-byte aligned.
 Purpose      : Specifies the hash algorithm for the signature and any extra Authenticode-specific or
                user-supplied signed/unsigned attributes.
 
 FFM notes    : algidHash = CALG_SHA_256(0x0000800c) (the classic CryptoAPI ALG_ID constant for
                SHA-256 - consistent with every other hash choice in this file); dwAttrChoice =
-               SIGNER_NO_ATTR(0) (no Authenticode-specific attributes requested); both
-               psAuthenticated and psUnauthenticated are left NULL (no extra signed/unsigned
-               attributes beyond what SignerSignEx2 adds by default for a standard signature).
+               SIGNER_AUTHCODE_ATTR(1) with the union member pointing at a populated
+               SIGNER_ATTR_AUTHCODE (see below); both psAuthenticated and psUnauthenticated are left
+               NULL (no extra signed/unsigned attributes beyond the Authenticode ones already
+               requested via dwAttrChoice).
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: SIGNER_ATTR_AUTHCODE - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-attr-authcode
+
+Fields       : cbSize (0, DWORD), fCommercial (4, BOOL), fIndividual (8, BOOL), pwszName (16,
+               LPCWSTR), pwszInfo (24, LPCWSTR).
+Size         : 32 bytes, 8-byte aligned.
+Purpose      : Specifies Authenticode-specific attributes (the display name/URL shown on download,
+               and whether the subject is signed as a commercial or individual publisher) for a
+               signature whose SIGNER_SIGNATURE_INFO.dwAttrChoice is SIGNER_AUTHCODE_ATTR.
+
+FFM notes    : fCommercial = FALSE and fIndividual = FALSE (neither publisher category applies to
+               this backend's self-signed test/CI certificate); pwszName and pwszInfo are both
+               empty strings (no download-dialog display name/URL is meaningful here) rather than
+               NULL, since this backend's own SignerSignEx2 call previously left dwAttrChoice at
+               SIGNER_NO_ATTR with this whole structure unused - see the open-investigation note
+               below for why this member is populated at all.
 
 
 ====================================================================================================

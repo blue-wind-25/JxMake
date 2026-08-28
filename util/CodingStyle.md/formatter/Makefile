@@ -10,9 +10,9 @@ JAR          ?= jar
 JAVA         ?= java
 JAVA_VERSION ?= 8
 
-# Single source of truth for the version number -- propagated into the JAR
-# manifest (Implementation-Version), read at runtime by `Main.java`'s
-# `printUsage()`/`--version`, and picked up by `code-formatter.sh/.cmd` via glob.
+# Single source of truth for the version number -- propagated into the JAR manifest
+# `Implementation-Version`, read at runtime by `Main.java`'s `printUsage()`/`--version`,
+# and picked up by `code-formatter.sh/.cmd` via glob.
 VERSION       = 1.0.1
 ARTIFACT      = code-formatter-$(VERSION)
 MAIN_CLASS    = com.jxmake.formatter.Main

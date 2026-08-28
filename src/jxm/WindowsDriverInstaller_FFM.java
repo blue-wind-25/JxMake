@@ -590,117 +590,119 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         try(
             final Arena arena = Arena.ofConfined()
         ) {
-            // 1. Open the CNG key storage provider and create a persisted 2048-bit RSA signing key
-            final MemorySegment hProviderOut = arena.allocate(PTR);
-            if( (int) _NCryptOpenStorageProvider.invoke( hProviderOut, _wstr(arena, MS_KEY_STORAGE_PROVIDER), 0 ) != 0 ) {
-                log.append("NCryptOpenStorageProvider failed");
-                return RETCODE_EXCEPTION;
-            }
-            final MemorySegment hProvider = hProviderOut.get(PTR, 0);
-
-            final String        containerName = providerName + "_" + Long.toHexString( new SecureRandom().nextLong() );
-            final MemorySegment hKeyOut       = arena.allocate(PTR);
-            if( (int) _NCryptCreatePersistedKey.invoke( hProvider, hKeyOut, _wstr(arena, BCRYPT_RSA_ALGORITHM), _wstr(arena, containerName), AT_SIGNATURE, 0 ) != 0 ) {
-                log.append("NCryptCreatePersistedKey failed");
-                _NCryptFreeObject.invoke(hProvider);
-                return RETCODE_EXCEPTION;
-            }
-            final MemorySegment hKey = hKeyOut.get(PTR, 0);
-
-            final MemorySegment keyLen = arena.allocate(ValueLayout.JAVA_INT);
-            keyLen.set(ValueLayout.JAVA_INT, 0, 2048);
-            _NCryptSetProperty.invoke( hKey, _wstr(arena, "Length"), keyLen, 4, 0 );
-
-            final MemorySegment keyUsage = arena.allocate(ValueLayout.JAVA_INT);
-            keyUsage.set(ValueLayout.JAVA_INT, 0, NCRYPT_ALLOW_SIGNING_FLAG);
-            _NCryptSetProperty.invoke( hKey, _wstr(arena, "Key Usage"), keyUsage, 4, 0 );
-
-            if( (int) _NCryptFinalizeKey.invoke(hKey, 0) != 0 ) {
-                log.append("NCryptFinalizeKey failed");
-                _NCryptFreeObject.invoke(hKey);
-                _NCryptFreeObject.invoke(hProvider);
-                return RETCODE_EXCEPTION;
-            }
-
-            // 2. Encode the "CN=<providerName>" subject name (CertStrToNameW, two-call size/fill pattern)
-            final MemorySegment subjectStr = _wstr(arena, "CN=" + providerName);
-            final MemorySegment cbSubject  = arena.allocate(ValueLayout.JAVA_INT);
-            if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR, MemorySegment.NULL, MemorySegment.NULL, cbSubject, MemorySegment.NULL) == 0 ) {
-                log.append("CertStrToNameW (sizing) failed, GetLastError=").append( _lastError() );
-                return RETCODE_EXCEPTION;
-            }
-
-            final int            subjectLen = cbSubject.get(ValueLayout.JAVA_INT, 0);
-            final MemorySegment  subjectBuf = arena.allocate(subjectLen);
-            if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR, MemorySegment.NULL, subjectBuf, cbSubject, MemorySegment.NULL) == 0 ) {
-                log.append("CertStrToNameW failed, GetLastError=").append( _lastError() );
-                return RETCODE_EXCEPTION;
-            }
-            final MemorySegment subjectBlob = _blob(arena, subjectLen, subjectBuf);
-
-            // 3. Build the "Code Signing" Enhanced Key Usage extension (CryptEncodeObjectEx w/ CRYPT_ENCODE_ALLOC_FLAG)
-            final MemorySegment oidStr    = _astr(arena, szOID_PKIX_KP_CODE_SIGNING);
-            final MemorySegment oidArray  = arena.allocate(PTR);
-            oidArray.set(PTR, 0, oidStr);
-
-            // CERT_ENHKEY_USAGE : { DWORD cUsageIdentifier; LPSTR *rgpszUsageIdentifier; } - size 16, align 8
-            final MemorySegment ekuStruct = arena.allocate(16, 8);
-            ekuStruct.set(ValueLayout.JAVA_INT, 0, 1       );
-            ekuStruct.set(PTR                 , 8, oidArray);
-
-            final MemorySegment ekuEncodedPtrOut = arena.allocate(PTR);
-            final MemorySegment ekuEncodedLenOut = arena.allocate(ValueLayout.JAVA_INT);
-            if( (int) _CryptEncodeObjectEx.invoke( X509_ASN_ENCODING, _handleOf(X509_ENHANCED_KEY_USAGE), ekuStruct, CRYPT_ENCODE_ALLOC_FLAG, MemorySegment.NULL, ekuEncodedPtrOut, ekuEncodedLenOut ) == 0 ) {
-                log.append("CryptEncodeObjectEx(EKU) failed, GetLastError=").append( _lastError() );
-                return RETCODE_EXCEPTION;
-            }
-            final MemorySegment ekuEncoded    = ekuEncodedPtrOut.get(PTR, 0);
-            final int           ekuEncodedLen = ekuEncodedLenOut.get(ValueLayout.JAVA_INT, 0);
-
-            // CERT_EXTENSION : { LPSTR pszObjId; BOOL fCritical; CRYPT_ATTR_BLOB Value; } - size 32, align 8
-            final MemorySegment extension = arena.allocate(32, 8);
-            extension.set( PTR                 , 0 , _astr(arena, szOID_ENHANCED_KEY_USAGE) );
-            extension.set( ValueLayout.JAVA_INT, 8 , 0                                      );
-            extension.set( ValueLayout.JAVA_INT, 16, ekuEncodedLen                          );
-            extension.set( PTR                 , 24, ekuEncoded                             );
-
-            // CERT_EXTENSIONS : { DWORD cExtension; PCERT_EXTENSION rgExtension; } - size 16, align 8
-            final MemorySegment extensions = arena.allocate(16, 8);
-            extensions.set(ValueLayout.JAVA_INT, 0, 1        );
-            extensions.set(PTR                 , 8, extension);
-
-            // 4. CRYPT_KEY_PROV_INFO - links the returned cert context back to the persisted CNG key
-            //    { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags;
-            //      DWORD cProvParam; PVOID rgProvParam; DWORD dwKeySpec; } - size 48, align 8
-            final MemorySegment keyProvInfo = arena.allocate(48, 8);
-            keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName          ) );
-            keyProvInfo.set( PTR                 ,  8, _wstr(arena, MS_KEY_STORAGE_PROVIDER) );
-            keyProvInfo.set( ValueLayout.JAVA_INT, 16, 0                                     );
-            keyProvInfo.set( ValueLayout.JAVA_INT, 20, 0                                     );
-            keyProvInfo.set( ValueLayout.JAVA_INT, 24, 0                                     );
-            keyProvInfo.set( PTR                 , 32, MemorySegment.NULL                    );
-            keyProvInfo.set( ValueLayout.JAVA_INT, 40, AT_SIGNATURE                          );
-
-            // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
-            //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on
-            //    given every other signing/hashing step in this file is deliberately pinned to SHA-256; 1 year validity)
-            // CRYPT_ALGORITHM_IDENTIFIER : { LPSTR pszObjId; CRYPT_OBJID_BLOB Parameters; } - size 24, align 8
-            final MemorySegment sigAlgId = arena.allocate(24, 8);
-            sigAlgId.set( PTR                 ,  0, _astr(arena, szOID_RSA_SHA256RSA) );
-            sigAlgId.set( ValueLayout.JAVA_INT,  8, 0                                 );
-            sigAlgId.set( PTR                 , 16, MemorySegment.NULL                );
-
-            final MemorySegment certCtx = (MemorySegment) _CertCreateSelfSignCertificate.invoke(
-                hKey, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, MemorySegment.NULL, extensions
-            );
-            if( certCtx == null || certCtx.address() == 0L ) {
-                log.append("CertCreateSelfSignCertificate failed, GetLastError=").append( _lastError() );
-                _NCryptFreeObject.invoke(hKey);
-                _NCryptFreeObject.invoke(hProvider);
-                return RETCODE_EXCEPTION;
-            }
+            // Tracked across the whole method (not just the tail end) so the finally below can release
+            // whatever was actually allocated, regardless of which step below returns early on failure
+            MemorySegment hProvider  = MemorySegment.NULL;
+            MemorySegment hKey       = MemorySegment.NULL;
+            MemorySegment certCtx    = MemorySegment.NULL;
+            MemorySegment ekuEncoded = MemorySegment.NULL;
 
             try {
+                // 1. Open the CNG key storage provider and create a persisted 2048-bit RSA signing key
+                final MemorySegment hProviderOut = arena.allocate(PTR);
+                if( (int) _NCryptOpenStorageProvider.invoke( hProviderOut, _wstr(arena, MS_KEY_STORAGE_PROVIDER), 0 ) != 0 ) {
+                    log.append("NCryptOpenStorageProvider failed");
+                    return RETCODE_EXCEPTION;
+                }
+                hProvider = hProviderOut.get(PTR, 0);
+
+                final String        containerName = providerName + "_" + Long.toHexString( new SecureRandom().nextLong() );
+                final MemorySegment hKeyOut       = arena.allocate(PTR);
+                if( (int) _NCryptCreatePersistedKey.invoke( hProvider, hKeyOut, _wstr(arena, BCRYPT_RSA_ALGORITHM), _wstr(arena, containerName), AT_SIGNATURE, 0 ) != 0 ) {
+                    log.append("NCryptCreatePersistedKey failed");
+                    return RETCODE_EXCEPTION;
+                }
+                hKey = hKeyOut.get(PTR, 0);
+
+                final MemorySegment keyLen = arena.allocate(ValueLayout.JAVA_INT);
+                keyLen.set(ValueLayout.JAVA_INT, 0, 2048);
+                _NCryptSetProperty.invoke( hKey, _wstr(arena, "Length"), keyLen, 4, 0 );
+
+                final MemorySegment keyUsage = arena.allocate(ValueLayout.JAVA_INT);
+                keyUsage.set(ValueLayout.JAVA_INT, 0, NCRYPT_ALLOW_SIGNING_FLAG);
+                _NCryptSetProperty.invoke( hKey, _wstr(arena, "Key Usage"), keyUsage, 4, 0 );
+
+                if( (int) _NCryptFinalizeKey.invoke(hKey, 0) != 0 ) {
+                    log.append("NCryptFinalizeKey failed");
+                    return RETCODE_EXCEPTION;
+                }
+
+                // 2. Encode the "CN=<providerName>" subject name (CertStrToNameW, two-call size/fill pattern)
+                final MemorySegment subjectStr = _wstr(arena, "CN=" + providerName);
+                final MemorySegment cbSubject  = arena.allocate(ValueLayout.JAVA_INT);
+                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR, MemorySegment.NULL, MemorySegment.NULL, cbSubject, MemorySegment.NULL) == 0 ) {
+                    log.append("CertStrToNameW (sizing) failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+
+                final int            subjectLen = cbSubject.get(ValueLayout.JAVA_INT, 0);
+                final MemorySegment  subjectBuf = arena.allocate(subjectLen);
+                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR, MemorySegment.NULL, subjectBuf, cbSubject, MemorySegment.NULL) == 0 ) {
+                    log.append("CertStrToNameW failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+                final MemorySegment subjectBlob = _blob(arena, subjectLen, subjectBuf);
+
+                // 3. Build the "Code Signing" Enhanced Key Usage extension (CryptEncodeObjectEx w/ CRYPT_ENCODE_ALLOC_FLAG)
+                final MemorySegment oidStr    = _astr(arena, szOID_PKIX_KP_CODE_SIGNING);
+                final MemorySegment oidArray  = arena.allocate(PTR);
+                oidArray.set(PTR, 0, oidStr);
+
+                // CERT_ENHKEY_USAGE : { DWORD cUsageIdentifier; LPSTR *rgpszUsageIdentifier; } - size 16, align 8
+                final MemorySegment ekuStruct = arena.allocate(16, 8);
+                ekuStruct.set(ValueLayout.JAVA_INT, 0, 1       );
+                ekuStruct.set(PTR                 , 8, oidArray);
+
+                final MemorySegment ekuEncodedPtrOut = arena.allocate(PTR);
+                final MemorySegment ekuEncodedLenOut = arena.allocate(ValueLayout.JAVA_INT);
+                if( (int) _CryptEncodeObjectEx.invoke( X509_ASN_ENCODING, _handleOf(X509_ENHANCED_KEY_USAGE), ekuStruct, CRYPT_ENCODE_ALLOC_FLAG, MemorySegment.NULL, ekuEncodedPtrOut, ekuEncodedLenOut ) == 0 ) {
+                    log.append("CryptEncodeObjectEx(EKU) failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+                ekuEncoded = ekuEncodedPtrOut.get(PTR, 0);
+                final int ekuEncodedLen = ekuEncodedLenOut.get(ValueLayout.JAVA_INT, 0);
+
+                // CERT_EXTENSION : { LPSTR pszObjId; BOOL fCritical; CRYPT_ATTR_BLOB Value; } - size 32, align 8
+                final MemorySegment extension = arena.allocate(32, 8);
+                extension.set( PTR                 , 0 , _astr(arena, szOID_ENHANCED_KEY_USAGE) );
+                extension.set( ValueLayout.JAVA_INT, 8 , 0                                      );
+                extension.set( ValueLayout.JAVA_INT, 16, ekuEncodedLen                          );
+                extension.set( PTR                 , 24, ekuEncoded                             );
+
+                // CERT_EXTENSIONS : { DWORD cExtension; PCERT_EXTENSION rgExtension; } - size 16, align 8
+                final MemorySegment extensions = arena.allocate(16, 8);
+                extensions.set(ValueLayout.JAVA_INT, 0, 1        );
+                extensions.set(PTR                 , 8, extension);
+
+                // 4. CRYPT_KEY_PROV_INFO - links the returned cert context back to the persisted CNG key
+                //    { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags;
+                //      DWORD cProvParam; PVOID rgProvParam; DWORD dwKeySpec; } - size 48, align 8
+                final MemorySegment keyProvInfo = arena.allocate(48, 8);
+                keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName          ) );
+                keyProvInfo.set( PTR                 ,  8, _wstr(arena, MS_KEY_STORAGE_PROVIDER) );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 16, 0                                     );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 20, 0                                     );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 24, 0                                     );
+                keyProvInfo.set( PTR                 , 32, MemorySegment.NULL                    );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 40, AT_SIGNATURE                          );
+
+                // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
+                //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on
+                //    given every other signing/hashing step in this file is deliberately pinned to SHA-256; 1 year validity)
+                // CRYPT_ALGORITHM_IDENTIFIER : { LPSTR pszObjId; CRYPT_OBJID_BLOB Parameters; } - size 24, align 8
+                final MemorySegment sigAlgId = arena.allocate(24, 8);
+                sigAlgId.set( PTR                 ,  0, _astr(arena, szOID_RSA_SHA256RSA) );
+                sigAlgId.set( ValueLayout.JAVA_INT,  8, 0                                 );
+                sigAlgId.set( PTR                 , 16, MemorySegment.NULL                );
+
+                certCtx = (MemorySegment) _CertCreateSelfSignCertificate.invoke(
+                    hKey, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, MemorySegment.NULL, extensions
+                );
+                if( certCtx == null || certCtx.address() == 0L ) {
+                    log.append("CertCreateSelfSignCertificate failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+
                 // 6. Add the cert (with its private-key linkage) to CurrentUser\My
                 final MemorySegment hMy = _certStoreOpen(arena, CERT_SYSTEM_STORE_CURRENT_USER, "My");
                 if(hMy != null) {
@@ -738,10 +740,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 return RETCODE_OK;
             }
             finally {
-                _CertFreeCertificateContext.invoke(certCtx);
-                _LocalFree.invoke(ekuEncoded);
-                _NCryptFreeObject.invoke(hKey);
-                _NCryptFreeObject.invoke(hProvider);
+                // Release exactly what was allocated above, however far execution got before returning
+                if( certCtx.address()    != 0L ) _CertFreeCertificateContext.invoke(certCtx);
+                if( ekuEncoded.address() != 0L ) _LocalFree.invoke(ekuEncoded);
+                if( hKey.address()       != 0L ) _NCryptFreeObject.invoke(hKey);
+                if( hProvider.address()  != 0L ) _NCryptFreeObject.invoke(hProvider);
             }
         }
     }

@@ -152,8 +152,15 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "        $exitCode = %d                                                                      \r\n" +
                 "    }                                                                                       \r\n" +
                 "}                                                                                           \r\n" +
+                // Distinguish an actual UAC decline (Win32 error 1223, ERROR_CANCELLED) from any other failure
+                // via the numeric NativeErrorCode rather than parsing $_.Exception.Message, since that text is
+                // localized to the user's OS UI language and cannot be matched reliably
                 "catch {                                                                                     \r\n" +
-                "    $exitCode = %d                                                                          \r\n" +
+                "    $nativeErr = $_.Exception.NativeErrorCode                                               \r\n" +
+                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                  \r\n" +
+                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                            \r\n" +
+                "    }                                                                                       \r\n" +
+                "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                  \r\n" +
                 "}                                                                                           \r\n" +
                 "Start-Sleep -Milliseconds 100                                                               \r\n" +
                 "if(Test-Path $tmpOutLog) {                                                                  \r\n" +
@@ -163,7 +170,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "exit $exitCode                                                                              \r\n" ,
                 providerName, providerName,
                 certFile.toAbsolutePath(), certFile.toAbsolutePath(), certFile.toAbsolutePath(),
-                RETCODE_PH_NULL, RETCODE_UAC_DECLINED
+                RETCODE_PH_NULL, RETCODE_UAC_DECLINED, RETCODE_EXCEPTION
             );
 
             final XCom.Pair<Integer, String> result = _runCommand(psCommand, null, 5);
@@ -228,8 +235,14 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "        $exitCode = %d                                                                    \r\n" +
                 "    }                                                                                     \r\n" +
                 "}                                                                                         \r\n" +
+                // See createAndTrustProvider() above: use the numeric NativeErrorCode (1223 = ERROR_CANCELLED,
+                // i.e. the user declined UAC), not the exception text, since that text is locale-dependent
                 "catch {                                                                                   \r\n" +
-                "    $exitCode = %d                                                                        \r\n" +
+                "    $nativeErr = $_.Exception.NativeErrorCode                                             \r\n" +
+                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                \r\n" +
+                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                          \r\n" +
+                "    }                                                                                     \r\n" +
+                "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                \r\n" +
                 "}                                                                                         \r\n" +
                 "Start-Sleep -Milliseconds 100                                                             \r\n" +
                 "if(Test-Path $tmpOutLog) {                                                                \r\n" +
@@ -239,7 +252,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "exit $exitCode                                                                            \r\n",
                 providerName, providerName,
                 infPath, catPath, catPath,
-                RETCODE_PH_NULL, RETCODE_UAC_DECLINED
+                RETCODE_PH_NULL, RETCODE_UAC_DECLINED, RETCODE_EXCEPTION
             );
 
             final XCom.Pair<Integer, String> result = _runCommand(psCommand, null, 5);
@@ -292,8 +305,14 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "        $exitCode = " + RETCODE_PH_NULL + "                                                      \r\n" +
                 "    }                                                                                            \r\n" +
                 "}                                                                                                \r\n" +
+                // Same rationale as createAndTrustProvider()/createAndSignCatalog(): key off the numeric
+                // NativeErrorCode (1223 = ERROR_CANCELLED = UAC declined), not locale-dependent exception text
                 "catch {                                                                                          \r\n" +
-                "    $exitCode = " + RETCODE_UAC_DECLINED + "                                                     \r\n" +
+                "    $nativeErr = $_.Exception.NativeErrorCode                                                    \r\n" +
+                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                       \r\n" +
+                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                                 \r\n" +
+                "    }                                                                                            \r\n" +
+                "    $exitCode = if($nativeErr -eq 1223) { " + RETCODE_UAC_DECLINED + " } else { " + RETCODE_EXCEPTION + " }  \r\n" +
                 "}                                                                                                \r\n" +
                 "Start-Sleep -Milliseconds 100                                                                    \r\n" +
                 "if(Test-Path $tmpOutLog) {                                                                       \r\n" +

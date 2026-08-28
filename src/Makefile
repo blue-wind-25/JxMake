@@ -74,9 +74,11 @@ CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_
 CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
 CP_ALL            := $(CP_CUSTOM)$(CP_VENDOR)
 
-CP_COMPILE        := -cp .$(CP_ALL)
-CP_RUN            := -cp .$(CP_ALL)
-CP_JDS            := --class-path .$(CP_ALL)
+# Quoted because the Windows separator ';' is also a shell command separator - unquoted,
+# the shell would split the classpath into multiple commands at each ';'
+CP_COMPILE        := -cp ".$(CP_ALL)"
+CP_RUN            := -cp ".$(CP_ALL)"
+CP_JDS            := --class-path ".$(CP_ALL)"
 
 JDK_PATH_8        := /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
 JDK_PATH_11       := /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64

@@ -1,0 +1,183 @@
+# ============================================================
+# WindowsDriverInstaller manual test (PS1 + FFM backends)
+# ============================================================
+#
+# Runs on a real GitHub-hosted Windows VM so `WindowsDriverInstaller.isUsable()`
+# can actually see the Win32 DLLs it depends on (Kernel32/Shell32/Crypt32/Ncrypt/
+# Wintrust/Mssign32 are always present on a real Windows OS image, unlike the
+# Linux dev box this repo is normally built on).
+#
+# TRIGGER: manual only (Actions tab -> this workflow -> "Run workflow").
+#
+# INPUTS:
+#   backend        which backend(s) to exercise: both / ps1 / ffm
+#   run_mutating   if true, also runs the UAC-elevated, state-changing calls
+#                  (createAndTrustProvider / createAndSignCatalog / installDriver)
+#                  against a disposable self-signed cert + dummy WinUSB INF.
+#                  If false (default), only the safe/non-mutating checks run:
+#                  isUsable() and isProviderAlreadyTrusted().
+#
+# The runner VM is destroyed after the job, so anything the elevated flow
+# installs (cert in the machine trust stores, the dummy driver package) never
+# outlives the job - there is nothing to clean up afterwards.
+#
+# JDK: actions/setup-java downloads Temurin JDK 25 itself (it does not depend
+# on whatever JDK ships baked into the windows-latest image), so this works
+# even if the runner image only preinstalls older JDKs (e.g. 21).
+#
+# ============================================================
+
+name: Test WindowsDriverInstaller
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: 'Which backend(s) to test'
+        type: choice
+        options: [both, ps1, ffm]
+        default: both
+      run_mutating:
+        description: 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
+        type: boolean
+        default: false
+
+jobs:
+  test:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install GNU make
+        run: choco install make -y
+
+      # Only needed for run_mutating - lets `Start-Process -Verb RunAs` elevate
+      # silently in this non-interactive session instead of failing immediately
+      # with the UAC-declined path (which is what we'd hit otherwise, since
+      # there's no desktop session here to show a consent prompt on).
+      - name: Allow silent admin elevation (mutating run only)
+        if: ${{ inputs.run_mutating }}
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
+
+      - name: Build jxmake.jar (JDK 25, both backends)
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          make jar JDK_VER=25 "JDK_PATH_25=$JDK_UNIX_PATH"
+          ls -la jxmake.jar
+
+      - name: Write test driver
+        working-directory: src
+        run: |
+          cat > WDI_CITest.java <<'EOF'
+          import jxm.WindowsDriverInstaller;
+          import jxm.WindowsDriverInstaller_PS1;
+          import jxm.WindowsDriverInstaller_FFM;
+          import jxm.xb.XCom;
+
+          public class WDI_CITest {
+
+              private static final String PROVIDER = "JxMake_CITest";
+
+              public static void main(final String[] args) throws Exception {
+                  final String  backend      = System.getProperty("wdi.backend", "both");
+                  final boolean runMutating  = Boolean.getBoolean("wdi.mutating");
+
+                  int failures = 0;
+
+                  if( backend.equals("both") || backend.equals("ps1") )
+                      failures += test("PS1", new WindowsDriverInstaller_PS1(), runMutating);
+
+                  if( backend.equals("both") || backend.equals("ffm") )
+                      failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating);
+
+                  System.out.println();
+                  System.out.println("=== create() factory pick ===");
+                  final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
+                  System.out.println("create() returned: " + (picked == null ? "null" : picked.getClass().getSimpleName()));
+
+                  if( failures > 0 ) {
+                      System.out.println();
+                      System.out.println(failures + " backend(s) reported a hard failure - see above");
+                      System.exit(1);
+                  }
+              }
+
+              private static int test(final String label, final WindowsDriverInstaller wdi, final boolean runMutating) {
+                  System.out.println();
+                  System.out.println("=== " + label + " backend ===");
+
+                  try {
+                      final boolean usable = wdi.isUsable();
+                      System.out.println(label + ".isUsable() = " + usable);
+
+                      if( !usable ) {
+                          System.out.println(label + " not usable on this VM - skipping remaining checks");
+                          return 0;
+                      }
+
+                      printPair(label + ".isProviderAlreadyTrusted", wdi.isProviderAlreadyTrusted(PROVIDER));
+
+                      if( runMutating ) {
+                          printPair(label + ".createAndTrustProvider", wdi.createAndTrustProvider(PROVIDER));
+                          printPair(label + ".isProviderAlreadyTrusted (after trust)", wdi.isProviderAlreadyTrusted(PROVIDER));
+
+                          final java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("wdi_ci");
+                          final String catName = "wdi_ci_test.cat";
+                          final java.nio.file.Path inf = dir.resolve("wdi_ci_test.inf");
+                          java.nio.file.Files.writeString(inf, WindowsDriverInstaller.generateWinUSBInf("1234", "5678", catName));
+
+                          printPair(label + ".createAndSignCatalog", wdi.createAndSignCatalog(inf.toString(), PROVIDER));
+                          printPair(label + ".installDriver", wdi.installDriver(inf.toString()));
+                      } else {
+                          System.out.println(label + ": skipping mutating/elevated calls (run_mutating=false)");
+                      }
+
+                      return 0;
+                  }
+                  catch(final Throwable t) {
+                      System.out.println(label + ": EXCEPTION - " + t);
+                      t.printStackTrace(System.out);
+                      return 1;
+                  }
+              }
+
+              private static void printPair(final String label, final XCom.Pair<Integer, String> p) {
+                  System.out.println(label + " = [" + p.first() + "] " + p.second());
+              }
+
+          } // class WDI_CITest
+          EOF
+
+      - name: Compile test driver against jxmake.jar
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          mkdir -p wdi_ci_out
+          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
+
+      - name: Run WindowsDriverInstaller test
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          "$JDK_UNIX_PATH/bin/java" \
+            --enable-native-access=ALL-UNNAMED -ea \
+            -Dwdi.backend="${{ inputs.backend }}" \
+            -Dwdi.mutating="${{ inputs.run_mutating }}" \
+            -cp "jxmake.jar;wdi_ci_out" \
+            WDI_CITest

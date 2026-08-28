@@ -343,6 +343,7 @@ public class Texts {
     public static final String EMsg_ProgExecInvlBackend     = _T("ProgExec:%s: invalid backend '%s'");
     public static final String EMsg_ProgExecInvlProgrammer  = _T("ProgExec:%s: invalid programmer '%s'");
     public static final String EMsg_ProgExecInvldCommand    = _T("ProgExec:%s: invalid command '%s'");
+    public static final String EMsg_ProgExecRWClassUnavail  = _T("ProgExec:%s: class '%s' is not available in this build (it requires Java %d or later)");
     public static final String EMsg_ProgExecMsgTimeSpeed    = _T(">>> %d bytes in %.3f seconds (%.3f bytes/second) <<<");
 
     public static final String EMsg_ProgExecMsgChipErase    = _T("Erasing Chip");

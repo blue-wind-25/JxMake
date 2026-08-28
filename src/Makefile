@@ -99,7 +99,7 @@ JDS_REL_21        := 21
 JDS_REL_25        := 25
 
 USE_JCS           := 0
-JDK_VER           := $(JDS_REL_8)
+JDK_VER           ?= $(JDS_REL_8)
 JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
@@ -166,7 +166,9 @@ endif
 
 ##### Exclude source code files that rely on the Foreign Function and Memory (FFM) API when
 ##### building with Java versions earlier than 25 (required by JavaDoesUSB, and by
-##### WindowsDriverInstaller_FFM) or if the required dependency JAR files are missing
+##### WindowsDriverInstaller_FFM) or if the required dependency JAR files are missing.
+##### NOTE: If this "25" threshold ever changes, also update `MinJavaVersion` in
+#####       `jxm/ugc/ProgExec_RW.java`, which reports this same requirement at runtime.
 ifeq ($(shell ( test "$(JAVA_MAJOR)" -lt 25 ) && echo true), true)
     ExcludeFFM      := ProgBootUSB ProgBootLUFAHID ProgBootAVRDFU ProgBootSTM32DFU WindowsDriverInstaller_FFM
     JAVA_CLASSES    := $(call filter_out_multi,$(ExcludeFFM),$(JAVA_CLASSES))

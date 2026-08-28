@@ -987,13 +987,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_STORE);
         certStoreInfo.set(PTR                 , 24, hMy                     );
 
-        // SIGNER_CERT : { DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8
-        // NOTE: unlike the other SIGNER_* structs above, this one has NO cbSize member - dwCertChoice is the
-        // first field, at offset 0. Writing a bogus cbSize there (as an earlier version of this code did) puts
-        // dwCertChoice's real value at offset 4 instead of 0, so SignerSignEx2 reads offset 0 (still whatever
-        // was written as "cbSize") as dwCertChoice - an invalid choice value - and fails with E_INVALIDARG.
+        // SIGNER_CERT : { DWORD cbSize; DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8
+        // VERIFIED against https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
+        // (see WindowsDriverInstaller_FFM-Win32API.txt) - this layout was already correct.
         final MemorySegment signerCert = arena.allocate(24, 8);
-        signerCert.set(ValueLayout.JAVA_INT,  0, SIGNER_CERT_STORE );
+        signerCert.set(ValueLayout.JAVA_INT,  0, 24                );
+        signerCert.set(ValueLayout.JAVA_INT,  4, SIGNER_CERT_STORE );
         signerCert.set(PTR                 ,  8, certStoreInfo     );
         signerCert.set(PTR                 , 16, MemorySegment.NULL);
 

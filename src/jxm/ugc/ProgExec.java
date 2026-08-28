@@ -88,71 +88,71 @@ public class ProgExec {
         { super.add( (value < 0) ? - 1 : (value & 0xFFFFFFFFL) ); }
     }
 
-    private       USB2GPIO            _usb2gpio          = null;
+    private       USB2GPIO             _usb2gpio          = null;
 
-    private       ProgISP             _isp               = null;
-    private       ProgTPI             _tpi               = null;
-    private       ProgUPDI            _updi              = null;
-    private       ProgPDI             _pdi               = null;
-    private       ProgLGT8            _lgt8              = null;
-    private       ProgSWIM            _swim              = null;
-    private       ProgSWD             _swd               = null;
-    private       ProgPIC             _pic               = null;
-    private       ProgJTAG            _jtag              = null;
+    private       ProgISP              _isp               = null;
+    private       ProgTPI              _tpi               = null;
+    private       ProgUPDI             _updi              = null;
+    private       ProgPDI              _pdi               = null;
+    private       ProgLGT8             _lgt8              = null;
+    private       ProgSWIM             _swim              = null;
+    private       ProgSWD              _swd               = null;
+    private       ProgPIC              _pic               = null;
+    private       ProgJTAG             _jtag              = null;
 
-    private       ProgBootAVR109      _avr109            = null;
-    private       ProgBootSTK500      _stk500            = null;
-    private       ProgBootSTK500v2    _stk500v2          = null;
-    private       ProgBootChip45      _chip45            = null;
-    private       ProgBootTSB         _tsb               = null;
-    private       ProgBootURCLOCK     _urclock           = null;
-    private       ProgBootSTM32Serial _stm32Ser          = null;
+    private       ProgBootAVR109       _avr109            = null;
+    private       ProgBootSTK500       _stk500            = null;
+    private       ProgBootSTK500v2     _stk500v2          = null;
+    private       ProgBootChip45       _chip45            = null;
+    private       ProgBootTSB          _tsb               = null;
+    private       ProgBootURCLOCK      _urclock           = null;
+    private       ProgBootSTM32Serial  _stm32Ser          = null;
     private       ProgExec_RW.STM32DFU _stm32DFU          = null;
     private       ProgExec_RW.LUFAHID  _lufaHID           = null;
-    private       ProgBootLUFAPrinter _lufaPRN           = null;
+    private       ProgBootLUFAPrinter  _lufaPRN           = null;
     private       ProgExec_RW.AVRDFU   _avrDFU            = null;
-    private       ProgBootOpenBLT     _oblt              = null;
-    private       ProgBootSAMBA       _samba             = null;
+    private       ProgBootOpenBLT      _oblt              = null;
+    private       ProgBootSAMBA        _samba             = null;
     private       ProgExec_RW.USBasp   _usbasp            = null;
 
-    private       String              _device            = null;
-    private       int                 _vid               = -1;
-    private       int                 _pid               = -1;
-    private       String              _serialNumber      = null;
-    private       int                 _speed             = -1;
-    private       int                 _magicBaudrate     = -1;
-    private       int[]               _mcuSig            = null;
-    private       int                 _rs485Address      = -1;
-    private       long                _extraAddress      = -1;
-    private       int                 _extraSize1        = -1;
-    private       int                 _extraSize2        = -1;
-    private       String              _extraName1        = null;
-    private       String              _extraName2        = null;
-    private       String              _curPassword       = null;
-    private       String              _newPassword       = null;
-    private       String              _userCBName        = null;
-    private       int[]               _u08Key            = null;
-    private       long[]              _u32Key            = null;
-    private       int                 _idxDefMultidropID = -1;
-    private       long[]              _multidropIDs      = null;
+    private       String               _device            = null;
+    private       int                  _vid               = -1;
+    private       int                  _pid               = -1;
+    private       String               _serialNumber      = null;
+    private       int                  _speed             = -1;
+    private       int                  _magicBaudrate     = -1;
+    private       int[]                _mcuSig            = null;
+    private       int                  _rs485Address      = -1;
+    private       long                 _extraAddress      = -1;
+    private       int                  _extraSize1        = -1;
+    private       int                  _extraSize2        = -1;
+    private       String               _extraName1        = null;
+    private       String               _extraName2        = null;
+    private       String               _curPassword       = null;
+    private       String               _newPassword       = null;
+    private       String               _userCBName        = null;
+    private       int[]                _u08Key            = null;
+    private       long[]               _u32Key            = null;
+    private       int                  _idxDefMultidropID = -1;
+    private       long[]               _multidropIDs      = null;
 
-    private       byte[]              _fwDataBuff        = null;
-    private       int                 _fwStartAddress    = 0;
-    private       int                 _fwLength          = 0;
+    private       byte[]               _fwDataBuff        = null;
+    private       int                  _fwStartAddress    = 0;
+    private       int                  _fwLength          = 0;
 
-    private       byte[]              _cfDataBuff        = null;
-    private       int                 _cfStartAddress    = 0;
-    private       int                 _cfLength          = 0;
+    private       byte[]               _cfDataBuff        = null;
+    private       int                  _cfStartAddress    = 0;
+    private       int                  _cfLength          = 0;
 
-    private       byte[]              _epDataBuff        = null;
-    private       int                 _epStartAddress    = 0;
-    private       int                 _epLength          = 0;
+    private       byte[]               _epDataBuff        = null;
+    private       int                  _epStartAddress    = 0;
+    private       int                  _epLength          = 0;
 
-    private       PrintStream         _printStream       = null;
-    private       IntConsumer         _progressCB        = null;
+    private       PrintStream          _printStream       = null;
+    private       IntConsumer          _progressCB        = null;
 
-    private       ExecMode            _execMode          = ExecMode.MultipleDone;
-    private final ResultBuffer        _resultBuffer      = new ResultBuffer();
+    private       ExecMode             _execMode          = ExecMode.MultipleDone;
+    private final ResultBuffer         _resultBuffer      = new ResultBuffer();
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -196,49 +196,49 @@ public class ProgExec {
                 try {
                     switch(progName) {
 
-                        case "ISP"         :                             return (String) method.invoke( null, ProgISP            .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "TPI"         :                             return (String) method.invoke( null, ProgTPI            .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "UPDI"        :                             return (String) method.invoke( null, ProgUPDI           .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "PDI"         :                             return (String) method.invoke( null, ProgPDI            .Config     .class.getMethod(ppStr[1]).invoke(null) );
+                        case "ISP"         :                             return (String) method.invoke( null, ProgISP             .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "TPI"         :                             return (String) method.invoke( null, ProgTPI             .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "UPDI"        :                             return (String) method.invoke( null, ProgUPDI            .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "PDI"         :                             return (String) method.invoke( null, ProgPDI             .Config       .class.getMethod(ppStr[1]).invoke(null) );
 
-                        case "LGT8"        :                             return (String) method.invoke( null, ProgLGT8           .Config     .class.getMethod(ppStr[1]).invoke(null) );
+                        case "LGT8"        :                             return (String) method.invoke( null, ProgLGT8            .Config       .class.getMethod(ppStr[1]).invoke(null) );
 
                         case "SWIM"        :
-                                 if( partName.startsWith("STM8S"  ) )    return (String) method.invoke( null, ProgSWIM           .ConfigSTM8S.class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("STM8AF" ) )    return (String) method.invoke( null, ProgSWIM           .ConfigSTM8S.class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("STM8L"  ) )    return (String) method.invoke( null, ProgSWIM           .ConfigSTM8L.class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("STM8AL" ) )    return (String) method.invoke( null, ProgSWIM           .ConfigSTM8L.class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("STM8T"  ) )    return (String) method.invoke( null, ProgSWIM           .ConfigSTM8L.class.getMethod(ppStr[1]).invoke(null) );
+                                 if( partName.startsWith("STM8S"  ) )    return (String) method.invoke( null, ProgSWIM            .ConfigSTM8S  .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("STM8AF" ) )    return (String) method.invoke( null, ProgSWIM            .ConfigSTM8S  .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("STM8L"  ) )    return (String) method.invoke( null, ProgSWIM            .ConfigSTM8L  .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("STM8AL" ) )    return (String) method.invoke( null, ProgSWIM            .ConfigSTM8L  .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("STM8T"  ) )    return (String) method.invoke( null, ProgSWIM            .ConfigSTM8L  .class.getMethod(ppStr[1]).invoke(null) );
                             else                                         break;
 
-                        case "SWD"         :                             return (String) method.invoke( null, ProgSWD            .Config     .class.getMethod(ppStr[1]).invoke(null) );
+                        case "SWD"         :                             return (String) method.invoke( null, ProgSWD             .Config       .class.getMethod(ppStr[1]).invoke(null) );
 
                         case "PIC"         :
-                                 if( partName.startsWith("PIC10"  ) )    return (String) method.invoke( null, ProgPIC16          .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("PIC12"  ) )    return (String) method.invoke( null, ProgPIC16          .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("PIC16"  ) )    return (String) method.invoke( null, ProgPIC16          .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("PIC18"  ) )    return (String) method.invoke( null, ProgPIC18          .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("PIC24"  ) )    return (String) method.invoke( null, ProgPIC24          .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("DSPIC30") )    return (String) method.invoke( null, ProgDSPIC30        .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                            else if( partName.startsWith("DSPIC33") )    return (String) method.invoke( null, ProgDSPIC33        .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                          //else if( partName.startsWith("PIC32M" ) )    return (String) method.invoke( null, ProgPIC32M         .Config     .class.getMethod(ppStr[1]).invoke(null) );
+                                 if( partName.startsWith("PIC10"  ) )    return (String) method.invoke( null, ProgPIC16           .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("PIC12"  ) )    return (String) method.invoke( null, ProgPIC16           .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("PIC16"  ) )    return (String) method.invoke( null, ProgPIC16           .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("PIC18"  ) )    return (String) method.invoke( null, ProgPIC18           .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("PIC24"  ) )    return (String) method.invoke( null, ProgPIC24           .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("DSPIC30") )    return (String) method.invoke( null, ProgDSPIC30         .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                            else if( partName.startsWith("DSPIC33") )    return (String) method.invoke( null, ProgDSPIC33         .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                          //else if( partName.startsWith("PIC32M" ) )    return (String) method.invoke( null, ProgPIC32M          .Config       .class.getMethod(ppStr[1]).invoke(null) );
                             else                                         break;
 
-                        case "AVR109"      :                             return (String) method.invoke( null, ProgBootAVR109     .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "STK500"      :                             return (String) method.invoke( null, ProgBootSTK500     .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "STK500V2"    :                             return (String) method.invoke( null, ProgBootSTK500v2   .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "CHIP45"      :                             return (String) method.invoke( null, ProgBootChip45     .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "TSB"         :                             return (String) method.invoke( null, ProgBootTSB        .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "URCLOCK"     :                             return (String) method.invoke( null, ProgBootURCLOCK    .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "STM32SERIAL" :                             return (String) method.invoke( null, ProgBootSTM32Serial.Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "STM32DFU"    :                             return (String) method.invoke( null, ProgExec_RW.STM32DFU.configClass()                .getMethod(ppStr[1]).invoke(null) );
-                        case "LUFAHID"     :                             return (String) method.invoke( null, ProgExec_RW.LUFAHID .configClass()                .getMethod(ppStr[1]).invoke(null) );
-                        case "AVRDFU"      :                             return (String) method.invoke( null, ProgExec_RW.AVRDFU  .configClass()                .getMethod(ppStr[1]).invoke(null) );
-                        case "OPENBLT"     :                             return (String) method.invoke( null, ProgBootOpenBLT    .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "SAMBA"       :                             return (String) method.invoke( null, ProgBootSAMBA      .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "USBASP"      :                             return (String) method.invoke( null, ProgExec_RW.USBasp  .configClass()                .getMethod(ppStr[1]).invoke(null) );
+                        case "AVR109"      :                             return (String) method.invoke( null, ProgBootAVR109      .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "STK500"      :                             return (String) method.invoke( null, ProgBootSTK500      .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "STK500V2"    :                             return (String) method.invoke( null, ProgBootSTK500v2    .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "CHIP45"      :                             return (String) method.invoke( null, ProgBootChip45      .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "TSB"         :                             return (String) method.invoke( null, ProgBootTSB         .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "URCLOCK"     :                             return (String) method.invoke( null, ProgBootURCLOCK     .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "STM32SERIAL" :                             return (String) method.invoke( null, ProgBootSTM32Serial .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "STM32DFU"    :                             return (String) method.invoke( null, ProgExec_RW.STM32DFU.configClass()      .getMethod(ppStr[1]).invoke(null) );
+                        case "LUFAHID"     :                             return (String) method.invoke( null, ProgExec_RW.LUFAHID .configClass()      .getMethod(ppStr[1]).invoke(null) );
+                        case "AVRDFU"      :                             return (String) method.invoke( null, ProgExec_RW.AVRDFU  .configClass()      .getMethod(ppStr[1]).invoke(null) );
+                        case "OPENBLT"     :                             return (String) method.invoke( null, ProgBootOpenBLT     .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "SAMBA"       :                             return (String) method.invoke( null, ProgBootSAMBA       .Config       .class.getMethod(ppStr[1]).invoke(null) );
+                        case "USBASP"      :                             return (String) method.invoke( null, ProgExec_RW.USBasp  .configClass()      .getMethod(ppStr[1]).invoke(null) );
 
-                        default            :                             return (String) method.invoke( null, Class.forName(ppStr[0])              .getMethod(ppStr[1]).invoke(null) );
+                        default            :                             return (String) method.invoke( null, Class.forName(ppStr[0])                 .getMethod(ppStr[1]).invoke(null) );
 
                     } // switch
                 }
@@ -285,12 +285,12 @@ public class ProgExec {
             case "TSB"         : return (String) method.invoke( null, new ProgBootTSB        .Config     ()                               );
             case "URCLOCK"     : return (String) method.invoke( null, new ProgBootURCLOCK    .Config     ()                               );
             case "STM32SERIAL" : return (String) method.invoke( null, new ProgBootSTM32Serial.Config     ()                               );
-            case "STM32DFU"    : return (String) method.invoke( null, ProgExec_RW.STM32DFU.newConfig()                                     );
-            case "LUFAHID"     : return (String) method.invoke( null, ProgExec_RW.LUFAHID .newConfig()                                     );
-            case "AVRDFU"      : return (String) method.invoke( null, ProgExec_RW.AVRDFU  .newConfig()                                     );
+            case "STM32DFU"    : return (String) method.invoke( null, ProgExec_RW.STM32DFU   .newConfig  ()                               );
+            case "LUFAHID"     : return (String) method.invoke( null, ProgExec_RW.LUFAHID    .newConfig  ()                               );
+            case "AVRDFU"      : return (String) method.invoke( null, ProgExec_RW.AVRDFU     .newConfig  ()                               );
             case "OPENBLT"     : return (String) method.invoke( null, new ProgBootOpenBLT    .Config     ()                               );
             case "SAMBA"       : return (String) method.invoke( null, new ProgBootSAMBA      .Config     ()                               );
-            case "USBASP"      : return (String) method.invoke( null, ProgExec_RW.USBasp  .newConfig()                                     );
+            case "USBASP"      : return (String) method.invoke( null, ProgExec_RW.USBasp     .newConfig  ()                               );
 
             default            : return (String) method.invoke( null, Class.forName(configName).getDeclaredConstructor().newInstance()    );
 
@@ -350,43 +350,43 @@ public class ProgExec {
         switch( XCom.re_replaceMultipleWhitespacesAndDash(programmerSpec[0], "").toUpperCase() ) {
 
             case "PROGISP":
-                    _isp               = new ProgISP         ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgISP         .Config.class)                );
+                    _isp               = new ProgISP            ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgISP              .Config.class  )                );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGTPI":
-                    _tpi               = new ProgTPI         ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgTPI         .Config.class)                );
+                    _tpi               = new ProgTPI            ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgTPI              .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGUPDI":
-                    _updi              = new ProgUPDI        ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgUPDI        .Config.class)                );
+                    _updi              = new ProgUPDI           ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgUPDI             .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGPDI":
-                    _pdi               = new ProgPDI         ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgPDI         .Config.class)                );
+                    _pdi               = new ProgPDI            ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgPDI              .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGLGT8":
-                    _lgt8              = new ProgLGT8        ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgLGT8        .Config.class)                );
+                    _lgt8              = new ProgLGT8           ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgLGT8             .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]); // ---
                 break;
 
             case "PROGSWIM":
-                    _swim              = new ProgSWIM        ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgSWIM        .Config.class)                );
+                    _swim              = new ProgSWIM           ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgSWIM             .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]); // ---
                 break;
 
             case "PROGSWD":
-                    _swd               = new ProgSWD         ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgSWD         .Config.class)                );
+                    _swd               = new ProgSWD            ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgSWD              .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 if(programmerSpec.length > 4) {
@@ -399,38 +399,38 @@ public class ProgExec {
             case "PROGPIC10": /* FALLTHROUGH */
             case "PROGPIC12": /* FALLTHROUGH */
             case "PROGPIC16":
-                    _pic               = new ProgPIC16       ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgPIC16       .Config.class)                    );
+                    _pic               = new ProgPIC16          ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgPIC16            .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGPIC18":
-                    _pic               = new ProgPIC18       ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgPIC18       .Config.class)                    );
+                    _pic               = new ProgPIC18          ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgPIC18            .Config.class  )                   );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGPIC24":
-                    _pic               = new ProgPIC24       ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgPIC24       .Config.class)                    );
+                    _pic               = new ProgPIC24          ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgPIC24            .Config.class  )                    );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGDSPIC30":
-                    _pic               = new ProgDSPIC30        ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgDSPIC30     .Config.class)                    );
+                    _pic               = new ProgDSPIC30        ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgDSPIC30          .Config.class  )                    );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGDSPIC33":
-                    _pic               = new ProgDSPIC33        ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgDSPIC33     .Config.class)                    );
+                    _pic               = new ProgDSPIC33        ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgDSPIC33          .Config.class  )                    );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             /*
             case "PROGPIC32M":
-                    _pic               = new ProgPIC32M         ( _usb2gpio, SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgPIC32M      .Config.class)                    );
+                    _pic               = new ProgPIC32M         ( _usb2gpio, SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgPIC32M           .Config.class  )                    );
                     _device            =                 programmerSpec[2] ; // NOTE : This parameter is not actually used by this programmer
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
@@ -443,34 +443,34 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTAVR109":
-                    _avr109            = new ProgBootAVR109     (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootAVR109     .Config.class)                    );
+                    _avr109            = new ProgBootAVR109     (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootAVR109       .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _magicBaudrate     = Integer.valueOf(programmerSpec[3]);
                     if(_magicBaudrate < 0) _magicBaudrate = ProgBootAVR109.DefMagicBaudrate;
                 break;
 
             case "PROGBOOTSTK500":
-                    _stk500            = new ProgBootSTK500     (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootSTK500     .Config.class)                    );
+                    _stk500            = new ProgBootSTK500     (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootSTK500       .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGBOOTSTK500V2":
-                    _stk500v2          = new ProgBootSTK500v2   (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootSTK500v2   .Config.class)                    );
+                    _stk500v2          = new ProgBootSTK500v2   (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootSTK500v2     .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGBOOTCHIP45B2":
                     _rs485Address      = Integer.decode (programmerSpec[4]);
-                    _chip45            = new ProgBootChip45B2   (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootChip45B2   .Config.class), _rs485Address > 0 );
+                    _chip45            = new ProgBootChip45B2   (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootChip45B2     .Config.class  ), _rs485Address > 0 );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGBOOTCHIP45B3":
                     _rs485Address      = Integer.decode (programmerSpec[4]);
-                    _chip45            = new ProgBootChip45B3   (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootChip45B3   .Config.class), _rs485Address     );
+                    _chip45            = new ProgBootChip45B3   (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootChip45B3     .Config.class  ), _rs485Address     );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 if(programmerSpec.length > 5) {
@@ -480,7 +480,7 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTTSB":
-                    _tsb               = new ProgBootTSB        (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootTSB        .Config.class)                    );
+                    _tsb               = new ProgBootTSB        (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootTSB          .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 if(programmerSpec.length > 4) {
@@ -492,20 +492,20 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTURCLOCK":
-                    _urclock           = new ProgBootURCLOCK    (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootURCLOCK    .Config.class)                    );
+                    _urclock           = new ProgBootURCLOCK    (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootURCLOCK      .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                 break;
 
             case "PROGBOOTSTM32SERIAL":
-                    _stm32Ser          = new ProgBootSTM32Serial(            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootSTM32Serial.Config.class)                    );
+                    _stm32Ser          = new ProgBootSTM32Serial(            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootSTM32Serial  .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                     _extraAddress      = Long   .decode (programmerSpec[4]);
                 break;
 
             case "PROGBOOTSTM32DFU":
-                    _stm32DFU          = new ProgExec_RW.STM32DFU(            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.STM32DFU.configClass())                    );
+                    _stm32DFU          = new ProgExec_RW.STM32DFU(            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgExec_RW.STM32DFU.configClass() )                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }
@@ -518,7 +518,7 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTLUFAHID":
-                    _lufaHID           = new ProgExec_RW.LUFAHID (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.LUFAHID .configClass())                    );
+                    _lufaHID           = new ProgExec_RW.LUFAHID (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgExec_RW.LUFAHID .configClass() )                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }
@@ -531,12 +531,12 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTLUFAPRINTER":
-                    _lufaPRN           = new ProgBootLUFAPrinter(                                                                                                                       );
+                    _lufaPRN           = new ProgBootLUFAPrinter(                                                                                                                            );
                     _device            = programmerSpec[1] ;
                 break;
 
             case "PROGBOOTAVRDFU":
-                    _avrDFU            = new ProgExec_RW.AVRDFU  (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.AVRDFU  .configClass())                    );
+                    _avrDFU            = new ProgExec_RW.AVRDFU (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgExec_RW.AVRDFU   .configClass() )                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }
@@ -549,7 +549,7 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTOPENBLT":
-                    _oblt              = new ProgBootOpenBLT    (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootOpenBLT    .Config.class)                    );
+                    _oblt              = new ProgBootOpenBLT    (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootOpenBLT      .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                     _extraAddress      = Long   .decode (programmerSpec[4]);
@@ -567,7 +567,7 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTSAMBA":
-                    _samba             = new ProgBootSAMBA      (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootSAMBA      .Config.class)                    );
+                    _samba             = new ProgBootSAMBA      (            SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgBootSAMBA        .Config.class  )                    );
                     _device            =                 programmerSpec[2] ;
                     _speed             = Integer.valueOf(programmerSpec[3]);
                     _magicBaudrate     = Integer.valueOf(programmerSpec[4]);
@@ -575,7 +575,7 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTUSBASP":
-                    _usbasp            = new ProgExec_RW.USBasp  (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.USBasp  .configClass())                    );
+                    _usbasp            = new ProgExec_RW.USBasp  (           SerializableDeepClone.fromPSpecStr( programmerSpec[1], ProgExec_RW.USBasp   .configClass() )                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }

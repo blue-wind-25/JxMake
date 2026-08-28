@@ -239,7 +239,9 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // in the outer/unelevated scope where they are undefined) and why the Start-Process/-ArgumentList
                 // continuation backticks below must have no trailing whitespace before the line break.
                 "    $script = \"                                                                          \r\n" +
-                "        `$cert = Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { `$_.Subject -like '*CN=%s*' } | Select-Object -First 1;\r\n" +
+                "        `$cert = Get-ChildItem Cert:\\CurrentUser\\My |                                    \r\n" +
+                "            Where-Object { `$_.Subject -like '*CN=%s*' } |                                 \r\n" +
+                "            Select-Object -First 1;                                                        \r\n" +
                 "        if(-not `$cert) { throw 'Certificate not found' };                                \r\n" +
                 "        New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;             \r\n" +
                 "        Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 | Out-File `\"$tmpOutLog`\"; \r\n" +

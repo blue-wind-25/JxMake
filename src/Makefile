@@ -67,15 +67,15 @@ ALL_VENDOR_JARS   := $(ANSI_JAR) $(SERIALCOMM_JAR) $(ZSTD_JAR) $(RSTEXT_JARS) $(
 
 _SPACE_           :=
 _SPACE_           +=
-# On Windows, ':' collides with the drive-letter colon in absolute paths (e.g. `D:/a/...`), so the JVM classpath
+# On Windows, `:` collides with the drive-letter colon in absolute paths (e.g. `D:/a/...`), so the JVM classpath
 # separator must be `;` there instead of the Linux/macOS `:`
 CP_SEP            := $(if $(filter Windows_NT,$(OS)),;,:)
 CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(CUSTOM_JARS_DIR)/,$(JGIT_JARS))),)
 CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
 CP_ALL            := $(CP_CUSTOM)$(CP_VENDOR)
 
-# Quoted because the Windows separator ';' is also a shell command separator - unquoted,
-# the shell would split the classpath into multiple commands at each ';'
+# Quoted because the Windows separator `;` is also a shell command separator - unquoted, the shell would split
+# the classpath into multiple commands at each `;`
 CP_COMPILE        := -cp ".$(CP_ALL)"
 CP_RUN            := -cp ".$(CP_ALL)"
 CP_JDS            := --class-path ".$(CP_ALL)"

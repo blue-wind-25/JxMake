@@ -293,6 +293,11 @@ public class Preprocessor extends PreprocessorHooks {
     protected Iterable<List<LexToken>> group_lines(String input, String abssource)
     {
         CppLexer lex = lexer.clone();
+        // Normalize all line-ending styles (CRLF, lone CR, LF) to a single LF up front, so a stray '\r'
+        // never reaches the lexer as an unrecognized token (it previously broke parsing of zero-argument
+        // object-like macros, e.g. "#define __NONE__\r\n", since the lone '\r' left after splitting on
+        // '\n' alone was neither whitespace nor '(' to the macro-definition parser)
+        input = input.replace("\r\n", "\n").replace("\r", "\n");
         // Strip trailing whitespace from each line (mirrors [x.rstrip() for x in input.splitlines()])
         String[]      rawLines = input.split("\n", -1);
         StringBuilder sb       = new StringBuilder();

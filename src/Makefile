@@ -67,8 +67,11 @@ ALL_VENDOR_JARS   := $(ANSI_JAR) $(SERIALCOMM_JAR) $(ZSTD_JAR) $(RSTEXT_JARS) $(
 
 _SPACE_           :=
 _SPACE_           +=
-CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),:$(subst $(_SPACE_),:,$(addprefix $(CUSTOM_JARS_DIR)/,$(JGIT_JARS))),)
-CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),:$(subst $(_SPACE_),:,$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
+# On Windows, ':' collides with the drive-letter colon in absolute paths (e.g. 'D:/a/...'),
+# so the JVM classpath separator must be ';' there instead of the Linux/macOS ':'
+CP_SEP            := $(if $(filter Windows_NT,$(OS)),;,:)
+CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(CUSTOM_JARS_DIR)/,$(JGIT_JARS))),)
+CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
 CP_ALL            := $(CP_CUSTOM)$(CP_VENDOR)
 
 CP_COMPILE        := -cp .$(CP_ALL)
@@ -105,7 +108,9 @@ JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
 
 JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) $(CP_COMPILE),$(JPATH)/bin/javac $(CP_COMPILE))
-JVM               := $(if $(wildcard $(JPATH)/bin/java),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN)
+# On Windows the executable is 'java.exe', not 'java' - check both so JAVA_MAJOR
+# detection below doesn't silently fall through to a nonexistent jre/bin/java path
+JVM               := $(if $(wildcard $(JPATH)/bin/java $(JPATH)/bin/java.exe),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN)
 JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_11),$(JDS_PATH_$(JDK_VER)))
 JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_25),$(JDS_PATH_25))
 JFLAGS            := -g -Xmaxerrs 5 -Xmaxwarns 5 -Werror -Xlint:all

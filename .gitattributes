@@ -1,0 +1,5 @@
+* text=auto
+
+*.java     text eol=lf
+*.java.in  text eol=lf
+*.java.inc text eol=lf

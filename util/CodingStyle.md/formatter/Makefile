@@ -1,6 +1,9 @@
 #
 # Makefile for formatter
 #
+# This file is distributed under the Apache License, Version 2.0.
+# See the LICENSE_APACHEv2.txt file in the project root directory for the full license text.
+#
 
 JAVAC        ?= javac
 JAR          ?= jar

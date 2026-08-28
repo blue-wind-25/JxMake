@@ -115,7 +115,7 @@ JDS_REL_17        := 17
 JDS_REL_21        := 21
 JDS_REL_25        := 25
 
-USE_JCS           := 0
+USE_JCS           := 1
 JDK_VER           ?= $(JDS_REL_8)
 JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))

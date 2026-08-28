@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
+
+#####
+##### Copyright (C) 2022-2026 Aloysius Indrayanto
+#####
+##### This file is part of the JxMake program, see LICENSE file for the license details.
+#####
+
 # cp_run.sh
 # Runs a java/javac-family tool with a classpath assembled from individual
 # entries, instead of a single pre-joined ':'/';'-separated string.
@@ -18,11 +25,14 @@
 # Everything before "-cp" and everything after "--" are passed through to
 # <tool> unchanged; everything between "-cp" and "--" is joined with the
 # platform classpath separator and passed as a single "-cp" argument.
+
 set -euo pipefail
 
 SEP=":"
 case "$(uname -s)" in
-    MINGW*|MSYS*|CYGWIN*) SEP=";" ;;
+MINGW* | MSYS* | CYGWIN*)
+    SEP=";"
+    ;;
 esac
 
 TOOL_ARGS_PRE=()
@@ -32,15 +42,15 @@ STATE=pre
 
 for ARG in "$@"; do
     case "$STATE" in
-        pre)
+    pre)
             if [ "$ARG" = "-cp" ]; then STATE=cp; else TOOL_ARGS_PRE+=("$ARG"); fi
-            ;;
-        cp)
+        ;;
+    cp)
             if [ "$ARG" = "--" ]; then STATE=post; else CP_ENTRIES+=("$ARG"); fi
-            ;;
-        post)
+        ;;
+    post)
             TOOL_ARGS_POST+=("$ARG")
-            ;;
+        ;;
     esac
 done
 

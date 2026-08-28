@@ -96,6 +96,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CertStrToNameW;
     private static MethodHandle _CertCreateSelfSignCertificate;
     private static MethodHandle _CertAddCertificateContextToStore;
+    private static MethodHandle _CertGetCertificateContextProperty;
     private static MethodHandle _CryptEncodeObjectEx;
     private static MethodHandle _CryptSIPRetrieveSubjectGuid;
     private static MethodHandle _LocalFree;
@@ -150,6 +151,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CertStrToNameW                   = _bind( linker, crypt32, "CertStrToNameW"                  , FunctionDescriptor.of(DW , DW, PTR, DW, PTR, PTR, PTR, PTR) );
             _CertCreateSelfSignCertificate    = _bind( linker, crypt32, "CertCreateSelfSignCertificate"   , FunctionDescriptor.of(PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR) );
             _CertAddCertificateContextToStore = _bind( linker, crypt32, "CertAddCertificateContextToStore", FunctionDescriptor.of(DW , PTR, PTR, DW, PTR) );
+            _CertGetCertificateContextProperty = _bind( linker, crypt32, "CertGetCertificateContextProperty", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR) );
             _CryptEncodeObjectEx              = _bind( linker, crypt32, "CryptEncodeObjectEx"             , FunctionDescriptor.of(DW , DW, PTR, PTR, DW, PTR, PTR, PTR) );
             _CryptSIPRetrieveSubjectGuid      = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"     , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
 
@@ -253,6 +255,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int  PKCS_7_ASN_ENCODING              = 0x00010000;
     private static final int  CRYPT_ASN_ENCODING               = X509_ASN_ENCODING | PKCS_7_ASN_ENCODING;
     private static final int  CERT_FIND_SUBJECT_STR_W          = (8 << 16) | 7;
+    private static final int  CERT_KEY_PROV_INFO_PROP_ID       = 2;
     private static final int  CERT_STORE_ADD_REPLACE_EXISTING  = 3;
 
     // NOTE : isProviderAlreadyTrusted () is the only operation that does not require elevation
@@ -940,6 +943,21 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 if(signingCert == null || signingCert.address() == 0L) {
                     log.append("Signing certificate not found in CurrentUser\\My");
                     return RETCODE_EXCEPTION;
+                }
+
+                // Diagnostic only: SignerSignEx2 needs the store-copied cert context to still carry the
+                // CERT_KEY_PROV_INFO_PROP_ID property linking it back to the CNG-persisted private key
+                // (set by CertCreateSelfSignCertificate, and expected to be copied along by
+                // CertAddCertificateContextToStore) - log whether that property actually survived the
+                // round trip through the store, to help narrow down the still-unresolved E_INVALIDARG below.
+                {
+                    final MemorySegment cbKeyProvInfo = arena.allocate(ValueLayout.JAVA_INT);
+                    final boolean hasKeyProvInfo = (int) _CertGetCertificateContextProperty.invoke(
+                        signingCert, CERT_KEY_PROV_INFO_PROP_ID, MemorySegment.NULL, cbKeyProvInfo
+                    ) != 0;
+                    log.append("signingCert has CERT_KEY_PROV_INFO_PROP_ID=").append(hasKeyProvInfo);
+                    if(!hasKeyProvInfo) log.append(" (GetLastError=").append( _lastError() ).append(')');
+                    log.append('\n');
                 }
 
                 try {

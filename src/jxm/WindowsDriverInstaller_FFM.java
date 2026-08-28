@@ -977,6 +977,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int SIGNER_SUBJECT_FILE       = 1;
     private static final int SIGNER_CERT_STORE         = 2;
     private static final int SIGNER_CERT_POLICY_STORE  = 0x1;
+    private static final int SIGNER_CERT_POLICY_CHAIN  = 0x2;
     private static final int SIGNER_NO_ATTR            = 0;
     private static final int CALG_SHA_256              = 0x0000800c;
 
@@ -1001,17 +1002,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // SIGNER_CERT_STORE_INFO : { DWORD cbSize; PCCERT_CONTEXT pSigningCert; DWORD dwCertPolicy; HCERTSTORE hCertStore; } - size 32, align 8
         //
         // EXPERIMENT (root cause of SignerSignEx2 E_INVALIDARG still unconfirmed - see
-        // WindowsDriverInstaller_FFM-Win32API.txt): per Microsoft's docs, SIGNER_CERT_POLICY_STORE
-        // means "add ALL certificates in the store specified by hCertStore" - previously this passed
-        // hMy (all of CurrentUser\My) even though pSigningCert alone already fully identifies the
-        // certificate to sign with, and hCertStore is documented as optional. Dropping hCertStore/the
-        // STORE policy (dwCertPolicy=0, hCertStore=NULL) to test whether the store-wide enumeration
-        // was the actual source of the invalid argument. If the next CI run still fails, revert this
-        // and update the doc's open-investigation note with this ruled-out hypothesis too.
+        // WindowsDriverInstaller_FFM-Win32API.txt): dwCertPolicy=0 (the previous value here, tried
+        // after ruling out SIGNER_CERT_POLICY_STORE with an hCertStore handle) is not one of the
+        // documented SIGNER_CERT_POLICY_* values (STORE=1, CHAIN=2, CHAIN_NO_ROOT=8) - Microsoft's
+        // docs give no indication 0 is an accepted policy value on its own. Switching to
+        // SIGNER_CERT_POLICY_CHAIN (build the signature's certificate list from pSigningCert's chain,
+        // which needs no hCertStore since chain-building already checks MY/CA/ROOT/SPC) to test
+        // whether the unrecognized policy value was the actual source of the invalid argument. If the
+        // next CI run still fails, update the doc's open-investigation note with this ruled-out
+        // hypothesis too.
         final MemorySegment certStoreInfo = arena.allocate(32, 8);
         certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                );
         certStoreInfo.set(PTR                 ,  8, signingCert       );
-        certStoreInfo.set(ValueLayout.JAVA_INT, 16, 0                 );
+        certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_CHAIN);
         certStoreInfo.set(PTR                 , 24, MemorySegment.NULL);
 
         // SIGNER_CERT : { DWORD cbSize; DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8

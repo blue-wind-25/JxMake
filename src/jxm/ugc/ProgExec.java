@@ -107,19 +107,13 @@ public class ProgExec {
     private       ProgBootTSB         _tsb               = null;
     private       ProgBootURCLOCK     _urclock           = null;
     private       ProgBootSTM32Serial _stm32Ser          = null;
-    /* ##### !!! TODO !!! #####
-    private       ProgBootSTM32DFU    _stm32DFU          = null;
-    private       ProgBootLUFAHID     _lufaHID           = null;
-    //*/
+    private       ProgExec_RW.STM32DFU _stm32DFU          = null;
+    private       ProgExec_RW.LUFAHID  _lufaHID           = null;
     private       ProgBootLUFAPrinter _lufaPRN           = null;
-    /* ##### !!! TODO !!! #####
-    private       ProgBootAVRDFU      _avrDFU            = null;
-    //*/
+    private       ProgExec_RW.AVRDFU   _avrDFU            = null;
     private       ProgBootOpenBLT     _oblt              = null;
     private       ProgBootSAMBA       _samba             = null;
-    /* ##### !!! TODO !!! #####
-    private       ProgBootUSBasp      _usbasp            = null;
-    //*/
+    private       ProgExec_RW.USBasp   _usbasp            = null;
 
     private       String              _device            = null;
     private       int                 _vid               = -1;
@@ -237,16 +231,12 @@ public class ProgExec {
                         case "TSB"         :                             return (String) method.invoke( null, ProgBootTSB        .Config     .class.getMethod(ppStr[1]).invoke(null) );
                         case "URCLOCK"     :                             return (String) method.invoke( null, ProgBootURCLOCK    .Config     .class.getMethod(ppStr[1]).invoke(null) );
                         case "STM32SERIAL" :                             return (String) method.invoke( null, ProgBootSTM32Serial.Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        /* ##### !!! TODO !!! #####
-                        case "STM32DFU"    :                             return (String) method.invoke( null, ProgBootSTM32DFU   .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "LUFAHID"     :                             return (String) method.invoke( null, ProgBootLUFAHID    .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        case "AVRDFU"      :                             return (String) method.invoke( null, ProgBootAVRDFU     .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        //*/
+                        case "STM32DFU"    :                             return (String) method.invoke( null, ProgExec_RW.STM32DFU.configClass()                .getMethod(ppStr[1]).invoke(null) );
+                        case "LUFAHID"     :                             return (String) method.invoke( null, ProgExec_RW.LUFAHID .configClass()                .getMethod(ppStr[1]).invoke(null) );
+                        case "AVRDFU"      :                             return (String) method.invoke( null, ProgExec_RW.AVRDFU  .configClass()                .getMethod(ppStr[1]).invoke(null) );
                         case "OPENBLT"     :                             return (String) method.invoke( null, ProgBootOpenBLT    .Config     .class.getMethod(ppStr[1]).invoke(null) );
                         case "SAMBA"       :                             return (String) method.invoke( null, ProgBootSAMBA      .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        /* ##### !!! TODO !!! #####
-                        case "USBASP"      :                             return (String) method.invoke( null, ProgBootUSBasp     .Config     .class.getMethod(ppStr[1]).invoke(null) );
-                        //*/
+                        case "USBASP"      :                             return (String) method.invoke( null, ProgExec_RW.USBasp  .configClass()                .getMethod(ppStr[1]).invoke(null) );
 
                         default            :                             return (String) method.invoke( null, Class.forName(ppStr[0])              .getMethod(ppStr[1]).invoke(null) );
 
@@ -295,16 +285,12 @@ public class ProgExec {
             case "TSB"         : return (String) method.invoke( null, new ProgBootTSB        .Config     ()                               );
             case "URCLOCK"     : return (String) method.invoke( null, new ProgBootURCLOCK    .Config     ()                               );
             case "STM32SERIAL" : return (String) method.invoke( null, new ProgBootSTM32Serial.Config     ()                               );
-            /* ##### !!! TODO !!! #####
-            case "STM32DFU"    : return (String) method.invoke( null, new ProgBootSTM32DFU   .Config     ()                               );
-            case "LUFAHID"     : return (String) method.invoke( null, new ProgBootLUFAHID    .Config     ()                               );
-            case "AVRDFU"      : return (String) method.invoke( null, new ProgBootAVRDFU     .Config     ()                               );
-            //*/
+            case "STM32DFU"    : return (String) method.invoke( null, ProgExec_RW.STM32DFU.newConfig()                                     );
+            case "LUFAHID"     : return (String) method.invoke( null, ProgExec_RW.LUFAHID .newConfig()                                     );
+            case "AVRDFU"      : return (String) method.invoke( null, ProgExec_RW.AVRDFU  .newConfig()                                     );
             case "OPENBLT"     : return (String) method.invoke( null, new ProgBootOpenBLT    .Config     ()                               );
             case "SAMBA"       : return (String) method.invoke( null, new ProgBootSAMBA      .Config     ()                               );
-            /* ##### !!! TODO !!! #####
-            case "USBASP"      : return (String) method.invoke( null, new ProgBootUSBasp     .Config     ()                               );
-            //*/
+            case "USBASP"      : return (String) method.invoke( null, ProgExec_RW.USBasp  .newConfig()                                     );
 
             default            : return (String) method.invoke( null, Class.forName(configName).getDeclaredConstructor().newInstance()    );
 
@@ -518,9 +504,8 @@ public class ProgExec {
                     _extraAddress      = Long   .decode (programmerSpec[4]);
                 break;
 
-            /* ##### !!! TODO !!! #####
             case "PROGBOOTSTM32DFU":
-                    _stm32DFU          = new ProgBootSTM32DFU   (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootSTM32DFU   .Config.class)                    );
+                    _stm32DFU          = new ProgExec_RW.STM32DFU(            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.STM32DFU.configClass())                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }
@@ -533,7 +518,7 @@ public class ProgExec {
                 break;
 
             case "PROGBOOTLUFAHID":
-                    _lufaHID           = new ProgBootLUFAHID    (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootLUFAHID    .Config.class)                    );
+                    _lufaHID           = new ProgExec_RW.LUFAHID (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.LUFAHID .configClass())                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }
@@ -544,16 +529,14 @@ public class ProgExec {
                     _serialNumber      =                 programmerSpec[4] ;
                 }
                 break;
-            //*/
 
             case "PROGBOOTLUFAPRINTER":
                     _lufaPRN           = new ProgBootLUFAPrinter(                                                                                                                       );
                     _device            = programmerSpec[1] ;
                 break;
 
-            /* ##### !!! TODO !!! #####
             case "PROGBOOTAVRDFU":
-                    _avrDFU            = new ProgBootAVRDFU     (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootAVRDFU     .Config.class)                    );
+                    _avrDFU            = new ProgExec_RW.AVRDFU  (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.AVRDFU  .configClass())                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }
@@ -564,7 +547,6 @@ public class ProgExec {
                     _serialNumber      =                 programmerSpec[4] ;
                 }
                 break;
-            //*/
 
             case "PROGBOOTOPENBLT":
                     _oblt              = new ProgBootOpenBLT    (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootOpenBLT    .Config.class)                    );
@@ -592,9 +574,8 @@ public class ProgExec {
                     if(_magicBaudrate < 0) _magicBaudrate = ProgBootSAMBA.DefMagicBaudrate;
                 break;
 
-            /* ##### !!! TODO !!! #####
             case "PROGBOOTUSBASP":
-                    _usbasp            = new ProgBootUSBasp     (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgBootUSBasp     .Config.class)                    );
+                    _usbasp            = new ProgExec_RW.USBasp  (            SerializableDeepClone.fromPSpecStr(programmerSpec[1], ProgExec_RW.USBasp  .configClass())                    );
                 if(programmerSpec.length > 2) {
                     _vid               = Integer.decode (programmerSpec[2]);
                 }
@@ -611,7 +592,6 @@ public class ProgExec {
                     _serialNumber      =                 programmerSpec[6] ;
                 }
                 break;
-            //*/
 
             default:
                 throw XCom.newJXMRuntimeError(Texts.EMsg_ProgExecInvlProgrammer, FuncName, programmerSpec[0]);
@@ -659,19 +639,13 @@ public class ProgExec {
         else if(_tsb      != null) return _tsb     ._flashMemoryTotalSize();
         else if(_urclock  != null) return _urclock ._flashMemoryTotalSize();
         else if(_stm32Ser != null) return _stm32Ser._flashMemoryTotalSize();
-        /* ##### !!! TODO !!! #####
         else if(_stm32DFU != null) return _stm32DFU._flashMemoryTotalSize();
         else if(_lufaHID  != null) return _lufaHID ._flashMemoryTotalSize();
-        //*/
         else if(_lufaPRN  != null) return _lufaPRN ._flashMemoryTotalSize();
-        /* ##### !!! TODO !!! #####
         else if(_avrDFU   != null) return _avrDFU  ._flashMemoryTotalSize();
-        //*/
         else if(_oblt     != null) return _oblt    ._flashMemoryTotalSize();
         else if(_samba    != null) return _samba   ._flashMemoryTotalSize();
-        /* ##### !!! TODO !!! #####
         else if(_usbasp   != null) return _usbasp  ._flashMemoryTotalSize();
-        //*/
         else                       throw XCom.newJXMFatalLogicError(Texts.EMsg_ProgExecError, "flashMemoryTotalSize", "_flashMemoryTotalSize???");
     }
 
@@ -692,19 +666,13 @@ public class ProgExec {
         else if(_tsb      != null) return _tsb     ._flashMemoryEmptyValue();
         else if(_urclock  != null) return _urclock ._flashMemoryEmptyValue();
         else if(_stm32Ser != null) return _stm32Ser._flashMemoryEmptyValue();
-        /* ##### !!! TODO !!! #####
         else if(_stm32DFU != null) return _stm32DFU._flashMemoryEmptyValue();
         else if(_lufaHID  != null) return _lufaHID ._flashMemoryEmptyValue();
-        //*/
         else if(_lufaPRN  != null) return _lufaPRN ._flashMemoryEmptyValue();
-        /* ##### !!! TODO !!! #####
         else if(_avrDFU   != null) return _avrDFU  ._flashMemoryEmptyValue();
-        //*/
         else if(_oblt     != null) return _oblt    ._flashMemoryEmptyValue();
         else if(_samba    != null) return _samba   ._flashMemoryEmptyValue();
-        /* ##### !!! TODO !!! #####
         else if(_usbasp   != null) return _usbasp  ._flashMemoryEmptyValue();
-        //*/
         else                       throw XCom.newJXMFatalLogicError(Texts.EMsg_ProgExecError, "flashMemoryEmptyValue", "_flashMemoryEmptyValue???");
     }
 
@@ -725,19 +693,13 @@ public class ProgExec {
         else if(_tsb      != null) return _tsb     ._eepromMemoryTotalSize();
         else if(_urclock  != null) return _urclock ._eepromMemoryTotalSize();
         else if(_stm32Ser != null) return _stm32Ser._eepromMemoryTotalSize();
-        /* ##### !!! TODO !!! #####
         else if(_stm32DFU != null) return _stm32DFU._eepromMemoryTotalSize();
         else if(_lufaHID  != null) return _lufaHID ._eepromMemoryTotalSize();
-        //*/
         else if(_lufaPRN  != null) return _lufaPRN ._eepromMemoryTotalSize();
-        /* ##### !!! TODO !!! #####
         else if(_avrDFU   != null) return _avrDFU  ._eepromMemoryTotalSize();
-        //*/
         else if(_oblt     != null) return _oblt    ._eepromMemoryTotalSize();
         else if(_samba    != null) return _samba   ._eepromMemoryTotalSize();
-        /* ##### !!! TODO !!! #####
         else if(_usbasp   != null) return _usbasp  ._eepromMemoryTotalSize();
-        //*/
         else                       throw XCom.newJXMFatalLogicError(Texts.EMsg_ProgExecError, "eepromMemoryTotalSize", "_eepromMemoryTotalSize???");
     }
 
@@ -758,19 +720,13 @@ public class ProgExec {
         else if(_tsb      != null) return _tsb     ._eepromMemoryEmptyValue();
         else if(_urclock  != null) return _urclock ._eepromMemoryEmptyValue();
         else if(_stm32Ser != null) return _stm32Ser._eepromMemoryEmptyValue();
-        /* ##### !!! TODO !!! #####
         else if(_stm32DFU != null) return _stm32DFU._eepromMemoryEmptyValue();
         else if(_lufaHID  != null) return _lufaHID ._eepromMemoryEmptyValue();
-        //*/
         else if(_lufaPRN  != null) return _lufaPRN ._eepromMemoryEmptyValue();
-        /* ##### !!! TODO !!! #####
         else if(_avrDFU   != null) return _avrDFU  ._eepromMemoryEmptyValue();
-        //*/
         else if(_oblt     != null) return _oblt    ._eepromMemoryEmptyValue();
         else if(_samba    != null) return _samba   ._eepromMemoryEmptyValue();
-        /* ##### !!! TODO !!! #####
         else if(_usbasp   != null) return _usbasp  ._eepromMemoryEmptyValue();
-        //*/
         else                       throw XCom.newJXMFatalLogicError(Texts.EMsg_ProgExecError, "eepromMemoryEmptyValue", "_eepromMemoryEmptyValue???");
     }
 
@@ -869,19 +825,13 @@ public class ProgExec {
         else if(_tsb      != null) _execProgBootTSB     (commands);
         else if(_urclock  != null) _execProgBootURCLOCK (commands);
         else if(_stm32Ser != null) _execProgBootSTM32Ser(commands);
-        /* ##### !!! TODO !!! #####
-        else if(_stm32DFU != null) _execProgBootSTM32Ser(commands);
+        else if(_stm32DFU != null) _execProgBootSTM32DFU(commands);
         else if(_lufaHID  != null) _execProgBootLUFAHID (commands);
-        //*/
         else if(_lufaPRN  != null) _execProgBootLUFAPRN (commands);
-        /* ##### !!! TODO !!! #####
         else if(_avrDFU   != null) _execProgBootAVRDFU  (commands);
-        //*/
         else if(_oblt     != null) _execProgBootOpenBLT (commands);
         else if(_samba    != null) _execProgBootSAMBA   (commands);
-        /* ##### !!! TODO !!! #####
         else if(_usbasp   != null) _execProgBootUSBasp  (commands);
-        //*/
         else                       throw XCom.newJXMFatalLogicError(Texts.EMsg_ProgExecError, "execute", "_execProg???");
 
         // Done
@@ -1789,7 +1739,6 @@ public class ProgExec {
         _execProgCommon_and_uninitialize(FuncName, commands, _stm32Ser, null);
     }
 
-    /* ##### !!! TODO !!! #####
     private void _execProgBootSTM32DFU(final String[] commands) throws Exception
     {
         final String FuncName = "_execProgBootSTM32DFU";
@@ -1825,7 +1774,6 @@ public class ProgExec {
         // Execute the command(s) and uninitialize the system
         _execProgCommon_and_uninitialize(FuncName, commands, _lufaHID, null);
     }
-    //*/
 
     private void _execProgBootLUFAPRN(final String[] commands) throws Exception
     {
@@ -1840,7 +1788,6 @@ public class ProgExec {
         _execProgCommon_and_uninitialize(FuncName, commands, _lufaPRN, null);
     }
 
-    /* ##### !!! TODO !!! #####
     private void _execProgBootAVRDFU(final String[] commands) throws Exception
     {
         final String FuncName = "_execProgBootAVRDFU";
@@ -1858,7 +1805,6 @@ public class ProgExec {
         // Execute the command(s) and uninitialize the system
         _execProgCommon_and_uninitialize(FuncName, commands, _avrDFU, null);
     }
-    //*/
 
     private void _execProgBootOpenBLT(final String[] commands) throws Exception
     {
@@ -1899,7 +1845,6 @@ public class ProgExec {
         _execProgCommon_and_uninitialize(FuncName, commands, _samba, null);
     }
 
-    /* ##### !!! TODO !!! #####
     private void _execProgBootUSBasp(final String[] commands) throws Exception
     {
         final String FuncName = "_execProgBootUSBasp";
@@ -1917,6 +1862,5 @@ public class ProgExec {
         // Execute the command(s) and uninitialize the system
         _execProgCommon_and_uninitialize(FuncName, commands, _usbasp, null);
     }
-    //*/
 
 } // class ProgExec

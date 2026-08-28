@@ -153,7 +153,7 @@ final class ProgExec_RW
         public boolean writeFlash(final byte[] data, final int startAddress, final int numBytes, final IntConsumer progressCallback)
         { return _impl.writeFlash(data, startAddress, numBytes, progressCallback); }
 
-        public int     verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
+        public int verifyFlash(final byte[] refData, final int startAddress, final int numBytes, final IntConsumer progressCallback)
         { return _impl.verifyFlash(refData, startAddress, numBytes, progressCallback); }
 
     } // class _Base

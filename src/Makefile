@@ -283,7 +283,13 @@ jsef: jar
 DIST_VER = 0.9.9-tp3
 DIST_DIR = ../dist_build
 
-dist: jar
+fjar:
+	@$(MAKE) -s  clean
+	@$(MAKE) -s  jar   JDK_VER=8
+	@$(MAKE) -s  jar   JDK_VER=25
+	@$(MAKE) -s xjar   JDK_VER=8  > /dev/null 
+
+dist: fjar
 	@rm -rvf $(DIST_DIR)
 	@mkdir -p $(DIST_DIR)/jxmake_dist/apps/{code-formatter/style,compile-server,pcpp-java}
 	@mkdir -p $(DIST_DIR)/jxmake_dist/libs

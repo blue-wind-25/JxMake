@@ -67,8 +67,8 @@ ALL_VENDOR_JARS   := $(ANSI_JAR) $(SERIALCOMM_JAR) $(ZSTD_JAR) $(RSTEXT_JARS) $(
 
 _SPACE_           :=
 _SPACE_           +=
-# On Windows, ':' collides with the drive-letter colon in absolute paths (e.g. 'D:/a/...'),
-# so the JVM classpath separator must be ';' there instead of the Linux/macOS ':'
+# On Windows, ':' collides with the drive-letter colon in absolute paths (e.g. `D:/a/...`), so the JVM classpath
+# separator must be `;` there instead of the Linux/macOS `:`
 CP_SEP            := $(if $(filter Windows_NT,$(OS)),;,:)
 CP_CUSTOM         := $(if $(CUSTOM_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(CUSTOM_JARS_DIR)/,$(JGIT_JARS))),)
 CP_VENDOR         := $(if $(VENDOR_DIR_EXISTS),$(CP_SEP)$(subst $(_SPACE_),$(CP_SEP),$(addprefix $(VENDOR_JARS_DIR)/,$(ALL_VENDOR_JARS))),)
@@ -108,8 +108,8 @@ JCS_PORT          := $(JCS_PORT_$(JDK_VER))
 JDS_REL           := $(JDS_REL_$(JDK_VER))
 
 JC                := $(if $(filter 1,$(USE_JCS)),../util/JCS/javac-client.sh $(JCS_PORT) $(CP_COMPILE),$(JPATH)/bin/javac $(CP_COMPILE))
-# On Windows the executable is 'java.exe', not 'java' - check both so JAVA_MAJOR
-# detection below doesn't silently fall through to a nonexistent jre/bin/java path
+# On Windows the executable is `java.exe`, not `java` - check both so `JAVA_MAJOR` detection below does not
+# silently fall through to a nonexistent `jre/bin/java path`
 JVM               := $(if $(wildcard $(JPATH)/bin/java $(JPATH)/bin/java.exe),$(JPATH)/bin/java,$(JPATH)/jre/bin/java) $(CP_RUN)
 JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_11),$(JDS_PATH_$(JDK_VER)))
 JDS               := $(if $(filter 8,$(JDK_VER)),$(JDS_PATH_25),$(JDS_PATH_25))
@@ -172,8 +172,10 @@ endif
 ##### Exclude source code files that rely on the Foreign Function and Memory (FFM) API when
 ##### building with Java versions earlier than 25 (required by JavaDoesUSB, and by
 ##### WindowsDriverInstaller_FFM) or if the required dependency JAR files are missing.
-##### NOTE: If this "25" threshold ever changes, also update `MinJavaVersion` in
-#####       `jxm/ugc/ProgExec_RW.java`, which reports this same requirement at runtime.
+#####
+##### !!! NOTE : If this "25" threshold ever changes, also update `MinJavaVersion` in        !!!
+##### !!!        `jxm/ugc/ProgExec_RW.java`, which reports this same requirement at runtime. !!!
+#####
 ifeq ($(shell ( test "$(JAVA_MAJOR)" -lt 25 ) && echo true), true)
     ExcludeFFM      := ProgBootUSB ProgBootLUFAHID ProgBootAVRDFU ProgBootSTM32DFU WindowsDriverInstaller_FFM
     JAVA_CLASSES    := $(call filter_out_multi,$(ExcludeFFM),$(JAVA_CLASSES))
@@ -292,7 +294,7 @@ fjar:
 	@$(MAKE) -s  clean
 	@$(MAKE) -s  jar   JDK_VER=8
 	@$(MAKE) -s  jar   JDK_VER=25
-	@$(MAKE) -s xjar   JDK_VER=8  > /dev/null 
+	@$(MAKE) -s xjar   JDK_VER=8  > /dev/null
 
 dist: fjar
 	@rm -rvf $(DIST_DIR)
@@ -918,7 +920,7 @@ EXF = -not -name '*.java'     \
 
 build_jar: $(JAR_FILE)
 
-$(JAR_FILE) : build_classes $(JMF)
+$(JAR_FILE) : $(JAVA_SOURCES_PP) $(MAIN_CLASS) $(JAVA_CLASSES) $(JMF)
 	@echo $@
 	@rm -f $(JFL)
 	@rm -f $(JAR_FILE)

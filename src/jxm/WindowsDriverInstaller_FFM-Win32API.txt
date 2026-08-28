@@ -465,6 +465,33 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW, PTR)`. dwAddDisposition 
                which most driver-signature UI still warns).
 
 ----------------------------------------------------------------------------------------------------
+CertGetCertificateContextProperty
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certgetcertificatecontextproperty
+
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : pCertContext (PCCERT_CONTEXT), dwPropId (DWORD), pvData (void*, out - NULL to query
+               size only, as used here), pcbData (DWORD*, in/out size)
+Return value : BOOL
+Purpose      : Reads a named property off a certificate context. Used here purely as a presence
+               probe: dwPropId = CERT_KEY_PROV_INFO_PROP_ID(2), pvData = NULL, so a nonzero return
+               only confirms the property exists (and reports its size via pcbData) without actually
+               reading it.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR)`. Added as a diagnostic-only check in
+               `_elevatedCreateAndSignCatalog`, called on the PCCERT_CONTEXT returned by
+               CertFindCertificateInStore (i.e. the store's own copy of the certificate, not the
+               original CertCreateSelfSignCertificate return value) immediately before that context
+               is handed to `_signCatalog`/SignerSignEx2. CERT_KEY_PROV_INFO_PROP_ID is the property
+               CertCreateSelfSignCertificate sets on the original context to link it back to its
+               CNG-persisted private key; CertAddCertificateContextToStore is documented to copy a
+               context's properties into the store's copy, but this had not been directly confirmed
+               for this exact code path, hence the check - see the "SignerSignEx2 E_INVALIDARG"
+               troubleshooting note under SignerSignEx2 below for why this matters.
+
+----------------------------------------------------------------------------------------------------
 CryptEncodeObjectEx
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptencodeobjectex
@@ -1080,6 +1107,22 @@ Windows-specific caveats relevant to this implementation:
     - not a concern here since this backend already restricts itself to Windows 10+.
     - Microsoft's documented E_INVALIDARG case (SIGNER_TIMESTAMP_AUTHENTICODE combined with
       SIG_APPEND) does not apply here since this file uses neither timestamping nor SIG_APPEND.
+
+OPEN INVESTIGATION - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057), as of 2026-08-29:
+    Live Windows CI (GitHub Actions, mutating/UAC-enabled run) consistently reports this failure
+    from `_signCatalog`. Every struct passed to this call (SIGNER_SUBJECT_INFO, SIGNER_CERT,
+    SIGNER_CERT_STORE_INFO, SIGNER_SIGNATURE_INFO, SIGNER_FILE_INFO) and the 13-parameter call
+    itself have been re-verified against this document/Microsoft Learn and found correct - an
+    earlier guess that SIGNER_CERT was missing its cbSize field was WRONG and reverted (see
+    src/jxm git history, commits 4a6fcc6/daac2ed on WindowsDriverInstaller_FFM.java) - do not
+    repeat that mistake; always re-check this document before touching a struct layout here.
+    Current working hypothesis, not yet confirmed: the certificate found via
+    CertFindCertificateInStore for signing may not carry a usable private-key association (its
+    CERT_KEY_PROV_INFO_PROP_ID property may not have survived the CertAddCertificateContextToStore
+    round trip from the original CertCreateSelfSignCertificate context) - see
+    CertGetCertificateContextProperty above for the diagnostic added to check this. Once resolved,
+    replace this note with the actual root cause and fix (or remove it if the hypothesis is ruled
+    out and a different cause is found).
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

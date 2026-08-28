@@ -1134,17 +1134,40 @@ Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
     Ruled out: SIGNER_CERT_STORE_INFO.dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with hCertStore left
     NULL - live CI again reported the identical E_INVALIDARG, so neither this alternate policy
     value nor the store handle being NULL was the cause on its own.
-    Current experiment, not yet confirmed: two changes together, since every dwCertPolicy value and
-    every hCertStore choice tried individually has failed identically: (1)
-    SIGNER_CERT_STORE_INFO.dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with hCertStore restored to the
-    `hMy` handle (CHAIN policy combined with a real store handle rather than NULL); (2)
-    SIGNER_SIGNATURE_INFO.dwAttrChoice changed from SIGNER_NO_ATTR (unchanged since this backend's
-    very first attempt at this call, and therefore never previously ruled out) to
-    SIGNER_AUTHCODE_ATTR with a populated SIGNER_ATTR_AUTHCODE structure - see that structure's
-    entry above. Testing whether the missing Authenticode attribute structure, possibly combined
-    with the store handle, was the actual source of the invalid argument. Update this note with the
-    actual root cause once resolved (or remove this paragraph and record the next hypothesis if
-    this is also ruled out).
+    Ruled out: the combination of SIGNER_CERT_STORE_INFO.dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with
+    hCertStore restored to the `hMy` handle, together with SIGNER_SIGNATURE_INFO.dwAttrChoice
+    changed from SIGNER_NO_ATTR to SIGNER_AUTHCODE_ATTR plus a populated SIGNER_ATTR_AUTHCODE (see
+    that structure's entry above) - live CI again reported the byte-for-byte identical
+    HRESULT=0x80070057. Every struct field this backend controls has now been checked against this
+    document and, for the ones with more than one legal value, tried in at least two configurations
+    - the failure has not changed shape once across any of it.
+
+    PAUSED - continuation instructions:
+    All of the above has been ruled out without changing the observed failure at all, which is
+    itself a signal worth acting on next: since varying struct *contents* has never once changed
+    the error, the next round should stop varying field values and instead verify the *mechanism*
+    delivering them, in roughly this order:
+      1. Log GetLastError() immediately after the failed SignerSignEx2 call, in addition to its
+         HRESULT return value - Mssign32 functions sometimes carry more specific detail there than
+         in the return value, and this has never actually been checked.
+      2. Dump the raw bytes of every struct passed to SignerSignEx2 (subjectInfo, signerCert,
+         certStoreInfo, sigInfo, authCodeInfo, fileInfo) to the CI log immediately before the call,
+         and hand-check offsets/values against this document field-by-field - this catches transcription
+         bugs (wrong offset, wrong size, stale MemorySegment) that re-reading the Java source alone
+         has apparently not caught across several rounds.
+      3. Re-verify FunctionDescriptor.of(...) for _SignerSignEx2 itself (DW, DW, PTR, PTR, PTR, PTR,
+         DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR) against the 13-parameter signature one more time,
+         specifically checking for an off-by-one in argument count or a PTR/DW swap - a systematic
+         miscount here would explain an error that never changes no matter which struct field is
+         edited, since every struct would be landing in the wrong argument slot regardless of its
+         own contents.
+      4. Only after 1-3 are exhausted, consider a structurally different approach: SignerSignEx3
+         (superset of SignerSignEx2, adds an explicit signing-callback parameter) is documented at
+         https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex3 and used by at least
+         one other independent, permissively-licensed implementation of this same catalog-signing
+         task - it is a bigger rewrite, so treat it as a last resort, not a first move.
+    Update this note with the actual root cause once resolved (or replace this paragraph with the
+    next hypothesis once step 4 is reached).
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

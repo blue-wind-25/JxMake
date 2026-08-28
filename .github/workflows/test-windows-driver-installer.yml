@@ -7,7 +7,17 @@
 # Wintrust/Mssign32 are always present on a real Windows OS image, unlike the
 # Linux dev box this repo is normally built on).
 #
-# TRIGGER: manual only (Actions tab -> this workflow -> "Run workflow").
+# TRIGGER: manual only (Actions tab -> this workflow -> "Run workflow"), and
+# restricted to the repo owner via the job-level `if:` check below - anyone
+# else who dispatches it will see the job start and immediately no-op (GitHub
+# has no way to hide workflow_dispatch itself from other collaborators, but
+# this keeps them from actually burning Windows-runner minutes with it).
+#
+# REMINDER: once the FFM backend's SignerSignEx2 E_INVALIDARG investigation
+# (see WindowsDriverInstaller_FFM-Win32API.txt) is resolved and both backends
+# pass a mutating run, disable this workflow (Actions tab -> this workflow ->
+# "..." -> Disable workflow) rather than deleting it, so it stays available to
+# re-enable for any future regression testing.
 #
 # INPUTS:
 #   backend        which backend(s) to exercise: both / ps1 / ffm
@@ -44,6 +54,7 @@ on:
 
 jobs:
   test:
+    if: github.actor == 'blue-wind-25'
     runs-on: windows-latest
     defaults:
       run:

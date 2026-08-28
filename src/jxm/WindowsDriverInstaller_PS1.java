@@ -61,11 +61,18 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
     // Runs an encoded PowerShell command and captures its output and exit code - returns a pair of [exitCode, outputLog]
     private static XCom.Pair<Integer, String> _runCommand(final String psCommand, final HashMap<String, String> extraEnv, final int waitTimeMinutes) throws IOException, InterruptedException
     {
+        // With stdout redirected (as it is here), PowerShell serializes any progress-stream records - e.g. the
+        // "Preparing modules for first use" record emitted the first time a session touches a lazily-loaded
+        // module/provider such as the Cert: drive - as CLIXML text and merges it into the captured output
+        // alongside the real command output. $ProgressPreference = 'SilentlyContinue' suppresses that stream
+        // entirely so it can never pollute the returned log text.
+        final String fullCommand = "$ProgressPreference = 'SilentlyContinue'\r\n" + psCommand;
+
         final ProcessBuilder pb = new ProcessBuilder(
             "powershell.exe"            ,
             "-NoProfile"                ,
             "-ExecutionPolicy", "Bypass",
-            "-EncodedCommand" , _getEncodedCommand(psCommand)
+            "-EncodedCommand" , _getEncodedCommand(fullCommand)
         );
 
         pb.redirectErrorStream(true);

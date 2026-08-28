@@ -161,13 +161,16 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "}                                                                                           \r\n" +
                 // Distinguish an actual UAC decline (Win32 error 1223, ERROR_CANCELLED) from any other failure
                 // via the numeric NativeErrorCode rather than parsing $_.Exception.Message, since that text is
-                // localized to the user's OS UI language and cannot be matched reliably
+                // localized to the user's OS UI language and cannot be matched reliably. The message itself is
+                // still emitted below (native-error-code-independent) so a non-UAC failure is diagnosable from
+                // the returned log text instead of coming back as an opaque exit code with no explanation.
                 "catch {                                                                                     \r\n" +
                 "    $nativeErr = $_.Exception.NativeErrorCode                                               \r\n" +
                 "    if(-not $nativeErr -and $_.Exception.InnerException) {                                  \r\n" +
                 "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                            \r\n" +
                 "    }                                                                                       \r\n" +
                 "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                  \r\n" +
+                "    Write-Output ($_.Exception.Message)                                                     \r\n" +
                 "}                                                                                           \r\n" +
                 "Start-Sleep -Milliseconds 100                                                               \r\n" +
                 "if(Test-Path $tmpOutLog) {                                                                  \r\n" +
@@ -243,13 +246,16 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "    }                                                                                     \r\n" +
                 "}                                                                                         \r\n" +
                 // See createAndTrustProvider() above: use the numeric NativeErrorCode (1223 = ERROR_CANCELLED,
-                // i.e. the user declined UAC), not the exception text, since that text is locale-dependent
+                // i.e. the user declined UAC), not the exception text, since that text is locale-dependent.
+                // The message itself is still emitted below so a non-UAC failure is diagnosable from the
+                // returned log text instead of coming back as an opaque exit code with no explanation.
                 "catch {                                                                                   \r\n" +
                 "    $nativeErr = $_.Exception.NativeErrorCode                                             \r\n" +
                 "    if(-not $nativeErr -and $_.Exception.InnerException) {                                \r\n" +
                 "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                          \r\n" +
                 "    }                                                                                     \r\n" +
                 "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                \r\n" +
+                "    Write-Output ($_.Exception.Message)                                                   \r\n" +
                 "}                                                                                         \r\n" +
                 "Start-Sleep -Milliseconds 100                                                             \r\n" +
                 "if(Test-Path $tmpOutLog) {                                                                \r\n" +

@@ -943,6 +943,29 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             }
 
             try {
+                // Diagnostic only: a CI run exercising both backends against the same providerName in
+                // the same CurrentUser\My store can leave more than one certificate matching this
+                // subject string (this backend's own CERT_STORE_ADD_REPLACE_EXISTING only replaces a
+                // certificate with the same issuer+serial, not merely the same subject text, so an
+                // unrelated pre-existing certificate under this name is never removed). Per Microsoft's
+                // own note on CertAddCertificateContextToStore, "the order of the certificate context
+                // may not be preserved within the store," so CERT_FIND_SUBJECT_STR_W below is not
+                // guaranteed to return the certificate this backend itself just created - count matches
+                // here to confirm or rule out that ambiguity as a contributing factor.
+                {
+                    int           subjectMatchCount = 0;
+                    MemorySegment prev              = MemorySegment.NULL;
+                    while(true) {
+                        final MemorySegment next = (MemorySegment) _CertFindCertificateInStore.invoke(
+                            hMy, CRYPT_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR_W, _wstr(arena, providerName), prev
+                        );
+                        if(next == null || next.address() == 0L) break;
+                        subjectMatchCount++;
+                        prev = next;
+                    }
+                    log.append("certificates matching subject '").append(providerName).append("' in CurrentUser\\My = ").append(subjectMatchCount).append('\n');
+                }
+
                 final MemorySegment signingCert = (MemorySegment) _CertFindCertificateInStore.invoke(
                     hMy, CRYPT_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR_W, _wstr(arena, providerName), MemorySegment.NULL
                 );

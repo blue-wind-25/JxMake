@@ -1146,32 +1146,58 @@ Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
     All struct-content variations above have been ruled out without changing the observed failure at
     all, so the mechanism delivering the structs, rather than their contents, is now the focus, in
     roughly this order:
-      1. DONE - GetLastError() is now logged immediately after the failed SignerSignEx2 call,
-         alongside its HRESULT return value.
-      2. DONE - the raw bytes of every struct passed to SignerSignEx2 (subjectInfo, signerCert,
-         certStoreInfo, sigInfo, authCodeInfo, fileInfo) are now dumped to the CI log on failure, for
-         hand-checking offsets/values against this document field-by-field - this catches
-         transcription bugs (wrong offset, wrong size, stale MemorySegment) that re-reading the Java
-         source alone has apparently not caught across several rounds.
-      3. DONE (statically, not yet confirmed against live CI) - re-verified FunctionDescriptor.of(...)
-         for _SignerSignEx2 (DW, DW, PTR, PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR) against
-         the 13-parameter signature and against the actual _SignerSignEx2.invoke(...) call site
-         argument-by-argument: both the descriptor's argument-layout count (13, matching the
-         parameter list one-for-one) and the invoke() call's argument count/order (dwFlags,
-         pSubjectInfo, pSignerCert, pSignatureInfo, pProviderInfo, dwTimestampFlags,
-         pszTimestampAlgorithmOid, pwszHttpTimeStamp, psRequest, pSipData, ppSignerContext,
-         pCryptoPolicy, pReserved) line up correctly - no off-by-one or PTR/DW swap found this round.
-      4. NOT YET NEEDED - if steps 1-2's new diagnostics (once observed on live CI) still don't
-         explain the failure, consider a structurally different approach: SignerSignEx3 (superset of
-         SignerSignEx2, adds an explicit signing-callback parameter) is documented at
+      1. RULED OUT - GetLastError() is now logged immediately after the failed SignerSignEx2 call.
+         Live CI reports GetLastError=0 - SignerSignEx2 does not set a more specific Win32 error on
+         this failure path, so this diagnostic carries no further information.
+      2. RULED OUT - the raw bytes of every struct passed to SignerSignEx2 (subjectInfo, signerCert,
+         certStoreInfo, sigInfo, authCodeInfo, fileInfo) are now dumped to the CI log on failure. A
+         live CI run's dump was hand-verified byte-by-byte against this document: every cbSize matches
+         its struct's documented size, every alignment-padding gap is zeroed, every enum field holds
+         the value the code intends (dwSubjectChoice=SIGNER_SUBJECT_FILE, dwCertChoice=
+         SIGNER_CERT_STORE, dwCertPolicy=SIGNER_CERT_POLICY_CHAIN, algidHash=CALG_SHA_256,
+         dwAttrChoice=SIGNER_AUTHCODE_ATTR), and every internal pointer (signerCert -> certStoreInfo,
+         sigInfo -> authCodeInfo, subjectInfo -> fileInfo) resolves to a live, non-null, correctly
+         populated segment - no transcription bug, no wrong offset, no stale/zeroed MemorySegment.
+      3. RULED OUT - re-verified FunctionDescriptor.of(...) for _SignerSignEx2 (DW, DW, PTR, PTR, PTR,
+         PTR, DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR) against the 13-parameter signature and against the
+         actual _SignerSignEx2.invoke(...) call site argument-by-argument: both the descriptor's
+         argument-layout count (13, matching the parameter list one-for-one) and the invoke() call's
+         argument count/order (dwFlags, pSubjectInfo, pSignerCert, pSignatureInfo, pProviderInfo,
+         dwTimestampFlags, pszTimestampAlgorithmOid, pwszHttpTimeStamp, psRequest, pSipData,
+         ppSignerContext, pCryptoPolicy, pReserved) line up correctly - no off-by-one or PTR/DW swap.
+      4. NOT YET ATTEMPTED - with 1-3 exhausted and every byte the FFM layer controls confirmed
+         correct, SignerSignEx3 (superset of SignerSignEx2, adds an explicit signing-callback
+         parameter) documented at
          https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex3 and used by at least
          one other independent, permissively-licensed implementation of this same catalog-signing
-         task - it is a bigger rewrite, so treat it as a last resort, not a first move.
-    PAUSED pending a live CI run with the new diagnostics (steps 1-2) - the workflow is
-    workflow_dispatch-only and must be manually triggered; read the GetLastError value and struct hex
-    dumps from that run's log first, and only pursue step 4 if they don't point to a fix. Update this
-    note with the actual root cause once resolved (or replace this paragraph with the next hypothesis
-    once step 4 is reached).
+         task is the remaining concrete lead - it is a bigger rewrite, so get explicit sign-off before
+         starting it rather than launching into it unprompted.
+
+    Environment/test-harness angle investigated (before step 4): the CI test driver (embedded in
+    test-windows-driver-installer.yml) ran both the PS1 and FFM backends against the exact same
+    providerName ("JxMake_CITest") in the exact same process/VM, so by the time the FFM backend ran,
+    CurrentUser\My already held the PS1 backend's self-signed certificate under that same subject name,
+    and FFM's own createAndTrustProvider added a second, unrelated certificate under the identical
+    subject text right alongside it (CERT_STORE_ADD_REPLACE_EXISTING only replaces a certificate with
+    the same issuer+serial, not merely the same subject string, so the pre-existing PS1 certificate was
+    never removed). Per Microsoft's own note on CertAddCertificateContextToStore, "the order of the
+    certificate context may not be preserved within the store," so _CertFindCertificateInStore's
+    CERT_FIND_SUBJECT_STR_W lookup in createAndSignCatalog had no guarantee of returning the
+    certificate FFM itself had just created rather than PS1's. Two fixes were made for this:
+      - The CI test driver now uses a distinct provider name per backend (providerName + "_" + label,
+        e.g. "JxMake_CITest_PS1" / "JxMake_CITest_FFM"), removing the cross-backend collision entirely
+        so a future run's log unambiguously reflects only the FFM backend's own certificate.
+      - createAndSignCatalog now counts, and logs, how many certificates in CurrentUser\My currently
+        match the requested subject string before doing the real lookup, as a standing diagnostic for
+        any future recurrence of this kind of ambiguity (also useful if a single backend is ever run
+        repeatedly against the same store without cleanup between runs).
+    Note this was a test-harness confound, not a fix to the SignerSignEx2 call itself - the byte-level
+    correctness confirmed in steps 1-3 above still stands regardless of which certificate was signing.
+    Whether resolving the collision also resolves the E_INVALIDARG is unconfirmed until the next live
+    CI run - if it does not, resume at step 4.
+    PAUSED pending a live CI run with the corrected per-backend provider names, or (if that doesn't
+    change the outcome) a decision on step 4. Update this note with the actual root cause once
+    resolved.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

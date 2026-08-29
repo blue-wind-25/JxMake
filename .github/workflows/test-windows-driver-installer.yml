@@ -131,6 +131,16 @@ jobs:
                   System.out.println();
                   System.out.println("=== " + label + " backend ===");
 
+                  // Distinct per-backend provider name: PS1 and FFM both run against the same
+                  // CurrentUser\My store in this one process/VM, and CertAddCertificateContextToStore's
+                  // CERT_STORE_ADD_REPLACE_EXISTING only replaces a certificate with the same
+                  // issuer+serial, not merely the same subject text - so sharing PROVIDER here left two
+                  // unrelated self-signed certificates both named "JxMake_CITest" in the store by the
+                  // time FFM ran, and CertFindCertificateInStore's match order against that name is not
+                  // guaranteed (per Microsoft's own note on CertAddCertificateContextToStore). Giving
+                  // each backend its own name removes that cross-backend ambiguity from the test.
+                  final String provider = PROVIDER + "_" + label;
+
                   try {
                       final boolean usable = wdi.isUsable();
                       System.out.println(label + ".isUsable() = " + usable);
@@ -140,18 +150,18 @@ jobs:
                           return 0;
                       }
 
-                      printPair(label + ".isProviderAlreadyTrusted", wdi.isProviderAlreadyTrusted(PROVIDER));
+                      printPair(label + ".isProviderAlreadyTrusted", wdi.isProviderAlreadyTrusted(provider));
 
                       if( runMutating ) {
-                          printPair(label + ".createAndTrustProvider", wdi.createAndTrustProvider(PROVIDER));
-                          printPair(label + ".isProviderAlreadyTrusted (after trust)", wdi.isProviderAlreadyTrusted(PROVIDER));
+                          printPair(label + ".createAndTrustProvider", wdi.createAndTrustProvider(provider));
+                          printPair(label + ".isProviderAlreadyTrusted (after trust)", wdi.isProviderAlreadyTrusted(provider));
 
                           final java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("wdi_ci");
                           final String catName = "wdi_ci_test.cat";
                           final java.nio.file.Path inf = dir.resolve("wdi_ci_test.inf");
                           java.nio.file.Files.writeString(inf, WindowsDriverInstaller.generateWinUSBInf("1234", "5678", catName));
 
-                          printPair(label + ".createAndSignCatalog", wdi.createAndSignCatalog(inf.toString(), PROVIDER));
+                          printPair(label + ".createAndSignCatalog", wdi.createAndSignCatalog(inf.toString(), provider));
                           printPair(label + ".installDriver", wdi.installDriver(inf.toString()));
                       } else {
                           System.out.println(label + ": skipping mutating/elevated calls (run_mutating=false)");

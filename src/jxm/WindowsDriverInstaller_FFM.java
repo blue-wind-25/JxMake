@@ -790,8 +790,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                 // CERT_EXTENSION : { LPSTR pszObjId; BOOL fCritical; CRYPT_ATTR_BLOB Value; } - size 32, align 8
                 final MemorySegment extension = arena.allocate(32, 8);
-                extension.set( PTR                 , 0 , _astr(arena, szOID_ENHANCED_KEY_USAGE) );
-                extension.set( ValueLayout.JAVA_INT, 8 , 0                                      );
+                extension.set( PTR                 ,  0, _astr(arena, szOID_ENHANCED_KEY_USAGE) );
+                extension.set( ValueLayout.JAVA_INT,  8, 0                                      );
                 extension.set( ValueLayout.JAVA_INT, 16, ekuEncodedLen                          );
                 extension.set( PTR                 , 24, ekuEncoded                             );
 
@@ -809,12 +809,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // CRYPT_KEY_PROV_INFO entry for why this backend uses CAPI1 rather than a CNG key).
                 final MemorySegment keyProvInfo = arena.allocate(48, 8);
                 keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName) );
-                keyProvInfo.set( PTR                 ,  8, MemorySegment.NULL         );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 16, PROV_RSA_FULL              );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 20, CRYPT_MACHINE_KEYSET       );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 24, 0                          );
-                keyProvInfo.set( PTR                 , 32, MemorySegment.NULL         );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 40, AT_SIGNATURE               );
+                keyProvInfo.set( PTR                 ,  8, MemorySegment.NULL          );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 16, PROV_RSA_FULL               );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 20, CRYPT_MACHINE_KEYSET        );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 24, 0                           );
+                keyProvInfo.set( PTR                 , 32, MemorySegment.NULL          );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 40, AT_SIGNATURE                );
 
                 // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
                 //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on
@@ -846,7 +846,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 //    CERT_CONTEXT : { DWORD dwCertEncodingType; BYTE *pbCertEncoded; DWORD cbCertEncoded;
                 //                     PCERT_INFO pCertInfo; HCERTSTORE hCertStore; } - size 40, align 8
                 final MemorySegment certCtxView   = certCtx.reinterpret(40);
-                final MemorySegment pbCertEncoded = certCtxView.get(PTR                 , 8);
+                final MemorySegment pbCertEncoded = certCtxView.get(PTR                 ,  8);
                 final int           cbCertEncoded = certCtxView.get(ValueLayout.JAVA_INT, 16);
                 final byte[]        derBytes      = pbCertEncoded.reinterpret(cbCertEncoded).toArray(ValueLayout.JAVA_BYTE);
 
@@ -905,7 +905,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String SPC_CAB_DATA_OBJID   = "1.3.6.1.4.1.311.2.1.25";
     private static final String szOID_NIST_sha256    = "2.16.840.1.101.3.4.2.1";
 
-    // OSAttr member attribute value - this backend targets Windows 10+ only (see isUsable()), so the
+    // OSAttr member attribute value - this backend targets Windows 10+ only - see isUsable(), so the
     // member is scoped to major OS version "10.0" rather than the broader legacy OS-version lists
     // catalog-building tools historically used
     private static final String CATALOG_OS_ATTR = "10.0";
@@ -971,8 +971,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     return RETCODE_EXCEPTION;
                 }
 
-                final byte[]       hashBytes = hashBuf.toArray(ValueLayout.JAVA_BYTE);
-                final StringBuilder hexTag   = new StringBuilder(hashBytes.length * 2);
+                final byte[]        hashBytes = hashBuf.toArray(ValueLayout.JAVA_BYTE);
+                final StringBuilder hexTag    = new StringBuilder(hashBytes.length * 2);
                 for(final byte b : hashBytes) hexTag.append( String.format("%02X", b) );
 
                 // 2. Determine the SIP subject GUID for this file - fall back to DRIVER_ACTION_VERIFY on failure
@@ -1180,7 +1180,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // see the "Investigation history" note in WindowsDriverInstaller_FFM-Win32API.txt.
         final MemorySegment subjectInfo = arena.allocate(32, 8);
         subjectInfo.set(ValueLayout.JAVA_INT,  0, 32                 );
-        subjectInfo.set( PTR                 ,  8, MemorySegment.NULL);
+        subjectInfo.set( PTR                ,  8, MemorySegment.NULL );
         subjectInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_SUBJECT_FILE);
         subjectInfo.set(PTR                 , 24, fileInfo           );
 
@@ -1191,9 +1191,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // after the dwCertPolicy=0 and STORE-with-hCertStore experiments (both ruled out - see
         // WindowsDriverInstaller_FFM-Win32API.txt) rather than assuming "optional" means "safe to omit".
         final MemorySegment certStoreInfo = arena.allocate(32, 8);
-        certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                       );
-        certStoreInfo.set(PTR                 ,  8, signingCert              );
-        certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_CHAIN );
+        certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                      );
+        certStoreInfo.set(PTR                 ,  8, signingCert             );
+        certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_CHAIN);
         certStoreInfo.set(PTR                 , 24, hMy                     );
 
         // SIGNER_CERT : { DWORD cbSize; DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8

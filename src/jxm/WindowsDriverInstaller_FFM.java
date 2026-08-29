@@ -566,6 +566,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String BCRYPT_RSA_ALGORITHM      = "RSA";
     private static final int    NCRYPT_ALLOW_SIGNING_FLAG = 0x00000002;
     private static final int    AT_SIGNATURE              = 2;
+    // wincrypt.h - CRYPT_KEY_PROV_INFO.dwKeySpec must be this value (not AT_SIGNATURE/AT_KEYEXCHANGE)
+    // when the linked private key is a CNG key rather than a legacy CryptoAPI CSP key - see the
+    // CRYPT_KEY_PROV_INFO entry in WindowsDriverInstaller_FFM-Win32API.txt.
+    private static final int    CERT_NCRYPT_KEY_SPEC      = 0xFFFFFFFF;
 
     // wincrypt.h
     // X509_ENHANCED_KEY_USAGE is a small-integer "predefined" lpszStructType, cast to LPCSTR - not a real string pointer
@@ -686,6 +690,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // 4. CRYPT_KEY_PROV_INFO - links the returned cert context back to the persisted CNG key
                 //    { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags;
                 //      DWORD cProvParam; PVOID rgProvParam; DWORD dwKeySpec; } - size 48, align 8
+                // dwKeySpec = CERT_NCRYPT_KEY_SPEC (0xFFFFFFFF), not AT_SIGNATURE - this private key was
+                // created via NCryptCreatePersistedKey against the CNG Key Storage Provider above, not a
+                // legacy CryptoAPI CSP, and Microsoft's own CRYPT_KEY_PROV_INFO docs require
+                // CERT_NCRYPT_KEY_SPEC whenever the linked key is a CNG key. CryptAcquireCertificatePrivateKey
+                // (which SignerSignEx calls internally to retrieve the private key for signing) branches on
+                // this exact field to decide between NCryptOpenKey and CryptAcquireContext - AT_SIGNATURE
+                // here previously told it to treat "Microsoft Software Key Storage Provider" as a legacy CSP
+                // name, which it is not. See WindowsDriverInstaller_FFM-Win32API.txt for the fuller history.
                 final MemorySegment keyProvInfo = arena.allocate(48, 8);
                 keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName          ) );
                 keyProvInfo.set( PTR                 ,  8, _wstr(arena, MS_KEY_STORAGE_PROVIDER) );
@@ -693,7 +705,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 keyProvInfo.set( ValueLayout.JAVA_INT, 20, 0                                     );
                 keyProvInfo.set( ValueLayout.JAVA_INT, 24, 0                                     );
                 keyProvInfo.set( PTR                 , 32, MemorySegment.NULL                    );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 40, AT_SIGNATURE                          );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 40, CERT_NCRYPT_KEY_SPEC                  );
 
                 // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
                 //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on

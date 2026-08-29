@@ -623,7 +623,11 @@ FFM notes    : dwProvType/dwFlags/cProvParam are all left 0 here - dwProvType=0 
                (NCrypt) key handle is the documented combination for "this is a CNG provider, not a
                legacy CryptoAPI CSP" (the classic dwProvType constants like PROV_RSA_FULL only apply
                to legacy CSPs). pwszProvName is always the literal string "Microsoft Software Key
-               Storage Provider". dwKeySpec is always AT_SIGNATURE(2).
+               Storage Provider". dwKeySpec is CERT_NCRYPT_KEY_SPEC(0xFFFFFFFF) - per this structure's
+               own Microsoft documentation, dwKeySpec must be CERT_NCRYPT_KEY_SPEC whenever the linked
+               private key is a CNG key rather than a legacy CryptoAPI CSP key; this backend previously
+               set it to AT_SIGNATURE(2) (a legacy CryptoAPI dwKeySpec value) despite dwProvType=0/CNG
+               already being correct - see the "Investigation history" note below.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER
@@ -1288,11 +1292,26 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     psAuthenticated reverted to NULL would be needed to attribute the fix to this specific change
     rather than the entry-point switch alone.
 
-    If the combined change still reports the identical E_INVALIDARG, the next lead would have to come
-    from outside this function's own argument surface entirely (e.g. account/store-provisioning state
-    on the CI runner itself, or the certificate/key material's own suitability for signing, rather than
-    anything this code passes to the Signer* call). Update this note with the actual root cause once
-    resolved.
+    Ruled out (both changes together): live CI reported the identical HRESULT=0x80070057, this time
+    with a consistent GetLastError=87 (ERROR_INVALID_PARAMETER - the exact Win32 error 0x80070057
+    wraps) rather than the flaky 0 seen on earlier runs. The sigInfo hex dump confirmed psAuthenticated
+    was correctly non-NULL and pointing at the two-entry attribute array. Since SignerSignEx (the
+    smallest entry point) plus a populated psAuthenticated still fails identically, the cause is
+    outside every field/entry-point this backend's own Signer* call arguments control.
+
+    Found and fixed: CRYPT_KEY_PROV_INFO.dwKeySpec (set on the self-signed certificate by
+    _elevatedCreateAndTrustProvider, independent of the Signer* call itself) was AT_SIGNATURE(2) - a
+    legacy CryptoAPI dwKeySpec value - despite the certificate's private key being a CNG key created
+    via NCryptCreatePersistedKey against the CNG Key Storage Provider ("Microsoft Software Key Storage
+    Provider"). Per CRYPT_KEY_PROV_INFO's own Microsoft documentation, dwKeySpec must be
+    CERT_NCRYPT_KEY_SPEC(0xFFFFFFFF) whenever the linked key is a CNG key. CryptAcquireCertificatePrivateKey
+    - which SignerSignEx calls internally to retrieve the signing certificate's private key - branches
+    on this exact field to choose between NCryptOpenKey and legacy CryptAcquireContext; AT_SIGNATURE
+    told it to treat "Microsoft Software Key Storage Provider" as a legacy CSP name, which it is not.
+    This is a certificate-provisioning bug independent of every SIGNER_* struct field previously tried,
+    consistent with the "outside this function's own argument surface" lead the investigation had
+    narrowed down to. Changed to CERT_NCRYPT_KEY_SPEC - see the CRYPT_KEY_PROV_INFO entry above.
+    Unconfirmed until the next live CI run. Update this note with the actual result once known.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

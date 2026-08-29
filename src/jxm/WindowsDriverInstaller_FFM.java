@@ -1050,22 +1050,17 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         signerCert.set(PTR                 ,  8, certStoreInfo     );
         signerCert.set(PTR                 , 16, MemorySegment.NULL);
 
-        // SIGNER_ATTR_AUTHCODE : { DWORD cbSize; BOOL fCommercial; BOOL fIndividual; LPCWSTR pwszName;
-        //                          LPCWSTR pwszInfo; } - size 32, align 8
-        final MemorySegment authCodeInfo = arena.allocate(32, 8);
-        authCodeInfo.set(ValueLayout.JAVA_INT,  0, 32                    );
-        authCodeInfo.set(ValueLayout.JAVA_INT,  4, 0                     );
-        authCodeInfo.set(ValueLayout.JAVA_INT,  8, 0                     );
-        authCodeInfo.set(PTR                 , 16, _wstr(arena, "")      );
-        authCodeInfo.set(PTR                 , 24, _wstr(arena, "")      );
-
         // SIGNER_SIGNATURE_INFO : { DWORD cbSize; ALG_ID algidHash; DWORD dwAttrChoice; union{...};
         //                           PCRYPT_ATTRIBUTES psAuthenticated; PCRYPT_ATTRIBUTES psUnauthenticated; } - size 40, align 8
+        // dwAttrChoice=SIGNER_NO_ATTR (union unused, left NULL) - reverted from SIGNER_AUTHCODE_ATTR:
+        // that combination was already tried against SignerSignEx2 without changing the failure, and
+        // requesting an Authenticode attribute here is more semantic surface than a plain catalog
+        // signature needs - see WindowsDriverInstaller_FFM-Win32API.txt for the fuller history.
         final MemorySegment sigInfo = arena.allocate(40, 8);
         sigInfo.set(ValueLayout.JAVA_INT,  0, 40                    );
         sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256          );
-        sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_AUTHCODE_ATTR  );
-        sigInfo.set(PTR                 , 16, authCodeInfo          );
+        sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_NO_ATTR        );
+        sigInfo.set(PTR                 , 16, MemorySegment.NULL    );
         sigInfo.set(PTR                 , 24, MemorySegment.NULL    );
         sigInfo.set(PTR                 , 32, MemorySegment.NULL    );
 
@@ -1093,7 +1088,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                .append("  signerCert     : ").append( _hexDump(signerCert, 24)     ).append('\n')
                .append("  certStoreInfo  : ").append( _hexDump(certStoreInfo, 32)  ).append('\n')
                .append("  sigInfo        : ").append( _hexDump(sigInfo, 40)        ).append('\n')
-               .append("  authCodeInfo   : ").append( _hexDump(authCodeInfo, 32)   ).append('\n')
                .append("  fileInfo       : ").append( _hexDump(fileInfo, 24)       );
             return RETCODE_EXCEPTION;
         }

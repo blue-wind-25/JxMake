@@ -1232,12 +1232,35 @@ Investigation history - SignerSignEx2/SignerSignEx3 E_INVALIDARG (HRESULT=0x8007
     SignerSignEx2's own argument surface. `_signCatalog` now calls SignerSignEx3 (see that entry
     above) with the new pDigestSignInfo parameter set to NULL and every other argument unchanged -
     only `_SignerSignEx2`/`_bind(...)` in the setup block and the `_SignerSignEx3.invoke(...)` call
-    site changed. Whether this resolves the E_INVALIDARG is unconfirmed until the next live CI run.
-    PAUSED pending that run. If SignerSignEx3 still reports the identical E_INVALIDARG, the failure
-    is not specific to which Signer* entry point is used, and the next lead would have to come from
-    outside this function's own argument surface entirely (e.g. account/store-provisioning state on
-    the CI runner itself, rather than anything this code passes). Update this note with the actual
-    root cause once resolved.
+    site changed.
+
+    Ruled out: switching the entry point alone was not the cause. Live CI reported the identical
+    HRESULT=0x80070057 under SignerSignEx3, with byte-identical struct dumps to every SignerSignEx2
+    run before it (only pointer addresses differ) and GetLastError=0 again (see the note above on why
+    0 is not trustworthy - nothing runs between invoke and the GetLastError() read, so a genuine
+    E_INVALIDARG from this call should leave GetLastError=87 as it did on one earlier run; 0 appears
+    to depend on some run-to-run condition not yet identified, separate from the main investigation).
+
+    Reverted SIGNER_SIGNATURE_INFO.dwAttrChoice from SIGNER_AUTHCODE_ATTR back to SIGNER_NO_ATTR (see
+    that structure's entry above) as a further narrowing step under SignerSignEx3 specifically (the
+    NO_ATTR/AUTHCODE_ATTR pair had only been tried against SignerSignEx2 before) - requesting an
+    Authenticode attribute is more semantic surface than a plain catalog signature needs, and the
+    SIGNER_ATTR_AUTHCODE structure this backend built for it (empty pwszName/pwszInfo) was never
+    independently confirmed to be an accepted combination. SIGNER_CERT_STORE_INFO.dwCertPolicy
+    (SIGNER_CERT_POLICY_CHAIN) and hCertStore (hMy) are left as already-settled from the earlier
+    dwCertPolicy experiments recorded above.
+
+    Note on comparing against the PS1 backend: PS1 signs via PowerShell's Set-AuthenticodeSignature
+    cmdlet, not by calling SignerSignEx2/Ex3 directly, so there is no equivalent set of these
+    parameter values from that backend to diff against - the two backends only share a hash algorithm
+    (SHA-256) and a self-signed CurrentUser\My certificate at the level either implementation exposes.
+
+    Whether the SIGNER_NO_ATTR revert resolves the E_INVALIDARG is unconfirmed until the next live CI
+    run. PAUSED pending that run. If it still reports the identical E_INVALIDARG, the failure is not
+    specific to which Signer* entry point is used nor to the AUTHCODE attribute, and the next lead
+    would have to come from outside this function's own argument surface entirely (e.g.
+    account/store-provisioning state on the CI runner itself, rather than anything this code passes).
+    Update this note with the actual root cause once resolved.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
@@ -1341,10 +1364,11 @@ Purpose      : Specifies the hash algorithm for the signature and any extra Auth
 
 FFM notes    : algidHash = CALG_SHA_256(0x0000800c) (the classic CryptoAPI ALG_ID constant for
                SHA-256 - consistent with every other hash choice in this file); dwAttrChoice =
-               SIGNER_AUTHCODE_ATTR(1) with the union member pointing at a populated
-               SIGNER_ATTR_AUTHCODE (see below); both psAuthenticated and psUnauthenticated are left
-               NULL (no extra signed/unsigned attributes beyond the Authenticode ones already
-               requested via dwAttrChoice).
+               SIGNER_NO_ATTR(0) with the union pointer left NULL (no Authenticode-specific
+               commercial/individual publisher attributes requested); both psAuthenticated and
+               psUnauthenticated are also left NULL. SIGNER_AUTHCODE_ATTR plus a populated
+               SIGNER_ATTR_AUTHCODE (see below) was tried and reverted - see the "Investigation
+               history" note below.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_ATTR_AUTHCODE - VERIFIED
@@ -1358,12 +1382,11 @@ Purpose      : Specifies Authenticode-specific attributes (the display name/URL 
                and whether the subject is signed as a commercial or individual publisher) for a
                signature whose SIGNER_SIGNATURE_INFO.dwAttrChoice is SIGNER_AUTHCODE_ATTR.
 
-FFM notes    : fCommercial = FALSE and fIndividual = FALSE (neither publisher category applies to
-               this backend's self-signed test/CI certificate); pwszName and pwszInfo are both
-               empty strings (no download-dialog display name/URL is meaningful here) rather than
-               NULL, since this backend's own SignerSignEx2 call previously left dwAttrChoice at
-               SIGNER_NO_ATTR with this whole structure unused - see the "Investigation history"
-               note below for why this member is populated at all.
+FFM notes    : Not currently constructed - this backend now leaves SIGNER_SIGNATURE_INFO.dwAttrChoice
+               at SIGNER_NO_ATTR, so this structure is unused. It was populated once, as part of the
+               SignerSignEx2 E_INVALIDARG investigation (fCommercial = FALSE, fIndividual = FALSE,
+               pwszName/pwszInfo both empty strings rather than NULL), then reverted without changing
+               the failure - see the "Investigation history" note below.
 
 
 ====================================================================================================

@@ -1434,6 +1434,24 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     (missing SIP registration for .cat files on this runner image, a COM apartment/initialization
     requirement, or similar) rather than anything this backend's own struct-building code controls.
 
+    Live CI result: the CAPI2 log captured only events from the diagnostic's own
+    CryptAcquireCertificatePrivateKey call (Task: "Acquire Certificate Private Key" - private key
+    lookup and certificate path validation, all Information level, no errors). There is no trace at
+    all of any internal work tied to the actual SignerSignEx call itself - no chain-building, no
+    additional path-validation events beyond the diagnostic's own. This confirms SignerSignEx rejects
+    its arguments at the very first line of the function, before doing anything CAPI2 instruments -
+    consistent with pure up-front parameter validation, but it does not reveal which argument or why.
+    Since every struct-content permutation and this event-log trace have both been exhausted without
+    new information, the CI workflow now also cross-checks with signtool.exe (present on the
+    GitHub-hosted Windows runner's preinstalled SDK): it signs a throwaway text file with the exact
+    same self-signed certificate this backend already created and trusted (provider name
+    "JxMake_CITest_FFM", hardcoded to match WDI_CITest.java). signtool drives this same undocumented
+    Signer* API family through a mature, independently-implemented path. If signtool succeeds, the bug
+    is conclusively in this backend's own struct marshaling (an FFM-specific or byte-layout defect this
+    document's cross-checking has not yet found); if signtool also fails, the problem is in the
+    certificate/environment itself, not this backend's code, and the investigation should pivot away
+    from SignerSignEx's arguments entirely.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------

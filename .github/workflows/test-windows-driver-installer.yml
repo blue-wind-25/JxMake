@@ -220,3 +220,31 @@ jobs:
         shell: pwsh
         continue-on-error: true
         run: wevtutil.exe qe Microsoft-Windows-CAPI2/Operational /rd:true /f:text
+
+      # Decisive diagnostic for the FFM SignerSignEx E_INVALIDARG investigation: the CAPI2 log
+      # above shows SignerSignEx does no traceable internal work at all before failing (pure
+      # up-front argument validation), and every struct field this backend controls has already
+      # been exhausted without changing the failure - see the "Investigation history" section of
+      # WindowsDriverInstaller_FFM-Win32API.txt. Rather than guess another field, sign a throwaway
+      # file with the *same* self-signed certificate (provider name hardcoded to match
+      # WDI_CITest.java's "JxMake_CITest_FFM") using signtool.exe, a mature Microsoft tool that
+      # also drives this same undocumented Signer* API family. If signtool succeeds, the bug is
+      # conclusively in this backend's own struct marshaling; if it also fails, the problem is in
+      # the certificate/environment, not this backend's code. Non-fatal either way - diagnostic
+      # only, must never block the actual test result.
+      - name: Cross-check signing with signtool.exe (mutating run only)
+        if: ${{ inputs.run_mutating }}
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -like "*\x64\*" } | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) {
+            Write-Host "signtool.exe not found on this runner image - skipping cross-check"
+            exit 0
+          }
+          Write-Host "Using $signtool"
+          $testFile = Join-Path $env:RUNNER_TEMP "signtool_crosscheck.txt"
+          "signtool cross-check for FFM SignerSignEx investigation" | Out-File -FilePath $testFile -Encoding ascii
+          & $signtool sign /n "JxMake_CITest_FFM" /fd SHA256 /v $testFile
+          Write-Host "signtool exit code: $LASTEXITCODE"

@@ -29,6 +29,7 @@ import java.nio.file.Paths;
 
 import java.security.SecureRandom;
 
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -241,6 +242,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static int _lastError() throws Throwable
     { return (int) _GetLastError.invoke(); }
+
+    // Diagnostic-only: renders a struct's raw bytes as hex, for hand-checking field offsets/values
+    // against WindowsDriverInstaller_FFM-Win32API.txt when a native call fails for no apparent reason
+    private static String _hexDump(final MemorySegment seg, final long size)
+    { return HexFormat.of().formatHex( seg.reinterpret(size).toArray(ValueLayout.JAVA_BYTE) ); }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1055,11 +1061,25 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             ppSignerContext, MemorySegment.NULL, MemorySegment.NULL
         );
 
+        // EXPERIMENT (see WindowsDriverInstaller_FFM-Win32API.txt, "Open investigation" continuation
+        // instructions steps 1-2): GetLastError() has never actually been checked here, and the raw
+        // struct bytes have never been hand-verified against this document field-by-field - both are
+        // captured unconditionally (before SignerFreeSignerContext can touch anything) so the CI log
+        // carries them regardless of which failure mode this turns out to be.
+        final int lastError = _lastError();
+
         final MemorySegment signerContext = ppSignerContext.get(PTR, 0);
         if(signerContext != null && signerContext.address() != 0L) _SignerFreeSignerContext.invoke(signerContext);
 
         if(hr != 0) {
-            log.append("SignerSignEx2 failed, HRESULT=0x").append( Integer.toHexString(hr) );
+            log.append("SignerSignEx2 failed, HRESULT=0x").append( Integer.toHexString(hr) )
+               .append(", GetLastError=").append( lastError ).append('\n')
+               .append("  subjectInfo    : ").append( _hexDump(subjectInfo, 32)    ).append('\n')
+               .append("  signerCert     : ").append( _hexDump(signerCert, 24)     ).append('\n')
+               .append("  certStoreInfo  : ").append( _hexDump(certStoreInfo, 32)  ).append('\n')
+               .append("  sigInfo        : ").append( _hexDump(sigInfo, 40)        ).append('\n')
+               .append("  authCodeInfo   : ").append( _hexDump(authCodeInfo, 32)   ).append('\n')
+               .append("  fileInfo       : ").append( _hexDump(fileInfo, 24)       );
             return RETCODE_EXCEPTION;
         }
 

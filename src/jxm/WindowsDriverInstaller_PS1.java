@@ -158,7 +158,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "        Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                               \r\n" +
                 "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                      \r\n" +
                 "            Remove-Item -Force -ErrorAction SilentlyContinue;                               \r\n" +
-                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert           \r\n" +
+                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert `\r\n" +
                 "                     -CertStoreLocation 'Cert:\\CurrentUser\\My';                           \r\n" +
                 "                     Export-Certificate -Cert `$cert -FilePath '%s';                        \r\n" +
                 "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;            \r\n" +
@@ -174,8 +174,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // silently breaks it too), each line here parses as its own top-level statement (the previous
                 // line was already a syntactically complete Start-Process invocation), and a line starting with
                 // "-ArgumentList" then fails as "The term '-ArgumentList' is not recognized..."
-                "    $processHandler = Start-Process -FilePath 'powershell.exe' `                            \r\n" +
-                "                          -ArgumentList \"-NoProfile -Command $script\" `                   \r\n" +
+                "    $processHandler = Start-Process -FilePath 'powershell.exe' `\r\n" +
+                "                          -ArgumentList \"-NoProfile -Command $script\" `\r\n" +
                 "                          -Verb RunAs -Wait -PassThru                                       \r\n" +
                 "    if($processHandler) {                                                                   \r\n" +
                 "        $exitCode = $processHandler.ExitCode                                                \r\n" +
@@ -269,8 +269,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // already signed with it (including the catalog just produced) continues to verify correctly.
                 "        Remove-Item `$cert.PSPath -DeleteKey -Force -ErrorAction SilentlyContinue;           \r\n" +
                 "    \"                                                                                       \r\n" +
-                "    $processHandler = Start-Process -FilePath 'powershell.exe' `                             \r\n" +
-                "                          -ArgumentList \"-NoProfile -Command $script\" `                    \r\n" +
+                "    $processHandler = Start-Process -FilePath 'powershell.exe' `\r\n" +
+                "                          -ArgumentList \"-NoProfile -Command $script\" `\r\n" +
                 "                          -Verb RunAs -Wait -PassThru                                        \r\n" +
                 "    if($processHandler) {                                                                    \r\n" +
                 "        $exitCode = $processHandler.ExitCode                                                 \r\n" +

@@ -955,6 +955,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 return RETCODE_EXCEPTION;
             }
 
+            boolean catCloseOk = false;
             try {
                 final MemorySegment cbHashOut = arena.allocate(ValueLayout.JAVA_INT);
                 _CryptCATAdminCalcHashFromFileHandle2.invoke(hCatAdmin, hInfFile, cbHashOut, MemorySegment.NULL, 0);
@@ -1052,13 +1053,21 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     }
                 }
                 finally {
-                    _CryptCATClose.invoke(hCatalog);
+                    // CryptCATClose persists the accumulated members/attributes to catPath - its return
+                    // value must be checked, since a failed close here would leave a corrupt/incomplete
+                    // .cat file on disk that later fails to sign with an unrelated-looking error instead
+                    // of surfacing the real problem at its source
+                    catCloseOk = (int) _CryptCATClose.invoke(hCatalog) != 0;
                     _LocalFree.invoke(spcLinkEnc);
                 }
             }
             finally {
                 _CloseHandle.invoke(hInfFile);
                 _CryptCATAdminReleaseContext.invoke(hCatAdmin, 0);
+            }
+            if(!catCloseOk) {
+                log.append("CryptCATClose failed, GetLastError=").append( _lastError() );
+                return RETCODE_EXCEPTION;
             }
 
             // 4. Locate the trusted signing cert (with its persisted private key) in CurrentUser\My
@@ -1114,6 +1123,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             log.append("signtool.exe not found under ").append(SDK_BIN_ROOT);
             return RETCODE_EXCEPTION;
         }
+
+        final java.io.File catFile = new java.io.File(catPath);
+        log.append(".cat file before signing: exists=").append( catFile.exists() )
+           .append(", size=").append( catFile.length() ).append(" bytes\n");
 
         final Process process = new ProcessBuilder(signtool, "sign", "/n", providerName, "/fd", "SHA256", "/v", catPath)
             .redirectErrorStream(true)

@@ -1452,6 +1452,17 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     certificate/environment itself, not this backend's code, and the investigation should pivot away
     from SignerSignEx's arguments entirely.
 
+    Live CI result: signtool correctly selected the certificate (subject, issuer, expiry, and SHA1
+    thumbprint all printed as expected for "JxMake_CITest_FFM") - confirming yet again that
+    certificate/key setup itself is not the problem - but then failed with "SignTool Error: This file
+    format cannot be signed because it is not recognized," because a plain .txt file has no registered
+    SIP and was never a realistic stand-in for this backend's actual subject type. This cross-check
+    did not yet test what it needed to: whether signtool can sign a .cat file (the same subject type
+    this backend signs) with this certificate. Reworked the workflow step to first build a real
+    catalog file with makecat.exe (same SDK bin directory as signtool.exe, from a minimal generated
+    .cdf listing one throwaway member file) and then run the signtool cross-check against that .cat
+    file instead. Result pending the next live CI run.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------

@@ -1475,6 +1475,16 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     CryptCATPutMemberInfo/CryptCATPutAttrInfo/CryptCATClose API family rather than a CDF file. Result
     pending the next live CI run.
 
+    Live CI result: the .cdf header now opens successfully ("opened: ...test.cdf"), but makecat then
+    failed enumerating members - "Failed: CryptCATCDFEnumMembersByCDFTagEx. Last Error: 0x00000057",
+    "Failed: No members found." The [CatalogFiles] entry was written as a bare `tag=path` line
+    (`member.txt=<path>`), which the CDF member-tag parser did not recognize as a valid member
+    definition at all (zero members enumerated, not a hash/file-lookup failure). The documented CDF
+    member syntax requires a literal `<HASH>` attribute-tag prefix on each entry
+    (`<HASH>tag=path`), not a bare tag. Fixed the .cdf's [CatalogFiles] line accordingly. Again, this is
+    purely a fix to the diagnostic tooling's own .cdf syntax, unrelated to SignerSignEx or this
+    backend's own catalog-building code. Result pending the next live CI run.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------

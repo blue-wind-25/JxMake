@@ -268,7 +268,7 @@ jobs:
             "HashAlgorithms=SHA256",
             "",
             "[CatalogFiles]",
-            "member.txt=$memberFile"
+            "<HASH>member.txt=$memberFile"
           )
           $cdfLines | Out-File -FilePath $cdfFile -Encoding ascii
 

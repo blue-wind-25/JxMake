@@ -121,6 +121,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _SignerSignEx;
     private static MethodHandle _SignerFreeSignerContext;
 
+    private static MethodHandle _CoInitializeEx;
+    private static MethodHandle _CoUninitialize;
+
     static {
         try {
             _arena = Arena.ofShared();
@@ -134,6 +137,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final SymbolLookup wintrust = SymbolLookup.libraryLookup("Wintrust.dll", _arena);
             final SymbolLookup mssign32 = SymbolLookup.libraryLookup("Mssign32.dll", _arena);
             final SymbolLookup advapi32 = SymbolLookup.libraryLookup("Advapi32.dll", _arena);
+            final SymbolLookup ole32    = SymbolLookup.libraryLookup("Ole32.dll"   , _arena);
 
             // Kernel32.dll (fileapi.h / handleapi.h / synchapi.h / processthreadsapi.h / errhandlingapi.h)
             _CreateFileW         = _bind( linker, kernel32, "CreateFileW"        , FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR) );
@@ -187,6 +191,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // Mssign32.dll (not declared in any SDK header - see SignerSignEx/SignerFreeSignerContext docs)
             _SignerSignEx            = _bind( linker, mssign32, "SignerSignEx", FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR, PTR) );
             _SignerFreeSignerContext = _bind( linker, mssign32, "SignerFreeSignerContext", FunctionDescriptor.of(DW, PTR) );
+
+            // Ole32.dll (combaseapi.h) - signtool.exe (a native process, confirmed via a live CI
+            // cross-check to sign successfully with the exact certificate this backend also uses) very
+            // likely has COM initialized on its calling thread, unlike an arbitrary JVM thread; some
+            // WinTrust/Signer-family internals use COM-based providers, which could explain SignerSignEx
+            // rejecting every call this backend has ever made, immediately and without any traceable
+            // internal work, regardless of entry point or struct content - see the "Investigation
+            // history" section in WindowsDriverInstaller_FFM-Win32API.txt.
+            _CoInitializeEx = _bind( linker, ole32, "CoInitializeEx", FunctionDescriptor.of(DW, PTR, DW) );
+            _CoUninitialize = _bind( linker, ole32, "CoUninitialize", FunctionDescriptor.ofVoid() );
         }
         catch(final Throwable t) {
             // Do not throw out of a static initializer with anything worse than what we capture here;
@@ -794,6 +808,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int   CRYPTCAT_ATTR_DATAASCII     = 0x00010000;
     private static final long[] DRIVER_ACTION_VERIFY_PARTS = { 0xF750E6C3L, 0x38EEL, 0x11d1L, 0x85L, 0xE5L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
 
+    // combaseapi.h
+    private static final int   COINIT_APARTMENTTHREADED = 0x2;
+
     // wincrypt.h / mssign32 SPC_LINK "Obsolete" placeholder - the standard way a non-PE (INF/CAB) catalog
     // member's SIP-indirect data references its subject file, per the SPC_INDIRECT_DATA_CONTENT scheme
     private static final int    SPC_FILE_LINK_CHOICE = 3;
@@ -1039,6 +1056,20 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
     {
+        // combaseapi.h - signtool.exe (a native process, confirmed via a live CI cross-check to sign
+        // successfully with the exact certificate this backend also uses) very likely has COM
+        // initialized on its calling thread, unlike an arbitrary JVM thread; some WinTrust/Signer-family
+        // internals use COM-based providers, which could explain SignerSignEx rejecting every call this
+        // backend has ever made, immediately and without any traceable internal work, regardless of
+        // entry point or struct content - see the "Investigation history" section in
+        // WindowsDriverInstaller_FFM-Win32API.txt. S_OK(0) and S_FALSE(1) both mean COM is now
+        // initialized on this thread and must be paired with CoUninitialize; a negative HRESULT (e.g.
+        // RPC_E_CHANGED_MODE) means a different concurrency model was already set on this thread and
+        // must NOT be paired with CoUninitialize.
+        final int coInitHr = (int) _CoInitializeEx.invoke(MemorySegment.NULL, COINIT_APARTMENTTHREADED);
+        final boolean coInitialized = coInitHr >= 0;
+        log.append("CoInitializeEx: HRESULT=0x").append( Integer.toHexString(coInitHr) ).append('\n');
+        try {
         // Diagnostic only, not required for signing itself: acquire the certificate's private key the
         // same way SignerSignEx must do internally (via CryptAcquireCertificatePrivateKey), to isolate
         // whether the CRYPT_KEY_PROV_INFO.dwKeySpec=CERT_NCRYPT_KEY_SPEC fix actually lets key
@@ -1198,6 +1229,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
 
         return RETCODE_OK;
+        } finally {
+            if(coInitialized) _CoUninitialize.invoke();
+        }
     }
 
 } // WindowsDriverInstaller_FFM

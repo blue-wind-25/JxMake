@@ -1485,6 +1485,31 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     purely a fix to the diagnostic tooling's own .cdf syntax, unrelated to SignerSignEx or this
     backend's own catalog-building code. Result pending the next live CI run.
 
+    Live CI result: makecat succeeded ("processing: <HASH>member.txt", "Succeeded", exit code 0), and
+    signtool then successfully signed the resulting .cat with the same self-signed certificate this
+    backend creates and trusts ("Successfully signed: ...test.cat", "Number of errors: 0", exit code
+    0). This is the decisive result of the cross-check: an independent, mature Microsoft tool, driven
+    from a separate native process, signs the exact subject type (a .cat file) this backend targets,
+    with the exact certificate this backend uses. The certificate, private key, and CI environment are
+    therefore conclusively ruled out - the defect is specific to this backend's own SignerSignEx call.
+    Combined with the earlier struct-content and entry-point exhaustion (every SIGNER_*/CRYPT_* field
+    this backend controls has been varied at least once with zero change in failure shape, and all
+    three entry points in the family - SignerSignEx, SignerSignEx2, SignerSignEx3 - have already been
+    tried and fail identically), there is no remaining argument-content permutation left to guess
+    blind.
+
+    New hypothesis: COM initialization. signtool.exe is a native EXE; this backend's SignerSignEx call
+    runs on a JVM thread. Some WinTrust/Signer-family internals are documented as using COM-based
+    trust providers, and CAPI2 tracing (above) already showed SignerSignEx rejects its arguments before
+    doing any traceable internal work at all - consistent with a check that fails before reaching any
+    instrumented code path, such as an internal COM call failing because the calling thread never
+    called CoInitializeEx. Added CoInitializeEx/CoUninitialize bindings (Ole32.dll, combaseapi.h) and
+    call CoInitializeEx(NULL, COINIT_APARTMENTTHREADED) at the start of _signCatalog, logging the
+    returned HRESULT, with a matching CoUninitialize in a finally block (only when the init call
+    returned a non-negative HRESULT - S_OK or S_FALSE - since a negative RPC_E_CHANGED_MODE means a
+    different concurrency model was already set on the thread and must not be paired with
+    CoUninitialize). Result pending the next live CI run.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------
@@ -1504,6 +1529,32 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR)`. This file does not otherwise in
                of the returned SIGNER_CONTEXT (e.g. to pull the signed blob back out) - it is only
                used as a success/failure signal via SignerSignEx's HRESULT, and the context itself
                is freed immediately once read.
+
+----------------------------------------------------------------------------------------------------
+CoInitializeEx / CoUninitialize - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-coinitializeex
+               https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-couninitialize
+
+DLL          : Ole32.dll
+Header       : combaseapi.h
+
+Parameters (CoInitializeEx) : pvReserved (LPVOID, must be NULL), dwCoInit (DWORD, concurrency model
+               flags - COINIT_APARTMENTTHREADED = 0x2 is used here)
+Return value : HRESULT - S_OK/S_FALSE (non-negative) on success, must be paired with a later
+               CoUninitialize call on the same thread; RPC_E_CHANGED_MODE (0x80010106, negative) if a
+               different concurrency model was already set on this thread, in which case
+               CoUninitialize must NOT be called.
+
+Parameters (CoUninitialize) : none
+Return value : none (void)
+Purpose      : Initializes/uninitializes COM on the calling thread. See the "Investigation history"
+               note above: called at the start of _signCatalog on the theory that some WinTrust/
+               Signer-family internals require COM to be initialized on the calling thread, which an
+               arbitrary JVM thread never is by default, unlike a native process such as signtool.exe.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)` for CoInitializeEx, `FunctionDescriptor.ofVoid()`
+               for CoUninitialize.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED

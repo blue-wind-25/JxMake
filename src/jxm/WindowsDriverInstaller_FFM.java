@@ -1058,7 +1058,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 final int     keySpec    = pdwKeySpec.get(ValueLayout.JAVA_INT, 0);
                 final boolean callerFree = pfCallerFree.get(ValueLayout.JAVA_INT, 0) != 0;
                 log.append(", dwKeySpec=").append(keySpec).append(", callerFree=").append(callerFree);
-                if(callerFree && keySpec == CERT_NCRYPT_KEY_SPEC) _NCryptFreeObject.invoke( phKey.get(PTR, 0) );
+                if(callerFree) {
+                    if(keySpec == CERT_NCRYPT_KEY_SPEC) _NCryptFreeObject.invoke( phKey.get(PTR, 0) );
+                    else                                _CryptReleaseContext.invoke( phKey.get(PTR, 0), 0 );
+                }
             }
             log.append('\n');
         }
@@ -1149,17 +1152,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         //                           PCRYPT_ATTRIBUTES psAuthenticated; PCRYPT_ATTRIBUTES psUnauthenticated; } - size 40, align 8
         // dwAttrChoice stays SIGNER_NO_ATTR (union at offset 16 unused) - that axis (NO_ATTR vs
         // AUTHCODE_ATTR) was already exhausted against SignerSignEx2/SignerSignEx3 without changing the
-        // failure. psAuthenticated (offset 24) had never been populated in any prior attempt; every
-        // real-world Signer* caller cross-checked during this investigation attaches SPC_SP_OPUS_INFO +
-        // SPC_STATEMENT_TYPE here instead of using dwAttrChoice/pAttrAuthcode, so this is a genuinely new
-        // axis, not a repeat of the SIGNER_AUTHCODE_ATTR experiment - see
-        // WindowsDriverInstaller_FFM-Win32API.txt for the fuller history.
+        // failure. psAuthenticated (offset 24) reverted back to NULL: populating it with the
+        // SPC_SP_OPUS_INFO/SPC_STATEMENT_TYPE attributes below was tried while private-key acquisition
+        // was still broken (see WindowsDriverInstaller_FFM-Win32API.txt's "Investigation history"), so
+        // that experiment never actually ran against a SignerSignEx call that could get past key
+        // acquisition - now that key acquisition is confirmed working and SignerSignEx still fails
+        // identically, psAuthenticated is the next remaining untested-in-combination axis, so it is
+        // isolated back out here.
         final MemorySegment sigInfo = arena.allocate(40, 8);
         sigInfo.set(ValueLayout.JAVA_INT,  0, 40                    );
         sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256          );
         sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_NO_ATTR        );
         sigInfo.set(PTR                 , 16, MemorySegment.NULL    );
-        sigInfo.set(PTR                 , 24, authenticatedAttrs    );
+        sigInfo.set(PTR                 , 24, MemorySegment.NULL    );
         sigInfo.set(PTR                 , 32, MemorySegment.NULL    );
 
         final MemorySegment ppSignerContext = arena.allocate(PTR);

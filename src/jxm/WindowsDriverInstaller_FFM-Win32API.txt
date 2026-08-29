@@ -1367,6 +1367,37 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     CryptAcquireCertificatePrivateKey can in general still hand back either kind of key. Whether this
     resolves the E_INVALIDARG is unconfirmed until the next live CI run.
 
+    Live CI result: the CryptAcquireCertificatePrivateKey diagnostic now reports acquired=true,
+    dwKeySpec=2 (AT_SIGNATURE), callerFree=true - private-key acquisition via the legacy CryptoAPI path
+    now succeeds, confirming the CAPI1 rewrite fixed the real bug the diagnostic was built to find.
+    However, the very next SignerSignEx call in the same run still failed with the identical
+    HRESULT=0x80070057, GetLastError=0, and byte-for-byte the same struct dumps as every prior round.
+    This is a significant new data point: it means private-key acquisition was never actually the cause
+    of the E_INVALIDARG itself. E_INVALIDARG is what a function returns when it rejects an argument
+    during its own up-front validation, which necessarily happens before any real work like key
+    acquisition - so whatever SignerSignEx is rejecting here, it is rejecting before it would ever reach
+    the code path the diagnostic exercises. The CAPI1 rewrite was still a genuine, worthwhile fix (a
+    CNG-provisioned key was never going to work here regardless), but it is now confirmed orthogonal to
+    the E_INVALIDARG investigation.
+
+    Also fixed in this round: the diagnostic's cleanup only ever freed the acquired handle via
+    NCryptFreeObject when dwKeySpec=CERT_NCRYPT_KEY_SPEC; now that dwKeySpec=AT_SIGNATURE (legacy) comes
+    back with callerFree=true, that branch never fired and the returned HCRYPTPROV leaked one handle per
+    _signCatalog call. Added the CryptReleaseContext(hProv, 0) branch for the legacy case alongside it.
+
+    Since every SIGNER_* struct field, entry-point choice, and now private-key acquisition itself have
+    been ruled out, the next isolated axis is SIGNER_SIGNATURE_INFO.psAuthenticated: it was populated
+    with hand-DER-encoded SPC_SP_OPUS_INFO/SPC_STATEMENT_TYPE CRYPT_ATTRIBUTES in an earlier round, but
+    that round ran against the still-broken CNG key, so it was never actually tested against a
+    SignerSignEx call whose only remaining difference from a working call is this one field. Reverted
+    psAuthenticated back to NULL (the CRYPT_ATTRIBUTES-building code itself is left in place and still
+    hex-dumped in the failure log, just unlinked from sigInfo, in case the DER encoding needs
+    re-examining afterward either way). Whether this resolves the E_INVALIDARG is unconfirmed until the
+    next live CI run. If it does not, the next lead has to come from outside every field this backend
+    directly controls - e.g. re-deriving the exact byte layout of one of these undocumented structures
+    from a source independent of everything consulted so far, or an environmental/CI-runner-specific
+    cause.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------

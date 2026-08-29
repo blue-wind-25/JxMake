@@ -191,6 +191,18 @@ jobs:
           mkdir -p wdi_ci_out
           "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
 
+      # Diagnostic for the still-open FFM SignerSignEx E_INVALIDARG investigation (see
+      # WindowsDriverInstaller_FFM-Win32API.txt's "Investigation history" section): every
+      # SIGNER_*-struct-field permutation tried so far has failed identically, so this captures
+      # Windows' own internal CAPI2 trace of the SignerSignEx call instead of guessing another
+      # field. Non-fatal if it can't be enabled (continue-on-error below) - this is diagnostic
+      # only and must never block the actual test result.
+      - name: Enable CAPI2 diagnostic log (mutating run only)
+        if: ${{ inputs.run_mutating }}
+        shell: pwsh
+        continue-on-error: true
+        run: wevtutil.exe set-log Microsoft-Windows-CAPI2/Operational /e:true /q:true
+
       - name: Run WindowsDriverInstaller test
         working-directory: src
         run: |
@@ -202,3 +214,9 @@ jobs:
             -Dwdi.mutating="${{ inputs.run_mutating }}" \
             -cp "jxmake.jar;wdi_ci_out" \
             WDI_CITest
+
+      - name: Dump CAPI2 diagnostic log (mutating run only)
+        if: ${{ inputs.run_mutating }}
+        shell: pwsh
+        continue-on-error: true
+        run: wevtutil.exe qe Microsoft-Windows-CAPI2/Operational /rd:true /f:text

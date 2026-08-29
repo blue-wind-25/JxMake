@@ -1417,6 +1417,23 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     allocation this field previously pointed at has been removed entirely. Whether this resolves the
     E_INVALIDARG is unconfirmed until the next live CI run.
 
+    Live CI result: this did not resolve the E_INVALIDARG either. The hex dump confirmed subjectInfo's
+    pdwIndex (offset 8) is now correctly all-zero (NULL), and every other field in every struct passed
+    to SignerSignEx is byte-for-byte identical to every prior round - the failure itself remains
+    HRESULT=0x80070057, GetLastError=0, completely unchanged. This means every single field in every
+    SIGNER_*/CRYPT_* struct this backend builds, the entry-point choice, and the private-key
+    provisioning mechanism have now all been varied at least once without the failure shape ever
+    changing - there is no remaining struct-content permutation left to try blind.
+    Given that, the next step is a genuinely different kind of diagnostic rather than another
+    struct-field guess: the CI workflow (test-windows-driver-installer.yml) now enables the Windows
+    CAPI2 operational event log (Microsoft-Windows-CAPI2/Operational) around the mutating test run and
+    dumps it afterward. This log captures Windows' own internal trace of CryptoAPI/Signer-family calls,
+    including the specific argument or internal check that a plain HRESULT/GetLastError pair does not
+    surface - it should show what SignerSignEx itself perceives as invalid, if anything is logged there
+    at all. If the log turns out empty or unhelpful, the remaining leads are genuinely environmental
+    (missing SIP registration for .cat files on this runner image, a COM apartment/initialization
+    requirement, or similar) rather than anything this backend's own struct-building code controls.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------

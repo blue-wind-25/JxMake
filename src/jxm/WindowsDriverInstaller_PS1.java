@@ -262,12 +262,11 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "        New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;                \r\n" +
                 "        Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 | \r\n" +
                 "            Out-File `\"$tmpOutLog`\";                                                       \r\n" +
-                // The private key is only ever needed to produce this one signature; destroying it
-                // immediately afterward (via -DeleteKey) means it can never be exfiltrated/reused to mint
-                // new signatures later, even though this certificate remains trusted machine-wide as both
-                // a Root CA and a Trusted Publisher. The public certificate itself is left untouched in
-                // every store, so anything already signed with it (including the catalog just produced)
-                // continues to verify correctly.
+                // The private key is only ever needed to produce this one signature; destroying it immediately
+                // afterward (via -DeleteKey) means it can never be exfiltrated/reused to mint new signatures
+                // later, even though this certificate remains trusted machine-wide as both a Root CA and
+                // a Trusted Publisher. The public certificate itself is left untouched in every store, so anything
+                // already signed with it (including the catalog just produced) continues to verify correctly.
                 "        Remove-Item `$cert.PSPath -DeleteKey -Force -ErrorAction SilentlyContinue;           \r\n" +
                 "    \"                                                                                       \r\n" +
                 "    $processHandler = Start-Process -FilePath 'powershell.exe' `                             \r\n" +
@@ -281,9 +280,9 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "    }                                                                                        \r\n" +
                 "}                                                                                            \r\n" +
                 // See createAndTrustProvider() above: use the numeric NativeErrorCode (1223 = ERROR_CANCELLED,
-                // i.e. the user declined UAC), not the exception text, since that text is locale-dependent.
-                // The message itself is still emitted below so a non-UAC failure is diagnosable from the
-                // returned log text instead of coming back as an opaque exit code with no explanation.
+                // i.e. the user declined UAC), not the exception text, since that text is locale-dependent. The
+                // message itself is still emitted below so a non-UAC failure is diagnosable from the returned log
+                // text instead of coming back as an opaque exit code with no explanation.
                 "catch {                                                                                      \r\n" +
                 "    $nativeErr = $_.Exception.NativeErrorCode                                                \r\n" +
                 "    if(-not $nativeErr -and $_.Exception.InnerException) {                                   \r\n" +

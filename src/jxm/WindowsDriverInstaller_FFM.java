@@ -126,7 +126,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         try {
             _arena = Arena.ofShared();
 
-            final Linker      linker    = Linker.nativeLinker();
+            final Linker       linker   = Linker.nativeLinker();
             final SymbolLookup kernel32 = SymbolLookup.libraryLookup("Kernel32.dll", _arena);
             final SymbolLookup shell32  = SymbolLookup.libraryLookup("Shell32.dll" , _arena);
             final SymbolLookup crypt32  = SymbolLookup.libraryLookup("Crypt32.dll" , _arena);
@@ -149,16 +149,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _ShellExecuteExW = _bind( linker, shell32, "ShellExecuteExW", FunctionDescriptor.of(DW, PTR) );
 
             // Crypt32.dll (wincrypt.h)
-            _CertOpenStore                    = _bind( linker, crypt32, "CertOpenStore"                   , FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, PTR) );
-            _CertCloseStore                   = _bind( linker, crypt32, "CertCloseStore"                  , FunctionDescriptor.of(DW , PTR, DW) );
-            _CertFindCertificateInStore       = _bind( linker, crypt32, "CertFindCertificateInStore"      , FunctionDescriptor.of(PTR, PTR, DW, DW, DW, PTR, PTR) );
-            _CertFreeCertificateContext       = _bind( linker, crypt32, "CertFreeCertificateContext"      , FunctionDescriptor.of(DW , PTR) );
-            _CertStrToNameW                   = _bind( linker, crypt32, "CertStrToNameW"                  , FunctionDescriptor.of(DW , DW, PTR, DW, PTR, PTR, PTR, PTR) );
-            _CertCreateSelfSignCertificate    = _bind( linker, crypt32, "CertCreateSelfSignCertificate"   , FunctionDescriptor.of(PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR) );
-            _CertAddCertificateContextToStore = _bind( linker, crypt32, "CertAddCertificateContextToStore", FunctionDescriptor.of(DW , PTR, PTR, DW, PTR) );
+            _CertOpenStore                     = _bind( linker, crypt32, "CertOpenStore"                    , FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, PTR) );
+            _CertCloseStore                    = _bind( linker, crypt32, "CertCloseStore"                   , FunctionDescriptor.of(DW , PTR, DW) );
+            _CertFindCertificateInStore        = _bind( linker, crypt32, "CertFindCertificateInStore"       , FunctionDescriptor.of(PTR, PTR, DW, DW, DW, PTR, PTR) );
+            _CertFreeCertificateContext        = _bind( linker, crypt32, "CertFreeCertificateContext"       , FunctionDescriptor.of(DW , PTR) );
+            _CertStrToNameW                    = _bind( linker, crypt32, "CertStrToNameW"                   , FunctionDescriptor.of(DW , DW, PTR, DW, PTR, PTR, PTR, PTR) );
+            _CertCreateSelfSignCertificate     = _bind( linker, crypt32, "CertCreateSelfSignCertificate"    , FunctionDescriptor.of(PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR) );
+            _CertAddCertificateContextToStore  = _bind( linker, crypt32, "CertAddCertificateContextToStore" , FunctionDescriptor.of(DW , PTR, PTR, DW, PTR) );
             _CertGetCertificateContextProperty = _bind( linker, crypt32, "CertGetCertificateContextProperty", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR) );
-            _CryptEncodeObjectEx              = _bind( linker, crypt32, "CryptEncodeObjectEx"             , FunctionDescriptor.of(DW , DW, PTR, PTR, DW, PTR, PTR, PTR) );
-            _CryptSIPRetrieveSubjectGuid      = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"     , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
+            _CryptEncodeObjectEx               = _bind( linker, crypt32, "CryptEncodeObjectEx"              , FunctionDescriptor.of(DW , DW, PTR, PTR, DW, PTR, PTR, PTR) );
+            _CryptSIPRetrieveSubjectGuid       = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"      , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
             _CertDeleteCertificateFromStore    = _bind( linker, crypt32, "CertDeleteCertificateFromStore"   , FunctionDescriptor.of(DW , PTR) );
 
             // Advapi32.dll (wincrypt.h) - legacy CryptoAPI (CAPI1) used to provision the self-signed
@@ -645,13 +645,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         return (h == null || h.address() == 0L) ? null : h;
     }
 
-    // Permanently deletes the legacy CAPI1 key container backing the given certificate, via
-    // CryptAcquireContextW's CRYPT_DELETEKEYSET flag, so the private key can never be recovered or
-    // reused. The certificate's public key stays embedded in the cert itself and remains valid for
-    // verifying anything already signed with it. This is required because this backend installs its
-    // self-signed certificate as both a Trusted Root CA and a Trusted Publisher: leaving the private
-    // key alive after signing would let anything with access to CurrentUser\My mint new, fully-trusted
-    // signatures on this machine.
+    /*
+     * Permanently deletes the legacy CAPI1 key container backing the given certificate, via
+     * CryptAcquireContextW's CRYPT_DELETEKEYSET flag, so the private key can never be recovered or reused.
+     *
+     * The certificate's public key stays embedded in the cert itself and remains valid for verifying anything
+     * already signed with it. This is required because this backend installs its self-signed certificate as
+     * both a Trusted Root CA and a Trusted Publisher: leaving the private key alive after signing would let
+     * anything with access to CurrentUser\My mint new, fully-trusted signatures on this machine.
+     */
     private static void _destroyPrivateKey(final Arena arena, final MemorySegment cert, final StringBuilder log) throws Throwable
     {
         final MemorySegment cbKeyProvInfo = arena.allocate(ValueLayout.JAVA_INT);
@@ -676,11 +678,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
     }
 
-    // Deletes every certificate in the given store whose subject matches providerName so repeated
-    // runs never accumulate duplicate certificates under the same provider name. When the store is
-    // CurrentUser\My, also destroys the CAPI1 private key container backing each match first (see
-    // _destroyPrivateKey) - Root/TrustedPublisher only ever hold the public-only copy, so there is no
-    // key to destroy there.
+    /*
+     * Deletes every certificate in the given store whose subject matches providerName so repeated runs never
+     * accumulate duplicate certificates under the same provider name. When the store is CurrentUser\My, also
+     * destroys the CAPI1 private key container backing each match first (see _destroyPrivateKey) - Root/TrustedPublisher
+     * only ever hold the public-only copy, so there is no key to destroy there.
+     */
     private static void _deleteExistingCerts(final Arena arena, final String providerName, final int locationFlag, final String storeName, final StringBuilder log) throws Throwable
     {
         final MemorySegment hStore = _certStoreOpen(arena, locationFlag, storeName);
@@ -886,15 +889,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     // mscat.h
     // DRIVER_ACTION_VERIFY (softpub.h) - the SIP subsystem used for driver catalog validation
-    private static final int   CRYPTCAT_OPEN_CREATENEW     = 0x00000001;
-    private static final int   CRYPTCAT_VERSION_2          = 0x00000200;
-    private static final int   CRYPTCAT_ATTR_AUTHENTICATED = 0x10000000;
-    private static final int   CRYPTCAT_ATTR_NAMEASCII     = 0x00000001;
-    private static final int   CRYPTCAT_ATTR_DATAASCII     = 0x00010000;
-    private static final long[] DRIVER_ACTION_VERIFY_PARTS = { 0xF750E6C3L, 0x38EEL, 0x11d1L, 0x85L, 0xE5L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
+    private static final int    CRYPTCAT_OPEN_CREATENEW     = 0x00000001;
+    private static final int    CRYPTCAT_VERSION_2          = 0x00000200;
+    private static final int    CRYPTCAT_ATTR_AUTHENTICATED = 0x10000000;
+    private static final int    CRYPTCAT_ATTR_NAMEASCII     = 0x00000001;
+    private static final int    CRYPTCAT_ATTR_DATAASCII     = 0x00010000;
+    private static final long[] DRIVER_ACTION_VERIFY_PARTS  = { 0xF750E6C3L, 0x38EEL, 0x11d1L, 0x85L, 0xE5L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
 
     // combaseapi.h
-    private static final int   COINIT_APARTMENTTHREADED = 0x2;
+    private static final int COINIT_APARTMENTTHREADED = 0x2;
 
     // wincrypt.h / mssign32 SPC_LINK "Obsolete" placeholder - the standard way a non-PE (INF/CAB) catalog
     // member's SIP-indirect data references its subject file, per the SPC_INDIRECT_DATA_CONTENT scheme
@@ -1093,17 +1096,17 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
     }
 
-    // Actually applies the Authenticode signature to the finished .cat file by shelling out to the
-    // Windows SDK's signtool.exe, which is already running elevated since this method is only ever
-    // reached from the elevated child process (see _elevatedCreateAndSignCatalog). This replaces the
-    // direct SignerSignEx FFM call below (_signCatalog, kept for reference only), which was abandoned
-    // after an exhaustive investigation - every SIGNER_*/CRYPT_* struct field, all three Signer*
-    // entry points, and a COM-initialization attempt - never moved its E_INVALIDARG failure. A live
-    // CI cross-check confirmed signtool.exe signs a .cat file successfully with the exact same
-    // self-signed certificate this backend creates, using this identical command line - see
-    // .github/workflows/test-windows-driver-installer.yml's "Cross-check catalog signing with
-    // signtool.exe" step, and WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the
-    // full investigation history.
+    /*
+     * Actually applies the Authenticode signature to the finished .cat file by shelling out to the Windows SDK's
+     * signtool.exe, which is already running elevated since this method is only ever reached from the elevated
+     * child process (see _elevatedCreateAndSignCatalog). This replaces the direct SignerSignEx FFM call below
+     * (_signCatalog, kept for reference only), which was abandoned after an exhaustive investigation - every SIGNER_* /
+     * CRYPT_* struct field, all three Signer* entry points, and a COM-initialization attempt - never moved its E_INVALIDARG
+     * failure. A live CI cross-check confirmed signtool.exe signs a .cat file successfully with the exact same self-signed
+     * certificate this backend creates, using this identical command line - see .github/workflows/test-windows-driver-installer.yml's
+     * "Cross-check catalog signing with signtool.exe" step, and WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx"
+     * entry for the full investigation history.
+     */
     private static int _signCatalogWithSigntool(final String catPath, final String providerName, final StringBuilder log) throws IOException, InterruptedException
     {
         final String signtool = _findSdkTool("signtool.exe");
@@ -1142,13 +1145,18 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String SPC_STATEMENT_TYPE_OBJID = "1.3.6.1.4.1.311.2.1.11";
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    // UNUSED - kept for reference only. This direct SignerSignEx call reliably failed with
-    // E_INVALIDARG (HRESULT=0x80070057) across every struct-field permutation, all three entry points
-    // (SignerSignEx/SignerSignEx2/SignerSignEx3), and a COM-initialization attempt - see
-    // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the full investigation.
-    // Catalog signing is now performed by _signCatalogWithSigntool() above, which shells out to
-    // signtool.exe (proven working via a live CI cross-check against the exact same certificate).
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*
+     * UNUSED - kept for reference only.
+     *
+     * This direct SignerSignEx call reliably failed with E_INVALIDARG (HRESULT=0x80070057) across every struct-field
+     * permutation, all three entry points (SignerSignEx/SignerSignEx2/SignerSignEx3), and a COM-initialization attempt
+     * - see WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the full investigation. Catalog signing
+     * is now performed by _signCatalogWithSigntool() above, which shells out to signtool.exe (proven working via a live
+     * CI cross-check against the exact same certificate).
+     */
     private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
     {
         // combaseapi.h - some WinTrust/Signer-family internals use COM-based providers; this was tried
@@ -1292,7 +1300,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
 
         return RETCODE_OK;
-        } finally {
+        }
+        finally {
             if(coInitialized) _CoUninitialize.invoke();
         }
     }

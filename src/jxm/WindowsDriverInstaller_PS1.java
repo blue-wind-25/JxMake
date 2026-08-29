@@ -143,8 +143,24 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "$exitCode  = 0                                                                              \r\n" +
                 "try {                                                                                       \r\n" +
                 "    $script = \"                                                                            \r\n" +
-                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert -CertStoreLocation 'Cert:\\CurrentUser\\My';\r\n" +
-                "        Export-Certificate -Cert `$cert -FilePath '%s';                                     \r\n" +
+                // Remove any certificate(s) already installed under this provider name before creating a new
+                // one, so repeated runs never accumulate duplicates. The CurrentUser\\My copy is removed with
+                // -DeleteKey so its private key is destroyed along with the certificate (this backend's
+                // certificate is trusted machine-wide as both a Root CA and a Trusted Publisher, so no private
+                // key belonging to a stale certificate must be left recoverable); the Root/TrustedPublisher
+                // copies only ever hold the public certificate, so a plain Remove-Item suffices there.
+                "        Get-ChildItem Cert:\\CurrentUser\\My |                                              \r\n" +
+                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                      \r\n" +
+                "            Remove-Item -DeleteKey -Force -ErrorAction SilentlyContinue;                    \r\n" +
+                "        Get-ChildItem Cert:\\LocalMachine\\Root |                                           \r\n" +
+                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                      \r\n" +
+                "            Remove-Item -Force -ErrorAction SilentlyContinue;                               \r\n" +
+                "        Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                               \r\n" +
+                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                      \r\n" +
+                "            Remove-Item -Force -ErrorAction SilentlyContinue;                               \r\n" +
+                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert           \r\n" +
+                "                     -CertStoreLocation 'Cert:\\CurrentUser\\My';                           \r\n" +
+                "                     Export-Certificate -Cert `$cert -FilePath '%s';                        \r\n" +
                 "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;            \r\n" +
                 "        certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append \r\n" +
                 "    \"                                                                                      \r\n" +
@@ -158,8 +174,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // silently breaks it too), each line here parses as its own top-level statement (the previous
                 // line was already a syntactically complete Start-Process invocation), and a line starting with
                 // "-ArgumentList" then fails as "The term '-ArgumentList' is not recognized..."
-                "    $processHandler = Start-Process -FilePath 'powershell.exe' `\r\n" +
-                "                          -ArgumentList \"-NoProfile -Command $script\" `\r\n" +
+                "    $processHandler = Start-Process -FilePath 'powershell.exe' `                            \r\n" +
+                "                          -ArgumentList \"-NoProfile -Command $script\" `                   \r\n" +
                 "                          -Verb RunAs -Wait -PassThru                                       \r\n" +
                 "    if($processHandler) {                                                                   \r\n" +
                 "        $exitCode = $processHandler.ExitCode                                                \r\n" +
@@ -187,7 +203,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                             \r\n" +
                 "}                                                                                           \r\n" +
                 "exit $exitCode                                                                              \r\n" ,
-                providerName, providerName,
+                providerName, providerName, providerName, providerName, providerName,
                 certFile.toAbsolutePath(), certFile.toAbsolutePath(), certFile.toAbsolutePath(),
                 RETCODE_PH_NULL, RETCODE_UAC_DECLINED, RETCODE_EXCEPTION
             );
@@ -246,9 +262,16 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "        New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;                \r\n" +
                 "        Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 | \r\n" +
                 "            Out-File `\"$tmpOutLog`\";                                                       \r\n" +
+                // The private key is only ever needed to produce this one signature; destroying it
+                // immediately afterward (via -DeleteKey) means it can never be exfiltrated/reused to mint
+                // new signatures later, even though this certificate remains trusted machine-wide as both
+                // a Root CA and a Trusted Publisher. The public certificate itself is left untouched in
+                // every store, so anything already signed with it (including the catalog just produced)
+                // continues to verify correctly.
+                "        Remove-Item `$cert.PSPath -DeleteKey -Force -ErrorAction SilentlyContinue;           \r\n" +
                 "    \"                                                                                       \r\n" +
-                "    $processHandler = Start-Process -FilePath 'powershell.exe' `\r\n" +
-                "                          -ArgumentList \"-NoProfile -Command $script\" `\r\n" +
+                "    $processHandler = Start-Process -FilePath 'powershell.exe' `                             \r\n" +
+                "                          -ArgumentList \"-NoProfile -Command $script\" `                    \r\n" +
                 "                          -Verb RunAs -Wait -PassThru                                        \r\n" +
                 "    if($processHandler) {                                                                    \r\n" +
                 "        $exitCode = $processHandler.ExitCode                                                 \r\n" +
@@ -315,36 +338,36 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
             final boolean isWin7    = System.getProperty("os.name").toLowerCase().contains("windows 7");
             final String  flag      = (isWin7 ? " " : " /install ");
             final String  psCommand =
-                "$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()                  \r\n" +
-                "$tmpOutLog      = \"$env:TEMP\\pnp_out_$PID.log\"                                                \r\n" +
-                "$exitCode       = 0                                                                              \r\n" +
-                "try {                                                                                            \r\n" +
-                "    $processHandler = Start-Process -FilePath 'cmd.exe'                                              " +
-                "                          -ArgumentList \"/v:on /c pnputil.exe /add-driver `\"$env:INF_PATH`\"" + flag +
-                "                              > `\"$tmpOutLog`\" 2>&1 & exit !errorlevel!\"                          " +
-                "                          -Verb RunAs -Wait -PassThru                                            \r\n" +
-                "    if($processHandler) {                                                                        \r\n" +
-                "        $exitCode = $processHandler.ExitCode                                                     \r\n" +
-                "    }                                                                                            \r\n" +
-                "    else {                                                                                       \r\n" +
-                "        $exitCode = " + RETCODE_PH_NULL + "                                                      \r\n" +
-                "    }                                                                                            \r\n" +
-                "}                                                                                                \r\n" +
+                "$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()                             \r\n" +
+                "$tmpOutLog      = \"$env:TEMP\\pnp_out_$PID.log\"                                                           \r\n" +
+                "$exitCode       = 0                                                                                         \r\n" +
+                "try {                                                                                                       \r\n" +
+                "    $processHandler = Start-Process -FilePath 'cmd.exe'                                                         " +
+                "                          -ArgumentList \"/v:on /c pnputil.exe /add-driver `\"$env:INF_PATH`\"" + flag            +
+                "                              > `\"$tmpOutLog`\" 2>&1 & exit !errorlevel!\"                                     " +
+                "                          -Verb RunAs -Wait -PassThru                                                       \r\n" +
+                "    if($processHandler) {                                                                                   \r\n" +
+                "        $exitCode = $processHandler.ExitCode                                                                \r\n" +
+                "    }                                                                                                       \r\n" +
+                "    else {                                                                                                  \r\n" +
+                "        $exitCode = " + RETCODE_PH_NULL + "                                                                 \r\n" +
+                "    }                                                                                                       \r\n" +
+                "}                                                                                                           \r\n" +
                 // Same rationale as createAndTrustProvider()/createAndSignCatalog(): key off the numeric
                 // NativeErrorCode (1223 = ERROR_CANCELLED = UAC declined), not locale-dependent exception text
-                "catch {                                                                                          \r\n" +
-                "    $nativeErr = $_.Exception.NativeErrorCode                                                    \r\n" +
-                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                       \r\n" +
-                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                                 \r\n" +
-                "    }                                                                                            \r\n" +
-                "    $exitCode = if($nativeErr -eq 1223) { " + RETCODE_UAC_DECLINED + " } else { " + RETCODE_EXCEPTION + " }  \r\n" +
-                "}                                                                                                \r\n" +
-                "Start-Sleep -Milliseconds 100                                                                    \r\n" +
-                "if(Test-Path $tmpOutLog) {                                                                       \r\n" +
-                "    Get-Content $tmpOutLog -Raw   -ErrorAction SilentlyContinue                                  \r\n" +
-                "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                                  \r\n" +
-                "}                                                                                                \r\n" +
-                "exit $exitCode                                                                                   \r\n" ;
+                "catch {                                                                                                     \r\n" +
+                "    $nativeErr = $_.Exception.NativeErrorCode                                                               \r\n" +
+                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                                  \r\n" +
+                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                                            \r\n" +
+                "    }                                                                                                       \r\n" +
+                "    $exitCode = if($nativeErr -eq 1223) { " + RETCODE_UAC_DECLINED + " } else { " + RETCODE_EXCEPTION + " } \r\n" +
+                "}                                                                                                           \r\n" +
+                "Start-Sleep -Milliseconds 100                                                                               \r\n" +
+                "if(Test-Path $tmpOutLog) {                                                                                  \r\n" +
+                "    Get-Content $tmpOutLog -Raw   -ErrorAction SilentlyContinue                                             \r\n" +
+                "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                                             \r\n" +
+                "}                                                                                                           \r\n" +
+                "exit $exitCode                                                                                              \r\n" ;
 
             final HashMap<String, String> env = new HashMap<>();
             env.put("INF_PATH", infPath);

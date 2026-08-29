@@ -100,10 +100,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CertGetCertificateContextProperty;
     private static MethodHandle _CryptEncodeObjectEx;
     private static MethodHandle _CryptSIPRetrieveSubjectGuid;
-    private static MethodHandle _CryptAcquireCertificatePrivateKey;
+    private static MethodHandle _CertDeleteCertificateFromStore;
     private static MethodHandle _LocalFree;
-
-    private static MethodHandle _NCryptFreeObject;
 
     private static MethodHandle _CryptAcquireContextW;
     private static MethodHandle _CryptGenKey;
@@ -133,7 +131,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final SymbolLookup shell32  = SymbolLookup.libraryLookup("Shell32.dll" , _arena);
             final SymbolLookup crypt32  = SymbolLookup.libraryLookup("Crypt32.dll" , _arena);
             final SymbolLookup kernelB  = SymbolLookup.libraryLookup("Kernel32.dll", _arena);
-            final SymbolLookup ncrypt   = SymbolLookup.libraryLookup("Ncrypt.dll"  , _arena);
             final SymbolLookup wintrust = SymbolLookup.libraryLookup("Wintrust.dll", _arena);
             final SymbolLookup mssign32 = SymbolLookup.libraryLookup("Mssign32.dll", _arena);
             final SymbolLookup advapi32 = SymbolLookup.libraryLookup("Advapi32.dll", _arena);
@@ -162,12 +159,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CertGetCertificateContextProperty = _bind( linker, crypt32, "CertGetCertificateContextProperty", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR) );
             _CryptEncodeObjectEx              = _bind( linker, crypt32, "CryptEncodeObjectEx"             , FunctionDescriptor.of(DW , DW, PTR, PTR, DW, PTR, PTR, PTR) );
             _CryptSIPRetrieveSubjectGuid      = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"     , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
-            _CryptAcquireCertificatePrivateKey = _bind( linker, crypt32, "CryptAcquireCertificatePrivateKey", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR, PTR, PTR) );
-
-            // Ncrypt.dll (ncrypt.h) - only NCryptFreeObject remains, for the _signCatalog diagnostic's
-            // CryptAcquireCertificatePrivateKey call (which can still hand back an NCrypt key handle
-            // in general, even though this backend's own certs are now provisioned via legacy CAPI1 below)
-            _NCryptFreeObject          = _bind( linker, ncrypt, "NCryptFreeObject"         , FunctionDescriptor.of(DW, PTR) );
+            _CertDeleteCertificateFromStore    = _bind( linker, crypt32, "CertDeleteCertificateFromStore"   , FunctionDescriptor.of(DW , PTR) );
 
             // Advapi32.dll (wincrypt.h) - legacy CryptoAPI (CAPI1) used to provision the self-signed
             // certificate's private key, since SignerSignEx's internal CryptAcquireCertificatePrivateKey
@@ -226,11 +218,40 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final int      major = Integer.parseInt(parts[0]);
             if(major < 10) return false;
 
-            // Confirm the handles we actually rely on were resolved successfully
-            return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _CryptAcquireContextW != null && _ShellExecuteExW != null;
+            // Confirm the handles we actually rely on were resolved successfully. Actual catalog
+            // signing is performed by shelling out to signtool.exe (see _signCatalogWithSigntool) -
+            // without the Windows SDK installed, this backend can create/trust a certificate but
+            // could never actually sign a catalog, so WindowsDriverInstaller.create() must fall back
+            // to WindowsDriverInstaller_PS1 (which has no external SDK dependency) in that case.
+            return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _CryptAcquireContextW != null
+                && _ShellExecuteExW != null && _findSdkTool("signtool.exe") != null;
         }
         catch(final Throwable ignored) {
             return false;
+        }
+    }
+
+    // Root of the Windows SDK's versioned tool directories, mirroring the search this project's own
+    // CI cross-check performs (.github/workflows/test-windows-driver-installer.yml)
+    private static final String SDK_BIN_ROOT = "C:\\Program Files (x86)\\Windows Kits\\10\\bin";
+
+    // Locates a Windows SDK command-line tool (e.g. signtool.exe) under SDK_BIN_ROOT, preferring the
+    // x64 build when more than one SDK version/architecture is installed
+    private static String _findSdkTool(final String toolName)
+    {
+        final Path root = Paths.get(SDK_BIN_ROOT);
+        if( !Files.isDirectory(root) ) return null;
+
+        try( var stream = Files.walk(root) ) {
+            return stream
+                .filter( p -> p.getFileName().toString().equalsIgnoreCase(toolName) )
+                .filter( p -> p.toString().contains("\\x64\\") )
+                .map( p -> p.toAbsolutePath().toString() )
+                .findFirst()
+                .orElse(null);
+        }
+        catch(final IOException ignored) {
+            return null;
         }
     }
 
@@ -592,14 +613,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int    PROV_RSA_FULL         = 1;
     private static final int    CRYPT_EXPORTABLE      = 0x00000001;
     private static final int    CRYPT_NEWKEYSET       = 0x00000008;
+    private static final int    CRYPT_DELETEKEYSET    = 0x00000010;
     private static final int    CRYPT_MACHINE_KEYSET  = 0x00000020;
     private static final int    CRYPT_SILENT          = 0x00000040;
     private static final int    AT_SIGNATURE          = 2;
-    // dwKeySpec value CryptAcquireCertificatePrivateKey/CRYPT_KEY_PROV_INFO use for a CNG (rather than
-    // legacy CAPI1) private key - kept only for the diagnostic in _signCatalog, which can in general
-    // observe either kind of key back from CryptAcquireCertificatePrivateKey. See the CRYPT_KEY_PROV_INFO
-    // entry in WindowsDriverInstaller_FFM-Win32API.txt.
-    private static final int    CERT_NCRYPT_KEY_SPEC  = 0xFFFFFFFF;
 
     // wincrypt.h
     // X509_ENHANCED_KEY_USAGE is a small-integer "predefined" lpszStructType, cast to LPCSTR - not a real string pointer
@@ -628,6 +645,69 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         return (h == null || h.address() == 0L) ? null : h;
     }
 
+    // Permanently deletes the legacy CAPI1 key container backing the given certificate, via
+    // CryptAcquireContextW's CRYPT_DELETEKEYSET flag, so the private key can never be recovered or
+    // reused. The certificate's public key stays embedded in the cert itself and remains valid for
+    // verifying anything already signed with it. This is required because this backend installs its
+    // self-signed certificate as both a Trusted Root CA and a Trusted Publisher: leaving the private
+    // key alive after signing would let anything with access to CurrentUser\My mint new, fully-trusted
+    // signatures on this machine.
+    private static void _destroyPrivateKey(final Arena arena, final MemorySegment cert, final StringBuilder log) throws Throwable
+    {
+        final MemorySegment cbKeyProvInfo = arena.allocate(ValueLayout.JAVA_INT);
+        if( (int) _CertGetCertificateContextProperty.invoke(cert, CERT_KEY_PROV_INFO_PROP_ID, MemorySegment.NULL, cbKeyProvInfo) == 0 ) {
+            return; // No CRYPT_KEY_PROV_INFO property - nothing to destroy (e.g. a Root/TrustedPublisher-only copy)
+        }
+
+        final MemorySegment keyProvInfo = arena.allocate( cbKeyProvInfo.get(ValueLayout.JAVA_INT, 0) );
+        if( (int) _CertGetCertificateContextProperty.invoke(cert, CERT_KEY_PROV_INFO_PROP_ID, keyProvInfo, cbKeyProvInfo) == 0 ) {
+            log.append("CertGetCertificateContextProperty(CERT_KEY_PROV_INFO_PROP_ID) failed, GetLastError=").append( _lastError() ).append('\n');
+            return;
+        }
+
+        // CRYPT_KEY_PROV_INFO : { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags; ... }
+        final MemorySegment containerName = keyProvInfo.get(PTR                 ,  0);
+        final int           provFlags     = keyProvInfo.get(ValueLayout.JAVA_INT, 20);
+
+        final MemorySegment hProviderOut = arena.allocate(PTR);
+        final int           deleteFlags  = CRYPT_DELETEKEYSET | (provFlags & CRYPT_MACHINE_KEYSET);
+        if( (int) _CryptAcquireContextW.invoke(hProviderOut, containerName, MemorySegment.NULL, PROV_RSA_FULL, deleteFlags) == 0 ) {
+            log.append("CryptAcquireContextW(CRYPT_DELETEKEYSET) failed, GetLastError=").append( _lastError() ).append('\n');
+        }
+    }
+
+    // Deletes every certificate in the given store whose subject matches providerName so repeated
+    // runs never accumulate duplicate certificates under the same provider name. When the store is
+    // CurrentUser\My, also destroys the CAPI1 private key container backing each match first (see
+    // _destroyPrivateKey) - Root/TrustedPublisher only ever hold the public-only copy, so there is no
+    // key to destroy there.
+    private static void _deleteExistingCerts(final Arena arena, final String providerName, final int locationFlag, final String storeName, final StringBuilder log) throws Throwable
+    {
+        final MemorySegment hStore = _certStoreOpen(arena, locationFlag, storeName);
+        if(hStore == null) return;
+
+        try {
+            while(true) {
+                // Re-queried from scratch (pPrevCertContext=NULL) every iteration, since
+                // CertDeleteCertificateFromStore invalidates any enumeration position
+                final MemorySegment cert = (MemorySegment) _CertFindCertificateInStore.invoke(
+                    hStore, CRYPT_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR_W, _wstr(arena, providerName), MemorySegment.NULL
+                );
+                if(cert == null || cert.address() == 0L) break;
+
+                if(locationFlag == CERT_SYSTEM_STORE_CURRENT_USER) _destroyPrivateKey(arena, cert, log);
+
+                // CertDeleteCertificateFromStore always frees the passed certificate context, whether it succeeds or fails
+                if( (int) _CertDeleteCertificateFromStore.invoke(cert) == 0 ) {
+                    log.append("CertDeleteCertificateFromStore(").append(storeName).append(") failed, GetLastError=").append( _lastError() ).append('\n');
+                }
+            }
+        }
+        finally {
+            _CertCloseStore.invoke(hStore, 0);
+        }
+    }
+
     private static int _elevatedCreateAndTrustProvider(final String providerName, final StringBuilder log) throws Throwable
     {
         try(
@@ -641,6 +721,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             MemorySegment ekuEncoded = MemorySegment.NULL;
 
             try {
+                // 0. Delete any existing certificate(s) under this provider name from every store this
+                //    method touches, so re-running never accumulates duplicates and never leaves an
+                //    orphaned private key behind.
+                _deleteExistingCerts(arena, providerName, CERT_SYSTEM_STORE_CURRENT_USER,  "My"              , log);
+                _deleteExistingCerts(arena, providerName, CERT_SYSTEM_STORE_LOCAL_MACHINE, "Root"            , log);
+                _deleteExistingCerts(arena, providerName, CERT_SYSTEM_STORE_LOCAL_MACHINE, "TrustedPublisher", log);
+
                 // 1. Acquire a legacy CryptoAPI (CAPI1) provider context and generate a 2048-bit RSA
                 //    signing key in it. A fresh, randomly-named key container is created every call, so
                 //    CRYPT_NEWKEYSET is always correct here - there is never an existing container to
@@ -714,11 +801,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 //    { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags;
                 //      DWORD cProvParam; PVOID rgProvParam; DWORD dwKeySpec; } - size 48, align 8
                 // pwszProvName=NULL selects the default RSA Full (PROV_RSA_FULL) CSP rather than naming one
-                // explicitly; dwKeySpec=AT_SIGNATURE (not CERT_NCRYPT_KEY_SPEC) since this private key was
-                // created via legacy CryptGenKey against a CAPI1 provider context, not a CNG key. See
-                // WindowsDriverInstaller_FFM-Win32API.txt for the fuller history of why CNG keys don't work
-                // here: SignerSignEx's internal CryptAcquireCertificatePrivateKey call only follows the
-                // legacy CryptAcquireContext path unless given an NCrypt-allowing flag, which it is not.
+                // explicitly; dwKeySpec=AT_SIGNATURE since this private key was created via legacy
+                // CryptGenKey against a CAPI1 provider context (see WindowsDriverInstaller_FFM-Win32API.txt's
+                // CRYPT_KEY_PROV_INFO entry for why this backend uses CAPI1 rather than a CNG key).
                 final MemorySegment keyProvInfo = arena.allocate(48, 8);
                 keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName) );
                 keyProvInfo.set( PTR                 ,  8, MemorySegment.NULL         );
@@ -981,29 +1066,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             }
 
             try {
-                // Diagnostic only: a CI run exercising both backends against the same providerName in
-                // the same CurrentUser\My store can leave more than one certificate matching this
-                // subject string (this backend's own CERT_STORE_ADD_REPLACE_EXISTING only replaces a
-                // certificate with the same issuer+serial, not merely the same subject text, so an
-                // unrelated pre-existing certificate under this name is never removed). Per Microsoft's
-                // own note on CertAddCertificateContextToStore, "the order of the certificate context
-                // may not be preserved within the store," so CERT_FIND_SUBJECT_STR_W below is not
-                // guaranteed to return the certificate this backend itself just created - count matches
-                // here to confirm or rule out that ambiguity as a contributing factor.
-                {
-                    int           subjectMatchCount = 0;
-                    MemorySegment prev              = MemorySegment.NULL;
-                    while(true) {
-                        final MemorySegment next = (MemorySegment) _CertFindCertificateInStore.invoke(
-                            hMy, CRYPT_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR_W, _wstr(arena, providerName), prev
-                        );
-                        if(next == null || next.address() == 0L) break;
-                        subjectMatchCount++;
-                        prev = next;
-                    }
-                    log.append("certificates matching subject '").append(providerName).append("' in CurrentUser\\My = ").append(subjectMatchCount).append('\n');
-                }
-
                 final MemorySegment signingCert = (MemorySegment) _CertFindCertificateInStore.invoke(
                     hMy, CRYPT_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR_W, _wstr(arena, providerName), MemorySegment.NULL
                 );
@@ -1012,23 +1074,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     return RETCODE_EXCEPTION;
                 }
 
-                // Diagnostic only: SignerSignEx needs the store-copied cert context to still carry the
-                // CERT_KEY_PROV_INFO_PROP_ID property linking it back to the CNG-persisted private key
-                // (set by CertCreateSelfSignCertificate, and expected to be copied along by
-                // CertAddCertificateContextToStore) - log whether that property actually survived the
-                // round trip through the store, to help narrow down the still-unresolved E_INVALIDARG below.
-                {
-                    final MemorySegment cbKeyProvInfo = arena.allocate(ValueLayout.JAVA_INT);
-                    final boolean hasKeyProvInfo = (int) _CertGetCertificateContextProperty.invoke(
-                        signingCert, CERT_KEY_PROV_INFO_PROP_ID, MemorySegment.NULL, cbKeyProvInfo
-                    ) != 0;
-                    log.append("signingCert has CERT_KEY_PROV_INFO_PROP_ID=").append(hasKeyProvInfo);
-                    if(!hasKeyProvInfo) log.append(" (GetLastError=").append( _lastError() ).append(')');
-                    log.append('\n');
-                }
-
                 try {
-                    return _signCatalog(arena, catPath, signingCert, hMy, log);
+                    // Signing itself is done by shelling out to signtool.exe (see
+                    // _signCatalogWithSigntool) rather than the direct SignerSignEx FFM call below,
+                    // which is kept only for reference. Regardless of the signing outcome, the
+                    // private key is destroyed immediately afterward - see _destroyPrivateKey.
+                    final int rc = _signCatalogWithSigntool(catPath, providerName, log);
+                    _destroyPrivateKey(arena, signingCert, log);
+                    return rc;
                 }
                 finally {
                     _CertFreeCertificateContext.invoke(signingCert);
@@ -1038,6 +1091,40 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 _CertCloseStore.invoke(hMy, 0);
             }
         }
+    }
+
+    // Actually applies the Authenticode signature to the finished .cat file by shelling out to the
+    // Windows SDK's signtool.exe, which is already running elevated since this method is only ever
+    // reached from the elevated child process (see _elevatedCreateAndSignCatalog). This replaces the
+    // direct SignerSignEx FFM call below (_signCatalog, kept for reference only), which was abandoned
+    // after an exhaustive investigation - every SIGNER_*/CRYPT_* struct field, all three Signer*
+    // entry points, and a COM-initialization attempt - never moved its E_INVALIDARG failure. A live
+    // CI cross-check confirmed signtool.exe signs a .cat file successfully with the exact same
+    // self-signed certificate this backend creates, using this identical command line - see
+    // .github/workflows/test-windows-driver-installer.yml's "Cross-check catalog signing with
+    // signtool.exe" step, and WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the
+    // full investigation history.
+    private static int _signCatalogWithSigntool(final String catPath, final String providerName, final StringBuilder log) throws IOException, InterruptedException
+    {
+        final String signtool = _findSdkTool("signtool.exe");
+        if(signtool == null) {
+            log.append("signtool.exe not found under ").append(SDK_BIN_ROOT);
+            return RETCODE_EXCEPTION;
+        }
+
+        final Process process = new ProcessBuilder(signtool, "sign", "/n", providerName, "/fd", "SHA256", "/v", catPath)
+            .redirectErrorStream(true)
+            .start();
+        final String output   = new String( process.getInputStream().readAllBytes(), StandardCharsets.UTF_8 );
+        final int    exitCode = process.waitFor();
+
+        log.append(output);
+        if(exitCode != 0) {
+            log.append("signtool.exe exited with code ").append(exitCode).append('\n');
+            return RETCODE_EXCEPTION;
+        }
+
+        return RETCODE_OK;
     }
 
     // mssign32.dll (not declared in any SDK header - struct layouts per the SIGNER_* documentation pages)
@@ -1054,49 +1141,25 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String SPC_SP_OPUS_INFO_OBJID   = "1.3.6.1.4.1.311.2.1.12";
     private static final String SPC_STATEMENT_TYPE_OBJID = "1.3.6.1.4.1.311.2.1.11";
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    // UNUSED - kept for reference only. This direct SignerSignEx call reliably failed with
+    // E_INVALIDARG (HRESULT=0x80070057) across every struct-field permutation, all three entry points
+    // (SignerSignEx/SignerSignEx2/SignerSignEx3), and a COM-initialization attempt - see
+    // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the full investigation.
+    // Catalog signing is now performed by _signCatalogWithSigntool() above, which shells out to
+    // signtool.exe (proven working via a live CI cross-check against the exact same certificate).
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
     private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
     {
-        // combaseapi.h - signtool.exe (a native process, confirmed via a live CI cross-check to sign
-        // successfully with the exact certificate this backend also uses) very likely has COM
-        // initialized on its calling thread, unlike an arbitrary JVM thread; some WinTrust/Signer-family
-        // internals use COM-based providers, which could explain SignerSignEx rejecting every call this
-        // backend has ever made, immediately and without any traceable internal work, regardless of
-        // entry point or struct content - see the "Investigation history" section in
-        // WindowsDriverInstaller_FFM-Win32API.txt. S_OK(0) and S_FALSE(1) both mean COM is now
-        // initialized on this thread and must be paired with CoUninitialize; a negative HRESULT (e.g.
-        // RPC_E_CHANGED_MODE) means a different concurrency model was already set on this thread and
-        // must NOT be paired with CoUninitialize.
+        // combaseapi.h - some WinTrust/Signer-family internals use COM-based providers; this was tried
+        // as a hypothesis for the E_INVALIDARG failure below and did not resolve it either. S_OK(0) and
+        // S_FALSE(1) both mean COM is now initialized on this thread and must be paired with
+        // CoUninitialize; a negative HRESULT (e.g. RPC_E_CHANGED_MODE) means a different concurrency
+        // model was already set on this thread and must NOT be paired with CoUninitialize.
         final int coInitHr = (int) _CoInitializeEx.invoke(MemorySegment.NULL, COINIT_APARTMENTTHREADED);
         final boolean coInitialized = coInitHr >= 0;
         log.append("CoInitializeEx: HRESULT=0x").append( Integer.toHexString(coInitHr) ).append('\n');
         try {
-        // Diagnostic only, not required for signing itself: acquire the certificate's private key the
-        // same way SignerSignEx must do internally (via CryptAcquireCertificatePrivateKey), to isolate
-        // whether the CRYPT_KEY_PROV_INFO.dwKeySpec=CERT_NCRYPT_KEY_SPEC fix actually lets key
-        // acquisition succeed, independent of whatever else SignerSignEx does afterward. See
-        // WindowsDriverInstaller_FFM-Win32API.txt's "Investigation history" note for why this was added.
-        {
-            final MemorySegment phKey        = arena.allocate(PTR);
-            final MemorySegment pdwKeySpec   = arena.allocate(ValueLayout.JAVA_INT);
-            final MemorySegment pfCallerFree = arena.allocate(ValueLayout.JAVA_INT);
-            final boolean acquired = (int) _CryptAcquireCertificatePrivateKey.invoke(
-                signingCert, 0, MemorySegment.NULL, phKey, pdwKeySpec, pfCallerFree
-            ) != 0;
-            log.append("CryptAcquireCertificatePrivateKey diagnostic: acquired=").append(acquired);
-            if(!acquired) {
-                log.append(", GetLastError=").append( _lastError() );
-            } else {
-                final int     keySpec    = pdwKeySpec.get(ValueLayout.JAVA_INT, 0);
-                final boolean callerFree = pfCallerFree.get(ValueLayout.JAVA_INT, 0) != 0;
-                log.append(", dwKeySpec=").append(keySpec).append(", callerFree=").append(callerFree);
-                if(callerFree) {
-                    if(keySpec == CERT_NCRYPT_KEY_SPEC) _NCryptFreeObject.invoke( phKey.get(PTR, 0) );
-                    else                                _CryptReleaseContext.invoke( phKey.get(PTR, 0), 0 );
-                }
-            }
-            log.append('\n');
-        }
-
         // SIGNER_FILE_INFO : { DWORD cbSize; LPCWSTR pwszFileName; HANDLE hFile; } - size 24, align 8
         final MemorySegment fileInfo = arena.allocate(24, 8);
         fileInfo.set( ValueLayout.JAVA_INT,  0, 24                    );

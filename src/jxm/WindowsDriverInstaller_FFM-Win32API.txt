@@ -480,43 +480,37 @@ Purpose      : Reads a named property off a certificate context. Used here purel
                only confirms the property exists (and reports its size via pcbData) without actually
                reading it.
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR)`. Added as a diagnostic-only check in
-               `_elevatedCreateAndSignCatalog`, called on the PCCERT_CONTEXT returned by
-               CertFindCertificateInStore (i.e. the store's own copy of the certificate, not the
-               original CertCreateSelfSignCertificate return value) immediately before that context
-               is handed to `_signCatalog`/SignerSignEx. CERT_KEY_PROV_INFO_PROP_ID is the property
-               CertCreateSelfSignCertificate sets on the original context to link it back to its
-               CNG-persisted private key; CertAddCertificateContextToStore is documented to copy a
-               context's properties into the store's copy, but this had not been directly confirmed
-               for this exact code path, hence the check - see the "SignerSignEx2/SignerSignEx3
-               E_INVALIDARG" troubleshooting note below for why this matters.
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR)`. Called in `_destroyPrivateKey` to read
+               back a certificate's CRYPT_KEY_PROV_INFO property (two-call size/fill pattern: first
+               call with pvData=NULL to get the required size into pcbData, second call to actually
+               fill the buffer) so the legacy CAPI1 key container it names can be deleted via
+               CryptAcquireContextW(CRYPT_DELETEKEYSET) - see that entry below. A certificate with no
+               such property (e.g. the public-only copies this backend installs into LocalMachine\Root
+               and \TrustedPublisher) has no private key to destroy, so the first call returning 0 is
+               treated as "nothing to do," not an error.
 
 ----------------------------------------------------------------------------------------------------
-CryptAcquireCertificatePrivateKey
+CertDeleteCertificateFromStore
 ----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptacquirecertificateprivatekey
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certdeletecertificatefromstore
 
 DLL          : Crypt32.dll
 Header       : wincrypt.h
 
-Parameters   : pCert (PCCERT_CONTEXT), dwFlags (DWORD), pvReserved (void*, always NULL here),
-               phCryptProvOrNCryptKey (HCRYPTPROV_OR_NCRYPT_KEY_HANDLE*, out), pdwKeySpec (DWORD*,
-               out), pfCallerFreeProvOrNCryptKey (BOOL*, out)
+Parameters   : pCertContext (PCCERT_CONTEXT)
 Return value : BOOL
-Purpose      : Retrieves a handle to a certificate's associated private key, reading the
-               CERT_KEY_PROV_INFO_PROP_ID property to decide whether to open it via NCrypt (CNG) or
-               legacy CryptAcquireContext. This is the exact function SignerSignEx is understood to
-               call internally to obtain the signing key.
+Purpose      : Removes a certificate from the store it was found in. Per Microsoft's documentation,
+               this function always frees the passed certificate context, regardless of whether the
+               deletion itself succeeds or fails - the caller must not call CertFreeCertificateContext
+               on it afterward either way.
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR, PTR, PTR)` - 6 inputs. Added as a
-               diagnostic-only check at the top of `_signCatalog`, called with dwFlags=0, to isolate
-               whether private-key acquisition itself succeeds independent of whatever SignerSignEx
-               does afterward - see the "Investigation history" note below. If callerFree comes back
-               true and the returned dwKeySpec is CERT_NCRYPT_KEY_SPEC, the handle is freed via
-               NCryptFreeObject; this backend's own certificates are now provisioned entirely via legacy
-               CryptoAPI (see CryptAcquireContextW/CryptGenKey below), so that branch is not expected to
-               fire in practice, but is kept since this function can in general hand back either kind of
-               key.
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called in a loop by `_deleteExistingCerts`
+               (CurrentUser\My, LocalMachine\Root, LocalMachine\TrustedPublisher) to remove every
+               pre-existing certificate matching the provider name before a new one is created, so
+               repeated runs never accumulate duplicates under the same provider name. Each loop
+               iteration re-queries CertFindCertificateInStore from scratch (pPrevCertContext=NULL)
+               rather than continuing an enumeration, since deleting a context invalidates any
+               enumeration position into the store.
 
 ----------------------------------------------------------------------------------------------------
 CryptEncodeObjectEx
@@ -698,19 +692,17 @@ FFM notes    : The code never allocates this struct - it only calls `certCtx.rei
 
 
 ====================================================================================================
-SECTION C - Private Key Provisioning Layer (Advapi32.dll, Ncrypt.dll)
+SECTION C - Private Key Provisioning Layer (Advapi32.dll)
 ====================================================================================================
 
 This section creates the actual RSA private key the self-signed certificate is built around, using
 the legacy CryptoAPI (CAPI1) provider/key model (CryptAcquireContextW/CryptGenKey) rather than the
 modern Cryptography API: Next Generation (CNG) key-storage API. CNG was tried first, since Microsoft
 recommends it for new code, but had to be abandoned - see the "Investigation history" note in
-SECTION E below: SignerSignEx's internal CryptAcquireCertificatePrivateKey call only follows the
-legacy CryptAcquireContext path unless given an NCrypt-allowing flag, which it is not, so a
-CNG-provisioned key is unusable by this backend's signing step regardless of how correctly
-CRYPT_KEY_PROV_INFO otherwise describes it. NCryptFreeObject (last entry below) remains bound only
-because SECTION E's diagnostic can in general still observe a CNG key handle back from
-CryptAcquireCertificatePrivateKey.
+SECTION E below: SignerSignEx's internal private-key acquisition only follows the legacy
+CryptAcquireContext path unless given an NCrypt-allowing flag, which it is not, so a CNG-provisioned
+key was unusable by this backend's (now superseded) direct-SignerSignEx signing step regardless of
+how correctly CRYPT_KEY_PROV_INFO otherwise described it.
 
 ----------------------------------------------------------------------------------------------------
 CryptAcquireContextW
@@ -725,19 +717,28 @@ Parameters   : phProv (HCRYPTPROV*, out), pszContainer (LPCWSTR, key container n
                dwFlags (DWORD)
 Return value : BOOL
 Purpose      : Acquires a handle to a legacy CryptoAPI (CAPI1) key container, creating it first if
-               CRYPT_NEWKEYSET is set. This backend uses it (with PROV_RSA_FULL and a fresh randomly
-               generated container name every call) to provision the self-signed certificate's private
-               key.
+               CRYPT_NEWKEYSET is set, or permanently deleting it if CRYPT_DELETEKEYSET is set. This
+               backend uses it both to provision the self-signed certificate's private key
+               (CRYPT_NEWKEYSET) and, later, to destroy that same key container once it is no longer
+               needed (CRYPT_DELETEKEYSET).
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW)` - 5 inputs. Called with
-               pszContainer = a randomly-suffixed container name (`providerName + "_" +
-               <64-bit SecureRandom hex>` - deliberate, so re-running the trust step never collides
-               with a previous run's leftover key container name) and
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW)` - 5 inputs. Provisioning call (in
+               `_elevatedCreateAndTrustProvider`): pszContainer = a randomly-suffixed container name
+               (`providerName + "_" + <64-bit SecureRandom hex>` - deliberate, so re-running the trust
+               step never collides with a previous run's leftover key container name) and
                dwFlags = CRYPT_NEWKEYSET | CRYPT_MACHINE_KEYSET | CRYPT_SILENT - CRYPT_MACHINE_KEYSET
                so the key is provisioned in the machine key store (matching where the certificate
                itself is installed, in LocalMachine\Root and \TrustedPublisher), and CRYPT_SILENT to
                suppress any UI the CSP might otherwise try to show. Since the container name is always
                new, CRYPT_NEWKEYSET is always correct - there is never an existing container to reopen.
+               Deletion call (in `_destroyPrivateKey`): pszContainer = the container name read back out
+               of the certificate's CRYPT_KEY_PROV_INFO property (see
+               CertGetCertificateContextProperty above), and dwFlags = CRYPT_DELETEKEYSET, OR'd with
+               CRYPT_MACHINE_KEYSET only if that same flag was present in the stored provider info's
+               dwFlags (a CRYPT_DELETEKEYSET call must target the same key-store scope the container
+               actually lives in, or CryptAcquireContextW cannot find it to delete it). Per Microsoft's
+               documentation, a successful CRYPT_DELETEKEYSET call permanently destroys the key
+               material - it cannot be recovered.
 
 ----------------------------------------------------------------------------------------------------
 CryptGenKey
@@ -774,27 +775,6 @@ Purpose      : Release the key handle and provider context handle CryptGenKey/Cr
                the certificate and EKU encoding in the same `finally` block.
 
 FFM notes    : `FunctionDescriptor.of(DW, PTR)` and `FunctionDescriptor.of(DW, PTR, DW)` respectively.
-
-----------------------------------------------------------------------------------------------------
-NCryptFreeObject
-----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfreeobject
-
-DLL          : Ncrypt.dll
-Header       : ncrypt.h
-
-Parameters   : hObject (NCRYPT_HANDLE)
-Return value : SECURITY_STATUS
-Purpose      : Generic release function for any NCrypt handle type (provider, key, secret, etc.) -
-               the CNG analogue of CloseHandle.
-
-FFM notes    : `FunctionDescriptor.of(DW, PTR)`. `_elevatedCreateAndTrustProvider` provisions its key
-               via legacy CryptoAPI now (see CryptAcquireContextW/CryptGenKey above) and releases it
-               with CryptDestroyKey/CryptReleaseContext instead, so the only remaining call site is the
-               diagnostic in `_signCatalog`, which frees the key handle this way only if
-               CryptAcquireCertificatePrivateKey happens to hand back a CNG key (callerFree=true and
-               dwKeySpec=CERT_NCRYPT_KEY_SPEC).
-
 
 ====================================================================================================
 SECTION D - Catalog Building Layer (Wintrust.dll)
@@ -1064,16 +1044,57 @@ Purpose   : As used here:
 
 
 ====================================================================================================
-SECTION E - Authenticode Signing Layer (Mssign32.dll)
+SECTION D.5 - Actual Catalog Signing (external process: signtool.exe)
 ====================================================================================================
 
-This is the layer that actually applies a digital signature to the finished .cat file, using the
-certificate/key built in Sections B/C. Everything in this section is built from Microsoft Learn
-"conceptual" reference pages rather than a header file - Microsoft explicitly documents these
-functions and structures on learn.microsoft.com, but (per Microsoft's own notes on those pages) does
-not ship a header declaring them; a caller is expected to declare the prototypes itself and
-dynamically resolve the DLL export, which is exactly the pattern this file follows via SymbolLookup
-instead of LoadLibrary/GetProcAddress.
+This is the mechanism that actually applies a digital signature to the finished .cat file - not an
+FFM/native binding at all, but an external Windows SDK tool invoked as a child process, after the
+direct SignerSignEx call documented in SECTION E below was abandoned as unworkable.
+
+signtool.exe
+----------------------------------------------------------------------------------------------------
+Source       : Windows SDK tool (ships with the SDK, not part of the OS itself) - no public API/header
+               documentation applies since this is invoked as an external process, not a native call.
+
+Location     : Not a fixed path - varies by installed SDK version. Located at runtime by
+               `_findSdkTool("signtool.exe")`, which walks `C:\Program Files (x86)\Windows Kits\10\bin`
+               (the standard Windows SDK install root) looking for a file named signtool.exe whose path
+               contains `\x64\` - the same search pattern
+               `.github/workflows/test-windows-driver-installer.yml` uses to locate the same tool for
+               its own cross-check (`Get-ChildItem -Recurse -Filter signtool.exe | Where-Object {
+               $_.FullName -like "*\x64\*" }`).
+Command line : `signtool sign /n "<providerName>" /fd SHA256 /v <catFile>` - selects the certificate by
+               subject name (/n) rather than thumbprint, matching this backend's use of a fixed,
+               human-readable provider name rather than a persisted thumbprint; /fd SHA256 matches the
+               hash algorithm used everywhere else in this file; /v requests verbose output so failures
+               are diagnosable from the captured stdout/stderr alone.
+Purpose      : Applies the actual Authenticode signature to the .cat file this backend already built
+               (SECTION D) using the certificate this backend already created and trusted (SECTION B).
+               Proven to work against the exact same certificate/subject-type combination via a live CI
+               cross-check before this backend was switched over to it - see the "Investigation history"
+               note in SECTION E below.
+
+FFM notes    : Invoked from `_signCatalogWithSigntool` via `ProcessBuilder`, with
+               `redirectErrorStream(true)` so stdout and stderr are captured together into the same log
+               the rest of this backend already accumulates. A missing/unlocatable signtool.exe is
+               treated as a hard failure at this call site, but is also checked earlier by `isUsable()`
+               (via the same `_findSdkTool` helper) so `WindowsDriverInstaller.create()`'s factory logic
+               falls back to `WindowsDriverInstaller_PS1` (no external SDK dependency) on a machine
+               without the Windows SDK installed, rather than reaching this failure at all.
+
+
+====================================================================================================
+SECTION E - Authenticode Signing Layer (Mssign32.dll) - SUPERSEDED, KEPT FOR REFERENCE
+====================================================================================================
+
+Actual catalog signing is now performed by shelling out to the Windows SDK's signtool.exe (see
+_signCatalogWithSigntool in WindowsDriverInstaller_FFM.java) rather than by the direct SignerSignEx
+call documented in this section. Everything below is kept for reference only, in case this call is
+ever revisited: it is built from Microsoft Learn "conceptual" reference pages rather than a header
+file - Microsoft explicitly documents these functions and structures on learn.microsoft.com, but (per
+Microsoft's own notes on those pages) does not ship a header declaring them; a caller is expected to
+declare the prototypes itself and dynamically resolve the DLL export, which is exactly the pattern
+this file follows via SymbolLookup instead of LoadLibrary/GetProcAddress.
 
 ----------------------------------------------------------------------------------------------------
 SignerSignEx
@@ -1125,390 +1146,40 @@ Windows-specific caveats relevant to this implementation:
       simpler entry point has no dwTimestampFlags parameter at all, and this file uses neither
       timestamping nor SIG_APPEND.
 
-Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (HRESULT=0x80070057):
-    Live Windows CI (GitHub Actions, mutating/UAC-enabled run) reports this failure from
-    `_signCatalog`. Every struct passed to this call (SIGNER_SUBJECT_INFO, SIGNER_CERT,
-    SIGNER_CERT_STORE_INFO, SIGNER_SIGNATURE_INFO, SIGNER_FILE_INFO) and the 13-parameter call
-    itself have been checked against this document/Microsoft Learn and found correct - a prior
-    guess that SIGNER_CERT was missing its cbSize field was wrong and was reverted (see
-    WindowsDriverInstaller_FFM.java git history) - do not repeat that mistake; always re-check
-    this document before touching a struct layout here.
-    Ruled out: the certificate found via CertFindCertificateInStore for signing does carry a
-    usable private-key association - the CertGetCertificateContextProperty diagnostic confirmed
-    CERT_KEY_PROV_INFO_PROP_ID survives the CertAddCertificateContextToStore round trip from the
-    original CertCreateSelfSignCertificate context, so this is not the cause.
-    Ruled out: SIGNER_CERT_STORE_INFO.dwCertPolicy was SIGNER_CERT_POLICY_STORE with hCertStore
-    set to the CurrentUser\My store handle. Per Microsoft's docs, that policy value means "add ALL
-    certificates in the store specified by hCertStore" to the signature - broader than intended,
-    since pSigningCert alone already fully identifies the certificate to sign with, and hCertStore
-    is documented as optional. Changed to dwCertPolicy=0, hCertStore=NULL to test whether the
-    store-wide enumeration was the actual source of the invalid argument - live CI still reported
-    the identical E_INVALIDARG, so this is not the cause either.
-    Ruled out: dwCertPolicy=0 was also not itself a valid policy value - Microsoft's docs only
-    define SIGNER_CERT_POLICY_STORE (1), SIGNER_CERT_POLICY_CHAIN (2), and
-    SIGNER_CERT_POLICY_CHAIN_NO_ROOT (8) for this member, so 0 is unlikely to be an accepted
-    combination on its own.
-    Ruled out: SIGNER_CERT_STORE_INFO.dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with hCertStore left
-    NULL - live CI again reported the identical E_INVALIDARG, so neither this alternate policy
-    value nor the store handle being NULL was the cause on its own.
-    Ruled out: the combination of SIGNER_CERT_STORE_INFO.dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with
-    hCertStore restored to the `hMy` handle, together with SIGNER_SIGNATURE_INFO.dwAttrChoice
-    changed from SIGNER_NO_ATTR to SIGNER_AUTHCODE_ATTR plus a populated SIGNER_ATTR_AUTHCODE (see
-    that structure's entry above) - live CI again reported the byte-for-byte identical
-    HRESULT=0x80070057. Every struct field this backend controls has now been checked against this
-    document and, for the ones with more than one legal value, tried in at least two configurations
-    - the failure has not changed shape once across any of it.
-
-    Continuation instructions - progress so far:
-    All struct-content variations above have been ruled out without changing the observed failure at
-    all, so the mechanism delivering the structs, rather than their contents, is now the focus, in
-    roughly this order:
-      1. RULED OUT - GetLastError() is now logged immediately after the failed SignerSignEx2 call.
-         Live CI reports GetLastError=0 - SignerSignEx2 does not set a more specific Win32 error on
-         this failure path, so this diagnostic carries no further information.
-      2. RULED OUT - the raw bytes of every struct passed to SignerSignEx2 (subjectInfo, signerCert,
-         certStoreInfo, sigInfo, authCodeInfo, fileInfo) are now dumped to the CI log on failure. A
-         live CI run's dump was hand-verified byte-by-byte against this document: every cbSize matches
-         its struct's documented size, every alignment-padding gap is zeroed, every enum field holds
-         the value the code intends (dwSubjectChoice=SIGNER_SUBJECT_FILE, dwCertChoice=
-         SIGNER_CERT_STORE, dwCertPolicy=SIGNER_CERT_POLICY_CHAIN, algidHash=CALG_SHA_256,
-         dwAttrChoice=SIGNER_AUTHCODE_ATTR), and every internal pointer (signerCert -> certStoreInfo,
-         sigInfo -> authCodeInfo, subjectInfo -> fileInfo) resolves to a live, non-null, correctly
-         populated segment - no transcription bug, no wrong offset, no stale/zeroed MemorySegment.
-      3. RULED OUT - re-verified FunctionDescriptor.of(...) for _SignerSignEx2 (DW, DW, PTR, PTR, PTR,
-         PTR, DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR) against the 13-parameter signature and against the
-         actual _SignerSignEx2.invoke(...) call site argument-by-argument: both the descriptor's
-         argument-layout count (13, matching the parameter list one-for-one) and the invoke() call's
-         argument count/order (dwFlags, pSubjectInfo, pSignerCert, pSignatureInfo, pProviderInfo,
-         dwTimestampFlags, pszTimestampAlgorithmOid, pwszHttpTimeStamp, psRequest, pSipData,
-         ppSignerContext, pCryptoPolicy, pReserved) line up correctly - no off-by-one or PTR/DW swap.
-      4. NOT YET ATTEMPTED - with 1-3 exhausted and every byte the FFM layer controls confirmed
-         correct, SignerSignEx3 (superset of SignerSignEx2, adds an explicit signing-callback
-         parameter) documented at
-         https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex3 and used by at least
-         one other independent, permissively-licensed implementation of this same catalog-signing
-         task is the remaining concrete lead - it is a bigger rewrite, so get explicit sign-off before
-         starting it rather than launching into it unprompted.
-
-    Environment/test-harness angle investigated (before step 4): the CI test driver (embedded in
-    test-windows-driver-installer.yml) ran both the PS1 and FFM backends against the exact same
-    providerName ("JxMake_CITest") in the exact same process/VM, so by the time the FFM backend ran,
-    CurrentUser\My already held the PS1 backend's self-signed certificate under that same subject name,
-    and FFM's own createAndTrustProvider added a second, unrelated certificate under the identical
-    subject text right alongside it (CERT_STORE_ADD_REPLACE_EXISTING only replaces a certificate with
-    the same issuer+serial, not merely the same subject string, so the pre-existing PS1 certificate was
-    never removed). Per Microsoft's own note on CertAddCertificateContextToStore, "the order of the
-    certificate context may not be preserved within the store," so _CertFindCertificateInStore's
-    CERT_FIND_SUBJECT_STR_W lookup in createAndSignCatalog had no guarantee of returning the
-    certificate FFM itself had just created rather than PS1's. Two fixes were made for this:
-      - The CI test driver now uses a distinct provider name per backend (providerName + "_" + label,
-        e.g. "JxMake_CITest_PS1" / "JxMake_CITest_FFM"), removing the cross-backend collision entirely
-        so a future run's log unambiguously reflects only the FFM backend's own certificate.
-      - createAndSignCatalog now counts, and logs, how many certificates in CurrentUser\My currently
-        match the requested subject string before doing the real lookup, as a standing diagnostic for
-        any future recurrence of this kind of ambiguity (also useful if a single backend is ever run
-        repeatedly against the same store without cleanup between runs).
-    Note this was a test-harness confound, not a fix to the SignerSignEx2 call itself - the byte-level
-    correctness confirmed in steps 1-3 above still stands regardless of which certificate was signing.
-
-    Collision fix confirmed but did not resolve the failure: a follow-up live CI run with the
-    per-backend provider names showed "certificates matching subject 'JxMake_CITest_FFM' in
-    CurrentUser\My = 1" (no collision, confirming the fix worked) and
-    "signingCert has CERT_KEY_PROV_INFO_PROP_ID=true" (private-key linkage intact), but
-    SignerSignEx2 still returned HRESULT=0x80070057 with byte-for-byte identical struct dumps to the
-    prior run (only pointer addresses differ). This confirms the collision was a genuine but separate
-    bug, not the root cause. GetLastError on this run read 87 (ERROR_INVALID_PARAMETER), consistent
-    with HRESULT_FROM_WIN32(87) = 0x80070057; the prior run's GetLastError=0 reading is the anomalous
-    one (nothing runs between _SignerSignEx2.invoke and the GetLastError() call in either run, so 87
-    is the trustworthy value and 0 should be disregarded).
-
-    Steps 1-3 re-verified against independent, publicly available sources rather than only this
-    document's own claimed offsets: the SIGNER_SUBJECT_INFO, SIGNER_FILE_INFO, SIGNER_CERT,
-    SIGNER_CERT_STORE_INFO, SIGNER_ATTR_AUTHCODE, and SIGNER_SIGNATURE_INFO field names, types, and
-    order all matched exactly, and the SignerSignEx2 argument order/count matched the same 13-parameter
-    layout already recorded here (a second independent source consulted for this cross-check only
-    declared SignerSignEx3, whose first 12 parameters plus pReserved otherwise line up with
-    SignerSignEx2's 13, giving no new information but no contradiction either). No discrepancy found
-    anywhere in this pass - steps 1-3 stand as RULED OUT with higher confidence than before.
-
-    Arena/lifetime check: `_elevatedCreateAndSignCatalog` holds one `Arena.ofConfined()` open for its
-    entire body (try-with-resources at the top, closed only on return), and `hMy` is only closed in
-    its own `finally` after `_signCatalog` returns - so nothing passed to SignerSignEx2 is freed or
-    out of scope at call time. Ruled out.
-
-    Step 4 done - switched to SignerSignEx3: every avenue short of it was exhausted, including
-    cross-checks against sources independent of this document, with no discrepancy found in
-    SignerSignEx2's own argument surface. `_signCatalog` now calls SignerSignEx3 (see that entry
-    above) with the new pDigestSignInfo parameter set to NULL and every other argument unchanged -
-    only `_SignerSignEx2`/`_bind(...)` in the setup block and the `_SignerSignEx3.invoke(...)` call
-    site changed.
-
-    Ruled out: switching the entry point alone was not the cause. Live CI reported the identical
-    HRESULT=0x80070057 under SignerSignEx3, with byte-identical struct dumps to every SignerSignEx2
-    run before it (only pointer addresses differ) and GetLastError=0 again (see the note above on why
-    0 is not trustworthy - nothing runs between invoke and the GetLastError() read, so a genuine
-    E_INVALIDARG from this call should leave GetLastError=87 as it did on one earlier run; 0 appears
-    to depend on some run-to-run condition not yet identified, separate from the main investigation).
-
-    Reverted SIGNER_SIGNATURE_INFO.dwAttrChoice from SIGNER_AUTHCODE_ATTR back to SIGNER_NO_ATTR (see
-    that structure's entry above) as a further narrowing step under SignerSignEx3 specifically (the
-    NO_ATTR/AUTHCODE_ATTR pair had only been tried against SignerSignEx2 before) - requesting an
-    Authenticode attribute is more semantic surface than a plain catalog signature needs, and the
-    SIGNER_ATTR_AUTHCODE structure this backend built for it (empty pwszName/pwszInfo) was never
-    independently confirmed to be an accepted combination. SIGNER_CERT_STORE_INFO.dwCertPolicy
-    (SIGNER_CERT_POLICY_CHAIN) and hCertStore (hMy) are left as already-settled from the earlier
-    dwCertPolicy experiments recorded above.
-
-    Note on comparing against the PS1 backend: PS1 signs via PowerShell's Set-AuthenticodeSignature
-    cmdlet, not by calling SignerSignEx2/Ex3 directly, so there is no equivalent set of these
-    parameter values from that backend to diff against - the two backends only share a hash algorithm
-    (SHA-256) and a self-signed CurrentUser\My certificate at the level either implementation exposes.
-
-    Ruled out: the SIGNER_NO_ATTR revert under SignerSignEx3 did not resolve the failure either. Live
-    CI reported the identical HRESULT=0x80070057 with GetLastError=0 again, and the sigInfo hex dump
-    confirmed dwAttrChoice=0(SIGNER_NO_ATTR) with the union pointer and both psAuthenticated/
-    psUnauthenticated zeroed exactly as intended - so neither the AUTHCODE attribute nor its absence
-    changes anything. Every field this backend controls across both SIGNER_SIGNATURE_INFO states, and
-    two Signer* entry points (Ex2, Ex3), has now been tried without the failure ever changing shape.
-
-    Switched from SignerSignEx3 to SignerSignEx (the original, smallest member of this function
-    family - see that entry above): with SignerSignEx2 and SignerSignEx3 both exhausted, and every
-    struct/argument each of them shares independently re-verified twice over, the remaining
-    unverified variable was whether something specific to the newer entry points' additional
-    machinery (dwTimestampFlags, pCryptoPolicy, pDigestSignInfo) - even when passed as NULL/0 - was
-    itself the trigger. SignerSignEx has none of these parameters at all, so this call determines
-    whether the failure is a property of the whole Signer* family (same subjectInfo/signerCert/
-    sigInfo/fileInfo bytes, same cert, same store) or was actually specific to the newer members.
-
-    Whether the switch to SignerSignEx resolves the E_INVALIDARG is unconfirmed until the next live CI
-    run. If it still reports the identical E_INVALIDARG, the failure is common to every member of the
-    Signer* signing family regardless of entry point, dwAttrChoice, or dwCertPolicy/hCertStore
-    combination tried so far.
-
-    Populated SIGNER_SIGNATURE_INFO.psAuthenticated (offset 24) for the first time in this
-    investigation - every prior experiment only varied dwAttrChoice/the union at offset 16 and left
-    psAuthenticated NULL. dwAttrChoice stays SIGNER_NO_ATTR. psAuthenticated now points to a
-    CRYPT_ATTRIBUTES array of two CRYPT_ATTRIBUTE entries: SPC_SP_OPUS_INFO_OBJID
-    (1.3.6.1.4.1.311.2.1.12) wrapping a DER-encoded empty SPC_SP_OPUS_INFO SEQUENCE (both its fields
-    are OPTIONAL and unused here), and SPC_STATEMENT_TYPE_OBJID (1.3.6.1.4.1.311.2.1.11) wrapping a
-    DER-encoded SPC_STATEMENT_TYPE SEQUENCE containing SPC_INDIVIDUAL_SP_KEY_PURPOSE_OBJID
-    (1.3.6.1.4.1.311.2.1.21). Both DER encodings are hand-built byte literals in _signCatalog, not
-    produced via CryptEncodeObjectEx (no predefined lpszStructType is documented for either OID).
-    Source for the ASN.1 module and both OIDs: "Windows Authenticode Portable Executable Signature
-    Format" (Microsoft) -
-    https://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/authenticode_pe.docx.
-    This change is bundled into the same untested commit as the SignerSignEx entry-point switch above
-    (an argument-count/order question) rather than isolated behind its own CI run, since the two axes
-    are independent surfaces (which function is called vs. what sigInfo's content is) - if the next CI
-    run still fails identically, both remain suspects together; if it succeeds, a follow-up run with
-    psAuthenticated reverted to NULL would be needed to attribute the fix to this specific change
-    rather than the entry-point switch alone.
-
-    Ruled out (both changes together): live CI reported the identical HRESULT=0x80070057, this time
-    with a consistent GetLastError=87 (ERROR_INVALID_PARAMETER - the exact Win32 error 0x80070057
-    wraps) rather than the flaky 0 seen on earlier runs. The sigInfo hex dump confirmed psAuthenticated
-    was correctly non-NULL and pointing at the two-entry attribute array. Since SignerSignEx (the
-    smallest entry point) plus a populated psAuthenticated still fails identically, the cause is
-    outside every field/entry-point this backend's own Signer* call arguments control.
-
-    Found and fixed: CRYPT_KEY_PROV_INFO.dwKeySpec (set on the self-signed certificate by
-    _elevatedCreateAndTrustProvider, independent of the Signer* call itself) was AT_SIGNATURE(2) - a
-    legacy CryptoAPI dwKeySpec value - despite the certificate's private key being a CNG key created
-    via NCryptCreatePersistedKey against the CNG Key Storage Provider ("Microsoft Software Key Storage
-    Provider"). Per CRYPT_KEY_PROV_INFO's own Microsoft documentation, dwKeySpec must be
-    CERT_NCRYPT_KEY_SPEC(0xFFFFFFFF) whenever the linked key is a CNG key. CryptAcquireCertificatePrivateKey
-    - which SignerSignEx calls internally to retrieve the signing certificate's private key - branches
-    on this exact field to choose between NCryptOpenKey and legacy CryptAcquireContext; AT_SIGNATURE
-    told it to treat "Microsoft Software Key Storage Provider" as a legacy CSP name, which it is not.
-    This is a certificate-provisioning bug independent of every SIGNER_* struct field previously tried,
-    consistent with the "outside this function's own argument surface" lead the investigation had
-    narrowed down to. Changed to CERT_NCRYPT_KEY_SPEC - see the CRYPT_KEY_PROV_INFO entry above.
-
-    Ruled out: the CERT_NCRYPT_KEY_SPEC fix did not resolve the failure either. Live CI reported the
-    identical HRESULT=0x80070057, this time back to GetLastError=0 (the value has now flipped between 0
-    and 87 across otherwise-identical runs, reinforcing that GetLastError() here reflects something
-    other than SignerSignEx's own failure, and is not a reliable signal - see the earlier note on this).
-
-    Added a diagnostic-only CryptAcquireCertificatePrivateKey call at the top of _signCatalog, logging
-    whether it succeeds/fails, the resulting dwKeySpec, and GetLastError() on failure, before any
-    SIGNER_* structures are built. Purpose: isolate whether private-key acquisition - the exact
-    mechanism CRYPT_KEY_PROV_INFO.dwKeySpec controls - is itself where this fails, independent of
-    whatever else SignerSignEx does afterward (chain building, catalog SIP dispatch, hashing). This
-    does not change signing behavior; it only adds a log line. Result pending the next live CI run -
-    if CryptAcquireCertificatePrivateKey itself fails, that pinpoints key acquisition (and dwKeySpec
-    still not being right, or some other property of the cert/key); if it succeeds, the failure must be
-    inside SignerSignEx past private-key acquisition, meaning the remaining unverified territory is
-    catalog SIP dispatch, certificate chain validation, or the raw signing/hashing operation itself.
-    Update this note with the actual result once known.
-
-    Diagnostic result: live CI reported CryptAcquireCertificatePrivateKey acquired=false, GetLastError=
-    -2146893804, which as an unsigned 32-bit value is 0x80090014 (NTE_BAD_PROV_TYPE, "Invalid provider
-    type specified") - a CAPI1 error, not a CNG one. Per Microsoft's own documentation of
-    CryptAcquireCertificatePrivateKey, when the dwFlags parameter is passed as 0 (as this diagnostic and,
-    by extension, SignerSignEx itself are understood to do) the function only attempts the legacy
-    CryptAcquireContext path - it does not fall back to NCryptOpenKey unless given
-    CRYPT_ACQUIRE_ALLOW_NCRYPT_KEY_FLAG, CRYPT_ACQUIRE_PREFER_NCRYPT_KEY_FLAG, or
-    CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG. CryptAcquireContext's own documentation states it rejects a
-    dwProvType of 0, which is exactly what this backend's CRYPT_KEY_PROV_INFO carried for its CNG key -
-    NTE_BAD_PROV_TYPE is the direct, decisive consequence of that mismatch, not a symptom of anything in
-    the SIGNER_* structures themselves. Every earlier round of this investigation touched only the
-    SIGNER_* struct fields or the entry-point choice (SignerSignEx/Ex2/Ex3); none of that surface was
-    ever the actual defect, since the failure occurs before SignerSignEx gets that far, in key
-    acquisition.
-
-    Fix: this backend now provisions the self-signed certificate's private key entirely through legacy
-    CryptoAPI (CryptAcquireContextW + CryptGenKey, see those entries below) instead of CNG, using
-    PROV_RSA_FULL/AT_SIGNATURE/CRYPT_MACHINE_KEYSET throughout, and passes hCryptProvOrNCryptKey=NULL to
-    CertCreateSelfSignCertificate (relying entirely on pKeyProvInfo, which Microsoft's own documentation
-    for that parameter allows) rather than an already-open key handle. This removes the CNG code path
-    from this backend altogether; CryptAcquireCertificatePrivateKey's underlying NCryptOpenKey branch and
-    CERT_NCRYPT_KEY_SPEC are no longer exercised by anything this backend provisions, though the
-    diagnostic call and the CERT_NCRYPT_KEY_SPEC constant remain in place since
-    CryptAcquireCertificatePrivateKey can in general still hand back either kind of key. Whether this
-    resolves the E_INVALIDARG is unconfirmed until the next live CI run.
-
-    Live CI result: the CryptAcquireCertificatePrivateKey diagnostic now reports acquired=true,
-    dwKeySpec=2 (AT_SIGNATURE), callerFree=true - private-key acquisition via the legacy CryptoAPI path
-    now succeeds, confirming the CAPI1 rewrite fixed the real bug the diagnostic was built to find.
-    However, the very next SignerSignEx call in the same run still failed with the identical
-    HRESULT=0x80070057, GetLastError=0, and byte-for-byte the same struct dumps as every prior round.
-    This is a significant new data point: it means private-key acquisition was never actually the cause
-    of the E_INVALIDARG itself. E_INVALIDARG is what a function returns when it rejects an argument
-    during its own up-front validation, which necessarily happens before any real work like key
-    acquisition - so whatever SignerSignEx is rejecting here, it is rejecting before it would ever reach
-    the code path the diagnostic exercises. The CAPI1 rewrite was still a genuine, worthwhile fix (a
-    CNG-provisioned key was never going to work here regardless), but it is now confirmed orthogonal to
-    the E_INVALIDARG investigation.
-
-    Also fixed in this round: the diagnostic's cleanup only ever freed the acquired handle via
-    NCryptFreeObject when dwKeySpec=CERT_NCRYPT_KEY_SPEC; now that dwKeySpec=AT_SIGNATURE (legacy) comes
-    back with callerFree=true, that branch never fired and the returned HCRYPTPROV leaked one handle per
-    _signCatalog call. Added the CryptReleaseContext(hProv, 0) branch for the legacy case alongside it.
-
-    Since every SIGNER_* struct field, entry-point choice, and now private-key acquisition itself have
-    been ruled out, the next isolated axis is SIGNER_SIGNATURE_INFO.psAuthenticated: it was populated
-    with hand-DER-encoded SPC_SP_OPUS_INFO/SPC_STATEMENT_TYPE CRYPT_ATTRIBUTES in an earlier round, but
-    that round ran against the still-broken CNG key, so it was never actually tested against a
-    SignerSignEx call whose only remaining difference from a working call is this one field. Reverted
-    psAuthenticated back to NULL (the CRYPT_ATTRIBUTES-building code itself is left in place and still
-    hex-dumped in the failure log, just unlinked from sigInfo, in case the DER encoding needs
-    re-examining afterward either way). Whether this resolves the E_INVALIDARG is unconfirmed until the
-    next live CI run. If it does not, the next lead has to come from outside every field this backend
-    directly controls - e.g. re-deriving the exact byte layout of one of these undocumented structures
-    from a source independent of everything consulted so far, or an environmental/CI-runner-specific
-    cause.
-
-    Live CI result: the psAuthenticated=NULL revert did not resolve the E_INVALIDARG either - the hex
-    dump confirmed sigInfo's trailing 16 bytes (psAuthenticated/psUnauthenticated) are now correctly
-    zero, but SignerSignEx still failed with the identical HRESULT=0x80070057, GetLastError=0. At this
-    point every field this backend directly controls (entry point choice, all SIGNER_* struct field
-    variations, key-provisioning mechanism, psAuthenticated population) had been varied without the
-    failure ever changing shape once.
-    Rather than guess at another untested permutation, re-fetched the official Microsoft Learn pages
-    for SignerSignEx, SIGNER_SIGNATURE_INFO, and SIGNER_SUBJECT_INFO directly, independent of any notes
-    accumulated earlier in this investigation. This turned up a genuine, previously-unexamined
-    discrepancy: SIGNER_SUBJECT_INFO.pdwIndex is documented as "This member is reserved. It must be set
-    to zero" - meaning the pointer field itself must be NULL, not (as this backend had done since the
-    very first round of this investigation) a pointer to a separately allocated, zero-valued DWORD.
-    That field had never been revisited because earlier debugging always focused on fields believed to
-    vary meaningfully (dwCertPolicy, dwAttrChoice, key spec, entry point) - pdwIndex was set once early
-    on and never questioned again.
-    Fix: subjectInfo's pdwIndex field (offset 8) is now MemorySegment.NULL; the dedicated zeroed-DWORD
-    allocation this field previously pointed at has been removed entirely. Whether this resolves the
-    E_INVALIDARG is unconfirmed until the next live CI run.
-
-    Live CI result: this did not resolve the E_INVALIDARG either. The hex dump confirmed subjectInfo's
-    pdwIndex (offset 8) is now correctly all-zero (NULL), and every other field in every struct passed
-    to SignerSignEx is byte-for-byte identical to every prior round - the failure itself remains
-    HRESULT=0x80070057, GetLastError=0, completely unchanged. This means every single field in every
-    SIGNER_*/CRYPT_* struct this backend builds, the entry-point choice, and the private-key
-    provisioning mechanism have now all been varied at least once without the failure shape ever
-    changing - there is no remaining struct-content permutation left to try blind.
-    Given that, the next step is a genuinely different kind of diagnostic rather than another
-    struct-field guess: the CI workflow (test-windows-driver-installer.yml) now enables the Windows
-    CAPI2 operational event log (Microsoft-Windows-CAPI2/Operational) around the mutating test run and
-    dumps it afterward. This log captures Windows' own internal trace of CryptoAPI/Signer-family calls,
-    including the specific argument or internal check that a plain HRESULT/GetLastError pair does not
-    surface - it should show what SignerSignEx itself perceives as invalid, if anything is logged there
-    at all. If the log turns out empty or unhelpful, the remaining leads are genuinely environmental
-    (missing SIP registration for .cat files on this runner image, a COM apartment/initialization
-    requirement, or similar) rather than anything this backend's own struct-building code controls.
-
-    Live CI result: the CAPI2 log captured only events from the diagnostic's own
-    CryptAcquireCertificatePrivateKey call (Task: "Acquire Certificate Private Key" - private key
-    lookup and certificate path validation, all Information level, no errors). There is no trace at
-    all of any internal work tied to the actual SignerSignEx call itself - no chain-building, no
-    additional path-validation events beyond the diagnostic's own. This confirms SignerSignEx rejects
-    its arguments at the very first line of the function, before doing anything CAPI2 instruments -
-    consistent with pure up-front parameter validation, but it does not reveal which argument or why.
-    Since every struct-content permutation and this event-log trace have both been exhausted without
-    new information, the CI workflow now also cross-checks with signtool.exe (present on the
-    GitHub-hosted Windows runner's preinstalled SDK): it signs a throwaway text file with the exact
-    same self-signed certificate this backend already created and trusted (provider name
-    "JxMake_CITest_FFM", hardcoded to match WDI_CITest.java). signtool drives this same undocumented
-    Signer* API family through a mature, independently-implemented path. If signtool succeeds, the bug
-    is conclusively in this backend's own struct marshaling (an FFM-specific or byte-layout defect this
-    document's cross-checking has not yet found); if signtool also fails, the problem is in the
-    certificate/environment itself, not this backend's code, and the investigation should pivot away
-    from SignerSignEx's arguments entirely.
-
-    Live CI result: signtool correctly selected the certificate (subject, issuer, expiry, and SHA1
-    thumbprint all printed as expected for "JxMake_CITest_FFM") - confirming yet again that
-    certificate/key setup itself is not the problem - but then failed with "SignTool Error: This file
-    format cannot be signed because it is not recognized," because a plain .txt file has no registered
-    SIP and was never a realistic stand-in for this backend's actual subject type. This cross-check
-    did not yet test what it needed to: whether signtool can sign a .cat file (the same subject type
-    this backend signs) with this certificate. Reworked the workflow step to first build a real
-    catalog file with makecat.exe (same SDK bin directory as signtool.exe, from a minimal generated
-    .cdf listing one throwaway member file) and then run the signtool cross-check against that .cat
-    file instead. Result pending the next live CI run.
-
-    Live CI result: makecat itself failed before ever reaching signtool - "Failed: CryptCATCDFOpen.
-    Last Error: 0x00000057" (ERROR_INVALID_PARAMETER), meaning the generated .cdf file's header was
-    itself malformed, not this backend's own code. The .cdf only specified Name/HashAlgorithms; it was
-    missing PublicVersion and CatalogVersion, both of which CryptCATCDFOpen requires to parse a valid
-    catalog definition file (CatalogVersion=2 in particular is required for a SHA256 catalog - V1
-    catalogs only support SHA1). Fixed the .cdf to include PublicVersion=0x0000001, CatalogVersion=2,
-    and a ResultDir/relative Name pair instead of an absolute path in Name. This is purely a fix to the
-    diagnostic tooling itself (makecat's CDF parsing), unrelated to SignerSignEx or this backend's own
-    catalog-building code, which already builds its catalog directly through the CryptCATOpen/
-    CryptCATPutMemberInfo/CryptCATPutAttrInfo/CryptCATClose API family rather than a CDF file. Result
-    pending the next live CI run.
-
-    Live CI result: the .cdf header now opens successfully ("opened: ...test.cdf"), but makecat then
-    failed enumerating members - "Failed: CryptCATCDFEnumMembersByCDFTagEx. Last Error: 0x00000057",
-    "Failed: No members found." The [CatalogFiles] entry was written as a bare `tag=path` line
-    (`member.txt=<path>`), which the CDF member-tag parser did not recognize as a valid member
-    definition at all (zero members enumerated, not a hash/file-lookup failure). The documented CDF
-    member syntax requires a literal `<HASH>` attribute-tag prefix on each entry
-    (`<HASH>tag=path`), not a bare tag. Fixed the .cdf's [CatalogFiles] line accordingly. Again, this is
-    purely a fix to the diagnostic tooling's own .cdf syntax, unrelated to SignerSignEx or this
-    backend's own catalog-building code. Result pending the next live CI run.
-
-    Live CI result: makecat succeeded ("processing: <HASH>member.txt", "Succeeded", exit code 0), and
-    signtool then successfully signed the resulting .cat with the same self-signed certificate this
-    backend creates and trusts ("Successfully signed: ...test.cat", "Number of errors: 0", exit code
-    0). This is the decisive result of the cross-check: an independent, mature Microsoft tool, driven
-    from a separate native process, signs the exact subject type (a .cat file) this backend targets,
-    with the exact certificate this backend uses. The certificate, private key, and CI environment are
-    therefore conclusively ruled out - the defect is specific to this backend's own SignerSignEx call.
-    Combined with the earlier struct-content and entry-point exhaustion (every SIGNER_*/CRYPT_* field
-    this backend controls has been varied at least once with zero change in failure shape, and all
-    three entry points in the family - SignerSignEx, SignerSignEx2, SignerSignEx3 - have already been
-    tried and fail identically), there is no remaining argument-content permutation left to guess
-    blind.
-
-    New hypothesis: COM initialization. signtool.exe is a native EXE; this backend's SignerSignEx call
-    runs on a JVM thread. Some WinTrust/Signer-family internals are documented as using COM-based
-    trust providers, and CAPI2 tracing (above) already showed SignerSignEx rejects its arguments before
-    doing any traceable internal work at all - consistent with a check that fails before reaching any
-    instrumented code path, such as an internal COM call failing because the calling thread never
-    called CoInitializeEx. Added CoInitializeEx/CoUninitialize bindings (Ole32.dll, combaseapi.h) and
-    call CoInitializeEx(NULL, COINIT_APARTMENTTHREADED) at the start of _signCatalog, logging the
-    returned HRESULT, with a matching CoUninitialize in a finally block (only when the init call
-    returned a non-negative HRESULT - S_OK or S_FALSE - since a negative RPC_E_CHANGED_MODE means a
-    different concurrency model was already set on the thread and must not be paired with
-    CoUninitialize). Result pending the next live CI run.
+Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (HRESULT=0x80070057),
+RESOLVED BY PIVOTING AWAY FROM THIS CALL:
+    Live Windows CI (GitHub Actions, mutating/UAC-enabled run) consistently reported E_INVALIDARG from
+    this call, unchanged across every variation tried:
+      - Every field of every struct passed to the call (SIGNER_SUBJECT_INFO, SIGNER_FILE_INFO,
+        SIGNER_CERT, SIGNER_CERT_STORE_INFO, SIGNER_SIGNATURE_INFO, SIGNER_ATTR_AUTHCODE,
+        CRYPT_ATTRIBUTES/CRYPT_ATTRIBUTE) was checked against Microsoft Learn and, for fields with
+        more than one legal value (dwCertPolicy, dwAttrChoice, psAuthenticated, pdwIndex), tried in at
+        least two configurations, including a genuine bug fix (SIGNER_SUBJECT_INFO.pdwIndex must be
+        NULL itself, not a pointer to a zeroed DWORD).
+      - All three entry points in the family were tried (SignerSignEx2 -> SignerSignEx3 ->
+        SignerSignEx), with byte-identical struct dumps and the identical failure at each.
+      - The certificate's private-key provisioning was rewritten from CNG to legacy CryptoAPI
+        (CryptAcquireContextW+CryptGenKey, see those entries below) after a diagnostic
+        CryptAcquireCertificatePrivateKey call showed the CNG-provisioned key was unusable
+        (NTE_BAD_PROV_TYPE) - a real, independent bug, but confirmed orthogonal to the E_INVALIDARG
+        once private-key acquisition itself started succeeding and the failure persisted unchanged.
+      - The Windows CAPI2 operational event log was captured around a live CI run and showed zero
+        internal work tied to the SignerSignEx call itself - it rejects its arguments at the very
+        first line, before anything CAPI2 instruments.
+      - A signtool.exe cross-check (`.github/workflows/test-windows-driver-installer.yml`, "Cross-check
+        catalog signing with signtool.exe" step) proved decisive: signtool.exe successfully signs a
+        real `.cat` file (built with makecat.exe) using the exact same self-signed certificate this
+        backend creates and trusts. This conclusively ruled out the certificate, private key, and CI
+        environment - the defect is specific to this backend's own SignerSignEx call.
+      - A COM-initialization hypothesis (CoInitializeEx/CoUninitialize around the call, since
+        signtool.exe is a native EXE while this backend calls from an uninitialized JVM thread) was
+        tried last and also did not change the failure.
+    With every struct-content permutation, all three entry points, the key-provisioning mechanism, and
+    COM initialization exhausted without the failure ever changing shape, this call was abandoned.
+    Since signtool.exe was already proven to sign the exact same certificate/subject-type successfully,
+    catalog signing now shells out to signtool.exe as an external process instead (see
+    `_signCatalogWithSigntool` in WindowsDriverInstaller_FFM.java) - the direct SignerSignEx call below
+    is kept only for reference.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

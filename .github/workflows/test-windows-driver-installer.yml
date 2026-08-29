@@ -261,7 +261,10 @@ jobs:
 
           $cdfLines = @(
             "[CatalogHeader]",
-            "Name=$catFile",
+            "Name=test.cat",
+            "ResultDir=$workDir",
+            "PublicVersion=0x0000001",
+            "CatalogVersion=2",
             "HashAlgorithms=SHA256",
             "",
             "[CatalogFiles]",

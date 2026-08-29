@@ -1463,6 +1463,18 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     .cdf listing one throwaway member file) and then run the signtool cross-check against that .cat
     file instead. Result pending the next live CI run.
 
+    Live CI result: makecat itself failed before ever reaching signtool - "Failed: CryptCATCDFOpen.
+    Last Error: 0x00000057" (ERROR_INVALID_PARAMETER), meaning the generated .cdf file's header was
+    itself malformed, not this backend's own code. The .cdf only specified Name/HashAlgorithms; it was
+    missing PublicVersion and CatalogVersion, both of which CryptCATCDFOpen requires to parse a valid
+    catalog definition file (CatalogVersion=2 in particular is required for a SHA256 catalog - V1
+    catalogs only support SHA1). Fixed the .cdf to include PublicVersion=0x0000001, CatalogVersion=2,
+    and a ResultDir/relative Name pair instead of an absolute path in Name. This is purely a fix to the
+    diagnostic tooling itself (makecat's CDF parsing), unrelated to SignerSignEx or this backend's own
+    catalog-building code, which already builds its catalog directly through the CryptCATOpen/
+    CryptCATPutMemberInfo/CryptCATPutAttrInfo/CryptCATClose API family rather than a CDF file. Result
+    pending the next live CI run.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------

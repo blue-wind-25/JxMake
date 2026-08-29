@@ -1265,12 +1265,34 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     sigInfo/fileInfo bytes, same cert, same store) or was actually specific to the newer members.
 
     Whether the switch to SignerSignEx resolves the E_INVALIDARG is unconfirmed until the next live CI
-    run. PAUSED pending that run. If it still reports the identical E_INVALIDARG, the failure is
-    common to every member of the Signer* signing family regardless of entry point, dwAttrChoice, or
-    dwCertPolicy/hCertStore combination tried so far - the next lead would have to come from outside
-    this function's own argument surface entirely (e.g. account/store-provisioning state on the CI
-    runner itself, or the certificate/key material's own suitability for signing, rather than anything
-    this code passes to the Signer* call). Update this note with the actual root cause once resolved.
+    run. If it still reports the identical E_INVALIDARG, the failure is common to every member of the
+    Signer* signing family regardless of entry point, dwAttrChoice, or dwCertPolicy/hCertStore
+    combination tried so far.
+
+    Populated SIGNER_SIGNATURE_INFO.psAuthenticated (offset 24) for the first time in this
+    investigation - every prior experiment only varied dwAttrChoice/the union at offset 16 and left
+    psAuthenticated NULL. dwAttrChoice stays SIGNER_NO_ATTR. psAuthenticated now points to a
+    CRYPT_ATTRIBUTES array of two CRYPT_ATTRIBUTE entries: SPC_SP_OPUS_INFO_OBJID
+    (1.3.6.1.4.1.311.2.1.12) wrapping a DER-encoded empty SPC_SP_OPUS_INFO SEQUENCE (both its fields
+    are OPTIONAL and unused here), and SPC_STATEMENT_TYPE_OBJID (1.3.6.1.4.1.311.2.1.11) wrapping a
+    DER-encoded SPC_STATEMENT_TYPE SEQUENCE containing SPC_INDIVIDUAL_SP_KEY_PURPOSE_OBJID
+    (1.3.6.1.4.1.311.2.1.21). Both DER encodings are hand-built byte literals in _signCatalog, not
+    produced via CryptEncodeObjectEx (no predefined lpszStructType is documented for either OID).
+    Source for the ASN.1 module and both OIDs: "Windows Authenticode Portable Executable Signature
+    Format" (Microsoft) -
+    https://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/authenticode_pe.docx.
+    This change is bundled into the same untested commit as the SignerSignEx entry-point switch above
+    (an argument-count/order question) rather than isolated behind its own CI run, since the two axes
+    are independent surfaces (which function is called vs. what sigInfo's content is) - if the next CI
+    run still fails identically, both remain suspects together; if it succeeds, a follow-up run with
+    psAuthenticated reverted to NULL would be needed to attribute the fix to this specific change
+    rather than the entry-point switch alone.
+
+    If the combined change still reports the identical E_INVALIDARG, the next lead would have to come
+    from outside this function's own argument surface entirely (e.g. account/store-provisioning state
+    on the CI runner itself, or the certificate/key material's own suitability for signing, rather than
+    anything this code passes to the Signer* call). Update this note with the actual root cause once
+    resolved.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
@@ -1375,10 +1397,12 @@ Purpose      : Specifies the hash algorithm for the signature and any extra Auth
 FFM notes    : algidHash = CALG_SHA_256(0x0000800c) (the classic CryptoAPI ALG_ID constant for
                SHA-256 - consistent with every other hash choice in this file); dwAttrChoice =
                SIGNER_NO_ATTR(0) with the union pointer left NULL (no Authenticode-specific
-               commercial/individual publisher attributes requested); both psAuthenticated and
-               psUnauthenticated are also left NULL. SIGNER_AUTHCODE_ATTR plus a populated
-               SIGNER_ATTR_AUTHCODE (see below) was tried and reverted - see the "Investigation
-               history" note below.
+               commercial/individual publisher attributes requested via that union). psAuthenticated
+               now points to a CRYPT_ATTRIBUTES array carrying SPC_SP_OPUS_INFO and SPC_STATEMENT_TYPE
+               attributes (see STRUCTURE: CRYPT_ATTRIBUTES below) - see the "Investigation history"
+               note below for why. psUnauthenticated is left NULL. SIGNER_AUTHCODE_ATTR plus a
+               populated SIGNER_ATTR_AUTHCODE (see below) was tried and reverted - see the
+               "Investigation history" note below.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_ATTR_AUTHCODE - VERIFIED
@@ -1398,6 +1422,51 @@ FFM notes    : Not currently constructed - this backend now leaves SIGNER_SIGNAT
                pwszName/pwszInfo both empty strings rather than NULL), then reverted without changing
                the failure - see the "Investigation history" note below.
 
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CRYPT_ATTRIBUTES - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attributes
+
+Fields       : cAttr (0, DWORD), rgAttr (8, PCRYPT_ATTRIBUTE - array, not a linked list).
+Size         : 16 bytes, 8-byte aligned.
+Purpose      : A counted array of CRYPT_ATTRIBUTE entries; used here as
+               SIGNER_SIGNATURE_INFO.psAuthenticated.
+
+FFM notes    : cAttr = 2. rgAttr points to two contiguous CRYPT_ATTRIBUTE structures (SPC_SP_OPUS_INFO
+               then SPC_STATEMENT_TYPE), built with MemorySegment.copy into one allocation rather than
+               two separately-allocated structures, since rgAttr is a flat array.
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CRYPT_ATTRIBUTE - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attribute
+
+Fields       : pszObjId (0, LPSTR), cValue (8, DWORD), rgValue (16, PCRYPT_ATTR_BLOB - array of
+               CRYPT_ATTR_BLOB, one per value).
+Size         : 24 bytes, 8-byte aligned.
+Purpose      : One signed/unsigned attribute: an OID plus one or more DER-encoded values.
+
+FFM notes    : cValue = 1 for both attributes this backend builds (SPC_SP_OPUS_INFO_OBJID and
+               SPC_STATEMENT_TYPE_OBJID), each with a single CRYPT_ATTR_BLOB value built via the
+               existing `_blob()` helper (see STRUCTURE: CRYPT_ATTR_BLOB below).
+
+----------------------------------------------------------------------------------------------------
+STRUCTURE: CRYPT_ATTR_BLOB - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_integer_blob
+               (same {DWORD cbData; BYTE *pbData;} shape reused across CRYPT_INTEGER_BLOB,
+               CRYPT_ATTR_BLOB, CERT_NAME_BLOB, etc.)
+
+Fields       : cbData (0, DWORD), pbData (8, BYTE*).
+Size         : 16 bytes, 8-byte aligned.
+Purpose      : A counted byte buffer - here, one DER-encoded ASN.1 value per CRYPT_ATTRIBUTE.rgValue
+               entry.
+
+FFM notes    : Built via the existing `_blob(Arena, int cbData, MemorySegment pbData)` helper (already
+               used elsewhere in this file for CERT_NAME_BLOB-shaped fields). Wraps the hand-built
+               SPC_SP_OPUS_INFO and SPC_STATEMENT_TYPE DER byte literals - see the "Investigation
+               history" note below for the exact bytes and their source.
 
 ====================================================================================================
 SECTION F - Miscellaneous Notes for Future Maintainers

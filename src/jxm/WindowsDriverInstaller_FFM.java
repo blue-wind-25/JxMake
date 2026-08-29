@@ -1011,6 +1011,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int SIGNER_AUTHCODE_ATTR      = 1;
     private static final int CALG_SHA_256              = 0x0000800c;
 
+    // SIGNER_SIGNATURE_INFO.psAuthenticated attribute OIDs (wintrust.h) - see the SPC_STATEMENT_TYPE /
+    // SPC_SP_OPUS_INFO DER-encoding comments in _signCatalog for the values attached under these OIDs
+    private static final String SPC_SP_OPUS_INFO_OBJID   = "1.3.6.1.4.1.311.2.1.12";
+    private static final String SPC_STATEMENT_TYPE_OBJID = "1.3.6.1.4.1.311.2.1.11";
+
     private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
     {
         // SIGNER_FILE_INFO : { DWORD cbSize; LPCWSTR pwszFileName; HANDLE hFile; } - size 24, align 8
@@ -1050,18 +1055,66 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         signerCert.set(PTR                 ,  8, certStoreInfo     );
         signerCert.set(PTR                 , 16, MemorySegment.NULL);
 
+        // SPC_STATEMENT_TYPE ::= SEQUENCE OF OBJECT IDENTIFIER - DER-encoded SEQUENCE containing exactly
+        // SPC_INDIVIDUAL_SP_KEY_PURPOSE_OBJID (1.3.6.1.4.1.311.2.1.21), the "individual" (non-commercial)
+        // key-purpose signtool.exe emits when signing with a non-commercial/self-signed certificate.
+        // Source: "Windows Authenticode Portable Executable Signature Format" (Microsoft) -
+        // https://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/authenticode_pe.docx
+        final byte[] statementTypeDer = {
+            (byte)0x30, (byte)0x0C, (byte)0x06, (byte)0x0A, (byte)0x2B, (byte)0x06,
+            (byte)0x01, (byte)0x04, (byte)0x01, (byte)0x82, (byte)0x37, (byte)0x02,
+            (byte)0x01, (byte)0x15
+        };
+        // SPC_SP_OPUS_INFO ::= SEQUENCE { programName [0] EXPLICIT SpcString OPTIONAL;
+        //                                 moreInfo [1] EXPLICIT SpcLink OPTIONAL; } - both fields are
+        // OPTIONAL and this backend has neither a program name nor a more-info URL to offer, so the
+        // minimal valid encoding is an empty SEQUENCE. Same Microsoft source as above.
+        final byte[] opusInfoDer = { (byte)0x30, (byte)0x00 };
+
+        final MemorySegment statementTypeBuf = arena.allocate(statementTypeDer.length);
+        MemorySegment.copy(statementTypeDer, 0, statementTypeBuf, ValueLayout.JAVA_BYTE, 0, statementTypeDer.length);
+        final MemorySegment opusInfoBuf = arena.allocate(opusInfoDer.length);
+        MemorySegment.copy(opusInfoDer, 0, opusInfoBuf, ValueLayout.JAVA_BYTE, 0, opusInfoDer.length);
+
+        final MemorySegment opusInfoBlob      = _blob(arena, opusInfoDer.length, opusInfoBuf);
+        final MemorySegment statementTypeBlob = _blob(arena, statementTypeDer.length, statementTypeBuf);
+
+        // CRYPT_ATTRIBUTE : { LPSTR pszObjId; DWORD cValue; PCRYPT_ATTR_BLOB rgValue; } - size 24, align 8
+        final MemorySegment opusInfoAttr = arena.allocate(24, 8);
+        opusInfoAttr.set(PTR                 ,  0, _astr(arena, SPC_SP_OPUS_INFO_OBJID) );
+        opusInfoAttr.set(ValueLayout.JAVA_INT,  8, 1                                    );
+        opusInfoAttr.set(PTR                 , 16, opusInfoBlob                         );
+
+        final MemorySegment statementTypeAttr = arena.allocate(24, 8);
+        statementTypeAttr.set(PTR                 ,  0, _astr(arena, SPC_STATEMENT_TYPE_OBJID) );
+        statementTypeAttr.set(ValueLayout.JAVA_INT,  8, 1                                       );
+        statementTypeAttr.set(PTR                 , 16, statementTypeBlob                       );
+
+        // CRYPT_ATTRIBUTES.rgAttr is a contiguous array (not a linked list) of CRYPT_ATTRIBUTE
+        final MemorySegment attrArray = arena.allocate(24L * 2, 8);
+        MemorySegment.copy(opusInfoAttr,      0, attrArray,  0, 24);
+        MemorySegment.copy(statementTypeAttr, 0, attrArray, 24, 24);
+
+        // CRYPT_ATTRIBUTES : { DWORD cAttr; PCRYPT_ATTRIBUTE rgAttr; } - size 16, align 8
+        final MemorySegment authenticatedAttrs = arena.allocate(16, 8);
+        authenticatedAttrs.set(ValueLayout.JAVA_INT, 0, 2         );
+        authenticatedAttrs.set(PTR                 , 8, attrArray );
+
         // SIGNER_SIGNATURE_INFO : { DWORD cbSize; ALG_ID algidHash; DWORD dwAttrChoice; union{...};
         //                           PCRYPT_ATTRIBUTES psAuthenticated; PCRYPT_ATTRIBUTES psUnauthenticated; } - size 40, align 8
-        // dwAttrChoice=SIGNER_NO_ATTR (union unused, left NULL) - reverted from SIGNER_AUTHCODE_ATTR:
-        // that combination was already tried against SignerSignEx2 without changing the failure, and
-        // requesting an Authenticode attribute here is more semantic surface than a plain catalog
-        // signature needs - see WindowsDriverInstaller_FFM-Win32API.txt for the fuller history.
+        // dwAttrChoice stays SIGNER_NO_ATTR (union at offset 16 unused) - that axis (NO_ATTR vs
+        // AUTHCODE_ATTR) was already exhausted against SignerSignEx2/SignerSignEx3 without changing the
+        // failure. psAuthenticated (offset 24) had never been populated in any prior attempt; every
+        // real-world Signer* caller cross-checked during this investigation attaches SPC_SP_OPUS_INFO +
+        // SPC_STATEMENT_TYPE here instead of using dwAttrChoice/pAttrAuthcode, so this is a genuinely new
+        // axis, not a repeat of the SIGNER_AUTHCODE_ATTR experiment - see
+        // WindowsDriverInstaller_FFM-Win32API.txt for the fuller history.
         final MemorySegment sigInfo = arena.allocate(40, 8);
         sigInfo.set(ValueLayout.JAVA_INT,  0, 40                    );
         sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256          );
         sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_NO_ATTR        );
         sigInfo.set(PTR                 , 16, MemorySegment.NULL    );
-        sigInfo.set(PTR                 , 24, MemorySegment.NULL    );
+        sigInfo.set(PTR                 , 24, authenticatedAttrs    );
         sigInfo.set(PTR                 , 32, MemorySegment.NULL    );
 
         final MemorySegment ppSignerContext = arena.allocate(PTR);
@@ -1088,7 +1141,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                .append("  signerCert     : ").append( _hexDump(signerCert, 24)     ).append('\n')
                .append("  certStoreInfo  : ").append( _hexDump(certStoreInfo, 32)  ).append('\n')
                .append("  sigInfo        : ").append( _hexDump(sigInfo, 40)        ).append('\n')
-               .append("  fileInfo       : ").append( _hexDump(fileInfo, 24)       );
+               .append("  fileInfo       : ").append( _hexDump(fileInfo, 24)       ).append('\n')
+               .append("  authAttrs      : ").append( _hexDump(authenticatedAttrs, 16) ).append('\n')
+               .append("  attrArray      : ").append( _hexDump(attrArray, 48)          );
             return RETCODE_EXCEPTION;
         }
 

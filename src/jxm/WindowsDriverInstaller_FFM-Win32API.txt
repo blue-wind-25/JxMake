@@ -1193,11 +1193,35 @@ Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
         repeatedly against the same store without cleanup between runs).
     Note this was a test-harness confound, not a fix to the SignerSignEx2 call itself - the byte-level
     correctness confirmed in steps 1-3 above still stands regardless of which certificate was signing.
-    Whether resolving the collision also resolves the E_INVALIDARG is unconfirmed until the next live
-    CI run - if it does not, resume at step 4.
-    PAUSED pending a live CI run with the corrected per-backend provider names, or (if that doesn't
-    change the outcome) a decision on step 4. Update this note with the actual root cause once
-    resolved.
+
+    Collision fix confirmed but did not resolve the failure: a follow-up live CI run with the
+    per-backend provider names showed "certificates matching subject 'JxMake_CITest_FFM' in
+    CurrentUser\My = 1" (no collision, confirming the fix worked) and
+    "signingCert has CERT_KEY_PROV_INFO_PROP_ID=true" (private-key linkage intact), but
+    SignerSignEx2 still returned HRESULT=0x80070057 with byte-for-byte identical struct dumps to the
+    prior run (only pointer addresses differ). This confirms the collision was a genuine but separate
+    bug, not the root cause. GetLastError on this run read 87 (ERROR_INVALID_PARAMETER), consistent
+    with HRESULT_FROM_WIN32(87) = 0x80070057; the prior run's GetLastError=0 reading is the anomalous
+    one (nothing runs between _SignerSignEx2.invoke and the GetLastError() call in either run, so 87
+    is the trustworthy value and 0 should be disregarded).
+
+    Steps 1-3 re-verified against independent, publicly available sources rather than only this
+    document's own claimed offsets: the SIGNER_SUBJECT_INFO, SIGNER_FILE_INFO, SIGNER_CERT,
+    SIGNER_CERT_STORE_INFO, SIGNER_ATTR_AUTHCODE, and SIGNER_SIGNATURE_INFO field names, types, and
+    order all matched exactly, and the SignerSignEx2 argument order/count matched the same 13-parameter
+    layout already recorded here (a second independent source consulted for this cross-check only
+    declared SignerSignEx3, whose first 12 parameters plus pReserved otherwise line up with
+    SignerSignEx2's 13, giving no new information but no contradiction either). No discrepancy found
+    anywhere in this pass - steps 1-3 stand as RULED OUT with higher confidence than before.
+
+    Arena/lifetime check: `_elevatedCreateAndSignCatalog` holds one `Arena.ofConfined()` open for its
+    entire body (try-with-resources at the top, closed only on return), and `hMy` is only closed in
+    its own `finally` after `_signCatalog` returns - so nothing passed to SignerSignEx2 is freed or
+    out of scope at call time. Ruled out.
+
+    PAUSED pending a decision on step 4 (SignerSignEx3 rewrite) - every avenue short of it has now
+    been exhausted, including cross-checks against sources independent of this document. Update this
+    note with the actual root cause once resolved.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

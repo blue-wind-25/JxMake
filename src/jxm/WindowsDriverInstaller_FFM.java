@@ -103,11 +103,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptAcquireCertificatePrivateKey;
     private static MethodHandle _LocalFree;
 
-    private static MethodHandle _NCryptOpenStorageProvider;
-    private static MethodHandle _NCryptCreatePersistedKey;
-    private static MethodHandle _NCryptSetProperty;
-    private static MethodHandle _NCryptFinalizeKey;
     private static MethodHandle _NCryptFreeObject;
+
+    private static MethodHandle _CryptAcquireContextW;
+    private static MethodHandle _CryptGenKey;
+    private static MethodHandle _CryptDestroyKey;
+    private static MethodHandle _CryptReleaseContext;
 
     private static MethodHandle _CryptCATAdminAcquireContext2;
     private static MethodHandle _CryptCATAdminCalcHashFromFileHandle2;
@@ -132,6 +133,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final SymbolLookup ncrypt   = SymbolLookup.libraryLookup("Ncrypt.dll"  , _arena);
             final SymbolLookup wintrust = SymbolLookup.libraryLookup("Wintrust.dll", _arena);
             final SymbolLookup mssign32 = SymbolLookup.libraryLookup("Mssign32.dll", _arena);
+            final SymbolLookup advapi32 = SymbolLookup.libraryLookup("Advapi32.dll", _arena);
 
             // Kernel32.dll (fileapi.h / handleapi.h / synchapi.h / processthreadsapi.h / errhandlingapi.h)
             _CreateFileW         = _bind( linker, kernel32, "CreateFileW"        , FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR) );
@@ -158,12 +160,20 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CryptSIPRetrieveSubjectGuid      = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"     , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
             _CryptAcquireCertificatePrivateKey = _bind( linker, crypt32, "CryptAcquireCertificatePrivateKey", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR, PTR, PTR) );
 
-            // Ncrypt.dll (ncrypt.h)
-            _NCryptOpenStorageProvider = _bind( linker, ncrypt, "NCryptOpenStorageProvider", FunctionDescriptor.of(DW, PTR, PTR, DW) );
-            _NCryptCreatePersistedKey  = _bind( linker, ncrypt, "NCryptCreatePersistedKey" , FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW, DW) );
-            _NCryptSetProperty         = _bind( linker, ncrypt, "NCryptSetProperty"        , FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW) );
-            _NCryptFinalizeKey         = _bind( linker, ncrypt, "NCryptFinalizeKey"        , FunctionDescriptor.of(DW, PTR, DW) );
+            // Ncrypt.dll (ncrypt.h) - only NCryptFreeObject remains, for the _signCatalog diagnostic's
+            // CryptAcquireCertificatePrivateKey call (which can still hand back an NCrypt key handle
+            // in general, even though this backend's own certs are now provisioned via legacy CAPI1 below)
             _NCryptFreeObject          = _bind( linker, ncrypt, "NCryptFreeObject"         , FunctionDescriptor.of(DW, PTR) );
+
+            // Advapi32.dll (wincrypt.h) - legacy CryptoAPI (CAPI1) used to provision the self-signed
+            // certificate's private key, since SignerSignEx's internal CryptAcquireCertificatePrivateKey
+            // call (see the diagnostic in _signCatalog) only follows the legacy CryptAcquireContext path
+            // when it is not given an NCrypt-allowing flag - see WindowsDriverInstaller_FFM-Win32API.txt's
+            // "Investigation history" section.
+            _CryptAcquireContextW = _bind( linker, advapi32, "CryptAcquireContextW", FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW) );
+            _CryptGenKey          = _bind( linker, advapi32, "CryptGenKey"         , FunctionDescriptor.of(DW, PTR, DW, DW, PTR) );
+            _CryptDestroyKey      = _bind( linker, advapi32, "CryptDestroyKey"     , FunctionDescriptor.of(DW, PTR) );
+            _CryptReleaseContext  = _bind( linker, advapi32, "CryptReleaseContext" , FunctionDescriptor.of(DW, PTR, DW) );
 
             // Wintrust.dll (mscat.h)
             _CryptCATAdminAcquireContext2         = _bind( linker, wintrust, "CryptCATAdminAcquireContext2"        , FunctionDescriptor.of(DW , PTR, PTR, PTR, PTR, DW) );
@@ -203,7 +213,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             if(major < 10) return false;
 
             // Confirm the handles we actually rely on were resolved successfully
-            return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _NCryptOpenStorageProvider != null && _ShellExecuteExW != null;
+            return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _CryptAcquireContextW != null && _ShellExecuteExW != null;
         }
         catch(final Throwable ignored) {
             return false;
@@ -563,15 +573,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // ncrypt.h
-    private static final String MS_KEY_STORAGE_PROVIDER   = "Microsoft Software Key Storage Provider";
-    private static final String BCRYPT_RSA_ALGORITHM      = "RSA";
-    private static final int    NCRYPT_ALLOW_SIGNING_FLAG = 0x00000002;
-    private static final int    AT_SIGNATURE              = 2;
-    // wincrypt.h - CRYPT_KEY_PROV_INFO.dwKeySpec must be this value (not AT_SIGNATURE/AT_KEYEXCHANGE)
-    // when the linked private key is a CNG key rather than a legacy CryptoAPI CSP key - see the
-    // CRYPT_KEY_PROV_INFO entry in WindowsDriverInstaller_FFM-Win32API.txt.
-    private static final int    CERT_NCRYPT_KEY_SPEC      = 0xFFFFFFFF;
+    // wincrypt.h - legacy CryptoAPI (CAPI1) provider/key constants used to provision the self-signed
+    // certificate's private key (see _elevatedCreateAndTrustProvider)
+    private static final int    PROV_RSA_FULL         = 1;
+    private static final int    CRYPT_EXPORTABLE      = 0x00000001;
+    private static final int    CRYPT_NEWKEYSET       = 0x00000008;
+    private static final int    CRYPT_MACHINE_KEYSET  = 0x00000020;
+    private static final int    CRYPT_SILENT          = 0x00000040;
+    private static final int    AT_SIGNATURE          = 2;
+    // dwKeySpec value CryptAcquireCertificatePrivateKey/CRYPT_KEY_PROV_INFO use for a CNG (rather than
+    // legacy CAPI1) private key - kept only for the diagnostic in _signCatalog, which can in general
+    // observe either kind of key back from CryptAcquireCertificatePrivateKey. See the CRYPT_KEY_PROV_INFO
+    // entry in WindowsDriverInstaller_FFM-Win32API.txt.
+    private static final int    CERT_NCRYPT_KEY_SPEC  = 0xFFFFFFFF;
 
     // wincrypt.h
     // X509_ENHANCED_KEY_USAGE is a small-integer "predefined" lpszStructType, cast to LPCSTR - not a real string pointer
@@ -613,34 +627,27 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             MemorySegment ekuEncoded = MemorySegment.NULL;
 
             try {
-                // 1. Open the CNG key storage provider and create a persisted 2048-bit RSA signing key
-                final MemorySegment hProviderOut = arena.allocate(PTR);
-                if( (int) _NCryptOpenStorageProvider.invoke( hProviderOut, _wstr(arena, MS_KEY_STORAGE_PROVIDER), 0 ) != 0 ) {
-                    log.append("NCryptOpenStorageProvider failed");
+                // 1. Acquire a legacy CryptoAPI (CAPI1) provider context and generate a 2048-bit RSA
+                //    signing key in it. A fresh, randomly-named key container is created every call, so
+                //    CRYPT_NEWKEYSET is always correct here - there is never an existing container to
+                //    reopen.
+                final String        containerName = providerName + "_" + Long.toHexString( new SecureRandom().nextLong() );
+                final MemorySegment hProviderOut  = arena.allocate(PTR);
+                if( (int) _CryptAcquireContextW.invoke(
+                    hProviderOut, _wstr(arena, containerName), MemorySegment.NULL, PROV_RSA_FULL,
+                    CRYPT_NEWKEYSET | CRYPT_MACHINE_KEYSET | CRYPT_SILENT
+                ) == 0 ) {
+                    log.append("CryptAcquireContextW failed, GetLastError=").append( _lastError() );
                     return RETCODE_EXCEPTION;
                 }
                 hProvider = hProviderOut.get(PTR, 0);
 
-                final String        containerName = providerName + "_" + Long.toHexString( new SecureRandom().nextLong() );
-                final MemorySegment hKeyOut       = arena.allocate(PTR);
-                if( (int) _NCryptCreatePersistedKey.invoke( hProvider, hKeyOut, _wstr(arena, BCRYPT_RSA_ALGORITHM), _wstr(arena, containerName), AT_SIGNATURE, 0 ) != 0 ) {
-                    log.append("NCryptCreatePersistedKey failed");
+                final MemorySegment hKeyOut = arena.allocate(PTR);
+                if( (int) _CryptGenKey.invoke( hProvider, AT_SIGNATURE, (2048 << 16) | CRYPT_EXPORTABLE, hKeyOut ) == 0 ) {
+                    log.append("CryptGenKey failed, GetLastError=").append( _lastError() );
                     return RETCODE_EXCEPTION;
                 }
                 hKey = hKeyOut.get(PTR, 0);
-
-                final MemorySegment keyLen = arena.allocate(ValueLayout.JAVA_INT);
-                keyLen.set(ValueLayout.JAVA_INT, 0, 2048);
-                _NCryptSetProperty.invoke( hKey, _wstr(arena, "Length"), keyLen, 4, 0 );
-
-                final MemorySegment keyUsage = arena.allocate(ValueLayout.JAVA_INT);
-                keyUsage.set(ValueLayout.JAVA_INT, 0, NCRYPT_ALLOW_SIGNING_FLAG);
-                _NCryptSetProperty.invoke( hKey, _wstr(arena, "Key Usage"), keyUsage, 4, 0 );
-
-                if( (int) _NCryptFinalizeKey.invoke(hKey, 0) != 0 ) {
-                    log.append("NCryptFinalizeKey failed");
-                    return RETCODE_EXCEPTION;
-                }
 
                 // 2. Encode the "CN=<providerName>" subject name (CertStrToNameW, two-call size/fill pattern)
                 final MemorySegment subjectStr = _wstr(arena, "CN=" + providerName);
@@ -689,25 +696,23 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 extensions.set(ValueLayout.JAVA_INT, 0, 1        );
                 extensions.set(PTR                 , 8, extension);
 
-                // 4. CRYPT_KEY_PROV_INFO - links the returned cert context back to the persisted CNG key
+                // 4. CRYPT_KEY_PROV_INFO - links the returned cert context back to the CAPI1 key above
                 //    { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags;
                 //      DWORD cProvParam; PVOID rgProvParam; DWORD dwKeySpec; } - size 48, align 8
-                // dwKeySpec = CERT_NCRYPT_KEY_SPEC (0xFFFFFFFF), not AT_SIGNATURE - this private key was
-                // created via NCryptCreatePersistedKey against the CNG Key Storage Provider above, not a
-                // legacy CryptoAPI CSP, and Microsoft's own CRYPT_KEY_PROV_INFO docs require
-                // CERT_NCRYPT_KEY_SPEC whenever the linked key is a CNG key. CryptAcquireCertificatePrivateKey
-                // (which SignerSignEx calls internally to retrieve the private key for signing) branches on
-                // this exact field to decide between NCryptOpenKey and CryptAcquireContext - AT_SIGNATURE
-                // here previously told it to treat "Microsoft Software Key Storage Provider" as a legacy CSP
-                // name, which it is not. See WindowsDriverInstaller_FFM-Win32API.txt for the fuller history.
+                // pwszProvName=NULL selects the default RSA Full (PROV_RSA_FULL) CSP rather than naming one
+                // explicitly; dwKeySpec=AT_SIGNATURE (not CERT_NCRYPT_KEY_SPEC) since this private key was
+                // created via legacy CryptGenKey against a CAPI1 provider context, not a CNG key. See
+                // WindowsDriverInstaller_FFM-Win32API.txt for the fuller history of why CNG keys don't work
+                // here: SignerSignEx's internal CryptAcquireCertificatePrivateKey call only follows the
+                // legacy CryptAcquireContext path unless given an NCrypt-allowing flag, which it is not.
                 final MemorySegment keyProvInfo = arena.allocate(48, 8);
-                keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName          ) );
-                keyProvInfo.set( PTR                 ,  8, _wstr(arena, MS_KEY_STORAGE_PROVIDER) );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 16, 0                                     );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 20, 0                                     );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 24, 0                                     );
-                keyProvInfo.set( PTR                 , 32, MemorySegment.NULL                    );
-                keyProvInfo.set( ValueLayout.JAVA_INT, 40, CERT_NCRYPT_KEY_SPEC                  );
+                keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName) );
+                keyProvInfo.set( PTR                 ,  8, MemorySegment.NULL         );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 16, PROV_RSA_FULL              );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 20, CRYPT_MACHINE_KEYSET       );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 24, 0                          );
+                keyProvInfo.set( PTR                 , 32, MemorySegment.NULL         );
+                keyProvInfo.set( ValueLayout.JAVA_INT, 40, AT_SIGNATURE               );
 
                 // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
                 //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on
@@ -718,8 +723,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 sigAlgId.set( ValueLayout.JAVA_INT,  8, 0                                 );
                 sigAlgId.set( PTR                 , 16, MemorySegment.NULL                );
 
+                // hCryptProvOrNCryptKey=NULL: pKeyProvInfo above fully describes how to acquire the key,
+                // so CertCreateSelfSignCertificate does not need an already-open handle passed in.
                 certCtx = (MemorySegment) _CertCreateSelfSignCertificate.invoke(
-                    hKey, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, MemorySegment.NULL, extensions
+                    MemorySegment.NULL, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, MemorySegment.NULL, extensions
                 );
                 if( certCtx == null || certCtx.address() == 0L ) {
                     log.append("CertCreateSelfSignCertificate failed, GetLastError=").append( _lastError() );
@@ -766,8 +773,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // Release exactly what was allocated above, however far execution got before returning
                 if( certCtx.address()    != 0L ) _CertFreeCertificateContext.invoke(certCtx);
                 if( ekuEncoded.address() != 0L ) _LocalFree.invoke(ekuEncoded);
-                if( hKey.address()       != 0L ) _NCryptFreeObject.invoke(hKey);
-                if( hProvider.address()  != 0L ) _NCryptFreeObject.invoke(hProvider);
+                if( hKey.address()       != 0L ) _CryptDestroyKey.invoke(hKey);
+                if( hProvider.address()  != 0L ) _CryptReleaseContext.invoke(hProvider, 0);
             }
         }
     }

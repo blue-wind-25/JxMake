@@ -513,9 +513,10 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR, PTR, PTR)` - 6 inpu
                whether private-key acquisition itself succeeds independent of whatever SignerSignEx
                does afterward - see the "Investigation history" note below. If callerFree comes back
                true and the returned dwKeySpec is CERT_NCRYPT_KEY_SPEC, the handle is freed via
-               NCryptFreeObject; the legacy CryptoAPI HCRYPTPROV release path (CryptReleaseContext) is
-               intentionally not bound, since this is a short-lived CI diagnostic, not a long-running
-               process, and the certificate here is never expected to hand back a legacy handle.
+               NCryptFreeObject; this backend's own certificates are now provisioned entirely via legacy
+               CryptoAPI (see CryptAcquireContextW/CryptGenKey below), so that branch is not expected to
+               fire in practice, but is kept since this function can in general hand back either kind of
+               key.
 
 ----------------------------------------------------------------------------------------------------
 CryptEncodeObjectEx
@@ -645,15 +646,15 @@ Purpose      : Tells CertCreateSelfSignCertificate (and, later, anything that re
                certificate's private key actually lives in, so it can be re-acquired without
                re-deriving it.
 
-FFM notes    : dwProvType/dwFlags/cProvParam are all left 0 here - dwProvType=0 together with a CNG
-               (NCrypt) key handle is the documented combination for "this is a CNG provider, not a
-               legacy CryptoAPI CSP" (the classic dwProvType constants like PROV_RSA_FULL only apply
-               to legacy CSPs). pwszProvName is always the literal string "Microsoft Software Key
-               Storage Provider". dwKeySpec is CERT_NCRYPT_KEY_SPEC(0xFFFFFFFF) - per this structure's
-               own Microsoft documentation, dwKeySpec must be CERT_NCRYPT_KEY_SPEC whenever the linked
-               private key is a CNG key rather than a legacy CryptoAPI CSP key; this backend previously
-               set it to AT_SIGNATURE(2) (a legacy CryptoAPI dwKeySpec value) despite dwProvType=0/CNG
-               already being correct - see the "Investigation history" note below.
+FFM notes    : pwszProvName is NULL (selects the default RSA Full CSP rather than naming one
+               explicitly), dwProvType is PROV_RSA_FULL(1), dwFlags is CRYPT_MACHINE_KEYSET(0x20), and
+               dwKeySpec is AT_SIGNATURE(2) - the standard combination for a private key created via the
+               legacy CryptoAPI (CAPI1) CryptAcquireContextW/CryptGenKey rather than CNG. This backend
+               previously provisioned the key via CNG (NCryptOpenStorageProvider/NCryptCreatePersistedKey)
+               with dwProvType=0/dwKeySpec=CERT_NCRYPT_KEY_SPEC, which is the documented-correct
+               combination for a CNG key but turned out to be incompatible with how SignerSignEx acquires
+               private keys - see the "Investigation history" note below for why this backend switched to
+               CAPI1 key provisioning entirely.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER
@@ -697,97 +698,82 @@ FFM notes    : The code never allocates this struct - it only calls `certCtx.rei
 
 
 ====================================================================================================
-SECTION C - CNG Key Storage Layer (Ncrypt.dll)
+SECTION C - Private Key Provisioning Layer (Advapi32.dll, Ncrypt.dll)
 ====================================================================================================
 
 This section creates the actual RSA private key the self-signed certificate is built around, using
-the modern Cryptography API: Next Generation (CNG) key-storage API rather than the legacy CryptoAPI
-CSP model - CNG is what Microsoft recommends for new code, and it's also what lets the resulting key
-be a real, provider-persisted key rather than an ephemeral in-memory one.
+the legacy CryptoAPI (CAPI1) provider/key model (CryptAcquireContextW/CryptGenKey) rather than the
+modern Cryptography API: Next Generation (CNG) key-storage API. CNG was tried first, since Microsoft
+recommends it for new code, but had to be abandoned - see the "Investigation history" note in
+SECTION E below: SignerSignEx's internal CryptAcquireCertificatePrivateKey call only follows the
+legacy CryptAcquireContext path unless given an NCrypt-allowing flag, which it is not, so a
+CNG-provisioned key is unusable by this backend's signing step regardless of how correctly
+CRYPT_KEY_PROV_INFO otherwise describes it. NCryptFreeObject (last entry below) remains bound only
+because SECTION E's diagnostic can in general still observe a CNG key handle back from
+CryptAcquireCertificatePrivateKey.
 
 ----------------------------------------------------------------------------------------------------
-NCryptOpenStorageProvider
+CryptAcquireContextW
 ----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptopenstorageprovider
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptacquirecontextw
 
-DLL          : Ncrypt.dll
-Header       : ncrypt.h
+DLL          : Advapi32.dll
+Header       : wincrypt.h
 
-Parameters   : phProvider (NCRYPT_PROV_HANDLE*, out), pszProviderName (LPCWSTR, optional - NULL
-               selects the default provider), dwFlags (DWORD)
-Return value : SECURITY_STATUS (an HRESULT-shaped NTSTATUS-like code; 0 = ERROR_SUCCESS)
-Purpose      : Opens a handle to a named Key Storage Provider (KSP) - the CNG analogue of acquiring
-               a legacy CryptoAPI provider context.
-
-FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Always called with pszProviderName =
-               "Microsoft Software Key Storage Provider" (the standard software-only KSP that ships
-               with Windows) and dwFlags=0. The returned handle is read out of the out-parameter
-               MemorySegment with `hProviderOut.get(PTR, 0)`.
-
-----------------------------------------------------------------------------------------------------
-NCryptCreatePersistedKey
-----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptcreatepersistedkey
-
-DLL          : Ncrypt.dll
-Header       : ncrypt.h
-
-Parameters   : hProvider (NCRYPT_PROV_HANDLE), phKey (NCRYPT_KEY_HANDLE*, out), pszAlgId (LPCWSTR),
-               pszKeyName (LPCWSTR, optional), dwLegacyKeySpec (DWORD), dwFlags (DWORD)
-Return value : SECURITY_STATUS
-Purpose      : Begins creating a new named (persisted) key inside the given provider. The key is not
-               yet usable/committed to storage until NCryptFinalizeKey is called - this lets the
-               caller set additional properties (key length, usage flags) in between.
-
-FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW, DW)`. Called with pszAlgId = "RSA"
-               (BCRYPT_RSA_ALGORITHM), pszKeyName = a randomly-suffixed container name
-               (`providerName + "_" + <64-bit SecureRandom hex>` - this randomization is deliberate
-               so re-running the trust step does not collide with a previous run's leftover key
-               container name), and dwLegacyKeySpec = AT_SIGNATURE(2) (the classic CryptoAPI
-               key-spec value CNG still accepts here for interop with code written against the older
-               API shape).
-
-----------------------------------------------------------------------------------------------------
-NCryptSetProperty
-----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptsetproperty
-
-DLL          : Ncrypt.dll
-Header       : ncrypt.h
-
-Parameters   : hObject (NCRYPT_HANDLE), pszProperty (LPCWSTR), pbInput (PBYTE), cbInput (DWORD),
+Parameters   : phProv (HCRYPTPROV*, out), pszContainer (LPCWSTR, key container name), pszProvider
+               (LPCWSTR, optional - NULL selects the default RSA Full CSP), dwProvType (DWORD),
                dwFlags (DWORD)
-Return value : SECURITY_STATUS
-Purpose      : Sets a named property on an NCrypt provider/key/secret handle - a generic key/value
-               mechanism CNG uses instead of dedicated per-property functions.
+Return value : BOOL
+Purpose      : Acquires a handle to a legacy CryptoAPI (CAPI1) key container, creating it first if
+               CRYPT_NEWKEYSET is set. This backend uses it (with PROV_RSA_FULL and a fresh randomly
+               generated container name every call) to provision the self-signed certificate's private
+               key.
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW)`. Called twice on the
-               not-yet-finalized key handle: once with property name "Length" and a 4-byte DWORD
-               value of 2048 (sets the RSA key size in bits before it's generated), and once with
-               property name "Key Usage" and a 4-byte DWORD value of NCRYPT_ALLOW_SIGNING_FLAG(0x2)
-               (restricts the key to signing-capable use). Both calls' return codes are NOT checked
-               in this file (the return value of `.invoke(...)` is discarded) - worth flagging for a
-               future maintainer, since a silently-ignored NCryptSetProperty failure (e.g. an
-               unsupported property name on some provider) would only surface indirectly, if at all,
-               later.
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW)` - 5 inputs. Called with
+               pszContainer = a randomly-suffixed container name (`providerName + "_" +
+               <64-bit SecureRandom hex>` - deliberate, so re-running the trust step never collides
+               with a previous run's leftover key container name) and
+               dwFlags = CRYPT_NEWKEYSET | CRYPT_MACHINE_KEYSET | CRYPT_SILENT - CRYPT_MACHINE_KEYSET
+               so the key is provisioned in the machine key store (matching where the certificate
+               itself is installed, in LocalMachine\Root and \TrustedPublisher), and CRYPT_SILENT to
+               suppress any UI the CSP might otherwise try to show. Since the container name is always
+               new, CRYPT_NEWKEYSET is always correct - there is never an existing container to reopen.
 
 ----------------------------------------------------------------------------------------------------
-NCryptFinalizeKey
+CryptGenKey
 ----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/ncrypt/nf-ncrypt-ncryptfinalizekey
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptgenkey
 
-DLL          : Ncrypt.dll
-Header       : ncrypt.h
+DLL          : Advapi32.dll
+Header       : wincrypt.h
 
-Parameters   : hKey (NCRYPT_KEY_HANDLE), dwFlags (DWORD)
-Return value : SECURITY_STATUS
-Purpose      : Completes/commits a key created with NCryptCreatePersistedKey - only after this call
-               is the key actually generated, persisted, and safe to use in operations like
-               CertCreateSelfSignCertificate.
+Parameters   : hProv (HCRYPTPROV), Algid (ALG_ID, DWORD), dwFlags (DWORD - low word reserved for
+               flags like CRYPT_EXPORTABLE, high word encodes the key length in bits), phKey
+               (HCRYPTKEY*, out)
+Return value : BOOL
+Purpose      : Generates a key pair in the given CAPI1 provider context.
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Called with dwFlags=0. This call's return code
-               IS checked (unlike NCryptSetProperty above); on failure both the key and provider
-               handles are released before returning RETCODE_EXCEPTION.
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, DW, PTR)` - 4 inputs. Called with
+               Algid = AT_SIGNATURE(2) and dwFlags = (2048 << 16) | CRYPT_EXPORTABLE(0x1) to generate
+               a 2048-bit, exportable RSA signing key.
+
+----------------------------------------------------------------------------------------------------
+CryptDestroyKey / CryptReleaseContext
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptdestroykey
+               https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptreleasecontext
+
+DLL          : Advapi32.dll
+Header       : wincrypt.h
+
+Parameters   : CryptDestroyKey - hKey (HCRYPTKEY). CryptReleaseContext - hProv (HCRYPTPROV), dwFlags
+               (DWORD, must be 0).
+Return value : BOOL
+Purpose      : Release the key handle and provider context handle CryptGenKey/CryptAcquireContextW
+               returned, mirroring the CertFreeCertificateContext/LocalFree cleanup already done for
+               the certificate and EKU encoding in the same `finally` block.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR)` and `FunctionDescriptor.of(DW, PTR, DW)` respectively.
 
 ----------------------------------------------------------------------------------------------------
 NCryptFreeObject
@@ -802,12 +788,12 @@ Return value : SECURITY_STATUS
 Purpose      : Generic release function for any NCrypt handle type (provider, key, secret, etc.) -
                the CNG analogue of CloseHandle.
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called on both hKey and hProvider, always in
-               `finally`, on every exit path out of `_elevatedCreateAndTrustProvider` after the
-               provider/key were successfully opened/created - including the success path (the key
-               handle does not need to stay open once CertCreateSelfSignCertificate has consumed it;
-               the certificate's CRYPT_KEY_PROV_INFO_PROP_ID is what lets the key be re-opened by
-               name later, not the live handle).
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. `_elevatedCreateAndTrustProvider` provisions its key
+               via legacy CryptoAPI now (see CryptAcquireContextW/CryptGenKey above) and releases it
+               with CryptDestroyKey/CryptReleaseContext instead, so the only remaining call site is the
+               diagnostic in `_signCatalog`, which frees the key handle this way only if
+               CryptAcquireCertificatePrivateKey happens to hand back a CNG key (callerFree=true and
+               dwKeySpec=CERT_NCRYPT_KEY_SPEC).
 
 
 ====================================================================================================
@@ -1354,6 +1340,32 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     inside SignerSignEx past private-key acquisition, meaning the remaining unverified territory is
     catalog SIP dispatch, certificate chain validation, or the raw signing/hashing operation itself.
     Update this note with the actual result once known.
+
+    Diagnostic result: live CI reported CryptAcquireCertificatePrivateKey acquired=false, GetLastError=
+    -2146893804, which as an unsigned 32-bit value is 0x80090014 (NTE_BAD_PROV_TYPE, "Invalid provider
+    type specified") - a CAPI1 error, not a CNG one. Per Microsoft's own documentation of
+    CryptAcquireCertificatePrivateKey, when the dwFlags parameter is passed as 0 (as this diagnostic and,
+    by extension, SignerSignEx itself are understood to do) the function only attempts the legacy
+    CryptAcquireContext path - it does not fall back to NCryptOpenKey unless given
+    CRYPT_ACQUIRE_ALLOW_NCRYPT_KEY_FLAG, CRYPT_ACQUIRE_PREFER_NCRYPT_KEY_FLAG, or
+    CRYPT_ACQUIRE_ONLY_NCRYPT_KEY_FLAG. CryptAcquireContext's own documentation states it rejects a
+    dwProvType of 0, which is exactly what this backend's CRYPT_KEY_PROV_INFO carried for its CNG key -
+    NTE_BAD_PROV_TYPE is the direct, decisive consequence of that mismatch, not a symptom of anything in
+    the SIGNER_* structures themselves. Every earlier round of this investigation touched only the
+    SIGNER_* struct fields or the entry-point choice (SignerSignEx/Ex2/Ex3); none of that surface was
+    ever the actual defect, since the failure occurs before SignerSignEx gets that far, in key
+    acquisition.
+
+    Fix: this backend now provisions the self-signed certificate's private key entirely through legacy
+    CryptoAPI (CryptAcquireContextW + CryptGenKey, see those entries below) instead of CNG, using
+    PROV_RSA_FULL/AT_SIGNATURE/CRYPT_MACHINE_KEYSET throughout, and passes hCryptProvOrNCryptKey=NULL to
+    CertCreateSelfSignCertificate (relying entirely on pKeyProvInfo, which Microsoft's own documentation
+    for that parameter allows) rather than an already-open key handle. This removes the CNG code path
+    from this backend altogether; CryptAcquireCertificatePrivateKey's underlying NCryptOpenKey branch and
+    CERT_NCRYPT_KEY_SPEC are no longer exercised by anything this backend provisions, though the
+    diagnostic call and the CERT_NCRYPT_KEY_SPEC constant remain in place since
+    CryptAcquireCertificatePrivateKey can in general still hand back either kind of key. Whether this
+    resolves the E_INVALIDARG is unconfirmed until the next live CI run.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

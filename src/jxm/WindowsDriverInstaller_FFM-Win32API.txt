@@ -484,12 +484,12 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR)`. Added as a diagno
                `_elevatedCreateAndSignCatalog`, called on the PCCERT_CONTEXT returned by
                CertFindCertificateInStore (i.e. the store's own copy of the certificate, not the
                original CertCreateSelfSignCertificate return value) immediately before that context
-               is handed to `_signCatalog`/SignerSignEx2. CERT_KEY_PROV_INFO_PROP_ID is the property
+               is handed to `_signCatalog`/SignerSignEx3. CERT_KEY_PROV_INFO_PROP_ID is the property
                CertCreateSelfSignCertificate sets on the original context to link it back to its
                CNG-persisted private key; CertAddCertificateContextToStore is documented to copy a
                context's properties into the store's copy, but this had not been directly confirmed
-               for this exact code path, hence the check - see the "SignerSignEx2 E_INVALIDARG"
-               troubleshooting note under SignerSignEx2 below for why this matters.
+               for this exact code path, hence the check - see the "SignerSignEx2/SignerSignEx3
+               E_INVALIDARG" troubleshooting note below for why this matters.
 
 ----------------------------------------------------------------------------------------------------
 CryptEncodeObjectEx
@@ -1060,31 +1060,36 @@ dynamically resolve the DLL export, which is exactly the pattern this file follo
 instead of LoadLibrary/GetProcAddress.
 
 ----------------------------------------------------------------------------------------------------
-SignerSignEx2
+SignerSignEx3
 ----------------------------------------------------------------------------------------------------
-Source             : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
+Source             : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex3
 
 DLL                : Mssign32.dll
 Header             : none (explicitly undeclared by Microsoft; see above)
-Calling convention : WINAPI (__stdcall) Parameters (13, in the exact order below - VERIFIED against
+Calling convention : WINAPI (__stdcall) Parameters (14, in the exact order below - VERIFIED against
                      Microsoft Learn): dwFlags (DWORD, in), pSubjectInfo (SIGNER_SUBJECT_INFO*, in),
                      pSignerCert (SIGNER_CERT*, in), pSignatureInfo (SIGNER_SIGNATURE_INFO*, in),
                      pProviderInfo (SIGNER_PROVIDER_INFO*, in, optional), dwTimestampFlags
                      (DWORD, in, optional), pszTimestampAlgorithmOid (PCSTR, in, optional),
                      pwszHttpTimeStamp (PCWSTR, in, optional), psRequest (PCRYPT_ATTRIBUTES, in,
                      optional), pSipData (PVOID, in, optional), ppSignerContext (SIGNER_CONTEXT**,
-                     out), pCryptoPolicy (PCERT_STRONG_SIGN_PARA, in, optional), pReserved (PVOID,
-                     must be NULL)
+                     out), pCryptoPolicy (PCERT_STRONG_SIGN_PARA, in, optional), pDigestSignInfo
+                     (SIGNER_DIGEST_SIGN_INFO*, in, optional), pReserved (PVOID, must be NULL)
 
 Return value       : HRESULT (S_OK on success)
 Purpose            : Produces (and, optionally, timestamps) an Authenticode signature over a file or
-                     blob, supporting nested/multiple signatures via the SIG_APPEND flag - the
-                     modern replacement for the older SignerSign family, and (per Microsoft) itself
-                     since superseded by SignerSignEx3 for newer scenarios, though SignerSignEx2
-                     remains fully supported and is what this file uses.
+                     blob, supporting nested/multiple signatures via the SIG_APPEND flag and digest
+                     signing via pDigestSignInfo/dwFlags - a superset of SignerSignEx2, adding
+                     exactly one parameter (pDigestSignInfo, inserted right before pReserved) with no
+                     other change to the shared parameter list's order or types. This file switched
+                     from SignerSignEx2 to SignerSignEx3 after an extended E_INVALIDARG investigation
+                     (see the "Resolved" note below) found no discrepancy anywhere in SignerSignEx2's
+                     own argument surface - this is the "SignerSignEx3 rewrite" step 4 referenced
+                     there, done as a substitution (new pDigestSignInfo argument set to NULL) rather
+                     than a functional rewrite, since none of the other parameters needed to change.
 
 FFM notes          : `FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR,
-                     PTR, PTR)` - 14 slots: 1 return type (DW/HRESULT) followed by 13 argument
+                     PTR, PTR, PTR)` - 15 slots: 1 return type (DW/HRESULT) followed by 14 argument
                      layouts, one per parameter listed above. Called in `_signCatalog` with:
                      dwFlags=0 (no SIG_APPEND, no PE-page-hash flags - irrelevant here since the
                      subject is a .cat file, not a PE); pProviderInfo=NULL (meaning "the certificate
@@ -1096,19 +1101,22 @@ FFM notes          : `FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, DW, PTR,
                      meaning it will rely solely on the signing certificate's own (1-year, per
                      Section B) validity window rather than surviving past that window the way a
                      timestamped signature would); pSipData=NULL; pCryptoPolicy=NULL (no
-                     strong-signing policy enforcement requested); pReserved=NULL as required. The
-                     out-parameter ppSignerContext is always read back and, if non-NULL, freed via
+                     strong-signing policy enforcement requested); pDigestSignInfo=NULL (no digest
+                     signing requested); pReserved=NULL as required. The out-parameter
+                     ppSignerContext is always read back and, if non-NULL, freed via
                      SignerFreeSignerContext regardless of the overall HRESULT - this matches
                      Microsoft's own note that a context may still have been allocated on certain
                      partial-failure paths.
 
 Windows-specific caveats relevant to this implementation:
-    - Minimum supported client is Windows 8 per Microsoft's own requirements table
-    - not a concern here since this backend already restricts itself to Windows 10+.
-    - Microsoft's documented E_INVALIDARG case (SIGNER_TIMESTAMP_AUTHENTICODE combined with
-      SIG_APPEND) does not apply here since this file uses neither timestamping nor SIG_APPEND.
+    - Minimum supported client is Windows 10 per Microsoft's own requirements table (stricter than
+      SignerSignEx2's Windows 8) - not a concern here since this backend already restricts itself to
+      Windows 10+.
+    - Microsoft's documented E_INVALIDARG case (dwTimestampFlags=SIGNER_TIMESTAMP_AUTHENTICODE
+      combined with dwFlags=SIG_APPEND) does not apply here since this file uses neither
+      timestamping nor SIG_APPEND.
 
-Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
+Investigation history - SignerSignEx2/SignerSignEx3 E_INVALIDARG (HRESULT=0x80070057):
     Live Windows CI (GitHub Actions, mutating/UAC-enabled run) reports this failure from
     `_signCatalog`. Every struct passed to this call (SIGNER_SUBJECT_INFO, SIGNER_CERT,
     SIGNER_CERT_STORE_INFO, SIGNER_SIGNATURE_INFO, SIGNER_FILE_INFO) and the 13-parameter call
@@ -1219,9 +1227,17 @@ Open investigation - SignerSignEx2 E_INVALIDARG (HRESULT=0x80070057):
     its own `finally` after `_signCatalog` returns - so nothing passed to SignerSignEx2 is freed or
     out of scope at call time. Ruled out.
 
-    PAUSED pending a decision on step 4 (SignerSignEx3 rewrite) - every avenue short of it has now
-    been exhausted, including cross-checks against sources independent of this document. Update this
-    note with the actual root cause once resolved.
+    Step 4 done - switched to SignerSignEx3: every avenue short of it was exhausted, including
+    cross-checks against sources independent of this document, with no discrepancy found in
+    SignerSignEx2's own argument surface. `_signCatalog` now calls SignerSignEx3 (see that entry
+    above) with the new pDigestSignInfo parameter set to NULL and every other argument unchanged -
+    only `_SignerSignEx2`/`_bind(...)` in the setup block and the `_SignerSignEx3.invoke(...)` call
+    site changed. Whether this resolves the E_INVALIDARG is unconfirmed until the next live CI run.
+    PAUSED pending that run. If SignerSignEx3 still reports the identical E_INVALIDARG, the failure
+    is not specific to which Signer* entry point is used, and the next lead would have to come from
+    outside this function's own argument surface entirely (e.g. account/store-provisioning state on
+    the CI runner itself, rather than anything this code passes). Update this note with the actual
+    root cause once resolved.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
@@ -1232,7 +1248,7 @@ Source       : general Mssign32/Signer* API family knowledge - this function is 
                ("free... by calling the SignerFreeSignerContext function").
 
 DLL          : Mssign32.dll
-Header       : none (undeclared, same as SignerSignEx2)
+Header       : none (undeclared, same as SignerSignEx3)
 
 Parameters   : pSignerContext (SIGNER_CONTEXT*)
 Return value : HRESULT
@@ -1240,7 +1256,7 @@ Purpose      : Releases a SIGNER_CONTEXT allocated by a Signer* signing call.
 
 FFM notes    : `FunctionDescriptor.of(DW, PTR)`. This file does not otherwise inspect the contents
                of the returned SIGNER_CONTEXT (e.g. to pull the signed blob back out) - it is only
-               used as a success/failure signal via SignerSignEx2's HRESULT, and the context itself
+               used as a success/failure signal via SignerSignEx3's HRESULT, and the context itself
                is freed immediately once read.
 
 ----------------------------------------------------------------------------------------------------
@@ -1271,7 +1287,7 @@ Size         : 24 bytes, 8-byte aligned.
 Purpose      : Identifies the specific file to sign, by path and/or by an already-open handle.
 
 FFM notes    : pwszFileName is set to the .cat path; hFile is left MemorySegment.NULL - the code
-               lets SignerSignEx2 open the file itself by path rather than supplying a pre-opened
+               lets SignerSignEx3 open the file itself by path rather than supplying a pre-opened
                handle, which is the simpler and, per Microsoft's own description of this optional
                member, fully supported way to use this struct.
 
@@ -1346,8 +1362,8 @@ FFM notes    : fCommercial = FALSE and fIndividual = FALSE (neither publisher ca
                this backend's self-signed test/CI certificate); pwszName and pwszInfo are both
                empty strings (no download-dialog display name/URL is meaningful here) rather than
                NULL, since this backend's own SignerSignEx2 call previously left dwAttrChoice at
-               SIGNER_NO_ATTR with this whole structure unused - see the open-investigation note
-               below for why this member is populated at all.
+               SIGNER_NO_ATTR with this whole structure unused - see the "Investigation history"
+               note below for why this member is populated at all.
 
 
 ====================================================================================================

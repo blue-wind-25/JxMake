@@ -116,7 +116,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptCATPutMemberInfo;
     private static MethodHandle _CryptCATPutAttrInfo;
 
-    private static MethodHandle _SignerSignEx2;
+    private static MethodHandle _SignerSignEx3;
     private static MethodHandle _SignerFreeSignerContext;
 
     static {
@@ -172,8 +172,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CryptCATPutMemberInfo                = _bind( linker, wintrust, "CryptCATPutMemberInfo"               , FunctionDescriptor.of(PTR, PTR, PTR, PTR, PTR, DW, DW, PTR) );
             _CryptCATPutAttrInfo                  = _bind( linker, wintrust, "CryptCATPutAttrInfo"                 , FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR) );
 
-            // Mssign32.dll (not declared in any SDK header - see SignerSignEx2/SignerFreeSignerContext docs)
-            _SignerSignEx2           = _bind( linker, mssign32, "SignerSignEx2", FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR) );
+            // Mssign32.dll (not declared in any SDK header - see SignerSignEx3/SignerFreeSignerContext docs)
+            _SignerSignEx3           = _bind( linker, mssign32, "SignerSignEx3", FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR, PTR) );
             _SignerFreeSignerContext = _bind( linker, mssign32, "SignerFreeSignerContext", FunctionDescriptor.of(DW, PTR) );
         }
         catch(final Throwable t) {
@@ -201,7 +201,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             if(major < 10) return false;
 
             // Confirm the handles we actually rely on were resolved successfully
-            return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx2 != null && _NCryptOpenStorageProvider != null && _ShellExecuteExW != null;
+            return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx3 != null && _NCryptOpenStorageProvider != null && _ShellExecuteExW != null;
         }
         catch(final Throwable ignored) {
             return false;
@@ -974,7 +974,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     return RETCODE_EXCEPTION;
                 }
 
-                // Diagnostic only: SignerSignEx2 needs the store-copied cert context to still carry the
+                // Diagnostic only: SignerSignEx3 needs the store-copied cert context to still carry the
                 // CERT_KEY_PROV_INFO_PROP_ID property linking it back to the CNG-persisted private key
                 // (set by CertCreateSelfSignCertificate, and expected to be copied along by
                 // CertAddCertificateContextToStore) - log whether that property actually survived the
@@ -1052,13 +1052,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         // SIGNER_ATTR_AUTHCODE : { DWORD cbSize; BOOL fCommercial; BOOL fIndividual; LPCWSTR pwszName;
         //                          LPCWSTR pwszInfo; } - size 32, align 8
-        // EXPERIMENT (root cause of SignerSignEx2 E_INVALIDARG still unconfirmed - see
-        // WindowsDriverInstaller_FFM-Win32API.txt): every dwAttrChoice/psAuthenticated combination
-        // tried so far left SIGNER_SIGNATURE_INFO.dwAttrChoice at SIGNER_NO_ATTR with no authcode
-        // attributes attached - the one thing not yet tried. Both independently-observed working
-        // callers of this same undocumented-header API populate this structure and set
-        // dwAttrChoice=SIGNER_AUTHCODE_ATTR, so try that here even though Microsoft's docs read as if
-        // SIGNER_NO_ATTR should be a valid, complete choice on its own.
         final MemorySegment authCodeInfo = arena.allocate(32, 8);
         authCodeInfo.set(ValueLayout.JAVA_INT,  0, 32                    );
         authCodeInfo.set(ValueLayout.JAVA_INT,  4, 0                     );
@@ -1078,24 +1071,23 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         final MemorySegment ppSignerContext = arena.allocate(PTR);
 
-        final int hr = (int) _SignerSignEx2.invoke(
+        // SignerSignEx3 (superset of SignerSignEx2, adds pDigestSignInfo right before pReserved) -
+        // see WindowsDriverInstaller_FFM-Win32API.txt for why the switch was made.
+        final int hr = (int) _SignerSignEx3.invoke(
             0, subjectInfo, signerCert, sigInfo, MemorySegment.NULL,
             0, MemorySegment.NULL, MemorySegment.NULL, MemorySegment.NULL, MemorySegment.NULL,
-            ppSignerContext, MemorySegment.NULL, MemorySegment.NULL
+            ppSignerContext, MemorySegment.NULL, MemorySegment.NULL, MemorySegment.NULL
         );
 
-        // EXPERIMENT (see WindowsDriverInstaller_FFM-Win32API.txt, "Open investigation" continuation
-        // instructions steps 1-2): GetLastError() has never actually been checked here, and the raw
-        // struct bytes have never been hand-verified against this document field-by-field - both are
-        // captured unconditionally (before SignerFreeSignerContext can touch anything) so the CI log
-        // carries them regardless of which failure mode this turns out to be.
+        // Captured unconditionally, before SignerFreeSignerContext can touch anything, so the CI log
+        // carries GetLastError() and the raw struct bytes regardless of which failure mode this is.
         final int lastError = _lastError();
 
         final MemorySegment signerContext = ppSignerContext.get(PTR, 0);
         if(signerContext != null && signerContext.address() != 0L) _SignerFreeSignerContext.invoke(signerContext);
 
         if(hr != 0) {
-            log.append("SignerSignEx2 failed, HRESULT=0x").append( Integer.toHexString(hr) )
+            log.append("SignerSignEx3 failed, HRESULT=0x").append( Integer.toHexString(hr) )
                .append(", GetLastError=").append( lastError ).append('\n')
                .append("  subjectInfo    : ").append( _hexDump(subjectInfo, 32)    ).append('\n')
                .append("  signerCert     : ").append( _hexDump(signerCert, 24)     ).append('\n')

@@ -1073,12 +1073,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         fileInfo.set( PTR                 , 16, MemorySegment.NULL    );
 
         // SIGNER_SUBJECT_INFO : { DWORD cbSize; DWORD *pdwIndex; DWORD dwSubjectChoice; union{ SIGNER_FILE_INFO* }; } - size 32, align 8
-        final MemorySegment indexZero = arena.allocate(ValueLayout.JAVA_INT);
-        indexZero.set(ValueLayout.JAVA_INT, 0, 0);
-
+        // pdwIndex is documented as "reserved - must be set to zero", i.e. the pointer field itself must
+        // be NULL, not a valid pointer to a zero-valued DWORD (which this backend previously passed) -
+        // see the "Investigation history" note in WindowsDriverInstaller_FFM-Win32API.txt.
         final MemorySegment subjectInfo = arena.allocate(32, 8);
         subjectInfo.set(ValueLayout.JAVA_INT,  0, 32                 );
-        subjectInfo.set( PTR                 ,  8, indexZero         );
+        subjectInfo.set( PTR                 ,  8, MemorySegment.NULL);
         subjectInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_SUBJECT_FILE);
         subjectInfo.set(PTR                 , 24, fileInfo           );
 

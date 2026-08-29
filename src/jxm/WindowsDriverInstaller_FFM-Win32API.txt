@@ -1398,6 +1398,25 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     from a source independent of everything consulted so far, or an environmental/CI-runner-specific
     cause.
 
+    Live CI result: the psAuthenticated=NULL revert did not resolve the E_INVALIDARG either - the hex
+    dump confirmed sigInfo's trailing 16 bytes (psAuthenticated/psUnauthenticated) are now correctly
+    zero, but SignerSignEx still failed with the identical HRESULT=0x80070057, GetLastError=0. At this
+    point every field this backend directly controls (entry point choice, all SIGNER_* struct field
+    variations, key-provisioning mechanism, psAuthenticated population) had been varied without the
+    failure ever changing shape once.
+    Rather than guess at another untested permutation, re-fetched the official Microsoft Learn pages
+    for SignerSignEx, SIGNER_SIGNATURE_INFO, and SIGNER_SUBJECT_INFO directly, independent of any notes
+    accumulated earlier in this investigation. This turned up a genuine, previously-unexamined
+    discrepancy: SIGNER_SUBJECT_INFO.pdwIndex is documented as "This member is reserved. It must be set
+    to zero" - meaning the pointer field itself must be NULL, not (as this backend had done since the
+    very first round of this investigation) a pointer to a separately allocated, zero-valued DWORD.
+    That field had never been revisited because earlier debugging always focused on fields believed to
+    vary meaningfully (dwCertPolicy, dwAttrChoice, key spec, entry point) - pdwIndex was set once early
+    on and never questioned again.
+    Fix: subjectInfo's pdwIndex field (offset 8) is now MemorySegment.NULL; the dedicated zeroed-DWORD
+    allocation this field previously pointed at has been removed entirely. Whether this resolves the
+    E_INVALIDARG is unconfirmed until the next live CI run.
+
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
 ----------------------------------------------------------------------------------------------------
@@ -1423,17 +1442,18 @@ STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-subject-info
 
-Fields       : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, must be a pointer to a zero DWORD,
-               not itself zero/NULL), dwSubjectChoice (16, DWORD), union at 24 (active member here:
-               pSignerFileInfo, SIGNER_FILE_INFO*).
+Fields       : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, must be NULL), dwSubjectChoice
+               (16, DWORD), union at 24 (active member here: pSignerFileInfo, SIGNER_FILE_INFO*).
 Size         : 32 bytes, 8-byte aligned.
 Purpose      : Identifies what is being signed - a file (this file's only used case, dwSubjectChoice
                = SIGNER_SUBJECT_FILE = 1) or a BLOB (SIGNER_SUBJECT_BLOB = 2, unused here).
 
-FFM notes    : pdwIndex is NOT left NULL in this file - it points at a dedicated zeroed DWORD
-               (`indexZero`), matching Microsoft's documented requirement that this reserved member
-               "must be set to zero" (i.e. the DWORD it points to must be zero, since the field
-               itself is a pointer, not a value).
+FFM notes    : pdwIndex is MemorySegment.NULL - Microsoft's own documentation for this member reads
+               "This member is reserved. It must be set to zero," meaning the pointer field itself
+               must be NULL, not a valid pointer to a zero-valued DWORD. This file previously
+               misread that requirement (see the "Investigation history" note below) and passed a
+               real pointer to a zeroed DWORD instead, which is a genuinely different, invalid value
+               for a reserved field documented to be zero itself.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_FILE_INFO - VERIFIED

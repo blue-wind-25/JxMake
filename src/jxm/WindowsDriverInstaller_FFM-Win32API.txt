@@ -492,6 +492,32 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR)`. Added as a diagno
                E_INVALIDARG" troubleshooting note below for why this matters.
 
 ----------------------------------------------------------------------------------------------------
+CryptAcquireCertificatePrivateKey
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptacquirecertificateprivatekey
+
+DLL          : Crypt32.dll
+Header       : wincrypt.h
+
+Parameters   : pCert (PCCERT_CONTEXT), dwFlags (DWORD), pvReserved (void*, always NULL here),
+               phCryptProvOrNCryptKey (HCRYPTPROV_OR_NCRYPT_KEY_HANDLE*, out), pdwKeySpec (DWORD*,
+               out), pfCallerFreeProvOrNCryptKey (BOOL*, out)
+Return value : BOOL
+Purpose      : Retrieves a handle to a certificate's associated private key, reading the
+               CERT_KEY_PROV_INFO_PROP_ID property to decide whether to open it via NCrypt (CNG) or
+               legacy CryptAcquireContext. This is the exact function SignerSignEx is understood to
+               call internally to obtain the signing key.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR, PTR, PTR)` - 6 inputs. Added as a
+               diagnostic-only check at the top of `_signCatalog`, called with dwFlags=0, to isolate
+               whether private-key acquisition itself succeeds independent of whatever SignerSignEx
+               does afterward - see the "Investigation history" note below. If callerFree comes back
+               true and the returned dwKeySpec is CERT_NCRYPT_KEY_SPEC, the handle is freed via
+               NCryptFreeObject; the legacy CryptoAPI HCRYPTPROV release path (CryptReleaseContext) is
+               intentionally not bound, since this is a short-lived CI diagnostic, not a long-running
+               process, and the certificate here is never expected to hand back a legacy handle.
+
+----------------------------------------------------------------------------------------------------
 CryptEncodeObjectEx
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptencodeobjectex
@@ -1311,7 +1337,23 @@ Investigation history - SignerSignEx/SignerSignEx2/SignerSignEx3 E_INVALIDARG (H
     This is a certificate-provisioning bug independent of every SIGNER_* struct field previously tried,
     consistent with the "outside this function's own argument surface" lead the investigation had
     narrowed down to. Changed to CERT_NCRYPT_KEY_SPEC - see the CRYPT_KEY_PROV_INFO entry above.
-    Unconfirmed until the next live CI run. Update this note with the actual result once known.
+
+    Ruled out: the CERT_NCRYPT_KEY_SPEC fix did not resolve the failure either. Live CI reported the
+    identical HRESULT=0x80070057, this time back to GetLastError=0 (the value has now flipped between 0
+    and 87 across otherwise-identical runs, reinforcing that GetLastError() here reflects something
+    other than SignerSignEx's own failure, and is not a reliable signal - see the earlier note on this).
+
+    Added a diagnostic-only CryptAcquireCertificatePrivateKey call at the top of _signCatalog, logging
+    whether it succeeds/fails, the resulting dwKeySpec, and GetLastError() on failure, before any
+    SIGNER_* structures are built. Purpose: isolate whether private-key acquisition - the exact
+    mechanism CRYPT_KEY_PROV_INFO.dwKeySpec controls - is itself where this fails, independent of
+    whatever else SignerSignEx does afterward (chain building, catalog SIP dispatch, hashing). This
+    does not change signing behavior; it only adds a log line. Result pending the next live CI run -
+    if CryptAcquireCertificatePrivateKey itself fails, that pinpoints key acquisition (and dwKeySpec
+    still not being right, or some other property of the cert/key); if it succeeds, the failure must be
+    inside SignerSignEx past private-key acquisition, meaning the remaining unverified territory is
+    catalog SIP dispatch, certificate chain validation, or the raw signing/hashing operation itself.
+    Update this note with the actual result once known.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

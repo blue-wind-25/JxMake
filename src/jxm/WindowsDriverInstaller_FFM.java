@@ -100,6 +100,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CertGetCertificateContextProperty;
     private static MethodHandle _CryptEncodeObjectEx;
     private static MethodHandle _CryptSIPRetrieveSubjectGuid;
+    private static MethodHandle _CryptAcquireCertificatePrivateKey;
     private static MethodHandle _LocalFree;
 
     private static MethodHandle _NCryptOpenStorageProvider;
@@ -155,6 +156,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CertGetCertificateContextProperty = _bind( linker, crypt32, "CertGetCertificateContextProperty", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR) );
             _CryptEncodeObjectEx              = _bind( linker, crypt32, "CryptEncodeObjectEx"             , FunctionDescriptor.of(DW , DW, PTR, PTR, DW, PTR, PTR, PTR) );
             _CryptSIPRetrieveSubjectGuid      = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"     , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
+            _CryptAcquireCertificatePrivateKey = _bind( linker, crypt32, "CryptAcquireCertificatePrivateKey", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR, PTR, PTR) );
 
             // Ncrypt.dll (ncrypt.h)
             _NCryptOpenStorageProvider = _bind( linker, ncrypt, "NCryptOpenStorageProvider", FunctionDescriptor.of(DW, PTR, PTR, DW) );
@@ -1030,6 +1032,30 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
     {
+        // Diagnostic only, not required for signing itself: acquire the certificate's private key the
+        // same way SignerSignEx must do internally (via CryptAcquireCertificatePrivateKey), to isolate
+        // whether the CRYPT_KEY_PROV_INFO.dwKeySpec=CERT_NCRYPT_KEY_SPEC fix actually lets key
+        // acquisition succeed, independent of whatever else SignerSignEx does afterward. See
+        // WindowsDriverInstaller_FFM-Win32API.txt's "Investigation history" note for why this was added.
+        {
+            final MemorySegment phKey        = arena.allocate(PTR);
+            final MemorySegment pdwKeySpec   = arena.allocate(ValueLayout.JAVA_INT);
+            final MemorySegment pfCallerFree = arena.allocate(ValueLayout.JAVA_INT);
+            final boolean acquired = (int) _CryptAcquireCertificatePrivateKey.invoke(
+                signingCert, 0, MemorySegment.NULL, phKey, pdwKeySpec, pfCallerFree
+            ) != 0;
+            log.append("CryptAcquireCertificatePrivateKey diagnostic: acquired=").append(acquired);
+            if(!acquired) {
+                log.append(", GetLastError=").append( _lastError() );
+            } else {
+                final int     keySpec    = pdwKeySpec.get(ValueLayout.JAVA_INT, 0);
+                final boolean callerFree = pfCallerFree.get(ValueLayout.JAVA_INT, 0) != 0;
+                log.append(", dwKeySpec=").append(keySpec).append(", callerFree=").append(callerFree);
+                if(callerFree && keySpec == CERT_NCRYPT_KEY_SPEC) _NCryptFreeObject.invoke( phKey.get(PTR, 0) );
+            }
+            log.append('\n');
+        }
+
         // SIGNER_FILE_INFO : { DWORD cbSize; LPCWSTR pwszFileName; HANDLE hFile; } - size 24, align 8
         final MemorySegment fileInfo = arena.allocate(24, 8);
         fileInfo.set( ValueLayout.JAVA_INT,  0, 24                    );

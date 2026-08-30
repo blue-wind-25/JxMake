@@ -374,34 +374,55 @@ public abstract class WindowsDriverInstaller {
  */
 
 /*
- * ===== CONTINUE HERE NEXT SESSION (left 2026-08-30, CI run 90196100036) =====
+ * ===== CONTINUE HERE NEXT SESSION (left 2026-08-30, CI run [second dispatch after 90196100036]) =====
  *
  * Status: the FFM catalog-signing bug (the original point of this whole investigation) is FIXED
  * and CONFIRMED working end-to-end on CI - see "SECTION G - CI Investigation Log" at the end of
  * WindowsDriverInstaller_FFM-Win32API.txt for full detail. Two new, separate problems surfaced
  * right after that fix landed:
  *
- * 1. DONE (2026-08-30, commit ac29c9f): FFM.installDriver was hanging indefinitely (had to be
- *    manually canceled on CI) calling pnputil.exe via ShellExecuteExW - see
- *    _shellExecuteElevatedAndWait in WindowsDriverInstaller_FFM.java (~line 464) and the matching
- *    Section G entry in the .txt doc. Confirmed hypothesis: "pnputil /add-driver <inf> /install"
- *    raises an interactive confirmation dialog nothing can dismiss on a headless CI runner -
- *    SW_HIDE only hides the console window, not a UI dialog a child raises. Fix: both backends now
- *    always call pnputil with just /add-driver, never /install - stage-only, the same behavior PS1
- *    already used on Windows 7. STILL PENDING: re-verify on a real `backend=both,
- *    run_mutating=true` CI run that this actually resolves the hang (only reasoned/compiled so
- *    far, not yet re-tested live).
+ * 1. PARTIALLY FIXED, hypothesis REVISED after a second CI run. Dropping /install (commit
+ *    ac29c9f) fixed PS1.installDriver - it now returns immediately instead of hanging. But
+ *    FFM.installDriver STILL HUNG on the same run (thread dump again stuck in
+ *    _shellExecuteElevatedAndWait, WindowsDriverInstaller_FFM.java ~line 472, before being
+ *    manually canceled at ~89s) - so "/install causes the hang" was WRONG for FFM, or at least
+ *    incomplete. Crucially, FFM's OWN createAndTrustProvider/createAndSignCatalog calls use the
+ *    exact same ShellExecuteExW+WaitForSingleObject mechanism (via _runElevatedSelf) and completed
+ *    fine in this same run - so the native elevation plumbing itself isn't broken; whatever hangs
+ *    is specific to elevating "cmd.exe /c pnputil.exe /add-driver ...".
  *
- * 2. OPEN. PS1.createAndSignCatalog fails with "Certificate not found" - createAndTrustProvider's
- *    elevated child creates+trusts the cert successfully, but createAndSignCatalog's own,
- *    separately-elevated child can't find it via Cert:\CurrentUser\My moments later, despite both
- *    running as (in principle) the same OS user/profile. The doc's leading "different elevation
- *    session -> different CurrentUser profile" hypothesis is now DISPROVEN: FFM does the exact
- *    same thing (two separate elevated children, each touching CERT_SYSTEM_STORE_CURRENT_USER)
- *    and it worked fine in the same CI run. DIAGNOSTIC ADDED (2026-08-30, commit 2bc4b01): the
- *    thrown "Certificate not found" message now includes a dump of everything actually in
- *    Cert:\CurrentUser\My at that point, to tell empty-store from subject-string-mismatch. NEXT
- *    STEP: read that dump off the next CI run's log and go from there.
+ *    REVISED hypothesis: PS1's driver failed pnputil's signature check outright ("does not contain
+ *    digital signature information" - no valid signature at all, rejected instantly, no dialog
+ *    possible). FFM's driver, by contrast, had a validly self-signed (but non-WHQL / not
+ *    Microsoft-verified) catalog - pnputil may raise a "Windows can't verify the publisher of this
+ *    driver software" consent dialog specifically when it reaches a real-but-untrusted signature
+ *    check, independent of /install. That would hang forever headless. NOT YET PROVEN - PS1 has
+ *    never gotten a validly-signed driver far enough to test the same code path, since it's still
+ *    blocked by item 2 below.
+ *
+ *    FIX ATTEMPTED (2026-08-30, uncommitted): per explicit user decision, added the legacy
+ *    `HKLM\SOFTWARE\Microsoft\Driver Signing\Policy` (REG_BINARY, first byte 0 = silently succeed)
+ *    registry tweak to test-windows-driver-installer.yml's "Allow silent admin elevation" step,
+ *    alongside the existing ConsentPromptBehaviorAdmin=0 tweak - CI-workflow-only, not something
+ *    this library sets on a real user's machine. STILL PENDING a live CI run to confirm this
+ *    actually stops the hang. User's explicit fallback if this doesn't work: fix item 2 (PS1 cert
+ *    bug) next, so PS1 can also reach a validly-signed driver and give a second data point on
+ *    whether the "unverified publisher" dialog theory is even right.
+ *
+ * 2. OPEN, one hypothesis eliminated by new evidence. PS1.createAndSignCatalog fails with
+ *    "Certificate not found" - createAndTrustProvider's elevated child creates+trusts the cert
+ *    successfully, but createAndSignCatalog's own, separately-elevated child can't find it via
+ *    Cert:\CurrentUser\My moments later. The "different elevation session -> different CurrentUser
+ *    profile" hypothesis was already disproven (FFM's structurally identical two-elevation pattern
+ *    works). The diagnostic added last round (commit 2bc4b01) now confirms via a live CI run:
+ *    "Certificate not found. Cert:\CurrentUser\My contains: []" - the store is genuinely EMPTY
+ *    from the second elevated child's point of view, NOT a subject-string mismatch. Remaining
+ *    candidates: New-SelfSignedCertificate's write not being synchronously committed before
+ *    -Wait returns, or PS1's single-string -ArgumentList ("-NoProfile -Command $script") going
+ *    through raw Win32 argv parsing before the elevated powershell.exe re-tokenizes it (unlike
+ *    FFM's approach) - neither checked yet. Worth trying: have createAndTrustProvider's own
+ *    elevated child immediately re-read back Cert:\CurrentUser\My right after creating the cert
+ *    (before that child exits), to confirm the cert is even visible to itself.
  *
  * 3. DONE (2026-08-30, commit 927b5ed): right-aligned every `\r\n" +` line terminator within each
  *    multi-line String.format(...)/concat block in WindowsDriverInstaller_PS1.java. Continuation
@@ -410,7 +431,7 @@ public abstract class WindowsDriverInstaller {
  *    `grep -n '`[ \t]\+\\r\\n"' jxm/WindowsDriverInstaller_PS1.java` returns nothing, and both
  *    `make jar JDK_VER=8` and `make jar JDK_VER=25` compile clean.
  *
- * Once 2 is diagnosed/fixed and 1 is CI-reverified, update memory, and dispatch another
+ * Once 1 and 2 are actually fixed and CI-reverified, update memory, and dispatch another
  * `backend=both, run_mutating=true` CI run to confirm everything end-to-end.
  *
  * -----

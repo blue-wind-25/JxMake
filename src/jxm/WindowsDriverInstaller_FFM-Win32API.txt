@@ -1459,9 +1459,10 @@ CONFIRMED - CryptCATPersistStore fix works (CI run 90196100036):
     "Successfully signed" / "Number of errors: 0". The catalog-signing bug that started this whole
     investigation chain is resolved and verified end-to-end on a real Windows CI runner.
 
-FIXED (2026-08-30, commit ac29c9f), PENDING CI RE-VERIFICATION - FFM.installDriver hung
-indefinitely calling pnputil.exe via ShellExecuteExW (CI run 90196100036; the run had to be
-manually canceled after several minutes):
+PARTIALLY FIXED, HYPOTHESIS REVISED (2026-08-30) - FFM.installDriver hangs indefinitely calling
+pnputil.exe via ShellExecuteExW. Two CI runs so far:
+
+CI run 90196100036 (first hang, with /install still present):
     Immediately after the catalog now signs successfully, installDriver
     (_shellExecuteElevatedAndWait, WindowsDriverInstaller_FFM.java line ~464) blocked forever in
     _WaitForSingleObject.invoke(hProcess, ...), waiting on the elevated
@@ -1470,19 +1471,45 @@ manually canceled after several minutes):
     200+ seconds elapsed - well short of the method's own 5-minute internal timeout, confirming
     this was killed externally, not by the method's own TerminateProcess path.
 
-    Hypothesis (now treated as confirmed, per explicit user decision to fix rather than
-    investigate further): "pnputil.exe /add-driver <inf> /install" raises an interactive
-    device-installation confirmation dialog that nothing can dismiss on a headless CI runner with
-    no interactive user session - SEI_nShow=SW_HIDE only hides the elevated cmd.exe console
-    window, it does not suppress a native UI dialog raised by a child process.
+    Leading hypothesis at the time: "pnputil.exe /add-driver <inf> /install" raises an interactive
+    device-installation confirmation dialog that nothing can dismiss on a headless CI runner -
+    SEI_nShow=SW_HIDE only hides the elevated cmd.exe console window, not a UI dialog raised by a
+    child process. Fix applied (commit ac29c9f): both WindowsDriverInstaller_FFM.installDriver and
+    WindowsDriverInstaller_PS1.installDriver now always call plain /add-driver, never /install.
 
-    Fix: both WindowsDriverInstaller_FFM.installDriver and WindowsDriverInstaller_PS1.installDriver
-    now always call pnputil with plain /add-driver, never /install - stage into the driver store
-    only, on every Windows version. This is exactly the behavior PS1 already used on Windows 7
-    (where /install isn't supported at all); an already-connected matching device just needs a
-    replug to pick up the newly staged driver, which PnP does automatically. Compiles clean under
-    JDK 8 and JDK 25; NOT yet re-verified on a live CI run - see the continuation note at the end of
-    WindowsDriverInstaller.java for next steps.
+CI run (second dispatch, /install already removed) - hypothesis only PARTIALLY confirmed:
+    PS1.installDriver: FIXED. Returned immediately instead of hanging - though it then failed with
+    "The third-party INF does not contain digital signature information", because PS1's driver was
+    never actually signed (see the OPEN item 2 entry below) - pnputil rejected it outright before
+    reaching any signature-trust evaluation, so this run doesn't actually prove /install was ever
+    PS1's cause either; it just proves PS1 no longer hangs on an unsigned/rejected driver.
+
+    FFM.installDriver: STILL HUNG. Thread dump again stuck in the same
+    _shellExecuteElevatedAndWait call (~line 472), ~89s in, before what the log shows as a manual
+    cancellation ("Error: The operation was canceled." - no timeout-minutes is set anywhere in the
+    workflow, so this was the user canceling, not an automatic job timeout). /install was already
+    absent this run, so it was NOT the (sole) cause of FFM's hang.
+
+    Crucially, this same run's FFM.createAndTrustProvider and FFM.createAndSignCatalog - which use
+    the exact same ShellExecuteExW+WaitForSingleObject mechanism via _runElevatedSelf - both
+    completed successfully and quickly. So the native elevation plumbing itself is not broken;
+    whatever hangs is specific to elevating "cmd.exe /c pnputil.exe /add-driver ...".
+
+    REVISED hypothesis: PS1's driver had NO valid signature at all this run (blocked by item 2),
+    so pnputil rejected it outright with a definitive error - no dialog possible. FFM's driver, by
+    contrast, had a validly self-signed (non-WHQL / not Microsoft-verified) catalog - pnputil may
+    raise a "Windows can't verify the publisher of this driver software" consent dialog
+    specifically when it reaches a real-but-untrusted signature check, independent of /install.
+    That would hang forever with no desktop session to dismiss it on. NOT YET PROVEN - PS1 has
+    never gotten a validly-signed driver far enough to exercise the same code path.
+
+    FIX ATTEMPTED (2026-08-30, uncommitted), per explicit user decision: added the legacy
+    HKLM\SOFTWARE\Microsoft\Driver Signing\Policy (REG_BINARY, first byte 0 = silently succeed)
+    registry tweak to test-windows-driver-installer.yml's "Allow silent admin elevation" step,
+    alongside the existing ConsentPromptBehaviorAdmin=0 tweak. STILL PENDING a live CI run to
+    confirm. User's explicit fallback if this doesn't resolve it: fix item 2 (PS1 cert bug) next,
+    so PS1 can also reach a validly-signed driver and give a second data point on whether the
+    "unverified publisher" dialog theory is even right.
 
 OPEN - PS1.createAndSignCatalog: "Certificate not found" (CI run 90196100036), diagnosable for the
 first time thanks to the try/catch added around the elevated script in the previous round:

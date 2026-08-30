@@ -76,11 +76,23 @@ jobs:
       # silently in this non-interactive session instead of failing immediately
       # with the UAC-declined path (which is what we'd hit otherwise, since
       # there's no desktop session here to show a consent prompt on).
-      - name: Allow silent admin elevation (mutating run only)
+      #
+      # Also silences the separate "Windows can't verify the publisher of this
+      # driver software" consent dialog that pnputil can raise when staging a
+      # validly self-signed but non-WHQL driver (suspected cause of
+      # FFM.installDriver hanging on CI even without pnputil's /install flag -
+      # see the "CONTINUE HERE NEXT SESSION" note in WindowsDriverInstaller.java).
+      # The legacy "Driver Signing\Policy" REG_BINARY value's first byte selects
+      # 0=silently succeed, 1=warn, 2=block; this session has no desktop to show
+      # a "warn" prompt on regardless, so silently-succeed is the only option
+      # that doesn't hang.
+      - name: Allow silent admin elevation and unsigned driver installs (mutating run only)
         if: ${{ inputs.run_mutating }}
         shell: pwsh
         run: |
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
+          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
 
       - name: Build jxmake.jar (JDK 25, both backends)
         working-directory: src

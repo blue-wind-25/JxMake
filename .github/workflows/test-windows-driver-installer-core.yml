@@ -1,0 +1,181 @@
+# Inside .github/workflows/test-windows-driver-installer-core.yml
+
+name: Test WindowsDriverInstaller (CORE)
+
+# Ensure your workflow_call accepts the artifact name if needed
+on:
+  workflow_call:
+    inputs:
+      backend:
+        type: string
+        required: true
+      run_mutating:
+        type: boolean
+        required: true
+
+jobs:
+  test:
+    if: github.actor == 'blue-wind-25'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      # Download the pre-compiled JAR built by the coordinator workflow
+      - name: Download Pre-built JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-jxmake-jar
+          path: src/
+
+      # Keep this step for system elevation
+      - name: Allow silent admin elevation and unsigned driver installs
+        if: ${{ inputs.run_mutating == true }}
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
+
+      - name: Write test driver
+        working-directory: src
+        run: |
+          cat > WDI_CITest.java <<'EOF'
+          import jxm.WindowsDriverInstaller;
+          import jxm.WindowsDriverInstaller_PS1;
+          import jxm.WindowsDriverInstaller_FFM;
+          import jxm.xb.XCom;
+
+          public class WDI_CITest {
+
+              private static final String PROVIDER = "JxMake_CITest";
+
+              public static void main(final String[] args) throws Exception {
+                  final String  backend      = System.getProperty("wdi.backend", "auto");
+                  final boolean runMutating  = Boolean.getBoolean("wdi.mutating");
+
+                  int failures = 0;
+
+                  switch( backend ) {
+                      case "ps1":
+                          failures += test("PS1", new WindowsDriverInstaller_PS1(), runMutating);
+                          break;
+
+                      case "ffm":
+                          failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating);
+                          break;
+
+                      case "auto": {
+                          final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
+                          final String label = "AUTO_" + (picked == null ? "null" : picked.getClass().getSimpleName());
+                          System.out.println("=== create() factory pick ===");
+                          System.out.println("create() returned: " + (picked == null ? "null" : picked.getClass().getSimpleName()));
+
+                          if( picked == null ) {
+                              System.out.println("No backend usable on this VM");
+                              failures++;
+                          } else {
+                              failures += test(label, picked, runMutating);
+                          }
+                          break;
+                      }
+
+                      default:
+                          throw new IllegalArgumentException("Unknown wdi.backend: " + backend);
+                  }
+
+                  if( failures > 0 ) {
+                      System.out.println();
+                      System.out.println(failures + " backend(s) reported a hard failure - see above");
+                      System.exit(1);
+                  }
+              }
+
+              private static int test(final String label, final WindowsDriverInstaller wdi, final boolean runMutating) {
+                  System.out.println();
+                  System.out.println("=== " + label + " backend ===");
+
+                  // Distinct per-backend provider name: PS1 and FFM both run against the same
+                  // CurrentUser\My store in this one process/VM, and CertAddCertificateContextToStore's
+                  // CERT_STORE_ADD_REPLACE_EXISTING only replaces a certificate with the same
+                  // issuer+serial, not merely the same subject text - so sharing PROVIDER here left two
+                  // unrelated self-signed certificates both named "JxMake_CITest" in the store by the
+                  // time FFM ran, and CertFindCertificateInStore's match order against that name is not
+                  // guaranteed (per Microsoft's own note on CertAddCertificateContextToStore). Giving
+                  // each backend its own name removes that cross-backend ambiguity from the test.
+                  final String provider = PROVIDER + "_" + label;
+
+                  try {
+                      final boolean usable = wdi.isUsable();
+                      System.out.println(label + ".isUsable() = " + usable);
+
+                      if( !usable ) {
+                          if( wdi instanceof WindowsDriverInstaller_FFM ) {
+                              final String diag = WindowsDriverInstaller_FFM.initErrorDiagnostic();
+                              if( diag != null ) System.out.println(label + ": static init failed - " + diag);
+                          }
+                          System.out.println(label + " not usable on this VM - skipping remaining checks");
+                          return 0;
+                      }
+
+                      printPair(label + ".isProviderAlreadyTrusted", wdi.isProviderAlreadyTrusted(provider));
+
+                      if( runMutating ) {
+                          printPair(label + ".createAndTrustProvider", wdi.createAndTrustProvider(provider));
+                          printPair(label + ".isProviderAlreadyTrusted (after trust)", wdi.isProviderAlreadyTrusted(provider));
+
+                          final java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("wdi_ci");
+                          final String catName = "wdi_ci_test.cat";
+                          final java.nio.file.Path inf = dir.resolve("wdi_ci_test.inf");
+                          java.nio.file.Files.writeString(inf, WindowsDriverInstaller.generateWinUSBInf("1234", "5678", catName));
+
+                          printPair(label + ".createAndSignCatalog", wdi.createAndSignCatalog(inf.toString(), provider));
+                          printPair(label + ".installDriver", wdi.installDriver(inf.toString()));
+                      } else {
+                          System.out.println(label + ": skipping mutating/elevated calls (run_mutating=false)");
+                      }
+
+                      return 0;
+                  }
+                  catch(final Throwable t) {
+                      System.out.println(label + ": EXCEPTION - " + t);
+                      t.printStackTrace(System.out);
+                      return 1;
+                  }
+              }
+
+              private static void printPair(final String label, final XCom.Pair<Integer, String> p) {
+                  System.out.println(label + " = [" + p.first() + "] " + p.second());
+              }
+
+          } // class WDI_CITest
+          EOF
+
+      - name: Compile test driver against jxmake.jar
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          mkdir -p wdi_ci_out
+          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
+
+      - name: Run WindowsDriverInstaller test
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          "$JDK_UNIX_PATH/bin/java" \
+            --enable-native-access=ALL-UNNAMED -ea \
+            -Dwdi.backend="${{ inputs.backend }}" \
+            -Dwdi.mutating="${{ inputs.run_mutating }}" \
+            -cp "jxmake.jar;wdi_ci_out" \
+            WDI_CITest

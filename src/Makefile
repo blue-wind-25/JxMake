@@ -101,11 +101,11 @@ CP_JDS            := --class-path ".$(CP_ALL)"
 # `;`/`:` joining happens inside a real bash process instead.
 CP_JAVAC_ENTRIES  := . $(CP_CUSTOM_LIST) $(CP_VENDOR_LIST)
 
-JDK_PATH_8        := /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
-JDK_PATH_11       := /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64
-JDK_PATH_17       := /usr/java/jdk-17.0.5
-JDK_PATH_21       := /opt/openjdk-21_linux-x64_bin/jdk-21
-JDK_PATH_25       := /opt/openjdk-25_linux-x64_bin/jdk-25
+JDK_PATH_8        ?= /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
+JDK_PATH_11       ?= /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64
+JDK_PATH_17       ?= /usr/java/jdk-17.0.5
+JDK_PATH_21       ?= /opt/openjdk-21_linux-x64_bin/jdk-21
+JDK_PATH_25       ?= /opt/openjdk-25_linux-x64_bin/jdk-25
 
 JDS_PATH_11       := $(JDK_PATH_11)/bin/jdeprscan --release 11 $(CP_JDS)
 JDS_PATH_17       := $(JDK_PATH_17)/bin/jdeprscan --release 17 $(CP_JDS)

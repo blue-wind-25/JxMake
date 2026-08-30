@@ -1046,8 +1046,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                             sipData.set( ValueLayout.JAVA_INT, 48, cbHash                           );
                             sipData.set( PTR                 , 56, hashBuf                          );
 
+                            // pwszFileName is passed NULL, not fileName - the member is identified by its
+                            // tag/hash, and the filename is separately conveyed via the "File" attribute
+                            // below; dwCertVersion is CRYPTCAT_VERSION_2 (0x200), matching this catalog's
+                            // own CryptCATOpen version - passing 0 here silently made the member
+                            // version-mismatched against the v2 catalog it lives in, which is what caused
+                            // every prior round's SPAPI_E_FILE_HASH_NOT_IN_CATALOG (its hash/registration
+                            // were all independently correct - see SECTION H "ITEM 7")
                             final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
-                                hCatalog, _wstr(arena, fileName), _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
+                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, CRYPTCAT_VERSION_2, 64, sipData
                             );
                             if(pMember == null || pMember.address() == 0L) {
                                 log.append("CryptCATPutMemberInfo(").append(algName).append(") failed, GetLastError=").append( _lastError() );

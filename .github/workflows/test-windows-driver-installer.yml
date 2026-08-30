@@ -38,8 +38,15 @@
 # correctly-signed .cat file to disk, but never registering it into the system's catalog DATABASE
 # via CryptCATAdminAddCatalog - which SetupCopyOEMInfW's own file-hash lookup actually consults,
 # not just any .cat file a driver's CatalogFile= directive references. Fixed by adding that call
-# right after signing succeeds (SECTION H "ITEM 6"). Not yet confirmed on a live CI run - this
-# workflow dispatch is how that gets exercised.
+# right after signing succeeds (SECTION H "ITEM 6") was ALSO confirmed failed by the run after that -
+# identical error, both hashes still verified correct, and CryptCATAdminAddCatalog itself reported no
+# error (registration succeeded but made no difference). Real root cause: the catalog member itself
+# was structurally malformed - CryptCATPutMemberInfo was called with pwszFileName set to the INF's
+# actual filename (should be NULL; the filename is conveyed via the separate "File" attribute) and
+# dwCertVersion set to 0 (should be CRYPTCAT_VERSION_2/0x200, matching the catalog's own CryptCATOpen
+# version) - found by comparing this call's parameters against a proven-working reference
+# implementation's equivalent call. Fixed by correcting both parameters (SECTION H "ITEM 7"). Not yet
+# confirmed on a live CI run - this workflow dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

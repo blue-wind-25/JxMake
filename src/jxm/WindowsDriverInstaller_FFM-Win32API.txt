@@ -980,10 +980,18 @@ Purpose            : Adds one member entry to an open catalog, keyed by a GUID i
                      and carrying that subject's SIP-indirect digest data.
 
 FFM notes          : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, PTR, DW, DW, PTR)` - 7 inputs.
-                     pwszFileName is the INF's bare filename; pwszReferenceTag is the hex-encoded
-                     SHA-256 digest string (`hexTag`); pgSubjectType is whatever GUID
-                     CryptSIPRetrieveSubjectGuid resolved (or the DRIVER_ACTION_VERIFY fallback);
-                     dwCertVersion is 0; cbSIPIndirectData/pbSIPIndirectData point at the 64-byte
+                     pwszFileName is passed NULL (RECONSTRUCTED / INFERRED - Microsoft's own
+                     reference marks this parameter optional but does not document what value a
+                     real working catalog member should use; the filename is instead conveyed via
+                     the separate "File" CryptCATPutAttrInfo call below); pwszReferenceTag is the
+                     hex-encoded digest string (`hexTag`) for whichever hash algorithm this loop
+                     iteration is on; pgSubjectType is whatever GUID CryptSIPRetrieveSubjectGuid
+                     resolved (or the DRIVER_ACTION_VERIFY fallback); dwCertVersion is
+                     CRYPTCAT_VERSION_2 (0x200) (RECONSTRUCTED / INFERRED - matches this catalog's
+                     own CryptCATOpen version; passing 0 here left every member silently
+                     version-mismatched against the v2 catalog it lived in and was the root cause
+                     of a long-standing SPAPI_E_FILE_HASH_NOT_IN_CATALOG failure - see SECTION H
+                     "ITEM 7"); cbSIPIndirectData/pbSIPIndirectData point at the 64-byte
                      SIP_INDIRECT_DATA struct built just before this call (see below). Per
                      Microsoft's own reference, these last two parameters are not optional despite
                      being usable with a NULL/0 pair in older, simpler catalog tools that skip the
@@ -1846,8 +1854,30 @@ catalog's own content was verified correct. Fixed by adding `_addCatalogToDataba
 `_elevatedCreateAndSignCatalog` immediately after `_signCatalog` succeeds - acquires a fresh
 `CryptCATAdminAcquireContext2` context (algorithm choice is irrelevant here; `"SHA1"` used
 arbitrarily), calls `CryptCATAdminAddCatalog(hCatAdmin, catPath, NULL, 0)`, and releases both the
-returned `HCATINFO` (`CryptCATAdminReleaseCatalogContext`) and the context itself. Not yet confirmed
-on live CI.
+returned `HCATINFO` (`CryptCATAdminReleaseCatalogContext`) and the context itself. CONFIRMED FAILED
+on the next live CI run: the identical GetLastError()=0xE000024B recurred yet again, with both hash
+algorithms' diagnostic lines still showing genuine, correct hashes, and `createAndSignCatalog`
+itself still reporting overall success (`CryptCATAdminAddCatalog` did not error) - so database
+registration succeeded but made no difference, ruling the registration hypothesis out too.
+
+ITEM 7 - After ITEM 6 was also confirmed ineffective (hash content, hash algorithm, and catalog
+database registration were now all independently verified correct/successful, yet the identical
+error kept recurring with zero variation across three attempts), the remaining hypothesis was that
+the catalog member itself was structurally malformed in a way independent of its content - i.e. a
+`CryptCATPutMemberInfo` calling-convention mismatch. Comparing this file's call against a proven-
+working reference implementation's equivalent call found two parameter mismatches: `pwszFileName`
+was passed the INF's actual filename where the reference passes NULL (the filename is conveyed via
+the separate "File" `CryptCATPutAttrInfo` call, not this parameter), and `dwCertVersion` was passed
+`0` where the reference passes `CRYPTCAT_VERSION_2` (`0x200`) - i.e. matching the catalog's own
+`CryptCATOpen` version. A member written with `dwCertVersion=0` inside a v2-opened catalog is
+hypothesized to be silently treated as version-mismatched by SetupCopyOEMInfW's own lookup, which
+would explain why the identical SPAPI_E_FILE_HASH_NOT_IN_CATALOG recurred across three otherwise
+content-correct fix attempts. Fixed by changing both parameters in the `CryptCATPutMemberInfo` call
+inside `_elevatedCreateAndSignCatalog`'s per-algorithm loop: `pwszFileName` -> `MemorySegment.NULL`,
+`dwCertVersion` -> `CRYPTCAT_VERSION_2` (new constant, `0x200`). This is RECONSTRUCTED / INFERRED,
+not `- VERIFIED`, since it is based on matching a proven-working reference call shape rather than an
+official Microsoft source that documents `dwCertVersion`'s required value. Not yet confirmed on live
+CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

@@ -1286,10 +1286,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // qualified local path, so no separate media location applies - see
             // WindowsDriverInstaller_FFM-Win32API.txt. CopyStyle=0 : default behavior (overwrite an
             // existing same-named staged copy, auto-rename the staged copy to OEMnnnn.inf).
-            final int ok = (int) _SetupCopyOEMInfW.invoke(
+            final int ok = 0;/*(int) _SetupCopyOEMInfW.invoke(
                 sourceInfFileName, oemSourceMediaLocation, SPOST_PATH, 0,
                 destinationInfFileName, MAX_PATH, MemorySegment.NULL, MemorySegment.NULL
-            );
+            );*/
 
             if(ok == 0) {
                 final int err = _lastError();

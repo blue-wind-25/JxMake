@@ -363,3 +363,60 @@ public abstract class WindowsDriverInstaller {
     }
 
 } // WindowsDriverInstaller
+
+/*
+ * make jar JDK_VER=8 && make jar JDK_VER=25
+ *
+ * Java 8  : /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64/bin
+ * Java 25 : /opt/openjdk-25_linux-x64_bin/jdk-25/bin
+ */
+
+/*
+ * ===== CONTINUE HERE NEXT SESSION (left 2026-08-30, CI run 90196100036) =====
+ *
+ * Status: the FFM catalog-signing bug (the original point of this whole investigation) is FIXED
+ * and CONFIRMED working end-to-end on CI - see "SECTION G - CI Investigation Log" at the end of
+ * WindowsDriverInstaller_FFM-Win32API.txt for full detail. Two new, separate problems surfaced
+ * right after that fix landed and are both still OPEN:
+ *
+ * 1. FFM.installDriver hangs indefinitely (had to be manually canceled on CI) calling pnputil.exe
+ *    via ShellExecuteExW - see _shellExecuteElevatedAndWait in WindowsDriverInstaller_FFM.java
+ *    (~line 464) and the matching Section G entry in the .txt doc. Leading hypothesis: "pnputil
+ *    /add-driver <inf> /install" raises an interactive confirmation dialog nothing can dismiss on
+ *    a headless CI runner - SW_HIDE only hides the console window, not a UI dialog a child raises.
+ *    NEXT STEP: try calling pnputil with just /add-driver (no /install) in WDI_CITest.java's test
+ *    - the fake VID/PID in that test never matches a real device anyway, so /install's
+ *    device-matching path is pure risk with no test value here. If that avoids the hang, decide
+ *    whether installDriver's production callers need /install at all or should offer both modes.
+ *
+ * 2. PS1.createAndSignCatalog fails with "Certificate not found" - createAndTrustProvider's
+ *    elevated child creates+trusts the cert successfully, but createAndSignCatalog's own,
+ *    separately-elevated child can't find it via Cert:\CurrentUser\My moments later, despite both
+ *    running as (in principle) the same OS user/profile. Not yet investigated - see the matching
+ *    Section G entry in the .txt doc for candidate causes to check first.
+ *
+ * 3. Formatting-only task, requested by the user, not yet done: right-align every `\r\n" +` line
+ *    terminator across all the embedded PowerShell scripts in WindowsDriverInstaller_PS1.java, so
+ *    they line up in the same column within each multi-line String.format(...) block (purely a
+ *    readability pass, same PowerShell text either way). The safe way to do this without
+ *    reintroducing the backtick-continuation bug fixed in commit 1c83604:
+ *      - Padding a line with trailing spaces BEFORE the closing `\r\n" +` is safe for any line
+ *        that does NOT end in a PowerShell continuation backtick (`` ` ``) - e.g. a line ending in
+ *        a pipe `|`, a semicolon, or plain statement text. PowerShell only cares about trailing
+ *        whitespace immediately after an explicit backtick continuation; a pipe already implies
+ *        continuation regardless of what whitespace follows it.
+ *      - A line whose PowerShell content itself ends in a continuation backtick MUST keep that
+ *        backtick as the last non-`\r\n` character - i.e. do NOT pad after the backtick. Right-
+ *        alignment on those specific lines isn't possible without breaking them; leave those few
+ *        lines short/unaligned, or reflow the text before the backtick instead of padding after it.
+ *      - Leading spaces (indentation) anywhere, including immediately before a continuation
+ *        backtick, are always safe - PowerShell only cares about what comes AFTER the backtick,
+ *        never before it. So yes: the line continuation can be prefixed with spaces freely; it's
+ *        only suffixed (trailing) whitespace after the backtick itself that breaks continuation.
+ *      - After making this pass, re-run the same check used to confirm the last fix:
+ *        `grep -n '`[ \t]\+\\r\\n"' jxm/WindowsDriverInstaller_PS1.java` must return nothing.
+ *
+ * Once 1 and 2 are diagnosed/fixed, rebuild (`make clean && make jar JDK_VER=8 && make jar
+ * JDK_VER=25` from src/), commit, update memory, and recommend another
+ * `backend=both, run_mutating=true` CI dispatch.
+ */

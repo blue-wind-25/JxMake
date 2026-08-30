@@ -1447,3 +1447,59 @@ Elevation architecture (ties Section A together with the rest of the file):
     which is a genuine Windows constraint (an elevated child runs in a different security context
     and cannot easily inherit inherited standard-handle pipes from a non-elevated parent the way
     a same-privilege child process could).
+
+
+====================================================================================================
+SECTION G - CI Investigation Log (post-signtool.exe pivot)
+====================================================================================================
+
+CONFIRMED - CryptCATPersistStore fix works (CI run 90196100036):
+    FFM.createAndSignCatalog now returns success. The .cat file was 432 bytes before signing
+    (previously 0 - see the CryptCATPersistStore entry in Section D), and signtool.exe reported
+    "Successfully signed" / "Number of errors: 0". The catalog-signing bug that started this whole
+    investigation chain is resolved and verified end-to-end on a real Windows CI runner.
+
+OPEN - FFM.installDriver hangs indefinitely calling pnputil.exe via ShellExecuteExW (CI run
+90196100036; the run had to be manually canceled after several minutes):
+    Immediately after the catalog now signs successfully, installDriver
+    (_shellExecuteElevatedAndWait, WindowsDriverInstaller_FFM.java line ~464) blocks forever in
+    _WaitForSingleObject.invoke(hProcess, ...), waiting on the elevated
+    "cmd.exe /c pnputil.exe /add-driver ... /install" child process. A Java thread dump captured
+    automatically on cancellation showed the main thread still inside that native downcall after
+    200+ seconds elapsed - well short of the method's own 5-minute internal timeout, confirming
+    this was killed externally, not by the method's own TerminateProcess path.
+
+    Leading hypothesis (NOT yet verified): "pnputil.exe /add-driver <inf> /install" may raise an
+    interactive device-installation confirmation dialog that nothing can dismiss on a headless CI
+    runner with no interactive user session - SEI_nShow=SW_HIDE only hides the elevated cmd.exe
+    console window, it does not suppress a native UI dialog raised by a child process. The CI
+    test's INF uses a fake VID/PID (1234/5678 - see WDI_CITest.java) with no matching physical
+    device ever attached, so /install (which additionally tries to install onto any currently-
+    present matching device) buys nothing over plain /add-driver (stage into the driver store
+    only) in this test - worth trying /add-driver alone first to see whether the hang is
+    specifically tied to /install's device-matching path, before investigating any UI-suppression
+    option.
+
+    Not yet reproduced outside this one CI run, not yet fixed. See the continuation note at the end
+    of WindowsDriverInstaller.java for next steps.
+
+OPEN - PS1.createAndSignCatalog: "Certificate not found" (CI run 90196100036), diagnosable for the
+first time thanks to the try/catch added around the elevated script in the previous round:
+    createAndTrustProvider succeeded (cert created + trusted, ~2 seconds before), but
+    createAndSignCatalog's own separately-elevated child process's
+    "Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -like '*CN=...*' }" found
+    nothing and hit the "if(-not $cert) { throw 'Certificate not found' }" guard.
+
+    Both elevated child scripts run via independent Start-Process -Verb RunAs calls from the same
+    (non-elevated) outer PowerShell process, on a runner with silent admin elevation enabled
+    (ConsentPromptBehaviorAdmin=0, set in the workflow) - in principle the same OS user/profile, so
+    Cert:\CurrentUser\My (backed by that user's registry hive) should be identical across both
+    elevated child processes. Why the second one didn't see the first one's cert is not yet
+    understood - candidates to check next: whether New-SelfSignedCertificate's cert is actually
+    written synchronously (i.e. fully committed to the store before -Wait returns), whether GitHub
+    Actions' particular UAC/session setup on windows-latest maps elevated processes to a different
+    profile/session than expected despite ConsentPromptBehaviorAdmin, or a subject-string mismatch
+    worth re-verifying byte-for-byte.
+
+    Not yet investigated further. See the continuation note at the end of
+    WindowsDriverInstaller.java for next steps.

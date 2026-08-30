@@ -1667,6 +1667,15 @@ WindowsDriverInstaller_FFM.isUsable() no longer hardcodes false. Item 1 (install
 pnputil.exe hang) is still OPEN/UNRESOLVED; installDriver() is a deliberate no-op for now while item 1
 is set aside for a later session - see the no-op body's comment in WindowsDriverInstaller_FFM.java.
 
+ITEM 1 - RESOLVED BY ALGORITHM CHANGE, NOT ROOT-CAUSE FIX (2026-08-31): installDriver() no longer
+shells out to pnputil.exe at all, sidestepping the unresolved hang entirely rather than explaining
+it. It now calls SetupCopyOEMInfW directly (guarded by CM_WaitNoPendingInstallEvents) inside the
+same in-process elevated-JVM-relaunch this class already uses for createAndTrustProvider and
+createAndSignCatalog - see SECTION H below. This is a meaningfully different code path from the old
+one: _shellExecuteElevatedAndWait's WaitForSingleObject now waits on the elevated JVM child (already
+proven not to hang, for the "trust"/"catalog" ops), never on cmd.exe/pnputil.exe. Not yet confirmed
+on a live CI run.
+
 FINAL RE-VERIFICATION (live CI, 2026-08-30, first run after the isUsable() disable landed):
     PS1: full end-to-end success once more - createAndTrustProvider -> createAndSignCatalog
     (SignerCertificate Status=Valid) -> installDriver ("Driver package added successfully") all
@@ -1697,3 +1706,74 @@ instead and succeeded. `gh workflow list --all` now shows it as `disabled_manual
 via `gh workflow enable "Test WindowsDriverInstaller"` (same env-var caveat applies) or the Actions
 tab's "..." -> "Enable workflow" - the file and its run history are untouched, only
 `workflow_dispatch` is unavailable until it's re-enabled.
+
+====================================================================================================
+SECTION H - Driver Staging Layer (Setupapi.dll)
+====================================================================================================
+
+Replaces the old pnputil.exe shell-out (see SECTION G, "ITEM 1 - RESOLVED BY ALGORITHM CHANGE").
+installDriver() dispatches to the elevated child exactly like createAndTrustProvider/
+createAndSignCatalog (via _runElevatedSelf("install", ...)); the elevated child
+(_elevatedInstallDriver) calls CM_WaitNoPendingInstallEvents as a guard, then SetupCopyOEMInfW to
+stage the INF. Neither function involves COM.
+
+----------------------------------------------------------------------------------------------------
+SetupCopyOEMInfW - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupcopyoeminfw
+
+DLL          : Setupapi.dll
+Header       : setupapi.h
+
+Parameters   : SourceInfFileName (PCWSTR), OEMSourceMediaLocation (PCWSTR, optional),
+               OEMSourceMediaType (DWORD), CopyStyle (DWORD), DestinationInfFileName (PWSTR,
+               optional out buffer), DestinationInfFileNameSize (DWORD, in WCHARs),
+               RequiredSize (PDWORD, optional out), DestinationInfFileNameComponent (PWSTR*,
+               optional out - pointer into DestinationInfFileName where the filename part starts)
+Return value : BOOL (nonzero on success; GetLastError() on failure)
+Purpose      : Copies/stages an INF into %windir%\Inf (renamed to OEMnnnn.inf), making the driver
+               package available to Windows without installing it onto any specific device.
+               Requires administrative privileges. Does not require a physically-present device -
+               this is the no-device-present path (this backend never calls
+               UpdateDriverForPlugAndPlayDevices, which is the separate, device-present API).
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR)` - 8 parameters,
+               matches the prototype above 1:1. Bound against a `Setupapi.dll` SymbolLookup (see
+               the static initializer). Called from `_elevatedInstallDriver` with
+               OEMSourceMediaLocation=NULL and OEMSourceMediaType=SPOST_NONE (0) - infPath is
+               already a fully-qualified local path passed as SourceInfFileName, so no separate
+               media location applies. CopyStyle=0 (default: allow overwrite of an existing
+               same-named staged copy). DestinationInfFileName is a caller-allocated
+               MAX_PATH-WCHAR buffer, decoded back to a String for the elevated-child log on
+               success (MemorySegment has no getUtf16String() helper, so this is done by hand:
+               scan for the first NUL WCHAR, then StandardCharsets.UTF_16LE-decode the bytes up to
+               it). RequiredSize/DestinationInfFileNameComponent are passed but not read.
+
+CopyStyle    : 0 in the current call. SP_COPY_NOOVERWRITE (0x00000004) and SP_COPY_REPLACEONLY
+               (0x00000002) are the two flags that would change this behavior; neither is needed
+               since each CI run stages a freshly generated dummy INF and overwriting a prior
+               same-named staged copy is the desired behavior, not an error case.
+
+----------------------------------------------------------------------------------------------------
+CM_WaitNoPendingInstallEvents - VERIFIED
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_waitnopendinginstallevents
+
+DLL          : Cfgmgr32.dll (also exported by Setupapi.dll per Microsoft's own api_location
+               metadata for this function - bound against the latter here, see below)
+Header       : cfgmgr32.h
+
+Parameters   : dwTimeout (DWORD, milliseconds)
+Return value : DWORD - nonzero (WAIT_OBJECT_0) if the wait was satisfied (no install activity
+               pending), 0 (WAIT_TIMEOUT) if dwTimeout elapsed first, WAIT_FAILED on error.
+Purpose      : Blocks until the PnP manager reports no device-install activity pending anywhere on
+               the system, so a caller about to do its own install/staging work doesn't race a
+               concurrent one already in progress.
+
+FFM notes    : `FunctionDescriptor.of(DW, DW)` - matches `DWORD(DWORD)` above 1:1. Bound against
+               the same `Setupapi.dll` SymbolLookup already opened for SetupCopyOEMInfW, rather
+               than opening a second lookup for Cfgmgr32.dll - both export it per Microsoft's own
+               reference page. Called from `_elevatedInstallDriver` with dwTimeout=60000 (60s, not
+               INFINITE) immediately before SetupCopyOEMInfW; a timeout here is logged but does not
+               abort the subsequent SetupCopyOEMInfW call, since SetupCopyOEMInfW was never the
+               call observed to hang (see SECTION G).

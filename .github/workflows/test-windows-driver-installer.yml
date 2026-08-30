@@ -14,12 +14,12 @@
 # this keeps them from actually burning Windows-runner minutes with it).
 #
 # STATUS (2026-08-31): PS1's mutating calls (cert create+trust, catalog sign, driver install) pass
-# end-to-end. FFM.installDriver() is temporarily a deliberate no-op (its real body - which hangs
-# indefinitely on the elevated pnputil.exe call, see "SECTION G - CI Investigation Log" in
-# WindowsDriverInstaller_FFM-Win32API.txt - is commented out, not deleted), so an `ffm` or `auto`
-# (when it picks FFM) mutating run will report a fake-success ".installDriver" line rather than
-# exercising or re-hanging on that call. FFM.isUsable() no longer hardcodes false, so `ffm`/`auto`
-# now actually exercise FFM again.
+# end-to-end. FFM.installDriver() no longer shells out to pnputil.exe (that call was hanging
+# indefinitely on the elevated child's process-wait, see "SECTION G - CI Investigation Log" in
+# WindowsDriverInstaller_FFM-Win32API.txt) - it now stages the INF directly via SetupCopyOEMInfW,
+# guarded by CM_WaitNoPendingInstallEvents, run in-process inside the same elevated-JVM-relaunch
+# this class already uses for createAndTrustProvider/createAndSignCatalog. Not yet confirmed on a
+# live CI run - this workflow dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

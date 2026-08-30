@@ -51,19 +51,6 @@ import jxm.xb.*;
  * native work, writing its result to a temporary log file that the parent process reads back once
  * the child exits. This mirrors the elevated-child-process pattern used by WindowsDriverInstaller_PS1
  * (Start-Process -Verb RunAs), but without needing PowerShell.
- *
- * Because none of this can be exercised on a non-Windows build machine, every native call site
- * below is commented with the Windows SDK header (wincrypt.h / ncrypt.h / mscat.h / shellapi.h)
- * that documents it. The catalog-creation path (createAndSignCatalog) builds the member entry
- * through the CryptCATOpen/CryptCATPutMemberInfo/CryptCATPutAttrInfo/CryptCATClose API family -
- * that family is the documented, intended way to populate a catalog's member list, but per the
- * CryptCATPutMemberInfo reference (mscat.h), its cbSIPIndirectData/pbSIPIndirectData parameters
- * are non-optional : the caller must supply a SIP_INDIRECT_DATA struct (digest algorithm, digest,
- * and an ASN.1-encoded SPC_LINK "<<<Obsolete>>>" placeholder for the subject file), which is what
- * this member-creation step now builds and passes in, alongside "File"/"OSAttr" member attributes.
- * If pnputil/Device Installer still rejects catalogs built this way on a real Windows 10+ box, the
- * next thing to check is whether CryptSIPRetrieveSubjectGuid is actually resolving the INF-specific
- * SIP subject GUID rather than falling back to DRIVER_ACTION_VERIFY.
  */
 @SuppressWarnings("restricted")
 public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
@@ -120,6 +107,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _SignerSignEx;
     private static MethodHandle _SignerFreeSignerContext;
 
+    private static MethodHandle _SetupCopyOEMInfW;
+    private static MethodHandle _CM_WaitNoPendingInstallEvents;
+
     static {
         try {
             _arena = Arena.ofShared();
@@ -132,6 +122,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final SymbolLookup wintrust = SymbolLookup.libraryLookup("Wintrust.dll", _arena);
             final SymbolLookup mssign32 = SymbolLookup.libraryLookup("Mssign32.dll", _arena);
             final SymbolLookup advapi32 = SymbolLookup.libraryLookup("Advapi32.dll", _arena);
+            final SymbolLookup setupapi = SymbolLookup.libraryLookup("Setupapi.dll", _arena);
 
             // Kernel32.dll (fileapi.h / handleapi.h / synchapi.h / processthreadsapi.h / errhandlingapi.h)
             _CreateFileW         = _bind( linker, kernel32, "CreateFileW"        , FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR) );
@@ -181,6 +172,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // Mssign32.dll (not declared in any SDK header - see SignerSignEx/SignerFreeSignerContext docs)
             _SignerSignEx            = _bind( linker, mssign32, "SignerSignEx", FunctionDescriptor.of(DW, DW, PTR, PTR, PTR, PTR, PTR, PTR, PTR, PTR) );
             _SignerFreeSignerContext = _bind( linker, mssign32, "SignerFreeSignerContext", FunctionDescriptor.of(DW, PTR) );
+
+            // Setupapi.dll (setupapi.h) - stages an INF into %windir%\Inf without a physically-present
+            // device (installDriver's case: the CI/normal use here is "make this driver available for
+            // whenever a matching device is plugged in", not "install onto a device that's already
+            // attached"). CM_WaitNoPendingInstallEvents (cfgmgr32.h) is bound against this same DLL
+            // rather than opening a separate Cfgmgr32.dll lookup - Microsoft's own reference lists it as
+            // exported by both. See WindowsDriverInstaller_FFM-Win32API.txt for both signatures.
+            _SetupCopyOEMInfW              = _bind( linker, setupapi, "SetupCopyOEMInfW"             , FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR) );
+            _CM_WaitNoPendingInstallEvents = _bind( linker, setupapi, "CM_WaitNoPendingInstallEvents", FunctionDescriptor.of(DW, DW) );
         }
         catch(final Throwable t) {
             // Do not throw out of a static initializer with anything worse than what we capture here;
@@ -195,13 +195,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     @Override
     public boolean isUsable()
     {
-        // installDriver()'s elevated "cmd.exe /c pnputil.exe /add-driver ..." call hangs indefinitely
-        // inside the native WaitForSingleObject wait on the elevated child process handle, on at least
-        // one real CI runner - see "SECTION G - CI Investigation Log" in
-        // WindowsDriverInstaller_FFM-Win32API.txt for the full investigation history. installDriver()
-        // is a deliberate no-op below (see its own comment) so that hang can no longer happen while
-        // this backend is exercised for catalog signing (_signCatalog, confirmed working end-to-end).
-
         try {
             if(_initError != null) return false;
 
@@ -214,10 +207,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             if(major < 10) return false;
 
             // Confirm the handles we actually rely on were resolved successfully. Catalog signing is
-            // performed directly via SignerSignEx (see _signCatalog) - no external Windows SDK tool is
-            // required.
+            // performed directly via SignerSignEx (see _signCatalog), and driver staging directly via
+            // SetupCopyOEMInfW (see _elevatedInstallDriver) - no external Windows SDK tool is required.
             return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _CryptAcquireContextW != null
-                && _ShellExecuteExW != null;
+                && _ShellExecuteExW != null && _SetupCopyOEMInfW != null && _CM_WaitNoPendingInstallEvents != null;
         }
         catch(final Throwable ignored) {
             return false;
@@ -325,49 +318,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     @Override
     public XCom.Pair<Integer, String> installDriver(final String infPath)
     {
-        // NO-OP for now - the real body below (elevated "cmd.exe /c pnputil.exe /add-driver ...") hangs
-        // indefinitely inside the native WaitForSingleObject wait on the elevated child process handle,
-        // on at least one real CI runner - see "SECTION G - CI Investigation Log" in
-        // WindowsDriverInstaller_FFM-Win32API.txt for the full investigation history. This is being set
-        // aside deliberately while catalog signing (_signCatalog) is worked on first; restore the real
-        // body once installDriver's hang is root-caused and fixed.
-        return new XCom.Pair<Integer, String>(RETCODE_OK, infPath);
-
-        /*
-        //  Use pnputil.exe directly to elevate
+        // Dispatch to the elevated child - stages infPath directly via SetupCopyOEMInfW (see
+        // _elevatedInstallDriver), not by shelling out to any external tool. The path/extension
+        // validation this used to do inline now happens in the elevated child (_elevatedInstallDriver)
+        // instead, matching createAndTrustProvider/createAndSignCatalog's pattern of validating
+        // everything on the far side of the elevation boundary.
 
         try {
-            final Path path = Paths.get(infPath);
-
-            if( !infPath.toLowerCase(Locale.ROOT).endsWith(".inf") || !path.isAbsolute() || !Files.exists(path) ) {
-                return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, infPath) );
-            }
-
-            final Path logFile = Files.createTempFile("wdi_ffm_pnp_", ".log");
-            try {
-                // Deliberately not passing /install here, even though Windows 10+ supports it (unlike
-                // Windows 7): pnputil.exe /add-driver ... /install was observed to hang this call
-                // indefinitely on a real CI runner (see "OPEN - FFM.installDriver hangs..." in
-                // WindowsDriverInstaller_FFM-Win32API.txt's Section G) - most likely an interactive
-                // device-installation confirmation dialog that SW_HIDE cannot suppress and that nothing
-                // can dismiss headlessly. Staging only (no /install) matches the behavior this class's
-                // PS1 sibling already falls back to on Windows 7, where /install isn't supported at all -
-                // an already-connected matching device simply needs to be replugged to pick up the
-                // newly staged driver, which PnP does automatically without further action here.
-                final String params = String.format( "/c pnputil.exe /add-driver \"%s\" > \"%s\" 2>&1", infPath, logFile.toAbsolutePath() );
-
-                return _shellExecuteElevatedAndWait( "cmd.exe", params, System.getProperty("user.dir"), 5, logFile );
-            }
-            finally {
-                try { Files.deleteIfExists(logFile); }
-                catch(final Exception ignored) {}
-            }
+            return _runElevatedSelf("install", new String[]{ infPath }, 5);
         }
         catch(final Throwable t) {
             if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
             return new XCom.Pair<Integer, String>( RETCODE_EXCEPTION, t.toString() );
         }
-        */
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -575,6 +538,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             switch(args[1]) {
                 case "trust"   -> exitCode = _elevatedCreateAndTrustProvider(args[3], log);
                 case "catalog" -> exitCode = _elevatedCreateAndSignCatalog(args[3], args[4], log);
+                case "install" -> exitCode = _elevatedInstallDriver(args[3], log);
                 default        -> { log.append("Unknown elevated op: ").append(args[1]); exitCode = RETCODE_EXCEPTION; }
             }
         }
@@ -1247,6 +1211,84 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
 
         return RETCODE_OK;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private static final int MAX_PATH   = 260; // minwindef.h
+    private static final int SPOST_NONE = 0;   // setupapi.h - no OEMSourceMediaLocation applies
+
+    /*
+     * Stages infPath into %windir%\Inf via SetupCopyOEMInfW (setupapi.h), guarded by
+     * CM_WaitNoPendingInstallEvents (cfgmgr32.h) so this doesn't race a concurrent PnP device
+     * installation already in progress. No device needs to be physically present for this to
+     * succeed - staging alone makes the driver available to Windows, and an already-connected
+     * matching device simply needs to be replugged to pick it up (PnP does this automatically),
+     * matching the behavior WindowsDriverInstaller_PS1 already falls back to on Windows 7, where
+     * "install onto an already-connected device immediately" isn't supported at all.
+     */
+    private static int _elevatedInstallDriver(final String infPath, final StringBuilder log) throws Throwable
+    {
+        final Path path = Paths.get(infPath);
+
+        if( !infPath.toLowerCase(Locale.ROOT).endsWith(".inf") || !path.isAbsolute() || !Files.exists(path) ) {
+            log.append( String.format(Texts.EMsg_WDriverInstallInvInfPth, infPath) );
+            return RETCODE_INVALID_PATH;
+        }
+
+        try(
+            final Arena arena = Arena.ofConfined()
+        ) {
+            // CM_WaitNoPendingInstallEvents(dwTimeout) : blocks until the PnP manager reports no
+            // install activity pending, or dwTimeout milliseconds elapse - whichever comes first.
+            // Returns nonzero (WAIT_OBJECT_0) if satisfied, 0 (WAIT_TIMEOUT) on timeout. A finite
+            // timeout is used (not INFINITE) so a stuck concurrent installer elsewhere on the
+            // machine cannot reintroduce the same kind of indefinite hang this guard exists to
+            // avoid; a timeout here is logged but does not abort the SetupCopyOEMInfW call below,
+            // since SetupCopyOEMInfW itself was never the call observed to hang.
+            final int waitResult = (int) _CM_WaitNoPendingInstallEvents.invoke(60_000);
+            if(waitResult == 0) {
+                log.append("CM_WaitNoPendingInstallEvents timed out after 60000ms - proceeding anyway\n");
+            }
+
+            final MemorySegment sourceInfFileName     = _wstr(arena, infPath);
+            final MemorySegment destinationInfFileName = arena.allocate(2L * MAX_PATH, 2);
+            final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
+
+            // SetupCopyOEMInfW(SourceInfFileName, OEMSourceMediaLocation, OEMSourceMediaType, CopyStyle,
+            //                  DestinationInfFileName, DestinationInfFileNameSize, RequiredSize,
+            //                  DestinationInfFileNameComponent)
+            // OEMSourceMediaLocation=NULL / OEMSourceMediaType=SPOST_NONE : infPath is already a fully
+            // qualified local path, so no separate media location applies - see
+            // WindowsDriverInstaller_FFM-Win32API.txt. CopyStyle=0 : default behavior (overwrite an
+            // existing same-named staged copy, auto-rename the staged copy to OEMnnnn.inf).
+            final int ok = (int) _SetupCopyOEMInfW.invoke(
+                sourceInfFileName, MemorySegment.NULL, SPOST_NONE, 0,
+                destinationInfFileName, MAX_PATH, requiredSize, MemorySegment.NULL
+            );
+
+            if(ok == 0) {
+                final int err = _lastError();
+                log.append("SetupCopyOEMInfW failed, GetLastError=").append(err);
+                return RETCODE_EXCEPTION;
+            }
+
+            // DestinationInfFileName is UTF-16LE, NUL-terminated - MemorySegment has no getUtf16String(),
+            // so decode manually up to the first NUL char within the buffer we allocated.
+            final short[] chars = destinationInfFileName.toArray(ValueLayout.JAVA_SHORT);
+            int           nul   = 0;
+            while(nul < chars.length && chars[nul] != 0) nul++;
+            final byte[] utf16Bytes = new byte[nul * 2];
+            for(int i = 0; i < nul; i++) {
+                utf16Bytes[2 * i    ] = (byte) (chars[i]       & 0xFF);
+                utf16Bytes[2 * i + 1] = (byte) ((chars[i] >> 8) & 0xFF);
+            }
+            log.append( new String(utf16Bytes, StandardCharsets.UTF_16LE) );
+
+            return RETCODE_OK;
+        }
     }
 
 } // WindowsDriverInstaller_FFM

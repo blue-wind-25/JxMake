@@ -1256,8 +1256,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
 
         try(
-            final Arena arena = Arena.ofConfined()
+            final Arena arena = Arena.ofAuto()
         ) {
+        /*
             // CM_WaitNoPendingInstallEvents(dwTimeout) : blocks until the PnP manager reports no
             // install activity pending, or dwTimeout milliseconds elapse - whichever comes first.
             // Returns nonzero (WAIT_OBJECT_0) if satisfied, 0 (WAIT_TIMEOUT) on timeout. A finite
@@ -1269,6 +1270,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             if(waitResult == 0) {
                 log.append("CM_WaitNoPendingInstallEvents timed out after 60000ms - proceeding anyway\n");
             }
+        */
 
             final MemorySegment sourceInfFileName     = _wstr(arena, infPath);
             final MemorySegment destinationInfFileName = arena.allocate(2L * MAX_PATH, 2);

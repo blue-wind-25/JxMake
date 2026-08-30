@@ -1459,29 +1459,30 @@ CONFIRMED - CryptCATPersistStore fix works (CI run 90196100036):
     "Successfully signed" / "Number of errors: 0". The catalog-signing bug that started this whole
     investigation chain is resolved and verified end-to-end on a real Windows CI runner.
 
-OPEN - FFM.installDriver hangs indefinitely calling pnputil.exe via ShellExecuteExW (CI run
-90196100036; the run had to be manually canceled after several minutes):
+FIXED (2026-08-30, commit ac29c9f), PENDING CI RE-VERIFICATION - FFM.installDriver hung
+indefinitely calling pnputil.exe via ShellExecuteExW (CI run 90196100036; the run had to be
+manually canceled after several minutes):
     Immediately after the catalog now signs successfully, installDriver
-    (_shellExecuteElevatedAndWait, WindowsDriverInstaller_FFM.java line ~464) blocks forever in
+    (_shellExecuteElevatedAndWait, WindowsDriverInstaller_FFM.java line ~464) blocked forever in
     _WaitForSingleObject.invoke(hProcess, ...), waiting on the elevated
     "cmd.exe /c pnputil.exe /add-driver ... /install" child process. A Java thread dump captured
     automatically on cancellation showed the main thread still inside that native downcall after
     200+ seconds elapsed - well short of the method's own 5-minute internal timeout, confirming
     this was killed externally, not by the method's own TerminateProcess path.
 
-    Leading hypothesis (NOT yet verified): "pnputil.exe /add-driver <inf> /install" may raise an
-    interactive device-installation confirmation dialog that nothing can dismiss on a headless CI
-    runner with no interactive user session - SEI_nShow=SW_HIDE only hides the elevated cmd.exe
-    console window, it does not suppress a native UI dialog raised by a child process. The CI
-    test's INF uses a fake VID/PID (1234/5678 - see WDI_CITest.java) with no matching physical
-    device ever attached, so /install (which additionally tries to install onto any currently-
-    present matching device) buys nothing over plain /add-driver (stage into the driver store
-    only) in this test - worth trying /add-driver alone first to see whether the hang is
-    specifically tied to /install's device-matching path, before investigating any UI-suppression
-    option.
+    Hypothesis (now treated as confirmed, per explicit user decision to fix rather than
+    investigate further): "pnputil.exe /add-driver <inf> /install" raises an interactive
+    device-installation confirmation dialog that nothing can dismiss on a headless CI runner with
+    no interactive user session - SEI_nShow=SW_HIDE only hides the elevated cmd.exe console
+    window, it does not suppress a native UI dialog raised by a child process.
 
-    Not yet reproduced outside this one CI run, not yet fixed. See the continuation note at the end
-    of WindowsDriverInstaller.java for next steps.
+    Fix: both WindowsDriverInstaller_FFM.installDriver and WindowsDriverInstaller_PS1.installDriver
+    now always call pnputil with plain /add-driver, never /install - stage into the driver store
+    only, on every Windows version. This is exactly the behavior PS1 already used on Windows 7
+    (where /install isn't supported at all); an already-connected matching device just needs a
+    replug to pick up the newly staged driver, which PnP does automatically. Compiles clean under
+    JDK 8 and JDK 25; NOT yet re-verified on a live CI run - see the continuation note at the end of
+    WindowsDriverInstaller.java for next steps.
 
 OPEN - PS1.createAndSignCatalog: "Certificate not found" (CI run 90196100036), diagnosable for the
 first time thanks to the try/catch added around the elevated script in the previous round:
@@ -1495,11 +1496,22 @@ first time thanks to the try/catch added around the elevated script in the previ
     (ConsentPromptBehaviorAdmin=0, set in the workflow) - in principle the same OS user/profile, so
     Cert:\CurrentUser\My (backed by that user's registry hive) should be identical across both
     elevated child processes. Why the second one didn't see the first one's cert is not yet
-    understood - candidates to check next: whether New-SelfSignedCertificate's cert is actually
-    written synchronously (i.e. fully committed to the store before -Wait returns), whether GitHub
-    Actions' particular UAC/session setup on windows-latest maps elevated processes to a different
-    profile/session than expected despite ConsentPromptBehaviorAdmin, or a subject-string mismatch
-    worth re-verifying byte-for-byte.
+    understood.
 
-    Not yet investigated further. See the continuation note at the end of
-    WindowsDriverInstaller.java for next steps.
+    The "different elevation session -> different CurrentUser profile" candidate is now DISPROVEN:
+    WindowsDriverInstaller_FFM does the structurally identical thing (two independently-elevated
+    child processes, via _runElevatedSelf, each touching CERT_SYSTEM_STORE_CURRENT_USER - cert
+    creation at ~line 844, lookup at ~line 1084) and it worked fine in this same CI run. Remaining
+    candidates: whether New-SelfSignedCertificate's cert is actually written synchronously (i.e.
+    fully committed to the store before -Wait returns), or a subject-string mismatch worth
+    re-verifying byte-for-byte. A newer, unverified candidate specific to PS1: createAndSignCatalog
+    passes its elevated script as a single -ArgumentList string
+    ("-NoProfile -Command $script") that Start-Process must pass through raw Win32 argv parsing
+    before the elevated powershell.exe re-tokenizes it - unlike FFM's approach, this could in
+    principle corrupt embedded literal quotes in $script under the right conditions. Not checked.
+
+    DIAGNOSTIC ADDED (2026-08-30, commit 2bc4b01): the thrown "Certificate not found" message now
+    includes a dump of Cert:\CurrentUser\My's actual contents (Subject, Thumbprint) at the point of
+    failure, to distinguish an empty store from a subject-string mismatch. NEXT STEP: read that
+    dump off the next CI run's log - see the continuation note at the end of
+    WindowsDriverInstaller.java.

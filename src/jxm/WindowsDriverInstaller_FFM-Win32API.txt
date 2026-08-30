@@ -776,6 +776,7 @@ Purpose      : Release the key handle and provider context handle CryptGenKey/Cr
 
 FFM notes    : `FunctionDescriptor.of(DW, PTR)` and `FunctionDescriptor.of(DW, PTR, DW)` respectively.
 
+
 ====================================================================================================
 SECTION D - Catalog Building Layer (Wintrust.dll)
 ====================================================================================================
@@ -873,6 +874,29 @@ FFM notes    : `FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW)`. Called with f
                function uses.
 
 ----------------------------------------------------------------------------------------------------
+CryptCATPersistStore
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatpersiststore
+
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatalog (HCATINFO)
+Return value : BOOL
+Purpose      : Writes the in-memory catalog object's accumulated members/attributes out to the
+               physical .cat file on disk. This is the call that actually flushes content -
+               CryptCATClose alone only releases the handle.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called in the `finally` around the
+               member/attribute-building block, immediately before CryptCATClose. Its omission was
+               a real, confirmed bug found via CI (run 90195131262): every CryptCATOpen/
+               CryptCATPutMemberInfo/CryptCATPutAttrInfo/CryptCATClose call reported success, yet the
+               resulting .cat file was 0 bytes on disk, which signtool.exe then rejected as an
+               unrecognized file format - CryptCATClose was closing a catalog that had never actually
+               been persisted. Both this call's and CryptCATClose's return values are checked (the
+               handle is still always closed regardless of whether persisting succeeded).
+
+----------------------------------------------------------------------------------------------------
 CryptCATClose
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatclose
@@ -882,16 +906,16 @@ Header       : mscat.h
 
 Parameters   : hCatalog (HANDLE)
 Return value : BOOL
-Purpose      : Closes/flushes a catalog handle opened by CryptCATOpen, writing the accumulated
-               members/attributes out to the .cat file on disk.
+Purpose      : Releases a catalog handle opened by CryptCATOpen. Does NOT itself flush accumulated
+               members/attributes to disk - see CryptCATPersistStore above, which must be called
+               first for the .cat file to actually contain anything.
 
 FFM notes    : `FunctionDescriptor.of(DW, PTR)`. Called in the `finally` around the
-               member/attribute-building block - this ordering matters: the catalog is not actually
-               persisted to disk with its members until this call runs, so it must run even on a
-               partial-failure path if the caller wants whatever was successfully added to be
-               flushed (in this code's case, since every step before this can also return early on
-               failure, an early return generally means the catalog was closed with an incomplete
-               member and would need to be regenerated on retry rather than reused).
+               member/attribute-building block, right after CryptCATPersistStore - this ordering
+               matters: the handle must still be released even on a partial-failure path (in this
+               code's case, since every step before this can also return early on failure, an early
+               return generally means the catalog was closed with an incomplete member and would
+               need to be regenerated on retry rather than reused).
 
 ----------------------------------------------------------------------------------------------------
 CryptCATPutMemberInfo
@@ -1210,14 +1234,16 @@ Source       : https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf
 DLL          : Ole32.dll
 Header       : combaseapi.h
 
-Parameters (CoInitializeEx) : pvReserved (LPVOID, must be NULL), dwCoInit (DWORD, concurrency model
+[CoInitializeEx]
+Parameters   : pvReserved (LPVOID, must be NULL), dwCoInit (DWORD, concurrency model
                flags - COINIT_APARTMENTTHREADED = 0x2 is used here)
 Return value : HRESULT - S_OK/S_FALSE (non-negative) on success, must be paired with a later
                CoUninitialize call on the same thread; RPC_E_CHANGED_MODE (0x80010106, negative) if a
                different concurrency model was already set on this thread, in which case
                CoUninitialize must NOT be called.
 
-Parameters (CoUninitialize) : none
+[CoUninitialize]
+Parameters   : none
 Return value : none (void)
 Purpose      : Initializes/uninitializes COM on the calling thread. See the "Investigation history"
                note above: called at the start of _signCatalog on the theory that some WinTrust/
@@ -1381,6 +1407,7 @@ FFM notes    : Built via the existing `_blob(Arena, int cbData, MemorySegment pb
                used elsewhere in this file for CERT_NAME_BLOB-shaped fields). Wraps the hand-built
                SPC_SP_OPUS_INFO and SPC_STATEMENT_TYPE DER byte literals - see the "Investigation
                history" note below for the exact bytes and their source.
+
 
 ====================================================================================================
 SECTION F - Miscellaneous Notes for Future Maintainers

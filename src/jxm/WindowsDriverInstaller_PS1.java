@@ -255,19 +255,30 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // in the outer/unelevated scope where they are undefined) and why the Start-Process/-ArgumentList
                 // continuation backticks below must have no trailing whitespace before the line break.
                 "    $script = \"                                                                             \r\n" +
-                "        `$cert = Get-ChildItem Cert:\\CurrentUser\\My |                                      \r\n" +
-                "            Where-Object { `$_.Subject -like '*CN=%s*' } |                                   \r\n" +
-                "            Select-Object -First 1;                                                          \r\n" +
-                "        if(-not `$cert) { throw 'Certificate not found' };                                   \r\n" +
-                "        New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;                \r\n" +
-                "        Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 | \r\n" +
-                "            Out-File `\"$tmpOutLog`\";                                                       \r\n" +
+                // The New-FileCatalog/Set-AuthenticodeSignature steps are wrapped in their own try/catch
+                // here (inside the elevated child), since a terminating error from either would otherwise
+                // just exit the elevated powershell.exe with a bare, undiagnosable exit code (1) and leave
+                // $tmpOutLog empty - the outer try/catch around Start-Process below only ever sees the
+                // *launch* of the elevated process, never errors occurring inside it.
+                "        try {                                                                               \r\n" +
+                "            `$cert = Get-ChildItem Cert:\\CurrentUser\\My |                                  \r\n" +
+                "                Where-Object { `$_.Subject -like '*CN=%s*' } |                               \r\n" +
+                "                Select-Object -First 1;                                                      \r\n" +
+                "            if(-not `$cert) { throw 'Certificate not found' };                               \r\n" +
+                "            New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;            \r\n" +
+                "            Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 | \r\n" +
+                "                Out-File `\"$tmpOutLog`\";                                                   \r\n" +
                 // The private key is only ever needed to produce this one signature; destroying it immediately
                 // afterward (via -DeleteKey) means it can never be exfiltrated/reused to mint new signatures
                 // later, even though this certificate remains trusted machine-wide as both a Root CA and
                 // a Trusted Publisher. The public certificate itself is left untouched in every store, so anything
                 // already signed with it (including the catalog just produced) continues to verify correctly.
-                "        Remove-Item `$cert.PSPath -DeleteKey -Force -ErrorAction SilentlyContinue;           \r\n" +
+                "            Remove-Item `$cert.PSPath -DeleteKey -Force -ErrorAction SilentlyContinue;       \r\n" +
+                "        }                                                                                    \r\n" +
+                "        catch {                                                                              \r\n" +
+                "            `$_.Exception.Message | Out-File `\"$tmpOutLog`\" -Append;                       \r\n" +
+                "            exit 1;                                                                          \r\n" +
+                "        }                                                                                    \r\n" +
                 "    \"                                                                                       \r\n" +
                 "    $processHandler = Start-Process -FilePath 'powershell.exe' `\r\n" +
                 "                          -ArgumentList \"-NoProfile -Command $script\" `\r\n" +

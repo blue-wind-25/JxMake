@@ -113,6 +113,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptCATAdminReleaseContext;
     private static MethodHandle _CryptCATOpen;
     private static MethodHandle _CryptCATClose;
+    private static MethodHandle _CryptCATPersistStore;
     private static MethodHandle _CryptCATPutMemberInfo;
     private static MethodHandle _CryptCATPutAttrInfo;
 
@@ -177,6 +178,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CryptCATAdminReleaseContext          = _bind( linker, wintrust, "CryptCATAdminReleaseContext"         , FunctionDescriptor.of(DW , PTR, DW) );
             _CryptCATOpen                         = _bind( linker, wintrust, "CryptCATOpen"                        , FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW) );
             _CryptCATClose                        = _bind( linker, wintrust, "CryptCATClose"                       , FunctionDescriptor.of(DW , PTR) );
+            _CryptCATPersistStore                 = _bind( linker, wintrust, "CryptCATPersistStore"                , FunctionDescriptor.of(DW , PTR) );
             _CryptCATPutMemberInfo                = _bind( linker, wintrust, "CryptCATPutMemberInfo"               , FunctionDescriptor.of(PTR, PTR, PTR, PTR, PTR, DW, DW, PTR) );
             _CryptCATPutAttrInfo                  = _bind( linker, wintrust, "CryptCATPutAttrInfo"                 , FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR) );
 
@@ -1053,11 +1055,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     }
                 }
                 finally {
-                    // CryptCATClose persists the accumulated members/attributes to catPath - its return
-                    // value must be checked, since a failed close here would leave a corrupt/incomplete
-                    // .cat file on disk that later fails to sign with an unrelated-looking error instead
-                    // of surfacing the real problem at its source
-                    catCloseOk = (int) _CryptCATClose.invoke(hCatalog) != 0;
+                    // CryptCATClose alone does NOT flush the accumulated members/attributes to catPath -
+                    // CryptCATPersistStore must be called first to actually write the in-memory catalog
+                    // object out to the physical file; skipping it left CryptCATOpen's freshly-created file
+                    // on disk at 0 bytes even though every Put* call above reported success, which is why
+                    // signtool.exe rejected it as an unrecognized file format. Both return values are
+                    // checked, since either failing here would leave a missing/corrupt .cat file on disk
+                    // that would later fail to sign with an unrelated-looking error instead of surfacing
+                    // the real problem at its source
+                    catCloseOk = (int) _CryptCATPersistStore.invoke(hCatalog) != 0;
+                    catCloseOk = ( (int) _CryptCATClose.invoke(hCatalog) != 0 ) && catCloseOk;
                     _LocalFree.invoke(spcLinkEnc);
                 }
             }

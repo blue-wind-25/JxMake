@@ -419,4 +419,15 @@ public abstract class WindowsDriverInstaller {
  * Once 1 and 2 are diagnosed/fixed, rebuild (`make clean && make jar JDK_VER=8 && make jar
  * JDK_VER=25` from src/), commit, update memory, and recommend another
  * `backend=both, run_mutating=true` CI dispatch.
+ *
+ * -----
+ *
+ * After that works check if it is possible to replace signtool.exe with https://github.com/mtrojnar/osslsigncode.
+ * Either make the JAR download and save/ache it somewhere using `tool/HTTPDownloader.java` and unzip using java
+ * or using PowerShell or save it to `../3rd_party/app/osslsigncode` with the required license files, etc.
+ * and make `make dist` copy the files to `../dist_build/jxmake_dist/apps/osslsigncode` - then WindowsDriverInstaller_FFM.java
+ * will need to find the EXE in `apps/osslsigncode` (distribution mode) or `../3rd_party/app/osslsigncode` (testing mode).
+ *
+ * It may also a good idea to add a note somewhere so the user know how to get and extract signtool.exe if osslsigncode
+ * does not work.
  */

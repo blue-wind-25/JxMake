@@ -359,6 +359,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static final int SEE_MASK_NOCLOSEPROCESS = 0x00000040;
     private static final int SEE_MASK_NOASYNC        = 0x00000100;
+    private static final int SEE_MASK_NO_CONSOLE     = 0x00008000;
     private static final int SW_HIDE                 = 0;
     private static final int WAIT_TIMEOUT            = 0x102;
 
@@ -398,7 +399,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final MemorySegment sei = arena.allocate(SEI_SIZE, 8);
 
             sei.set( ValueLayout.JAVA_INT, SEI_cbSize      , SEI_SIZE                                   );
-            sei.set( ValueLayout.JAVA_INT, SEI_fMask       , SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC );
+            sei.set( ValueLayout.JAVA_INT, SEI_fMask       , SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_NO_CONSOLE );
             sei.set( PTR                 , SEI_hwnd        , MemorySegment.NULL                         );
             sei.set( PTR                 , SEI_lpVerb      , _wstr(arena, "runas")                      );
             sei.set( PTR                 , SEI_lpFile      , _wstr(arena, file   )                      );
@@ -1276,7 +1277,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final MemorySegment sourceInfFileName      = _wstr(arena, infPath);
             final MemorySegment oemSourceMediaLocation = _wstr(arena, path.getParent().toString());
             final MemorySegment destinationInfFileName = arena.allocate(2L * MAX_PATH, 2);
-            final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
+         //   final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
 
             // SetupCopyOEMInfW(SourceInfFileName, OEMSourceMediaLocation, OEMSourceMediaType, CopyStyle,
             //                  DestinationInfFileName, DestinationInfFileNameSize, RequiredSize,

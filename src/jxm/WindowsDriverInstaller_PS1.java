@@ -145,14 +145,22 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "try {                                                                                      \r\n" +
                 "    $script = \"                                                                           \r\n" +
                 // Remove any certificate(s) already installed under this provider name before creating a new
-                // one, so repeated runs never accumulate duplicates. The CurrentUser\\My copy is removed with
-                // -DeleteKey so its private key is destroyed along with the certificate (this backend's
-                // certificate is trusted machine-wide as both a Root CA and a Trusted Publisher, so no private
-                // key belonging to a stale certificate must be left recoverable); the Root/TrustedPublisher
-                // copies only ever hold the public certificate, so a plain Remove-Item suffices there.
+                // one, so repeated runs never accumulate duplicates.
+                //
+                // NOTE: this used to pass -DeleteKey on the CurrentUser\\My removal, to destroy the stale
+                // certificate's private key along with it (this backend's certificate is trusted machine-wide
+                // as both a Root CA and a Trusted Publisher, so no private key belonging to a stale
+                // certificate should be left recoverable). Live CI showed createAndSignCatalog()'s later,
+                // separately-elevated lookup of Cert:\\CurrentUser\\My started coming back completely empty
+                // only after -DeleteKey was introduced (see "OPEN - PS1.createAndSignCatalog" in
+                // WindowsDriverInstaller_FFM-Win32API.txt's Section G) - -DeleteKey is suspected of disturbing
+                // the on-disk per-profile certificate store in a way a plain Remove-Item does not, so it is
+                // dropped here pending a live CI run to confirm. This leaves a stale private key's CNG key
+                // container orphaned (not ideal) rather than destroyed; revisit once the actual mechanism is
+                // understood.
                 "        Get-ChildItem Cert:\\CurrentUser\\My |                                             \r\n" +
                 "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
-                "            Remove-Item -DeleteKey -Force -ErrorAction SilentlyContinue;                   \r\n" +
+                "            Remove-Item -Force -ErrorAction SilentlyContinue;                              \r\n" +
                 "        Get-ChildItem Cert:\\LocalMachine\\Root |                                          \r\n" +
                 "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
                 "            Remove-Item -Force -ErrorAction SilentlyContinue;                              \r\n" +
@@ -278,12 +286,15 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "            New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;                  \r\n" +
                 "            Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 |   \r\n" +
                 "                Out-File `\"$tmpOutLog`\";                                                         \r\n" +
-                // The private key is only ever needed to produce this one signature; destroying it immediately
-                // afterward (via -DeleteKey) means it can never be exfiltrated/reused to mint new signatures
-                // later, even though this certificate remains trusted machine-wide as both a Root CA and
-                // a Trusted Publisher. The public certificate itself is left untouched in every store, so anything
-                // already signed with it (including the catalog just produced) continues to verify correctly.
-                "            Remove-Item `$cert.PSPath -DeleteKey -Force -ErrorAction SilentlyContinue;             \r\n" +
+                // The private key is only ever needed to produce this one signature, so this used to destroy
+                // it immediately afterward via -DeleteKey (even though this certificate remains trusted
+                // machine-wide as both a Root CA and a Trusted Publisher, so no private key belonging to it
+                // should be left recoverable). Dropped for now - see the matching note in
+                // createAndTrustProvider() above; -DeleteKey anywhere in this backend is suspected of being
+                // why Cert:\\CurrentUser\\My comes back empty when a later, separately-elevated child looks
+                // for the certificate this method itself needs to sign with. The public certificate itself is
+                // left untouched in every store either way, so anything already signed with it (including the
+                // catalog just produced) continues to verify correctly.
                 "        }                                                                                          \r\n" +
                 "        catch {                                                                                    \r\n" +
                 "            `$_.Exception.Message | Out-File `\"$tmpOutLog`\" -Append;                             \r\n" +

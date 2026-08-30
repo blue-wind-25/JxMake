@@ -31,11 +31,15 @@
 # never sets; SetupCopyOEMInfW was treating the OSAttr-tagged member as not-a-match at all, not
 # just narrowing it. Fixing by dropping that attribute (SECTION H "ITEM 4") was CONFIRMED FAILED on
 # the next live CI run - the identical error recurred. A diagnostic hash dump on the run after that
-# showed the computed hash was genuine (not corrupted), narrowing the real cause to: the catalog
-# only carried a SHA-256 member, while SetupCopyOEMInfW's file-hash lookup needs a SHA1 member too
-# (matching what real WHQL-issued catalogs carry). Fixed by writing both a SHA1 and a SHA256 member
-# for the INF (see SECTION H "ITEM 5"). Not yet confirmed on a live CI run - this workflow dispatch
-# is how that gets exercised.
+# showed the computed hash was genuine (not corrupted); writing both a SHA1 and a SHA256 catalog
+# member for the INF (SECTION H "ITEM 5", on the theory SetupCopyOEMInfW's lookup needed a SHA1
+# member specifically) was ALSO confirmed failed by the run after that - same error, both hashes
+# verified correct via the diagnostic. Real root cause: this backend was writing a correctly-hashed,
+# correctly-signed .cat file to disk, but never registering it into the system's catalog DATABASE
+# via CryptCATAdminAddCatalog - which SetupCopyOEMInfW's own file-hash lookup actually consults,
+# not just any .cat file a driver's CatalogFile= directive references. Fixed by adding that call
+# right after signing succeeds (SECTION H "ITEM 6"). Not yet confirmed on a live CI run - this
+# workflow dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

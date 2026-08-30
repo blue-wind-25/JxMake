@@ -100,6 +100,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptCATAdminAcquireContext2;
     private static MethodHandle _CryptCATAdminCalcHashFromFileHandle2;
     private static MethodHandle _CryptCATAdminReleaseContext;
+    private static MethodHandle _CryptCATAdminAddCatalog;
+    private static MethodHandle _CryptCATAdminReleaseCatalogContext;
     private static MethodHandle _CryptCATOpen;
     private static MethodHandle _CryptCATClose;
     private static MethodHandle _CryptCATPersistStore;
@@ -167,6 +169,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CryptCATAdminAcquireContext2         = _bind( linker, wintrust, "CryptCATAdminAcquireContext2"        , FunctionDescriptor.of(DW , PTR, PTR, PTR, PTR, DW) );
             _CryptCATAdminCalcHashFromFileHandle2 = _bind( linker, wintrust, "CryptCATAdminCalcHashFromFileHandle2", FunctionDescriptor.of(DW , PTR, PTR, PTR, PTR, DW) );
             _CryptCATAdminReleaseContext          = _bind( linker, wintrust, "CryptCATAdminReleaseContext"         , FunctionDescriptor.of(DW , PTR, DW) );
+            _CryptCATAdminAddCatalog              = _bind( linker, wintrust, "CryptCATAdminAddCatalog"             , FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW) );
+            _CryptCATAdminReleaseCatalogContext   = _bind( linker, wintrust, "CryptCATAdminReleaseCatalogContext"  , FunctionDescriptor.of(DW , PTR, PTR, DW) );
             _CryptCATOpen                         = _bind( linker, wintrust, "CryptCATOpen"                        , FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW) );
             _CryptCATClose                        = _bind( linker, wintrust, "CryptCATClose"                       , FunctionDescriptor.of(DW , PTR) );
             _CryptCATPersistStore                 = _bind( linker, wintrust, "CryptCATPersistStore"                , FunctionDescriptor.of(DW , PTR) );
@@ -1116,7 +1120,18 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     // _destroyPrivateKey.
                     final int rc = _signCatalog(arena, catPath, signingCert, hMy, log);
                     _destroyPrivateKey(arena, signingCert, log);
-                    return rc;
+                    if(rc != RETCODE_OK) return rc;
+
+                    // 5. Register the finished, signed .cat into the system's catalog DATABASE (an index
+                    //    mapping file hashes -> the catalogs that contain them) via CryptCATAdminAddCatalog -
+                    //    this is documented as "the only supported way to programmatically add catalogs to
+                    //    the Windows catalog database". Writing a valid, correctly-hashed, signed .cat file
+                    //    to disk is not enough on its own: SetupCopyOEMInfW's own file-hash lookup consults
+                    //    that database, not just any .cat file sitting next to the INF, which is why every
+                    //    prior round still hit SPAPI_E_FILE_HASH_NOT_IN_CATALOG even once the catalog itself
+                    //    was hashed/signed correctly - see WindowsDriverInstaller_FFM-Win32API.txt SECTION H
+                    //    "ITEM 6".
+                    return _addCatalogToDatabase(arena, catPath, log);
                 }
                 finally {
                     _CertFreeCertificateContext.invoke(signingCert);
@@ -1141,6 +1156,35 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     // SPC_SP_OPUS_INFO DER-encoding comments in _signCatalog for the values attached under these OIDs
     private static final String SPC_SP_OPUS_INFO_OBJID   = "1.3.6.1.4.1.311.2.1.12";
     private static final String SPC_STATEMENT_TYPE_OBJID = "1.3.6.1.4.1.311.2.1.11";
+
+    // Registers a finished, signed .cat file into the system catalog database via CryptCATAdminAddCatalog -
+    // see the call site's comment above for why this is needed at all. The algorithm the acquired
+    // hCatAdmin context is bound to doesn't matter here (CryptCATAdminAddCatalog reads whichever
+    // hash algorithm(s) the catalog file itself declares per-member), so "SHA1" is used arbitrarily.
+    private static int _addCatalogToDatabase(final Arena arena, final String catPath, final StringBuilder log) throws Throwable
+    {
+        final MemorySegment hCatAdminOut = arena.allocate(PTR);
+        if( (int) _CryptCATAdminAcquireContext2.invoke(hCatAdminOut, _guid(arena, DRIVER_ACTION_VERIFY_PARTS), _wstr(arena, "SHA1"), MemorySegment.NULL, 0) == 0 ) {
+            log.append("CryptCATAdminAcquireContext2(AddCatalog) failed, GetLastError=").append( _lastError() );
+            return RETCODE_EXCEPTION;
+        }
+        final MemorySegment hCatAdmin = hCatAdminOut.get(PTR, 0);
+
+        try {
+            final MemorySegment hCatInfo = (MemorySegment) _CryptCATAdminAddCatalog.invoke(
+                hCatAdmin, _wstr(arena, catPath), MemorySegment.NULL, 0
+            );
+            if(hCatInfo == null || hCatInfo.address() == 0L) {
+                log.append("CryptCATAdminAddCatalog failed, GetLastError=").append( _lastError() );
+                return RETCODE_EXCEPTION;
+            }
+            _CryptCATAdminReleaseCatalogContext.invoke(hCatAdmin, hCatInfo, 0);
+            return RETCODE_OK;
+        }
+        finally {
+            _CryptCATAdminReleaseContext.invoke(hCatAdmin, 0);
+        }
+    }
 
     /*
      * Applies the Authenticode signature to the finished .cat file directly via SignerSignEx - confirmed

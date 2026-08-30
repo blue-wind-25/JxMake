@@ -843,8 +843,53 @@ Parameters   : hCatAdmin (HCATADMIN), dwFlags (DWORD)
 Return value : BOOL
 Purpose      : Releases a context obtained from CryptCATAdminAcquireContext2.
 
-FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Called with flags=0 in the outer `finally` of
-               `_elevatedCreateAndSignCatalog`, after the INF file handle has already been closed.
+FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)`. Called with flags=0 - once per algorithm in
+               `CATALOG_HASH_ALGS`, in each loop iteration's own `finally` in
+               `_elevatedCreateAndSignCatalog` (a separate context is acquired per algorithm), and
+               again (for an unrelated, arbitrarily-`"SHA1"` context) in `_addCatalogToDatabase`
+               after `CryptCATAdminAddCatalog`.
+
+----------------------------------------------------------------------------------------------------
+CryptCATAdminAddCatalog
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminaddcatalog
+
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatAdmin (HCATADMIN), pwszCatalogFile (LPCWSTR), pwszSelectBaseName (LPCWSTR,
+               optional -> NULL here, lets the system pick the stored name), dwFlags (DWORD)
+Return value : HCATINFO handle on success, NULL on failure.
+Purpose      : Registers a catalog file into the system's catalog database - documented as "the only
+               supported way to programmatically add catalogs to the Windows catalog database", which
+               is an index associating file hashes with the catalogs that contain them.
+               SetupCopyOEMInfW's own file-hash lookup was found to consult this database, not
+               whichever .cat file a driver's CatalogFile= directive merely references - writing a
+               correctly-hashed, correctly-signed .cat to disk is necessary but not sufficient without
+               this call (see SECTION H "ITEM 6").
+
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW)`. Called from `_addCatalogToDatabase`
+               against the fully signed `.cat` file, with a fresh `CryptCATAdminAcquireContext2`
+               context (algorithm choice doesn't matter for this call - it reads whichever hash
+               algorithm(s) the catalog's own members already declare - `"SHA1"` is used arbitrarily)
+               and `pwszSelectBaseName=NULL`. The returned `HCATINFO` is released via
+               `CryptCATAdminReleaseCatalogContext` immediately after.
+
+----------------------------------------------------------------------------------------------------
+CryptCATAdminReleaseCatalogContext
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminreleasecatalogcontext
+
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatAdmin (HCATADMIN), hCatInfo (HCATINFO), dwFlags (DWORD)
+Return value : BOOL
+Purpose      : Releases the HCATINFO handle returned by CryptCATAdminAddCatalog (or
+               CryptCATAdminEnumCatalogFromHash).
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Called with flags=0 immediately after a
+               successful `CryptCATAdminAddCatalog` in `_addCatalogToDatabase`.
 
 ----------------------------------------------------------------------------------------------------
 CryptCATOpen
@@ -1783,7 +1828,26 @@ and `"SHA256"`/szOID_NIST_sha256) - each with its own `CryptCATAdminAcquireConte
 SIP-indirect data, `CryptCATPutMemberInfo` call, and "File" attribute, all against the same open
 `hCatalog`/`hInfFile`. SHA1 is kept alongside SHA256 (not swapped in place of it) since SHA1 alone
 would be a regression for anything that specifically wants the SHA2 member; SHA256 alone was the
-bug. Not yet confirmed on live CI.
+bug. CONFIRMED FAILED on the next live CI run: the identical GetLastError()=0xE000024B recurred with
+both hash algorithms' diagnostic lines showing genuine, correct, distinct hashes - ruling the
+algorithm hypothesis out too.
+
+ITEM 6 - After ITEM 5 was also confirmed ineffective (both a correct SHA1 and a correct SHA256
+member were present, yet the same error recurred), the actual root cause was found by re-reading
+CryptCATAdminAddCatalog's own documentation: "The catalog database is an index that associates file
+hashes with the catalogs that contain them. This function is the only supported way to
+programmatically add catalogs to the Windows catalog database." This backend was writing a
+correctly-hashed, correctly-signed .cat file to disk next to the INF, but never registering it into
+that catalog database - SetupCopyOEMInfW's own file-hash lookup consults the database, not an
+arbitrary .cat file merely referenced by the INF's CatalogFile= directive, which is why every prior
+round (OSAttr removal, dual-hash members) still hit SPAPI_E_FILE_HASH_NOT_IN_CATALOG even once the
+catalog's own content was verified correct. Fixed by adding `_addCatalogToDatabase` (new
+`CryptCATAdminAddCatalog`/`CryptCATAdminReleaseCatalogContext` bindings), called from
+`_elevatedCreateAndSignCatalog` immediately after `_signCatalog` succeeds - acquires a fresh
+`CryptCATAdminAcquireContext2` context (algorithm choice is irrelevant here; `"SHA1"` used
+arbitrarily), calls `CryptCATAdminAddCatalog(hCatAdmin, catPath, NULL, 0)`, and releases both the
+returned `HCATINFO` (`CryptCATAdminReleaseCatalogContext`) and the context itself. Not yet confirmed
+on live CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

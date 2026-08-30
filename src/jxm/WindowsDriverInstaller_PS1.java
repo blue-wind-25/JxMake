@@ -18,6 +18,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Locale;
@@ -129,11 +132,46 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
         }
     }
 
+    // Derives a PFX export password from providerName, deterministically and without any shared state,
+    // so createAndTrustProvider() and createAndSignCatalog() - two independent public method calls with
+    // only providerName in common - can agree on the same password without either one persisting it
+    // anywhere. Not a secret in any meaningful sense: it only ever protects a private key that (a) is
+    // freshly self-signed, (b) lives for at most the few seconds between these two calls in a %TEMP%
+    // file this same OS user already controls, and (c) is deleted immediately after createAndSignCatalog
+    // consumes it - see the PFX handoff note in createAndTrustProvider() for why the store-based
+    // approach this replaced doesn't work at all on some CI runners.
+    private static String _pfxPassword(final String providerName)
+    {
+        try {
+            final MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+            final byte[] hash = sha256.digest( ("JxMake_WDI_PS1_PFX:" + providerName).getBytes(StandardCharsets.UTF_8) );
+            return Base64.getEncoder().encodeToString(hash);
+        }
+        catch(final NoSuchAlgorithmException e) {
+            // SHA-256 is always available on every JVM
+            throw new RuntimeException(e);
+        }
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     // Creates a self-signed certificate and installs it into Root and TrustedPublisher stores using system tools
     @Override
     public XCom.Pair<Integer, String> createAndTrustProvider(final String providerName)
     {
-        final Path certFile = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".cer" );
+        final Path   certFile = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".cer" );
+        // See the PFX handoff note below (just above the Export() line) for why this file exists at all -
+        // it deliberately outlives this method call, to be picked up by createAndSignCatalog() later, so
+        // it is NOT cleaned up in this method's own finally block below (unlike certFile). Delete any
+        // leftover one from a previous createAndTrustProvider() call that was never followed by a
+        // createAndSignCatalog() call, so it doesn't linger indefinitely holding a private key.
+        final Path   pfxFile  = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".pfx" );
+        final String pfxPwd   = _pfxPassword(providerName);
+
+        try {
+            Files.deleteIfExists(pfxFile);
+        }
+        catch(final Exception ignored) {}
 
         try {
 
@@ -146,18 +184,6 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "    $script = \"                                                                           \r\n" +
                 // Remove any certificate(s) already installed under this provider name before creating a new
                 // one, so repeated runs never accumulate duplicates.
-                //
-                // NOTE: this used to pass -DeleteKey on the CurrentUser\\My removal, to destroy the stale
-                // certificate's private key along with it (this backend's certificate is trusted machine-wide
-                // as both a Root CA and a Trusted Publisher, so no private key belonging to a stale
-                // certificate should be left recoverable). Live CI showed createAndSignCatalog()'s later,
-                // separately-elevated lookup of Cert:\\CurrentUser\\My started coming back completely empty
-                // only after -DeleteKey was introduced (see "OPEN - PS1.createAndSignCatalog" in
-                // WindowsDriverInstaller_FFM-Win32API.txt's Section G) - -DeleteKey is suspected of disturbing
-                // the on-disk per-profile certificate store in a way a plain Remove-Item does not, so it is
-                // dropped here pending a live CI run to confirm. This leaves a stale private key's CNG key
-                // container orphaned (not ideal) rather than destroyed; revisit once the actual mechanism is
-                // understood.
                 "        Get-ChildItem Cert:\\CurrentUser\\My |                                             \r\n" +
                 "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
                 "            Remove-Item -Force -ErrorAction SilentlyContinue;                              \r\n" +
@@ -170,6 +196,20 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert         `\r\n" +
                 "                     -CertStoreLocation 'Cert:\\CurrentUser\\My';                          \r\n" +
                 "                     Export-Certificate -Cert `$cert -FilePath '%s';                       \r\n" +
+                // PFX handoff: live CI proved Cert:\CurrentUser\My (a per-profile store) does not survive
+                // across two independent "Start-Process -Verb RunAs" elevations on this runner - a second,
+                // separately-elevated child process (createAndSignCatalog(), called later/independently)
+                // sees it as completely empty, even though Cert:\LocalMachine\Root/TrustedPublisher (both
+                // machine-wide, not per-profile) are consistently visible across the same two elevations.
+                // Removing -DeleteKey (an earlier fix attempt, since reverted) did not change this, so it
+                // is not the cause. Rather than rely on CurrentUser\My surviving across sessions at all,
+                // export the cert+private key here as a password-protected PFX to a %TEMP% file that
+                // createAndSignCatalog() reads back directly - the filesystem does not have this
+                // per-session-profile problem. The certificate is still also written to Cert:\CurrentUser\My
+                // above (consistent with prior behavior / other consumers), just no longer relied upon.
+                "                     `$pfxBytes = `$cert.Export(                                          `\r\n" +
+                "                         [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');\r\n" +
+                "                     [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                    \r\n" +
                 "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;           \r\n" +
                 "        certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append\r\n" +
                 "    \"                                                                                     \r\n" +
@@ -213,7 +253,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "}                                                                                          \r\n" +
                 "exit $exitCode                                                                             \r\n" ,
                 providerName, providerName, providerName, providerName, providerName,
-                certFile.toAbsolutePath(), certFile.toAbsolutePath(), certFile.toAbsolutePath(),
+                certFile.toAbsolutePath(), pfxPwd, pfxFile.toAbsolutePath(),
+                certFile.toAbsolutePath(), certFile.toAbsolutePath(),
                 RETCODE_PH_NULL, RETCODE_UAC_DECLINED, RETCODE_EXCEPTION
             );
 
@@ -246,12 +287,16 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
     public XCom.Pair<Integer, String> createAndSignCatalog(final String infPath, final String providerName)
     {
         // Catalog file must usually be in the same folder as INF
-        final String catPath = infPath.substring( 0, infPath.lastIndexOf('.') ) + ".cat";
+        final String catPath  = infPath.substring( 0, infPath.lastIndexOf('.') ) + ".cat";
+        final Path    pfxFile = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".pfx" );
+        final String  pfxPwd  = _pfxPassword(providerName);
 
         try {
 
             // This PowerShell script:
-            //     1. Locates the certificate we created earlier in the Personal store
+            //     1. Loads the certificate createAndTrustProvider() exported to a PFX file (see the
+            //        PFX handoff note there for why - Cert:\CurrentUser\My itself is not read here at
+            //        all, since it does not reliably survive across two independently-elevated sessions)
             //     2. Uses New-FileCatalog to generate a Windows Catalog (v2.0) from the INF
             //     3. Uses Set-AuthenticodeSignature to sign that Catalog
             // All signing steps run in a UAC-elevated child process via Start-Process -Verb RunAs
@@ -270,31 +315,14 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // $tmpOutLog empty - the outer try/catch around Start-Process below only ever sees the
                 // *launch* of the elevated process, never errors occurring inside it.
                 "        try {                                                                                      \r\n" +
-                "            `$cert = Get-ChildItem Cert:\\CurrentUser\\My |                                        \r\n" +
-                "                Where-Object { `$_.Subject -like '*CN=%s*' } |                                     \r\n" +
-                "                Select-Object -First 1;                                                            \r\n" +
-                // Diagnostic added because "Certificate not found" alone gave no way to tell whether
-                // Cert:\CurrentUser\My was empty from this elevated child's point of view, or non-empty
-                // but missing our cert (a subject-string mismatch) - see "OPEN - PS1.createAndSignCatalog"
-                // in WindowsDriverInstaller_FFM-Win32API.txt's Section G for the still-unexplained
-                // symptom this is meant to pin down on the next CI run.
-                "            if(-not `$cert) {                                                                      \r\n" +
-                "                `$dump = (Get-ChildItem Cert:\\CurrentUser\\My |                                   \r\n" +
-                "                    Select-Object Subject,Thumbprint | Format-Table | Out-String);                 \r\n" +
-                "                throw ('Certificate not found. Cert:\\CurrentUser\\My contains: [' + `$dump + ']');\r\n" +
+                "            if(-not (Test-Path '%s')) {                                                            \r\n" +
+                "                throw 'PFX not found at %s';                                                       \r\n" +
                 "            };                                                                                     \r\n" +
+                "            `$cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(       `\r\n" +
+                "                '%s', '%s');                                                                       \r\n" +
                 "            New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;                  \r\n" +
                 "            Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 |   \r\n" +
                 "                Out-File `\"$tmpOutLog`\";                                                         \r\n" +
-                // The private key is only ever needed to produce this one signature, so this used to destroy
-                // it immediately afterward via -DeleteKey (even though this certificate remains trusted
-                // machine-wide as both a Root CA and a Trusted Publisher, so no private key belonging to it
-                // should be left recoverable). Dropped for now - see the matching note in
-                // createAndTrustProvider() above; -DeleteKey anywhere in this backend is suspected of being
-                // why Cert:\\CurrentUser\\My comes back empty when a later, separately-elevated child looks
-                // for the certificate this method itself needs to sign with. The public certificate itself is
-                // left untouched in every store either way, so anything already signed with it (including the
-                // catalog just produced) continues to verify correctly.
                 "        }                                                                                          \r\n" +
                 "        catch {                                                                                    \r\n" +
                 "            `$_.Exception.Message | Out-File `\"$tmpOutLog`\" -Append;                             \r\n" +
@@ -329,7 +357,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                                    \r\n" +
                 "}                                                                                                  \r\n" +
                 "exit $exitCode                                                                                     \r\n",
-                providerName, providerName,
+                providerName,
+                pfxFile.toAbsolutePath(), pfxFile.toAbsolutePath(), pfxFile.toAbsolutePath(), pfxPwd,
                 infPath, catPath, catPath,
                 RETCODE_PH_NULL, RETCODE_UAC_DECLINED, RETCODE_EXCEPTION
             );
@@ -346,6 +375,13 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Return error
             return new XCom.Pair<Integer, String>( RETCODE_EXCEPTION, e.toString() );
+        }
+        finally {
+            // Clean up the temporary PFX file createAndTrustProvider() left behind for us to read
+            try {
+                Files.deleteIfExists(pfxFile);
+            }
+            catch(final Exception ignored) {}
         }
     }
 

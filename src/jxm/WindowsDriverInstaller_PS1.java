@@ -178,24 +178,24 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
             // Generate Self-Signed Cert via PowerShell, then install to Root and TrustedPublisher
             // via a UAC-elevated child process spawned with Start-Process -Verb RunAs
             final String psCommand = String.format(
-                "$tmpOutLog = \"$env:TEMP\\cert_trust_%s_$PID.log\"                                         \r\n" +
-                "$exitCode  = 0                                                                             \r\n" +
-                "try {                                                                                      \r\n" +
-                "    $script = \"                                                                           \r\n" +
+                "$tmpOutLog = \"$env:TEMP\\cert_trust_%s_$PID.log\"                                                   \r\n" +
+                "$exitCode  = 0                                                                                       \r\n" +
+                "try {                                                                                                \r\n" +
+                "    $script = \"                                                                                     \r\n" +
                 // Remove any certificate(s) already installed under this provider name before creating a new
                 // one, so repeated runs never accumulate duplicates.
-                "        Get-ChildItem Cert:\\CurrentUser\\My |                                             \r\n" +
-                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
-                "            Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                   \r\n" +
-                "        Get-ChildItem Cert:\\LocalMachine\\Root |                                          \r\n" +
-                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
-                "            Remove-Item -Force -ErrorAction SilentlyContinue;                              \r\n" +
-                "        Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                              \r\n" +
-                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
-                "            Remove-Item -Force -ErrorAction SilentlyContinue;                              \r\n" +
-                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert         `\r\n" +
-                "                     -CertStoreLocation 'Cert:\\CurrentUser\\My';                          \r\n" +
-                "                     Export-Certificate -Cert `$cert -FilePath '%s';                       \r\n" +
+                "        Get-ChildItem Cert:\\CurrentUser\\My |                                                       \r\n" +
+                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                               \r\n" +
+                "            Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                             \r\n" +
+                "        Get-ChildItem Cert:\\LocalMachine\\Root |                                                    \r\n" +
+                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                               \r\n" +
+                "            Remove-Item -Force -ErrorAction SilentlyContinue;                                        \r\n" +
+                "        Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                                        \r\n" +
+                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                               \r\n" +
+                "            Remove-Item -Force -ErrorAction SilentlyContinue;                                        \r\n" +
+                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert                   `\r\n" +
+                "                     -CertStoreLocation 'Cert:\\CurrentUser\\My';                                    \r\n" +
+                "                     Export-Certificate -Cert `$cert -FilePath '%s';                                 \r\n" +
                 // PFX handoff: live CI proved Cert:\CurrentUser\My (a per-profile store) does not survive
                 // across two independent "Start-Process -Verb RunAs" elevations on this runner - a second,
                 // separately-elevated child process (createAndSignCatalog(), called later/independently)
@@ -214,13 +214,13 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // here - unlike the read attempted from a different session, this is a same-session
                 // delete of the object we just created, not a lookup across the broken cross-session
                 // boundary.
-                "                     `$pfxBytes = `$cert.Export(                                          `\r\n" +
+                "                     `$pfxBytes = `$cert.Export(                                                    `\r\n" +
                 "                         [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');\r\n" +
-                "                     [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                    \r\n" +
-                "                     `$cert | Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue; \r\n" +
-                "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;           \r\n" +
-                "        certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append\r\n" +
-                "    \"                                                                                     \r\n" +
+                "                     [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                              \r\n" +
+                "                     `$cert | Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;           \r\n" +
+                "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;                     \r\n" +
+                "        certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append          \r\n" +
+                "    \"                                                                                               \r\n" +
                 // Escaping $cert as `$cert above keeps it literal text for the elevated child script to parse -
                 // since $script is itself a double-quoted string built in THIS (outer, unelevated) process, an
                 // unescaped $cert would be interpolated immediately using the outer scope's value (undefined,
@@ -231,35 +231,35 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // silently breaks it too), each line here parses as its own top-level statement (the previous
                 // line was already a syntactically complete Start-Process invocation), and a line starting with
                 // "-ArgumentList" then fails as "The term '-ArgumentList' is not recognized..."
-                "    $processHandler = Start-Process -FilePath 'powershell.exe'                            `\r\n" +
-                "                          -ArgumentList \"-NoProfile -Command $script\"                   `\r\n" +
-                "                          -Verb RunAs -Wait -PassThru                                      \r\n" +
-                "    if($processHandler) {                                                                  \r\n" +
-                "        $exitCode = $processHandler.ExitCode                                               \r\n" +
-                "    }                                                                                      \r\n" +
-                "    else {                                                                                 \r\n" +
-                "        $exitCode = %d                                                                     \r\n" +
-                "    }                                                                                      \r\n" +
-                "}                                                                                          \r\n" +
+                "    $processHandler = Start-Process -FilePath 'powershell.exe'                                      `\r\n" +
+                "                          -ArgumentList \"-NoProfile -Command $script\"                             `\r\n" +
+                "                          -Verb RunAs -Wait -PassThru                                                \r\n" +
+                "    if($processHandler) {                                                                            \r\n" +
+                "        $exitCode = $processHandler.ExitCode                                                         \r\n" +
+                "    }                                                                                                \r\n" +
+                "    else {                                                                                           \r\n" +
+                "        $exitCode = %d                                                                               \r\n" +
+                "    }                                                                                                \r\n" +
+                "}                                                                                                    \r\n" +
                 // Distinguish an actual UAC decline (Win32 error 1223, ERROR_CANCELLED) from any other failure
                 // via the numeric NativeErrorCode rather than parsing $_.Exception.Message, since that text is
                 // localized to the user's OS UI language and cannot be matched reliably. The message itself is
                 // still emitted below (native-error-code-independent) so a non-UAC failure is diagnosable from
                 // the returned log text instead of coming back as an opaque exit code with no explanation.
-                "catch {                                                                                    \r\n" +
-                "    $nativeErr = $_.Exception.NativeErrorCode                                              \r\n" +
-                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                 \r\n" +
-                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                           \r\n" +
-                "    }                                                                                      \r\n" +
-                "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                 \r\n" +
-                "    Write-Output ($_.Exception.Message)                                                    \r\n" +
-                "}                                                                                          \r\n" +
-                "Start-Sleep -Milliseconds 100                                                              \r\n" +
-                "if(Test-Path $tmpOutLog) {                                                                 \r\n" +
-                "    Get-Content $tmpOutLog -Raw   -ErrorAction SilentlyContinue                            \r\n" +
-                "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                            \r\n" +
-                "}                                                                                          \r\n" +
-                "exit $exitCode                                                                             \r\n" ,
+                "catch {                                                                                              \r\n" +
+                "    $nativeErr = $_.Exception.NativeErrorCode                                                        \r\n" +
+                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                           \r\n" +
+                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                                     \r\n" +
+                "    }                                                                                                \r\n" +
+                "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                           \r\n" +
+                "    Write-Output ($_.Exception.Message)                                                              \r\n" +
+                "}                                                                                                    \r\n" +
+                "Start-Sleep -Milliseconds 100                                                                        \r\n" +
+                "if(Test-Path $tmpOutLog) {                                                                           \r\n" +
+                "    Get-Content $tmpOutLog -Raw   -ErrorAction SilentlyContinue                                      \r\n" +
+                "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                                      \r\n" +
+                "}                                                                                                    \r\n" +
+                "exit $exitCode                                                                                       \r\n" ,
                 providerName, providerName, providerName, providerName, providerName,
                 certFile.toAbsolutePath(), pfxPwd, pfxFile.toAbsolutePath(),
                 certFile.toAbsolutePath(), certFile.toAbsolutePath(),
@@ -309,62 +309,62 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
             //     3. Uses Set-AuthenticodeSignature to sign that Catalog
             // All signing steps run in a UAC-elevated child process via Start-Process -Verb RunAs
             final String psCommand = String.format(
-                "$tmpOutLog = \"$env:TEMP\\cat_sign_%s_$PID.log\"                                                   \r\n" +
-                "$exitCode  = 0                                                                                     \r\n" +
-                "try {                                                                                              \r\n" +
+                "$tmpOutLog = \"$env:TEMP\\cat_sign_%s_$PID.log\"                                                \r\n" +
+                "$exitCode  = 0                                                                                  \r\n" +
+                "try {                                                                                           \r\n" +
                 // See createAndTrustProvider() above for why $cert/$_ must be escaped as `$cert/`$_ here (to
                 // survive as literal text for the elevated child script instead of being interpolated now,
                 // in the outer/unelevated scope where they are undefined) and why the Start-Process/-ArgumentList
                 // continuation backticks below must have no trailing whitespace before the line break.
-                "    $script = \"                                                                                   \r\n" +
+                "    $script = \"                                                                                \r\n" +
                 // The New-FileCatalog/Set-AuthenticodeSignature steps are wrapped in their own try/catch
                 // here (inside the elevated child), since a terminating error from either would otherwise
                 // just exit the elevated powershell.exe with a bare, undiagnosable exit code (1) and leave
                 // $tmpOutLog empty - the outer try/catch around Start-Process below only ever sees the
                 // *launch* of the elevated process, never errors occurring inside it.
-                "        try {                                                                                      \r\n" +
-                "            if(-not (Test-Path '%s')) {                                                            \r\n" +
-                "                throw 'PFX not found at %s';                                                       \r\n" +
-                "            };                                                                                     \r\n" +
-                "            `$cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(       `\r\n" +
-                "                '%s', '%s');                                                                       \r\n" +
-                "            New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;                  \r\n" +
-                "            Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 |   \r\n" +
-                "                Out-File `\"$tmpOutLog`\";                                                         \r\n" +
-                "        }                                                                                          \r\n" +
-                "        catch {                                                                                    \r\n" +
-                "            `$_.Exception.Message | Out-File `\"$tmpOutLog`\" -Append;                             \r\n" +
-                "            exit 1;                                                                                \r\n" +
-                "        }                                                                                          \r\n" +
-                "    \"                                                                                             \r\n" +
+                "        try {                                                                                   \r\n" +
+                "            if(-not (Test-Path '%s')) {                                                         \r\n" +
+                "                throw 'PFX not found at %s';                                                    \r\n" +
+                "            };                                                                                  \r\n" +
+                "            `$cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(    `\r\n" +
+                "                '%s', '%s');                                                                    \r\n" +
+                "            New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;               \r\n" +
+                "            Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 |\r\n" +
+                "                Out-File `\"$tmpOutLog`\";                                                      \r\n" +
+                "        }                                                                                       \r\n" +
+                "        catch {                                                                                 \r\n" +
+                "            `$_.Exception.Message | Out-File `\"$tmpOutLog`\" -Append;                          \r\n" +
+                "            exit 1;                                                                             \r\n" +
+                "        }                                                                                       \r\n" +
+                "    \"                                                                                          \r\n" +
                 "    $processHandler = Start-Process -FilePath 'powershell.exe'                                 `\r\n" +
                 "                          -ArgumentList \"-NoProfile -Command $script\"                        `\r\n" +
-                "                          -Verb RunAs -Wait -PassThru                                              \r\n" +
-                "    if($processHandler) {                                                                          \r\n" +
-                "        $exitCode = $processHandler.ExitCode                                                       \r\n" +
-                "    }                                                                                              \r\n" +
-                "    else {                                                                                         \r\n" +
-                "        $exitCode = %d                                                                             \r\n" +
-                "    }                                                                                              \r\n" +
-                "}                                                                                                  \r\n" +
+                "                          -Verb RunAs -Wait -PassThru                                           \r\n" +
+                "    if($processHandler) {                                                                       \r\n" +
+                "        $exitCode = $processHandler.ExitCode                                                    \r\n" +
+                "    }                                                                                           \r\n" +
+                "    else {                                                                                      \r\n" +
+                "        $exitCode = %d                                                                          \r\n" +
+                "    }                                                                                           \r\n" +
+                "}                                                                                               \r\n" +
                 // See createAndTrustProvider() above: use the numeric NativeErrorCode (1223 = ERROR_CANCELLED,
                 // i.e. the user declined UAC), not the exception text, since that text is locale-dependent. The
                 // message itself is still emitted below so a non-UAC failure is diagnosable from the returned log
                 // text instead of coming back as an opaque exit code with no explanation.
-                "catch {                                                                                            \r\n" +
-                "    $nativeErr = $_.Exception.NativeErrorCode                                                      \r\n" +
-                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                         \r\n" +
-                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                                   \r\n" +
-                "    }                                                                                              \r\n" +
-                "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                         \r\n" +
-                "    Write-Output ($_.Exception.Message)                                                            \r\n" +
-                "}                                                                                                  \r\n" +
-                "Start-Sleep -Milliseconds 100                                                                      \r\n" +
-                "if(Test-Path $tmpOutLog) {                                                                         \r\n" +
-                "    Get-Content $tmpOutLog -Raw   -ErrorAction SilentlyContinue                                    \r\n" +
-                "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                                    \r\n" +
-                "}                                                                                                  \r\n" +
-                "exit $exitCode                                                                                     \r\n",
+                "catch {                                                                                         \r\n" +
+                "    $nativeErr = $_.Exception.NativeErrorCode                                                   \r\n" +
+                "    if(-not $nativeErr -and $_.Exception.InnerException) {                                      \r\n" +
+                "        $nativeErr = $_.Exception.InnerException.NativeErrorCode                                \r\n" +
+                "    }                                                                                           \r\n" +
+                "    $exitCode = if($nativeErr -eq 1223) { %d } else { %d }                                      \r\n" +
+                "    Write-Output ($_.Exception.Message)                                                         \r\n" +
+                "}                                                                                               \r\n" +
+                "Start-Sleep -Milliseconds 100                                                                   \r\n" +
+                "if(Test-Path $tmpOutLog) {                                                                      \r\n" +
+                "    Get-Content $tmpOutLog -Raw   -ErrorAction SilentlyContinue                                 \r\n" +
+                "    Remove-Item $tmpOutLog -Force -ErrorAction SilentlyContinue                                 \r\n" +
+                "}                                                                                               \r\n" +
+                "exit $exitCode                                                                                  \r\n",
                 providerName,
                 pfxFile.toAbsolutePath(), pfxFile.toAbsolutePath(), pfxFile.toAbsolutePath(), pfxPwd,
                 infPath, catPath, catPath,

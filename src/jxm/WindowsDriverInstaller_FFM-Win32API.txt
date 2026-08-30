@@ -1608,5 +1608,9 @@ its pre-existing stale-cleanup step at the top of the same method (defense in de
 that crashed mid-way). This is a different code path from the earlier, reverted -DeleteKey removal
 (fix attempt 1 above) - that regression was about a cross-session READ that never worked in the
 first place; this is a same-session DELETE of an object the session just created, which was never
-part of the broken mechanism. Believed safe without further CI verification, but not yet explicitly
-confirmed by a run against this exact commit.
+part of the broken mechanism.
+
+RECONFIRMED (live CI, 2026-08-30, with cbe4ab4 included): same end-to-end success as the previous
+run - createAndTrustProvider -> createAndSignCatalog -> installDriver all succeeded, pnputil
+reporting "Driver package added successfully." The -DeleteKey restoration did not regress anything.
+Item 2 is fully DONE.

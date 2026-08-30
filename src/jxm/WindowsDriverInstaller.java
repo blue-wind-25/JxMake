@@ -452,9 +452,11 @@ public abstract class WindowsDriverInstaller {
  *    createAndTrustProvider's own elevated session immediately after the PFX export, plus its
  *    stale-cleanup step at the method's top) - never a cross-session read, which was the actually-
  *    broken path attempt 1 disproved. Addresses two concerns raised by the user: certs no longer
- *    accumulate in the store across runs, and the private key can't be reused after one use. Believed
- *    safe without further CI verification since it doesn't touch the broken cross-session mechanism,
- *    but not yet explicitly confirmed by a run against this exact commit.
+ *    accumulate in the store across runs, and the private key can't be reused after one use.
+ *
+ *    RECONFIRMED (live CI, 2026-08-30, with cbe4ab4 included): same end-to-end success as above -
+ *    createAndTrustProvider -> createAndSignCatalog -> installDriver all succeeded. The -DeleteKey
+ *    restoration did not regress anything. Item 2 is fully DONE.
  *
  * 3. DONE (2026-08-30, commit 927b5ed): right-aligned every `\r\n" +` line terminator within each
  *    multi-line String.format(...)/concat block in WindowsDriverInstaller_PS1.java. Continuation

@@ -974,6 +974,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 final StringBuilder hexTag    = new StringBuilder(hashBytes.length * 2);
                 for(final byte b : hashBytes) hexTag.append( String.format("%02X", b) );
 
+                // Diagnostic only (see WindowsDriverInstaller_FFM-Win32API.txt SECTION H "ITEM 5"):
+                // SPAPI_E_FILE_HASH_NOT_IN_CATALOG persisted after removing OSAttr, so the next live CI
+                // run needs to show the actual computed hash/size to tell a garbage hash (e.g. the
+                // well-known SHA-256-of-zero-bytes digest, which would point at a
+                // CryptCATAdminCalcHashFromFileHandle2 file-handle/read-position bug) apart from a
+                // plausible hash that simply isn't what SetupCopyOEMInfW's own re-hash produces
+                log.append("[diag] INF hash: cbHash=").append(cbHash).append(" hexTag=").append(hexTag).append("; ");
+
                 // 2. Determine the SIP subject GUID for this file - fall back to DRIVER_ACTION_VERIFY on failure
                 final MemorySegment subjectGuid = arena.allocate(16, 4);
                 if( (int) _CryptSIPRetrieveSubjectGuid.invoke(_wstr(arena, infPath), hInfFile, subjectGuid) == 0 ) {

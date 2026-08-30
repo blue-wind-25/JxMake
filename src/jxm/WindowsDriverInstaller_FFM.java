@@ -102,6 +102,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptCATAdminReleaseContext;
     private static MethodHandle _CryptCATAdminAddCatalog;
     private static MethodHandle _CryptCATAdminReleaseCatalogContext;
+    private static MethodHandle _CryptCATAdminEnumCatalogFromHash;
+    private static MethodHandle _CryptCATCatalogInfoFromContext;
     private static MethodHandle _CryptCATOpen;
     private static MethodHandle _CryptCATClose;
     private static MethodHandle _CryptCATPersistStore;
@@ -171,6 +173,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CryptCATAdminReleaseContext          = _bind( linker, wintrust, "CryptCATAdminReleaseContext"         , FunctionDescriptor.of(DW , PTR, DW) );
             _CryptCATAdminAddCatalog              = _bind( linker, wintrust, "CryptCATAdminAddCatalog"             , FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW) );
             _CryptCATAdminReleaseCatalogContext   = _bind( linker, wintrust, "CryptCATAdminReleaseCatalogContext"  , FunctionDescriptor.of(DW , PTR, PTR, DW) );
+            // Diagnostic-only (see _diagCatalogLookup): queries the catalog database directly, the same
+            // way SetupCopyOEMInfW's internal hash check ultimately does, to isolate a missing/wrong
+            // database entry from a rejection SetupCopyOEMInfW makes for some other reason.
+            _CryptCATAdminEnumCatalogFromHash     = _bind( linker, wintrust, "CryptCATAdminEnumCatalogFromHash"    , FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR) );
+            _CryptCATCatalogInfoFromContext       = _bind( linker, wintrust, "CryptCATCatalogInfoFromContext"      , FunctionDescriptor.of(DW , PTR, PTR, DW) );
             _CryptCATOpen                         = _bind( linker, wintrust, "CryptCATOpen"                        , FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW) );
             _CryptCATClose                        = _bind( linker, wintrust, "CryptCATClose"                       , FunctionDescriptor.of(DW , PTR) );
             _CryptCATPersistStore                 = _bind( linker, wintrust, "CryptCATPersistStore"                , FunctionDescriptor.of(DW , PTR) );
@@ -951,6 +958,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final String catPath  = infPath.substring( 0, infPath.lastIndexOf('.') ) + ".cat";
             final String fileName = Paths.get(infPath).getFileName().toString();
 
+            // Saved off per-algorithm so _diagCatalogLookup (called much further down, after signing and
+            // database registration) can re-query the catalog database with the exact same hash bytes -
+            // these MemorySegments are arena-allocated so they stay valid past hInfFile's own close.
+            final MemorySegment[] savedHash    = new MemorySegment[CATALOG_HASH_ALGS.length];
+            final int[]           savedHashLen = new int[CATALOG_HASH_ALGS.length];
+
             // 1. Open the INF and, once, encode the SIP-indirect "SPC_LINK" placeholder every member
             //    below shares - it doesn't depend on the hash/algorithm, only on there being a
             //    non-PE/CAB subject file at all
@@ -1032,6 +1045,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                             for(final byte b : hashBytes) hexTag.append( String.format("%02X", b) );
 
                             log.append("[diag] INF hash (").append(algName).append("): cbHash=").append(cbHash).append(" hexTag=").append(hexTag).append("; ");
+                            savedHash[alg]    = hashBuf;
+                            savedHashLen[alg] = cbHash;
 
                             // SIP_INDIRECT_DATA : { CRYPT_ATTRIBUTE_TYPE_VALUE Data; CRYPT_ALGORITHM_IDENTIFIER DigestAlgorithm;
                             //                       CRYPT_HASH_BLOB Digest; } - size 64, align 8 (three {ptr/DWORD-and-pad,ptr}
@@ -1138,7 +1153,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     //    prior round still hit SPAPI_E_FILE_HASH_NOT_IN_CATALOG even once the catalog itself
                     //    was hashed/signed correctly - see WindowsDriverInstaller_FFM-Win32API.txt SECTION H
                     //    "ITEM 6".
-                    return _addCatalogToDatabase(arena, catPath, log);
+                    final int addRc = _addCatalogToDatabase(arena, catPath, log);
+                    if(addRc != RETCODE_OK) return addRc;
+
+                    // Diagnostic only, does not affect the return code: independently ask Windows's own
+                    // catalog-database lookup (CryptCATAdminEnumCatalogFromHash - the same API
+                    // SetupCopyOEMInfW's internal hash check ultimately calls) whether it can find our
+                    // freshly-registered hash, for each algorithm. Isolates "the catalog DB entry itself
+                    // is missing/wrong" from "the DB entry is fine but SetupCopyOEMInfW rejects it for an
+                    // unrelated reason (e.g. signature trust)" - see SECTION H "ITEM 9".
+                    for(int alg = 0; alg < CATALOG_HASH_ALGS.length; ++alg) {
+                        _diagCatalogLookup(arena, CATALOG_HASH_ALGS[alg], savedHash[alg], savedHashLen[alg], log);
+                    }
+                    return RETCODE_OK;
                 }
                 finally {
                     _CertFreeCertificateContext.invoke(signingCert);
@@ -1187,6 +1214,58 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             }
             _CryptCATAdminReleaseCatalogContext.invoke(hCatAdmin, hCatInfo, 0);
             return RETCODE_OK;
+        }
+        finally {
+            _CryptCATAdminReleaseContext.invoke(hCatAdmin, 0);
+        }
+    }
+
+    // Diagnostic helper (see call site's comment) - queries the catalog database directly via
+    // CryptCATAdminEnumCatalogFromHash for the given hash/algorithm, logging whether a catalog was
+    // found and, if so, which .cat file it points at. Never returns a failure code: any error here
+    // is logged and swallowed so it can never mask/replace the real result of catalog creation.
+    private static void _diagCatalogLookup(final Arena arena, final String algName, final MemorySegment hashBuf, final int cbHash, final StringBuilder log) throws Throwable
+    {
+        final MemorySegment hCatAdminOut = arena.allocate(PTR);
+        if( (int) _CryptCATAdminAcquireContext2.invoke(hCatAdminOut, _guid(arena, DRIVER_ACTION_VERIFY_PARTS), _wstr(arena, algName), MemorySegment.NULL, 0) == 0 ) {
+            log.append("[diag] CryptCATAdminAcquireContext2(lookup,").append(algName).append(") failed, GetLastError=").append( _lastError() ).append("; ");
+            return;
+        }
+        final MemorySegment hCatAdmin = hCatAdminOut.get(PTR, 0);
+
+        try {
+            final MemorySegment hCatInfo = (MemorySegment) _CryptCATAdminEnumCatalogFromHash.invoke(
+                hCatAdmin, hashBuf, cbHash, 0, MemorySegment.NULL
+            );
+            if(hCatInfo == null || hCatInfo.address() == 0L) {
+                log.append("[diag] CryptCATAdminEnumCatalogFromHash(").append(algName).append("): NOT FOUND, GetLastError=").append( _lastError() ).append("; ");
+                return;
+            }
+
+            try {
+                // CATALOG_INFO : { DWORD cbStruct; WCHAR wszCatalogFile[MAX_PATH]; } - size 4 + 2*MAX_PATH,
+                // rounded up to 8-byte alignment since it's passed by pointer only
+                final MemorySegment catInfo = arena.allocate(8 + 2L * MAX_PATH, 8);
+                catInfo.set(ValueLayout.JAVA_INT, 0, (int) catInfo.byteSize());
+                if( (int) _CryptCATCatalogInfoFromContext.invoke(hCatInfo, catInfo, 0) != 0 ) {
+                    final short[] chars = catInfo.asSlice(8, 2L * MAX_PATH).toArray(ValueLayout.JAVA_SHORT);
+                    int           nul   = 0;
+                    while(nul < chars.length && chars[nul] != 0) nul++;
+                    final byte[] utf16Bytes = new byte[nul * 2];
+                    for(int i = 0; i < nul; ++i) {
+                        utf16Bytes[2 * i]     = (byte) (chars[i] & 0xFF);
+                        utf16Bytes[2 * i + 1] = (byte) (chars[i] >> 8);
+                    }
+                    final String matchedCat = new String(utf16Bytes, java.nio.charset.StandardCharsets.UTF_16LE);
+                    log.append("[diag] CryptCATAdminEnumCatalogFromHash(").append(algName).append("): FOUND, catalog=").append(matchedCat).append("; ");
+                }
+                else {
+                    log.append("[diag] CryptCATAdminEnumCatalogFromHash(").append(algName).append("): FOUND (catalog name unavailable); ");
+                }
+            }
+            finally {
+                _CryptCATAdminReleaseCatalogContext.invoke(hCatAdmin, hCatInfo, 0);
+            }
         }
         finally {
             _CryptCATAdminReleaseContext.invoke(hCatAdmin, 0);
@@ -1366,13 +1445,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         ) {
             // CM_WaitNoPendingInstallEvents(dwTimeout) : blocks until the PnP manager reports no
             // install activity pending, or dwTimeout milliseconds elapse - whichever comes first.
-            // Returns nonzero (WAIT_OBJECT_0) if satisfied, 0 (WAIT_TIMEOUT) on timeout. A finite
-            // timeout is used (not INFINITE) so a stuck concurrent installer elsewhere on the
+            // Returns 0 (WAIT_OBJECT_0) if satisfied, nonzero (WAIT_TIMEOUT=0x102, or WAIT_FAILED=
+            // 0xFFFFFFFF) on timeout/failure - the standard Win32 wait-function convention. (Earlier
+            // revision of this comment/check had this backwards, which mislabeled the success case
+            // as a timeout - see SECTION H "ITEM 8" in WindowsDriverInstaller_FFM-Win32API.txt.) A
+            // finite timeout is used (not INFINITE) so a stuck concurrent installer elsewhere on the
             // machine cannot reintroduce the same kind of indefinite hang this guard exists to
             // avoid; a timeout here is logged but does not abort the SetupCopyOEMInfW call below,
             // since SetupCopyOEMInfW itself was never the call observed to hang.
             final int waitResult = (int) _CM_WaitNoPendingInstallEvents.invoke(60_000);
-            if(waitResult == 0) {
+            if(waitResult != 0) {
                 log.append("CM_WaitNoPendingInstallEvents timed out after 60000ms - proceeding anyway\n");
             }
 

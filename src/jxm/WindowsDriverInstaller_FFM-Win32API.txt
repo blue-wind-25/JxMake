@@ -889,7 +889,53 @@ Purpose      : Releases the HCATINFO handle returned by CryptCATAdminAddCatalog 
                CryptCATAdminEnumCatalogFromHash).
 
 FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Called with flags=0 immediately after a
-               successful `CryptCATAdminAddCatalog` in `_addCatalogToDatabase`.
+               successful `CryptCATAdminAddCatalog` in `_addCatalogToDatabase`, and again after a
+               successful `CryptCATAdminEnumCatalogFromHash` in `_diagCatalogLookup`.
+
+----------------------------------------------------------------------------------------------------
+CryptCATAdminEnumCatalogFromHash
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminenumcatalogfromhash
+
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatAdmin (HCATADMIN), pbHash (BYTE*), cbHash (DWORD), dwFlags (DWORD),
+               phPrevCatInfo (HCATINFO*, optional - pass NULL/omit to get the first/only match)
+Return value : HCATINFO handle on success (a catalog containing this hash was found in the database),
+               NULL on failure/not-found.
+Purpose      : Looks up the catalog database directly by file hash - the same database
+               CryptCATAdminAddCatalog registers into, and understood to be the same one
+               SetupCopyOEMInfW's own internal hash check ultimately consults.
+
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR)`. Diagnostic-only, added in
+               `_diagCatalogLookup` (SECTION H "ITEM 9") to independently verify whether a hash this
+               backend just registered is actually visible to a standalone database lookup -
+               isolating "the database entry is missing/wrong" from "the entry is fine but
+               SetupCopyOEMInfW rejects it for an unrelated reason". Called once per hash algorithm,
+               with `phPrevCatInfo=NULL` (this backend never needs to enumerate past the first
+               match). The returned `HCATINFO` is released via `CryptCATAdminReleaseCatalogContext`.
+
+----------------------------------------------------------------------------------------------------
+CryptCATCatalogInfoFromContext
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatcataloginfofromcontext
+
+DLL          : Wintrust.dll
+Header       : mscat.h
+
+Parameters   : hCatInfo (HCATINFO), psCatInfo (CATALOG_INFO*), dwFlags (DWORD)
+Return value : BOOL
+Purpose      : Retrieves the CATALOG_INFO (in practice, just the full path of the .cat file) for an
+               HCATINFO handle obtained from CryptCATAdminAddCatalog/CryptCATAdminEnumCatalogFromHash.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Diagnostic-only, used in
+               `_diagCatalogLookup` to log which physical .cat file a successful
+               `CryptCATAdminEnumCatalogFromHash` match points at (useful in case an unrelated, stale
+               catalog from an earlier test run happens to be the one satisfying the lookup, not the
+               one just created). `CATALOG_INFO { DWORD cbStruct; WCHAR wszCatalogFile[MAX_PATH]; }` -
+               `cbStruct` must be pre-filled with the struct's own size before the call, per
+               Microsoft's documented convention for this pattern.
 
 ----------------------------------------------------------------------------------------------------
 CryptCATOpen
@@ -1876,8 +1922,38 @@ content-correct fix attempts. Fixed by changing both parameters in the `CryptCAT
 inside `_elevatedCreateAndSignCatalog`'s per-algorithm loop: `pwszFileName` -> `MemorySegment.NULL`,
 `dwCertVersion` -> `CRYPTCAT_VERSION_2` (new constant, `0x200`). This is RECONSTRUCTED / INFERRED,
 not `- VERIFIED`, since it is based on matching a proven-working reference call shape rather than an
-official Microsoft source that documents `dwCertVersion`'s required value. Not yet confirmed on live
-CI.
+official Microsoft source that documents `dwCertVersion`'s required value. CONFIRMED FAILED on the
+next live CI run: the identical GetLastError()=0xE000024B recurred yet again. Four consecutive
+rounds (ITEM 4-7: OSAttr removal, dual-hash members, database registration, member calling
+convention) have now each independently ruled out a different catalog-content/structure hypothesis
+with zero variation in the error - strongly suggesting the actual defect lies outside the catalog
+itself, somewhere in the signing/trust/lookup chain SetupCopyOEMInfW walks. Not yet re-diagnosed.
+
+ITEM 8 - While investigating ITEM 7's failure, the user separately noticed that this backend's
+"CM_WaitNoPendingInstallEvents timed out after 60000ms" log line appeared to print instantaneously
+rather than after an actual 60-second wait. Root cause: the wait-result check in
+`_elevatedInstallDriver` was inverted. `CMP_WaitNoPendingInstallEvents` follows the standard Win32
+wait-function convention - 0 (WAIT_OBJECT_0) means satisfied/success, nonzero (WAIT_TIMEOUT=0x102 or
+WAIT_FAILED) means timeout/failure - but the check read `if(waitResult == 0) log "timed out"`,
+mislabeling every immediate success (no pending installs, the overwhelmingly common case on a fresh
+CI VM) as a timeout. Fixed by flipping the check to `if(waitResult != 0)`. This is a real,
+independent log-message bug - harmless to installDriver's actual behavior, since a timeout here was
+never aborting anything either way - but unrelated to the SPAPI_E_FILE_HASH_NOT_IN_CATALOG failure.
+Not yet confirmed on live CI (the corrected log line should now read differently on the next run).
+
+ITEM 9 - After ITEM 7's fix was also confirmed ineffective, with four consecutive rounds (ITEM 4-7)
+each ruling out a different catalog-content/structure hypothesis with zero variation in the error,
+added a diagnostic (not a fix) to distinguish "the catalog database entry is itself missing/wrong"
+from "the database entry is fine but SetupCopyOEMInfW rejects it for some other reason (e.g.
+certificate trust)". `_diagCatalogLookup` calls `CryptCATAdminEnumCatalogFromHash` - the same
+catalog-database lookup API `SetupCopyOEMInfW`'s own internal hash check is understood to ultimately
+consult - directly, once per hash algorithm, using the exact hash bytes already computed and written
+into the catalog earlier in `_elevatedCreateAndSignCatalog`. Called from that function right after
+`_addCatalogToDatabase` succeeds, logging FOUND (plus the matched .cat file's path via
+`CryptCATCatalogInfoFromContext`) or NOT FOUND for each algorithm. This never changes the function's
+return code - a lookup failure here is only ever logged, never propagated - so it cannot mask or
+alter the real createAndSignCatalog result. New bindings: `CryptCATAdminEnumCatalogFromHash`,
+`CryptCATCatalogInfoFromContext`. Not yet run on live CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

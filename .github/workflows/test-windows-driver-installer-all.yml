@@ -51,11 +51,11 @@ jobs:
       run_mutating: true
 
   # 4. Run the Auto test after FFM passes
-  #run-auto:
-  #  name: Test Auto Backend
-  #  needs: [build-jar, run-ffm]
-  #  if: github.actor == 'blue-wind-25'
-  #  uses: ./.github/workflows/test-windows-driver-installer-core.yml
-  #  with:
-  #    backend: auto
-  #    run_mutating: true
+  run-auto:
+    name: Test Auto Backend
+    needs: [build-jar, run-ffm]
+    if: github.actor == 'blue-wind-25'
+    uses: ./.github/workflows/test-windows-driver-installer-core.yml
+    with:
+      backend: auto
+      run_mutating: true

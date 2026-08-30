@@ -45,8 +45,18 @@
 # actual filename (should be NULL; the filename is conveyed via the separate "File" attribute) and
 # dwCertVersion set to 0 (should be CRYPTCAT_VERSION_2/0x200, matching the catalog's own CryptCATOpen
 # version) - found by comparing this call's parameters against a proven-working reference
-# implementation's equivalent call. Fixed by correcting both parameters (SECTION H "ITEM 7"). Not yet
-# confirmed on a live CI run - this workflow dispatch is how that gets exercised.
+# implementation's equivalent call. Fixed by correcting both parameters (SECTION H "ITEM 7") was ALSO
+# confirmed failed by the run after that - identical error yet again. Four consecutive rounds have now
+# each independently ruled out a different catalog-content/structure hypothesis with zero variation in
+# the error, suggesting the defect lies outside the catalog itself; not yet re-diagnosed. Separately,
+# the user noticed the "CM_WaitNoPendingInstallEvents timed out" log line was printing instantaneously
+# - its wait-result check was inverted (0/WAIT_OBJECT_0 is success, not timeout) and has been fixed
+# (SECTION H "ITEM 8"); unrelated to the catalog failure. Also added a diagnostic (not a fix) -
+# _diagCatalogLookup calls CryptCATAdminEnumCatalogFromHash directly (the same catalog-database lookup
+# API SetupCopyOEMInfW's own hash check is understood to consult) right after registration succeeds,
+# to tell apart "the database entry is itself missing/wrong" from "the entry is fine but
+# SetupCopyOEMInfW rejects it for some other reason" (SECTION H "ITEM 9"). Not yet confirmed on a live
+# CI run - this workflow dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

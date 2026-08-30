@@ -22,8 +22,11 @@
 # SetupCopyOEMInfW itself hanging the same way pnputil.exe used to (root-caused by manual bisection
 # to interactive UI SetupCopyOEMInfW can raise, with nothing to dismiss it on a headless runner) -
 # fixed by calling SetupSetNonInteractiveMode(TRUE) immediately beforehand (see SECTION H "ITEM 2"
-# in WindowsDriverInstaller_FFM-Win32API.txt). Not yet confirmed on a live CI run - this workflow
-# dispatch is how that gets exercised.
+# in WindowsDriverInstaller_FFM-Win32API.txt). The next live CI run no longer hung, but
+# SetupCopyOEMInfW returned FALSE with a bogus GetLastError()=0 - fixed by binding it with
+# Linker.Option.captureCallState("GetLastError") instead of a separate, later GetLastError()
+# downcall, which is unreliable for a call this long-running (see SECTION H "ITEM 3"). Not yet
+# confirmed on a live CI run - this workflow dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

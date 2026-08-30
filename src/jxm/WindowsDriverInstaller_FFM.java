@@ -14,7 +14,9 @@ import java.io.IOException;
 import java.lang.foreign.AddressLayout;
 import java.lang.foreign.Arena;
 import java.lang.foreign.FunctionDescriptor;
+import java.lang.foreign.GroupLayout;
 import java.lang.foreign.Linker;
+import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
 import java.lang.foreign.ValueLayout;
@@ -179,7 +181,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // device (installDriver's case: the CI/normal use here is "make this driver available for
             // whenever a matching device is plugged in", not "install onto a device that's already
             // attached").
-            _SetupCopyOEMInfW = _bind( linker, setupapi, "SetupCopyOEMInfW", FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR) );
+            // Bound with Linker.Option.captureCallState("GetLastError") : GetLastError() is thread-local
+            // (Win32 TLS), and this call does real file I/O to %windir%\Inf that can run long enough for
+            // the JVM to intervene (e.g. a GC/safepoint poll invoking its own Win32 APIs on this same OS
+            // thread) between this downcall returning and a separate, later GetLastError() downcall -
+            // silently clobbering the value (a live CI run showed exactly this: BOOL FALSE returned, but
+            // a follow-up GetLastError() read back 0, which Win32 never does for a genuine failure).
+            // captureCallState atomically snapshots GetLastError as part of this same downcall, before
+            // the JVM gets a chance to run anything else - see _CAPTURE_STATE_LAYOUT/_lastCapturedError()
+            // below and WindowsDriverInstaller_FFM-Win32API.txt SECTION H.
+            _SetupCopyOEMInfW = _bind( linker, setupapi, "SetupCopyOEMInfW", FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR), Linker.Option.captureCallState("GetLastError") );
 
             // Setupapi.dll (setupapi.h) - suppresses SetupAPI's ability to show interactive UI (e.g. an
             // unverified-publisher/unsigned-driver confirmation dialog) in the caller's context. Called
@@ -213,6 +224,21 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static MethodHandle _bind(final Linker linker, final SymbolLookup lib, final String name, final FunctionDescriptor fd)
     { return linker.downcallHandle( lib.find(name).orElseThrow( () -> new UnsatisfiedLinkError(name) ), fd ); }
+
+    private static MethodHandle _bind(final Linker linker, final SymbolLookup lib, final String name, final FunctionDescriptor fd, final Linker.Option... options)
+    { return linker.downcallHandle( lib.find(name).orElseThrow( () -> new UnsatisfiedLinkError(name) ), fd, options ); }
+
+    // Layout of the call-state segment produced by Linker.Option.captureCallState("GetLastError") -
+    // a downcall handle bound with that option takes this as an extra, prepended MemorySegment
+    // argument (allocate one per call via Linker.Option.captureStateLayout()).
+    private static final GroupLayout _CAPTURE_STATE_LAYOUT = Linker.Option.captureStateLayout();
+
+    private static int _capturedLastError(final MemorySegment captureState)
+    {
+        return (int) _CAPTURE_STATE_LAYOUT
+            .varHandle( MemoryLayout.PathElement.groupElement("GetLastError") )
+            .get(captureState, 0L);
+    }
 
     // Diagnostic-only : lets a caller (e.g. a CI test driver) find out WHY isUsable() returned false
     // due to the static initializer failing, instead of just seeing a bare "false" with no explanation.
@@ -1294,6 +1320,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final MemorySegment sourceInfFileName      = _wstr(arena, infPath);
             final MemorySegment destinationInfFileName = arena.allocate(2L * MAX_PATH, 2);
             final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
+            final MemorySegment captureState           = arena.allocate(_CAPTURE_STATE_LAYOUT);
 
             // SetupCopyOEMInfW(SourceInfFileName, OEMSourceMediaLocation, OEMSourceMediaType, CopyStyle,
             //                  DestinationInfFileName, DestinationInfFileNameSize, RequiredSize,
@@ -1302,13 +1329,18 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // qualified local path, so no separate media location applies - see
             // WindowsDriverInstaller_FFM-Win32API.txt. CopyStyle=0 : default behavior (overwrite an
             // existing same-named staged copy, auto-rename the staged copy to OEMnnnn.inf).
+            // captureState is a leading, implicit extra argument - see the Linker.Option.captureCallState
+            // binding above and _capturedLastError() below (do NOT use _lastError() here, it reads
+            // GetLastError() via a separate downcall that is not guaranteed to still hold this call's
+            // error - see the static initializer comment on this binding).
             final int ok = (int) _SetupCopyOEMInfW.invoke(
+                captureState,
                 sourceInfFileName, MemorySegment.NULL, SPOST_NONE, 0,
                 destinationInfFileName, MAX_PATH, requiredSize, MemorySegment.NULL
             );
 
             if(ok == 0) {
-                final int err = _lastError();
+                final int err = _capturedLastError(captureState);
                 log.append("SetupCopyOEMInfW failed, GetLastError=").append(err);
                 return RETCODE_EXCEPTION;
             }

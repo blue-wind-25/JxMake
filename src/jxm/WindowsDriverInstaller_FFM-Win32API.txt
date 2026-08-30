@@ -1735,6 +1735,21 @@ was hit during the same bisection - rejected: it only prevents the *system* from
 display-idle states via power-management timers, it has no effect on a thread blocked waiting for
 UI/message-pump interaction, which is the actual mechanism here.)
 
+ITEM 3 - after ITEM 2's fix, the hang was gone but SetupCopyOEMInfW returned BOOL FALSE with
+GetLastError()=0 - a Win32 contract violation (a FALSE return must set a real, nonzero error).
+Root cause: this file's usual `_lastError()` pattern (invoke the API, then invoke GetLastError()
+as a SEPARATE, later downcall) is unreliable for a call that does real work between the two -
+GetLastError() is Win32 thread-local storage, and the JVM can invoke its own Win32 APIs on that
+same OS thread (e.g. during a GC/safepoint poll) in the gap between the two downcalls, silently
+overwriting the value before this code reads it. This is a documented `java.lang.foreign` pitfall;
+every OTHER `_lastError()` call site in this file is a short, fast Win32 call where that gap is
+negligible, but SetupCopyOEMInfW does real file I/O to %windir%\Inf and is long enough to hit it in
+practice (confirmed on live CI). Fixed by binding SetupCopyOEMInfW with
+`Linker.Option.captureCallState("GetLastError")` instead, which atomically snapshots GetLastError
+as part of the same downcall - see its FFM notes above and `_capturedLastError()` in the .java
+file. Not yet confirmed on live CI whether this reveals a genuine, fixable underlying error or
+whether SetupCopyOEMInfW itself still needs further investigation once the real code is known.
+
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED
 ----------------------------------------------------------------------------------------------------
@@ -1757,15 +1772,19 @@ Purpose      : Copies/stages an INF into %windir%\Inf (renamed to OEMnnnn.inf), 
 
 FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR)` - 8 parameters,
                matches the prototype above 1:1. Bound against a `Setupapi.dll` SymbolLookup (see
-               the static initializer). Called from `_elevatedInstallDriver` with
-               OEMSourceMediaLocation=NULL and OEMSourceMediaType=SPOST_NONE (0) - infPath is
-               already a fully-qualified local path passed as SourceInfFileName, so no separate
-               media location applies. CopyStyle=0 (default: allow overwrite of an existing
-               same-named staged copy). DestinationInfFileName is a caller-allocated
-               MAX_PATH-WCHAR buffer, decoded back to a String for the elevated-child log on
-               success (MemorySegment has no getUtf16String() helper, so this is done by hand:
-               scan for the first NUL WCHAR, then StandardCharsets.UTF_16LE-decode the bytes up to
-               it). RequiredSize/DestinationInfFileNameComponent are passed but not read.
+               the static initializer), WITH `Linker.Option.captureCallState("GetLastError")` (see
+               "ITEM 3" below for why) - this makes the downcall handle take an extra, PREPENDED
+               `MemorySegment` argument (a capture-state buffer allocated per call via
+               `arena.allocate(Linker.Option.captureStateLayout())`) ahead of the 8 real
+               parameters. Called from `_elevatedInstallDriver` with OEMSourceMediaLocation=NULL
+               and OEMSourceMediaType=SPOST_NONE (0) - infPath is already a fully-qualified local
+               path passed as SourceInfFileName, so no separate media location applies.
+               CopyStyle=0 (default: allow overwrite of an existing same-named staged copy).
+               DestinationInfFileName is a caller-allocated MAX_PATH-WCHAR buffer, decoded back to
+               a String for the elevated-child log on success (MemorySegment has no
+               getUtf16String() helper, so this is done by hand: scan for the first NUL WCHAR,
+               then StandardCharsets.UTF_16LE-decode the bytes up to it). RequiredSize/
+               DestinationInfFileNameComponent are passed but not read.
 
 CopyStyle    : 0 in the current call. SP_COPY_NOOVERWRITE (0x00000004) and SP_COPY_REPLACEONLY
                (0x00000002) are the two flags that would change this behavior; neither is needed

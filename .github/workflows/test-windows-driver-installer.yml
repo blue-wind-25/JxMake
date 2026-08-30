@@ -29,8 +29,13 @@
 # revealed the real error, SPAPI_E_FILE_HASH_NOT_IN_CATALOG - caused by an "OSAttr" catalog-member
 # attribute (scoping it to Windows 10/11) that WindowsDriverInstaller_PS1's working New-FileCatalog
 # never sets; SetupCopyOEMInfW was treating the OSAttr-tagged member as not-a-match at all, not
-# just narrowing it. Fixed by dropping that attribute (see SECTION H "ITEM 4"). Not yet confirmed
-# on a live CI run - this workflow dispatch is how that gets exercised.
+# just narrowing it. Fixing by dropping that attribute (SECTION H "ITEM 4") was CONFIRMED FAILED on
+# the next live CI run - the identical error recurred. A diagnostic hash dump on the run after that
+# showed the computed hash was genuine (not corrupted), narrowing the real cause to: the catalog
+# only carried a SHA-256 member, while SetupCopyOEMInfW's file-hash lookup needs a SHA1 member too
+# (matching what real WHQL-issued catalogs carry). Fixed by writing both a SHA1 and a SHA256 member
+# for the INF (see SECTION H "ITEM 5"). Not yet confirmed on a live CI run - this workflow dispatch
+# is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

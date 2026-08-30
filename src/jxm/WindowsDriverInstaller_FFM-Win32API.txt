@@ -1763,8 +1763,27 @@ end-to-end) never sets this attribute at all, and it turned out SetupCopyOEMInfW
 treats a member with an OSAttr it doesn't recognize/match as not-a-match at all, rather than just
 narrowing which OS versions it applies to - i.e. it behaved as if the INF's hash wasn't in the
 catalog. Fixed by dropping the "OSAttr" `CryptCATPutAttrInfo` call entirely, leaving only the
-"File" attribute (matching PS1's approach) - see `CryptCATPutAttrInfo`'s FFM notes above. Not yet
-confirmed on live CI.
+"File" attribute (matching PS1's approach) - see `CryptCATPutAttrInfo`'s FFM notes above.
+CONFIRMED FAILED on the next live CI run: the exact same GetLastError()=0xE000024B recurred
+verbatim, ruling the OSAttr hypothesis out.
+
+ITEM 5 - After ITEM 4's fix was confirmed ineffective, a diagnostic log line was added at the hash
+computation site to distinguish two remaining possibilities: a garbage/incorrectly-computed hash
+(which would point at a `CryptCATAdminCalcHashFromFileHandle2` file-handle/read-position bug) vs a
+correctly-computed hash that simply isn't what SetupCopyOEMInfW's own re-hash looks up. The next
+live CI run showed `cbHash=32` and a genuine, non-trivial 64-hex-char digest (not the well-known
+SHA-256-of-zero-bytes value) - ruling out a hashing bug. Root cause: the catalog only ever carried
+a single SHA-256 member for the INF (`CryptCATAdminAcquireContext2` acquired with `"SHA256"`,
+`szOID_NIST_sha256` in the SIP digest). SetupCopyOEMInfW's file-hash lookup was found to need a
+SHA1 member specifically - real WHQL-issued driver catalogs carry both a SHA1 and a SHA2 `<HASH>`
+entry for the same file for exactly this reason (older/legacy verification paths look up by SHA1;
+newer tooling/OS components may look up by SHA2). Fixed by writing TWO full catalog members for the
+INF - one per algorithm in `CATALOG_HASH_ALGS`/`CATALOG_HASH_ALG_OIDS` (`"SHA1"`/szOID_OIWSEC_sha1
+and `"SHA256"`/szOID_NIST_sha256) - each with its own `CryptCATAdminAcquireContext2` context, hash,
+SIP-indirect data, `CryptCATPutMemberInfo` call, and "File" attribute, all against the same open
+`hCatalog`/`hInfFile`. SHA1 is kept alongside SHA256 (not swapped in place of it) since SHA1 alone
+would be a regression for anything that specifically wants the SHA2 member; SHA256 alone was the
+bug. Not yet confirmed on live CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

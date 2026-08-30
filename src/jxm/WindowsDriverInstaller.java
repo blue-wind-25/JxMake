@@ -433,7 +433,28 @@ public abstract class WindowsDriverInstaller {
  *    password-protected PFX to a %TEMP% file (password derived deterministically from providerName
  *    via SHA-256, since the two methods share no state but that parameter); createAndSignCatalog()
  *    loads the cert straight from that PFX via `[X509Certificate2]::new(path, password)` instead of
- *    querying any store, and deletes the PFX afterward. STILL PENDING a live CI run to confirm.
+ *    querying any store, and deletes the PFX afterward.
+ *
+ *    CONFIRMED FIXED (live CI, 2026-08-30): createAndTrustProvider -> createAndSignCatalog (cert
+ *    loaded from PFX, catalog validly signed) -> installDriver all succeeded end-to-end
+ *    ("Driver package added successfully"). Item 2 is DONE.
+ *
+ *    Bonus data point for item 1: PS1.installDriver, now handling a genuinely, validly signed
+ *    (non-WHQL) driver for the first time, did NOT hang - returned immediately. This weakens the
+ *    "unverified publisher consent dialog" theory for FFM's hang (item 1), since PS1 exercises the
+ *    same pnputil /add-driver + non-WHQL-signed-catalog combination without hanging. FFM's hang is
+ *    now more likely specific to FFM's own ShellExecuteExW/_shellExecuteElevatedAndWait plumbing.
+ *    Item 1 remains OPEN and not yet further investigated.
+ *
+ *    FOLLOW-UP (commit cbe4ab4): since createAndSignCatalog() no longer reads Cert:\CurrentUser\My
+ *    at all, the leftover cert+key createAndTrustProvider() writes there served no further purpose -
+ *    restored -DeleteKey, but only as a SAME-SESSION delete (destroy the CurrentUser\My cert+key in
+ *    createAndTrustProvider's own elevated session immediately after the PFX export, plus its
+ *    stale-cleanup step at the method's top) - never a cross-session read, which was the actually-
+ *    broken path attempt 1 disproved. Addresses two concerns raised by the user: certs no longer
+ *    accumulate in the store across runs, and the private key can't be reused after one use. Believed
+ *    safe without further CI verification since it doesn't touch the broken cross-session mechanism,
+ *    but not yet explicitly confirmed by a run against this exact commit.
  *
  * 3. DONE (2026-08-30, commit 927b5ed): right-aligned every `\r\n" +` line terminator within each
  *    multi-line String.format(...)/concat block in WindowsDriverInstaller_PS1.java. Continuation

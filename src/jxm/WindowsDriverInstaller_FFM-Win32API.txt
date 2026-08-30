@@ -1581,4 +1581,32 @@ first time thanks to the try/catch added around the elevated script in the previ
     and deletes the PFX in a `finally` block once done (createAndTrustProvider also eagerly deletes
     any stale leftover PFX from a prior call at its own start, in case createAndSignCatalog was never
     reached). This sidesteps the store-visibility mystery via the filesystem, which is not subject to
-    whatever is breaking Cert:\CurrentUser\My here. STILL PENDING a live CI run to confirm.
+    whatever is breaking Cert:\CurrentUser\My here.
+
+CONFIRMED FIXED (live CI, 2026-08-30): the PFX-handoff fix worked end-to-end.
+createAndTrustProvider -> createAndSignCatalog (cert loaded straight from the PFX, catalog validly
+signed, SignerCertificate/Status=Valid) -> installDriver all succeeded, pnputil reporting "Driver
+package added successfully." Item 2 (this whole "Certificate not found" saga) is DONE.
+
+BONUS DATA POINT FOR ITEM 1: PS1.installDriver, now handling a genuinely, validly self-signed
+(non-WHQL) driver for the first time in this investigation, did NOT hang - it returned immediately.
+This weakens the "pnputil raises an unverified-publisher consent dialog on a real-but-untrusted
+signature, hanging headless" theory for FFM's still-open hang (item 1), since PS1 exercises the exact
+same pnputil.exe /add-driver + non-WHQL-signed-catalog code path without hanging. FFM's hang cause is
+now more likely something specific to FFM's own ShellExecuteExW/_shellExecuteElevatedAndWait
+plumbing rather than a pnputil/UI behavior both backends would share. Item 1 remains OPEN; not yet
+further investigated.
+
+FOLLOW-UP (commit cbe4ab4) - restoring -DeleteKey now that it's safe: since createAndSignCatalog()
+no longer reads Cert:\CurrentUser\My at all, the leftover cert+key createAndTrustProvider() writes
+there served no further purpose once exported to the PFX - it just sat in the store indefinitely
+with its private key intact. The user asked whether -DeleteKey should come back to (1) stop certs
+accumulating in the store and (2) stop the key being reusable to sign anything else after one use.
+Restored -DeleteKey, but only as a SAME-SESSION delete: destroy the Cert:\CurrentUser\My cert+key in
+createAndTrustProvider's own elevated session immediately after the PFX export completes, plus in
+its pre-existing stale-cleanup step at the top of the same method (defense in depth for a prior run
+that crashed mid-way). This is a different code path from the earlier, reverted -DeleteKey removal
+(fix attempt 1 above) - that regression was about a cross-session READ that never worked in the
+first place; this is a same-session DELETE of an object the session just created, which was never
+part of the broken mechanism. Believed safe without further CI verification, but not yet explicitly
+confirmed by a run against this exact commit.

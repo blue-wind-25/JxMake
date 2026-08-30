@@ -372,26 +372,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // Deliberately not passing /install here, even though Windows 10+ supports it (unlike
                 // Windows 7): pnputil.exe /add-driver ... /install was observed to hang this call
                 // indefinitely on a real CI runner (see "OPEN - FFM.installDriver hangs..." in
-                // WindowsDriverInstaller_FFM-Win32API.txt's Section G). Staging only (no /install)
-                // matches the behavior this class's PS1 sibling already falls back to on Windows 7,
-                // where /install isn't supported at all - an already-connected matching device simply
-                // needs to be replugged to pick up the newly staged driver, which PnP does
-                // automatically without further action here.
+                // WindowsDriverInstaller_FFM-Win32API.txt's Section G) - most likely an interactive
+                // device-installation confirmation dialog that SW_HIDE cannot suppress and that nothing
+                // can dismiss headlessly. Staging only (no /install) matches the behavior this class's
+                // PS1 sibling already falls back to on Windows 7, where /install isn't supported at all -
+                // an already-connected matching device simply needs to be replugged to pick up the
+                // newly staged driver, which PnP does automatically without further action here.
                 final String params = String.format( "/c pnputil.exe /add-driver \"%s\" > \"%s\" 2>&1", infPath, logFile.toAbsolutePath() );
 
-                // Even with /install dropped, this call still hung indefinitely on CI - but
-                // createAndTrustProvider()/createAndSignCatalog() below, which use this exact same
-                // ShellExecuteExW+WaitForSingleObject mechanism, never did. The one thing that
-                // distinguishes this call from those: it elevates cmd.exe (a console-subsystem app,
-                // here running pnputil.exe as its child) with SW_HIDE, whereas the other two elevate
-                // javaw.exe (no console to hide, so SW_HIDE is inert there). PS1's own installDriver,
-                // which does NOT hang, also elevates cmd.exe running the same pnputil command - but via
-                // Start-Process -Verb RunAs, which never hides the window. SW_HIDE on a
-                // console-subsystem process under UAC elevation is the prime remaining suspect for the
-                // hang, so this call now passes SW_SHOWMINNOACTIVE (creates/minimizes the window
-                // instead of suppressing it, without stealing focus) instead of the SW_HIDE the other
-                // two calls below still use.
-                return _shellExecuteElevatedAndWait( "cmd.exe", params, System.getProperty("user.dir"), 5, logFile, SW_SHOWMINNOACTIVE );
+                return _shellExecuteElevatedAndWait( "cmd.exe", params, System.getProperty("user.dir"), 5, logFile );
             }
             finally {
                 try { Files.deleteIfExists(logFile); }
@@ -414,7 +403,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int SEE_MASK_NOCLOSEPROCESS = 0x00000040;
     private static final int SEE_MASK_NOASYNC        = 0x00000100;
     private static final int SW_HIDE                 = 0;
-    private static final int SW_SHOWMINNOACTIVE      = 7;
     private static final int WAIT_TIMEOUT            = 0x102;
 
     private static final int SEI_cbSize       =   0;
@@ -446,9 +434,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
      * a relative -cp entry when self-relaunching - see _runElevatedSelf() below.
      */
     private static XCom.Pair<Integer, String> _shellExecuteElevatedAndWait(final String file, final String params, final String workDir, final int waitTimeMinutes, final Path logFile) throws Throwable
-    { return _shellExecuteElevatedAndWait(file, params, workDir, waitTimeMinutes, logFile, SW_HIDE); }
-
-    private static XCom.Pair<Integer, String> _shellExecuteElevatedAndWait(final String file, final String params, final String workDir, final int waitTimeMinutes, final Path logFile, final int nShow) throws Throwable
     {
         try(
             final Arena arena = Arena.ofConfined()
@@ -462,7 +447,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             sei.set( PTR                 , SEI_lpFile      , _wstr(arena, file   )                      );
             sei.set( PTR                 , SEI_lpParameters, _wstr(arena, params )                      );
             sei.set( PTR                 , SEI_lpDirectory , _wstr(arena, workDir)                      );
-            sei.set( ValueLayout.JAVA_INT, SEI_nShow       , nShow                                      );
+            sei.set( ValueLayout.JAVA_INT, SEI_nShow       , SW_HIDE                                    );
             sei.set( PTR                 , SEI_hInstApp    , MemorySegment.NULL                         );
             sei.set( PTR                 , SEI_lpIDList    , MemorySegment.NULL                         );
             sei.set( PTR                 , SEI_lpClass     , MemorySegment.NULL                         );

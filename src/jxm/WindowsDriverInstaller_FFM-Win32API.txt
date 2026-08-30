@@ -1709,4 +1709,33 @@ using `tool/HTTPDownloader.java` and unzip using Java or PowerShell, or save it 
 files to `../dist_build/jxmake_dist/apps/osslsigncode` - then WindowsDriverInstaller_FFM.java would
 need to find the EXE in `apps/osslsigncode` (distribution mode) or `../3rd_party/app/osslsigncode`
 (testing mode). It may also be a good idea to add a note somewhere so a future maintainer knows how
-to get and extract signtool.exe if osslsigncode does not work.
+to get and extract signtool.exe if osslsigncode does not work. See `https://github.com/mtrojnar/osslsigncode`.
+
+FINAL RE-VERIFICATION (live CI, 2026-08-30, first run after the isUsable() disable landed):
+    PS1: full end-to-end success once more - createAndTrustProvider -> createAndSignCatalog
+    (SignerCertificate Status=Valid) -> installDriver ("Driver package added successfully") all
+    succeeded, PS1.isProviderAlreadyTrusted correctly flipped from [0] to [1] after trust.
+    FFM: FFM.isUsable() = false as expected, so it was skipped entirely with no attempt to run its
+    (still-hanging) installDriver.
+    create() factory pick: WindowsDriverInstaller_PS1, confirming the fallback works exactly as
+    intended. This is the definitive confirmation that disabling FFM did not regress anything and
+    that PS1 alone is a complete, working replacement for both backends' functionality.
+
+test-windows-driver-installer.yml DISABLE STATUS: per the reminder comment at the top of the
+workflow file itself (added when it was first written), once both backends passed a mutating run it
+should be disabled (not deleted) via the Actions tab -> this workflow -> "..." -> Disable workflow,
+so it stays available to re-enable for future regression testing (e.g. if FFM's hang is ever
+revisited, or after further PS1 changes). That condition is now met - PS1 fully passes, FFM is
+deliberately disabled rather than failing.
+
+Disabling a workflow via `gh workflow disable "Test WindowsDriverInstaller"` was attempted from this
+dev box and failed with `HTTP 403: Resource not accessible by personal access token` - the
+authenticated token here does not carry the `workflow` scope needed for that specific API call (it
+was sufficient for everything else used in this investigation, e.g. `gh workflow list`). Disabling it
+therefore requires a manual step: on GitHub, go to the repo's Actions tab -> "Test
+WindowsDriverInstaller" (in the left-hand workflow list) -> the "..." menu in the top-right of that
+workflow's page -> "Disable workflow". This is fully reversible from the same menu ("Enable
+workflow") and does not delete the file or its run history - only `workflow_dispatch` becomes
+unavailable until it's re-enabled. As of this writing the workflow has NOT yet been disabled this way
+- this is a manual action still pending, to be done by whoever has a token/session with the
+`workflow` scope (or via the GitHub web UI directly, which does not have this token limitation).

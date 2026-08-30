@@ -18,8 +18,12 @@
 # indefinitely on the elevated child's process-wait, see "SECTION G - CI Investigation Log" in
 # WindowsDriverInstaller_FFM-Win32API.txt) - it now stages the INF directly via SetupCopyOEMInfW,
 # guarded by CM_WaitNoPendingInstallEvents, run in-process inside the same elevated-JVM-relaunch
-# this class already uses for createAndTrustProvider/createAndSignCatalog. Not yet confirmed on a
-# live CI run - this workflow dispatch is how that gets exercised.
+# this class already uses for createAndTrustProvider/createAndSignCatalog. A live CI run then found
+# SetupCopyOEMInfW itself hanging the same way pnputil.exe used to (root-caused by manual bisection
+# to interactive UI SetupCopyOEMInfW can raise, with nothing to dismiss it on a headless runner) -
+# fixed by calling SetupSetNonInteractiveMode(TRUE) immediately beforehand (see SECTION H "ITEM 2"
+# in WindowsDriverInstaller_FFM-Win32API.txt). Not yet confirmed on a live CI run - this workflow
+# dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

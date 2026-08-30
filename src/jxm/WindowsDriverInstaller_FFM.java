@@ -108,6 +108,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _SignerFreeSignerContext;
 
     private static MethodHandle _SetupCopyOEMInfW;
+    private static MethodHandle _SetupSetNonInteractiveMode;
     private static MethodHandle _CM_WaitNoPendingInstallEvents;
 
     static {
@@ -180,6 +181,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // attached").
             _SetupCopyOEMInfW = _bind( linker, setupapi, "SetupCopyOEMInfW", FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR) );
 
+            // Setupapi.dll (setupapi.h) - suppresses SetupAPI's ability to show interactive UI (e.g. an
+            // unverified-publisher/unsigned-driver confirmation dialog) in the caller's context. Called
+            // right before SetupCopyOEMInfW in _elevatedInstallDriver: on a headless CI runner there is
+            // no interactive desktop session and the elevated child's thread has no Windows message pump,
+            // so if SetupCopyOEMInfW ever tries to raise such a dialog it blocks forever waiting for input
+            // nothing can ever supply - matching this backend's originally-observed installDriver hang
+            // (see WindowsDriverInstaller_FFM-Win32API.txt SECTION G/H).
+            _SetupSetNonInteractiveMode = _bind( linker, setupapi, "SetupSetNonInteractiveMode", FunctionDescriptor.of(DW, DW) );
+
             // Cfgmgr32.dll (cfgmgr32.h) - bound against its own, canonical DLL rather than Setupapi.dll:
             // Microsoft's api_location metadata for this function also lists Setupapi.dll as an exporter,
             // but that turned out not to hold at runtime on a real Windows CI box (SymbolLookup.find()
@@ -227,7 +237,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // performed directly via SignerSignEx (see _signCatalog), and driver staging directly via
             // SetupCopyOEMInfW (see _elevatedInstallDriver) - no external Windows SDK tool is required.
             return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _CryptAcquireContextW != null
-                && _ShellExecuteExW != null && _SetupCopyOEMInfW != null && _CM_WaitNoPendingInstallEvents != null;
+                && _ShellExecuteExW != null && _SetupCopyOEMInfW != null && _SetupSetNonInteractiveMode != null
+                && _CM_WaitNoPendingInstallEvents != null;
         }
         catch(final Throwable ignored) {
             return false;
@@ -1258,9 +1269,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
 
         try(
-            final Arena arena = Arena.ofShared()
+            final Arena arena = Arena.ofConfined()
         ) {
-        /*
             // CM_WaitNoPendingInstallEvents(dwTimeout) : blocks until the PnP manager reports no
             // install activity pending, or dwTimeout milliseconds elapse - whichever comes first.
             // Returns nonzero (WAIT_OBJECT_0) if satisfied, 0 (WAIT_TIMEOUT) on timeout. A finite
@@ -1272,12 +1282,18 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             if(waitResult == 0) {
                 log.append("CM_WaitNoPendingInstallEvents timed out after 60000ms - proceeding anyway\n");
             }
-        */
+
+            // SetupSetNonInteractiveMode(TRUE) : suppresses any interactive UI SetupCopyOEMInfW might
+            // otherwise try to raise (e.g. an unverified-publisher/unsigned-driver confirmation dialog).
+            // A headless CI runner has no interactive desktop session and this thread has no Windows
+            // message pump, so such a dialog would block forever with nothing able to dismiss it - this
+            // was root-caused as the actual cause of installDriver's SetupCopyOEMInfW hang; see
+            // WindowsDriverInstaller_FFM-Win32API.txt SECTION H.
+            _SetupSetNonInteractiveMode.invoke(1);
 
             final MemorySegment sourceInfFileName      = _wstr(arena, infPath);
-            final MemorySegment oemSourceMediaLocation = _wstr(arena, path.getParent().toString());
             final MemorySegment destinationInfFileName = arena.allocate(2L * MAX_PATH, 2);
-         //   final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
+            final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
 
             // SetupCopyOEMInfW(SourceInfFileName, OEMSourceMediaLocation, OEMSourceMediaType, CopyStyle,
             //                  DestinationInfFileName, DestinationInfFileNameSize, RequiredSize,
@@ -1286,10 +1302,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // qualified local path, so no separate media location applies - see
             // WindowsDriverInstaller_FFM-Win32API.txt. CopyStyle=0 : default behavior (overwrite an
             // existing same-named staged copy, auto-rename the staged copy to OEMnnnn.inf).
-            final int ok = 0;/*(int) _SetupCopyOEMInfW.invoke(
-                sourceInfFileName, oemSourceMediaLocation, SPOST_PATH, 0,
-                destinationInfFileName, MAX_PATH, MemorySegment.NULL, MemorySegment.NULL
-            );*/
+            final int ok = (int) _SetupCopyOEMInfW.invoke(
+                sourceInfFileName, MemorySegment.NULL, SPOST_NONE, 0,
+                destinationInfFileName, MAX_PATH, requiredSize, MemorySegment.NULL
+            );
 
             if(ok == 0) {
                 final int err = _lastError();

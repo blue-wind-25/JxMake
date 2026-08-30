@@ -183,6 +183,10 @@ jobs:
                       System.out.println(label + ".isUsable() = " + usable);
 
                       if( !usable ) {
+                          if( wdi instanceof WindowsDriverInstaller_FFM ) {
+                              final String diag = WindowsDriverInstaller_FFM.initErrorDiagnostic();
+                              if( diag != null ) System.out.println(label + ": static init failed - " + diag);
+                          }
                           System.out.println(label + " not usable on this VM - skipping remaining checks");
                           return 0;
                       }

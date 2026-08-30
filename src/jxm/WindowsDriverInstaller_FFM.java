@@ -123,6 +123,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final SymbolLookup mssign32 = SymbolLookup.libraryLookup("Mssign32.dll", _arena);
             final SymbolLookup advapi32 = SymbolLookup.libraryLookup("Advapi32.dll", _arena);
             final SymbolLookup setupapi = SymbolLookup.libraryLookup("Setupapi.dll", _arena);
+            final SymbolLookup cfgmgr32 = SymbolLookup.libraryLookup("Cfgmgr32.dll", _arena);
 
             // Kernel32.dll (fileapi.h / handleapi.h / synchapi.h / processthreadsapi.h / errhandlingapi.h)
             _CreateFileW         = _bind( linker, kernel32, "CreateFileW"        , FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR) );
@@ -176,11 +177,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // Setupapi.dll (setupapi.h) - stages an INF into %windir%\Inf without a physically-present
             // device (installDriver's case: the CI/normal use here is "make this driver available for
             // whenever a matching device is plugged in", not "install onto a device that's already
-            // attached"). CM_WaitNoPendingInstallEvents (cfgmgr32.h) is bound against this same DLL
-            // rather than opening a separate Cfgmgr32.dll lookup - Microsoft's own reference lists it as
-            // exported by both. See WindowsDriverInstaller_FFM-Win32API.txt for both signatures.
-            _SetupCopyOEMInfW              = _bind( linker, setupapi, "SetupCopyOEMInfW"             , FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR) );
-            _CM_WaitNoPendingInstallEvents = _bind( linker, setupapi, "CM_WaitNoPendingInstallEvents", FunctionDescriptor.of(DW, DW) );
+            // attached").
+            _SetupCopyOEMInfW = _bind( linker, setupapi, "SetupCopyOEMInfW", FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR) );
+
+            // Cfgmgr32.dll (cfgmgr32.h) - bound against its own, canonical DLL rather than Setupapi.dll:
+            // Microsoft's api_location metadata for this function also lists Setupapi.dll as an exporter,
+            // but that turned out not to hold at runtime on a real Windows CI box (SymbolLookup.find()
+            // failed against Setupapi.dll for this specific symbol - see
+            // WindowsDriverInstaller_FFM-Win32API.txt SECTION H).
+            _CM_WaitNoPendingInstallEvents = _bind( linker, cfgmgr32, "CM_WaitNoPendingInstallEvents", FunctionDescriptor.of(DW, DW) );
         }
         catch(final Throwable t) {
             // Do not throw out of a static initializer with anything worse than what we capture here;
@@ -191,6 +196,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static MethodHandle _bind(final Linker linker, final SymbolLookup lib, final String name, final FunctionDescriptor fd)
     { return linker.downcallHandle( lib.find(name).orElseThrow( () -> new UnsatisfiedLinkError(name) ), fd ); }
+
+    // Diagnostic-only : lets a caller (e.g. a CI test driver) find out WHY isUsable() returned false
+    // due to the static initializer failing, instead of just seeing a bare "false" with no explanation.
+    public static String initErrorDiagnostic()
+    { return _initError == null ? null : _initError.toString(); }
 
     @Override
     public boolean isUsable()

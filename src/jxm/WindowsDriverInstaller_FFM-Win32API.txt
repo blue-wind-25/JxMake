@@ -1435,6 +1435,11 @@ Arena discipline: every native call site in this file uses either the
     native call that returns a handle/context means adding a matching, correctly-ordered release
     call, almost always in a `finally` block, exactly like every existing call site does.
 
+Build command: `make jar JDK_VER=8 && make jar JDK_VER=25` from `src/` is enough after editing any
+    source file in this backend (or WindowsDriverInstaller_PS1.java). NOTE: the first `make` may do
+    nothing. Java 8 toolchain: /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64/bin. Java
+    25 toolchain: /opt/openjdk-25_linux-x64_bin/jdk-25/bin.
+
 Elevation architecture (ties Section A together with the rest of the file):
     `createAndTrustProvider`/`createAndSignCatalog` (the two public entry points that need
     elevation) never touch NCrypt/Crypt32/Wintrust/Mssign32 APIs directly from the calling
@@ -1652,3 +1657,56 @@ RECONFIRMED (live CI, 2026-08-30, with cbe4ab4 included): same end-to-end succes
 run - createAndTrustProvider -> createAndSignCatalog -> installDriver all succeeded, pnputil
 reporting "Driver package added successfully." The -DeleteKey restoration did not regress anything.
 Item 2 is fully DONE.
+
+DONE (2026-08-30, commit 927b5ed) - PS1 formatting cleanup: right-aligned every `\r\n" +` line
+terminator within each multi-line String.format(...)/concat block in WindowsDriverInstaller_PS1.java.
+Continuation backtick lines (New-SelfSignedCertificate, both Start-Process/-ArgumentList pairs, the
+Set-AuthenticodeSignature pipe line) were left untouched. Confirmed
+`grep -n '`[ \t]\+\\r\\n"' jxm/WindowsDriverInstaller_PS1.java` returns nothing, and both
+`make jar JDK_VER=8` and `make jar JDK_VER=25` compile clean. Purely cosmetic; no behavior change.
+
+ITEM 1 - FINAL DIAGNOSTIC AND DECISION TO DISABLE THIS BACKEND (2026-08-30):
+
+    A third fix attempt for item 1 was made and disproven after the entries above were written: the
+    user re-ran a fresh, FFM-only CI dispatch (no PS1 run in the same job, ruling out the test-
+    ordering false positive that undermined the SW_SHOWMINNOACTIVE attempt) and captured a full Java
+    thread dump while installDriver was hung (elapsed 157.80s before manual cancellation - "Error:
+    The operation was canceled."). The dump shows the "main" thread in state RUNNABLE, blocked deep
+    inside the native downcall stack (jdk.internal.foreign.abi.DowncallStub / LambdaForm$MH frames)
+    at _shellExecuteElevatedAndWait (WindowsDriverInstaller_FFM.java:487), called from installDriver
+    (WindowsDriverInstaller_FFM.java:394) - i.e. still stuck inside WaitForSingleObject, waiting on
+    the elevated "cmd.exe /c pnputil.exe /add-driver ..." process handle itself.
+
+    This is conclusive: the block is a genuine OS-level wait on the elevated child process handle -
+    the elevated cmd.exe/pnputil.exe process itself never exits on this runner. It is NOT a bug in
+    this codebase's Java-side logic, and is not explained by any of the three hypotheses tested so
+    far (interactive unverified-publisher consent dialog, legacy Driver Signing\Policy registry gate,
+    SW_HIDE vs SW_SHOWMINNOACTIVE). All three are now disproven; root cause remains unidentified.
+
+    DECISION: given three independent, disproven fix attempts and a definitive thread dump that only
+    narrows the problem down to "the OS-level process wait itself never completes" without suggesting
+    a fourth hypothesis, the user decided to stop spending CI cycles on further guess-and-check
+    debugging of this native, environment-specific hang, and to temporarily disable this backend
+    entirely instead. WindowsDriverInstaller_FFM.isUsable() now unconditionally returns false (with a
+    TODO comment pointing back to this section), so WindowsDriverInstaller.create() always falls back
+    to WindowsDriverInstaller_PS1 - which independently reached full, CI-confirmed, end-to-end
+    working status (see item 2's resolution above) and has no external SDK dependency. This
+    "CONTINUE HERE NEXT SESSION" investigation log itself was moved out of WindowsDriverInstaller.java
+    (previously lines 369+, after the class's closing brace) into this section, since the FFM
+    investigation is now paused rather than actively continuing next session.
+
+    Item 1 remains OPEN/UNRESOLVED, not fixed - it is set aside, not closed. If this backend is
+    revisited in the future, useful next steps would include: reproducing the hang with Process
+    Monitor or a similar tool attached to observe what the elevated cmd.exe/pnputil.exe process is
+    actually doing (or waiting on) at the OS level while hung, since all three purely code-level
+    hypotheses tried from the Java side have now been exhausted without success.
+
+AFTER ITEM 1 AND ITEM 2 (both now settled - item 2 fixed, item 1 set aside with FFM disabled): once/
+if FFM is ever revisited, it may be worth checking whether it's possible to replace signtool.exe with
+https://github.com/mtrojnar/osslsigncode. Either make the JAR download and save/cache it somewhere
+using `tool/HTTPDownloader.java` and unzip using Java or PowerShell, or save it to
+`../3rd_party/app/osslsigncode` with the required license files, etc., and make `make dist` copy the
+files to `../dist_build/jxmake_dist/apps/osslsigncode` - then WindowsDriverInstaller_FFM.java would
+need to find the EXE in `apps/osslsigncode` (distribution mode) or `../3rd_party/app/osslsigncode`
+(testing mode). It may also be a good idea to add a note somewhere so a future maintainer knows how
+to get and extract signtool.exe if osslsigncode does not work.

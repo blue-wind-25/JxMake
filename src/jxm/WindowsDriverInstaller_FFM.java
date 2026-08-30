@@ -209,6 +209,20 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     @Override
     public boolean isUsable()
     {
+        // TODO: this backend does not work for now - installDriver()'s elevated
+        // "cmd.exe /c pnputil.exe /add-driver ..." call hangs indefinitely inside the native
+        // WaitForSingleObject wait on the elevated child process handle, on at least one real CI
+        // runner. Three independent hypotheses (an interactive unverified-publisher consent dialog,
+        // a legacy Driver Signing\Policy registry gate, and SW_HIDE vs SW_SHOWMINNOACTIVE on the
+        // elevated console-subsystem process) were tested and disproven; a thread dump from an
+        // isolated, genuinely-hung run confirms the block is a real OS-level wait on the elevated
+        // process, not a bug in this class's own logic - see "SECTION G - CI Investigation Log" in
+        // WindowsDriverInstaller_FFM-Win32API.txt for the full investigation history. Unconditionally
+        // returning false here disables this backend so WindowsDriverInstaller.create() always falls
+        // back to WindowsDriverInstaller_PS1, which is fully working end-to-end. Remove this early
+        // return if/when installDriver's hang is actually root-caused and fixed.
+        if(true) return false;
+
         try {
             if(_initError != null) return false;
 

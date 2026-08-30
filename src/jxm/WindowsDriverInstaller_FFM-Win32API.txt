@@ -1515,6 +1515,26 @@ CI run (second dispatch, /install already removed) - hypothesis only PARTIALLY c
     "unverified publisher" consent-dialog theory is still unproven, and this one candidate
     mitigation for it did not work.
 
+FIX ATTEMPT 2 FOR ITEM 1 (commit 04c2ab1, 2026-08-30): once item 2 (below) was fixed and confirmed,
+PS1.installDriver ran with a genuinely, validly-signed driver for the first time in this
+investigation - and did NOT hang, elevating the exact same "cmd.exe /add-driver ..." command via
+Start-Process -Verb RunAs (same underlying ShellExecuteEx mechanism FFM uses natively). That rules
+out "PowerShell's elevation vs FFM's own" as the difference - both are the same Win32 API. What IS
+different: FFM's _shellExecuteElevatedAndWait hardcodes SW_HIDE (nShow=0) for every elevated call,
+including installDriver's cmd.exe target; PS1's Start-Process never passes -WindowStyle Hidden, so
+its elevated cmd.exe window stays visible. FFM's other two elevated calls
+(createAndTrustProvider/createAndSignCatalog) also use SW_HIDE, but they target javaw.exe - a
+GUI-subsystem process with no console window to hide, so SW_HIDE is inert there and never surfaced
+anything. installDriver's cmd.exe target is the only console-subsystem process FFM elevates with
+SW_HIDE set, and the only one that hangs - a materially tighter correlation with the actual symptom
+than the "unverified publisher" dialog theory (which required an interactive prompt that SW_HIDE
+should have no bearing on either way).
+
+_shellExecuteElevatedAndWait() now takes an optional nShow parameter (existing two call sites keep
+SW_HIDE via a no-arg overload); installDriver()'s call now passes SW_SHOWMINNOACTIVE (7) instead -
+creates/minimizes the window instead of suppressing it, without stealing focus on a real user's
+desktop. STILL PENDING a live CI run to confirm SW_HIDE was actually the cause.
+
 FIX ATTEMPTED (commit 0eb40d4) - PS1.createAndSignCatalog: "Certificate not found" (CI run
 90196100036), diagnosable for the
 first time thanks to the try/catch added around the elevated script in the previous round:

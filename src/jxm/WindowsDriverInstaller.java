@@ -409,6 +409,20 @@ public abstract class WindowsDriverInstaller {
  *    user's explicit fallback plan, pivoted to item 2 next instead of further guessing here - this
  *    registry tweak is left in place (harmless either way) but item 1 remains genuinely OPEN.
  *
+ *    FIX ATTEMPT 2 (commit 04c2ab1, 2026-08-30): item 2's fix produced a bonus data point - PS1's
+ *    installDriver, which does NOT hang, elevates the identical "cmd.exe /add-driver ..." command via
+ *    Start-Process -Verb RunAs, i.e. the same ShellExecuteEx mechanism FFM uses natively, so it isn't
+ *    "PowerShell vs FFM's own elevation" that differs. What IS different: FFM's
+ *    _shellExecuteElevatedAndWait hardcodes SW_HIDE for every call, including this one; PS1's
+ *    Start-Process never hides its window (no -WindowStyle Hidden anywhere). FFM's other two calls
+ *    (createAndTrustProvider/createAndSignCatalog) also use SW_HIDE but target javaw.exe, which has no
+ *    console to hide - SW_HIDE is inert there, so they never surfaced this. installDriver's cmd.exe
+ *    target is the only console-subsystem process FFM elevates with SW_HIDE, and the only one that
+ *    hangs - a much tighter correlation than the earlier "unverified publisher dialog" theory.
+ *    _shellExecuteElevatedAndWait() now takes an nShow parameter (SW_HIDE default preserved for the
+ *    other two callers); installDriver() passes SW_SHOWMINNOACTIVE instead. STILL PENDING a live CI
+ *    run to confirm.
+ *
  * 2. FIX ATTEMPT 1 FAILED, FIX ATTEMPT 2 MADE (commit 5f03680). PS1.createAndSignCatalog was
  *    failing with "Certificate not found" - createAndTrustProvider's elevated child creates+trusts
  *    the cert successfully, but createAndSignCatalog's own, separately-elevated child couldn't find

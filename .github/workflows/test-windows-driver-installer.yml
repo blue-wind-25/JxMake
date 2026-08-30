@@ -16,14 +16,15 @@
 # STATUS (2026-08-31): PS1's mutating calls (cert create+trust, catalog sign, driver install) pass
 # end-to-end. FFM.installDriver() is temporarily a deliberate no-op (its real body - which hangs
 # indefinitely on the elevated pnputil.exe call, see "SECTION G - CI Investigation Log" in
-# WindowsDriverInstaller_FFM-Win32API.txt - is commented out, not deleted), so a `backend=ffm` or
-# `backend=both` mutating run will report a fake-success ".installDriver" line rather than exercising
-# or re-hanging on that call; this is intentional while FFM's catalog signing (createAndSignCatalog,
-# SignerSignEx) is re-verified in isolation first - see SECTION E's "Investigation history, part 2".
-# FFM.isUsable() no longer hardcodes false, so `backend=ffm`/`both` now actually exercises FFM again.
+# WindowsDriverInstaller_FFM-Win32API.txt - is commented out, not deleted), so an `ffm` or `auto`
+# (when it picks FFM) mutating run will report a fake-success ".installDriver" line rather than
+# exercising or re-hanging on that call. FFM.isUsable() no longer hardcodes false, so `ffm`/`auto`
+# now actually exercise FFM again.
 #
 # INPUTS:
-#   backend        which backend(s) to exercise: both / ps1 / ffm
+#   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /
+#                  ffm (WindowsDriverInstaller_FFM directly) / auto (whichever
+#                  WindowsDriverInstaller.create() picks - exercises the real factory-selection path)
 #   run_mutating   if true, also runs the UAC-elevated, state-changing calls
 #                  (createAndTrustProvider / createAndSignCatalog / installDriver)
 #                  against a disposable self-signed cert + dummy WinUSB INF.
@@ -46,10 +47,10 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: 'Which backend(s) to test'
+        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks'
         type: choice
-        options: [both, ps1, ffm]
-        default: both
+        options: [ps1, ffm, auto]
+        default: auto
       run_mutating:
         description: 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
         type: boolean
@@ -98,8 +99,8 @@ jobs:
         shell: pwsh
         run: |
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
-          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
 
       - name: Build jxmake.jar (JDK 25, both backends)
         working-directory: src
@@ -123,21 +124,38 @@ jobs:
               private static final String PROVIDER = "JxMake_CITest";
 
               public static void main(final String[] args) throws Exception {
-                  final String  backend      = System.getProperty("wdi.backend", "both");
+                  final String  backend      = System.getProperty("wdi.backend", "auto");
                   final boolean runMutating  = Boolean.getBoolean("wdi.mutating");
 
                   int failures = 0;
 
-                  if( backend.equals("both") || backend.equals("ps1") )
-                      failures += test("PS1", new WindowsDriverInstaller_PS1(), runMutating);
+                  switch( backend ) {
+                      case "ps1":
+                          failures += test("PS1", new WindowsDriverInstaller_PS1(), runMutating);
+                          break;
 
-                  if( backend.equals("both") || backend.equals("ffm") )
-                      failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating);
+                      case "ffm":
+                          failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating);
+                          break;
 
-                  System.out.println();
-                  System.out.println("=== create() factory pick ===");
-                  final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
-                  System.out.println("create() returned: " + (picked == null ? "null" : picked.getClass().getSimpleName()));
+                      case "auto": {
+                          final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
+                          final String label = "AUTO_" + (picked == null ? "null" : picked.getClass().getSimpleName());
+                          System.out.println("=== create() factory pick ===");
+                          System.out.println("create() returned: " + (picked == null ? "null" : picked.getClass().getSimpleName()));
+
+                          if( picked == null ) {
+                              System.out.println("No backend usable on this VM");
+                              failures++;
+                          } else {
+                              failures += test(label, picked, runMutating);
+                          }
+                          break;
+                      }
+
+                      default:
+                          throw new IllegalArgumentException("Unknown wdi.backend: " + backend);
+                  }
 
                   if( failures > 0 ) {
                       System.out.println();

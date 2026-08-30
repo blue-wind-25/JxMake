@@ -1068,12 +1068,15 @@ Purpose   : As used here:
 
 
 ====================================================================================================
-SECTION D.5 - Actual Catalog Signing (external process: signtool.exe)
+SECTION D.5 - Actual Catalog Signing (external process: signtool.exe) - SUPERSEDED, KEPT FOR REFERENCE
 ====================================================================================================
 
-This is the mechanism that actually applies a digital signature to the finished .cat file - not an
-FFM/native binding at all, but an external Windows SDK tool invoked as a child process, after the
-direct SignerSignEx call documented in SECTION E below was abandoned as unworkable.
+This was the mechanism used to apply a digital signature to the finished .cat file while the direct
+SignerSignEx call documented in SECTION E below was believed unworkable - not an FFM/native binding at
+all, but an external Windows SDK tool invoked as a child process. That diagnosis has since been
+revised (see SECTION E's "Investigation history, part 2" below) and SignerSignEx is the active signing
+path again; everything below is kept only for reference (`_signCatalogWithSigntool` in
+WindowsDriverInstaller_FFM.java is commented out, not deleted, for the same reason).
 
 signtool.exe
 ----------------------------------------------------------------------------------------------------
@@ -1108,17 +1111,16 @@ FFM notes    : Invoked from `_signCatalogWithSigntool` via `ProcessBuilder`, wit
 
 
 ====================================================================================================
-SECTION E - Authenticode Signing Layer (Mssign32.dll) - SUPERSEDED, KEPT FOR REFERENCE
+SECTION E - Authenticode Signing Layer (Mssign32.dll) - ACTIVE
 ====================================================================================================
 
-Actual catalog signing is now performed by shelling out to the Windows SDK's signtool.exe (see
-_signCatalogWithSigntool in WindowsDriverInstaller_FFM.java) rather than by the direct SignerSignEx
-call documented in this section. Everything below is kept for reference only, in case this call is
-ever revisited: it is built from Microsoft Learn "conceptual" reference pages rather than a header
-file - Microsoft explicitly documents these functions and structures on learn.microsoft.com, but (per
-Microsoft's own notes on those pages) does not ship a header declaring them; a caller is expected to
-declare the prototypes itself and dynamically resolve the DLL export, which is exactly the pattern
-this file follows via SymbolLookup instead of LoadLibrary/GetProcAddress.
+Actual catalog signing is performed directly by the SignerSignEx call documented in this section (see
+_signCatalog in WindowsDriverInstaller_FFM.java). It is built from Microsoft Learn "conceptual"
+reference pages rather than a header file - Microsoft explicitly documents these functions and
+structures on learn.microsoft.com, but (per Microsoft's own notes on those pages) does not ship a
+header declaring them; a caller is expected to declare the prototypes itself and dynamically resolve
+the DLL export, which is exactly the pattern this file follows via SymbolLookup instead of
+LoadLibrary/GetProcAddress.
 
 ----------------------------------------------------------------------------------------------------
 SignerSignEx
@@ -1199,11 +1201,43 @@ RESOLVED BY PIVOTING AWAY FROM THIS CALL:
         signtool.exe is a native EXE while this backend calls from an uninitialized JVM thread) was
         tried last and also did not change the failure.
     With every struct-content permutation, all three entry points, the key-provisioning mechanism, and
-    COM initialization exhausted without the failure ever changing shape, this call was abandoned.
-    Since signtool.exe was already proven to sign the exact same certificate/subject-type successfully,
-    catalog signing now shells out to signtool.exe as an external process instead (see
-    `_signCatalogWithSigntool` in WindowsDriverInstaller_FFM.java) - the direct SignerSignEx call below
-    is kept only for reference.
+    COM initialization exhausted without the failure ever changing shape, this call was abandoned at
+    the time. Since signtool.exe was already proven to sign the exact same certificate/subject-type
+    successfully, catalog signing was switched to shell out to signtool.exe as an external process
+    instead (see SECTION D.5, now itself superseded) - the direct SignerSignEx call below was kept only
+    for reference.
+
+Investigation history, part 2 - REVERSED: two struct fields were wrong at the same time and masked each
+other across the entire "every struct-content permutation" sweep above:
+    A later, more careful re-check of every field's actual semantics (not just the values already
+    tried) against SIGNER_SUBJECT_INFO and SIGNER_CERT_STORE_INFO's documented behavior found two
+    separate errors that were both present throughout part 1's investigation, so no single-field
+    permutation in that sweep ever isolated either one on its own:
+      - SIGNER_CERT_STORE_INFO.hCertStore was set to the CurrentUser\My store handle (hMy) - VERIFIED
+        against https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info :
+        hCertStore is only consulted when dwCertPolicy is SIGNER_CERT_POLICY_STORE (search that store
+        for a certificate matching pSigningCert) or SIGNER_CERT_POLICY_CHAIN_NO_ROOT; with
+        dwCertPolicy=SIGNER_CERT_POLICY_CHAIN (build the certificate chain from pSigningCert directly),
+        which this backend has always used, hCertStore must be NULL. Part 1's reasoning ("two
+        independently-observed working callers... pass CHAIN together with a real store handle") did
+        not hold up on closer inspection of that same documentation page.
+      - SIGNER_SUBJECT_INFO.pdwIndex - RECONSTRUCTED / INFERRED (no Microsoft Learn page shows a worked
+        example): part 1 concluded this must be NULL itself ("a genuine bug fix", see above). Re-review
+        found that conclusion backwards - "reserved, must be set to zero" describes the pointed-to
+        DWORD's value, not the pointer field; pdwIndex must point at a real, writable DWORD holding 0,
+        not be NULL. Both configurations were in fact tried during part 1, but always in combination
+        with the hCertStore bug above still present, so neither ever ran against an otherwise-correct
+        call.
+      - SIGNER_SIGNATURE_INFO.psAuthenticated was left NULL throughout part 1 (see that struct's field
+        comment, since corrected) - RECONSTRUCTED / INFERRED: populating it with the SPC_SP_OPUS_INFO/
+        SPC_STATEMENT_TYPE attributes (built but never attached) was not itself confirmed to be
+        required by any Microsoft documentation found, but is restored to match every known working
+        caller of this pattern and is being re-tried alongside the two corrections above.
+    None of this has yet been re-verified against a live Windows CI run (the fixes were derived from
+    documentation/reasoning, not from a passing test) - the next `backend=ffm` CI dispatch is expected
+    to confirm or refute this. If SignerSignEx still fails after this round, re-open this
+    investigation rather than reverting to signtool.exe outright, since the specific combination of all
+    three corrections together has not been tried before.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext

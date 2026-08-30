@@ -13,14 +13,14 @@
 # has no way to hide workflow_dispatch itself from other collaborators, but
 # this keeps them from actually burning Windows-runner minutes with it).
 #
-# STATUS (2026-08-30): this workflow has been manually disabled (not deleted) via the Actions tab,
-# and stays available to re-enable for any future regression testing. PS1's mutating calls (cert
-# create+trust, catalog sign, driver install) pass end-to-end; FFM's installDriver() hangs
-# indefinitely on the elevated pnputil.exe call for reasons that remain unresolved after multiple
-# CI-verified fix attempts (see "SECTION G - CI Investigation Log" in
-# WindowsDriverInstaller_FFM-Win32API.txt), so WindowsDriverInstaller_FFM.isUsable() is temporarily
-# hardcoded to return false - this workflow's `backend=ffm` option will just report "not usable"
-# and skip, not exercise the actual hang, until that's revisited.
+# STATUS (2026-08-31): PS1's mutating calls (cert create+trust, catalog sign, driver install) pass
+# end-to-end. FFM.installDriver() is temporarily a deliberate no-op (its real body - which hangs
+# indefinitely on the elevated pnputil.exe call, see "SECTION G - CI Investigation Log" in
+# WindowsDriverInstaller_FFM-Win32API.txt - is commented out, not deleted), so a `backend=ffm` or
+# `backend=both` mutating run will report a fake-success ".installDriver" line rather than exercising
+# or re-hanging on that call; this is intentional while FFM's catalog signing (createAndSignCatalog,
+# SignerSignEx) is re-verified in isolation first - see SECTION E's "Investigation history, part 2".
+# FFM.isUsable() no longer hardcodes false, so `backend=ffm`/`both` now actually exercises FFM again.
 #
 # INPUTS:
 #   backend        which backend(s) to exercise: both / ps1 / ffm

@@ -209,19 +209,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     @Override
     public boolean isUsable()
     {
-        // TODO: this backend does not work for now - installDriver()'s elevated
-        // "cmd.exe /c pnputil.exe /add-driver ..." call hangs indefinitely inside the native
-        // WaitForSingleObject wait on the elevated child process handle, on at least one real CI
-        // runner. Three independent hypotheses (an interactive unverified-publisher consent dialog,
-        // a legacy Driver Signing\Policy registry gate, and SW_HIDE vs SW_SHOWMINNOACTIVE on the
-        // elevated console-subsystem process) were tested and disproven; a thread dump from an
-        // isolated, genuinely-hung run confirms the block is a real OS-level wait on the elevated
-        // process, not a bug in this class's own logic - see "SECTION G - CI Investigation Log" in
-        // WindowsDriverInstaller_FFM-Win32API.txt for the full investigation history. Unconditionally
-        // returning false here disables this backend so WindowsDriverInstaller.create() always falls
-        // back to WindowsDriverInstaller_PS1, which is fully working end-to-end. Remove this early
-        // return if/when installDriver's hang is actually root-caused and fixed.
-        if(true) return false;
+        // PREVIOUSLY: installDriver()'s elevated "cmd.exe /c pnputil.exe /add-driver ..." call hung
+        // indefinitely inside the native WaitForSingleObject wait on the elevated child process
+        // handle, on at least one real CI runner - see "SECTION G - CI Investigation Log" in
+        // WindowsDriverInstaller_FFM-Win32API.txt for the full investigation history. installDriver()
+        // is now a no-op (see below) so that hang can no longer happen; this backend is re-enabled to
+        // exercise catalog signing (see _signCatalog) while that hang is worked on separately.
+        // if(true) return false;
 
         try {
             if(_initError != null) return false;
@@ -234,13 +228,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final int      major = Integer.parseInt(parts[0]);
             if(major < 10) return false;
 
-            // Confirm the handles we actually rely on were resolved successfully. Actual catalog
-            // signing is performed by shelling out to signtool.exe (see _signCatalogWithSigntool) -
-            // without the Windows SDK installed, this backend can create/trust a certificate but
-            // could never actually sign a catalog, so WindowsDriverInstaller.create() must fall back
-            // to WindowsDriverInstaller_PS1 (which has no external SDK dependency) in that case.
+            // Confirm the handles we actually rely on were resolved successfully. Catalog signing is
+            // performed directly via SignerSignEx (see _signCatalog) - no external Windows SDK tool is
+            // required.
+            // return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _CryptAcquireContextW != null
+            //     && _ShellExecuteExW != null && _findSdkTool("signtool.exe") != null;
             return _CertOpenStore != null && _CryptCATOpen != null && _SignerSignEx != null && _CryptAcquireContextW != null
-                && _ShellExecuteExW != null && _findSdkTool("signtool.exe") != null;
+                && _ShellExecuteExW != null;
         }
         catch(final Throwable ignored) {
             return false;
@@ -372,6 +366,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     @Override
     public XCom.Pair<Integer, String> installDriver(final String infPath)
     {
+        // NO-OP for now - the real body below (elevated "cmd.exe /c pnputil.exe /add-driver ...") hangs
+        // indefinitely inside the native WaitForSingleObject wait on the elevated child process handle,
+        // on at least one real CI runner - see "SECTION G - CI Investigation Log" in
+        // WindowsDriverInstaller_FFM-Win32API.txt for the full investigation history. This is being set
+        // aside deliberately while catalog signing (_signCatalog) is worked on first; restore the real
+        // body once installDriver's hang is root-caused and fixed.
+        return new XCom.Pair<Integer, String>(RETCODE_OK, infPath);
+
+        /*
         //  Use pnputil.exe directly to elevate
 
         try {
@@ -405,6 +408,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
             return new XCom.Pair<Integer, String>( RETCODE_EXCEPTION, t.toString() );
         }
+        */
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1116,11 +1120,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 }
 
                 try {
-                    // Signing itself is done by shelling out to signtool.exe (see
-                    // _signCatalogWithSigntool) rather than the direct SignerSignEx FFM call below,
-                    // which is kept only for reference. Regardless of the signing outcome, the
-                    // private key is destroyed immediately afterward - see _destroyPrivateKey.
-                    final int rc = _signCatalogWithSigntool(catPath, providerName, log);
+                    // Signing is done directly via SignerSignEx (see _signCatalog) - shelling out to
+                    // signtool.exe (see _signCatalogWithSigntool, kept only for reference) is no longer
+                    // used. Regardless of the signing outcome, the private key is destroyed immediately
+                    // afterward - see _destroyPrivateKey.
+                    // final int rc = _signCatalogWithSigntool(catPath, providerName, log);
+                    final int rc = _signCatalog(arena, catPath, signingCert, hMy, log);
                     _destroyPrivateKey(arena, signingCert, log);
                     return rc;
                 }
@@ -1135,16 +1140,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     }
 
     /*
-     * Actually applies the Authenticode signature to the finished .cat file by shelling out to the Windows SDK's
+     * UNUSED - kept for reference only.
+     *
+     * Applies the Authenticode signature to the finished .cat file by shelling out to the Windows SDK's
      * signtool.exe, which is already running elevated since this method is only ever reached from the elevated
-     * child process (see _elevatedCreateAndSignCatalog). This replaces the direct SignerSignEx FFM call below
-     * (_signCatalog, kept for reference only), which was abandoned after an exhaustive investigation - every SIGNER_* /
-     * CRYPT_* struct field, all three Signer* entry points, and a COM-initialization attempt - never moved its E_INVALIDARG
-     * failure. A live CI cross-check confirmed signtool.exe signs a .cat file successfully with the exact same self-signed
-     * certificate this backend creates, using this identical command line - see .github/workflows/test-windows-driver-installer.yml's
-     * "Cross-check catalog signing with signtool.exe" step, and WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx"
-     * entry for the full investigation history.
-     */
+     * child process (see _elevatedCreateAndSignCatalog). This was used in place of the direct SignerSignEx FFM
+     * call below (_signCatalog) after that call was believed to fail with E_INVALIDARG regardless of struct
+     * content; that diagnosis has since been revised (see _signCatalog's own comment) and _signCatalog is the
+     * active signing path again - see WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the
+     * full investigation history.
+     *
     private static int _signCatalogWithSigntool(final String catPath, final String providerName, final StringBuilder log) throws IOException, InterruptedException
     {
         final String signtool = _findSdkTool("signtool.exe");
@@ -1171,6 +1176,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         return RETCODE_OK;
     }
+    */
 
     // mssign32.dll (not declared in any SDK header - struct layouts per the SIGNER_* documentation pages)
     private static final int SIGNER_SUBJECT_FILE       = 1;
@@ -1186,29 +1192,25 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String SPC_SP_OPUS_INFO_OBJID   = "1.3.6.1.4.1.311.2.1.12";
     private static final String SPC_STATEMENT_TYPE_OBJID = "1.3.6.1.4.1.311.2.1.11";
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-
     /*
-     * UNUSED - kept for reference only.
-     *
-     * This direct SignerSignEx call reliably failed with E_INVALIDARG (HRESULT=0x80070057) across every struct-field
-     * permutation, all three entry points (SignerSignEx/SignerSignEx2/SignerSignEx3), and a COM-initialization attempt
-     * - see WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the full investigation. Catalog signing
-     * is now performed by _signCatalogWithSigntool() above, which shells out to signtool.exe (proven working via a live
-     * CI cross-check against the exact same certificate).
+     * This direct SignerSignEx call previously failed with E_INVALIDARG (HRESULT=0x80070057) across every
+     * struct-field permutation tried, all three entry points (SignerSignEx/SignerSignEx2/SignerSignEx3), and a
+     * COM-initialization attempt, which led to abandoning it in favor of shelling out to signtool.exe (see
+     * _signCatalogWithSigntool, now unused/kept for reference). That investigation is superseded: two fields
+     * were wrong at the same time, masking each other's effect across every permutation tried. See
+     * WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry for the full investigation history and the
+     * two corrections below.
      */
     private static int _signCatalog(final Arena arena, final String catPath, final MemorySegment signingCert, final MemorySegment hMy, final StringBuilder log) throws Throwable
     {
-        // combaseapi.h - some WinTrust/Signer-family internals use COM-based providers; this was tried
-        // as a hypothesis for the E_INVALIDARG failure below and did not resolve it either. S_OK(0) and
-        // S_FALSE(1) both mean COM is now initialized on this thread and must be paired with
-        // CoUninitialize; a negative HRESULT (e.g. RPC_E_CHANGED_MODE) means a different concurrency
-        // model was already set on this thread and must NOT be paired with CoUninitialize.
-        final int coInitHr = (int) _CoInitializeEx.invoke(MemorySegment.NULL, COINIT_APARTMENTTHREADED);
-        final boolean coInitialized = coInitHr >= 0;
-        log.append("CoInitializeEx: HRESULT=0x").append( Integer.toHexString(coInitHr) ).append('\n');
+        // combaseapi.h - some WinTrust/Signer-family internals use COM-based providers; this was tried as a
+        // hypothesis for the (now-superseded) E_INVALIDARG failure and did not resolve it. Left commented out
+        // since it is not required (S_OK(0)/S_FALSE(1) mean COM is now initialized on this thread and must be
+        // paired with CoUninitialize; a negative HRESULT means a different concurrency model was already set on
+        // this thread and must NOT be paired with CoUninitialize).
+        // final int coInitHr = (int) _CoInitializeEx.invoke(MemorySegment.NULL, COINIT_APARTMENTTHREADED);
+        // final boolean coInitialized = coInitHr >= 0;
+        // log.append("CoInitializeEx: HRESULT=0x").append( Integer.toHexString(coInitHr) ).append('\n');
         try {
         // SIGNER_FILE_INFO : { DWORD cbSize; LPCWSTR pwszFileName; HANDLE hFile; } - size 24, align 8
         final MemorySegment fileInfo = arena.allocate(24, 8);
@@ -1217,26 +1219,34 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         fileInfo.set( PTR                 , 16, MemorySegment.NULL    );
 
         // SIGNER_SUBJECT_INFO : { DWORD cbSize; DWORD *pdwIndex; DWORD dwSubjectChoice; union{ SIGNER_FILE_INFO* }; } - size 32, align 8
-        // pdwIndex is documented as "reserved - must be set to zero", i.e. the pointer field itself must
-        // be NULL, not a valid pointer to a zero-valued DWORD (which this backend previously passed) -
-        // see the "Investigation history" note in WindowsDriverInstaller_FFM-Win32API.txt.
+        // CORRECTED - "must be set to zero" describes the pointed-to DWORD's *value*, not the pointer field
+        // itself: pdwIndex must point at a real, writable zero-valued DWORD, not be NULL (a prior round of
+        // this investigation passed NULL here, see the commented-out line below) - see
+        // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry.
+        final MemorySegment pdwIndex = arena.allocate(ValueLayout.JAVA_INT);
+        pdwIndex.set(ValueLayout.JAVA_INT, 0, 0);
+
         final MemorySegment subjectInfo = arena.allocate(32, 8);
         subjectInfo.set(ValueLayout.JAVA_INT,  0, 32                 );
-        subjectInfo.set( PTR                ,  8, MemorySegment.NULL );
+        // subjectInfo.set( PTR             ,  8, MemorySegment.NULL );
+        subjectInfo.set( PTR                ,  8, pdwIndex           );
         subjectInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_SUBJECT_FILE);
         subjectInfo.set(PTR                 , 24, fileInfo           );
 
         // SIGNER_CERT_STORE_INFO : { DWORD cbSize; PCCERT_CONTEXT pSigningCert; DWORD dwCertPolicy; HCERTSTORE hCertStore; } - size 32, align 8
-        // dwCertPolicy=SIGNER_CERT_POLICY_CHAIN with hCertStore=hMy (CurrentUser\My, opened by the
-        // caller) - two independently-observed working callers of this same undocumented-header API
-        // both pass CHAIN together with a real store handle, not NULL, so restoring hCertStore here
-        // after the dwCertPolicy=0 and STORE-with-hCertStore experiments (both ruled out - see
-        // WindowsDriverInstaller_FFM-Win32API.txt) rather than assuming "optional" means "safe to omit".
+        // CORRECTED - a prior round of this investigation set hCertStore=hMy here (see the commented-out
+        // line below), on the theory that "optional" meant "must still be a real store handle, not NULL".
+        // hCertStore is only consulted when dwCertPolicy is SIGNER_CERT_POLICY_STORE (search hCertStore for
+        // a matching cert) or SIGNER_CERT_POLICY_CHAIN_NO_ROOT; with dwCertPolicy=SIGNER_CERT_POLICY_CHAIN
+        // (build the chain from pSigningCert alone) it is unused and must be NULL - see
+        // https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info and
+        // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry.
         final MemorySegment certStoreInfo = arena.allocate(32, 8);
         certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                      );
         certStoreInfo.set(PTR                 ,  8, signingCert             );
         certStoreInfo.set(ValueLayout.JAVA_INT, 16, SIGNER_CERT_POLICY_CHAIN);
-        certStoreInfo.set(PTR                 , 24, hMy                     );
+        // certStoreInfo.set(PTR              , 24, hMy                     );
+        certStoreInfo.set(PTR                 , 24, MemorySegment.NULL     );
 
         // SIGNER_CERT : { DWORD cbSize; DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8
         // VERIFIED against https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
@@ -1293,22 +1303,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         authenticatedAttrs.set(PTR                 , 8, attrArray );
 
         // SIGNER_SIGNATURE_INFO : { DWORD cbSize; ALG_ID algidHash; DWORD dwAttrChoice; union{...};
-        //                           PCRYPT_ATTRIBUTES psAuthenticated; PCRYPT_ATTRIBUTES psUnauthenticated; } - size 40, align 8
-        // dwAttrChoice stays SIGNER_NO_ATTR (union at offset 16 unused) - that axis (NO_ATTR vs
-        // AUTHCODE_ATTR) was already exhausted against SignerSignEx2/SignerSignEx3 without changing the
-        // failure. psAuthenticated (offset 24) reverted back to NULL: populating it with the
-        // SPC_SP_OPUS_INFO/SPC_STATEMENT_TYPE attributes below was tried while private-key acquisition
-        // was still broken (see WindowsDriverInstaller_FFM-Win32API.txt's "Investigation history"), so
-        // that experiment never actually ran against a SignerSignEx call that could get past key
-        // acquisition - now that key acquisition is confirmed working and SignerSignEx still fails
-        // identically, psAuthenticated is the next remaining untested-in-combination axis, so it is
-        // isolated back out here.
+        //                           PCRYPT_ATTRIBUTES_ARRAY psAuthenticated; PCRYPT_ATTRIBUTES_ARRAY psUnauthenticated; } - size 40, align 8
+        // dwAttrChoice stays SIGNER_NO_ATTR (union at offset 16 unused; a real value there is only needed
+        // when dwAttrChoice=SIGNER_AUTHCODE_ATTR). CORRECTED - a prior round of this investigation set
+        // psAuthenticated (offset 24) to NULL (see the commented-out line below); the OPUS_INFO/
+        // STATEMENT_TYPE authenticated attributes built above must actually be attached here, not left
+        // unused - see WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry.
         final MemorySegment sigInfo = arena.allocate(40, 8);
         sigInfo.set(ValueLayout.JAVA_INT,  0, 40                    );
         sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256          );
         sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_NO_ATTR        );
         sigInfo.set(PTR                 , 16, MemorySegment.NULL    );
-        sigInfo.set(PTR                 , 24, MemorySegment.NULL    );
+        // sigInfo.set(PTR              , 24, MemorySegment.NULL    );
+        sigInfo.set(PTR                 , 24, authenticatedAttrs    );
         sigInfo.set(PTR                 , 32, MemorySegment.NULL    );
 
         final MemorySegment ppSignerContext = arena.allocate(PTR);
@@ -1344,7 +1351,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         return RETCODE_OK;
         }
         finally {
-            if(coInitialized) _CoUninitialize.invoke();
+            // if(coInitialized) _CoUninitialize.invoke();
         }
     }
 

@@ -395,26 +395,12 @@ public abstract class WindowsDriverInstaller {
  *    running as (in principle) the same OS user/profile. Not yet investigated - see the matching
  *    Section G entry in the .txt doc for candidate causes to check first.
  *
- * 3. Formatting-only task, requested by the user, not yet done: right-align every `\r\n" +` line
- *    terminator across all the embedded PowerShell scripts in WindowsDriverInstaller_PS1.java, so
- *    they line up in the same column within each multi-line String.format(...) block (purely a
- *    readability pass, same PowerShell text either way). The safe way to do this without
- *    reintroducing the backtick-continuation bug fixed in commit 1c83604:
- *      - Padding a line with trailing spaces BEFORE the closing `\r\n" +` is safe for any line
- *        that does NOT end in a PowerShell continuation backtick (`` ` ``) - e.g. a line ending in
- *        a pipe `|`, a semicolon, or plain statement text. PowerShell only cares about trailing
- *        whitespace immediately after an explicit backtick continuation; a pipe already implies
- *        continuation regardless of what whitespace follows it.
- *      - A line whose PowerShell content itself ends in a continuation backtick MUST keep that
- *        backtick as the last non-`\r\n` character - i.e. do NOT pad after the backtick. Right-
- *        alignment on those specific lines isn't possible without breaking them; leave those few
- *        lines short/unaligned, or reflow the text before the backtick instead of padding after it.
- *      - Leading spaces (indentation) anywhere, including immediately before a continuation
- *        backtick, are always safe - PowerShell only cares about what comes AFTER the backtick,
- *        never before it. So yes: the line continuation can be prefixed with spaces freely; it's
- *        only suffixed (trailing) whitespace after the backtick itself that breaks continuation.
- *      - After making this pass, re-run the same check used to confirm the last fix:
- *        `grep -n '`[ \t]\+\\r\\n"' jxm/WindowsDriverInstaller_PS1.java` must return nothing.
+ * 3. DONE (2026-08-30, commit 927b5ed): right-aligned every `\r\n" +` line terminator within each
+ *    multi-line String.format(...)/concat block in WindowsDriverInstaller_PS1.java. Continuation
+ *    backtick lines (New-SelfSignedCertificate, both Start-Process/-ArgumentList pairs, the
+ *    Set-AuthenticodeSignature pipe line) were left untouched, exactly as instructed. Confirmed
+ *    `grep -n '`[ \t]\+\\r\\n"' jxm/WindowsDriverInstaller_PS1.java` returns nothing, and both
+ *    `make jar JDK_VER=8` and `make jar JDK_VER=25` compile clean.
  *
  * Once 1 and 2 are diagnosed/fixed, rebuild (`make clean && make jar JDK_VER=8 && make jar
  * JDK_VER=25` from src/), commit, update memory, and recommend another

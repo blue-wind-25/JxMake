@@ -1728,14 +1728,16 @@ so it stays available to re-enable for future regression testing (e.g. if FFM's 
 revisited, or after further PS1 changes). That condition is now met - PS1 fully passes, FFM is
 deliberately disabled rather than failing.
 
-Disabling a workflow via `gh workflow disable "Test WindowsDriverInstaller"` was attempted from this
-dev box and failed with `HTTP 403: Resource not accessible by personal access token` - the
-authenticated token here does not carry the `workflow` scope needed for that specific API call (it
-was sufficient for everything else used in this investigation, e.g. `gh workflow list`). Disabling it
-therefore requires a manual step: on GitHub, go to the repo's Actions tab -> "Test
-WindowsDriverInstaller" (in the left-hand workflow list) -> the "..." menu in the top-right of that
-workflow's page -> "Disable workflow". This is fully reversible from the same menu ("Enable
-workflow") and does not delete the file or its run history - only `workflow_dispatch` becomes
-unavailable until it's re-enabled. As of this writing the workflow has NOT yet been disabled this way
-- this is a manual action still pending, to be done by whoever has a token/session with the
-`workflow` scope (or via the GitHub web UI directly, which does not have this token limitation).
+DONE (2026-08-30): `gh workflow disable "Test WindowsDriverInstaller"` initially failed with
+`HTTP 403: Resource not accessible by personal access token` when run under this dev box's default
+`GITHUB_TOKEN` environment variable (a fine-grained PAT that's sufficient for everything else used in
+this investigation, e.g. `gh workflow list`, but not for this specific mutating Actions call). This
+box also has a second `gh`-authenticated account in its credential keyring (an OAuth token with
+`repo` scope), which `GITHUB_TOKEN` was silently overriding - `gh auth switch` alone doesn't help
+here, since an explicit `GITHUB_TOKEN` env var always takes precedence over the active keyring
+account. Running the same command with that env var unset for just that one call
+(`env -u GITHUB_TOKEN gh workflow disable "Test WindowsDriverInstaller"`) used the keyring account
+instead and succeeded. `gh workflow list --all` now shows it as `disabled_manually`. Fully reversible
+via `gh workflow enable "Test WindowsDriverInstaller"` (same env-var caveat applies) or the Actions
+tab's "..." -> "Enable workflow" - the file and its run history are untouched, only
+`workflow_dispatch` is unavailable until it's re-enabled.

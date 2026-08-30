@@ -186,7 +186,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // one, so repeated runs never accumulate duplicates.
                 "        Get-ChildItem Cert:\\CurrentUser\\My |                                             \r\n" +
                 "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
-                "            Remove-Item -Force -ErrorAction SilentlyContinue;                              \r\n" +
+                "            Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                   \r\n" +
                 "        Get-ChildItem Cert:\\LocalMachine\\Root |                                          \r\n" +
                 "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                     \r\n" +
                 "            Remove-Item -Force -ErrorAction SilentlyContinue;                              \r\n" +
@@ -205,11 +205,19 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // is not the cause. Rather than rely on CurrentUser\My surviving across sessions at all,
                 // export the cert+private key here as a password-protected PFX to a %TEMP% file that
                 // createAndSignCatalog() reads back directly - the filesystem does not have this
-                // per-session-profile problem. The certificate is still also written to Cert:\CurrentUser\My
-                // above (consistent with prior behavior / other consumers), just no longer relied upon.
+                // per-session-profile problem. Everything downstream now goes through that PFX, so the
+                // Cert:\CurrentUser\My copy above serves no further purpose once it's exported - remove it
+                // (with -DeleteKey, destroying the CNG key container too) in this same elevated session
+                // right away, rather than leaving a live, reusable private key sitting in the store
+                // indefinitely (or until some later, unrelated createAndTrustProvider() call happens to
+                // reuse the same providerName and sweeps it up as a "stale" leftover). This is safe to do
+                // here - unlike the read attempted from a different session, this is a same-session
+                // delete of the object we just created, not a lookup across the broken cross-session
+                // boundary.
                 "                     `$pfxBytes = `$cert.Export(                                          `\r\n" +
                 "                         [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');\r\n" +
                 "                     [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                    \r\n" +
+                "                     `$cert | Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue; \r\n" +
                 "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;           \r\n" +
                 "        certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append\r\n" +
                 "    \"                                                                                     \r\n" +

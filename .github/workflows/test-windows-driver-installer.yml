@@ -13,11 +13,14 @@
 # has no way to hide workflow_dispatch itself from other collaborators, but
 # this keeps them from actually burning Windows-runner minutes with it).
 #
-# REMINDER: once the FFM backend's SignerSignEx2 E_INVALIDARG investigation
-# (see WindowsDriverInstaller_FFM-Win32API.txt) is resolved and both backends
-# pass a mutating run, disable this workflow (Actions tab -> this workflow ->
-# "..." -> Disable workflow) rather than deleting it, so it stays available to
-# re-enable for any future regression testing.
+# STATUS (2026-08-30): this workflow has been manually disabled (not deleted) via the Actions tab,
+# and stays available to re-enable for any future regression testing. PS1's mutating calls (cert
+# create+trust, catalog sign, driver install) pass end-to-end; FFM's installDriver() hangs
+# indefinitely on the elevated pnputil.exe call for reasons that remain unresolved after multiple
+# CI-verified fix attempts (see "SECTION G - CI Investigation Log" in
+# WindowsDriverInstaller_FFM-Win32API.txt), so WindowsDriverInstaller_FFM.isUsable() is temporarily
+# hardcoded to return false - this workflow's `backend=ffm` option will just report "not usable"
+# and skip, not exercise the actual hang, until that's revisited.
 #
 # INPUTS:
 #   backend        which backend(s) to exercise: both / ps1 / ffm
@@ -79,9 +82,13 @@ jobs:
       #
       # Also silences the separate "Windows can't verify the publisher of this
       # driver software" consent dialog that pnputil can raise when staging a
-      # validly self-signed but non-WHQL driver (suspected cause of
-      # FFM.installDriver hanging on CI even without pnputil's /install flag -
-      # see the "CONTINUE HERE NEXT SESSION" note in WindowsDriverInstaller.java).
+      # validly self-signed but non-WHQL driver - an early, since-disproven
+      # hypothesis for why FFM.installDriver hangs on CI even without pnputil's
+      # /install flag (see "SECTION G - CI Investigation Log" in
+      # WindowsDriverInstaller_FFM-Win32API.txt). Left in place since it's a
+      # generally-useful CI setting regardless (PS1's mutating run also
+      # benefits from not risking this dialog), even though it didn't turn out
+      # to explain FFM's hang.
       # The legacy "Driver Signing\Policy" REG_BINARY value's first byte selects
       # 0=silently succeed, 1=warn, 2=block; this session has no desktop to show
       # a "warn" prompt on regardless, so silently-succeed is the only option
@@ -203,18 +210,6 @@ jobs:
           mkdir -p wdi_ci_out
           "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
 
-      # Diagnostic for the still-open FFM SignerSignEx E_INVALIDARG investigation (see
-      # WindowsDriverInstaller_FFM-Win32API.txt's "Investigation history" section): every
-      # SIGNER_*-struct-field permutation tried so far has failed identically, so this captures
-      # Windows' own internal CAPI2 trace of the SignerSignEx call instead of guessing another
-      # field. Non-fatal if it can't be enabled (continue-on-error below) - this is diagnostic
-      # only and must never block the actual test result.
-      - name: Enable CAPI2 diagnostic log (mutating run only)
-        if: ${{ inputs.run_mutating }}
-        shell: pwsh
-        continue-on-error: true
-        run: wevtutil.exe set-log Microsoft-Windows-CAPI2/Operational /e:true /q:true
-
       - name: Run WindowsDriverInstaller test
         working-directory: src
         run: |
@@ -226,10 +221,4 @@ jobs:
             -Dwdi.mutating="${{ inputs.run_mutating }}" \
             -cp "jxmake.jar;wdi_ci_out" \
             WDI_CITest
-
-      - name: Dump CAPI2 diagnostic log (mutating run only)
-        if: ${{ inputs.run_mutating }}
-        shell: pwsh
-        continue-on-error: true
-        run: wevtutil.exe qe Microsoft-Windows-CAPI2/Operational /rd:true /f:text
 

@@ -44,10 +44,15 @@ public abstract class WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /*
-     * Factory method - always prefer the Java 25+ FFM backend over the PowerShell backend, since
-     * it avoids spawning powershell.exe/UAC-elevated child processes for every operation. The FFM
-     * class name is looked up by string (never referenced by type) because a JAR built with an
+     * Factory method - prefers the Java 25+ FFM backend over the PowerShell backend when usable,
+     * since it avoids spawning powershell.exe/UAC-elevated child processes for every operation. The
+     * FFM class name is looked up by string (never referenced by type) because a JAR built with an
      * older Java version will not contain that class at all - see the 'ExcludeFFM' Makefile logic.
+     *
+     * As of this writing, WindowsDriverInstaller_FFM.isUsable() is hardcoded to always return false
+     * (its installDriver() hangs indefinitely on at least one CI runner - see "SECTION G - CI
+     * Investigation Log" in WindowsDriverInstaller_FFM-Win32API.txt), so this always falls through
+     * to WindowsDriverInstaller_PS1 for now, regardless of JVM/OS version.
      */
     public static WindowsDriverInstaller create()
     {

@@ -1256,7 +1256,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
 
         try(
-            final Arena arena = Arena.ofAuto()
+            final Arena arena = Arena.ofShared()
         ) {
         /*
             // CM_WaitNoPendingInstallEvents(dwTimeout) : blocks until the PnP manager reports no

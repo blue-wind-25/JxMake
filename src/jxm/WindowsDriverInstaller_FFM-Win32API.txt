@@ -1503,15 +1503,20 @@ CI run (second dispatch, /install already removed) - hypothesis only PARTIALLY c
     That would hang forever with no desktop session to dismiss it on. NOT YET PROVEN - PS1 has
     never gotten a validly-signed driver far enough to exercise the same code path.
 
-    FIX ATTEMPTED (2026-08-30, uncommitted), per explicit user decision: added the legacy
+    FIX ATTEMPTED (commit abbc84a), per explicit user decision: added the legacy
     HKLM\SOFTWARE\Microsoft\Driver Signing\Policy (REG_BINARY, first byte 0 = silently succeed)
     registry tweak to test-windows-driver-installer.yml's "Allow silent admin elevation" step,
-    alongside the existing ConsentPromptBehaviorAdmin=0 tweak. STILL PENDING a live CI run to
-    confirm. User's explicit fallback if this doesn't resolve it: fix item 2 (PS1 cert bug) next,
-    so PS1 can also reach a validly-signed driver and give a second data point on whether the
-    "unverified publisher" dialog theory is even right.
+    alongside the existing ConsentPromptBehaviorAdmin=0 tweak. CONFIRMED INEFFECTIVE by a third CI
+    run: FFM.installDriver hung again at the identical spot in _shellExecuteElevatedAndWait
+    (~89s, then manually canceled by the user - "I stopped it, it should only take < 10 seconds").
+    Per the user's explicit fallback plan, pivoted to item 2 (PS1 cert bug) next instead of guessing
+    further here. The registry tweak is left in the workflow (harmless either way, and may still be
+    needed once the actual hang cause is found), but item 1 remains genuinely OPEN - the
+    "unverified publisher" consent-dialog theory is still unproven, and this one candidate
+    mitigation for it did not work.
 
-OPEN - PS1.createAndSignCatalog: "Certificate not found" (CI run 90196100036), diagnosable for the
+FIX ATTEMPTED (commit 0eb40d4) - PS1.createAndSignCatalog: "Certificate not found" (CI run
+90196100036), diagnosable for the
 first time thanks to the try/catch added around the elevated script in the previous round:
     createAndTrustProvider succeeded (cert created + trusted, ~2 seconds before), but
     createAndSignCatalog's own separately-elevated child process's
@@ -1537,8 +1542,19 @@ first time thanks to the try/catch added around the elevated script in the previ
     before the elevated powershell.exe re-tokenizes it - unlike FFM's approach, this could in
     principle corrupt embedded literal quotes in $script under the right conditions. Not checked.
 
-    DIAGNOSTIC ADDED (2026-08-30, commit 2bc4b01): the thrown "Certificate not found" message now
-    includes a dump of Cert:\CurrentUser\My's actual contents (Subject, Thumbprint) at the point of
-    failure, to distinguish an empty store from a subject-string mismatch. NEXT STEP: read that
-    dump off the next CI run's log - see the continuation note at the end of
-    WindowsDriverInstaller.java.
+    DIAGNOSTIC ADDED (commit 2bc4b01): the thrown "Certificate not found" message now includes a
+    dump of Cert:\CurrentUser\My's actual contents (Subject, Thumbprint) at the point of failure, to
+    distinguish an empty store from a subject-string mismatch. A live CI run confirmed via this
+    diagnostic that the store was genuinely EMPTY ("Cert:\CurrentUser\My contains: []"), not a
+    subject-string mismatch.
+
+    ROOT CAUSE (suspected) AND FIX (commit 0eb40d4): the user identified that an earlier iteration
+    of this backend, before -DeleteKey was added to its Remove-Item calls (commit 2a2cd6a, which
+    added both the stale-cert cleanup at the start of createAndTrustProvider and the post-signing
+    cleanup at the end of createAndSignCatalog), did not exhibit this "Certificate not found"
+    symptom - -DeleteKey is the one PS1-specific change correlated with the regression's onset.
+    Dropped -DeleteKey from both call sites (both now do a plain Remove-Item, leaving the stale
+    certificate's CNG key container orphaned rather than destroyed - accepted as a known regression
+    pending a clearer understanding of the actual mechanism, since correctness took priority over
+    that particular hardening for now). STILL PENDING a live CI run to confirm the empty-store
+    symptom is actually gone.

@@ -400,29 +400,29 @@ public abstract class WindowsDriverInstaller {
  *    never gotten a validly-signed driver far enough to test the same code path, since it's still
  *    blocked by item 2 below.
  *
- *    FIX ATTEMPTED (2026-08-30, uncommitted): per explicit user decision, added the legacy
+ *    FIX ATTEMPTED (commit abbc84a): per explicit user decision, added the legacy
  *    `HKLM\SOFTWARE\Microsoft\Driver Signing\Policy` (REG_BINARY, first byte 0 = silently succeed)
  *    registry tweak to test-windows-driver-installer.yml's "Allow silent admin elevation" step,
  *    alongside the existing ConsentPromptBehaviorAdmin=0 tweak - CI-workflow-only, not something
- *    this library sets on a real user's machine. STILL PENDING a live CI run to confirm this
- *    actually stops the hang. User's explicit fallback if this doesn't work: fix item 2 (PS1 cert
- *    bug) next, so PS1 can also reach a validly-signed driver and give a second data point on
- *    whether the "unverified publisher" dialog theory is even right.
+ *    this library sets on a real user's machine. CONFIRMED INEFFECTIVE by a second live CI run:
+ *    FFM.installDriver hung again at the identical spot (~89s before manual cancellation). Per the
+ *    user's explicit fallback plan, pivoted to item 2 next instead of further guessing here - this
+ *    registry tweak is left in place (harmless either way) but item 1 remains genuinely OPEN.
  *
- * 2. OPEN, one hypothesis eliminated by new evidence. PS1.createAndSignCatalog fails with
- *    "Certificate not found" - createAndTrustProvider's elevated child creates+trusts the cert
- *    successfully, but createAndSignCatalog's own, separately-elevated child can't find it via
- *    Cert:\CurrentUser\My moments later. The "different elevation session -> different CurrentUser
- *    profile" hypothesis was already disproven (FFM's structurally identical two-elevation pattern
- *    works). The diagnostic added last round (commit 2bc4b01) now confirms via a live CI run:
- *    "Certificate not found. Cert:\CurrentUser\My contains: []" - the store is genuinely EMPTY
- *    from the second elevated child's point of view, NOT a subject-string mismatch. Remaining
- *    candidates: New-SelfSignedCertificate's write not being synchronously committed before
- *    -Wait returns, or PS1's single-string -ArgumentList ("-NoProfile -Command $script") going
- *    through raw Win32 argv parsing before the elevated powershell.exe re-tokenizes it (unlike
- *    FFM's approach) - neither checked yet. Worth trying: have createAndTrustProvider's own
- *    elevated child immediately re-read back Cert:\CurrentUser\My right after creating the cert
- *    (before that child exits), to confirm the cert is even visible to itself.
+ * 2. FIX ATTEMPTED (commit 0eb40d4). PS1.createAndSignCatalog was failing with "Certificate not
+ *    found" - createAndTrustProvider's elevated child creates+trusts the cert successfully, but
+ *    createAndSignCatalog's own, separately-elevated child couldn't find it via Cert:\CurrentUser\My
+ *    moments later ("Cert:\CurrentUser\My contains: []" - genuinely empty, not a subject-string
+ *    mismatch, confirmed by the diagnostic added in commit 2bc4b01). The "different elevation
+ *    session -> different CurrentUser profile" hypothesis was already disproven (FFM's structurally
+ *    identical two-elevation pattern against CERT_SYSTEM_STORE_CURRENT_USER works). User pointed
+ *    out that an earlier iteration of this backend, before `-DeleteKey` was added to Remove-Item
+ *    calls (commit 2a2cd6a), did not exhibit this symptom - -DeleteKey is the one PS1-specific
+ *    change correlated with the regression. Dropped -DeleteKey from both the stale-cert cleanup in
+ *    createAndTrustProvider() and the post-signing cleanup in createAndSignCatalog() (both now do a
+ *    plain Remove-Item, leaving the CNG key container orphaned rather than destroyed - a known,
+ *    accepted regression pending understanding of the actual mechanism). STILL PENDING a live CI
+ *    run to confirm this actually fixes the empty-store symptom.
  *
  * 3. DONE (2026-08-30, commit 927b5ed): right-aligned every `\r\n" +` line terminator within each
  *    multi-line String.format(...)/concat block in WindowsDriverInstaller_PS1.java. Continuation

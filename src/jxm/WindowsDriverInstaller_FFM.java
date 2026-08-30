@@ -908,11 +908,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String SPC_CAB_DATA_OBJID   = "1.3.6.1.4.1.311.2.1.25";
     private static final String szOID_NIST_sha256    = "2.16.840.1.101.3.4.2.1";
 
-    // OSAttr member attribute value - this backend targets Windows 10+ only - see isUsable(), so the
-    // member is scoped to major OS version "10.0" rather than the broader legacy OS-version lists
-    // catalog-building tools historically used
-    private static final String CATALOG_OS_ATTR = "10.0";
-
     // GUID (guiddef.h) : { DWORD Data1; WORD Data2; WORD Data3; BYTE Data4[8]; } - size 16, align 4
     private static MemorySegment _guid(final Arena arena, final long[] parts)
     {
@@ -1033,8 +1028,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                         return RETCODE_EXCEPTION;
                     }
 
-                    // "File" / "OSAttr" member attributes - matches what catalog-verification tooling expects
-                    // alongside the SIP-indirect digest, scoping the member to this backend's Windows 10+ target
+                    // "File" member attribute - matches what catalog-verification tooling expects alongside
+                    // the SIP-indirect digest. No "OSAttr" attribute is added: WindowsDriverInstaller_PS1's
+                    // New-FileCatalog -CatalogVersion 2.0 (proven working end-to-end on live CI) doesn't set
+                    // one either, and adding an OS-version-scoped member here was found to make
+                    // SetupCopyOEMInfW reject the member entirely (SPAPI_E_FILE_HASH_NOT_IN_CATALOG) rather
+                    // than just narrowing its applicability - see WindowsDriverInstaller_FFM-Win32API.txt
+                    // SECTION H "ITEM 4".
                     final MemorySegment fileAttr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
                         hCatalog, pMember, _wstr(arena, "File"),
                         CRYPTCAT_ATTR_AUTHENTICATED | CRYPTCAT_ATTR_NAMEASCII | CRYPTCAT_ATTR_DATAASCII,
@@ -1042,16 +1042,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     );
                     if(fileAttr == null || fileAttr.address() == 0L) {
                         log.append("CryptCATPutAttrInfo(File) failed, GetLastError=").append( _lastError() );
-                        return RETCODE_EXCEPTION;
-                    }
-
-                    final MemorySegment osAttr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
-                        hCatalog, pMember, _wstr(arena, "OSAttr"),
-                        CRYPTCAT_ATTR_AUTHENTICATED | CRYPTCAT_ATTR_NAMEASCII | CRYPTCAT_ATTR_DATAASCII,
-                        (CATALOG_OS_ATTR.length() + 1) * 2, _wstr(arena, CATALOG_OS_ATTR)
-                    );
-                    if(osAttr == null || osAttr.address() == 0L) {
-                        log.append("CryptCATPutAttrInfo(OSAttr) failed, GetLastError=").append( _lastError() );
                         return RETCODE_EXCEPTION;
                     }
                 }

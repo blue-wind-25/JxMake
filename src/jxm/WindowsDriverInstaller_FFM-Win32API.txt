@@ -961,20 +961,23 @@ Return value : CRYPTCATATTRIBUTE* (owned by the catalog member, caller must not 
                failure.
 Purpose      : Attaches one named, typed attribute to an existing catalog member.
 
-FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR)` - 6 inputs. Called twice per
-               member, both times with dwAttrTypeAndAction = CRYPTCAT_ATTR_AUTHENTICATED(0x10000000)
-               | CRYPTCAT_ATTR_NAMEASCII (0x1) | CRYPTCAT_ATTR_DATAASCII(0x10000) - i.e. an
+FFM notes    : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR)` - 6 inputs. Called once per
+               member, with dwAttrTypeAndAction = CRYPTCAT_ATTR_AUTHENTICATED(0x10000000) |
+               CRYPTCAT_ATTR_NAMEASCII (0x1) | CRYPTCAT_ATTR_DATAASCII(0x10000) - i.e. an
                authenticated (covered by the catalog's own signature) attribute whose name is ASCII
-               and whose data should be taken as-is rather than base64-decoded. The two attributes
-               added are "File" (the lowercased INF filename, UTF-16LE-encoded, matching what
-               catalog-consuming tooling conventionally expects for this attribute) and "OSAttr"
-               (the literal string "10.0", scoping this member to Windows 10/11 - since this backend
-               already refuses to run on anything below Windows 10 per `isUsable()`, this narrower
-               OS-attribute list was chosen deliberately instead of the broader, legacy-OS-inclusive
-               lists that catalog-building tools historically used for backward compatibility this
-               file does not need). Both calls' cbData is computed as `(string.length() + 1) * 2` -
-               i.e. character count including the NUL terminator, times 2 bytes per UTF-16 code unit
-               - matching the UTF-16LE encoding `_wstr` produces for pbData.
+               and whose data should be taken as-is rather than base64-decoded. The one attribute
+               added is "File" (the lowercased INF filename, UTF-16LE-encoded, matching what
+               catalog-consuming tooling conventionally expects for this attribute). cbData is
+               computed as `(string.length() + 1) * 2` - i.e. character count including the NUL
+               terminator, times 2 bytes per UTF-16 code unit - matching the UTF-16LE encoding
+               `_wstr` produces for pbData.
+
+               An earlier version also added a second, "OSAttr" attribute (literal string "10.0",
+               intended to scope the member to Windows 10/11) - removed, see SECTION H "ITEM 4":
+               it caused SetupCopyOEMInfW to reject the member outright
+               (SPAPI_E_FILE_HASH_NOT_IN_CATALOG) rather than merely narrowing its applicability.
+               WindowsDriverInstaller_PS1's New-FileCatalog -CatalogVersion 2.0 (proven working
+               end-to-end on live CI) never sets this attribute either.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: GUID
@@ -1749,6 +1752,19 @@ practice (confirmed on live CI). Fixed by binding SetupCopyOEMInfW with
 as part of the same downcall - see its FFM notes above and `_capturedLastError()` in the .java
 file. Not yet confirmed on live CI whether this reveals a genuine, fixable underlying error or
 whether SetupCopyOEMInfW itself still needs further investigation once the real code is known.
+
+ITEM 4 - captureCallState (ITEM 3) revealed the real error: SetupCopyOEMInfW returned FALSE with
+GetLastError()=0xE000024B = SPAPI_E_FILE_HASH_NOT_IN_CATALOG - the catalog was found and opened,
+but the INF's hash wasn't accepted as matching a member in it, even though the hash itself was
+computed correctly at catalog-build time (see CryptCATAdminCalcHashFromFileHandle2 above). Root
+cause: the catalog member for the INF carried an "OSAttr" attribute (literal "10.0") intended to
+scope it to Windows 10/11 - WindowsDriverInstaller_PS1's New-FileCatalog (proven working
+end-to-end) never sets this attribute at all, and it turned out SetupCopyOEMInfW's validation
+treats a member with an OSAttr it doesn't recognize/match as not-a-match at all, rather than just
+narrowing which OS versions it applies to - i.e. it behaved as if the INF's hash wasn't in the
+catalog. Fixed by dropping the "OSAttr" `CryptCATPutAttrInfo` call entirely, leaving only the
+"File" attribute (matching PS1's approach) - see `CryptCATPutAttrInfo`'s FFM notes above. Not yet
+confirmed on live CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

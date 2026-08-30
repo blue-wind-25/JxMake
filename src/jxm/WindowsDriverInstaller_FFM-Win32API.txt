@@ -1548,13 +1548,37 @@ first time thanks to the try/catch added around the elevated script in the previ
     diagnostic that the store was genuinely EMPTY ("Cert:\CurrentUser\My contains: []"), not a
     subject-string mismatch.
 
-    ROOT CAUSE (suspected) AND FIX (commit 0eb40d4): the user identified that an earlier iteration
+    FIX ATTEMPT 1 (commit 0eb40d4), CONFIRMED FAILED: the user identified that an earlier iteration
     of this backend, before -DeleteKey was added to its Remove-Item calls (commit 2a2cd6a, which
     added both the stale-cert cleanup at the start of createAndTrustProvider and the post-signing
     cleanup at the end of createAndSignCatalog), did not exhibit this "Certificate not found"
     symptom - -DeleteKey is the one PS1-specific change correlated with the regression's onset.
     Dropped -DeleteKey from both call sites (both now do a plain Remove-Item, leaving the stale
-    certificate's CNG key container orphaned rather than destroyed - accepted as a known regression
-    pending a clearer understanding of the actual mechanism, since correctness took priority over
-    that particular hardening for now). STILL PENDING a live CI run to confirm the empty-store
-    symptom is actually gone.
+    certificate's CNG key container orphaned rather than destroyed).
+
+    A subsequent live CI run proved this WRONG: with -DeleteKey removed, PS1.createAndTrustProvider
+    still succeeded (cert created + trusted) and PS1.isProviderAlreadyTrusted (after trust) = [1],
+    but PS1.createAndSignCatalog still failed with "Certificate not found. Cert:\CurrentUser\My
+    contains: []" - the store was still completely empty. -DeleteKey was never the (sole) cause.
+    User's reaction: "It does not make sense."
+
+    The one useful thing this run's diagnostics DID confirm: Cert:\LocalMachine\Root/TrustedPublisher
+    (machine-wide, not per-profile - checked by isProviderAlreadyTrusted) reliably survives across
+    the two independently-elevated Start-Process -Verb RunAs sessions, while Cert:\CurrentUser\My
+    (per-profile) does not, even though the first elevated child wrote to it successfully moments
+    earlier. The underlying mechanism for why per-profile HKCU-backed stores don't carry over between
+    separate elevations on this runner is still not understood, but the empirical split (LocalMachine
+    survives, CurrentUser\My doesn't) is now solid across two independent CI runs.
+
+    FIX ATTEMPT 2 (commit 5f03680): rather than keep guessing at the cross-session per-profile store
+    behavior, stopped depending on it entirely. createAndTrustProvider() now, in addition to writing
+    to Cert:\CurrentUser\My as before, exports the certificate + private key as a password-protected
+    PFX to a %TEMP% file (`<providerName>.pfx`); the password is derived deterministically from
+    providerName via SHA-256 (JxMake_WDI_PS1_PFX:<providerName>, base64 of the digest) so the two
+    independent method calls can agree on it without persisting it anywhere. createAndSignCatalog()
+    now loads the cert directly from that PFX via
+    `[X509Certificate2]::new('<pfxPath>', '<password>')` instead of querying any Cert: store at all,
+    and deletes the PFX in a `finally` block once done (createAndTrustProvider also eagerly deletes
+    any stale leftover PFX from a prior call at its own start, in case createAndSignCatalog was never
+    reached). This sidesteps the store-visibility mystery via the filesystem, which is not subject to
+    whatever is breaking Cert:\CurrentUser\My here. STILL PENDING a live CI run to confirm.

@@ -409,20 +409,31 @@ public abstract class WindowsDriverInstaller {
  *    user's explicit fallback plan, pivoted to item 2 next instead of further guessing here - this
  *    registry tweak is left in place (harmless either way) but item 1 remains genuinely OPEN.
  *
- * 2. FIX ATTEMPTED (commit 0eb40d4). PS1.createAndSignCatalog was failing with "Certificate not
- *    found" - createAndTrustProvider's elevated child creates+trusts the cert successfully, but
- *    createAndSignCatalog's own, separately-elevated child couldn't find it via Cert:\CurrentUser\My
- *    moments later ("Cert:\CurrentUser\My contains: []" - genuinely empty, not a subject-string
- *    mismatch, confirmed by the diagnostic added in commit 2bc4b01). The "different elevation
- *    session -> different CurrentUser profile" hypothesis was already disproven (FFM's structurally
- *    identical two-elevation pattern against CERT_SYSTEM_STORE_CURRENT_USER works). User pointed
- *    out that an earlier iteration of this backend, before `-DeleteKey` was added to Remove-Item
- *    calls (commit 2a2cd6a), did not exhibit this symptom - -DeleteKey is the one PS1-specific
- *    change correlated with the regression. Dropped -DeleteKey from both the stale-cert cleanup in
- *    createAndTrustProvider() and the post-signing cleanup in createAndSignCatalog() (both now do a
- *    plain Remove-Item, leaving the CNG key container orphaned rather than destroyed - a known,
- *    accepted regression pending understanding of the actual mechanism). STILL PENDING a live CI
- *    run to confirm this actually fixes the empty-store symptom.
+ * 2. FIX ATTEMPT 1 FAILED, FIX ATTEMPT 2 MADE (commit 5f03680). PS1.createAndSignCatalog was
+ *    failing with "Certificate not found" - createAndTrustProvider's elevated child creates+trusts
+ *    the cert successfully, but createAndSignCatalog's own, separately-elevated child couldn't find
+ *    it via Cert:\CurrentUser\My moments later ("Cert:\CurrentUser\My contains: []" - genuinely
+ *    empty, confirmed by the diagnostic added in commit 2bc4b01).
+ *
+ *    Attempt 1 (commit 0eb40d4): user pointed out that an earlier iteration of this backend, before
+ *    `-DeleteKey` was added to Remove-Item calls (commit 2a2cd6a), did not exhibit this symptom.
+ *    Dropped -DeleteKey from both call sites. CONFIRMED INEFFECTIVE by a live CI run: with
+ *    -DeleteKey gone, Cert:\CurrentUser\My was still completely empty from createAndSignCatalog's
+ *    point of view ("It does not make sense" - user's words) - -DeleteKey was never the cause.
+ *
+ *    That same failing run's OTHER diagnostic output gave the real lead:
+ *    PS1.isProviderAlreadyTrusted (after trust) = [1] - i.e. Cert:\LocalMachine\Root/TrustedPublisher
+ *    (machine-wide, not per-profile) DOES survive across the two independently-elevated
+ *    "Start-Process -Verb RunAs" sessions, while Cert:\CurrentUser\My (per-profile) does not. Why
+ *    that split happens on this runner is still not understood, but the pattern is now solid across
+ *    two consecutive fix-attempt/CI-failure cycles.
+ *
+ *    Attempt 2 (commit 5f03680): stopped relying on Cert:\CurrentUser\My cross-session visibility
+ *    entirely. createAndTrustProvider() now also exports the cert+private key as a
+ *    password-protected PFX to a %TEMP% file (password derived deterministically from providerName
+ *    via SHA-256, since the two methods share no state but that parameter); createAndSignCatalog()
+ *    loads the cert straight from that PFX via `[X509Certificate2]::new(path, password)` instead of
+ *    querying any store, and deletes the PFX afterward. STILL PENDING a live CI run to confirm.
  *
  * 3. DONE (2026-08-30, commit 927b5ed): right-aligned every `\r\n" +` line terminator within each
  *    multi-line String.format(...)/concat block in WindowsDriverInstaller_PS1.java. Continuation

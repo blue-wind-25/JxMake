@@ -185,7 +185,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // but that turned out not to hold at runtime on a real Windows CI box (SymbolLookup.find()
             // failed against Setupapi.dll for this specific symbol - see
             // WindowsDriverInstaller_FFM-Win32API.txt SECTION H).
-            _CM_WaitNoPendingInstallEvents = _bind( linker, cfgmgr32, "CM_WaitNoPendingInstallEvents", FunctionDescriptor.of(DW, DW) );
+            //
+            // Exported symbol name on x64 is "CMP_WaitNoPendingInstallEvents" (extra "P"), NOT the
+            // documented "CM_WaitNoPendingInstallEvents" - a live CI UnsatisfiedLinkError against the
+            // documented name confirmed this. Same documented function/signature either way (this is a
+            // well-known, publicly-documented quirk of how Cfgmgr32.dll's x64 export table was built,
+            // not an undocumented API) - see WindowsDriverInstaller_FFM-Win32API.txt SECTION H for the
+            // 32-bit-decorated-name case, which does not apply to this Windows-10+-only, x64-only backend.
+            _CM_WaitNoPendingInstallEvents = _bind( linker, cfgmgr32, "CMP_WaitNoPendingInstallEvents", FunctionDescriptor.of(DW, DW) );
         }
         catch(final Throwable t) {
             // Do not throw out of a static initializer with anything worse than what we capture here;

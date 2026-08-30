@@ -1775,10 +1775,21 @@ Purpose      : Blocks until the PnP manager reports no device-install activity p
                the system, so a caller about to do its own install/staging work doesn't race a
                concurrent one already in progress.
 
+Exported name: on 64-bit Windows, the documented name "CM_WaitNoPendingInstallEvents" is NOT the
+               symbol Cfgmgr32.dll actually exports - a live CI UnsatisfiedLinkError against exactly
+               that name confirmed it. The real x64 export is "CMP_WaitNoPendingInstallEvents" (one
+               extra "P") - a well-known, long-standing quirk of how Cfgmgr32.dll's export table was
+               built (its 32-bit build additionally exports a raw decorated name,
+               "_CM_WaitNoPendingInstallEvents@8", which does not apply here since this backend is
+               Windows-10+-only/x64-only). Same documented function and signature either way - this
+               is a naming quirk in the DLL's export table, not an undocumented API.
+
 FFM notes    : `FunctionDescriptor.of(DW, DW)` - matches `DWORD(DWORD)` above 1:1. Bound against a
                dedicated `Cfgmgr32.dll` SymbolLookup (see the "DLL" field above for why this isn't
-               shared with SetupCopyOEMInfW's `Setupapi.dll` lookup). Called from
-               `_elevatedInstallDriver` with dwTimeout=60000 (60s, not INFINITE) immediately before
-               SetupCopyOEMInfW; a timeout here is logged but does not abort the subsequent
-               SetupCopyOEMInfW call, since SetupCopyOEMInfW was never the call observed to hang in
-               the old pnputil.exe-based hang investigation (see SECTION G).
+               shared with SetupCopyOEMInfW's `Setupapi.dll` lookup), looking up the symbol
+               "CMP_WaitNoPendingInstallEvents" (see "Exported name" above), not the documented
+               "CM_WaitNoPendingInstallEvents". Called from `_elevatedInstallDriver` with
+               dwTimeout=60000 (60s, not INFINITE) immediately before SetupCopyOEMInfW; a timeout
+               here is logged but does not abort the subsequent SetupCopyOEMInfW call, since
+               SetupCopyOEMInfW was never the call observed to hang in the old pnputil.exe-based hang
+               investigation (see SECTION G).

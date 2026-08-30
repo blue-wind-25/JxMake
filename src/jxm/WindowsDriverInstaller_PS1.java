@@ -31,7 +31,7 @@ import jxm.xb.*;
 
 
 /*
- * WINDOWS 7 / 8 / 8.1 COMPATIBILITY NOTE
+ * WINDOWS 7/8/ 8.1 COMPATIBILITY NOTE
  *
  * This class requires PowerShell 5.0 or later for the following features:
  *     - New-SelfSignedCertificate  (requires PowerShell 4.0+, available on Win 8.1+)

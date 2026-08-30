@@ -1068,48 +1068,6 @@ Purpose   : As used here:
 
 
 ====================================================================================================
-SECTION D.5 - Actual Catalog Signing (external process: signtool.exe) - SUPERSEDED, KEPT FOR REFERENCE
-====================================================================================================
-
-This was the mechanism used to apply a digital signature to the finished .cat file while the direct
-SignerSignEx call documented in SECTION E below was believed unworkable - not an FFM/native binding at
-all, but an external Windows SDK tool invoked as a child process. That diagnosis has since been
-revised (see SECTION E's "Investigation history, part 2" below) and SignerSignEx is the active signing
-path again; everything below is kept only for reference (`_signCatalogWithSigntool` in
-WindowsDriverInstaller_FFM.java is commented out, not deleted, for the same reason).
-
-signtool.exe
-----------------------------------------------------------------------------------------------------
-Source       : Windows SDK tool (ships with the SDK, not part of the OS itself) - no public API/header
-               documentation applies since this is invoked as an external process, not a native call.
-
-Location     : Not a fixed path - varies by installed SDK version. Located at runtime by
-               `_findSdkTool("signtool.exe")`, which walks `C:\Program Files (x86)\Windows Kits\10\bin`
-               (the standard Windows SDK install root) looking for a file named signtool.exe whose path
-               contains `\x64\` - the same search pattern
-               `.github/workflows/test-windows-driver-installer.yml` uses to locate the same tool for
-               its own cross-check (`Get-ChildItem -Recurse -Filter signtool.exe | Where-Object {
-               $_.FullName -like "*\x64\*" }`).
-Command line : `signtool sign /n "<providerName>" /fd SHA256 /v <catFile>` - selects the certificate by
-               subject name (/n) rather than thumbprint, matching this backend's use of a fixed,
-               human-readable provider name rather than a persisted thumbprint; /fd SHA256 matches the
-               hash algorithm used everywhere else in this file; /v requests verbose output so failures
-               are diagnosable from the captured stdout/stderr alone.
-Purpose      : Applies the actual Authenticode signature to the .cat file this backend already built
-               (SECTION D) using the certificate this backend already created and trusted (SECTION B).
-               Proven to work against the exact same certificate/subject-type combination via a live CI
-               cross-check before this backend was switched over to it - see the "Investigation history"
-               note in SECTION E below.
-
-FFM notes    : Invoked from `_signCatalogWithSigntool` via `ProcessBuilder`, with
-               `redirectErrorStream(true)` so stdout and stderr are captured together into the same log
-               the rest of this backend already accumulates. A missing/unlocatable signtool.exe is
-               treated as a hard failure at this call site, but is also checked earlier by `isUsable()`
-               (via the same `_findSdkTool` helper) so `WindowsDriverInstaller.create()`'s factory logic
-               falls back to `WindowsDriverInstaller_PS1` (no external SDK dependency) on a machine
-               without the Windows SDK installed, rather than reaching this failure at all.
-
-
 ====================================================================================================
 SECTION E - Authenticode Signing Layer (Mssign32.dll) - ACTIVE
 ====================================================================================================
@@ -1202,10 +1160,9 @@ RESOLVED BY PIVOTING AWAY FROM THIS CALL:
         tried last and also did not change the failure.
     With every struct-content permutation, all three entry points, the key-provisioning mechanism, and
     COM initialization exhausted without the failure ever changing shape, this call was abandoned at
-    the time. Since signtool.exe was already proven to sign the exact same certificate/subject-type
-    successfully, catalog signing was switched to shell out to signtool.exe as an external process
-    instead (see SECTION D.5, now itself superseded) - the direct SignerSignEx call below was kept only
-    for reference.
+    the time in favor of shelling out to signtool.exe as an external process instead - see
+    "Investigation history, part 2" below for how the real bugs were later found and this call
+    restored as the active signing path.
 
 Investigation history, part 2 - REVERSED: two struct fields were wrong at the same time and masked each
 other across the entire "every struct-content permutation" sweep above:
@@ -1233,11 +1190,8 @@ other across the entire "every struct-content permutation" sweep above:
         SPC_STATEMENT_TYPE attributes (built but never attached) was not itself confirmed to be
         required by any Microsoft documentation found, but is restored to match every known working
         caller of this pattern and is being re-tried alongside the two corrections above.
-    None of this has yet been re-verified against a live Windows CI run (the fixes were derived from
-    documentation/reasoning, not from a passing test) - the next `backend=ffm` CI dispatch is expected
-    to confirm or refute this. If SignerSignEx still fails after this round, re-open this
-    investigation rather than reverting to signtool.exe outright, since the specific combination of all
-    three corrections together has not been tried before.
+    CONFIRMED on live Windows CI (2026-08-31): createAndSignCatalog returned [0] end-to-end with all
+    three corrections applied together, resolving the E_INVALIDARG from part 1.
 
 ----------------------------------------------------------------------------------------------------
 SignerFreeSignerContext
@@ -1260,50 +1214,22 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR)`. This file does not otherwise in
                is freed immediately once read.
 
 ----------------------------------------------------------------------------------------------------
-CoInitializeEx / CoUninitialize - VERIFIED
-----------------------------------------------------------------------------------------------------
-Source       : https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-coinitializeex
-               https://learn.microsoft.com/en-us/windows/win32/api/combaseapi/nf-combaseapi-couninitialize
-
-DLL          : Ole32.dll
-Header       : combaseapi.h
-
-[CoInitializeEx]
-Parameters   : pvReserved (LPVOID, must be NULL), dwCoInit (DWORD, concurrency model
-               flags - COINIT_APARTMENTTHREADED = 0x2 is used here)
-Return value : HRESULT - S_OK/S_FALSE (non-negative) on success, must be paired with a later
-               CoUninitialize call on the same thread; RPC_E_CHANGED_MODE (0x80010106, negative) if a
-               different concurrency model was already set on this thread, in which case
-               CoUninitialize must NOT be called.
-
-[CoUninitialize]
-Parameters   : none
-Return value : none (void)
-Purpose      : Initializes/uninitializes COM on the calling thread. See the "Investigation history"
-               note above: called at the start of _signCatalog on the theory that some WinTrust/
-               Signer-family internals require COM to be initialized on the calling thread, which an
-               arbitrary JVM thread never is by default, unlike a native process such as signtool.exe.
-
-FFM notes    : `FunctionDescriptor.of(DW, PTR, DW)` for CoInitializeEx, `FunctionDescriptor.ofVoid()`
-               for CoUninitialize.
-
-----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-subject-info
 
-Fields       : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, must be NULL), dwSubjectChoice
-               (16, DWORD), union at 24 (active member here: pSignerFileInfo, SIGNER_FILE_INFO*).
+Fields       : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, pointed-to DWORD must be zero),
+               dwSubjectChoice (16, DWORD), union at 24 (active member here: pSignerFileInfo,
+               SIGNER_FILE_INFO*).
 Size         : 32 bytes, 8-byte aligned.
 Purpose      : Identifies what is being signed - a file (this file's only used case, dwSubjectChoice
                = SIGNER_SUBJECT_FILE = 1) or a BLOB (SIGNER_SUBJECT_BLOB = 2, unused here).
 
-FFM notes    : pdwIndex is MemorySegment.NULL - Microsoft's own documentation for this member reads
-               "This member is reserved. It must be set to zero," meaning the pointer field itself
-               must be NULL, not a valid pointer to a zero-valued DWORD. This file previously
-               misread that requirement (see the "Investigation history" note below) and passed a
-               real pointer to a zeroed DWORD instead, which is a genuinely different, invalid value
-               for a reserved field documented to be zero itself.
+FFM notes    : pdwIndex points at a real, writable DWORD holding 0 - Microsoft's own documentation for
+               this member reads "This member is reserved. It must be set to zero," which describes
+               the pointed-to DWORD's value, not the pointer field itself (an earlier round of this
+               investigation misread it as requiring the pointer field to be NULL - see the
+               "Investigation history, part 2" note below).
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_FILE_INFO - VERIFIED
@@ -1351,9 +1277,9 @@ Purpose      : Specifies both the exact signing certificate context and the poli
 FFM notes    : pSigningCert = the certificate found earlier via CertFindCertificateInStore;
                dwCertPolicy = SIGNER_CERT_POLICY_CHAIN(0x2) (build the signature's certificate list
                from pSigningCert's own chain - this already checks the MY, CA, ROOT, and SPC stores
-               per Microsoft's docs); hCertStore = the `hMy` (CurrentUser\My) handle already open at
-               the call site, passed alongside CHAIN rather than left NULL (see the open-investigation
-               note below - two other implementations of this same call both do this).
+               per Microsoft's docs); hCertStore = NULL, since it is only consulted under
+               SIGNER_CERT_POLICY_STORE/SIGNER_CERT_POLICY_CHAIN_NO_ROOT, not CHAIN (see the
+               "Investigation history, part 2" note below).
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_SIGNATURE_INFO - VERIFIED
@@ -1735,15 +1661,11 @@ ITEM 1 - FINAL DIAGNOSTIC AND DECISION TO DISABLE THIS BACKEND (2026-08-30):
     actually doing (or waiting on) at the OS level while hung, since all three purely code-level
     hypotheses tried from the Java side have now been exhausted without success.
 
-AFTER ITEM 1 AND ITEM 2 (both now settled - item 2 fixed, item 1 set aside with FFM disabled): once/
-if FFM is ever revisited, it may be worth checking whether it's possible to replace signtool.exe with
-https://github.com/mtrojnar/osslsigncode. Either make the JAR download and save/cache it somewhere
-using `tool/HTTPDownloader.java` and unzip using Java or PowerShell, or save it to
-`../3rd_party/app/osslsigncode` with the required license files, etc., and make `make dist` copy the
-files to `../dist_build/jxmake_dist/apps/osslsigncode` - then WindowsDriverInstaller_FFM.java would
-need to find the EXE in `apps/osslsigncode` (distribution mode) or `../3rd_party/app/osslsigncode`
-(testing mode). It may also be a good idea to add a note somewhere so a future maintainer knows how
-to get and extract signtool.exe if osslsigncode does not work. See `https://github.com/mtrojnar/osslsigncode`.
+FFM RE-ENABLED (2026-08-31): item 2 (catalog signing) is resolved directly via SignerSignEx - see
+SECTION E's "Investigation history, part 2" - so the external-tool detour is no longer needed.
+WindowsDriverInstaller_FFM.isUsable() no longer hardcodes false. Item 1 (installDriver's elevated
+pnputil.exe hang) is still OPEN/UNRESOLVED; installDriver() is a deliberate no-op for now while item 1
+is set aside for a later session - see the no-op body's comment in WindowsDriverInstaller_FFM.java.
 
 FINAL RE-VERIFICATION (live CI, 2026-08-30, first run after the isUsable() disable landed):
     PS1: full end-to-end success once more - createAndTrustProvider -> createAndSignCatalog

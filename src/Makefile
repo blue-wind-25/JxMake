@@ -5,6 +5,15 @@
 #####
 
 
+# clear && git status && echo && svn stat && echo
+# git add -u && git commit -S && git push
+
+# svn commit -m 'Follow GIT changes' && git push && echo && git status && echo && svn stat && echo
+
+# clear && uptime && echo && sensors && free -h && echo && df -h && echo
+# svn update && svn cleanups
+
+
 ##### ANSI escape codes for colors
 C_GRAY    = "\\033[90m"
 C_RED     = "\\033[91m"

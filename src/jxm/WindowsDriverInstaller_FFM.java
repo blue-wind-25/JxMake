@@ -369,12 +369,17 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             final Path logFile = Files.createTempFile("wdi_ffm_pnp_", ".log");
             try {
-                //// Windows 10+ always supports pnputil /add-driver /install (unlike Windows 7)
-                //final String params = String.format( "/c pnputil.exe /add-driver \"%s\" /install > \"%s\" 2>&1", infPath, logFile.toAbsolutePath() );
-
-                // Windows 10+ always supports pnputil /add-driver (unlike Windows 7)
+                // Deliberately not passing /install here, even though Windows 10+ supports it (unlike
+                // Windows 7): pnputil.exe /add-driver ... /install was observed to hang this call
+                // indefinitely on a real CI runner (see "OPEN - FFM.installDriver hangs..." in
+                // WindowsDriverInstaller_FFM-Win32API.txt's Section G) - most likely an interactive
+                // device-installation confirmation dialog that SW_HIDE cannot suppress and that nothing
+                // can dismiss headlessly. Staging only (no /install) matches the behavior this class's
+                // PS1 sibling already falls back to on Windows 7, where /install isn't supported at all -
+                // an already-connected matching device simply needs to be replugged to pick up the
+                // newly staged driver, which PnP does automatically without further action here.
                 final String params = String.format( "/c pnputil.exe /add-driver \"%s\" > \"%s\" 2>&1", infPath, logFile.toAbsolutePath() );
-                
+
                 return _shellExecuteElevatedAndWait( "cmd.exe", params, System.getProperty("user.dir"), 5, logFile );
             }
             finally {

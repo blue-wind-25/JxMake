@@ -39,9 +39,10 @@ import jxm.xb.*;
  * Users on these systems must manually install Windows Management Framework (WMF) 5.1:
  *     https://www.microsoft.com/en-us/download/details.aspx?id=54616
  *
- * Additionally, on Windows 7 the pnputil /install flag is not supported. The driver
- * will be staged into the driver store but will NOT be automatically installed onto
- * already-connected devices - the user must replug the device.
+ * Additionally, installDriver() never passes pnputil's /install flag, on any Windows version - not
+ * just because Windows 7 doesn't support it, but because /install was found to hang indefinitely on
+ * newer Windows too (see installDriver() below for detail). The driver is always only staged into
+ * the driver store; an already-connected matching device needs a replug to pick it up.
  */
 public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
 
@@ -345,15 +346,22 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
             }
 
             // Build the command
-            final boolean isWin7    = System.getProperty("os.name").toLowerCase().contains("windows 7");
-            final String  flag      = (isWin7 ? " " : " /install ");
+            //
+            // Deliberately never pass /install here, even on Windows 8/8.1/10/11 where pnputil supports
+            // it: pnputil.exe /add-driver ... /install was observed to hang WindowsDriverInstaller_FFM's
+            // equivalent call indefinitely on a real CI runner (see "OPEN - FFM.installDriver hangs..."
+            // in WindowsDriverInstaller_FFM-Win32API.txt's Section G) - most likely an interactive
+            // device-installation confirmation dialog that nothing can dismiss headlessly. Staging only
+            // (no /install) is exactly what this method already did on Windows 7, where /install isn't
+            // supported at all - an already-connected matching device simply needs to be replugged to
+            // pick up the newly staged driver, which PnP does automatically without further action here.
             final String  psCommand =
                 "$OutputEncoding = [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()                            \r\n" +
                 "$tmpOutLog      = \"$env:TEMP\\pnp_out_$PID.log\"                                                          \r\n" +
                 "$exitCode       = 0                                                                                        \r\n" +
                 "try {                                                                                                      \r\n" +
                 "    $processHandler = Start-Process -FilePath 'cmd.exe'                                                        " +
-                "                          -ArgumentList \"/v:on /c pnputil.exe /add-driver `\"$env:INF_PATH`\"" + flag           +
+                "                          -ArgumentList \"/v:on /c pnputil.exe /add-driver `\"$env:INF_PATH`\"                 " +
                 "                              > `\"$tmpOutLog`\" 2>&1 & exit !errorlevel!\"                                    " +
                 "                          -Verb RunAs -Wait -PassThru                                                      \r\n" +
                 "    if($processHandler) {                                                                                  \r\n" +

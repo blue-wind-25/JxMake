@@ -85,7 +85,9 @@ public abstract class WindowsDriverInstaller {
     // Creates a .cat file for the INF and signs it using the self-signed cert
     public abstract XCom.Pair<Integer, String> createAndSignCatalog(final String infPath, final String providerName);
 
-    // Installs a local INF file using PnPUtil, elevated as required
+    // Installs a local INF file using PnPUtil, elevated as required. Only stages the driver into the
+    // driver store (pnputil's /install flag is never passed - see each backend's implementation for
+    // why); an already-connected matching device needs a replug to pick up the newly staged driver.
     // NOTE : Use absolute paths for INF files to avoid "File not found" errors in elevated contexts
     public abstract XCom.Pair<Integer, String> installDriver(final String infPath);
 

@@ -1533,7 +1533,25 @@ should have no bearing on either way).
 _shellExecuteElevatedAndWait() now takes an optional nShow parameter (existing two call sites keep
 SW_HIDE via a no-arg overload); installDriver()'s call now passes SW_SHOWMINNOACTIVE (7) instead -
 creates/minimizes the window instead of suppressing it, without stealing focus on a real user's
-desktop. STILL PENDING a live CI run to confirm SW_HIDE was actually the cause.
+desktop.
+
+CONFIRMED INEFFECTIVE (commit 04c2ab1 reverted as d325711, 2026-08-30): a combined CI run (PS1
+backend, then FFM backend, same job) appeared to show FFM.installDriver succeeding with this fix -
+but it was a FALSE POSITIVE. PS1 had already staged the identical driver (same hardware ID) moments
+earlier in that same run, so pnputil's fast dedup path fired for FFM too ("Driver package added
+successfully. (Already exists in the system)") instead of the real install path - the fix was never
+actually exercised. The user then dispatched FFM in isolation (fresh runner, nothing pre-staged) and
+it hung exactly as before SW_SHOWMINNOACTIVE. Reverted; SW_HIDE was never the cause.
+
+One thing this round DID newly establish: PS1 succeeds from a genuinely cold runner too (not merely
+when run after FFM in the same job, and not merely benefiting from some earlier step) - so this hang
+really is FFM-specific, not something both backends would hit under the right conditions. Both
+candidate theories so far (unverified-publisher consent dialog, SW_HIDE on a console-subsystem
+elevated process) are now disproven. Item 1 is back to OPEN with no working hypothesis. Next useful
+step: get a thread dump / detailed diagnostic from an isolated FFM-only hang (the ~89s-before-manual-
+cancel pattern from earlier runs only ever confirmed the hang is inside
+_WaitForSingleObject.invoke(hProcess, ...) waiting on the elevated cmd.exe process handle itself -
+i.e. the elevated child process genuinely never exits, not a bug in how this code waits for it).
 
 FIX ATTEMPTED (commit 0eb40d4) - PS1.createAndSignCatalog: "Certificate not found" (CI run
 90196100036), diagnosable for the

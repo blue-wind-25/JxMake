@@ -409,19 +409,19 @@ public abstract class WindowsDriverInstaller {
  *    user's explicit fallback plan, pivoted to item 2 next instead of further guessing here - this
  *    registry tweak is left in place (harmless either way) but item 1 remains genuinely OPEN.
  *
- *    FIX ATTEMPT 2 (commit 04c2ab1, 2026-08-30): item 2's fix produced a bonus data point - PS1's
- *    installDriver, which does NOT hang, elevates the identical "cmd.exe /add-driver ..." command via
- *    Start-Process -Verb RunAs, i.e. the same ShellExecuteEx mechanism FFM uses natively, so it isn't
- *    "PowerShell vs FFM's own elevation" that differs. What IS different: FFM's
- *    _shellExecuteElevatedAndWait hardcodes SW_HIDE for every call, including this one; PS1's
- *    Start-Process never hides its window (no -WindowStyle Hidden anywhere). FFM's other two calls
- *    (createAndTrustProvider/createAndSignCatalog) also use SW_HIDE but target javaw.exe, which has no
- *    console to hide - SW_HIDE is inert there, so they never surfaced this. installDriver's cmd.exe
- *    target is the only console-subsystem process FFM elevates with SW_HIDE, and the only one that
- *    hangs - a much tighter correlation than the earlier "unverified publisher dialog" theory.
- *    _shellExecuteElevatedAndWait() now takes an nShow parameter (SW_HIDE default preserved for the
- *    other two callers); installDriver() passes SW_SHOWMINNOACTIVE instead. STILL PENDING a live CI
- *    run to confirm.
+ *    FIX ATTEMPT 2 (commit 04c2ab1, reverted in d325711 - CONFIRMED INEFFECTIVE): hypothesized
+ *    SW_HIDE (vs PS1's Start-Process never hiding its window) as the cause, since FFM's cmd.exe
+ *    target is the only console-subsystem process it elevates with SW_HIDE. Swapped in
+ *    SW_SHOWMINNOACTIVE for installDriver's call. A combined PS1-then-FFM CI run appeared to show
+ *    this working - but that was a FALSE POSITIVE: PS1 had already staged the same hardware ID's
+ *    driver moments earlier in that same run, so FFM's pnputil call hit the fast dedup path
+ *    ("Driver package added successfully. (Already exists in the system)") instead of exercising the
+ *    real install path that hangs - it never actually got tested. The user then ran FFM in isolation
+ *    (fresh runner, nothing pre-staged) and it hung exactly as before. Reverted (commit d325711);
+ *    SW_HIDE was never the cause. Item 1 is back to OPEN with no working hypothesis - both "unverified
+ *    publisher dialog" and "SW_HIDE" are now disproven. What IS newly established: PS1 succeeds from
+ *    a cold runner (not just when run after FFM), so this is genuinely FFM-specific, not something
+ *    both backends would hit.
  *
  * 2. FIX ATTEMPT 1 FAILED, FIX ATTEMPT 2 MADE (commit 5f03680). PS1.createAndSignCatalog was
  *    failing with "Certificate not found" - createAndTrustProvider's elevated child creates+trusts

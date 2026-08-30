@@ -1236,6 +1236,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static final int MAX_PATH   = 260; // minwindef.h
     private static final int SPOST_NONE = 0;   // setupapi.h - no OEMSourceMediaLocation applies
+    private static final int SPOST_PATH = 1; // setupapi.h
 
     /*
      * Stages infPath into %windir%\Inf via SetupCopyOEMInfW (setupapi.h), guarded by
@@ -1272,7 +1273,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             }
         */
 
-            final MemorySegment sourceInfFileName     = _wstr(arena, infPath);
+            final MemorySegment sourceInfFileName      = _wstr(arena, infPath);
+            final MemorySegment oemSourceMediaLocation = _wstr(arena, path.getParent().toString());
             final MemorySegment destinationInfFileName = arena.allocate(2L * MAX_PATH, 2);
             final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
 
@@ -1284,8 +1286,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // WindowsDriverInstaller_FFM-Win32API.txt. CopyStyle=0 : default behavior (overwrite an
             // existing same-named staged copy, auto-rename the staged copy to OEMnnnn.inf).
             final int ok = (int) _SetupCopyOEMInfW.invoke(
-                sourceInfFileName, MemorySegment.NULL, SPOST_NONE, 0,
-                destinationInfFileName, MAX_PATH, requiredSize, MemorySegment.NULL
+                sourceInfFileName, oemSourceMediaLocation, SPOST_PATH, 0,
+                destinationInfFileName, MAX_PATH, MemorySegment.NULL, MemorySegment.NULL
             );
 
             if(ok == 0) {

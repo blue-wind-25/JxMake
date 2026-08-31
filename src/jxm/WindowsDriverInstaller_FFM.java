@@ -265,7 +265,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     public boolean isUsable()
     {
         // TODO: Temporarily disable
-        if(true) return false;
+        //if(true) return false;
 
         try {
             if(_initError != null) return false;
@@ -893,6 +893,17 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 } // for
 
                 if(derBytes.length == 0) log.append("Warning: exported certificate was empty\n");
+
+                // Written to the same %TEMP%\<providerName>.cer path WindowsDriverInstaller_PS1's
+                // createAndTrustProvider() uses (Export-Certificate), so both backends' output is
+                // directly comparable byte-for-byte / name-for-name.
+                final Path certFile = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".cer" );
+                try {
+                    Files.write(certFile, derBytes);
+                }
+                catch(final IOException e) {
+                    log.append("Failed to write certificate file: ").append(e).append('\n');
+                }
 
                 return RETCODE_OK;
             }

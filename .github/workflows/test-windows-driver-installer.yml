@@ -109,9 +109,9 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks'
+        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing'
         type: choice
-        options: [ps1, ffm, auto]
+        options: [ps1, ffm, auto, compare]
         default: auto
       run_mutating:
         description: 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
@@ -157,7 +157,7 @@ jobs:
       # a "warn" prompt on regardless, so silently-succeed is the only option
       # that doesn't hang.
       - name: Allow silent admin elevation and unsigned driver installs (mutating run only)
-        if: ${{ inputs.run_mutating }}
+        if: ${{ inputs.run_mutating || inputs.backend == 'compare' }}
         shell: pwsh
         run: |
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
@@ -198,6 +198,10 @@ jobs:
 
                       case "ffm":
                           failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating);
+                          break;
+
+                      case "compare":
+                          compare();
                           break;
 
                       case "auto": {
@@ -283,6 +287,73 @@ jobs:
                   System.out.println(label + " = [" + p.first() + "] " + p.second());
               }
 
+              // "compare" mode: runs PS1 then FFM against distinct provider names, but with both
+              // producing an identically-named INF/CAT pair (only the output directory differs) and an
+              // identically-named cert file (%TEMP%\<provider>.cer, same convention both backends use),
+              // deliberately never calling installDriver() - the point is comparing what each backend
+              // GENERATES (INF, .cat, .cer), not exercising the still-unresolved install path. Every
+              // output file is copied into wdi_compare_out/ with a PS1-/FFM- prefix so a later workflow
+              // step can upload the whole directory as one artifact for offline diffing.
+              private static void compare() throws Exception {
+                  final java.nio.file.Path outDir = java.nio.file.Paths.get("wdi_compare_out");
+                  java.nio.file.Files.createDirectories(outDir);
+
+                  compareOne("PS1", new WindowsDriverInstaller_PS1(), outDir);
+                  compareOne("FFM", new WindowsDriverInstaller_FFM(), outDir);
+
+                  System.out.println();
+                  System.out.println("Compare output written to: " + outDir.toAbsolutePath());
+              }
+
+              private static void compareOne(final String prefix, final WindowsDriverInstaller wdi, final java.nio.file.Path outDir) throws Exception {
+                  System.out.println();
+                  System.out.println("=== " + prefix + " compare ===");
+
+                  final boolean usable = wdi.isUsable();
+                  System.out.println(prefix + ".isUsable() = " + usable);
+                  if( !usable ) {
+                      if( wdi instanceof WindowsDriverInstaller_FFM ) {
+                          final String diag = WindowsDriverInstaller_FFM.initErrorDiagnostic();
+                          if( diag != null ) System.out.println(prefix + ": static init failed - " + diag);
+                      }
+                      System.out.println(prefix + " not usable on this VM - skipping");
+                      return;
+                  }
+
+                  // Distinct provider name per backend for the same reason "test" uses one - see its
+                  // own comment above - but same PROVIDER prefix and a fixed "_CMP_" tag so re-running
+                  // this mode never accumulates unrelated certs across runs/modes.
+                  final String provider = PROVIDER + "_CMP_" + prefix;
+
+                  printPair(prefix + ".createAndTrustProvider", wdi.createAndTrustProvider(provider));
+
+                  // Both backends write the public cert here - WindowsDriverInstaller_PS1's
+                  // createAndTrustProvider() always has; WindowsDriverInstaller_FFM's now does too.
+                  final java.nio.file.Path certSrc = java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), provider + ".cer");
+                  copyIfExists(certSrc, outDir.resolve(prefix + "-cert.cer"));
+
+                  final java.nio.file.Path dir     = java.nio.file.Files.createTempDirectory("wdi_cmp_" + prefix);
+                  final String             catName = "wdi_cmp.cat";
+                  final java.nio.file.Path inf     = dir.resolve("wdi_cmp.inf");
+                  java.nio.file.Files.writeString(inf, WindowsDriverInstaller.generateWinUSBInf("1234", "5678", catName));
+
+                  printPair(prefix + ".createAndSignCatalog", wdi.createAndSignCatalog(inf.toString(), provider));
+
+                  copyIfExists(inf, outDir.resolve(prefix + "-wdi_cmp.inf"));
+                  copyIfExists(dir.resolve(catName), outDir.resolve(prefix + "-wdi_cmp.cat"));
+
+                  // Deliberately no installDriver() call here - see this method's own header comment.
+              }
+
+              private static void copyIfExists(final java.nio.file.Path src, final java.nio.file.Path dst) throws java.io.IOException {
+                  if( java.nio.file.Files.exists(src) ) {
+                      java.nio.file.Files.copy(src, dst, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                      System.out.println("Copied " + src + " -> " + dst);
+                  } else {
+                      System.out.println("MISSING: " + src);
+                  }
+              }
+
           } // class WDI_CITest
           EOF
 
@@ -305,4 +376,15 @@ jobs:
             -Dwdi.mutating="${{ inputs.run_mutating }}" \
             -cp "jxmake.jar;wdi_ci_out" \
             WDI_CITest
+
+      # compare mode only - uploads the PS1-/FFM- prefixed INF/CAT/CER files written by WDI_CITest's
+      # compare() into wdi_compare_out/, zipped by actions/upload-artifact itself on download, so they
+      # can be pulled down and diffed offline instead of only ever being read back through CI logs.
+      - name: Upload compare output (compare mode only)
+        if: ${{ inputs.backend == 'compare' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wdi-compare-output
+          path: src/wdi_compare_out
+          if-no-files-found: warn
 

@@ -1684,16 +1684,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
          * to the exact same cmd.exe-with-file-redirection pattern PS1 already proves out, rather than
          * re-adding a second layer of UAC elevation (unnecessary - this method already runs elevated).
          */
-        // RE-ENABLED (2026-09-01, "cont8") - SetupCopyOEMInfW retested with the CN-encoding fix
-        // AND (later that day) with Key Usage/Subject Key Identifier extensions added to match PS1's
-        // cert exactly - SPAPI_E_FILE_HASH_NOT_IN_CATALOG persisted unchanged both times, matching
-        // its already-exhausted 6-round history (SECTION H items 5-10) of ruling out every
-        // catalog-content hypothesis; this now looks like an inherent SetupCopyOEMInfW requirement
-        // (e.g. WHQL-level attestation) no self-signed catalog can ever satisfy, not a cert defect.
-        // pnputil.exe's earlier hang (ITEM 12), by contrast, is a strong match for the "unverified
-        // publisher" dialog theory - the cert it was fed back then had neither Key Usage nor Subject
-        // Key Identifier, now fixed. Re-testing pnputil with the corrected cert; SetupCopyOEMInfW
-        // kept below, commented out not deleted, in case this needs to be swapped back in again.
+        // DISABLED (2026-09-01, "cont13") - pnputil.exe retested with the fully cert/catalog-fixed
+        // artifacts (CN encoding, Key Usage/SKI extensions, dwCertVersion) and STILL hung identically
+        // (SECTION G ITEM 12's pattern) - four rounds of catalog/cert byte-diffing this session (plus
+        // five earlier, pre-session) have now exhausted essentially every content hypothesis without
+        // ever stopping the hang, so it is not caused by cert/catalog content. Read-only research
+        // into libwdi-1.5.1/libwdi/ (never named/cited in code or commits, per this doc's own
+        // convention) revealed it does NOT shell out to pnputil.exe at all - it calls
+        // SetupCopyOEMInfW in-process, but critically with OEMSourceMediaType=SPOST_PATH and a real
+        // source directory, not SPOST_NONE/NULL as this file's SetupCopyOEMInfW attempt always used.
+        // That parameter combination was never tried during SECTION H's SPAPI_E_FILE_HASH_NOT_IN_CATALOG
+        // investigation. Swapping back to SetupCopyOEMInfW below with that fix; this pnputil.exe body
+        // kept commented out, not deleted, in case this needs to be swapped back in again.
+        /*
         final Path tmpOutLog = Paths.get( System.getenv("TEMP"), "pnp_out_" + ProcessHandle.current().pid() + ".log" );
 
         try {
@@ -1729,10 +1732,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             log.append("pnputil.exe /add-driver failed to launch: ").append(e);
             return RETCODE_EXCEPTION;
         }
-
-        /* SetupCopyOEMInfW-based implementation - kept commented out, not deleted, in case this
-         * needs to be swapped back in; see "RE-ENABLED (2026-09-01, cont8)" note above for why
-         * pnputil.exe is active instead.
+        */
         try(
             final Arena arena = Arena.ofConfined()
         ) {
@@ -1760,6 +1760,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _SetupSetNonInteractiveMode.invoke(1);
 
             final MemorySegment sourceInfFileName      = _wstr(arena, infPath);
+            final MemorySegment sourceMediaLocation    = _wstr(arena, path.getParent().toString());
             final MemorySegment destinationInfFileName = arena.allocate(2L * MAX_PATH, 2);
             final MemorySegment requiredSize           = arena.allocate(ValueLayout.JAVA_INT);
             final MemorySegment captureState           = arena.allocate(_CAPTURE_STATE_LAYOUT);
@@ -1767,17 +1768,20 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // SetupCopyOEMInfW(SourceInfFileName, OEMSourceMediaLocation, OEMSourceMediaType, CopyStyle,
             //                  DestinationInfFileName, DestinationInfFileNameSize, RequiredSize,
             //                  DestinationInfFileNameComponent)
-            // OEMSourceMediaLocation=NULL / OEMSourceMediaType=SPOST_NONE : infPath is already a fully
-            // qualified local path, so no separate media location applies - see
-            // WindowsDriverInstaller_FFM-Win32API.txt. CopyStyle=0 : default behavior (overwrite an
-            // existing same-named staged copy, auto-rename the staged copy to OEMnnnn.inf).
-            // captureState is a leading, implicit extra argument - see the Linker.Option.captureCallState
-            // binding above and _capturedLastError() below (do NOT use _lastError() here, it reads
-            // GetLastError() via a separate downcall that is not guaranteed to still hold this call's
-            // error - see the static initializer comment on this binding).
+            // OEMSourceMediaLocation=infPath's own parent directory / OEMSourceMediaType=SPOST_PATH -
+            // NOT SPOST_NONE/NULL (this file's original, always-failing SPAPI_E_FILE_HASH_NOT_IN_CATALOG
+            // attempt). Read-only research into how libwdi (a proven-working driver-installer library,
+            // never named/cited beyond this note) calls this exact API found it always passes a real
+            // source directory with SPOST_PATH, never SPOST_NONE, even when the INF path is already
+            // fully qualified - untested by any of SECTION H's 8 prior fix rounds. CopyStyle=0 : default
+            // behavior (overwrite an existing same-named staged copy, auto-rename the staged copy to
+            // OEMnnnn.inf). captureState is a leading, implicit extra argument - see the
+            // Linker.Option.captureCallState binding above and _capturedLastError() below (do NOT use
+            // _lastError() here, it reads GetLastError() via a separate downcall that is not guaranteed
+            // to still hold this call's error - see the static initializer comment on this binding).
             final int ok = (int) _SetupCopyOEMInfW.invoke(
                 captureState,
-                sourceInfFileName, MemorySegment.NULL, SPOST_NONE, 0,
+                sourceInfFileName, sourceMediaLocation, SPOST_PATH, 0,
                 destinationInfFileName, MAX_PATH, requiredSize, MemorySegment.NULL
             );
 
@@ -1801,7 +1805,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             return RETCODE_OK;
         }
-        */
     }
 
 } // WindowsDriverInstaller_FFM

@@ -73,8 +73,15 @@
 # _elevatedInstallDriver was switched to shell out to pnputil.exe /add-driver directly too, mirroring
 # PS1 (SECTION H "ITEM 11"). Since this runs inside FFM's already-elevated self-relaunched child
 # process, no further elevation is needed for the pnputil.exe child, unlike PS1. The old
-# SetupCopyOEMInfW-based implementation was commented out, not deleted. Not yet confirmed on a live CI
-# run - this workflow dispatch is how that gets exercised.
+# SetupCopyOEMInfW-based implementation was commented out, not deleted. RESULT: this hung identically
+# to the old, never-root-caused SECTION G "item 1" hang - a thread dump showed the elevated child
+# process itself never exiting, i.e. pnputil.exe itself never returned; user manually canceled the run.
+# Root-cause candidate: reading pnputil.exe's output through a Java pipe/InputStream, inside an
+# elevated JVM child that runs hidden/console-less (ShellExecuteExW+SW_HIDE) - a plausible place for a
+# console-subsystem app to block. WindowsDriverInstaller_PS1 never does this - it wraps the call in
+# cmd.exe /c pnputil.exe ... > file 2>&1, redirecting to a real file instead of a pipe. Switched
+# _elevatedInstallDriver to that same cmd.exe-with-file-redirection pattern (SECTION H "ITEM 12"). Not
+# yet confirmed on a live CI run - this workflow dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

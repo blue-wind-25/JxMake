@@ -1519,16 +1519,28 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
          *
          * The old SetupCopyOEMInfW-based implementation is kept below, commented out rather than deleted,
          * in case this needs to be swapped back in.
+         *
+         * SECTION H ITEM 12 : a first attempt at ITEM 11 (a bare ProcessBuilder("pnputil.exe", ...) call,
+         * reading its output through a Java pipe/InputStream) hung identically to the old, never-root-
+         * caused SECTION G "item 1" hang - a live CI thread dump showed the parent JVM stuck in
+         * _shellExecuteElevatedAndWait/WaitForSingleObject, i.e. the elevated child process (running
+         * this method) never exited, meaning pnputil.exe itself never returned. WindowsDriverInstaller_PS1
+         * never reads pnputil.exe's output through a pipe at all - it wraps the call in
+         * "cmd.exe /c pnputil.exe ... > tmpOutLog 2>&1", redirecting to a real file, then reads that file
+         * back afterward once the process has exited; this method's elevated JVM child also runs hidden/
+         * console-less (ShellExecuteExW+SW_HIDE, see _shellExecuteElevatedAndWait), a plausible place for
+         * a console-subsystem app like pnputil.exe to block if its output has nowhere real to go. Switched
+         * to the exact same cmd.exe-with-file-redirection pattern PS1 already proves out, rather than
+         * re-adding a second layer of UAC elevation (unnecessary - this method already runs elevated).
          */
-        try {
-            final ProcessBuilder pb = new ProcessBuilder( "pnputil.exe", "/add-driver", infPath );
-            pb.redirectErrorStream(true);
-            final Process process = pb.start();
+        final Path tmpOutLog = Paths.get( System.getenv("TEMP"), "pnp_out_" + ProcessHandle.current().pid() + ".log" );
 
-            final String output;
-            try( final java.io.InputStream is = process.getInputStream() ) {
-                output = new String( is.readAllBytes(), StandardCharsets.UTF_8 );
-            }
+        try {
+            final ProcessBuilder pb = new ProcessBuilder(
+                "cmd.exe", "/v:on", "/c",
+                "pnputil.exe /add-driver \"" + infPath + "\" > \"" + tmpOutLog + "\" 2>&1 & exit !errorlevel!"
+            );
+            final Process process = pb.start();
 
             // Same finite-timeout rationale as the old CM_WaitNoPendingInstallEvents guard below : never
             // wait indefinitely, in case pnputil.exe itself ever blocks on something headlessly undismissable.
@@ -1539,7 +1551,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             }
 
             final int exitCode = process.exitValue();
-            log.append(output);
+
+            if( Files.exists(tmpOutLog) ) {
+                log.append( Files.readString(tmpOutLog, StandardCharsets.UTF_8) );
+                Files.deleteIfExists(tmpOutLog);
+            }
 
             if(exitCode != 0) {
                 log.append("pnputil.exe /add-driver failed, exit code=").append(exitCode);

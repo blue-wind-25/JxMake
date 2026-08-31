@@ -2038,7 +2038,23 @@ contract), `_elevatedInstallDriver` was switched to shell out to `pnputil.exe /a
 `_runElevatedSelf`), no further elevation/UAC prompt is needed for the pnputil.exe child process, unlike
 PS1 which must elevate a fresh process from a non-elevated starting point. The old
 `SetupCopyOEMInfW`-based implementation was commented out, not deleted, so it can be swapped back in if
-needed. Not yet run on live CI.
+needed.
+
+RESULT of ITEM 11 (live CI run): hung identically to the old, never-root-caused SECTION G "item 1"
+hang. A thread dump showed the parent JVM stuck in `_shellExecuteElevatedAndWait`/
+`WaitForSingleObject`, i.e. the elevated child process running `_elevatedInstallDriver` never exited -
+`pnputil.exe` itself never returned. User manually canceled the run.
+
+ITEM 12 - root-cause candidate: ITEM 11's `ProcessBuilder("pnputil.exe", ...)` read output through a
+Java pipe/`InputStream`, inside an elevated JVM child that itself runs hidden/console-less
+(`ShellExecuteExW`+`SW_HIDE`, see `_shellExecuteElevatedAndWait`) - a plausible place for a
+console-subsystem app like `pnputil.exe` to block. `WindowsDriverInstaller_PS1` never reads
+`pnputil.exe`'s output through a pipe at all: it wraps the call in
+`cmd.exe /c pnputil.exe ... > tmpOutLog 2>&1`, redirecting to a real file, then reads the file back
+after the process exits. Switched `_elevatedInstallDriver` to the identical `cmd.exe`-with-
+file-redirection pattern (temp file named `pnp_out_<pid>.log` under `%TEMP%`, same naming scheme PS1
+uses) instead of re-adding a second UAC elevation layer (unnecessary - this method already runs
+elevated, unlike PS1 which starts non-elevated). Not yet run on live CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

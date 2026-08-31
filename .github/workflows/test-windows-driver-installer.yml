@@ -109,9 +109,9 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing'
+        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs the FFM-generated cert/cat/inf fixture files (committed under wdi_sideload_fixtures/) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether FFM-generated artifacts are themselves defective vs FFM.installDriver()''s own install mechanics'
         type: choice
-        options: [ps1, ffm, auto, compare]
+        options: [ps1, ffm, auto, compare, sideload]
         default: auto
       run_mutating:
         description: 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
@@ -157,14 +157,42 @@ jobs:
       # a "warn" prompt on regardless, so silently-succeed is the only option
       # that doesn't hang.
       - name: Allow silent admin elevation and unsigned driver installs (mutating run only)
-        if: ${{ inputs.run_mutating || inputs.backend == 'compare' }}
+        if: ${{ inputs.run_mutating || inputs.backend == 'compare' || inputs.backend == 'sideload' }}
         shell: pwsh
         run: |
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
           New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
 
+      # sideload mode short-circuits everything else: it never touches the Java/FFM code at all,
+      # so it doesn't need the jar built or WDI_CITest run. Instead it directly trusts and installs
+      # the FFM-generated cert/cat/inf fixture files (wdi_sideload_fixtures/, committed - copied
+      # verbatim from a prior "compare" mode artifact download) using the exact same tools PS1's
+      # working path uses (certutil.exe -addstore, pnputil.exe /add-driver), bypassing
+      # WindowsDriverInstaller_FFM entirely. If this succeeds, FFM's generated artifacts are fine
+      # and the bug is specifically in FFM's install-time mechanics (elevation/process handling);
+      # if this fails the same way FFM.installDriver() does, the bug is in what FFM generates
+      # (cert/catalog encoding), not in how it invokes the installer.
+      - name: Sideload FFM-generated cert+cat+inf via certutil/pnputil directly (sideload mode only)
+        if: ${{ inputs.backend == 'sideload' }}
+        shell: pwsh
+        run: |
+          $work = New-Item -ItemType Directory -Force -Path "$env:TEMP\wdi_sideload"
+          Copy-Item "$env:GITHUB_WORKSPACE\.github\workflows\wdi_sideload_fixtures\*" $work.FullName -Force
+          Get-ChildItem $work.FullName
+
+          Write-Host "=== certutil -addstore Root ==="
+          certutil.exe -addstore -f Root "$($work.FullName)\cert.cer"
+
+          Write-Host "=== certutil -addstore TrustedPublisher ==="
+          certutil.exe -addstore -f TrustedPublisher "$($work.FullName)\cert.cer"
+
+          Write-Host "=== pnputil /add-driver ==="
+          pnputil.exe /add-driver "$($work.FullName)\wdi_cmp.inf"
+          Write-Host "pnputil exit code: $LASTEXITCODE"
+
       - name: Build jxmake.jar (JDK 25, both backends)
+        if: ${{ inputs.backend != 'sideload' }}
         working-directory: src
         run: |
           set -euo pipefail
@@ -173,6 +201,7 @@ jobs:
           ls -la jxmake.jar
 
       - name: Write test driver
+        if: ${{ inputs.backend != 'sideload' }}
         working-directory: src
         run: |
           cat > WDI_CITest.java <<'EOF'
@@ -358,6 +387,7 @@ jobs:
           EOF
 
       - name: Compile test driver against jxmake.jar
+        if: ${{ inputs.backend != 'sideload' }}
         working-directory: src
         run: |
           set -euo pipefail
@@ -366,6 +396,7 @@ jobs:
           "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
 
       - name: Run WindowsDriverInstaller test
+        if: ${{ inputs.backend != 'sideload' }}
         working-directory: src
         run: |
           set -euo pipefail

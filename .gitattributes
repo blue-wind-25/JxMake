@@ -3,3 +3,9 @@
 *.java     text eol=lf
 *.java.in  text eol=lf
 *.java.inc text eol=lf
+
+# wdi_sideload_fixtures/wdi_cmp.inf's committed bytes must byte-for-byte match what
+# wdi_sideload_fixtures/wdi_cmp.cat's signature was computed over (its hash is over the INF's exact
+# CRLFs as generated on Windows) - any CRLF/LF rewrite here would desync the hash and break the
+# sideload experiment for a reason unrelated to what it's testing.
+.github/workflows/wdi_sideload_fixtures/* binary

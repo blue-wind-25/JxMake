@@ -205,6 +205,11 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                  * even though the .cer file was never actually written.
                  */
                 "        try {                                                                                       \r\n" +
+                // PowerShell cmdlet errors are non-terminating by default - without this, a cmdlet
+                // failure (e.g. Export-Certificate) writes to the (uncaptured) error stream and the
+                // script just continues, silently, instead of being caught below. Explicit per-statement
+                // -ErrorAction SilentlyContinue overrides below still take precedence over this.
+                "            `$ErrorActionPreference = 'Stop';                                                       \r\n" +
                 // Remove any certificate(s) already installed under this provider name before creating a new
                 // one, so repeated runs never accumulate duplicates.
                 "            Get-ChildItem Cert:\\CurrentUser\\My |                                                   \r\n" +
@@ -371,6 +376,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                  * *launch* of the elevated process, never errors occurring inside it.
                  */
                 "        try {                                                                                   \r\n" +
+                "            `$ErrorActionPreference = 'Stop';                                                   \r\n" +
                 "            if(-not (Test-Path '%s')) {                                                         \r\n" +
                 "                throw 'PFX not found at %s';                                                    \r\n" +
                 "            };                                                                                  \r\n" +

@@ -209,7 +209,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // one, so repeated runs never accumulate duplicates.
                 "            Get-ChildItem Cert:\\CurrentUser\\My |                                                   \r\n" +
                 "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
-                "                Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                         \r\n" +
+                "                ForEach-Object { Remove-Item -Path `$_.PSPath -Force -DeleteKey                      `\r\n" +
+                "                    -ErrorAction SilentlyContinue };                                                  \r\n" +
                 "            Get-ChildItem Cert:\\LocalMachine\\Root |                                                \r\n" +
                 "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
                 "                Remove-Item -Force -ErrorAction SilentlyContinue;                                    \r\n" +
@@ -248,7 +249,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "            `$pfxBytes = `$cert.Export(                                                              `\r\n" +
                 "                [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');         \r\n" +
                 "            [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                                       \r\n" +
-                "            `$cert | Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                    \r\n" +
+                "            `$cert | ForEach-Object { Remove-Item -Path `$_.PSPath -Force -DeleteKey             `\r\n" +
+                "                -ErrorAction SilentlyContinue };                                                     \r\n" +
                 "            certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;                 \r\n" +
                 "            certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append      \r\n" +
                 "        }                                                                                            \r\n" +

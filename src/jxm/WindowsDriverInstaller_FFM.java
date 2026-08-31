@@ -667,6 +667,56 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         return b;
     }
 
+    // Hand-encodes a minimal X.501 Name { RDNSequence { RDN { AttributeTypeAndValue {
+    // commonName, UTF8String value } } } } DER blob for "CN=<cn>", bypassing CertStrToNameW
+    // entirely. CertStrToNameW's CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG was tried (2026-09-01) on
+    // the theory it would force UTF8String (ASN.1 tag 0x0C) encoding to match
+    // WindowsDriverInstaller_PS1's New-SelfSignedCertificate output - CI comparison after that fix
+    // still showed BMPString (tag 0x1E, UTF-16BE) for FFM's cert Subject/Issuer, so the flag did not
+    // reliably take effect; hand-encoding removes the dependency on that undocumented behavior. Only
+    // ASCII providerName values are ever passed in this codebase (CI test names / caller-controlled
+    // strings), so plain UTF8String bytes (== ASCII bytes for the ASCII subset) suffice.
+    private static byte[] _derEncodeCNUtf8(final String cn)
+    {
+        final byte[] cnBytes    = cn.getBytes(StandardCharsets.UTF_8);
+        final byte[] cnValue    = _derTLV((byte) 0x0C, cnBytes);                     // UTF8String
+        final byte[] atv        = _derTLV((byte) 0x30, _concat(                      // SEQUENCE
+                                       _derTLV((byte) 0x06, new byte[]{0x55, 0x04, 0x03}),  // OID 2.5.4.3 (commonName)
+                                       cnValue
+                                   ));
+        final byte[] rdn        = _derTLV((byte) 0x31, atv);                         // SET
+        return _derTLV((byte) 0x30, rdn);                                            // SEQUENCE (Name)
+    }
+
+    private static byte[] _derTLV(final byte tag, final byte[] content)
+    {
+        final byte[] len = _derLen(content.length);
+        final byte[] out = new byte[1 + len.length + content.length];
+        out[0] = tag;
+        System.arraycopy(len    , 0, out, 1               , len.length);
+        System.arraycopy(content, 0, out, 1 + len.length   , content.length);
+        return out;
+    }
+
+    private static byte[] _derLen(final int len)
+    {
+        if( len < 0x80 ) return new byte[]{ (byte) len };
+        int n = 0;
+        for( int t = len; t > 0; t >>= 8 ) n++;
+        final byte[] out = new byte[1 + n];
+        out[0] = (byte) (0x80 | n);
+        for( int i = 0; i < n; i++ ) out[1 + i] = (byte) (len >> (8 * (n - 1 - i)));
+        return out;
+    }
+
+    private static byte[] _concat(final byte[] a, final byte[] b)
+    {
+        final byte[] out = new byte[a.length + b.length];
+        System.arraycopy(a, 0, out, 0        , a.length);
+        System.arraycopy(b, 0, out, a.length , b.length);
+        return out;
+    }
+
     // Opens a system certificate store (CERT_STORE_PROV_SYSTEM_W) - see wincrypt.h
     private static MemorySegment _certStoreOpen(final Arena arena, final int locationFlag, final String storeName) throws Throwable
     {
@@ -784,20 +834,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 }
                 hKey = hKeyOut.get(PTR, 0);
 
-                // 2. Encode the "CN=<providerName>" subject name (CertStrToNameW, two-call size/fill pattern)
-                final MemorySegment subjectStr = _wstr(arena, "CN=" + providerName);
-                final MemorySegment cbSubject  = arena.allocate(ValueLayout.JAVA_INT);
-                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR | CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG, MemorySegment.NULL, MemorySegment.NULL, cbSubject, MemorySegment.NULL) == 0 ) {
-                    log.append("CertStrToNameW (sizing) failed, GetLastError=").append( _lastError() );
-                    return RETCODE_EXCEPTION;
-                }
-
-                final int            subjectLen = cbSubject.get(ValueLayout.JAVA_INT, 0);
+                // 2. Encode the "CN=<providerName>" subject name - hand-built DER (UTF8String), not
+                // CertStrToNameW; see _derEncodeCNUtf8's header comment for why.
+                final byte[]         subjectDer = _derEncodeCNUtf8(providerName);
+                final int            subjectLen = subjectDer.length;
                 final MemorySegment  subjectBuf = arena.allocate(subjectLen);
-                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR | CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG, MemorySegment.NULL, subjectBuf, cbSubject, MemorySegment.NULL) == 0 ) {
-                    log.append("CertStrToNameW failed, GetLastError=").append( _lastError() );
-                    return RETCODE_EXCEPTION;
-                }
+                MemorySegment.copy(subjectDer, 0, subjectBuf, ValueLayout.JAVA_BYTE, 0, subjectLen);
                 final MemorySegment subjectBlob = _blob(arena, subjectLen, subjectBuf);
 
                 // 3. Build the "Code Signing" Enhanced Key Usage extension (CryptEncodeObjectEx w/ CRYPT_ENCODE_ALLOC_FLAG)

@@ -193,20 +193,32 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "$exitCode  = 0                                                                                       \r\n" +
                 "try {                                                                                                \r\n" +
                 "    $script = \"                                                                                     \r\n" +
+                /*
+                 * Wrapped in its own try/catch here (inside the elevated child), matching
+                 * createAndSignCatalog()'s equivalent fix below - without it, a terminating error anywhere in
+                 * this block (e.g. Export-Certificate) would otherwise just exit the elevated powershell.exe
+                 * with a bare, undiagnosable exit code and leave $tmpOutLog empty; the outer try/catch around
+                 * Start-Process further below only ever sees the *launch* of the elevated process, never
+                 * errors occurring inside it. This was found to matter in practice: Export-Certificate failed
+                 * silently here (no exception surfaced, $processHandler.ExitCode still 0) while the separate
+                 * PFX export just below it kept succeeding, so createAndTrustProvider() was reporting success
+                 * even though the .cer file was never actually written.
+                 */
+                "        try {                                                                                       \r\n" +
                 // Remove any certificate(s) already installed under this provider name before creating a new
                 // one, so repeated runs never accumulate duplicates.
-                "        Get-ChildItem Cert:\\CurrentUser\\My |                                                       \r\n" +
-                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                               \r\n" +
-                "            Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                             \r\n" +
-                "        Get-ChildItem Cert:\\LocalMachine\\Root |                                                    \r\n" +
-                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                               \r\n" +
-                "            Remove-Item -Force -ErrorAction SilentlyContinue;                                        \r\n" +
-                "        Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                                        \r\n" +
-                "            Where-Object { `$_.Subject -eq 'CN=%s' } |                                               \r\n" +
-                "            Remove-Item -Force -ErrorAction SilentlyContinue;                                        \r\n" +
-                "        `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert                   `\r\n" +
-                "                     -CertStoreLocation 'Cert:\\CurrentUser\\My';                                    \r\n" +
-                "                     Export-Certificate -Cert `$cert -FilePath '%s';                                 \r\n" +
+                "            Get-ChildItem Cert:\\CurrentUser\\My |                                                   \r\n" +
+                "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
+                "                Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                         \r\n" +
+                "            Get-ChildItem Cert:\\LocalMachine\\Root |                                                \r\n" +
+                "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
+                "                Remove-Item -Force -ErrorAction SilentlyContinue;                                    \r\n" +
+                "            Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                                    \r\n" +
+                "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
+                "                Remove-Item -Force -ErrorAction SilentlyContinue;                                    \r\n" +
+                "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert              `\r\n" +
+                "                         -CertStoreLocation 'Cert:\\CurrentUser\\My';                                \r\n" +
+                "                         Export-Certificate -Cert `$cert -FilePath '%s' | Out-Null;                  \r\n" +
                 /*
                  * PFX handoff: live CI proved Cert:\CurrentUser\My (a per-profile store) does not survive
                  * across two independent "Start-Process -Verb RunAs" elevations on this runner - a second,
@@ -233,12 +245,17 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                  * same-session delete of the object we just created, not a lookup across the broken
                  * cross-session boundary.
                  */
-                "                     `$pfxBytes = `$cert.Export(                                                    `\r\n" +
-                "                         [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');\r\n" +
-                "                     [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                              \r\n" +
-                "                     `$cert | Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;           \r\n" +
-                "        certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;                     \r\n" +
-                "        certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append          \r\n" +
+                "            `$pfxBytes = `$cert.Export(                                                              `\r\n" +
+                "                [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');         \r\n" +
+                "            [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                                       \r\n" +
+                "            `$cert | Remove-Item -Force -DeleteKey -ErrorAction SilentlyContinue;                    \r\n" +
+                "            certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;                 \r\n" +
+                "            certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append      \r\n" +
+                "        }                                                                                            \r\n" +
+                "        catch {                                                                                     \r\n" +
+                "            `$_.Exception.Message | Out-File `\"$tmpOutLog`\" -Append;                              \r\n" +
+                "            exit 1;                                                                                  \r\n" +
+                "        }                                                                                            \r\n" +
                 "    \"                                                                                               \r\n" +
                 /*
                  * Escaping $cert as `$cert above keeps it literal text for the elevated child script to parse -

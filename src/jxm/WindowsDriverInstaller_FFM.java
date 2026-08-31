@@ -1635,7 +1635,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             return RETCODE_INVALID_PATH;
         }
 
-        /*
+        /* (comment retained, code below re-enabled - see "RE-ENABLED (2026-09-01, cont8)" note)
          * SECTION H ITEM 11 : switched from the in-process SetupCopyOEMInfW call below to shelling out
          * to pnputil.exe /add-driver (no /install - same rationale as WindowsDriverInstaller_PS1's
          * installDriver()). Six independent diagnostic rounds (SECTION H ITEMS 5-10) confirmed the
@@ -1666,11 +1666,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
          * to the exact same cmd.exe-with-file-redirection pattern PS1 already proves out, rather than
          * re-adding a second layer of UAC elevation (unnecessary - this method already runs elevated).
          */
-        // TEMPORARILY DISABLED (2026-09-01) - retesting SetupCopyOEMInfW below now that the FFM
-        // cert's Subject/Issuer CN encoding bug (BMPString/little-endian vs PS1's UTF8String) is
-        // fixed, a variable not present during SPAPI_E_FILE_HASH_NOT_IN_CATALOG's original 6 failed
-        // rounds. Kept here, commented out not deleted, in case this needs to be swapped back in.
-        /*
+        // RE-ENABLED (2026-09-01, "cont8") - SetupCopyOEMInfW retested with the CN-encoding fix
+        // AND (later that day) with Key Usage/Subject Key Identifier extensions added to match PS1's
+        // cert exactly - SPAPI_E_FILE_HASH_NOT_IN_CATALOG persisted unchanged both times, matching
+        // its already-exhausted 6-round history (SECTION H items 5-10) of ruling out every
+        // catalog-content hypothesis; this now looks like an inherent SetupCopyOEMInfW requirement
+        // (e.g. WHQL-level attestation) no self-signed catalog can ever satisfy, not a cert defect.
+        // pnputil.exe's earlier hang (ITEM 12), by contrast, is a strong match for the "unverified
+        // publisher" dialog theory - the cert it was fed back then had neither Key Usage nor Subject
+        // Key Identifier, now fixed. Re-testing pnputil with the corrected cert; SetupCopyOEMInfW
+        // kept below, commented out not deleted, in case this needs to be swapped back in again.
         final Path tmpOutLog = Paths.get( System.getenv("TEMP"), "pnp_out_" + ProcessHandle.current().pid() + ".log" );
 
         try {
@@ -1706,8 +1711,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             log.append("pnputil.exe /add-driver failed to launch: ").append(e);
             return RETCODE_EXCEPTION;
         }
-        */
 
+        /* SetupCopyOEMInfW-based implementation - kept commented out, not deleted, in case this
+         * needs to be swapped back in; see "RE-ENABLED (2026-09-01, cont8)" note above for why
+         * pnputil.exe is active instead.
         try(
             final Arena arena = Arena.ofConfined()
         ) {
@@ -1776,6 +1783,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             return RETCODE_OK;
         }
+        */
     }
 
 } // WindowsDriverInstaller_FFM

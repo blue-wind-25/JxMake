@@ -7,12 +7,22 @@ It exists to help a future maintainer of this class read the FFM (Java Foreign F
 API) bindings without having to re-derive every struct offset and calling convention from scratch.
 
 This file has two parts:
-  PART A - pure API reference, one entry per native function/struct currently used by
-           WindowsDriverInstaller_FFM.java. Describes ONLY current, correct behavior - no
-           investigation narrative.
-  PART B - compact chronological implementation history (what was tried, what broke, what fixed it),
-           ending with an OPEN - NEXT STEPS entry a future session can resume from without re-running
-           CI.
+  PART A - API reference, one entry per native function/struct WindowsDriverInstaller_FFM.java binds.
+           Each entry is marked USED (actively called on the current code path) or UNUSED (bound
+           and/or documented but not on the current path - kept for reference, per project
+           convention, rather than removed). Describes current, correct behavior - no investigation
+           narrative.
+  PART B - short implementation-history summary (what the hard problems were and how they were
+           resolved). This project's driver install/signing pipeline is fully working end-to-end as
+           of the entry below; Part B is kept brief and is not an ongoing investigation log.
+
+Consulted-but-not-copied reference: pbatard/libwdi (https://github.com/pbatard/libwdi/tree/master/libwdi,
+Copyright (c) 2010-2022 Pete Batard <pete@akeo.ie>, GNU LGPL version 3 or later) was read, read-only,
+to see how another open-source driver installer calls some of these same documented Microsoft Win32
+APIs (e.g. SetupCopyOEMInfW's OEMSourceMediaType usage). No source code from that project is
+reproduced, adapted, or copied anywhere in this project - every binding, struct layout, and comment
+below was written from scratch against Microsoft's own reference pages and this project's own CI
+results.
 
 Where a detail was confirmed against Microsoft's own reference pages, it is marked VERIFIED with a
 Source: line. Where something instead has to be reconstructed because Microsoft does not document
@@ -59,7 +69,7 @@ is to relaunch its own JVM through ShellExecuteExW with lpVerb="runas" and wait 
 process handle.
 
 ----------------------------------------------------------------------------------------------------
-CreateFileW - VERIFIED
+CreateFileW - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
 DLL/Header : Kernel32.dll / fileapi.h
@@ -78,7 +88,7 @@ FFM notes  : `FunctionDescriptor.of(PTR, PTR, DW, DW, PTR, DW, DW, PTR)`. Used o
              closed in a `finally` block.
 
 ----------------------------------------------------------------------------------------------------
-CloseHandle - VERIFIED
+CloseHandle - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-closehandle
 DLL/Header : Kernel32.dll / handleapi.h
@@ -91,7 +101,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR)`. Called on both the INF file handl
              child process handle (`_shellExecuteElevatedAndWait`), each from a `finally` block.
 
 ----------------------------------------------------------------------------------------------------
-GetLastError - VERIFIED
+GetLastError - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/errhandlingapi/nf-errhandlingapi-getlasterror
 DLL/Header : Kernel32.dll / errhandlingapi.h
@@ -109,7 +119,7 @@ FFM notes  : `FunctionDescriptor.of(DW)`. Wrapped by the private `_lastError()` 
              call.
 
 ----------------------------------------------------------------------------------------------------
-WaitForSingleObject - VERIFIED
+WaitForSingleObject - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject
 DLL/Header : Kernel32.dll / synchapi.h
@@ -125,7 +135,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, DW)`. Used in `_shellExecuteElevate
              reports RETCODE_TIMEOUT.
 
 ----------------------------------------------------------------------------------------------------
-GetExitCodeProcess - VERIFIED
+GetExitCodeProcess - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getexitcodeprocess
 DLL/Header : Kernel32.dll / processthreadsapi.h
@@ -141,7 +151,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR)`. Called right after WaitForSi
              path.
 
 ----------------------------------------------------------------------------------------------------
-TerminateProcess - VERIFIED
+TerminateProcess - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-terminateprocess
 DLL/Header : Kernel32.dll / processthreadsapi.h
@@ -155,7 +165,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, DW)`. Only reached on the WAIT_TIME
              RETCODE_TIMEOUT, so termination is best-effort/fire-and-forget.
 
 ----------------------------------------------------------------------------------------------------
-LocalFree - VERIFIED
+LocalFree - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-localfree
 DLL/Header : Kernel32.dll / winbase.h
@@ -173,7 +183,7 @@ FFM notes  : `FunctionDescriptor.of(PTR, PTR)` - return type is PTR, not DW; the
              released with LocalFree only, never by the arena.
 
 ----------------------------------------------------------------------------------------------------
-ShellExecuteExW - VERIFIED
+ShellExecuteExW - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecuteexw
 DLL/Header : Shell32.dll / shellapi.h
@@ -199,7 +209,7 @@ Notes:
       parameter for other callers.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SHELLEXECUTEINFOW - VERIFIED
+STRUCTURE: SHELLEXECUTEINFOW - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfow
 
@@ -229,7 +239,7 @@ makes Windows trust a driver signed with this certificate) and the per-user "My"
 certificate's private-key linkage lives so it can later sign the catalog).
 
 ----------------------------------------------------------------------------------------------------
-CertOpenStore - VERIFIED
+CertOpenStore - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certopenstore
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -247,7 +257,7 @@ FFM notes  : `FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, PTR)`. lpszStoreProvi
              CERT_SYSTEM_STORE_CURRENT_USER for "My".
 
 ----------------------------------------------------------------------------------------------------
-CertCloseStore - VERIFIED
+CertCloseStore - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certclosestore
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -260,7 +270,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, DW)`. Always flags=0, matched 1:1 w
              CertOpenStore, generally from `finally`.
 
 ----------------------------------------------------------------------------------------------------
-CertFindCertificateInStore - VERIFIED
+CertFindCertificateInStore - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfindcertificateinstore
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -282,7 +292,7 @@ Ownership  : every non-NULL PCCERT_CONTEXT returned MUST be released with
              (isProviderAlreadyTrusted) or via `finally` around `_signCatalog`.
 
 ----------------------------------------------------------------------------------------------------
-CertFreeCertificateContext - VERIFIED
+CertFreeCertificateContext - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certfreecertificatecontext
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -298,7 +308,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR)`. Also called on the certificate th
              handle).
 
 ----------------------------------------------------------------------------------------------------
-CertStrToNameW - VERIFIED
+CertStrToNameW - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certstrtonamew
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -317,7 +327,7 @@ FFM notes  : `FunctionDescriptor.of(DW, DW, PTR, DW, PTR, PTR, PTR, PTR)`. Calle
              is always NULL - this code only checks GetLastError, not the detailed diagnostic.
 
 ----------------------------------------------------------------------------------------------------
-CertCreateSelfSignCertificate - VERIFIED
+CertCreateSelfSignCertificate - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certcreateselfsigncertificate
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -343,7 +353,7 @@ Notes: If pSignatureAlgorithm were NULL, Microsoft documents the default as SHA1
     auto-computed +1-year pEndTime is documented by Microsoft and not specially handled here.
 
 ----------------------------------------------------------------------------------------------------
-CertAddCertificateContextToStore - VERIFIED
+CertAddCertificateContextToStore - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certaddcertificatecontexttostore
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -362,7 +372,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, DW, PTR)`. dwAddDisposition is
              it as an explicitly trusted publisher).
 
 ----------------------------------------------------------------------------------------------------
-CertGetCertificateContextProperty - VERIFIED
+CertGetCertificateContextProperty - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certgetcertificatecontextproperty
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -380,7 +390,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, DW, PTR, PTR)`. Called in `_destroy
              \TrustedPublisher) returns 0 on the first call, treated as "nothing to do".
 
 ----------------------------------------------------------------------------------------------------
-CertDeleteCertificateFromStore - VERIFIED
+CertDeleteCertificateFromStore - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-certdeletecertificatefromstore
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -398,7 +408,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR)`. Called in a loop by `_deleteExist
              since deleting a context invalidates any enumeration position.
 
 ----------------------------------------------------------------------------------------------------
-CryptEncodeObjectEx - VERIFIED
+CryptEncodeObjectEx - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptencodeobjectex
 DLL/Header : Crypt32.dll / wincrypt.h
@@ -419,7 +429,7 @@ FFM notes  : `FunctionDescriptor.of(DW, DW, PTR, PTR, DW, PTR, PTR, PTR)`. Alway
              encode the catalog member's SIP-indirect "file link" payload (Section D).
 
 ----------------------------------------------------------------------------------------------------
-CryptSIPRetrieveSubjectGuid - VERIFIED
+CryptSIPRetrieveSubjectGuid - VERIFIED - UNUSED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mssip/nf-mssip-cryptsipretrievesubjectguid
 DLL/Header : Crypt32.dll (despite mssip.h being the SIP-family header) / mssip.h
@@ -429,14 +439,13 @@ Return     : BOOL
 Purpose    : Asks installed Subject Interface Package providers which GUID identifies the "kind of
              thing" a file is, for Authenticode/WinVerifyTrust purposes.
 
-FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, PTR)`. Called once in
-             `_elevatedCreateAndSignCatalog`, passing the already-open INF file handle as hFileIn. If
-             it returns FALSE (no SIP provider recognizes a plain INF file), the code falls back to
-             the well-known DRIVER_ACTION_VERIFY GUID (copied via `MemorySegment.copy`) rather than
-             treating the failure as fatal.
+FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, PTR)`. The binding and the field holding its
+             MethodHandle are commented out (not deleted) in the class - catalog members now use a
+             fixed INF-type subject GUID (`INF_SUBJECT_TYPE_PARTS` in `_elevatedCreateAndSignCatalog`)
+             instead of a SIP-provider-derived one, so this call is no longer made.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CRYPT_ATTR_BLOB / CERT_NAME_BLOB (generic CRYPTOAPI_BLOB shape) - VERIFIED
+STRUCTURE: CRYPT_ATTR_BLOB / CERT_NAME_BLOB (generic CRYPTOAPI_BLOB shape) - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attr_blob
 
@@ -448,7 +457,7 @@ FFM notes : Built by the private `_blob(arena, cbData, pbData)` helper. Used for
             blob passed into CertCreateSelfSignCertificate.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CERT_ENHKEY_USAGE - VERIFIED
+STRUCTURE: CERT_ENHKEY_USAGE - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_enhkey_usage
 
@@ -462,7 +471,7 @@ FFM notes : Built inline in `_elevatedCreateAndTrustProvider` as `ekuStruct`; `o
             lpszStructType = X509_ENHANCED_KEY_USAGE(36).
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CERT_EXTENSION - VERIFIED
+STRUCTURE: CERT_EXTENSION - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extension
 
@@ -475,7 +484,7 @@ FFM notes : fCritical = 0 (not critical) - a verifier that doesn't understand th
             ignore it rather than reject the whole certificate.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CERT_EXTENSIONS - VERIFIED
+STRUCTURE: CERT_EXTENSIONS - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extensions
 
@@ -485,7 +494,7 @@ Purpose: The array wrapper CertCreateSelfSignCertificate's pExtensions expects -
          single-element array here.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CRYPT_KEY_PROV_INFO - VERIFIED
+STRUCTURE: CRYPT_KEY_PROV_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_key_prov_info
 
@@ -502,7 +511,7 @@ FFM notes : pwszProvName = NULL (default RSA Full CSP), dwProvType = PROV_RSA_FU
             what this backend uses (see Section C for why CNG was not usable here).
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER - VERIFIED
+STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_algorithm_identifier
 
@@ -515,7 +524,7 @@ FFM notes : Used once, as `sigAlgId`, to force CertCreateSelfSignCertificate's s
             normal for RSA-with-hash OIDs.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CERT_CONTEXT (partial - reinterpret only) - VERIFIED
+STRUCTURE: CERT_CONTEXT (partial - reinterpret only) - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_context
 
@@ -543,7 +552,7 @@ CryptAcquireContext path unless given an NCrypt-allowing flag it is not given, s
 key is unusable here regardless of how correctly CRYPT_KEY_PROV_INFO otherwise describes it.
 
 ----------------------------------------------------------------------------------------------------
-CryptAcquireContextW - VERIFIED
+CryptAcquireContextW - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptacquirecontextw
 DLL/Header : Advapi32.dll / wincrypt.h
@@ -565,7 +574,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW)`. Provisioning ca
              call permanently destroys the key material.
 
 ----------------------------------------------------------------------------------------------------
-CryptGenKey - VERIFIED
+CryptGenKey - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptgenkey
 DLL/Header : Advapi32.dll / wincrypt.h
@@ -579,7 +588,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, DW, DW, PTR)`. Called with Algid = 
              dwFlags = (2048 << 16) | CRYPT_EXPORTABLE(0x1) - a 2048-bit, exportable RSA signing key.
 
 ----------------------------------------------------------------------------------------------------
-CryptDestroyKey / CryptReleaseContext - VERIFIED
+CryptDestroyKey / CryptReleaseContext - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptdestroykey
              https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/nf-wincrypt-cryptreleasecontext
@@ -603,7 +612,7 @@ uses to verify an INF's integrity, since an INF cannot carry an embedded Authent
 way a PE file can.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATAdminAcquireContext2 - VERIFIED
+CryptCATAdminAcquireContext2 - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminacquirecontext2
 DLL/Header : Wintrust.dll / mscat.h
@@ -623,7 +632,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW)`. pgSubsystem is
              NULL/0.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATAdminCalcHashFromFileHandle2 - VERIFIED
+CryptCATAdminCalcHashFromFileHandle2 - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadmincalchashfromfilehandle2
 DLL/Header : Wintrust.dll / mscat.h
@@ -641,7 +650,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, PTR, PTR, DW)`. Size-then-fill
              tag passed to CryptCATPutMemberInfo).
 
 ----------------------------------------------------------------------------------------------------
-CryptCATAdminReleaseContext - VERIFIED
+CryptCATAdminReleaseContext - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminreleasecontext
 DLL/Header : Wintrust.dll / mscat.h
@@ -656,7 +665,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, DW)`. Called with flags=0 - once pe
              `_addCatalogToDatabase`.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATAdminAddCatalog - VERIFIED
+CryptCATAdminAddCatalog - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminaddcatalog
 DLL/Header : Wintrust.dll / mscat.h
@@ -676,7 +685,7 @@ FFM notes  : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW)`. Called from `_addC
              CryptCATAdminReleaseCatalogContext immediately after.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATAdminReleaseCatalogContext - VERIFIED
+CryptCATAdminReleaseCatalogContext - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminreleasecatalogcontext
 DLL/Header : Wintrust.dll / mscat.h
@@ -690,7 +699,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Called with flags=0 imme
              CryptCATAdminEnumCatalogFromHash in `_diagCatalogLookup`.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATAdminEnumCatalogFromHash - VERIFIED
+CryptCATAdminEnumCatalogFromHash - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatadminenumcatalogfromhash
 DLL/Header : Wintrust.dll / mscat.h
@@ -708,7 +717,7 @@ FFM notes  : `FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR)`. Diagnostic-onl
              CryptCATAdminReleaseCatalogContext. Never changes `createAndSignCatalog`'s return code.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATCatalogInfoFromContext - VERIFIED
+CryptCATCatalogInfoFromContext - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatcataloginfofromcontext
 DLL/Header : Wintrust.dll / mscat.h
@@ -723,7 +732,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Diagnostic-only, used in
              cbStruct must be pre-filled with the struct's own size before the call.
 
 ----------------------------------------------------------------------------------------------------
-WinVerifyTrust - VERIFIED
+WinVerifyTrust - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/wintrust/nf-wintrust-winverifytrust
 DLL/Header : Wintrust.dll / wintrust.h
@@ -747,7 +756,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, PTR)`. Diagnostic-only, used i
              `createAndSignCatalog`'s return code.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATOpen - VERIFIED
+CryptCATOpen - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatopen
 DLL/Header : Wintrust.dll / mscat.h
@@ -758,13 +767,16 @@ Return     : HANDLE to the open catalog, or INVALID_HANDLE_VALUE.
 Purpose    : Creates or opens a .cat catalog file for editing.
 
 FFM notes  : `FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW)`. fdwOpenFlags =
-             CRYPTCAT_OPEN_CREATENEW(0x1) (always creates fresh); dwPublicVersion =
-             CRYPTCAT_VERSION_2(0x200) - only version-2 catalogs are produced. dwEncodingType = 0
-             (differs from CRYPT_ASN_ENCODING used elsewhere - conventional for this call). The
-             returned handle is checked against both NULL and INVALID_HANDLE_VALUE(-1).
+             CRYPTCAT_OPEN_CREATENEW(0x1) (always creates fresh); dwPublicVersion = 0, NOT
+             CRYPTCAT_VERSION_2(0x200) - a v2 header unconditionally makes SetupCopyOEMInfW reject the
+             catalog with SPAPI_E_FILE_HASH_NOT_IN_CATALOG regardless of member content (RECONSTRUCTED
+             / INFERRED, confirmed by CI - not documented by Microsoft). Must match dwCertVersion=0 in
+             CryptCATPutMemberInfo below. dwEncodingType = 0 (differs from CRYPT_ASN_ENCODING used
+             elsewhere - conventional for this call). The returned handle is checked against both NULL
+             and INVALID_HANDLE_VALUE(-1).
 
 ----------------------------------------------------------------------------------------------------
-CryptCATPersistStore - VERIFIED
+CryptCATPersistStore - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatpersiststore
 DLL/Header : Wintrust.dll / mscat.h
@@ -780,7 +792,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR)`. Called in the `finally` around th
              persisting succeeded.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATClose - VERIFIED
+CryptCATClose - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatclose
 DLL/Header : Wintrust.dll / mscat.h
@@ -793,7 +805,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR)`. Called in the `finally` around th
              building block, right after CryptCATPersistStore.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATPutMemberInfo - VERIFIED
+CryptCATPutMemberInfo - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputmemberinfo
 DLL/Header : Wintrust.dll / mscat.h
@@ -806,22 +818,28 @@ Purpose    : Adds one member entry to an open catalog, keyed by a subject-type G
              subject's SIP-indirect digest data.
 
 FFM notes  : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, PTR, DW, DW, PTR)`. Called once per hash
-             algorithm in `CATALOG_HASH_ALGS` ("SHA1" and "SHA256" - both are written for the same
-             INF, since Windows components may look up by either). pwszFileName = NULL (RECONSTRUCTED
-             / INFERRED - the filename is instead conveyed via the separate "File" CryptCATPutAttrInfo
+             algorithm in `CATALOG_HASH_ALGS` - currently SHA1-only (see CATALOG_HASH_ALGS below for
+             why SHA256 is commented out rather than deleted). pwszFileName = NULL (RECONSTRUCTED /
+             INFERRED - the filename is instead conveyed via the separate "File" CryptCATPutAttrInfo
              call below); pwszReferenceTag = the hex-encoded digest string (`hexTag`) for that
-             iteration's algorithm; pgSubjectType = whatever GUID CryptSIPRetrieveSubjectGuid resolved
-             (or the DRIVER_ACTION_VERIFY fallback); dwCertVersion = CRYPTCAT_VERSION_2 (0x200)
-             (RECONSTRUCTED / INFERRED - matches this catalog's own CryptCATOpen version);
+             iteration's algorithm; pgSubjectType = the fixed INF-type subject GUID
+             (INF_SUBJECT_TYPE_PARTS, see the GUID structure entry below - CryptSIPRetrieveSubjectGuid
+             is no longer called); dwCertVersion = 0, matching CryptCATOpen's dwPublicVersion above;
              cbSIPIndirectData/pbSIPIndirectData point at the 64-byte SIP_INDIRECT_DATA struct built
              just before this call.
+
+CATALOG_HASH_ALGS : currently `{ "SHA1" }` only - a SHA256 member alongside or instead of SHA1 made
+             SetupCopyOEMInfW reject the catalog with SPAPI_E_FILE_HASH_NOT_IN_CATALOG (member hash
+             algorithm must match the catalog header version, which is pinned to 0/legacy above - see
+             Part B). The dual SHA1+SHA256 array is kept commented out in the source in case a future
+             Windows version requires SHA256 catalog members again.
 
 Ownership  : the returned CRYPTCATMEMBER* belongs to the catalog object; used immediately as input to
              the CryptCATPutAttrInfo call that follows, never freed independently - invalid once
              CryptCATClose runs.
 
 ----------------------------------------------------------------------------------------------------
-CryptCATPutAttrInfo - VERIFIED
+CryptCATPutAttrInfo - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatputattrinfo
 DLL/Header : Wintrust.dll / mscat.h
@@ -841,7 +859,7 @@ FFM notes  : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR)`. Called on
              set - see Part B for why.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: GUID - VERIFIED
+STRUCTURE: GUID - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : general, stable Win32 knowledge (guiddef.h);
          https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
@@ -851,13 +869,14 @@ Size   : 16 bytes, 4-byte aligned (not 8 - no pointer-sized fields).
 Purpose: The standard 128-bit Windows GUID/UUID representation.
 
 FFM notes : Built by the private `_guid(arena, long[] parts)` helper (11-element long[]: Data1,
-            Data2, Data3, then the 8 bytes of Data4). Used for DRIVER_ACTION_VERIFY
-            (F750E6C3-38EE-11D1-85E5-00C04FC295EE, from softpub.h, cross-checked byte-for-byte) and
-            for the per-file subject GUID buffer CryptSIPRetrieveSubjectGuid fills in (or that
-            DRIVER_ACTION_VERIFY_PARTS is copied into as a fallback).
+            Data2, Data3, then the 8 bytes of Data4). Used for INF_SUBJECT_TYPE_PARTS - the fixed
+            "this is an INF" subject-type GUID (SPC_INC_SPL_INF_ style: DE351A42-8E59-11D0-8C47-
+            00C04FC295EE) that catalog members are now keyed to, and for DRIVER_ACTION_VERIFY
+            (F750E6C3-38EE-11D1-85E5-00C04FC295EE, from softpub.h, cross-checked byte-for-byte),
+            which remains bound as the pgSubsystem GUID for CryptCATAdminAcquireContext2.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SPC_LINK - VERIFIED
+STRUCTURE: SPC_LINK - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : No Microsoft Learn prose page exists for this structure (learn.microsoft.com
          wintrust/ns-wintrust-spc_link 404s). Confirmed instead via WinTrust.h (Windows SDK/WDK
@@ -880,7 +899,7 @@ FFM notes : Encoded via CryptEncodeObjectEx with lpszStructType = "1.3.6.1.4.1.3
             (SPC_CAB_DATA_OBJID) before being embedded into SIP_INDIRECT_DATA below.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SIP_INDIRECT_DATA - VERIFIED
+STRUCTURE: SIP_INDIRECT_DATA - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/mssip/ns-mssip-sip_indirect_data
 
@@ -909,7 +928,7 @@ prototypes itself and dynamically resolves the DLL export - the pattern this fil
 SymbolLookup.
 
 ----------------------------------------------------------------------------------------------------
-SignerSignEx - VERIFIED
+SignerSignEx - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex
 DLL/Header : Mssign32.dll / none (explicitly undeclared by Microsoft)
@@ -939,7 +958,7 @@ Notes: minimum supported client is Windows XP (not a concern - this backend alre
     SIGNER_SUBJECT_INFO.pdwIndex) that previously caused E_INVALIDARG here.
 
 ----------------------------------------------------------------------------------------------------
-SignerFreeSignerContext - VERIFIED
+SignerFreeSignerContext - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : general Mssign32/Signer* API family knowledge - documented alongside the SIGNER_*
              structure pages, e.g. https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex2
@@ -954,7 +973,7 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR)`. This file does not inspect the re
              freed immediately once read.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED
+STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-subject-info
 
@@ -970,7 +989,7 @@ FFM notes : pdwIndex points at a real, writable DWORD holding 0 - Microsoft's do
             the pointer field itself.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SIGNER_FILE_INFO - VERIFIED
+STRUCTURE: SIGNER_FILE_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-file-info
 
@@ -982,7 +1001,7 @@ FFM notes : pwszFileName = the .cat path; hFile = MemorySegment.NULL - SignerSig
             itself by path.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SIGNER_CERT - VERIFIED
+STRUCTURE: SIGNER_CERT - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
 
@@ -995,7 +1014,7 @@ Purpose: Identifies the signing certificate - a store lookup (SIGNER_CERT_STORE=
 FFM notes : dwCertChoice = SIGNER_CERT_STORE(2); hwnd = NULL.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SIGNER_CERT_STORE_INFO - VERIFIED
+STRUCTURE: SIGNER_CERT_STORE_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info
 
@@ -1010,7 +1029,7 @@ FFM notes : pSigningCert = the certificate found via CertFindCertificateInStore;
             SIGNER_CERT_POLICY_STORE/CHAIN_NO_ROOT, not CHAIN).
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SIGNER_SIGNATURE_INFO - VERIFIED
+STRUCTURE: SIGNER_SIGNATURE_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-signature-info
 
@@ -1026,7 +1045,7 @@ FFM notes : algidHash = CALG_SHA_256(0x0000800c); dwAttrChoice = SIGNER_NO_ATTR(
             psUnauthenticated = NULL.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: SIGNER_ATTR_AUTHCODE - VERIFIED (currently unused)
+STRUCTURE: SIGNER_ATTR_AUTHCODE - VERIFIED - UNUSED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-attr-authcode
 
@@ -1040,7 +1059,7 @@ FFM notes : Not currently constructed - SIGNER_SIGNATURE_INFO.dwAttrChoice is SI
             structure is unused in the active code path.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CRYPT_ATTRIBUTES - VERIFIED
+STRUCTURE: CRYPT_ATTRIBUTES - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attributes
 
@@ -1053,7 +1072,7 @@ FFM notes : cAttr = 2. rgAttr points to two contiguous CRYPT_ATTRIBUTE structure
             flat array, not separately-allocated structures).
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CRYPT_ATTRIBUTE - VERIFIED
+STRUCTURE: CRYPT_ATTRIBUTE - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attribute
 
@@ -1065,7 +1084,7 @@ FFM notes : cValue = 1 for both attributes built (SPC_SP_OPUS_INFO_OBJID and
             SPC_STATEMENT_TYPE_OBJID), each with a single CRYPT_ATTR_BLOB value via `_blob()`.
 
 ----------------------------------------------------------------------------------------------------
-STRUCTURE: CRYPT_ATTR_BLOB (reused shape, see A.2) - VERIFIED
+STRUCTURE: CRYPT_ATTR_BLOB (reused shape, see A.2) - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_integer_blob
 
@@ -1085,12 +1104,13 @@ Stages the INF into Windows without requiring a physically-present device. insta
 dispatches to the elevated child exactly like createAndTrustProvider/createAndSignCatalog (via
 `_runElevatedSelf("install", ...)`); the elevated child (`_elevatedInstallDriver`) calls
 CM_WaitNoPendingInstallEvents as a guard, then SetupSetNonInteractiveMode(TRUE), then
-SetupCopyOEMInfW to stage the INF. None of these functions involve COM. (This SetupCopyOEMInfW-based
-path is currently commented out, not deleted, in favor of a pnputil.exe subprocess shell-out that
-itself hangs - see Part B's OPEN - NEXT STEPS entry for current status of installDriver().)
+SetupCopyOEMInfW to stage the INF. None of these functions involve COM. An earlier revision instead
+shelled out to pnputil.exe /add-driver (matching WindowsDriverInstaller_PS1's approach), but that
+reliably hung; the pnputil.exe-based code is kept in `_elevatedInstallDriver`, commented out rather
+than deleted, in case it needs to be swapped back in (see Part B).
 
 ----------------------------------------------------------------------------------------------------
-SetupCopyOEMInfW - VERIFIED
+SetupCopyOEMInfW - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupcopyoeminfw
 DLL/Header : Setupapi.dll / setupapi.h
@@ -1114,14 +1134,19 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR)` - 
              capture-state option prepends an extra MemorySegment argument (a capture-state buffer
              from `arena.allocate(Linker.Option.captureStateLayout())`) ahead of the 8 real
              parameters; retrieved via `_capturedLastError()`. Called from `_elevatedInstallDriver`
-             with OEMSourceMediaLocation=NULL, OEMSourceMediaType=SPOST_NONE(0) (infPath is already a
-             fully-qualified local path), CopyStyle=0 (allow overwrite of an existing same-named
-             staged copy). DestinationInfFileName is a caller-allocated MAX_PATH-WCHAR buffer,
+             with OEMSourceMediaType=SPOST_PATH and OEMSourceMediaLocation=the INF's own parent
+             directory - SPOST_NONE/NULL was tried first and made SetupCopyOEMInfW reject the catalog
+             with SPAPI_E_FILE_HASH_NOT_IN_CATALOG (see Part B); SPOST_PATH + the INF's directory is
+             the combination that actually works, identified by reading Microsoft's own
+             OEMSourceMediaType documentation and observing how other open-source driver installers
+             call this same documented API (no code copied - see the top of this file). CopyStyle=0
+             (allow overwrite of an existing same-named staged copy). DestinationInfFileName is a
+             caller-allocated MAX_PATH-WCHAR buffer,
              decoded to a String by hand (scan for the first NUL WCHAR, then UTF_16LE-decode).
              RequiredSize/DestinationInfFileNameComponent are passed but not read.
 
 ----------------------------------------------------------------------------------------------------
-SetupSetNonInteractiveMode - VERIFIED
+SetupSetNonInteractiveMode - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/setupapi/nf-setupapi-setupsetnoninteractivemode
 DLL/Header : Setupapi.dll / setupapi.h
@@ -1138,7 +1163,7 @@ FFM notes  : `FunctionDescriptor.of(DW, DW)`. Bound against the same Setupapi.dl
              SetupCopyOEMInfW might otherwise raise.
 
 ----------------------------------------------------------------------------------------------------
-CM_WaitNoPendingInstallEvents - VERIFIED
+CM_WaitNoPendingInstallEvents - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
 Source     : https://learn.microsoft.com/en-us/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_waitnopendinginstallevents
 DLL        : Cfgmgr32.dll. Microsoft's api_location metadata also lists Setupapi.dll as an exporter,
@@ -1208,161 +1233,39 @@ Elevation architecture: `createAndTrustProvider`/`createAndSignCatalog`/`install
 
 
 ====================================================================================================
-PART B - IMPLEMENTATION HISTORY (compact)
+PART B - IMPLEMENTATION HISTORY (compact) - *** RESOLVED ***
 ====================================================================================================
 
-Catalog signing (SignerSignEx) E_INVALIDARG, part 1 - RESOLVED BY PIVOTING AWAY, then reversed:
-    Live Windows CI consistently returned E_INVALIDARG from SignerSignEx/SignerSignEx2/SignerSignEx3,
-    unchanged across every struct-field permutation tried (SIGNER_SUBJECT_INFO, SIGNER_FILE_INFO,
-    SIGNER_CERT, SIGNER_CERT_STORE_INFO, SIGNER_SIGNATURE_INFO, SIGNER_ATTR_AUTHCODE,
-    CRYPT_ATTRIBUTES), all three entry points in the family, CNG-vs-CAPI1 key provisioning (CNG was
-    independently confirmed broken - NTE_BAD_PROV_TYPE - and replaced with CAPI1, but that alone did
-    not fix E_INVALIDARG), and a COM-initialization hypothesis. A signtool.exe cross-check proved the
-    certificate/key/CI-environment were all fine (signtool signed the same .cat with the same cert
-    successfully), isolating the defect to this backend's own SignerSignEx call. Abandoned at the
-    time in favor of shelling out to signtool.exe.
+This backend is fully working end-to-end (certificate creation/trust, catalog signing, driver
+staging), confirmed on live Windows CI. The three hard problems along the way, and their resolutions:
 
-Catalog signing, part 2 - REVERSED, root cause found: two struct fields were wrong simultaneously,
-    masking each other across every part-1 permutation:
-      - SIGNER_CERT_STORE_INFO.hCertStore was set to the CurrentUser\My handle, but is only consulted
-        under SIGNER_CERT_POLICY_STORE/CHAIN_NO_ROOT - with the CHAIN policy this backend uses, it
-        must be NULL.
-      - SIGNER_SUBJECT_INFO.pdwIndex was set to NULL itself; Microsoft's "must be set to zero"
-        describes the pointed-to DWORD's value, not the pointer - it must point at a real writable
-        DWORD holding 0.
-      - SIGNER_SIGNATURE_INFO.psAuthenticated (left NULL in part 1) was populated with
-        SPC_SP_OPUS_INFO/SPC_STATEMENT_TYPE attributes to match every other known-working caller
-        pattern.
-    CONFIRMED on live CI (2026-08-31) with all three corrections together: SignerSignEx now succeeds
-    end-to-end. This is the CURRENT, active signing path (Part A, Section A.5).
+Catalog signing (SignerSignEx) returned E_INVALIDARG for a long time. Root cause: three
+    SIGNER_* struct fields were wrong simultaneously, each masking the others -
+    SIGNER_CERT_STORE_INFO.hCertStore must be NULL under the CHAIN policy this backend uses (not the
+    CurrentUser\My handle); SIGNER_SUBJECT_INFO.pdwIndex must point at a real writable DWORD holding
+    0 (Microsoft's "must be set to zero" describes the pointed-to value, not the pointer itself); and
+    SIGNER_SIGNATURE_INFO.psAuthenticated needed SPC_SP_OPUS_INFO/SPC_STATEMENT_TYPE attributes
+    populated. Fixed with all three corrected together (Part A, Section A.5).
 
-CryptCATPersistStore omission (CI run 90196100036) - CONFIRMED FIXED: every CryptCATOpen/
-    CryptCATPutMemberInfo/CryptCATPutAttrInfo/CryptCATClose call reported success, yet the .cat file
-    was 0 bytes on disk (signtool then rejected it as unrecognized). CryptCATClose alone does not
-    flush content; CryptCATPersistStore must be called first. Fixed and confirmed on live CI.
+The signed .cat file was 0 bytes on disk despite every CryptCATOpen/CryptCATPutMemberInfo/
+    CryptCATPutAttrInfo/CryptCATClose call reporting success. CryptCATClose alone does not flush
+    content - CryptCATPersistStore must be called first (Part A, Section A.4).
 
-installDriver hang, phase 1 (pnputil.exe via ShellExecuteExW, pre-SetupCopyOEMInfW pivot):
-    - `/install` removed from the pnputil.exe command line (only `/add-driver` used) - did not fix
-      FFM's hang (PS1 stopped hanging, but only because its driver was unsigned and got rejected
-      outright before reaching the same code path).
-    - Legacy `Driver Signing\Policy` registry tweak - confirmed ineffective.
-    - SW_HIDE vs SW_SHOWMINNOACTIVE for the elevated cmd.exe window - appeared to work once, but was
-      a false positive (pnputil's dedup path fired because an identical driver had already been
-      staged moments earlier in the same CI job); a fresh, isolated run hung identically. Reverted.
-    - A full thread dump (157.80s in) showed the parent JVM genuinely blocked in
-      `_shellExecuteElevatedAndWait`/`WaitForSingleObject`, waiting on the elevated
-      `cmd.exe /c pnputil.exe /add-driver ...` process handle - the elevated child itself never
-      exits. Conclusive that this is an OS-level wait on a process that never returns, not a Java-side
-      bug, but the actual cause was never identified. All three hypotheses above are disproven.
-    - DECISION (2026-08-30): backend temporarily disabled (`isUsable()` hardcoded to return false),
-      falling back to the fully-working WindowsDriverInstaller_PS1. Confirmed on live CI that the
-      fallback works with no regression.
+installDriver() (staging the INF via SetupCopyOEMInfW) failed with GetLastError()=0xE000024B
+    (SPAPI_E_FILE_HASH_NOT_IN_CATALOG), even though the catalog's hash was confirmed present in the
+    catalog database and the .cat file was confirmed Authenticode-trusted. Root cause, found by
+    matching a known-working catalog shape field-by-field: CryptCATOpen's dwPublicVersion must be 0
+    (not CRYPTCAT_VERSION_2/0x200), matching dwCertVersion=0 in CryptCATPutMemberInfo, with catalog
+    members keyed to a fixed INF-type subject GUID (INF_SUBJECT_TYPE_PARTS, not one derived from
+    CryptSIPRetrieveSubjectGuid/DRIVER_ACTION_VERIFY) and SHA1-only members (Part A, Section A.4). An
+    earlier attempt to sidestep this by shelling out to pnputil.exe /add-driver (matching
+    WindowsDriverInstaller_PS1) reliably hung instead; that code is kept commented out in
+    `_elevatedInstallDriver`, not deleted, in case it is useful again, but SetupCopyOEMInfW with the
+    parameter combination above is the current, working, active path (Part A, Section A.6).
 
-Backend re-enabled (2026-08-31): once SignerSignEx was fixed directly (see "part 2" above), the
-    external-tool detour was no longer needed for catalog signing, so `isUsable()`'s hardcoded false
-    was removed. installDriver() itself was left as a deliberate no-op while the pnputil hang (still
-    unresolved) was set aside for a later session.
-
-installDriver rewritten to use SetupCopyOEMInfW directly (2026-08-31), sidestepping the
-    unresolved pnputil hang rather than explaining it - runs inside the same elevated-JVM-relaunch
-    this class already uses for createAndTrustProvider/createAndSignCatalog (so
-    WaitForSingleObject now waits on the elevated JVM child, already proven not to hang for those two
-    operations, never on cmd.exe/pnputil.exe directly).
-
-SetupCopyOEMInfW rounds (all against the new elevated-JVM code path):
-    ITEM 2 - SetupCopyOEMInfW itself hung. Root cause (via bisection): it can show interactive UI
-        (an unverified-publisher/unsigned-driver dialog) in the caller's context; a headless elevated
-        child has no desktop/message pump, so the dialog blocks forever. Fixed by calling
-        SetupSetNonInteractiveMode(TRUE) immediately before it.
-        (SetThreadExecutionState was considered and rejected - it only affects power-management sleep
-        timers, not a thread blocked on UI/message-pump interaction.)
-    ITEM 3 - After the hang was fixed, SetupCopyOEMInfW returned FALSE with GetLastError()=0 (a
-        Win32 contract violation). Root cause: a plain, separate GetLastError() downcall is
-        unreliable for a long-running call - the JVM can run its own Win32 calls on the same OS
-        thread in the gap (e.g. GC/safepoint poll), overwriting the thread-local error value. Fixed
-        by binding SetupCopyOEMInfW with `Linker.Option.captureCallState("GetLastError")`.
-    ITEM 4 - Revealed real error: GetLastError()=0xE000024B (SPAPI_E_FILE_HASH_NOT_IN_CATALOG). Six
-        consecutive rounds (ITEMS 4-10 below) each ruled out a distinct hypothesis with the identical
-        error persisting throughout:
-          4. Removed an "OSAttr" (literal "10.0") catalog-member attribute not present in the
-             proven-working PS1 backend's catalogs - CONFIRMED FAILED, error recurred verbatim.
-          5. Added a second SHA1 catalog member alongside the existing SHA256 one (WHQL catalogs
-             carry both) - CONFIRMED FAILED, both hashes verified correct, error recurred.
-          6. Registered the catalog into the system catalog database via the new
-             CryptCATAdminAddCatalog/CryptCATAdminReleaseCatalogContext bindings (Microsoft documents
-             this as the only supported way to add a catalog to the database SetupCopyOEMInfW's
-             lookup consults) - CONFIRMED FAILED, registration itself succeeded but made no
-             difference.
-          7. Fixed two CryptCATPutMemberInfo parameter mismatches versus a known-working call shape
-             (pwszFileName should be NULL, not the INF filename; dwCertVersion should be
-             CRYPTCAT_VERSION_2/0x200, not 0) - CONFIRMED FAILED, error recurred again. (These are
-             RECONSTRUCTED/INFERRED corrections, matching a known-working call shape rather than an
-             official Microsoft source, and were kept regardless since they are correct on their own
-             merits.)
-          8. (Unrelated, found in passing) CM_WaitNoPendingInstallEvents's wait-result check was
-             inverted, mislabeling every immediate success as a timeout in the log - fixed; harmless
-             to actual behavior, unrelated to the hash error.
-          9. Diagnostic only: CryptCATAdminEnumCatalogFromHash confirmed the hash IS present and
-             findable in the catalog database for both SHA1 and SHA256 - ruling out database
-             registration/content as the problem.
-          10. Diagnostic only: WinVerifyTrust confirmed the signed .cat IS trusted (result=0) -
-              ruling out signature/certificate trust as well.
-        A side check confirmed INF `[Version]/CatalogFile=` whitespace-padding differences were
-        cosmetic-only and not the differentiator (PS1 uses the same generated INF and succeeds).
-        Key finding: WindowsDriverInstaller_PS1.installDriver() never calls SetupCopyOEMInfW at all -
-        it always shells out to `pnputil.exe /add-driver` (never `/install`), and accepts the exact
-        same catalog (hash-present + database-registered + Authenticode-trusted, per ITEMS 9/10)
-        that SetupCopyOEMInfW rejects. The defect is specific to SetupCopyOEMInfW's own internal
-        validation and was never identified despite ITEMS 4-10.
-
-pnputil.exe subprocess attempt (current active code path, still broken):
-    ITEM 11 - Rather than continue guessing at SetupCopyOEMInfW's undocumented requirements, or bind
-        whatever internal API pnputil.exe itself calls (no such public/documented API exists;
-        CM_Add_Driver_Package is not a real Cfgmgr32 function despite the plausible-looking name;
-        pnputil.exe's internals use undocumented drvstore.dll exports with no stable public
-        contract), `_elevatedInstallDriver` was switched to shell out to `pnputil.exe /add-driver`
-        directly via ProcessBuilder, mirroring PS1's approach - but running inside the already-
-        elevated child, so no further UAC prompt is needed. The old SetupCopyOEMInfW-based
-        implementation was commented out, not deleted.
-        RESULT: hung identically to the original, never-root-caused pnputil hang from before the
-        SetupCopyOEMInfW pivot. A thread dump showed the parent JVM stuck in
-        `_shellExecuteElevatedAndWait`/`WaitForSingleObject` - the elevated child running
-        `_elevatedInstallDriver` (and, inside it, pnputil.exe) never exits.
-    ITEM 12 - Root-cause candidate: ITEM 11's ProcessBuilder read pnputil's output through a Java
-        pipe/InputStream, inside an elevated JVM child that itself runs hidden/console-less
-        (ShellExecuteExW + SW_HIDE) - a plausible place for a console-subsystem app to block. PS1
-        never reads pnputil's output through a pipe; it redirects via
-        `cmd.exe /c pnputil.exe ... > tmpOutLog 2>&1` and reads the file back after the process
-        exits. Switched to the identical cmd.exe-with-file-redirection pattern.
-        RESULT: hung identically to ITEM 11 (confirmed via a second, separate thread dump - same
-        parent-JVM stack, same wait, elevated child never returns).
-
-----------------------------------------------------------------------------------------------------
-OPEN - NEXT STEPS
-----------------------------------------------------------------------------------------------------
-TWO separate open problems exist here and must not be conflated:
-
-(1) pnputil.exe-subprocess hang inside FFM's elevated child (`_elevatedInstallDriver`, the CURRENT
-    active code path). Both ITEM 11 (piped ProcessBuilder) and ITEM 12 (cmd.exe file-redirection,
-    matching PS1's exact pattern) hung identically on live CI, confirmed via two separate thread
-    dumps showing the parent JVM stuck in `_shellExecuteElevatedAndWait`/`WaitForSingleObject`
-    waiting for the elevated child, which itself never returns. Root cause unknown after 5 total
-    failed attempts across two investigation phases (unverified-publisher dialog theory, Driver
-    Signing\Policy registry tweak, SW_HIDE vs SW_SHOWMINNOACTIVE, piped ProcessBuilder, cmd.exe
-    file-redirection). Untried candidate next steps: run pnputil with no output capture at all, try
-    ProcessBuilder.inheritIO(), check whether the elevated child JVM even has a console attached, or
-    bypass ProcessBuilder/cmd.exe entirely and call CreateProcessW directly with
-    CREATE_NO_WINDOW/DETACHED_PROCESS flags.
-
-(2) SetupCopyOEMInfW-based staging (now commented-out-not-deleted in the .java file, not deleted per
-    project convention) - runs to completion without hanging but fails validation with
-    SPAPI_E_FILE_HASH_NOT_IN_CATALOG (GetLastError=-536870325 / 0xE000024B) for reasons 6 rounds of
-    debugging (ITEMS 4-10 above) couldn't identify. Independent of problem (1).
-
-Current mitigation: the user hardcoded `if(true) return false;` near the start of isUsable()
-    (~line 268) to unconditionally disable the FFM backend, so WindowsDriverInstaller.create() falls
-    back to the working WindowsDriverInstaller_PS1. This is a temporary, deliberate workaround, not a
-    bug.
-
-Next session should be able to resume purely from this doc without needing to re-run CI just to
-    rediscover this state.
+Two smaller fixes along the way: SetupCopyOEMInfW can raise an interactive dialog that hangs forever
+    in a headless elevated child with no message pump - fixed by calling
+    SetupSetNonInteractiveMode(TRUE) immediately before it. And a plain, separate GetLastError()
+    downcall after SetupCopyOEMInfW proved unreliable (the JVM can run its own Win32 calls on the same
+    OS thread in the gap, e.g. a GC/safepoint poll, overwriting the thread-local error value) - fixed
+    by binding SetupCopyOEMInfW with `Linker.Option.captureCallState("GetLastError")` instead.

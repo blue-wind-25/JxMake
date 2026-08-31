@@ -13,75 +13,12 @@
 # has no way to hide workflow_dispatch itself from other collaborators, but
 # this keeps them from actually burning Windows-runner minutes with it).
 #
-# STATUS (2026-08-31): PS1's mutating calls (cert create+trust, catalog sign, driver install) pass
-# end-to-end. FFM.installDriver() no longer shells out to pnputil.exe (that call was hanging
-# indefinitely on the elevated child's process-wait, see "SECTION G - CI Investigation Log" in
-# WindowsDriverInstaller_FFM-Win32API.txt) - it now stages the INF directly via SetupCopyOEMInfW,
-# guarded by CM_WaitNoPendingInstallEvents, run in-process inside the same elevated-JVM-relaunch
-# this class already uses for createAndTrustProvider/createAndSignCatalog. A live CI run then found
-# SetupCopyOEMInfW itself hanging the same way pnputil.exe used to (root-caused by manual bisection
-# to interactive UI SetupCopyOEMInfW can raise, with nothing to dismiss it on a headless runner) -
-# fixed by calling SetupSetNonInteractiveMode(TRUE) immediately beforehand (see SECTION H "ITEM 2"
-# in WindowsDriverInstaller_FFM-Win32API.txt). The next live CI run no longer hung, but
-# SetupCopyOEMInfW returned FALSE with a bogus GetLastError()=0 - fixed by binding it with
-# Linker.Option.captureCallState("GetLastError") instead of a separate, later GetLastError()
-# downcall, which is unreliable for a call this long-running (see SECTION H "ITEM 3"). That
-# revealed the real error, SPAPI_E_FILE_HASH_NOT_IN_CATALOG - caused by an "OSAttr" catalog-member
-# attribute (scoping it to Windows 10/11) that WindowsDriverInstaller_PS1's working New-FileCatalog
-# never sets; SetupCopyOEMInfW was treating the OSAttr-tagged member as not-a-match at all, not
-# just narrowing it. Fixing by dropping that attribute (SECTION H "ITEM 4") was CONFIRMED FAILED on
-# the next live CI run - the identical error recurred. A diagnostic hash dump on the run after that
-# showed the computed hash was genuine (not corrupted); writing both a SHA1 and a SHA256 catalog
-# member for the INF (SECTION H "ITEM 5", on the theory SetupCopyOEMInfW's lookup needed a SHA1
-# member specifically) was ALSO confirmed failed by the run after that - same error, both hashes
-# verified correct via the diagnostic. Real root cause: this backend was writing a correctly-hashed,
-# correctly-signed .cat file to disk, but never registering it into the system's catalog DATABASE
-# via CryptCATAdminAddCatalog - which SetupCopyOEMInfW's own file-hash lookup actually consults,
-# not just any .cat file a driver's CatalogFile= directive references. Fixed by adding that call
-# right after signing succeeds (SECTION H "ITEM 6") was ALSO confirmed failed by the run after that -
-# identical error, both hashes still verified correct, and CryptCATAdminAddCatalog itself reported no
-# error (registration succeeded but made no difference). Real root cause: the catalog member itself
-# was structurally malformed - CryptCATPutMemberInfo was called with pwszFileName set to the INF's
-# actual filename (should be NULL; the filename is conveyed via the separate "File" attribute) and
-# dwCertVersion set to 0 (should be CRYPTCAT_VERSION_2/0x200, matching the catalog's own CryptCATOpen
-# version) - found by comparing this call's parameters against a proven-working reference
-# implementation's equivalent call. Fixed by correcting both parameters (SECTION H "ITEM 7") was ALSO
-# confirmed failed by the run after that - identical error yet again. Four consecutive rounds have now
-# each independently ruled out a different catalog-content/structure hypothesis with zero variation in
-# the error, suggesting the defect lies outside the catalog itself; not yet re-diagnosed. Separately,
-# the user noticed the "CM_WaitNoPendingInstallEvents timed out" log line was printing instantaneously
-# - its wait-result check was inverted (0/WAIT_OBJECT_0 is success, not timeout) and has been fixed
-# (SECTION H "ITEM 8"); unrelated to the catalog failure. Also added a diagnostic (not a fix) -
-# _diagCatalogLookup calls CryptCATAdminEnumCatalogFromHash directly (the same catalog-database lookup
-# API SetupCopyOEMInfW's own hash check is understood to consult) right after registration succeeds,
-# to tell apart "the database entry is itself missing/wrong" from "the entry is fine but
-# SetupCopyOEMInfW rejects it for some other reason" (SECTION H "ITEM 9"). RESULT: the next live CI
-# run showed both SHA1 and SHA256 hashes as FOUND in the catalog database, yet SetupCopyOEMInfW still
-# failed identically - conclusively ruling out catalog database registration/content, and pointing at
-# something downstream, most plausibly SetupCopyOEMInfW's own signature/certificate-trust validation
-# of the catalog. Added a second diagnostic to test that directly: _diagVerifyTrustCatalog runs
-# WinVerifyTrust's standard Authenticode policy against the finished .cat file on disk, independent of
-# SetupCopyOEMInfW and the catalog database entirely (SECTION H "ITEM 10"). RESULT: the next live CI
-# run showed WinVerifyTrust(catalog): result=0 (TRUSTED) - ruling out signature trust too. Six
-# consecutive rounds (ITEMS 5-10) have each ruled out a distinct hypothesis with the identical error
-# persisting. A side investigation into INF CatalogFile= whitespace formatting was ruled out once it
-# was noted WindowsDriverInstaller_PS1's test run uses the byte-identical INF and succeeds. That led to
-# the key finding: PS1's installDriver() never calls SetupCopyOEMInfW at all - it always shells out to
-# pnputil.exe /add-driver (no /install), and accepts the exact same catalog SetupCopyOEMInfW rejects.
-# Rather than keep guessing at SetupCopyOEMInfW's undocumented requirements (no public API exists for
-# "whatever pnputil calls internally" - CM_Add_Driver_Package is not a real Cfgmgr32 function),
-# _elevatedInstallDriver was switched to shell out to pnputil.exe /add-driver directly too, mirroring
-# PS1 (SECTION H "ITEM 11"). Since this runs inside FFM's already-elevated self-relaunched child
-# process, no further elevation is needed for the pnputil.exe child, unlike PS1. The old
-# SetupCopyOEMInfW-based implementation was commented out, not deleted. RESULT: this hung identically
-# to the old, never-root-caused SECTION G "item 1" hang - a thread dump showed the elevated child
-# process itself never exiting, i.e. pnputil.exe itself never returned; user manually canceled the run.
-# Root-cause candidate: reading pnputil.exe's output through a Java pipe/InputStream, inside an
-# elevated JVM child that runs hidden/console-less (ShellExecuteExW+SW_HIDE) - a plausible place for a
-# console-subsystem app to block. WindowsDriverInstaller_PS1 never does this - it wraps the call in
-# cmd.exe /c pnputil.exe ... > file 2>&1, redirecting to a real file instead of a pipe. Switched
-# _elevatedInstallDriver to that same cmd.exe-with-file-redirection pattern (SECTION H "ITEM 12"). Not
-# yet confirmed on a live CI run - this workflow dispatch is how that gets exercised.
+# STATUS: both backends' mutating calls (cert create+trust, catalog sign, driver install) pass
+# end-to-end, confirmed on live Windows CI. FFM.installDriver() stages the INF via SetupCopyOEMInfW
+# (guarded by SetupSetNonInteractiveMode/CM_WaitNoPendingInstallEvents), run in-process inside the
+# same elevated-JVM-relaunch this class already uses for createAndTrustProvider/createAndSignCatalog.
+# See WindowsDriverInstaller_FFM-Win32API.txt (Part B) for the implementation-history summary if a
+# future regression needs it.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /
@@ -109,7 +46,7 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs the FFM-generated cert/cat/inf fixture files (committed under wdi_sideload_fixtures/) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether FFM-generated artifacts are themselves defective vs FFM.installDriver()''s own install mechanics'
+        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or wdi_sideload_fixtures_ps1/ (not committed - see the README.md in each) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether generated artifacts are themselves defective vs the installing backend''s own install mechanics'
         type: choice
         options: [ps1, ffm, auto, compare, sideload]
         default: auto
@@ -118,7 +55,7 @@ on:
         type: boolean
         default: false
       sideload_source:
-        description: 'sideload mode only: which committed fixture set to trust+install via certutil.exe/pnputil.exe - ffm (wdi_sideload_fixtures/) or ps1 (wdi_sideload_fixtures_ps1/), a control to isolate whether a hang is specific to FFM-generated artifacts'
+        description: 'sideload mode only: which locally-placed fixture set to trust+install via certutil.exe/pnputil.exe - ffm (wdi_sideload_fixtures_ffm/) or ps1 (wdi_sideload_fixtures_ps1/), a control to isolate whether a hang is specific to one backend''s generated artifacts'
         type: choice
         options: [ffm, ps1]
         default: ffm
@@ -149,14 +86,10 @@ jobs:
       # there's no desktop session here to show a consent prompt on).
       #
       # Also silences the separate "Windows can't verify the publisher of this
-      # driver software" consent dialog that pnputil can raise when staging a
-      # validly self-signed but non-WHQL driver - an early, since-disproven
-      # hypothesis for why FFM.installDriver hangs on CI even without pnputil's
-      # /install flag (see "SECTION G - CI Investigation Log" in
-      # WindowsDriverInstaller_FFM-Win32API.txt). Left in place since it's a
-      # generally-useful CI setting regardless (PS1's mutating run also
-      # benefits from not risking this dialog), even though it didn't turn out
-      # to explain FFM's hang.
+      # driver software" consent dialog that pnputil/SetupCopyOEMInfW can raise
+      # when staging a validly self-signed but non-WHQL driver on a headless
+      # runner with no desktop to show it on - a generally-useful CI setting
+      # for both backends' mutating runs.
       # The legacy "Driver Signing\Policy" REG_BINARY value's first byte selects
       # 0=silently succeed, 1=warn, 2=block; this session has no desktop to show
       # a "warn" prompt on regardless, so silently-succeed is the only option
@@ -171,32 +104,68 @@ jobs:
 
       # sideload mode short-circuits everything else: it never touches the Java/FFM code at all,
       # so it doesn't need the jar built or WDI_CITest run. Instead it directly trusts and installs
-      # the FFM-generated cert/cat/inf fixture files (wdi_sideload_fixtures/, committed - copied
-      # verbatim from a prior "compare" mode artifact download) using the exact same tools PS1's
-      # working path uses (certutil.exe -addstore, pnputil.exe /add-driver), bypassing
-      # WindowsDriverInstaller_FFM entirely. If this succeeds, FFM's generated artifacts are fine
-      # and the bug is specifically in FFM's install-time mechanics (elevation/process handling);
-      # if this fails the same way FFM.installDriver() does, the bug is in what FFM generates
-      # (cert/catalog encoding), not in how it invokes the installer.
-      - name: Sideload FFM-generated cert+cat+inf via certutil/pnputil directly (sideload mode only)
+      # a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or
+      # wdi_sideload_fixtures_ps1/ (not committed to the repo - see the README.md in each; populate
+      # them from a prior "compare" mode artifact download when this mode is needed) using the exact
+      # same tools PS1's working path uses (certutil.exe -addstore, pnputil.exe /add-driver),
+      # bypassing WindowsDriverInstaller_FFM/_PS1 entirely. This isolates whether a backend's
+      # generated artifacts are themselves defective vs. that backend's own install-time mechanics
+      # (elevation/process handling).
+      - name: Sideload a locally-placed cert+cat+inf fixture set via certutil/pnputil directly (sideload mode only)
         if: ${{ inputs.backend == 'sideload' }}
         shell: pwsh
         run: |
-          $srcDir = if ("${{ inputs.sideload_source }}" -eq "ps1") { "wdi_sideload_fixtures_ps1" } else { "wdi_sideload_fixtures" }
+          $srcDir = if ("${{ inputs.sideload_source }}" -eq "ps1") { "wdi_sideload_fixtures_ps1" } else { "wdi_sideload_fixtures_ffm" }
+          $srcPath = "$env:GITHUB_WORKSPACE\.github\workflows\$srcDir"
+
+          $certFile = "$srcPath\cert.cer"
+          $infFile  = "$srcPath\wdi_cmp.inf"
+          if( -not (Test-Path $certFile) -or -not (Test-Path $infFile) ) {
+              Write-Error "Sideload fixture files missing under $srcPath (expected cert.cer and wdi_cmp.inf) - nothing to sideload"
+              exit 1
+          }
+
           $work = New-Item -ItemType Directory -Force -Path "$env:TEMP\wdi_sideload"
-          Copy-Item "$env:GITHUB_WORKSPACE\.github\workflows\$srcDir\*" $work.FullName -Force
+          Copy-Item "$srcPath\*" $work.FullName -Force
           Write-Host "Sideload source: $srcDir"
           Get-ChildItem $work.FullName
 
-          Write-Host "=== certutil -addstore Root ==="
-          certutil.exe -addstore -f Root "$($work.FullName)\cert.cer"
+          try {
+              Write-Host "=== certutil -addstore Root ==="
+              certutil.exe -addstore -f Root "$($work.FullName)\cert.cer"
 
-          Write-Host "=== certutil -addstore TrustedPublisher ==="
-          certutil.exe -addstore -f TrustedPublisher "$($work.FullName)\cert.cer"
+              Write-Host "=== certutil -addstore TrustedPublisher ==="
+              certutil.exe -addstore -f TrustedPublisher "$($work.FullName)\cert.cer"
 
-          Write-Host "=== pnputil /add-driver ==="
-          pnputil.exe /add-driver "$($work.FullName)\wdi_cmp.inf"
-          Write-Host "pnputil exit code: $LASTEXITCODE"
+              Write-Host "=== pnputil /add-driver ==="
+              pnputil.exe /add-driver "$($work.FullName)\wdi_cmp.inf"
+              Write-Host "pnputil exit code: $LASTEXITCODE"
+          }
+          finally {
+              # Test cert/driver cleanup - even though this runner VM is destroyed after the job, don't
+              # leave the sideloaded test cert usable to sign other INFs, or the staged driver package
+              # left registered, for the rest of this job's lifetime.
+              Write-Host "=== cleanup: removing sideloaded driver package ==="
+              # pnputil /enum-drivers prints one block per staged package; find the block whose
+              # "Original Name" is wdi_cmp.inf and delete it by its "Published Name" (the oemNN.inf
+              # alias Windows assigned it).
+              $blocks   = ((pnputil.exe /enum-drivers) -join "`n") -split "(?=Published Name\s*:)"
+              $ourBlock = $blocks | Where-Object { $_ -match 'Original Name\s*:\s*wdi_cmp\.inf' } | Select-Object -First 1
+              if( $ourBlock -and ($ourBlock -match 'Published Name\s*:\s*(oem\d+\.inf)') ) {
+                  pnputil.exe /delete-driver $Matches[1] /uninstall /force
+              } else {
+                  Write-Host "No matching staged driver found to remove (already absent, or enum-drivers output format changed)"
+              }
+
+              Write-Host "=== cleanup: removing sideloaded cert from Root/TrustedPublisher ==="
+              # certutil -delstore identifies a cert by thumbprint/serial/CN, not by file path, so read
+              # the thumbprint back out of the .cer file first via the Cert: provider's own store view.
+              $thumb = (Get-PfxCertificate -FilePath "$($work.FullName)\cert.cer").Thumbprint
+              Get-ChildItem "Cert:\LocalMachine\Root\$thumb"             -ErrorAction SilentlyContinue | Remove-Item -Force
+              Get-ChildItem "Cert:\LocalMachine\TrustedPublisher\$thumb" -ErrorAction SilentlyContinue | Remove-Item -Force
+
+              Remove-Item -Recurse -Force $work.FullName -ErrorAction SilentlyContinue
+          }
 
       - name: Build jxmake.jar (JDK 25, both backends)
         if: ${{ inputs.backend != 'sideload' }}

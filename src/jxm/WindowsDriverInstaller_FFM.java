@@ -1128,11 +1128,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             boolean catCloseOk = false;
             try {
-                // Determine the SIP subject GUID for this file - fall back to DRIVER_ACTION_VERIFY on failure
-                final MemorySegment subjectGuid = arena.allocate(16, 4);
-                if( (int) _CryptSIPRetrieveSubjectGuid.invoke(_wstr(arena, infPath), hInfFile, subjectGuid) == 0 ) {
-                    MemorySegment.copy(_guid(arena, DRIVER_ACTION_VERIFY_PARTS), 0, subjectGuid, 0, 16);
-                }
+                // (2026-09-01, "cont15") subjectGuid is now the fixed SPC_INC_PE_IMAGE/SPC_INC_SPL_INF_
+                // style "this is an INF" subject-type GUID a proven-working reference driver-install
+                // library uses literally, not a value derived from CryptSIPRetrieveSubjectGuid/
+                // DRIVER_ACTION_VERIFY - untested combination this session (previous rounds only varied
+                // whether pgSubject was this SIP-derived value or NULL, never this fixed INF-type GUID).
+                final long[] INF_SUBJECT_TYPE_PARTS = { 0xDE351A42L, 0x8E59L, 0x11D0L, 0x8CL, 0x47L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
+                final MemorySegment subjectGuid = _guid(arena, INF_SUBJECT_TYPE_PARTS);
 
                 // Build the SIP-indirect data CryptCATPutMemberInfo requires : an ASN.1-encoded SPC_LINK
                 // (the standard "<<<Obsolete>>>" file-link placeholder used for a non-PE/CAB-typed subject
@@ -1155,12 +1157,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 //    a real WHQL-issued catalog carries both a SHA1 and a SHA2 <HASH> entry for the same
                 //    file, and SetupCopyOEMInfW's file-hash lookup was found to specifically require the
                 //    SHA1 one (see WindowsDriverInstaller_FFM-Win32API.txt SECTION H "ITEM 5")
-                // (2026-09-01, "cont14") dwPublicVersion=0, NOT CRYPTCAT_VERSION_2 - matches the
-                // SHA1-only member change above; a version-2 header paired with SHA1-only members is
-                // itself a header/member mismatch by the same logic that motivated going SHA1-only,
-                // so both must move together. Never tried as a pair this session.
+                // (2026-09-01, "cont15") dwPublicVersion=0 (cont14) got PAST SPAPI_E_FILE_HASH_NOT_IN_CATALOG
+                // but then failed with GetLastError=0x800B0001 (TRUST_E_PROVIDER_UNKNOWN) - no trust
+                // provider recognizes a v1/SHA1-only catalog for driver install on this OS. Back to
+                // CRYPTCAT_VERSION_2 header, now paired with dwCertVersion=CRYPTCAT_VERSION_2 at the
+                // member level too (see below) - a proven-working reference library uses v2 at the
+                // member level, not 0, which this file never matched before (round 4 this session
+                // reverted member dwCertVersion to 0 based on a PS1 byte-diff, but PS1 likely uses an
+                // unrelated code path - see the CryptCATPutMemberInfo comment below).
                 final MemorySegment hCatalog = (MemorySegment) _CryptCATOpen.invoke(
-                    _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, 0, 0
+                    _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, CRYPTCAT_VERSION_2, 0
                 );
                 if(hCatalog == null || hCatalog.address() == 0L || hCatalog.address() == INVALID_HANDLE_VALUE) {
                     log.append("CryptCATOpen failed, GetLastError=").append( _lastError() );
@@ -1218,31 +1224,17 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                             // pwszFileName is passed NULL, not fileName - the member is identified by its
                             // tag/hash, and the filename is separately conveyed via the "File" attribute
-                            // below. dwCertVersion=0 (NOT CRYPTCAT_VERSION_2) - the earlier "ITEM 7"
-                            // CRYPTCAT_VERSION_2 change was RECONSTRUCTED/INFERRED, never confirmed (the
-                            // live CI run right after it still failed identically), and a byte-level
-                            // catalog diff against WindowsDriverInstaller_PS1's proven-working
-                            // New-FileCatalog output later showed it was actually the cause of a real
-                            // structural mismatch: CRYPTCAT_VERSION_2 here makes CryptCATPutMemberInfo emit
-                            // a non-empty "1.3.6.1.4.1.311.12.2.3" member attribute (a 16-byte value plus
-                            // an embedded INTEGER 0200), where PS1's equivalent attribute is empty
-                            // (SET{cont[2] l=0}) - the one remaining structural difference between the two
-                            // catalogs once the cert's own CN encoding and Key Usage/SKI extensions were
-                            // fixed. Reverted to 0 to match PS1's empty-attribute shape exactly.
+                            // below.
                             //
-                            // pgSubject IS a real SIP subject GUID (subjectGuid) - CONFIRMED REQUIRED:
-                            // passing MemorySegment.NULL here (tried briefly, chasing a byte-level catalog
-                            // diff that showed a non-empty "1.3.6.1.4.1.311.12.2.3" member attribute here
-                            // vs PS1's empty one) made CryptCATPutMemberInfo fail outright
-                            // (GetLastError=0), producing a near-empty, unsigned, memberless .cat - live CI
-                            // confirmed this. The attribute-content difference from PS1 is therefore NOT
-                            // fixable this way and is presumed cosmetic/unrelated to the pnputil hang this
-                            // investigation is actually chasing (SECTION G ITEM 12) - PS1 likely builds its
-                            // catalog through a different code path (New-FileCatalog / makecat.exe internals)
-                            // that doesn't call CryptCATPutMemberInfo with a subject GUID the same way at all,
-                            // rather than there being a "correct" NULL/empty value achievable via this API.
+                            // (2026-09-01, "cont15") dwCertVersion=CRYPTCAT_VERSION_2 (back from 0) -
+                            // a proven-working reference library uses v2 at the member level, paired with
+                            // the fixed INF-type subjectGuid above. The earlier PS1 byte-diff that showed
+                            // v2 producing a non-empty "1.3.6.1.4.1.311.12.2.3" attribute vs PS1's empty one
+                            // is presumed to reflect PS1's New-FileCatalog using a different code path
+                            // entirely (not proof that v2 itself is wrong for this API) - the actual live-CI
+                            // failure that round was pgSubject=NULL, a separate variable, not dwCertVersion.
                             final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
-                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
+                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, CRYPTCAT_VERSION_2, 64, sipData
                             );
                             if(pMember == null || pMember.address() == 0L) {
                                 log.append("CryptCATPutMemberInfo(").append(algName).append(") failed, GetLastError=").append( _lastError() );

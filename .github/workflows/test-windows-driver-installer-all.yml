@@ -1,3 +1,5 @@
+# Calls `test-windows-driver-installer-core.yml`
+
 name: Test WindowsDriverInstaller (ALL PATHS)
 
 on:

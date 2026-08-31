@@ -1,4 +1,6 @@
-# Inside .github/workflows/test-windows-driver-installer-core.yml
+# Called by `test-windows-driver-installer-all.yml`
+
+# See `test-windows-driver-installer.yml` for more details
 
 name: Test WindowsDriverInstaller (CORE)
 

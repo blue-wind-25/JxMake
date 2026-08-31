@@ -938,6 +938,34 @@ FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, DW)`. Diagnostic-only, used 
                Microsoft's documented convention for this pattern.
 
 ----------------------------------------------------------------------------------------------------
+WinVerifyTrust
+----------------------------------------------------------------------------------------------------
+Source       : https://learn.microsoft.com/en-us/windows/win32/api/wintrust/nf-wintrust-winverifytrust
+
+DLL          : Wintrust.dll
+Header       : wintrust.h
+
+Parameters   : hwnd (HWND, optional -> NULL here, no UI is ever shown per WTD_UI_NONE),
+               pgActionID (GUID*), pWVTData (LPVOID -> WINTRUST_DATA*)
+Return value : LONG - 0 (ERROR_SUCCESS) if trusted; a nonzero HRESULT-shaped error code otherwise.
+Purpose      : Runs a trust-verification policy (here, the standard Authenticode policy identified by
+               WINTRUST_ACTION_GENERIC_VERIFY_V2) against a subject - here, a file on disk.
+
+FFM notes    : `FunctionDescriptor.of(DW, PTR, PTR, PTR)`. Diagnostic-only, added in
+               `_diagVerifyTrustCatalog` (SECTION H "ITEM 10") to test whether the finished, signed
+               `.cat` file is actually trusted by Windows independent of SetupCopyOEMInfW/the catalog
+               database entirely - isolating a signature/certificate-trust failure from a
+               catalog-content one. Builds a `WINTRUST_FILE_INFO` (cbStruct=32, pcwszFilePath=the
+               `.cat` path, hFile=NULL, pgKnownSubject=NULL) referenced by a `WINTRUST_DATA`
+               (cbStruct=88, dwUIChoice=WTD_UI_NONE, fdwRevocationChecks=WTD_REVOKE_NONE,
+               dwUnionChoice=WTD_CHOICE_FILE, pFile=the WINTRUST_FILE_INFO above,
+               dwStateAction=WTD_STATEACTION_VERIFY, pSignatureSettings=NULL). Called once with
+               dwStateAction=WTD_STATEACTION_VERIFY (the actual check), then again with
+               dwStateAction=WTD_STATEACTION_CLOSE against the same struct (which now carries the
+               `hWVTStateData` WinVerifyTrust itself wrote back into it) to release the state it
+               allocated, per Microsoft's documented usage pattern.
+
+----------------------------------------------------------------------------------------------------
 CryptCATOpen
 ----------------------------------------------------------------------------------------------------
 Source       : https://learn.microsoft.com/en-us/windows/win32/api/mscat/nf-mscat-cryptcatopen
@@ -1954,6 +1982,31 @@ into the catalog earlier in `_elevatedCreateAndSignCatalog`. Called from that fu
 return code - a lookup failure here is only ever logged, never propagated - so it cannot mask or
 alter the real createAndSignCatalog result. New bindings: `CryptCATAdminEnumCatalogFromHash`,
 `CryptCATCatalogInfoFromContext`. Not yet run on live CI.
+
+RESULT of ITEM 9's diagnostic (live CI run): both `CryptCATAdminEnumCatalogFromHash(SHA1)` and
+`CryptCATAdminEnumCatalogFromHash(SHA256)` reported FOUND, matching catalog
+`\Windows\system32\CatRoot\{F750E6C3-38EE-11D1-85E5-00C04FC295EE}\1.CAT` (the CatRoot subfolder is
+keyed by the DRIVER_ACTION_VERIFY GUID this backend already uses elsewhere - expected, not a red
+flag; "1.CAT" is simply the system-chosen base name since `CryptCATAdminAddCatalog` was called with
+`pwszSelectBaseName=NULL`). `SetupCopyOEMInfW` still failed with the identical
+SPAPI_E_FILE_HASH_NOT_IN_CATALOG regardless. This conclusively rules out catalog *database*
+registration/content as the problem - the hash genuinely is present and independently findable by the
+same class of lookup API `SetupCopyOEMInfW` is understood to use - so the defect must be downstream of
+the database, most plausibly `SetupCopyOEMInfW`'s own Authenticode signature/certificate-trust
+validation of the catalog file (which a bare hash-presence check cannot distinguish from a trust
+failure - Microsoft's own SPAPI is understood to potentially surface a trust failure through this same
+generic error code).
+
+ITEM 10 - Directly following ITEM 9's result, added a second diagnostic to test the signature-trust
+hypothesis in isolation: `_diagVerifyTrustCatalog` runs `WinVerifyTrust` with the standard
+`WINTRUST_ACTION_GENERIC_VERIFY_V2` Authenticode policy directly against the finished, signed `.cat`
+file on disk - independent of `SetupCopyOEMInfW` and the catalog database entirely. A non-zero
+`WinVerifyTrust` result means Windows itself does not trust this catalog's signature (chain, EKU, or
+otherwise), which would fully explain the persistent SPAPI_E_FILE_HASH_NOT_IN_CATALOG even with a
+present, findable hash. Called from `_elevatedCreateAndSignCatalog` right after ITEM 9's
+`_diagCatalogLookup` calls. Purely diagnostic - logs `TRUSTED`/`NOT TRUSTED` plus the raw HRESULT,
+never changes the function's return code. New binding: `WinVerifyTrust`; new constant
+`WINTRUST_ACTION_GENERIC_VERIFY_V2_PARTS` and `WTD_*` flags. Not yet run on live CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

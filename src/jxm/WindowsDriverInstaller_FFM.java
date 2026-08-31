@@ -104,6 +104,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptCATAdminReleaseCatalogContext;
     private static MethodHandle _CryptCATAdminEnumCatalogFromHash;
     private static MethodHandle _CryptCATCatalogInfoFromContext;
+    private static MethodHandle _WinVerifyTrust;
     private static MethodHandle _CryptCATOpen;
     private static MethodHandle _CryptCATClose;
     private static MethodHandle _CryptCATPersistStore;
@@ -178,6 +179,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // database entry from a rejection SetupCopyOEMInfW makes for some other reason.
             _CryptCATAdminEnumCatalogFromHash     = _bind( linker, wintrust, "CryptCATAdminEnumCatalogFromHash"    , FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR) );
             _CryptCATCatalogInfoFromContext       = _bind( linker, wintrust, "CryptCATCatalogInfoFromContext"      , FunctionDescriptor.of(DW , PTR, PTR, DW) );
+            // Diagnostic-only (see _diagVerifyTrustCatalog): runs the standard Authenticode trust check
+            // directly against the finished .cat file, independent of SetupCopyOEMInfW/the catalog
+            // database, to isolate a signature/certificate-trust problem from a catalog-content one.
+            _WinVerifyTrust                       = _bind( linker, wintrust, "WinVerifyTrust"                     , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
             _CryptCATOpen                         = _bind( linker, wintrust, "CryptCATOpen"                        , FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW) );
             _CryptCATClose                        = _bind( linker, wintrust, "CryptCATClose"                       , FunctionDescriptor.of(DW , PTR) );
             _CryptCATPersistStore                 = _bind( linker, wintrust, "CryptCATPersistStore"                , FunctionDescriptor.of(DW , PTR) );
@@ -913,6 +918,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final int    CRYPTCAT_ATTR_DATAASCII     = 0x00010000;
     private static final long[] DRIVER_ACTION_VERIFY_PARTS  = { 0xF750E6C3L, 0x38EEL, 0x11d1L, 0x85L, 0xE5L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
 
+    // wintrust.h - identifies the standard Authenticode trust-verification policy for WinVerifyTrust
+    private static final long[] WINTRUST_ACTION_GENERIC_VERIFY_V2_PARTS = { 0x00AAC56BL, 0xCD44L, 0x11D0L, 0x8CL, 0xC2L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
+    private static final int    WTD_UI_NONE            = 2;
+    private static final int    WTD_REVOKE_NONE        = 0;
+    private static final int    WTD_CHOICE_FILE        = 1;
+    private static final int    WTD_STATEACTION_VERIFY = 1;
+    private static final int    WTD_STATEACTION_CLOSE  = 2;
+
     // wincrypt.h / mssign32 SPC_LINK "Obsolete" placeholder - the standard way a non-PE (INF/CAB) catalog
     // member's SIP-indirect data references its subject file, per the SPC_INDIRECT_DATA_CONTENT scheme
     private static final int    SPC_FILE_LINK_CHOICE = 3;
@@ -1165,6 +1178,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     for(int alg = 0; alg < CATALOG_HASH_ALGS.length; ++alg) {
                         _diagCatalogLookup(arena, CATALOG_HASH_ALGS[alg], savedHash[alg], savedHashLen[alg], log);
                     }
+                    _diagVerifyTrustCatalog(arena, catPath, log);
                     return RETCODE_OK;
                 }
                 finally {
@@ -1270,6 +1284,54 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         finally {
             _CryptCATAdminReleaseContext.invoke(hCatAdmin, 0);
         }
+    }
+
+    // Diagnostic helper (see call site's comment) - runs WinVerifyTrust's standard Authenticode
+    // verification policy directly against the finished .cat file on disk, independent of
+    // SetupCopyOEMInfW and the catalog database entirely. A non-zero return here means Windows itself
+    // does not consider this .cat file's signature trusted (e.g. a chain-trust or EKU problem), which
+    // would explain SPAPI_E_FILE_HASH_NOT_IN_CATALOG even though the hash is registered and findable
+    // (per _diagCatalogLookup) - SetupCopyOEMInfW's own driver-catalog validation is understood to
+    // require BOTH a matching hash AND a trusted signature, and may surface a signature failure as the
+    // same generic "hash not in catalog" error rather than a distinct one. Logs the result only, never
+    // returns a failure code - this can never mask/replace the real result of catalog creation.
+    private static void _diagVerifyTrustCatalog(final Arena arena, final String catPath, final StringBuilder log) throws Throwable
+    {
+        // WINTRUST_FILE_INFO : { DWORD cbStruct; LPCWSTR pcwszFilePath; HANDLE hFile; GUID *pgKnownSubject; }
+        // - size 32, align 8
+        final MemorySegment fileInfo = arena.allocate(32, 8);
+        fileInfo.set(ValueLayout.JAVA_INT, 0, (int) fileInfo.byteSize());
+        fileInfo.set(PTR, 8, _wstr(arena, catPath));
+        fileInfo.set(PTR, 16, MemorySegment.NULL);
+        fileInfo.set(PTR, 24, MemorySegment.NULL);
+
+        // WINTRUST_DATA : { DWORD cbStruct; LPVOID pPolicyCallbackData; LPVOID pSIPClientData;
+        //                   DWORD dwUIChoice; DWORD fdwRevocationChecks; DWORD dwUnionChoice;
+        //                   [4 bytes padding]; LPVOID pFile; DWORD dwStateAction; [4 bytes padding];
+        //                   HANDLE hWVTStateData; LPWSTR pwszURLReference; DWORD dwProvFlags;
+        //                   DWORD dwUIContext; LPVOID pSignatureSettings; } - size 88, align 8
+        final MemorySegment wtData = arena.allocate(88, 8);
+        wtData.set(ValueLayout.JAVA_INT, 0, (int) wtData.byteSize());
+        wtData.set(PTR, 8, MemorySegment.NULL);
+        wtData.set(PTR, 16, MemorySegment.NULL);
+        wtData.set(ValueLayout.JAVA_INT, 24, WTD_UI_NONE);
+        wtData.set(ValueLayout.JAVA_INT, 28, WTD_REVOKE_NONE);
+        wtData.set(ValueLayout.JAVA_INT, 32, WTD_CHOICE_FILE);
+        wtData.set(PTR, 40, fileInfo);
+        wtData.set(ValueLayout.JAVA_INT, 48, WTD_STATEACTION_VERIFY);
+        wtData.set(PTR, 56, MemorySegment.NULL);
+        wtData.set(PTR, 64, MemorySegment.NULL);
+        wtData.set(ValueLayout.JAVA_INT, 72, 0);
+        wtData.set(ValueLayout.JAVA_INT, 76, 0);
+        wtData.set(PTR, 80, MemorySegment.NULL);
+
+        final MemorySegment actionGuid = _guid(arena, WINTRUST_ACTION_GENERIC_VERIFY_V2_PARTS);
+        final int            trustResult = (int) _WinVerifyTrust.invoke(MemorySegment.NULL, actionGuid, wtData);
+        log.append("[diag] WinVerifyTrust(catalog): result=").append(trustResult).append( trustResult == 0 ? " (TRUSTED)" : " (NOT TRUSTED)" ).append("; ");
+
+        // Release the state WinVerifyTrust allocated for this verification, per its documented pattern
+        wtData.set(ValueLayout.JAVA_INT, 48, WTD_STATEACTION_CLOSE);
+        _WinVerifyTrust.invoke(MemorySegment.NULL, actionGuid, wtData);
     }
 
     /*

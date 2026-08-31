@@ -264,6 +264,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     @Override
     public boolean isUsable()
     {
+        // TODO: Temporarily disable
+        if(true) return false;
+
         try {
             if(_initError != null) return false;
 

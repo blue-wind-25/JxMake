@@ -1066,15 +1066,20 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String szOID_NIST_sha256    = "2.16.840.1.101.3.4.2.1";
     private static final String szOID_OIWSEC_sha1    = "1.3.14.3.2.26";
 
-    // A catalog member is written once per algorithm below, matching what real WHQL-issued driver
-    // catalogs carry (a SHA1 <HASH> entry alongside the newer SHA2 one) - SetupCopyOEMInfW's file-hash
-    // lookup was found to require a SHA1 member specifically (SHA1-only catalogs matched; a SHA256-only
-    // catalog did not, even though its hash was independently verified correct - see
-    // WindowsDriverInstaller_FFM-Win32API.txt SECTION H "ITEM 5"). SHA1 is kept alongside SHA256, not in
-    // place of it, since SHA1 is deprecated for anything security-sensitive and dropping SHA256 would
-    // leave this catalog unrecognized on any OS/tooling that specifically looks for the SHA2 member
-    private static final String[] CATALOG_HASH_ALGS     = { "SHA1", "SHA256" };
-    private static final String[] CATALOG_HASH_ALG_OIDS = { szOID_OIWSEC_sha1, szOID_NIST_sha256 };
+    // (2026-09-01, "cont14") SHA1-ONLY, matching a proven-working reference driver-install library's
+    // catalog-signing code exactly (never named/cited beyond this note, per this doc's own convention) -
+    // that library never adds a SHA256 member at all, and its own comments note ERROR_FILE_HASH_NOT_IN_
+    // CATALOG (this file's exact recurring error) "can happen if the cat contains SHA-256 hashes, but
+    // its header says SHA-1" i.e. a header/member algorithm mismatch. The dual SHA1+SHA256 member
+    // approach below (kept, commented out) was tried this session and did NOT fix
+    // SPAPI_E_FILE_HASH_NOT_IN_CATALOG even with a SHA1 member present alongside SHA256 - going SHA1-only
+    // (dropping SHA256 entirely, matching the reference library and CryptCATOpen's header version below)
+    // is the untested remainder of that hypothesis. SHA1 is deprecated for general cryptographic use,
+    // but this specific legacy catalog member-hash format is a separate mechanism from that deprecation.
+    private static final String[] CATALOG_HASH_ALGS     = { "SHA1" };
+    private static final String[] CATALOG_HASH_ALG_OIDS = { szOID_OIWSEC_sha1 };
+    // private static final String[] CATALOG_HASH_ALGS     = { "SHA1", "SHA256" };
+    // private static final String[] CATALOG_HASH_ALG_OIDS = { szOID_OIWSEC_sha1, szOID_NIST_sha256 };
 
     // GUID (guiddef.h) : { DWORD Data1; WORD Data2; WORD Data3; BYTE Data4[8]; } - size 16, align 4
     private static MemorySegment _guid(final Arena arena, final long[] parts)
@@ -1150,8 +1155,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 //    a real WHQL-issued catalog carries both a SHA1 and a SHA2 <HASH> entry for the same
                 //    file, and SetupCopyOEMInfW's file-hash lookup was found to specifically require the
                 //    SHA1 one (see WindowsDriverInstaller_FFM-Win32API.txt SECTION H "ITEM 5")
+                // (2026-09-01, "cont14") dwPublicVersion=0, NOT CRYPTCAT_VERSION_2 - matches the
+                // SHA1-only member change above; a version-2 header paired with SHA1-only members is
+                // itself a header/member mismatch by the same logic that motivated going SHA1-only,
+                // so both must move together. Never tried as a pair this session.
                 final MemorySegment hCatalog = (MemorySegment) _CryptCATOpen.invoke(
-                    _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, CRYPTCAT_VERSION_2, 0
+                    _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, 0, 0
                 );
                 if(hCatalog == null || hCatalog.address() == 0L || hCatalog.address() == INVALID_HANDLE_VALUE) {
                     log.append("CryptCATOpen failed, GetLastError=").append( _lastError() );

@@ -209,16 +209,14 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 // one, so repeated runs never accumulate duplicates.
                 "            Get-ChildItem Cert:\\CurrentUser\\My |                                                   \r\n" +
                 "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
-                "                ForEach-Object { Remove-Item -Path `$_.PSPath -Force -DeleteKey                      `\r\n" +
-                "                    -ErrorAction SilentlyContinue };                                                  \r\n" +
+                "                ForEach-Object { Remove-Item -Path `$_.PSPath -Force -DeleteKey -ErrorAction SilentlyContinue };\r\n" +
                 "            Get-ChildItem Cert:\\LocalMachine\\Root |                                                \r\n" +
                 "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
                 "                Remove-Item -Force -ErrorAction SilentlyContinue;                                    \r\n" +
                 "            Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                                    \r\n" +
                 "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                           \r\n" +
                 "                Remove-Item -Force -ErrorAction SilentlyContinue;                                    \r\n" +
-                "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert              `\r\n" +
-                "                         -CertStoreLocation 'Cert:\\CurrentUser\\My';                                \r\n" +
+                "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert -CertStoreLocation 'Cert:\\CurrentUser\\My';\r\n" +
                 "                         Export-Certificate -Cert `$cert -FilePath '%s' | Out-Null;                  \r\n" +
                 /*
                  * PFX handoff: live CI proved Cert:\CurrentUser\My (a per-profile store) does not survive
@@ -246,11 +244,9 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                  * same-session delete of the object we just created, not a lookup across the broken
                  * cross-session boundary.
                  */
-                "            `$pfxBytes = `$cert.Export(                                                              `\r\n" +
-                "                [System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');         \r\n" +
+                "            `$pfxBytes = `$cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, '%s');\r\n" +
                 "            [System.IO.File]::WriteAllBytes('%s', `$pfxBytes);                                       \r\n" +
-                "            `$cert | ForEach-Object { Remove-Item -Path `$_.PSPath -Force -DeleteKey             `\r\n" +
-                "                -ErrorAction SilentlyContinue };                                                     \r\n" +
+                "            `$cert | ForEach-Object { Remove-Item -Path `$_.PSPath -Force -DeleteKey -ErrorAction SilentlyContinue };\r\n" +
                 "            certutil.exe -addstore -f Root '%s' | Out-File `\"$tmpOutLog`\" -Append;                 \r\n" +
                 "            certutil.exe -addstore -f TrustedPublisher '%s' | Out-File `\"$tmpOutLog`\" -Append      \r\n" +
                 "        }                                                                                            \r\n" +
@@ -378,8 +374,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "            if(-not (Test-Path '%s')) {                                                         \r\n" +
                 "                throw 'PFX not found at %s';                                                    \r\n" +
                 "            };                                                                                  \r\n" +
-                "            `$cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(    `\r\n" +
-                "                '%s', '%s');                                                                    \r\n" +
+                "            `$cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new('%s', '%s');\r\n" +
                 "            New-FileCatalog -Path '%s' -CatalogFilePath '%s' -CatalogVersion 2.0;               \r\n" +
                 "            Set-AuthenticodeSignature -FilePath '%s' -Certificate `$cert -HashAlgorithm SHA256 |\r\n" +
                 "                Out-File `\"$tmpOutLog`\";                                                      \r\n" +

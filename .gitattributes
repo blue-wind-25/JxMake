@@ -9,3 +9,4 @@
 # CRLFs as generated on Windows) - any CRLF/LF rewrite here would desync the hash and break the
 # sideload experiment for a reason unrelated to what it's testing.
 .github/workflows/wdi_sideload_fixtures/* binary
+.github/workflows/wdi_sideload_fixtures_ps1/* binary

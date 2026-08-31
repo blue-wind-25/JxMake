@@ -1,0 +1,32 @@
+[Version]                                                                       
+Signature   = "$Windows NT$"                                                  
+Class       = USBDevice                                                         
+ClassGUID   = {88BAE032-5A81-49f0-BC3D-A4FF138216D6}                            
+Provider    = %ManufacturerName%                                                
+CatalogFile = wdi_cmp.cat                                           
+DriverVer   = 05/02/2026,1.0.0.0                                                
+                                                                                
+[Manufacturer]                                                                  
+%ManufacturerName% = WinUSB_Device, NTamd64                                     
+                                                                                
+[WinUSB_Device.NTamd64]                                                         
+%DeviceName% = WinUSB_Install, USB\VID_1234&PID_5678                                     
+                                                                                
+[WinUSB_Install]                                                                
+Include = winusb.inf                                                            
+Needs   = WINUSB.NT                                                             
+                                                                                
+[WinUSB_Install.Services]                                                       
+Include = winusb.inf                                                            
+Needs   = WINUSB.NT.Services                                                    
+                                                                                
+[WinUSB_Install.HW]                                                             
+AddReg = Dev_AddReg                                                             
+                                                                                
+[Dev_AddReg]                                                                    
+; DeviceInterfaceGUIDs: Generic WinUSB access                                   
+HKR,,DeviceInterfaceGUIDs,0x00010000,"{dee82443-396a-4b21-822e-13c3a2f8b503}" 
+                                                                                
+[Strings]                                                                       
+ManufacturerName = "Generic USB Device"                                       
+DeviceName       = "WinUSB Automated Driver"                                  

@@ -117,6 +117,11 @@ on:
         description: 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
         type: boolean
         default: false
+      sideload_source:
+        description: 'sideload mode only: which committed fixture set to trust+install via certutil.exe/pnputil.exe - ffm (wdi_sideload_fixtures/) or ps1 (wdi_sideload_fixtures_ps1/), a control to isolate whether a hang is specific to FFM-generated artifacts'
+        type: choice
+        options: [ffm, ps1]
+        default: ffm
 
 jobs:
   test:
@@ -177,8 +182,10 @@ jobs:
         if: ${{ inputs.backend == 'sideload' }}
         shell: pwsh
         run: |
+          $srcDir = if ("${{ inputs.sideload_source }}" -eq "ps1") { "wdi_sideload_fixtures_ps1" } else { "wdi_sideload_fixtures" }
           $work = New-Item -ItemType Directory -Force -Path "$env:TEMP\wdi_sideload"
-          Copy-Item "$env:GITHUB_WORKSPACE\.github\workflows\wdi_sideload_fixtures\*" $work.FullName -Force
+          Copy-Item "$env:GITHUB_WORKSPACE\.github\workflows\$srcDir\*" $work.FullName -Force
+          Write-Host "Sideload source: $srcDir"
           Get-ChildItem $work.FullName
 
           Write-Host "=== certutil -addstore Root ==="

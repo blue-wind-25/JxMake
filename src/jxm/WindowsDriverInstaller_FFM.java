@@ -1209,13 +1209,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                             // pwszFileName is passed NULL, not fileName - the member is identified by its
                             // tag/hash, and the filename is separately conveyed via the "File" attribute
-                            // below; dwCertVersion is CRYPTCAT_VERSION_2 (0x200), matching this catalog's
-                            // own CryptCATOpen version - passing 0 here silently made the member
-                            // version-mismatched against the v2 catalog it lives in, which is what caused
-                            // every prior round's SPAPI_E_FILE_HASH_NOT_IN_CATALOG (its hash/registration
-                            // were all independently correct - see SECTION H "ITEM 7")
+                            // below. dwCertVersion=0 (NOT CRYPTCAT_VERSION_2) - the earlier "ITEM 7"
+                            // CRYPTCAT_VERSION_2 change was RECONSTRUCTED/INFERRED, never confirmed (the
+                            // live CI run right after it still failed identically), and a byte-level
+                            // catalog diff against WindowsDriverInstaller_PS1's proven-working
+                            // New-FileCatalog output later showed it was actually the cause of a real
+                            // structural mismatch: CRYPTCAT_VERSION_2 here makes CryptCATPutMemberInfo emit
+                            // a non-empty "1.3.6.1.4.1.311.12.2.3" member attribute (a 16-byte value plus
+                            // an embedded INTEGER 0200), where PS1's equivalent attribute is empty
+                            // (SET{cont[2] l=0}) - the one remaining structural difference between the two
+                            // catalogs once the cert's own CN encoding and Key Usage/SKI extensions were
+                            // fixed. Reverted to 0 to match PS1's empty-attribute shape exactly.
                             final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
-                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, CRYPTCAT_VERSION_2, 64, sipData
+                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
                             );
                             if(pMember == null || pMember.address() == 0L) {
                                 log.append("CryptCATPutMemberInfo(").append(algName).append(") failed, GetLastError=").append( _lastError() );

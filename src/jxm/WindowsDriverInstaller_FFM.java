@@ -90,7 +90,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptEncodeObjectEx;
     private static MethodHandle _CryptExportPublicKeyInfo;
     private static MethodHandle _CryptHashPublicKeyInfo;
-  //private static MethodHandle _CryptSIPRetrieveSubjectGuid; // unused - see binding site below
+  //private static MethodHandle _CryptSIPRetrieveSubjectGuid; // Unused - catalog members use a fixed INF-type subject GUID
     private static MethodHandle _CertDeleteCertificateFromStore;
     private static MethodHandle _LocalFree;
 
@@ -104,9 +104,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CryptCATAdminReleaseContext;
     private static MethodHandle _CryptCATAdminAddCatalog;
     private static MethodHandle _CryptCATAdminReleaseCatalogContext;
-    private static MethodHandle _CryptCATAdminEnumCatalogFromHash;
-    private static MethodHandle _CryptCATCatalogInfoFromContext;
-    private static MethodHandle _WinVerifyTrust;
+    private static MethodHandle _CryptCATAdminEnumCatalogFromHash; // Diagnostic-only; see _diagCatalogLookup()
+    private static MethodHandle _CryptCATCatalogInfoFromContext;   // Diagnostic-only; see _diagCatalogLookup()
+    private static MethodHandle _WinVerifyTrust;                   // Diagnostic-only; see _diagVerifyTrustCatalog()
     private static MethodHandle _CryptCATOpen;
     private static MethodHandle _CryptCATClose;
     private static MethodHandle _CryptCATPersistStore;
@@ -157,19 +157,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CertAddCertificateContextToStore  = _bind( linker, crypt32, "CertAddCertificateContextToStore" , FunctionDescriptor.of(DW , PTR, PTR, DW, PTR) );
             _CertGetCertificateContextProperty = _bind( linker, crypt32, "CertGetCertificateContextProperty", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR) );
             _CryptEncodeObjectEx               = _bind( linker, crypt32, "CryptEncodeObjectEx"              , FunctionDescriptor.of(DW , DW, PTR, PTR, DW, PTR, PTR, PTR) );
-            // CryptExportPublicKeyInfo(hCryptProvOrNCryptKey, dwKeySpec, dwCertEncodingType, pInfo, pcbInfo) -
-            // exports the CAPI1 key's SubjectPublicKeyInfo (opaque CERT_PUBLIC_KEY_INFO blob, never decoded
-            // by this code - only handed straight to CryptHashPublicKeyInfo below), two-call size/fill pattern.
             _CryptExportPublicKeyInfo          = _bind( linker, crypt32, "CryptExportPublicKeyInfo"         , FunctionDescriptor.of(DW , PTR, DW, DW, PTR, PTR) );
-            // CryptHashPublicKeyInfo(hCryptProv, Algid, dwFlags, dwCertEncodingType, pInfo, pbComputedHash,
-            // pcbComputedHash) - hashes a CERT_PUBLIC_KEY_INFO per RFC 5280 SubjectKeyIdentifier method 1
-            // (SHA1 over the encoded SubjectPublicKeyInfo BIT STRING contents), used to build the
-            // X509v3 Subject Key Identifier extension - see createAndTrustProvider.
             _CryptHashPublicKeyInfo            = _bind( linker, crypt32, "CryptHashPublicKeyInfo"           , FunctionDescriptor.of(DW , PTR, DW, DW, DW, PTR, PTR, PTR) );
-            // CryptSIPRetrieveSubjectGuid is unused - catalog members use a fixed INF-type subject GUID
-            // instead (see INF_SUBJECT_TYPE_PARTS in _elevatedCreateAndSignCatalog); kept commented out
-            // rather than removed in case a future SIP-derived subject type is ever needed again.
-            // _CryptSIPRetrieveSubjectGuid    = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"      , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
+          //_CryptSIPRetrieveSubjectGuid       = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"      , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
             _CertDeleteCertificateFromStore    = _bind( linker, crypt32, "CertDeleteCertificateFromStore"   , FunctionDescriptor.of(DW , PTR) );
 
             // Advapi32.dll (wincrypt.h) - legacy CryptoAPI (CAPI1) used to provision the self-signed
@@ -187,15 +177,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CryptCATAdminReleaseContext          = _bind( linker, wintrust, "CryptCATAdminReleaseContext"         , FunctionDescriptor.of(DW , PTR, DW) );
             _CryptCATAdminAddCatalog              = _bind( linker, wintrust, "CryptCATAdminAddCatalog"             , FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW) );
             _CryptCATAdminReleaseCatalogContext   = _bind( linker, wintrust, "CryptCATAdminReleaseCatalogContext"  , FunctionDescriptor.of(DW , PTR, PTR, DW) );
-            // Diagnostic-only (see _diagCatalogLookup): queries the catalog database directly, the same
-            // way SetupCopyOEMInfW's internal hash check ultimately does, to isolate a missing/wrong
-            // database entry from a rejection SetupCopyOEMInfW makes for some other reason.
             _CryptCATAdminEnumCatalogFromHash     = _bind( linker, wintrust, "CryptCATAdminEnumCatalogFromHash"    , FunctionDescriptor.of(PTR, PTR, PTR, DW, DW, PTR) );
             _CryptCATCatalogInfoFromContext       = _bind( linker, wintrust, "CryptCATCatalogInfoFromContext"      , FunctionDescriptor.of(DW , PTR, PTR, DW) );
-            // Diagnostic-only (see _diagVerifyTrustCatalog): runs the standard Authenticode trust check
-            // directly against the finished .cat file, independent of SetupCopyOEMInfW/the catalog
-            // database, to isolate a signature/certificate-trust problem from a catalog-content one.
-            _WinVerifyTrust                       = _bind( linker, wintrust, "WinVerifyTrust"                     , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
+            _WinVerifyTrust                       = _bind( linker, wintrust, "WinVerifyTrust"                      , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
             _CryptCATOpen                         = _bind( linker, wintrust, "CryptCATOpen"                        , FunctionDescriptor.of(PTR, PTR, DW, PTR, DW, DW) );
             _CryptCATClose                        = _bind( linker, wintrust, "CryptCATClose"                       , FunctionDescriptor.of(DW , PTR) );
             _CryptCATPersistStore                 = _bind( linker, wintrust, "CryptCATPersistStore"                , FunctionDescriptor.of(DW , PTR) );
@@ -210,6 +194,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // device (installDriver's case: the CI/normal use here is "make this driver available for
             // whenever a matching device is plugged in", not "install onto a device that's already
             // attached").
+            //
             // Bound with Linker.Option.captureCallState("GetLastError") : GetLastError() is thread-local
             // (Win32 TLS), and this call does real file I/O to %windir%\Inf that can run long enough for
             // the JVM to intervene (e.g. a GC/safepoint poll invoking its own Win32 APIs on this same OS
@@ -457,21 +442,21 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         ) {
             final MemorySegment sei = arena.allocate(SEI_SIZE, 8);
 
-            sei.set( ValueLayout.JAVA_INT, SEI_cbSize      , SEI_SIZE                                   );
+            sei.set( ValueLayout.JAVA_INT, SEI_cbSize      , SEI_SIZE                                                         );
             sei.set( ValueLayout.JAVA_INT, SEI_fMask       , SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC | SEE_MASK_NO_CONSOLE );
-            sei.set( PTR                 , SEI_hwnd        , MemorySegment.NULL                         );
-            sei.set( PTR                 , SEI_lpVerb      , _wstr(arena, "runas")                      );
-            sei.set( PTR                 , SEI_lpFile      , _wstr(arena, file   )                      );
-            sei.set( PTR                 , SEI_lpParameters, _wstr(arena, params )                      );
-            sei.set( PTR                 , SEI_lpDirectory , _wstr(arena, workDir)                      );
-            sei.set( ValueLayout.JAVA_INT, SEI_nShow       , SW_HIDE                                    );
-            sei.set( PTR                 , SEI_hInstApp    , MemorySegment.NULL                         );
-            sei.set( PTR                 , SEI_lpIDList    , MemorySegment.NULL                         );
-            sei.set( PTR                 , SEI_lpClass     , MemorySegment.NULL                         );
-            sei.set( PTR                 , SEI_hkeyClass   , MemorySegment.NULL                         );
-            sei.set( ValueLayout.JAVA_INT, SEI_dwHotKey    , 0                                          );
-            sei.set( PTR                 , SEI_hIcon       , MemorySegment.NULL                         );
-            sei.set( PTR                 , SEI_hProcess    , MemorySegment.NULL                         );
+            sei.set( PTR                 , SEI_hwnd        , MemorySegment.NULL                                               );
+            sei.set( PTR                 , SEI_lpVerb      , _wstr(arena, "runas")                                            );
+            sei.set( PTR                 , SEI_lpFile      , _wstr(arena, file   )                                            );
+            sei.set( PTR                 , SEI_lpParameters, _wstr(arena, params )                                            );
+            sei.set( PTR                 , SEI_lpDirectory , _wstr(arena, workDir)                                            );
+            sei.set( ValueLayout.JAVA_INT, SEI_nShow       , SW_HIDE                                                          );
+            sei.set( PTR                 , SEI_hInstApp    , MemorySegment.NULL                                               );
+            sei.set( PTR                 , SEI_lpIDList    , MemorySegment.NULL                                               );
+            sei.set( PTR                 , SEI_lpClass     , MemorySegment.NULL                                               );
+            sei.set( PTR                 , SEI_hkeyClass   , MemorySegment.NULL                                               );
+            sei.set( ValueLayout.JAVA_INT, SEI_dwHotKey    , 0                                                                );
+            sei.set( PTR                 , SEI_hIcon       , MemorySegment.NULL                                               );
+            sei.set( PTR                 , SEI_hProcess    , MemorySegment.NULL                                               );
 
             final int ok = (int) _ShellExecuteExW.invoke(sei);
             if(ok == 0) {
@@ -648,21 +633,22 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     // wincrypt.h
     // X509_ENHANCED_KEY_USAGE is a small-integer "predefined" lpszStructType, cast to LPCSTR - not a real string pointer
-    private static final int    CERT_X500_NAME_STR         = 3;
+    //
     // Forces CertStrToNameW to encode RDN values as UTF8String (ASN.1 tag 0x0C) instead of its
     // default choice (BMPString, tag 0x1E) - CI comparison against WindowsDriverInstaller_PS1's
     // New-SelfSignedCertificate-generated cert showed PS1 uses UTF8String while FFM's
     // CertStrToNameW defaulted to BMPString encoded with little-endian byte pairs (non-compliant
     // with X.690's big-endian BMPString requirement, though self-consistent within CryptoAPI).
+    private static final int    CERT_X500_NAME_STR                    = 3;
     private static final int    CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG = 0x00080000;
-    private static final int    CRYPT_ENCODE_ALLOC_FLAG    = 0x8000;
-    private static final long   X509_ENHANCED_KEY_USAGE    = 36L;
-    private static final String szOID_ENHANCED_KEY_USAGE   = "2.5.29.37";
-    private static final String szOID_PKIX_KP_CODE_SIGNING = "1.3.6.1.5.5.7.3.3";
-    private static final String szOID_RSA_SHA256RSA        = "1.2.840.113549.1.1.11";
-    private static final String szOID_KEY_USAGE             = "2.5.29.15";
-    private static final String szOID_SUBJECT_KEY_IDENTIFIER = "2.5.29.14";
-    private static final int    CALG_SHA1                  = 0x00008004;
+    private static final int    CRYPT_ENCODE_ALLOC_FLAG               = 0x8000;
+    private static final long   X509_ENHANCED_KEY_USAGE               = 36L;
+    private static final String szOID_ENHANCED_KEY_USAGE              = "2.5.29.37";
+    private static final String szOID_PKIX_KP_CODE_SIGNING            = "1.3.6.1.5.5.7.3.3";
+    private static final String szOID_RSA_SHA256RSA                   = "1.2.840.113549.1.1.11";
+    private static final String szOID_KEY_USAGE                       = "2.5.29.15";
+    private static final String szOID_SUBJECT_KEY_IDENTIFIER          = "2.5.29.14";
+    private static final int    CALG_SHA1                             = 0x00008004;
 
     // CRYPT_ATTR_BLOB / CERT_NAME_BLOB (wincrypt.h) : { DWORD cbData; BYTE *pbData; } - size 16, align 8
     private static MemorySegment _blob(final Arena arena, final int cbData, final MemorySegment pbData)
@@ -685,9 +671,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     {
         final byte[] cnBytes    = cn.getBytes(StandardCharsets.UTF_8);
         final byte[] cnValue    = _derTLV( (byte) 0x0C, cnBytes );                     // UTF8String
-        final byte[] atv        = _derTLV( (byte) 0x30, _concat(                      // SEQUENCE
-                                       _derTLV(                                       // OID 2.5.4.3 (commonName)
-                                           (byte) 0x06, new byte[]{0x55, 0x04, 0x03}
+        final byte[] atv        = _derTLV( (byte) 0x30, _concat(                       // SEQUENCE
+                                       _derTLV(                                        // OID 2.5.4.3 (commonName)
+                                           (byte) 0x06, new byte[]{ 0x55, 0x04, 0x03 }
                                        ),
                                        cnValue
                                    ) );
@@ -700,27 +686,33 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         final byte[] len = _derLen(content.length);
         final byte[] out = new byte[1 + len.length + content.length];
         out[0] = tag;
-        System.arraycopy(len    , 0, out, 1               , len.length);
-        System.arraycopy(content, 0, out, 1 + len.length   , content.length);
+        System.arraycopy(len    , 0, out, 1             , len.length    );
+        System.arraycopy(content, 0, out, 1 + len.length, content.length);
         return out;
     }
 
     private static byte[] _derLen(final int len)
     {
         if( len < 0x80 ) return new byte[]{ (byte) len };
+
         int n = 0;
-        for( int t = len; t > 0; t >>= 8 ) n++;
+        for(int t = len; t > 0; t >>= 8) n++;
+
         final byte[] out = new byte[1 + n];
         out[0] = (byte) (0x80 | n);
-        for( int i = 0; i < n; i++ ) out[1 + i] = (byte) ( len >> ( 8 * (n - 1 - i) ) );
+
+        for(int i = 0; i < n; i++) out[1 + i] = (byte) ( len >> ( 8 * (n - 1 - i) ) );
+
         return out;
     }
 
     private static byte[] _concat(final byte[] a, final byte[] b)
     {
         final byte[] out = new byte[a.length + b.length];
-        System.arraycopy(a, 0, out, 0        , a.length);
-        System.arraycopy(b, 0, out, a.length , b.length);
+
+        System.arraycopy(a, 0, out, 0       , a.length);
+        System.arraycopy(b, 0, out, a.length, b.length);
+
         return out;
     }
 
@@ -730,6 +722,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         final MemorySegment h = (MemorySegment) _CertOpenStore.invoke(
             _handleOf(CERT_STORE_PROV_SYSTEM_W), 0, MemorySegment.NULL, locationFlag, _wstr(arena, storeName)
         );
+
         return (h == null || h.address() == 0L) ? null : h;
     }
 
@@ -917,9 +910,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                 final MemorySegment ext1 = extensionArr.asSlice(32);
                 ext1.set( PTR                 ,  0, _astr(arena, szOID_KEY_USAGE) );
-                ext1.set( ValueLayout.JAVA_INT,  8, 1 /* critical */             );
-                ext1.set( ValueLayout.JAVA_INT, 16, keyUsageDer.length           );
-                ext1.set( PTR                 , 24, keyUsageBuf                  );
+                ext1.set( ValueLayout.JAVA_INT,  8, 1 /* critical */              );
+                ext1.set( ValueLayout.JAVA_INT, 16, keyUsageDer.length            );
+                ext1.set( PTR                 , 24, keyUsageBuf                   );
 
                 final MemorySegment ext2 = extensionArr.asSlice(64);
                 ext2.set( PTR                 ,  0, _astr(arena, szOID_SUBJECT_KEY_IDENTIFIER) );
@@ -1061,8 +1054,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     // mechanism from that deprecation - dual SHA1+SHA256 kept below, commented out, for reference.
     private static final String[] CATALOG_HASH_ALGS     = { "SHA1" };
     private static final String[] CATALOG_HASH_ALG_OIDS = { szOID_OIWSEC_sha1 };
-    // private static final String[] CATALOG_HASH_ALGS     = { "SHA1", "SHA256" };
-    // private static final String[] CATALOG_HASH_ALG_OIDS = { szOID_OIWSEC_sha1, szOID_NIST_sha256 };
+  //private static final String[] CATALOG_HASH_ALGS     = { "SHA1", "SHA256" };
+  //private static final String[] CATALOG_HASH_ALG_OIDS = { szOID_OIWSEC_sha1, szOID_NIST_sha256 };
 
     // GUID (guiddef.h) : { DWORD Data1; WORD Data2; WORD Data3; BYTE Data4[8]; } - size 16, align 4
     private static MemorySegment _guid(final Arena arena, final long[] parts)
@@ -1094,13 +1087,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             // Saved off per-algorithm so _diagCatalogLookup (called much further down, after signing and
             // database registration) can re-query the catalog database with the exact same hash bytes -
-            // these MemorySegments are arena-allocated so they stay valid past hInfFile's own close.
+            // these MemorySegments are arena-allocated so they stay valid past hInfFile's own close
             final MemorySegment[] savedHash    = new MemorySegment[CATALOG_HASH_ALGS.length];
             final int[]           savedHashLen = new int[CATALOG_HASH_ALGS.length];
 
-            // 1. Open the INF and, once, encode the SIP-indirect "SPC_LINK" placeholder every member
-            //    below shares - it doesn't depend on the hash/algorithm, only on there being a
-            //    non-PE/CAB subject file at all
+            // Open the INF and, once, encode the SIP-indirect "SPC_LINK" placeholder every member below shares
+            // - it doesn't depend on the hash/algorithm, only on there being a non-PE/CAB subject file at all
             final MemorySegment hInfFile = (MemorySegment) _CreateFileW.invoke(
                 _wstr(arena, infPath), GENERIC_READ, FILE_SHARE_READ, MemorySegment.NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, MemorySegment.NULL
             );
@@ -1112,7 +1104,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             boolean catCloseOk = false;
             try {
                 // subjectGuid is the fixed "this is an INF" subject-type GUID (SPC_INC_SPL_INF_ style),
-                // not a value derived from CryptSIPRetrieveSubjectGuid/DRIVER_ACTION_VERIFY.
+                // not a value derived from CryptSIPRetrieveSubjectGuid/DRIVER_ACTION_VERIFY
                 final long[] INF_SUBJECT_TYPE_PARTS = { 0xDE351A42L, 0x8E59L, 0x11D0L, 0x8CL, 0x47L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
                 final MemorySegment subjectGuid = _guid(arena, INF_SUBJECT_TYPE_PARTS);
 
@@ -1133,11 +1125,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 final MemorySegment spcLinkEnc    = spcLinkEncPtrOut.get(PTR, 0);
                 final int           spcLinkEncLen = spcLinkEncLenOut.get(ValueLayout.JAVA_INT, 0);
 
-                // 2. Create the catalog, then add one member per algorithm in CATALOG_HASH_ALGS below.
-                //    dwPublicVersion=0 (NOT CRYPTCAT_VERSION_2/0x200) - a v2 header unconditionally makes
-                //    SetupCopyOEMInfW reject the catalog with SPAPI_E_FILE_HASH_NOT_IN_CATALOG, regardless
-                //    of member dwCertVersion or subjectGuid. Must match dwCertVersion=0 in
-                //    CryptCATPutMemberInfo below.
+                // Create the catalog, then add one member per algorithm in CATALOG_HASH_ALGS below.
+                //
+                // dwPublicVersion=0 (NOT CRYPTCAT_VERSION_2/0x200) - a v2 header unconditionally makes
+                // SetupCopyOEMInfW reject the catalog with SPAPI_E_FILE_HASH_NOT_IN_CATALOG, regardless
+                // of member dwCertVersion or subjectGuid. Must match dwCertVersion=0 in
+                // CryptCATPutMemberInfo below.
                 final MemorySegment hCatalog = (MemorySegment) _CryptCATOpen.invoke(
                     _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, 0, 0
                 );
@@ -1197,7 +1190,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                             // pwszFileName is passed NULL, not fileName - the member is identified by its
                             // tag/hash, and the filename is separately conveyed via the "File" attribute
-                            // below. dwCertVersion=0, matching CryptCATOpen's header version above.
+                            // below. dwCertVersion=0, matching CryptCATOpen's header version above
                             final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
                                 hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
                             );
@@ -1248,7 +1241,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 return RETCODE_EXCEPTION;
             }
 
-            // 4. Locate the trusted signing cert (with its persisted private key) in CurrentUser\My
+            // Locate the trusted signing cert (with its persisted private key) in CurrentUser\My
             final MemorySegment hMy = _certStoreOpen(arena, CERT_SYSTEM_STORE_CURRENT_USER, "My");
             if(hMy == null) {
                 log.append("Could not open CurrentUser\\My, GetLastError=").append( _lastError() );
@@ -1272,12 +1265,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     _destroyPrivateKey(arena, signingCert, log);
                     if(rc != RETCODE_OK) return rc;
 
-                    // 5. Register the finished, signed .cat into the system's catalog DATABASE (an index
-                    //    mapping file hashes -> the catalogs that contain them) via CryptCATAdminAddCatalog -
-                    //    documented as "the only supported way to programmatically add catalogs to the
-                    //    Windows catalog database". Writing a valid, correctly-hashed, signed .cat file to
-                    //    disk is not enough on its own: SetupCopyOEMInfW's own file-hash lookup consults that
-                    //    database, not just any .cat file sitting next to the INF.
+                    // Register the finished, signed .cat into the system's catalog DATABASE (an index
+                    // mapping file hashes -> the catalogs that contain them) via CryptCATAdminAddCatalog -
+                    // documented as "the only supported way to programmatically add catalogs to the
+                    // Windows catalog database". Writing a valid, correctly-hashed, signed .cat file to
+                    // disk is not enough on its own: SetupCopyOEMInfW's own file-hash lookup consults that
+                    // database, not just any .cat file sitting next to the INF.
                     final int addRc = _addCatalogToDatabase(arena, catPath, log);
                     if(addRc != RETCODE_OK) return addRc;
 
@@ -1496,18 +1489,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // Source: "Windows Authenticode Portable Executable Signature Format" (Microsoft) -
         // https://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/authenticode_pe.docx
         final byte[] statementTypeDer = {
-            (byte)0x30, (byte)0x0C, (byte)0x06, (byte)0x0A, (byte)0x2B, (byte)0x06,
-            (byte)0x01, (byte)0x04, (byte)0x01, (byte)0x82, (byte)0x37, (byte)0x02,
-            (byte)0x01, (byte)0x15
+            (byte) 0x30, (byte) 0x0C, (byte) 0x06, (byte) 0x0A, (byte) 0x2B, (byte) 0x06,
+            (byte) 0x01, (byte) 0x04, (byte) 0x01, (byte) 0x82, (byte) 0x37, (byte) 0x02,
+            (byte) 0x01, (byte) 0x15
         };
         // SPC_SP_OPUS_INFO ::= SEQUENCE { programName [0] EXPLICIT SpcString OPTIONAL;
         //                                 moreInfo [1] EXPLICIT SpcLink OPTIONAL; } - both fields are
         // OPTIONAL and this backend has neither a program name nor a more-info URL to offer, so the
         // minimal valid encoding is an empty SEQUENCE. Same Microsoft source as above.
-        final byte[] opusInfoDer = { (byte)0x30, (byte)0x00 };
+        final byte[] opusInfoDer = { (byte) 0x30, (byte) 0x00 };
 
         final MemorySegment statementTypeBuf = arena.allocate(statementTypeDer.length);
         MemorySegment.copy(statementTypeDer, 0, statementTypeBuf, ValueLayout.JAVA_BYTE, 0, statementTypeDer.length);
+
         final MemorySegment opusInfoBuf = arena.allocate(opusInfoDer.length);
         MemorySegment.copy(opusInfoDer, 0, opusInfoBuf, ValueLayout.JAVA_BYTE, 0, opusInfoDer.length);
 
@@ -1522,8 +1516,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         final MemorySegment statementTypeAttr = arena.allocate(24, 8);
         statementTypeAttr.set(PTR                 ,  0, _astr(arena, SPC_STATEMENT_TYPE_OBJID) );
-        statementTypeAttr.set(ValueLayout.JAVA_INT,  8, 1                                       );
-        statementTypeAttr.set(PTR                 , 16, statementTypeBlob                       );
+        statementTypeAttr.set(ValueLayout.JAVA_INT,  8, 1                                      );
+        statementTypeAttr.set(PTR                 , 16, statementTypeBlob                      );
 
         // CRYPT_ATTRIBUTES.rgAttr is a contiguous array (not a linked list) of CRYPT_ATTRIBUTE
         final MemorySegment attrArray = arena.allocate(24L * 2, 8);
@@ -1532,8 +1526,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         // CRYPT_ATTRIBUTES : { DWORD cAttr; PCRYPT_ATTRIBUTE rgAttr; } - size 16, align 8
         final MemorySegment authenticatedAttrs = arena.allocate(16, 8);
-        authenticatedAttrs.set(ValueLayout.JAVA_INT, 0, 2         );
-        authenticatedAttrs.set(PTR                 , 8, attrArray );
+        authenticatedAttrs.set(ValueLayout.JAVA_INT, 0, 2        );
+        authenticatedAttrs.set(PTR                 , 8, attrArray);
 
         // SIGNER_SIGNATURE_INFO : { DWORD cbSize; ALG_ID algidHash; DWORD dwAttrChoice; union{...};
         //                           PCRYPT_ATTRIBUTES_ARRAY psAuthenticated; PCRYPT_ATTRIBUTES_ARRAY psUnauthenticated; } - size 40, align 8
@@ -1542,12 +1536,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // built above are attached at psAuthenticated (offset 24) - see
         // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry.
         final MemorySegment sigInfo = arena.allocate(40, 8);
-        sigInfo.set(ValueLayout.JAVA_INT,  0, 40                    );
-        sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256          );
-        sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_NO_ATTR        );
-        sigInfo.set(PTR                 , 16, MemorySegment.NULL    );
-        sigInfo.set(PTR                 , 24, authenticatedAttrs    );
-        sigInfo.set(PTR                 , 32, MemorySegment.NULL    );
+        sigInfo.set(ValueLayout.JAVA_INT,  0, 40                );
+        sigInfo.set(ValueLayout.JAVA_INT,  4, CALG_SHA_256      );
+        sigInfo.set(ValueLayout.JAVA_INT,  8, SIGNER_NO_ATTR    );
+        sigInfo.set(PTR                 , 16, MemorySegment.NULL);
+        sigInfo.set(PTR                 , 24, authenticatedAttrs);
+        sigInfo.set(PTR                 , 32, MemorySegment.NULL);
 
         final MemorySegment ppSignerContext = arena.allocate(PTR);
 
@@ -1568,11 +1562,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         if(hr != 0) {
             log.append("SignerSignEx failed, HRESULT=0x").append( Integer.toHexString(hr) )
                .append(", GetLastError=").append( lastError ).append('\n')
-               .append("  subjectInfo    : ").append( _hexDump(subjectInfo, 32)    ).append('\n')
-               .append("  signerCert     : ").append( _hexDump(signerCert, 24)     ).append('\n')
-               .append("  certStoreInfo  : ").append( _hexDump(certStoreInfo, 32)  ).append('\n')
-               .append("  sigInfo        : ").append( _hexDump(sigInfo, 40)        ).append('\n')
-               .append("  fileInfo       : ").append( _hexDump(fileInfo, 24)       ).append('\n')
+               .append("  subjectInfo    : ").append( _hexDump(subjectInfo, 32)        ).append('\n')
+               .append("  signerCert     : ").append( _hexDump(signerCert, 24)         ).append('\n')
+               .append("  certStoreInfo  : ").append( _hexDump(certStoreInfo, 32)      ).append('\n')
+               .append("  sigInfo        : ").append( _hexDump(sigInfo, 40)            ).append('\n')
+               .append("  fileInfo       : ").append( _hexDump(fileInfo, 24)           ).append('\n')
                .append("  authAttrs      : ").append( _hexDump(authenticatedAttrs, 16) ).append('\n')
                .append("  attrArray      : ").append( _hexDump(attrArray, 48)          );
             return RETCODE_EXCEPTION;
@@ -1587,7 +1581,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     private static final int MAX_PATH   = 260; // minwindef.h
     private static final int SPOST_NONE = 0;   // setupapi.h - no OEMSourceMediaLocation applies
-    private static final int SPOST_PATH = 1; // setupapi.h
+    private static final int SPOST_PATH = 1;   // setupapi.h
 
     /*
      * Stages infPath into %windir%\Inf via SetupCopyOEMInfW (setupapi.h), guarded by
@@ -1654,6 +1648,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             return RETCODE_EXCEPTION;
         }
         */
+
         try(
             final Arena arena = Arena.ofConfined()
         ) {

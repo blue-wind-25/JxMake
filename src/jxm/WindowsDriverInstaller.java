@@ -370,3 +370,47 @@ public abstract class WindowsDriverInstaller {
     }
 
 } // WindowsDriverInstaller
+
+
+
+
+
+/*
+CLAUDE - IGNORE THIS - this is my scratchpad
+
+Lets continue fixing make `jxm/WindowsDriverInstaller_FFM.java`.
+Do NOT edit the PS1 backend and its related test in the YAML file, it is already working properly.
+
+Remainder:
+- Build command: `make jar JDK_VER=8 && make jar JDK_VER=25` from `src/` is enough after editing any source file in this backend.
+- The GH workflow file is `test-windows-driver-installer.yml`. I will enable it and run it from GH web. You only need to modify the content as needed.
+
+This is a long job, so you will want to save the summary of the above instructions somewhere so they survive context compaction. Use terse sentences when storing progress to memory or `WindowsDriverInstaller_FFM-Win32API.txt`. Do NOT update the later every time you make code changes, only update with important information, do NOT put long prose.
+
+---
+
+Update WindowsDriverInstaller_FFM-Win32API.txt with the API use by WindowsDriverInstaller_FFM.java and compact the investigation/implementation history.
+Remove unused text/prose/result. Ensure investigation/implementation history are not combined in the API description.
+
+---
+
+Now, in WindowsDriverInstaller.java, installXXXInf perform 3 elevated call.
+This is fine with the PS1 backend (I assume the user will get 3 UAC dialog?).
+
+In WindowsDriverInstaller_FFM.java - main(), is it possible to add a combined mode to do all 3 in one elevated Java app run?
+
+Maybe create:
+
+public abstract XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath);
+
+for PS1 installSelfSignedDriver() always return null and normal (the original path) will be run.
+for FFM installSelfSignedDriver() always do all at once and return non null, and thus the original path will not be run.
+
+---
+
+git add -u && git commit -S && git push
+
+---
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+*/

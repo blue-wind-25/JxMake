@@ -1502,6 +1502,58 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             return RETCODE_INVALID_PATH;
         }
 
+        /*
+         * SECTION H ITEM 11 : switched from the in-process SetupCopyOEMInfW call below to shelling out
+         * to pnputil.exe /add-driver (no /install - same rationale as WindowsDriverInstaller_PS1's
+         * installDriver()). Six independent diagnostic rounds (SECTION H ITEMS 5-10) confirmed the
+         * generated catalog's hashes are present in the catalog database and its signature is trusted,
+         * yet SetupCopyOEMInfW still rejected it with SPAPI_E_FILE_HASH_NOT_IN_CATALOG every time; the
+         * exact same catalog+INF is accepted by WindowsDriverInstaller_PS1, whose installDriver() never
+         * calls SetupCopyOEMInfW at all - it always shells out to pnputil.exe /add-driver. This strongly
+         * indicates SetupCopyOEMInfW enforces some additional, undocumented requirement beyond hash
+         * presence + signature trust that pnputil.exe's own staging path does not. Rather than continue
+         * guessing at SetupCopyOEMInfW's requirements, this now drives pnputil.exe directly (this method
+         * already runs inside the elevated self-relaunched child process - see _runElevatedSelf() - so no
+         * further elevation/UAC prompt is needed here, unlike WindowsDriverInstaller_PS1 which has to
+         * elevate a fresh process from a non-elevated starting point).
+         *
+         * The old SetupCopyOEMInfW-based implementation is kept below, commented out rather than deleted,
+         * in case this needs to be swapped back in.
+         */
+        try {
+            final ProcessBuilder pb = new ProcessBuilder( "pnputil.exe", "/add-driver", infPath );
+            pb.redirectErrorStream(true);
+            final Process process = pb.start();
+
+            final String output;
+            try( final java.io.InputStream is = process.getInputStream() ) {
+                output = new String( is.readAllBytes(), StandardCharsets.UTF_8 );
+            }
+
+            // Same finite-timeout rationale as the old CM_WaitNoPendingInstallEvents guard below : never
+            // wait indefinitely, in case pnputil.exe itself ever blocks on something headlessly undismissable.
+            if( !process.waitFor(5, java.util.concurrent.TimeUnit.MINUTES) ) {
+                process.destroyForcibly();
+                log.append("pnputil.exe /add-driver timed out after 5 minutes\n");
+                return RETCODE_EXCEPTION;
+            }
+
+            final int exitCode = process.exitValue();
+            log.append(output);
+
+            if(exitCode != 0) {
+                log.append("pnputil.exe /add-driver failed, exit code=").append(exitCode);
+                return RETCODE_EXCEPTION;
+            }
+
+            return RETCODE_OK;
+        }
+        catch(final IOException e) {
+            log.append("pnputil.exe /add-driver failed to launch: ").append(e);
+            return RETCODE_EXCEPTION;
+        }
+
+        /*
         try(
             final Arena arena = Arena.ofConfined()
         ) {
@@ -1570,6 +1622,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             return RETCODE_OK;
         }
+        */
     }
 
 } // WindowsDriverInstaller_FFM

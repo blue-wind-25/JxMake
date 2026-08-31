@@ -2006,7 +2006,39 @@ otherwise), which would fully explain the persistent SPAPI_E_FILE_HASH_NOT_IN_CA
 present, findable hash. Called from `_elevatedCreateAndSignCatalog` right after ITEM 9's
 `_diagCatalogLookup` calls. Purely diagnostic - logs `TRUSTED`/`NOT TRUSTED` plus the raw HRESULT,
 never changes the function's return code. New binding: `WinVerifyTrust`; new constant
-`WINTRUST_ACTION_GENERIC_VERIFY_V2_PARTS` and `WTD_*` flags. Not yet run on live CI.
+`WINTRUST_ACTION_GENERIC_VERIFY_V2_PARTS` and `WTD_*` flags.
+
+RESULT of ITEM 10's diagnostic (live CI run): `WinVerifyTrust(catalog): result=0 (TRUSTED)`. Rules out
+signature trust as well - six consecutive rounds (ITEMS 5-10) have now each independently ruled out a
+distinct hypothesis (OSAttr, dual-hash members, database registration content, member calling
+convention, database lookup presence, signature trust) with the identical
+SPAPI_E_FILE_HASH_NOT_IN_CATALOG persisting throughout.
+
+A brief side investigation compared this backend's INF `[Version]/CatalogFile=` line against a
+proven-working reference implementation's INF template; only cosmetic whitespace-padding differences
+were found (fixed in `generateWinUSBInf` as harmless cleanup, unrelated to the actual bug) - ruled out
+as the differentiator once it was noted that `WindowsDriverInstaller_PS1`'s test run uses the
+byte-identical padded INF (same shared `WindowsDriverInstaller.generateWinUSBInf` call site) and
+succeeds, so INF content cannot explain FFM-only failure.
+
+This led to the key architectural finding: `WindowsDriverInstaller_PS1.installDriver()` does not call
+`SetupCopyOEMInfW` at all - it always shells out to `pnputil.exe /add-driver` (deliberately never
+`/install` - see its own code comment). PS1 accepts the exact same catalog (verified hash-present +
+database-registered + Authenticode-trusted by ITEMS 9/10) that `SetupCopyOEMInfW` rejects. This means
+the bug is specific to `SetupCopyOEMInfW`'s own internal validation, stricter than whatever pnputil's
+staging path does, in a way not identified despite ITEMS 5-10.
+
+ITEM 11 - Rather than continue guessing at SetupCopyOEMInfW's undocumented requirements, or attempt to
+bind whatever internal API pnputil.exe itself calls (no such public/documented API exists -
+`CM_Add_Driver_Package` is not a real Cfgmgr32 function despite the naming pattern seeming plausible;
+`pnputil.exe`'s Windows 10/11 internals use undocumented `drvstore.dll` exports with no stable public
+contract), `_elevatedInstallDriver` was switched to shell out to `pnputil.exe /add-driver` (no
+`/install`) directly, mirroring `WindowsDriverInstaller_PS1`'s approach exactly. Since
+`_elevatedInstallDriver` already runs inside this backend's elevated self-relaunched child process (see
+`_runElevatedSelf`), no further elevation/UAC prompt is needed for the pnputil.exe child process, unlike
+PS1 which must elevate a fresh process from a non-elevated starting point. The old
+`SetupCopyOEMInfW`-based implementation was commented out, not deleted, so it can be swapped back in if
+needed. Not yet run on live CI.
 
 ----------------------------------------------------------------------------------------------------
 SetupCopyOEMInfW - VERIFIED

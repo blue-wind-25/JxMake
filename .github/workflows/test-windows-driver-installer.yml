@@ -61,8 +61,20 @@
 # something downstream, most plausibly SetupCopyOEMInfW's own signature/certificate-trust validation
 # of the catalog. Added a second diagnostic to test that directly: _diagVerifyTrustCatalog runs
 # WinVerifyTrust's standard Authenticode policy against the finished .cat file on disk, independent of
-# SetupCopyOEMInfW and the catalog database entirely (SECTION H "ITEM 10"). Not yet confirmed on a
-# live CI run - this workflow dispatch is how that gets exercised.
+# SetupCopyOEMInfW and the catalog database entirely (SECTION H "ITEM 10"). RESULT: the next live CI
+# run showed WinVerifyTrust(catalog): result=0 (TRUSTED) - ruling out signature trust too. Six
+# consecutive rounds (ITEMS 5-10) have each ruled out a distinct hypothesis with the identical error
+# persisting. A side investigation into INF CatalogFile= whitespace formatting was ruled out once it
+# was noted WindowsDriverInstaller_PS1's test run uses the byte-identical INF and succeeds. That led to
+# the key finding: PS1's installDriver() never calls SetupCopyOEMInfW at all - it always shells out to
+# pnputil.exe /add-driver (no /install), and accepts the exact same catalog SetupCopyOEMInfW rejects.
+# Rather than keep guessing at SetupCopyOEMInfW's undocumented requirements (no public API exists for
+# "whatever pnputil calls internally" - CM_Add_Driver_Package is not a real Cfgmgr32 function),
+# _elevatedInstallDriver was switched to shell out to pnputil.exe /add-driver directly too, mirroring
+# PS1 (SECTION H "ITEM 11"). Since this runs inside FFM's already-elevated self-relaunched child
+# process, no further elevation is needed for the pnputil.exe child, unlike PS1. The old
+# SetupCopyOEMInfW-based implementation was commented out, not deleted. Not yet confirmed on a live CI
+# run - this workflow dispatch is how that gets exercised.
 #
 # INPUTS:
 #   backend        which single backend to exercise: ps1 (WindowsDriverInstaller_PS1 directly) /

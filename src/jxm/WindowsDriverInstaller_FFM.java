@@ -1123,12 +1123,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             boolean catCloseOk = false;
             try {
-                // Determine the SIP subject GUID for this file - fall back to DRIVER_ACTION_VERIFY on failure
-                final MemorySegment subjectGuid = arena.allocate(16, 4);
-                if( (int) _CryptSIPRetrieveSubjectGuid.invoke(_wstr(arena, infPath), hInfFile, subjectGuid) == 0 ) {
-                    MemorySegment.copy(_guid(arena, DRIVER_ACTION_VERIFY_PARTS), 0, subjectGuid, 0, 16);
-                }
-
                 // Build the SIP-indirect data CryptCATPutMemberInfo requires : an ASN.1-encoded SPC_LINK
                 // (the standard "<<<Obsolete>>>" file-link placeholder used for a non-PE/CAB-typed subject
                 // such as an INF) wrapped in a SIP_INDIRECT_DATA struct together with the digest algorithm/hash
@@ -1220,8 +1214,19 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                             // (SET{cont[2] l=0}) - the one remaining structural difference between the two
                             // catalogs once the cert's own CN encoding and Key Usage/SKI extensions were
                             // fixed. Reverted to 0 to match PS1's empty-attribute shape exactly.
+                            //
+                            // pgSubject is passed NULL, not a SIP subject GUID - a follow-up catalog diff
+                            // (after the dwCertVersion revert above) showed CryptCATPutMemberInfo embeds
+                            // whatever GUID is passed here directly into this same
+                            // "1.3.6.1.4.1.311.12.2.3" member attribute (as its cont[5] value, alongside
+                            // dwCertVersion as an INTEGER) - so a real GUID here was still producing a
+                            // non-empty attribute even with dwCertVersion=0. PS1's New-FileCatalog leaves
+                            // this unset entirely, producing a fully empty attribute
+                            // (SET{cont[2] l=0}) - passing NULL here matches that exactly. The previously
+                            // computed subjectGuid (CryptSIPRetrieveSubjectGuid, falling back to
+                            // DRIVER_ACTION_VERIFY) is no longer needed for this call.
                             final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
-                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
+                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), MemorySegment.NULL, 0, 64, sipData
                             );
                             if(pMember == null || pMember.address() == 0L) {
                                 log.append("CryptCATPutMemberInfo(").append(algName).append(") failed, GetLastError=").append( _lastError() );

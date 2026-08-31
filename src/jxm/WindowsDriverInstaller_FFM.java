@@ -646,6 +646,12 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     // wincrypt.h
     // X509_ENHANCED_KEY_USAGE is a small-integer "predefined" lpszStructType, cast to LPCSTR - not a real string pointer
     private static final int    CERT_X500_NAME_STR         = 3;
+    // Forces CertStrToNameW to encode RDN values as UTF8String (ASN.1 tag 0x0C) instead of its
+    // default choice (BMPString, tag 0x1E) - CI comparison against WindowsDriverInstaller_PS1's
+    // New-SelfSignedCertificate-generated cert showed PS1 uses UTF8String while FFM's
+    // CertStrToNameW defaulted to BMPString encoded with little-endian byte pairs (non-compliant
+    // with X.690's big-endian BMPString requirement, though self-consistent within CryptoAPI).
+    private static final int    CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG = 0x00080000;
     private static final int    CRYPT_ENCODE_ALLOC_FLAG    = 0x8000;
     private static final long   X509_ENHANCED_KEY_USAGE    = 36L;
     private static final String szOID_ENHANCED_KEY_USAGE   = "2.5.29.37";
@@ -781,14 +787,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // 2. Encode the "CN=<providerName>" subject name (CertStrToNameW, two-call size/fill pattern)
                 final MemorySegment subjectStr = _wstr(arena, "CN=" + providerName);
                 final MemorySegment cbSubject  = arena.allocate(ValueLayout.JAVA_INT);
-                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR, MemorySegment.NULL, MemorySegment.NULL, cbSubject, MemorySegment.NULL) == 0 ) {
+                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR | CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG, MemorySegment.NULL, MemorySegment.NULL, cbSubject, MemorySegment.NULL) == 0 ) {
                     log.append("CertStrToNameW (sizing) failed, GetLastError=").append( _lastError() );
                     return RETCODE_EXCEPTION;
                 }
 
                 final int            subjectLen = cbSubject.get(ValueLayout.JAVA_INT, 0);
                 final MemorySegment  subjectBuf = arena.allocate(subjectLen);
-                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR, MemorySegment.NULL, subjectBuf, cbSubject, MemorySegment.NULL) == 0 ) {
+                if( (int) _CertStrToNameW.invoke(X509_ASN_ENCODING, subjectStr, CERT_X500_NAME_STR | CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG, MemorySegment.NULL, subjectBuf, cbSubject, MemorySegment.NULL) == 0 ) {
                     log.append("CertStrToNameW failed, GetLastError=").append( _lastError() );
                     return RETCODE_EXCEPTION;
                 }

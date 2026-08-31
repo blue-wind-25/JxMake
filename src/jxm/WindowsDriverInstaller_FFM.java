@@ -88,6 +88,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static MethodHandle _CertAddCertificateContextToStore;
     private static MethodHandle _CertGetCertificateContextProperty;
     private static MethodHandle _CryptEncodeObjectEx;
+    private static MethodHandle _CryptExportPublicKeyInfo;
+    private static MethodHandle _CryptHashPublicKeyInfo;
     private static MethodHandle _CryptSIPRetrieveSubjectGuid;
     private static MethodHandle _CertDeleteCertificateFromStore;
     private static MethodHandle _LocalFree;
@@ -155,6 +157,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _CertAddCertificateContextToStore  = _bind( linker, crypt32, "CertAddCertificateContextToStore" , FunctionDescriptor.of(DW , PTR, PTR, DW, PTR) );
             _CertGetCertificateContextProperty = _bind( linker, crypt32, "CertGetCertificateContextProperty", FunctionDescriptor.of(DW , PTR, DW, PTR, PTR) );
             _CryptEncodeObjectEx               = _bind( linker, crypt32, "CryptEncodeObjectEx"              , FunctionDescriptor.of(DW , DW, PTR, PTR, DW, PTR, PTR, PTR) );
+            // CryptExportPublicKeyInfo(hCryptProvOrNCryptKey, dwKeySpec, dwCertEncodingType, pInfo, pcbInfo) -
+            // exports the CAPI1 key's SubjectPublicKeyInfo (opaque CERT_PUBLIC_KEY_INFO blob, never decoded
+            // by this code - only handed straight to CryptHashPublicKeyInfo below), two-call size/fill pattern.
+            _CryptExportPublicKeyInfo          = _bind( linker, crypt32, "CryptExportPublicKeyInfo"         , FunctionDescriptor.of(DW , PTR, DW, DW, PTR, PTR) );
+            // CryptHashPublicKeyInfo(hCryptProv, Algid, dwFlags, dwCertEncodingType, pInfo, pbComputedHash,
+            // pcbComputedHash) - hashes a CERT_PUBLIC_KEY_INFO per RFC 5280 SubjectKeyIdentifier method 1
+            // (SHA1 over the encoded SubjectPublicKeyInfo BIT STRING contents), used to build the
+            // X509v3 Subject Key Identifier extension - see createAndTrustProvider.
+            _CryptHashPublicKeyInfo            = _bind( linker, crypt32, "CryptHashPublicKeyInfo"           , FunctionDescriptor.of(DW , PTR, DW, DW, DW, PTR, PTR, PTR) );
             _CryptSIPRetrieveSubjectGuid       = _bind( linker, crypt32, "CryptSIPRetrieveSubjectGuid"      , FunctionDescriptor.of(DW , PTR, PTR, PTR) );
             _CertDeleteCertificateFromStore    = _bind( linker, crypt32, "CertDeleteCertificateFromStore"   , FunctionDescriptor.of(DW , PTR) );
 
@@ -657,6 +668,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String szOID_ENHANCED_KEY_USAGE   = "2.5.29.37";
     private static final String szOID_PKIX_KP_CODE_SIGNING = "1.3.6.1.5.5.7.3.3";
     private static final String szOID_RSA_SHA256RSA        = "1.2.840.113549.1.1.11";
+    private static final String szOID_KEY_USAGE             = "2.5.29.15";
+    private static final String szOID_SUBJECT_KEY_IDENTIFIER = "2.5.29.14";
+    private static final int    CALG_SHA1                  = 0x00008004;
 
     // CRYPT_ATTR_BLOB / CERT_NAME_BLOB (wincrypt.h) : { DWORD cbData; BYTE *pbData; } - size 16, align 8
     private static MemorySegment _blob(final Arena arena, final int cbData, final MemorySegment pbData)
@@ -861,17 +875,74 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 ekuEncoded = ekuEncodedPtrOut.get(PTR, 0);
                 final int ekuEncodedLen = ekuEncodedLenOut.get(ValueLayout.JAVA_INT, 0);
 
+                // 3b. Build the Key Usage (critical, digitalSignature only) and Subject Key Identifier
+                // extensions - CI comparison against WindowsDriverInstaller_PS1's New-SelfSignedCertificate
+                // output showed both present there (Key Usage=critical/Digital Signature, Subject Key
+                // Identifier=SHA1 of SubjectPublicKeyInfo) and absent from FFM's cert entirely; added here
+                // to close that gap, since it's the one remaining structural difference found after the CN
+                // encoding fix (see _derEncodeCNUtf8) still left SetupCopyOEMInfW/pnputil rejecting FFM's
+                // driver package (SPAPI_E_FILE_HASH_NOT_IN_CATALOG) even with a valid, trusted signature.
+                // Both extension VALUEs (KeyUsage BIT STRING, SKI OCTET STRING) are simple enough to
+                // hand-encode directly (reusing _derTLV) rather than going through CryptEncodeObjectEx.
+
+                // KeyUsage ::= BIT STRING - one content byte (0x80 = bit 0 = digitalSignature), 7 unused bits.
+                final byte[] keyUsageDer = _derTLV((byte) 0x03, new byte[]{ 0x07, (byte) 0x80 });
+
+                // SubjectKeyIdentifier ::= KeyIdentifier (OCTET STRING) - RFC 5280 method 1: SHA1 hash of the
+                // encoded SubjectPublicKeyInfo. Export it via CryptExportPublicKeyInfo (opaque blob, never
+                // decoded here) then hash it with CryptHashPublicKeyInfo (two-call size/fill pattern, both).
+                final MemorySegment pubKeyInfoLenOut = arena.allocate(ValueLayout.JAVA_INT);
+                if( (int) _CryptExportPublicKeyInfo.invoke( hProvider, AT_SIGNATURE, X509_ASN_ENCODING, MemorySegment.NULL, pubKeyInfoLenOut ) == 0 ) {
+                    log.append("CryptExportPublicKeyInfo (sizing) failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+                final MemorySegment pubKeyInfo = arena.allocate( pubKeyInfoLenOut.get(ValueLayout.JAVA_INT, 0), 8 );
+                if( (int) _CryptExportPublicKeyInfo.invoke( hProvider, AT_SIGNATURE, X509_ASN_ENCODING, pubKeyInfo, pubKeyInfoLenOut ) == 0 ) {
+                    log.append("CryptExportPublicKeyInfo failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+
+                final MemorySegment skiHashBuf    = arena.allocate(20); // SHA1 = 20 bytes
+                final MemorySegment skiHashLenOut = arena.allocate(ValueLayout.JAVA_INT);
+                skiHashLenOut.set(ValueLayout.JAVA_INT, 0, 20);
+                if( (int) _CryptHashPublicKeyInfo.invoke( hProvider, CALG_SHA1, 0, X509_ASN_ENCODING, pubKeyInfo, skiHashBuf, skiHashLenOut ) == 0 ) {
+                    log.append("CryptHashPublicKeyInfo failed, GetLastError=").append( _lastError() );
+                    return RETCODE_EXCEPTION;
+                }
+                final byte[] skiHash = skiHashBuf.reinterpret( skiHashLenOut.get(ValueLayout.JAVA_INT, 0) ).toArray(ValueLayout.JAVA_BYTE);
+                final byte[] skiDer  = _derTLV((byte) 0x04, skiHash);
+
                 // CERT_EXTENSION : { LPSTR pszObjId; BOOL fCritical; CRYPT_ATTR_BLOB Value; } - size 32, align 8
-                final MemorySegment extension = arena.allocate(32, 8);
-                extension.set( PTR                 ,  0, _astr(arena, szOID_ENHANCED_KEY_USAGE) );
-                extension.set( ValueLayout.JAVA_INT,  8, 0                                      );
-                extension.set( ValueLayout.JAVA_INT, 16, ekuEncodedLen                          );
-                extension.set( PTR                 , 24, ekuEncoded                             );
+                final MemorySegment keyUsageBuf = arena.allocate(keyUsageDer.length);
+                MemorySegment.copy(keyUsageDer, 0, keyUsageBuf, ValueLayout.JAVA_BYTE, 0, keyUsageDer.length);
+                final MemorySegment skiBuf = arena.allocate(skiDer.length);
+                MemorySegment.copy(skiDer, 0, skiBuf, ValueLayout.JAVA_BYTE, 0, skiDer.length);
+
+                // 3 extensions: EKU (Code Signing), Key Usage (critical, Digital Signature), Subject Key Identifier
+                final MemorySegment extensionArr = arena.allocate(32L * 3, 8);
+
+                final MemorySegment ext0 = extensionArr.asSlice(0);
+                ext0.set( PTR                 ,  0, _astr(arena, szOID_ENHANCED_KEY_USAGE) );
+                ext0.set( ValueLayout.JAVA_INT,  8, 0                                      );
+                ext0.set( ValueLayout.JAVA_INT, 16, ekuEncodedLen                          );
+                ext0.set( PTR                 , 24, ekuEncoded                             );
+
+                final MemorySegment ext1 = extensionArr.asSlice(32);
+                ext1.set( PTR                 ,  0, _astr(arena, szOID_KEY_USAGE) );
+                ext1.set( ValueLayout.JAVA_INT,  8, 1 /* critical */             );
+                ext1.set( ValueLayout.JAVA_INT, 16, keyUsageDer.length           );
+                ext1.set( PTR                 , 24, keyUsageBuf                  );
+
+                final MemorySegment ext2 = extensionArr.asSlice(64);
+                ext2.set( PTR                 ,  0, _astr(arena, szOID_SUBJECT_KEY_IDENTIFIER) );
+                ext2.set( ValueLayout.JAVA_INT,  8, 0                                          );
+                ext2.set( ValueLayout.JAVA_INT, 16, skiDer.length                              );
+                ext2.set( PTR                 , 24, skiBuf                                     );
 
                 // CERT_EXTENSIONS : { DWORD cExtension; PCERT_EXTENSION rgExtension; } - size 16, align 8
                 final MemorySegment extensions = arena.allocate(16, 8);
-                extensions.set(ValueLayout.JAVA_INT, 0, 1        );
-                extensions.set(PTR                 , 8, extension);
+                extensions.set(ValueLayout.JAVA_INT, 0, 3           );
+                extensions.set(PTR                 , 8, extensionArr);
 
                 // 4. CRYPT_KEY_PROV_INFO - links the returned cert context back to the CAPI1 key above
                 //    { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags;

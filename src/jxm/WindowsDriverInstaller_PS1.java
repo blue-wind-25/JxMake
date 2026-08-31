@@ -223,7 +223,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "                Remove-Item -Force -ErrorAction SilentlyContinue;                                    \r\n" +
                 "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert -CertStoreLocation 'Cert:\\CurrentUser\\My';\r\n" +
                 "                         Export-Certificate -Cert `$cert -FilePath '%s' | Out-Null;                  \r\n" +
-                "            Add-Content `\"$tmpOutLog`\" (\"CER Test-Path right after export: \" + (Test-Path '%s'));\r\n" +
+                "            Add-Content `\"$tmpOutLog`\" ('CER Test-Path right after export: ' + (Test-Path '%s'));  \r\n" +
                 /*
                  * PFX handoff: live CI proved Cert:\CurrentUser\My (a per-profile store) does not survive
                  * across two independent "Start-Process -Verb RunAs" elevations on this runner - a second,

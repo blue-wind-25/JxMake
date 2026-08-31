@@ -223,7 +223,6 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "                Remove-Item -Force -ErrorAction SilentlyContinue;                                    \r\n" +
                 "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert -CertStoreLocation 'Cert:\\CurrentUser\\My';\r\n" +
                 "                         Export-Certificate -Cert `$cert -FilePath '%s' | Out-Null;                  \r\n" +
-                "            Add-Content `\"$tmpOutLog`\" ('CER Test-Path right after export: ' + (Test-Path '%s'));  \r\n" +
                 /*
                  * PFX handoff: live CI proved Cert:\CurrentUser\My (a per-profile store) does not survive
                  * across two independent "Start-Process -Verb RunAs" elevations on this runner - a second,
@@ -307,7 +306,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "}                                                                                                    \r\n" +
                 "exit $exitCode                                                                                       \r\n" ,
                 providerName, providerName, providerName, providerName, providerName,
-                certFile.toAbsolutePath(), certFile.toAbsolutePath(), pfxPwd, pfxFile.toAbsolutePath(),
+                certFile.toAbsolutePath(), pfxPwd, pfxFile.toAbsolutePath(),
                 certFile.toAbsolutePath(), certFile.toAbsolutePath(),
                 RETCODE_PH_NULL, RETCODE_UAC_DECLINED, RETCODE_EXCEPTION
             );
@@ -327,10 +326,13 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
         }
         finally {
             // Clean up the temporary certificate file
-            try {
-                Files.deleteIfExists(certFile);
-            }
-            catch(final Exception ignored) {}
+            // TEMPORARILY DISABLED for PS1/FFM compare-mode debugging - the compare harness needs
+            // certFile to survive this call so it can be copied out; restore this cleanup once the
+            // comparison investigation is done.
+            // try {
+            //     Files.deleteIfExists(certFile);
+            // }
+            // catch(final Exception ignored) {}
         }
     }
 

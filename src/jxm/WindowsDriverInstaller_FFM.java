@@ -1157,16 +1157,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 //    a real WHQL-issued catalog carries both a SHA1 and a SHA2 <HASH> entry for the same
                 //    file, and SetupCopyOEMInfW's file-hash lookup was found to specifically require the
                 //    SHA1 one (see WindowsDriverInstaller_FFM-Win32API.txt SECTION H "ITEM 5")
-                // (2026-09-01, "cont15") dwPublicVersion=0 (cont14) got PAST SPAPI_E_FILE_HASH_NOT_IN_CATALOG
-                // but then failed with GetLastError=0x800B0001 (TRUST_E_PROVIDER_UNKNOWN) - no trust
-                // provider recognizes a v1/SHA1-only catalog for driver install on this OS. Back to
-                // CRYPTCAT_VERSION_2 header, now paired with dwCertVersion=CRYPTCAT_VERSION_2 at the
-                // member level too (see below) - a proven-working reference library uses v2 at the
-                // member level, not 0, which this file never matched before (round 4 this session
-                // reverted member dwCertVersion to 0 based on a PS1 byte-diff, but PS1 likely uses an
-                // unrelated code path - see the CryptCATPutMemberInfo comment below).
+                // (2026-09-01, "cont16") cont15's v2-header/v2-member/fixed-INF-GUID combo REGRESSED back
+                // to the original SPAPI_E_FILE_HASH_NOT_IN_CATALOG - confirms dwPublicVersion=CRYPTCAT_
+                // VERSION_2 header reproduces that error regardless of member dwCertVersion or subjectGuid.
+                // dwPublicVersion=0 (cont14) is the only header value that ever produced a DIFFERENT error
+                // (TRUST_E_PROVIDER_UNKNOWN), so back to 0 here - now isolating the one variable cont14 vs
+                // cont15 never isolated on its own: the fixed INF-type subjectGuid, paired with the v0
+                // header/v0 member that actually changed behavior.
                 final MemorySegment hCatalog = (MemorySegment) _CryptCATOpen.invoke(
-                    _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, CRYPTCAT_VERSION_2, 0
+                    _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, 0, 0
                 );
                 if(hCatalog == null || hCatalog.address() == 0L || hCatalog.address() == INVALID_HANDLE_VALUE) {
                     log.append("CryptCATOpen failed, GetLastError=").append( _lastError() );
@@ -1226,15 +1225,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                             // tag/hash, and the filename is separately conveyed via the "File" attribute
                             // below.
                             //
-                            // (2026-09-01, "cont15") dwCertVersion=CRYPTCAT_VERSION_2 (back from 0) -
-                            // a proven-working reference library uses v2 at the member level, paired with
-                            // the fixed INF-type subjectGuid above. The earlier PS1 byte-diff that showed
-                            // v2 producing a non-empty "1.3.6.1.4.1.311.12.2.3" attribute vs PS1's empty one
-                            // is presumed to reflect PS1's New-FileCatalog using a different code path
-                            // entirely (not proof that v2 itself is wrong for this API) - the actual live-CI
-                            // failure that round was pgSubject=NULL, a separate variable, not dwCertVersion.
+                            // (2026-09-01, "cont16") dwCertVersion=0 (back from CRYPTCAT_VERSION_2) - see
+                            // the CryptCATOpen comment above: header=v2 reproduces the original
+                            // SPAPI_E_FILE_HASH_NOT_IN_CATALOG regardless of this value, so v0/v0 is the
+                            // only combination that has ever produced different behavior. subjectGuid stays
+                            // the fixed INF-type GUID (not yet tried together with v0/v0).
                             final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
-                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, CRYPTCAT_VERSION_2, 64, sipData
+                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
                             );
                             if(pMember == null || pMember.address() == 0L) {
                                 log.append("CryptCATPutMemberInfo(").append(algName).append(") failed, GetLastError=").append( _lastError() );

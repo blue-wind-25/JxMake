@@ -1553,6 +1553,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
          * to the exact same cmd.exe-with-file-redirection pattern PS1 already proves out, rather than
          * re-adding a second layer of UAC elevation (unnecessary - this method already runs elevated).
          */
+        // TEMPORARILY DISABLED (2026-09-01) - retesting SetupCopyOEMInfW below now that the FFM
+        // cert's Subject/Issuer CN encoding bug (BMPString/little-endian vs PS1's UTF8String) is
+        // fixed, a variable not present during SPAPI_E_FILE_HASH_NOT_IN_CATALOG's original 6 failed
+        // rounds. Kept here, commented out not deleted, in case this needs to be swapped back in.
+        /*
         final Path tmpOutLog = Paths.get( System.getenv("TEMP"), "pnp_out_" + ProcessHandle.current().pid() + ".log" );
 
         try {
@@ -1588,8 +1593,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             log.append("pnputil.exe /add-driver failed to launch: ").append(e);
             return RETCODE_EXCEPTION;
         }
+        */
 
-        /*
         try(
             final Arena arena = Arena.ofConfined()
         ) {
@@ -1658,7 +1663,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             return RETCODE_OK;
         }
-        */
     }
 
 } // WindowsDriverInstaller_FFM

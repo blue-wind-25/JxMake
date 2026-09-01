@@ -31,6 +31,9 @@ import java.nio.file.Paths;
 
 import java.security.SecureRandom;
 
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -992,17 +995,38 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                 // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
                 //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on
-                //    given every other signing/hashing step in this file is deliberately pinned to SHA-256; 1 year validity)
+                //    given every other signing/hashing step in this file is deliberately pinned to SHA-256)
                 //    CRYPT_ALGORITHM_IDENTIFIER : { LPSTR pszObjId; CRYPT_OBJID_BLOB Parameters; } - size 24, align 8
                 final MemorySegment sigAlgId = arena.allocate(24, 8);
                 sigAlgId.set( PTR                 ,  0, _astr(arena, szOID_RSA_SHA256RSA) );
                 sigAlgId.set( ValueLayout.JAVA_INT,  8, 0                                 );
                 sigAlgId.set( PTR                 , 16, MemorySegment.NULL                );
 
+                // pEndTime: pStartTime=NULL below defaults to the current system time, but pEndTime=NULL
+                // would default to just 1 year past that - too short-lived, since this cert's expiry is
+                // also the catalog signature's trust boundary (SignerSignEx below does not timestamp the
+                // signature, so validation is always against the live clock, not sign-time - see
+                // installSelfSignedDriver()'s header comment). 20 years out instead, in UTC to match what
+                // CertCreateSelfSignCertificate expects (per its pStartTime/pEndTime documentation).
+                // SYSTEMTIME : { WORD wYear; WORD wMonth; WORD wDayOfWeek; WORD wDay; WORD wHour;
+                //                WORD wMinute; WORD wSecond; WORD wMilliseconds; } - size 16, align 2
+                // wDayOfWeek is not consulted when a SYSTEMTIME is only ever converted to a FILETIME (as
+                // CertCreateSelfSignCertificate does internally), so it is left 0 here.
+                final ZonedDateTime endUtc  = ZonedDateTime.now(ZoneOffset.UTC).plusYears(20);
+                final MemorySegment endTime = arena.allocate(16, 2);
+                endTime.set( ValueLayout.JAVA_SHORT,  0, (short) endUtc.getYear()       );
+                endTime.set( ValueLayout.JAVA_SHORT,  2, (short) endUtc.getMonthValue() );
+                endTime.set( ValueLayout.JAVA_SHORT,  4, (short) 0                      );
+                endTime.set( ValueLayout.JAVA_SHORT,  6, (short) endUtc.getDayOfMonth() );
+                endTime.set( ValueLayout.JAVA_SHORT,  8, (short) endUtc.getHour()       );
+                endTime.set( ValueLayout.JAVA_SHORT, 10, (short) endUtc.getMinute()     );
+                endTime.set( ValueLayout.JAVA_SHORT, 12, (short) endUtc.getSecond()     );
+                endTime.set( ValueLayout.JAVA_SHORT, 14, (short) 0                      );
+
                 // hCryptProvOrNCryptKey=NULL: pKeyProvInfo above fully describes how to acquire the key,
                 // so CertCreateSelfSignCertificate does not need an already-open handle passed in
                 certCtx = (MemorySegment) _CertCreateSelfSignCertificate.invoke(
-                    MemorySegment.NULL, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, MemorySegment.NULL, extensions
+                    MemorySegment.NULL, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, endTime, extensions
                 );
                 if( certCtx == null || certCtx.address() == 0L ) {
                     log.append("CertCreateSelfSignCertificate failed, GetLastError=").append( _lastError() );

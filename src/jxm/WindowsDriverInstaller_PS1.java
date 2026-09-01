@@ -226,7 +226,8 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                                      \r\n" +
                 "                Remove-Item -Force -ErrorAction SilentlyContinue;                                               \r\n" +
                 "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert                         ``\r\n" +
-                "                         -CertStoreLocation 'Cert:\\CurrentUser\\My';                                           \r\n" +
+                "                         -CertStoreLocation 'Cert:\\CurrentUser\\My'                                          ``\r\n" +
+                "                         -NotAfter (Get-Date).AddYears(20);                                                     \r\n" +
                 "                         Export-Certificate -Cert `$cert -FilePath '%s' | Out-Null;                             \r\n" +
                 /*
                  * PFX handoff: Cert:\CurrentUser\My (a per-profile store) does not reliably survive across

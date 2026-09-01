@@ -71,6 +71,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final AddressLayout     PTR = ValueLayout.ADDRESS;  // Any Win32 handle or pointer type
 
     private static Throwable    _initError;
+    private static Throwable    _isUsableError;
     private static Arena        _arena;
 
     private static MethodHandle _CreateFileW;
@@ -251,10 +252,15 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             .get(captureState, 0L);
     }
 
-    // Diagnostic-only : lets a caller (e.g. a CI test driver) find out WHY isUsable() returned false
-    // due to the static initializer failing, instead of just seeing a bare "false" with no explanation
+    // Diagnostic-only : lets a caller (e.g. a CI test driver) find out WHY isUsable() returned false -
+    // either the static initializer failed (_initError), or isUsable()'s own try block threw (e.g.
+    // Integer.parseInt on an unexpected os.version format) and caught it into _isUsableError below -
+    // instead of just seeing a bare "false" with no explanation
     public static String initErrorDiagnostic()
-    { return _initError == null ? null : _initError.toString(); }
+    {
+        if(_initError != null) return _initError.toString();
+        return _isUsableError == null ? null : _isUsableError.toString();
+    }
 
     @Override
     public boolean isUsable()
@@ -277,7 +283,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 && _ShellExecuteExW != null && _SetupCopyOEMInfW != null && _SetupSetNonInteractiveMode != null
                 && _CM_WaitNoPendingInstallEvents != null;
         }
-        catch(final Throwable ignored) {
+        catch(final Throwable t) {
+            _isUsableError = t;
             return false;
         }
     }
@@ -354,6 +361,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final Arena arena = Arena.ofConfined()
         ) {
             final MemorySegment subject = _wstr(arena, providerName);
+            final StringBuilder log     = new StringBuilder();
 
             for( final String storeName : new String[]{ "Root", "TrustedPublisher" } ) {
 
@@ -361,7 +369,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     _handleOf(CERT_STORE_PROV_SYSTEM_W), 0, MemorySegment.NULL, CERT_SYSTEM_STORE_LOCAL_MACHINE, _wstr(arena, storeName)
                 );
 
-                if(hStore == null || hStore.address() == 0L) continue;
+                if(hStore == null || hStore.address() == 0L) {
+                    // Not necessarily an error - e.g. TrustedPublisher may not exist until something is
+                    // added to it - but worth surfacing, since a genuine CertOpenStore failure here would
+                    // otherwise silently fall through as "not trusted yet" with no explanation.
+                    log.append("CertOpenStore(").append(storeName).append(") returned NULL, GetLastError=")
+                       .append( _lastError() ).append('\n');
+                    continue;
+                }
 
                 try {
                     final MemorySegment found = (MemorySegment) _CertFindCertificateInStore.invoke(
@@ -378,7 +393,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             } // for
 
-            return new XCom.Pair<Integer, String>(RETCODE_OK, ""); // Not trusted yet
+            return new XCom.Pair<Integer, String>(RETCODE_OK, log.toString()); // Not trusted yet
 
         }
         catch(final Throwable t) {
@@ -495,14 +510,18 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             final MemorySegment hProcess = sei.get(PTR, SEI_hProcess);
             if(hProcess == null || hProcess.address() == 0L) {
-                return new XCom.Pair<Integer, String>( RETCODE_PH_NULL, "ShellExecuteExW returned no process handle" );
+                // SEE_MASK_NOCLOSEPROCESS above should always populate hProcess once ShellExecuteExW itself
+                // reports success (ok != 0), so GetLastError() here is likely stale from an earlier call -
+                // still logged, since it's the only extra clue available if this is ever actually hit.
+                return new XCom.Pair<Integer, String>( RETCODE_PH_NULL, "ShellExecuteExW returned no process handle, GetLastError=" + _lastError() );
             }
 
             try {
                 final int waitResult = (int) _WaitForSingleObject.invoke(hProcess, waitTimeMinutes * 60_000);
                 if(waitResult == WAIT_TIMEOUT) {
                     _TerminateProcess.invoke(hProcess, 1);
-                    return new XCom.Pair<Integer, String>( RETCODE_TIMEOUT, String.format(Texts.EMsg_WDriverInstallTimeoutMN, waitTimeMinutes) );
+                    return new XCom.Pair<Integer, String>( RETCODE_TIMEOUT,
+                        String.format(Texts.EMsg_WDriverInstallTimeoutMN, waitTimeMinutes) + " (file=" + file + ", params=" + params + ")" );
                 }
 
                 final MemorySegment exitCodeOut = arena.allocate(ValueLayout.JAVA_INT);
@@ -634,6 +653,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             }
         }
         catch(final Throwable t) {
+            // Matches WindowsDriverInstaller_PS1's public methods, which all gate a full stack trace
+            // behind this same flag - useful here since this is the outermost catch for the elevated
+            // child, and log.append(t) alone only ever carries the exception's toString(), not its cause
+            // chain or where it was thrown from.
+            if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
             log.append(t);
             exitCode = RETCODE_EXCEPTION;
         }
@@ -814,7 +838,8 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                 // CertDeleteCertificateFromStore always frees the passed certificate context, whether it succeeds or fails
                 if( (int) _CertDeleteCertificateFromStore.invoke(cert) == 0 ) {
-                    log.append("CertDeleteCertificateFromStore(").append(storeName).append(") failed, GetLastError=").append( _lastError() ).append('\n');
+                    log.append("CertDeleteCertificateFromStore(").append(storeName).append(", providerName=").append(providerName)
+                       .append(") failed, GetLastError=").append( _lastError() ).append('\n');
                 }
             }
         }

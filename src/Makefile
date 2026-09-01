@@ -96,14 +96,17 @@ CP_RUN            := -cp ".$(CP_ALL)"
 CP_JDS            := --class-path ".$(CP_ALL)"
 
 # `javac` (unlike `$(JVM)` above) is routed through `../util/cp_run.sh` instead of a pre-joined `;`-string.
+#
 # The JVM's `-cp` never showed the problem (it's only ever used interactively/in test targets on Linux), but
 # the Windows CI javac invocation started failing with `-Xlint:path Invalid filename` warnings under
 # `-Werror` even though the `;`-joined + quoted classpath is correct at the Make level (verified with
 # `OS=Windows_NT make -p`) - the mangling happens downstream, most likely in native GNU Make for Windows'
 # own command-line reconstruction before handing the recipe to the child shell, which has known quoting
-# quirks with a quoted argument containing `;`. `cp_run.sh` sidesteps all of that: `make` only ever has to pass
-# it plain space-separated classpath entries (its native list form, no separator/quoting involved), and the
-# `;`/`:` joining happens inside a real bash process instead.
+# quirks with a quoted argument containing `;`.
+#
+# `cp_run.sh` sidesteps all of that: `make` only ever has to pass it plain space-separated classpath entries
+# (its native list form, no separator/quoting involved), and the  `;`/`:` joining happens inside a real bash
+# process instead.
 CP_JAVAC_ENTRIES  := . $(CP_CUSTOM_LIST) $(CP_VENDOR_LIST)
 
 JDK_PATH_8        ?= /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64

@@ -61,6 +61,29 @@ public abstract class WindowsDriverInstaller {
         }
     }
 
+    // If set and not zero, force-instantiate the FFM backend even if isUsable() reports false - a
+    // diagnostic override for the opposite case from ALWAYS_USE_PS1 above: isUsable()'s checks (OS
+    // version string parsing, every native handle resolving) can be overcautious or wrong on a given
+    // machine even though FFM would actually work there - see initErrorDiagnostic() on
+    // WindowsDriverInstaller_FFM for reporting why isUsable() said no. Class.forName()/newInstance()
+    // below can still throw (ClassNotFoundException if the JAR was built with FFM excluded,
+    // UnsupportedClassVersionError if the JVM is too old to load the class at all) regardless of this
+    // flag - those are unrelated to isUsable() and still caught the same way.
+    public static final boolean ALWAYS_USE_FFM = shouldAlwaysUseFFM();
+
+    private static boolean shouldAlwaysUseFFM()
+    {
+        final String env = System.getenv("JXMAKE_WDI_ALWAYS_USE_FFM");
+        if( env == null || env.isEmpty() ) return false;
+
+        try {
+            return Integer.parseInt(env) > 0;
+        }
+        catch(final NumberFormatException ignored) {
+            return false;
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /*
@@ -75,7 +98,10 @@ public abstract class WindowsDriverInstaller {
      * to WindowsDriverInstaller_PS1 for now, regardless of JVM/OS version.
      *
      * JXMAKE_WDI_ALWAYS_USE_PS1 (see ALWAYS_USE_PS1 above) skips the FFM attempt entirely when set,
-     * regardless of what isUsable() would have reported.
+     * regardless of what isUsable() would have reported. JXMAKE_WDI_ALWAYS_USE_FFM (see ALWAYS_USE_FFM
+     * above) does the opposite - returns the FFM instance even if isUsable() reports false - though the
+     * class still has to actually load first, so a JAR built with FFM excluded or too old a JVM still
+     * falls through to PS1 either way.
      */
     public static WindowsDriverInstaller create()
     {
@@ -87,7 +113,7 @@ public abstract class WindowsDriverInstaller {
 
                 if( (instance instanceof WindowsDriverInstaller) ) {
                     final WindowsDriverInstaller wdiInst = (WindowsDriverInstaller) instance;
-                    if( wdiInst.isUsable() ) return wdiInst;
+                    if( ALWAYS_USE_FFM || wdiInst.isUsable() ) return wdiInst;
                 }
 
             }

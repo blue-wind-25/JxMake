@@ -41,11 +41,15 @@ public abstract class WindowsDriverInstaller {
 
     protected static final String PROVIDER_NAME = "JxMake_WindowsDriverInstaller";
 
-    // If set and not zero, never use the FFM backend, even if isUsable() reports true - an escape
-    // hatch for the case where isUsable() succeeds but some later FFM operation (e.g. installDriver())
-    // still fails/hangs on a particular machine, since that failure can't itself trigger a PS1 fallback
-    // (see create()'s caller - by the time an operation fails, a single backend instance is already
-    // committed to). Matches com.intellectualsites.http.HttpRequest.ALWAYS_USE_LEGACY_HTTP's convention.
+    /*
+     * If set and not zero, never use the FFM backend, even when isUsable() reports true.
+     *
+     * This is an escape hatch for the case where isUsable() succeeds but some later FFM operation, such
+     * as installDriver(), still fails or hangs on a particular machine.
+     *
+     * That kind of failure can't trigger a PS1 fallback on its own, since by the time an operation fails,
+     * create()'s caller is already committed to a single backend instance.
+     */
     public static final boolean ALWAYS_USE_PS1 = shouldAlwaysUsePS1();
 
     private static boolean shouldAlwaysUsePS1()
@@ -61,14 +65,22 @@ public abstract class WindowsDriverInstaller {
         }
     }
 
-    // If set and not zero, force-instantiate the FFM backend even if isUsable() reports false - a
-    // diagnostic override for the opposite case from ALWAYS_USE_PS1 above: isUsable()'s checks (OS
-    // version string parsing, every native handle resolving) can be overcautious or wrong on a given
-    // machine even though FFM would actually work there - see initErrorDiagnostic() on
-    // WindowsDriverInstaller_FFM for reporting why isUsable() said no. Class.forName()/newInstance()
-    // below can still throw (ClassNotFoundException if the JAR was built with FFM excluded,
-    // UnsupportedClassVersionError if the JVM is too old to load the class at all) regardless of this
-    // flag - those are unrelated to isUsable() and still caught the same way.
+    /*
+     * If set and not zero, force-instantiate the FFM backend even when isUsable() reports false.
+     *
+     * This is a diagnostic override for the opposite case from ALWAYS_USE_PS1 above.
+     *
+     * The checks isUsable() runs, such as parsing the OS version string or confirming every native
+     * handle resolved, can be overcautious or simply wrong on a given machine even though FFM would
+     * actually work there. See WindowsDriverInstaller_FFM's initErrorDiagnostic method for reporting
+     * why isUsable() said no.
+     *
+     * Loading the FFM class itself is unaffected by this flag.
+     *
+     * A ClassNotFoundException, thrown when the JAR was built with FFM excluded, or an UnsupportedClassVersionError,
+     * thrown when the JVM is too old to load the class at all, are both unrelated to isUsable() and
+     * still caught the same way.
+     */
     public static final boolean ALWAYS_USE_FFM = shouldAlwaysUseFFM();
 
     private static boolean shouldAlwaysUseFFM()
@@ -88,20 +100,21 @@ public abstract class WindowsDriverInstaller {
 
     /*
      * Factory method - prefers the Java 25+ FFM backend over the PowerShell backend when usable,
-     * since it avoids spawning powershell.exe/UAC-elevated child processes for every operation. The
-     * FFM class name is looked up by string (never referenced by type) because a JAR built with an
+     * since it avoids spawning powershell.exe/UAC-elevated child processes for every operation.
+     *
+     * The FFM class name is looked up by string (never referenced by type) because a JAR built with an
      * older Java version will not contain that class at all - see the 'ExcludeFFM' Makefile logic.
      *
-     * As of this writing, WindowsDriverInstaller_FFM.isUsable() is hardcoded to always return false
-     * (its installDriver() hangs indefinitely on at least one CI runner - see "SECTION G - CI
-     * Investigation Log" in WindowsDriverInstaller_FFM-Win32API.txt), so this always falls through
-     * to WindowsDriverInstaller_PS1 for now, regardless of JVM/OS version.
+     * WindowsDriverInstaller_FFM.isUsable() checks the init error state, the OS name/version, and that
+     * every native handle this backend relies on resolved - see that method and WindowsDriverInstaller_FFM-Win32API.txt
+     * for the history of problems solved to get this backend working end-to-end.
      *
-     * JXMAKE_WDI_ALWAYS_USE_PS1 (see ALWAYS_USE_PS1 above) skips the FFM attempt entirely when set,
-     * regardless of what isUsable() would have reported. JXMAKE_WDI_ALWAYS_USE_FFM (see ALWAYS_USE_FFM
-     * above) does the opposite - returns the FFM instance even if isUsable() reports false - though the
-     * class still has to actually load first, so a JAR built with FFM excluded or too old a JVM still
-     * falls through to PS1 either way.
+     * JXMAKE_WDI_ALWAYS_USE_PS1, see ALWAYS_USE_PS1 above, skips the FFM attempt entirely when set,
+     * regardless of what isUsable() would have reported.
+     *
+     * JXMAKE_WDI_ALWAYS_USE_FFM, see ALWAYS_USE_FFM above, does the opposite: it returns the FFM instance
+     * even when isUsable() reports false, though the class still has to actually load first, so a JAR
+     * built with FFM excluded or too old a JVM still falls through to PS1 either way.
      */
     public static WindowsDriverInstaller create()
     {

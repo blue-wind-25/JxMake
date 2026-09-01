@@ -372,7 +372,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 if(hStore == null || hStore.address() == 0L) {
                     // Not necessarily an error - e.g. TrustedPublisher may not exist until something is
                     // added to it - but worth surfacing, since a genuine CertOpenStore failure here would
-                    // otherwise silently fall through as "not trusted yet" with no explanation.
+                    // otherwise silently fall through as "not trusted yet" with no explanation
                     log.append("CertOpenStore(").append(storeName).append(") returned NULL, GetLastError=")
                        .append( _lastError() ).append('\n');
                     continue;
@@ -393,7 +393,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             } // for
 
-            return new XCom.Pair<Integer, String>(RETCODE_OK, log.toString()); // Not trusted yet
+            return new XCom.Pair<Integer, String>( RETCODE_OK, log.toString() ); // Not trusted yet
 
         }
         catch(final Throwable t) {
@@ -426,7 +426,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     {
         // Overrides WindowsDriverInstaller's default 3-separate-elevated-calls sequence: this backend can
         // relaunch itself elevated once and run trust+sign+install all inside that single elevated child
-        // (see _elevatedInstallSelfSignedDriver() below), so the end user only ever sees one UAC prompt.
+        // - see _elevatedInstallSelfSignedDriver() below, so the end user only ever sees one UAC prompt.
 
         try {
             return _runElevatedSelf("all", new String[]{ infPath, providerName }, 5);
@@ -512,7 +512,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             if(hProcess == null || hProcess.address() == 0L) {
                 // SEE_MASK_NOCLOSEPROCESS above should always populate hProcess once ShellExecuteExW itself
                 // reports success (ok != 0), so GetLastError() here is likely stale from an earlier call -
-                // still logged, since it's the only extra clue available if this is ever actually hit.
+                // still logged, since it's the only extra clue available if this is ever actually hit
                 return new XCom.Pair<Integer, String>( RETCODE_PH_NULL, "ShellExecuteExW returned no process handle, GetLastError=" + _lastError() );
             }
 
@@ -520,8 +520,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 final int waitResult = (int) _WaitForSingleObject.invoke(hProcess, waitTimeMinutes * 60_000);
                 if(waitResult == WAIT_TIMEOUT) {
                     _TerminateProcess.invoke(hProcess, 1);
-                    return new XCom.Pair<Integer, String>( RETCODE_TIMEOUT,
-                        String.format(Texts.EMsg_WDriverInstallTimeoutMN, waitTimeMinutes) + " (file=" + file + ", params=" + params + ")" );
+                    return new XCom.Pair<Integer, String>(
+                        RETCODE_TIMEOUT,
+                        String.format(Texts.EMsg_WDriverInstallTimeoutMN, waitTimeMinutes) + " (file=" + file + ", params=" + params + ")"
+                    );
                 }
 
                 final MemorySegment exitCodeOut = arena.allocate(ValueLayout.JAVA_INT);
@@ -656,7 +658,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // Matches WindowsDriverInstaller_PS1's public methods, which all gate a full stack trace
             // behind this same flag - useful here since this is the outermost catch for the elevated
             // child, and log.append(t) alone only ever carries the exception's toString(), not its cause
-            // chain or where it was thrown from.
+            // chain or where it was thrown from
             if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
             log.append(t);
             exitCode = RETCODE_EXCEPTION;

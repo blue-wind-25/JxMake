@@ -36,6 +36,8 @@ JXMAKE_RESET_PULSE_TIME_MS    - if not set, the default value is  250
 
 JXMAKE_ALWAYS_USE_LEGACY_HTTP - if set and not zero, never use HttpClient, even if available
 
+JXMAKE_WDI_ALWAYS_USE_PS1     - if set and not zero, never use the FFM backend, even if usable
+
 
 ----------------------------------------------------------------------------------------------------
 Serial Port Access in MacOS

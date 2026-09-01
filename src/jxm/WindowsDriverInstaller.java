@@ -41,6 +41,26 @@ public abstract class WindowsDriverInstaller {
 
     protected static final String PROVIDER_NAME = "JxMake_WindowsDriverInstaller";
 
+    // If set and not zero, never use the FFM backend, even if isUsable() reports true - an escape
+    // hatch for the case where isUsable() succeeds but some later FFM operation (e.g. installDriver())
+    // still fails/hangs on a particular machine, since that failure can't itself trigger a PS1 fallback
+    // (see create()'s caller - by the time an operation fails, a single backend instance is already
+    // committed to). Matches com.intellectualsites.http.HttpRequest.ALWAYS_USE_LEGACY_HTTP's convention.
+    public static final boolean ALWAYS_USE_PS1 = shouldAlwaysUsePS1();
+
+    private static boolean shouldAlwaysUsePS1()
+    {
+        final String env = System.getenv("JXMAKE_WDI_ALWAYS_USE_PS1");
+        if( env == null || env.isEmpty() ) return false;
+
+        try {
+            return Integer.parseInt(env) > 0;
+        }
+        catch(final NumberFormatException ignored) {
+            return false;
+        }
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /*
@@ -53,22 +73,27 @@ public abstract class WindowsDriverInstaller {
      * (its installDriver() hangs indefinitely on at least one CI runner - see "SECTION G - CI
      * Investigation Log" in WindowsDriverInstaller_FFM-Win32API.txt), so this always falls through
      * to WindowsDriverInstaller_PS1 for now, regardless of JVM/OS version.
+     *
+     * JXMAKE_WDI_ALWAYS_USE_PS1 (see ALWAYS_USE_PS1 above) skips the FFM attempt entirely when set,
+     * regardless of what isUsable() would have reported.
      */
     public static WindowsDriverInstaller create()
     {
-        try {
+        if( !ALWAYS_USE_PS1 ) {
+            try {
 
-            final Class<?> ffmClass = Class.forName("jxm.WindowsDriverInstaller_FFM");
-            final Object   instance = ffmClass.getDeclaredConstructor().newInstance();
+                final Class<?> ffmClass = Class.forName("jxm.WindowsDriverInstaller_FFM");
+                final Object   instance = ffmClass.getDeclaredConstructor().newInstance();
 
-            if( (instance instanceof WindowsDriverInstaller) ) {
-                final WindowsDriverInstaller wdiInst = (WindowsDriverInstaller) instance;
-                if( wdiInst.isUsable() ) return wdiInst;
+                if( (instance instanceof WindowsDriverInstaller) ) {
+                    final WindowsDriverInstaller wdiInst = (WindowsDriverInstaller) instance;
+                    if( wdiInst.isUsable() ) return wdiInst;
+                }
+
             }
-
-        }
-        catch(final Throwable ignored) {
-            // Catch ClassNotFoundException, UnsupportedClassVersionError, and other LinkageErrors
+            catch(final Throwable ignored) {
+                // Catch ClassNotFoundException, UnsupportedClassVersionError, and other LinkageErrors
+            }
         }
 
         final WindowsDriverInstaller wdiInst = new WindowsDriverInstaller_PS1();

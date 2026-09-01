@@ -168,11 +168,13 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
     {
         /*
          * See the PFX handoff note below (just above the Export() line) for why this file exists at all - it
-         * deliberately outlives this method call, to be picked up by createAndSignCatalog() later, so it is
-         * NOT cleaned up in this method's own finally block below (unlike certFile).
+         * deliberately outlives this method call, to be picked up by createAndSignCatalog() later.
          *
          * Delete any leftover one from a previous createAndTrustProvider() call that was never followed by a
-         * createAndSignCatalog() call, so it doesn't linger indefinitely holding a private key.
+         * createAndSignCatalog() call, so it doesn't linger indefinitely holding a private key. certFile (the
+         * public-only .cer, matching WindowsDriverInstaller_FFM's equivalent) is not similarly cleaned up
+         * here or on a leftover basis - it holds no private key, and callers (e.g. the CI compare-mode
+         * harness) rely on it still being there after this method returns.
          */
 
         final Path   certFile = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".cer" );
@@ -321,13 +323,6 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
             if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
             // Return error
             return new XCom.Pair<Integer, String>( RETCODE_EXCEPTION, e.toString() );
-        }
-        finally {
-            // Clean up the temporary certificate file
-            try {
-                Files.deleteIfExists(certFile);
-            }
-            catch(final Exception ignored) {}
         }
     }
 

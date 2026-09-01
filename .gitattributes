@@ -3,11 +3,16 @@
 *.java     text eol=lf
 *.java.in  text eol=lf
 *.java.inc text eol=lf
+*.md       text eol=lf
 
-# wdi_sideload_fixtures_ffm/ and wdi_sideload_fixtures_ps1/ hold no committed fixture files (see the
-# README.md in each) - only this binary marker is left in place so that if a cert/.cat/.inf is ever
-# placed there locally for a manual sideload run, its exact bytes (CRLFs included - a .cat's
-# signature is computed over the INF's exact CRLFs as generated on Windows) aren't disturbed by a
-# CRLF/LF rewrite.
-.github/workflows/wdi_sideload_fixtures_ffm/* binary
-.github/workflows/wdi_sideload_fixtures_ps1/* binary
+# wdi_sideload_fixtures_ffm and wdi_sideload_fixtures_ps1 hold fixture files (see the README.md
+# in each) - only this binary marker is left in place so that if a cert/.cat/.inf is ever placed
+# there for a manual sideload run, its exact bytes (CRLFs included - a .cat's signature is computed
+# over the INF's exact CRLFs as generated on Windows) aren't disturbed by a CRLF/LF rewrite.
+.github/workflows/wdi_sideload_fixtures_ffm/*.cat binary
+.github/workflows/wdi_sideload_fixtures_ffm/*.cer binary
+.github/workflows/wdi_sideload_fixtures_ffm/*.inf binary
+
+.github/workflows/wdi_sideload_fixtures_ps1/*.cat binary
+.github/workflows/wdi_sideload_fixtures_ps1/*.cer binary
+.github/workflows/wdi_sideload_fixtures_ps1/*.inf binary

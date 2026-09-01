@@ -16,14 +16,6 @@ This file has two parts:
            resolved). This project's driver install/signing pipeline is fully working end-to-end as
            of the entry below; Part B is kept brief and is not an ongoing investigation log.
 
-Consulted-but-not-copied reference: pbatard/libwdi (https://github.com/pbatard/libwdi/tree/master/libwdi,
-Copyright (c) 2010-2022 Pete Batard <pete@akeo.ie>, GNU LGPL version 3 or later) was read, read-only,
-to see how another open-source driver installer calls some of these same documented Microsoft Win32
-APIs (e.g. SetupCopyOEMInfW's OEMSourceMediaType usage). No source code from that project is
-reproduced, adapted, or copied anywhere in this project - every binding, struct layout, and comment
-below was written from scratch against Microsoft's own reference pages and this project's own CI
-results.
-
 Where a detail was confirmed against Microsoft's own reference pages, it is marked VERIFIED with a
 Source: line. Where something instead has to be reconstructed because Microsoft does not document
 it, it is marked RECONSTRUCTED / INFERRED, with brief reasoning.
@@ -50,10 +42,17 @@ convention on Windows already matches), except SetupCopyOEMInfW, which is bound 
 `Linker.Option.captureCallState("GetLastError")` (see its entry in Part A, Section F).
 
 DISCLAIMER:
-    Nothing in this file is copied or paraphrased from Microsoft's text - every description below is
-    written from scratch, using the SDK reference pages only to check facts (function/struct member
-    existence, order, size, and behavior), not as source text.
-
+    1. Nothing in this file is copied or paraphrased from Microsoft's text - every description below
+       is written from scratch, using the SDK reference pages only to check facts (function/struct
+       member existence, order, size, and behavior), not as source text.
+    2. Consulted-but-not-copied reference:
+           pbatard/libwdi (https://github.com/pbatard/libwdi/tree/master/libwdi,
+           Copyright (C) 2010-2022 Pete Batard <pete@akeo.ie>, GNU LGPL version 3 or later)
+       was read, read-only, to see how another open-source driver installer calls some of these same
+       documented Microsoft Win32 APIs (e.g. SetupCopyOEMInfW's OEMSourceMediaType usage). No source
+       code from that project is reproduced, adapted, or copied anywhere in this project - every
+       binding, struct layout, and comment below was written from scratch against Microsoft's own
+       reference pages and this project's own CI results.
 
 ====================================================================================================
 PART A - API REFERENCE
@@ -211,15 +210,15 @@ Notes:
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SHELLEXECUTEINFOW - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfow
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ns-shellapi-shellexecuteinfow
 
-Fields : cbSize(0,DWORD) fMask(4,DWORD) hwnd(8,HWND) lpVerb(16,LPCWSTR) lpFile(24,LPCWSTR)
-         lpParameters(32,LPCWSTR) lpDirectory(40,LPCWSTR) nShow(48,int) hInstApp(56,HINSTANCE)
-         lpIDList(64,void*) lpClass(72,LPCWSTR) hkeyClass(80,HKEY) dwHotKey(88,DWORD)
-         hIcon/hMonitor(96,HANDLE) hProcess(104,HANDLE)
-Size   : 112 bytes, 8-byte aligned (x64).
-Purpose: Describes a shell "verb" invocation plus window-state to launch it with, and receives back a
-         process handle.
+Fields    : cbSize(0,DWORD) fMask(4,DWORD) hwnd(8,HWND) lpVerb(16,LPCWSTR) lpFile(24,LPCWSTR)
+            lpParameters(32,LPCWSTR) lpDirectory(40,LPCWSTR) nShow(48,int) hInstApp(56,HINSTANCE)
+            lpIDList(64,void*) lpClass(72,LPCWSTR) hkeyClass(80,HKEY) dwHotKey(88,DWORD)
+            hIcon/hMonitor(96,HANDLE) hProcess(104,HANDLE)
+Size      : 112 bytes, 8-byte aligned (x64).
+Purpose   : Describes a shell "verb" invocation plus window-state to launch it with, and receives back a
+            process handle.
 
 FFM notes : Built by hand in `_shellExecuteElevatedAndWait` via `arena.allocate(SEI_SIZE, 8)` and
             explicit `.set(...)` calls at each SEI_* offset - no reusable StructLayout object, just
@@ -447,11 +446,11 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR, PTR, PTR)`. The binding and the fie
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ATTR_BLOB / CERT_NAME_BLOB (generic CRYPTOAPI_BLOB shape) - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attr_blob
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attr_blob
 
-Fields : cbData (0, DWORD), pbData (8, BYTE*)
-Size   : 16 bytes, 8-byte aligned (4-byte padding between cbData and pbData).
-Purpose: The universal "counted byte buffer" shape Crypt32 uses everywhere.
+Fields    : cbData (0, DWORD), pbData (8, BYTE*)
+Size      : 16 bytes, 8-byte aligned (4-byte padding between cbData and pbData).
+Purpose   : The universal "counted byte buffer" shape Crypt32 uses everywhere.
 
 FFM notes : Built by the private `_blob(arena, cbData, pbData)` helper. Used for the subject name
             blob passed into CertCreateSelfSignCertificate.
@@ -459,12 +458,12 @@ FFM notes : Built by the private `_blob(arena, cbData, pbData)` helper. Used for
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CERT_ENHKEY_USAGE - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_enhkey_usage
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_enhkey_usage
 
-Fields : cUsageIdentifier (0, DWORD), rgpszUsageIdentifier (8, LPSTR* array)
-Size   : 16 bytes, 8-byte aligned.
-Purpose: Lists Enhanced Key Usage OIDs - here, a single-entry array holding only "Code Signing"
-         (1.3.6.1.5.5.7.3.3).
+Fields    : cUsageIdentifier (0, DWORD), rgpszUsageIdentifier (8, LPSTR* array)
+Size      : 16 bytes, 8-byte aligned.
+Purpose   : Lists Enhanced Key Usage OIDs - here, a single-entry array holding only "Code Signing"
+            (1.3.6.1.5.5.7.3.3).
 
 FFM notes : Built inline in `_elevatedCreateAndTrustProvider` as `ekuStruct`; `oidArray` is a
             1-element PTR array holding the ASCII OID string, passed to CryptEncodeObjectEx with
@@ -473,12 +472,12 @@ FFM notes : Built inline in `_elevatedCreateAndTrustProvider` as `ekuStruct`; `o
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CERT_EXTENSION - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extension
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extension
 
-Fields : pszObjId (0, LPSTR), fCritical (8, BOOL), Value (16, CRYPT_ATTR_BLOB)
-Size   : 32 bytes, 8-byte aligned.
-Purpose: One X.509 extension entry - wraps the DER-encoded EKU payload under OID
-         szOID_ENHANCED_KEY_USAGE ("2.5.29.37").
+Fields    : pszObjId (0, LPSTR), fCritical (8, BOOL), Value (16, CRYPT_ATTR_BLOB)
+Size      : 32 bytes, 8-byte aligned.
+Purpose   : One X.509 extension entry - wraps the DER-encoded EKU payload under OID
+            szOID_ENHANCED_KEY_USAGE ("2.5.29.37").
 
 FFM notes : fCritical = 0 (not critical) - a verifier that doesn't understand this extension may
             ignore it rather than reject the whole certificate.
@@ -486,24 +485,24 @@ FFM notes : fCritical = 0 (not critical) - a verifier that doesn't understand th
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CERT_EXTENSIONS - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extensions
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_extensions
 
-Fields : cExtension (0, DWORD), rgExtension (8, PCERT_EXTENSION array)
-Size   : 16 bytes, 8-byte aligned.
-Purpose: The array wrapper CertCreateSelfSignCertificate's pExtensions expects - always a
-         single-element array here.
+Fields    : cExtension (0, DWORD), rgExtension (8, PCERT_EXTENSION array)
+Size      : 16 bytes, 8-byte aligned.
+Purpose   : The array wrapper CertCreateSelfSignCertificate's pExtensions expects - always a
+            single-element array here.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_KEY_PROV_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_key_prov_info
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_key_prov_info
 
-Fields : pwszContainerName (0, LPWSTR), pwszProvName (8, LPWSTR), dwProvType (16, DWORD), dwFlags
-         (20, DWORD), cProvParam (24, DWORD), rgProvParam (32, PCRYPT_KEY_PROV_PARAM, unused ->
-         NULL), dwKeySpec (40, DWORD)
-Size   : 48 bytes, 8-byte aligned.
-Purpose: Tells CertCreateSelfSignCertificate (and later readers of CERT_KEY_PROV_INFO_PROP_ID) which
-         provider/key container the certificate's private key lives in.
+Fields    : pwszContainerName (0, LPWSTR), pwszProvName (8, LPWSTR), dwProvType (16, DWORD), dwFlags
+            (20, DWORD), cProvParam (24, DWORD), rgProvParam (32, PCRYPT_KEY_PROV_PARAM, unused ->
+            NULL), dwKeySpec (40, DWORD)
+Size      : 48 bytes, 8-byte aligned.
+Purpose   : Tells CertCreateSelfSignCertificate (and later readers of CERT_KEY_PROV_INFO_PROP_ID) which
+            provider/key container the certificate's private key lives in.
 
 FFM notes : pwszProvName = NULL (default RSA Full CSP), dwProvType = PROV_RSA_FULL(1), dwFlags =
             CRYPT_MACHINE_KEYSET(0x20), dwKeySpec = AT_SIGNATURE(2) - the combination for a private
@@ -513,11 +512,11 @@ FFM notes : pwszProvName = NULL (default RSA Full CSP), dwProvType = PROV_RSA_FU
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ALGORITHM_IDENTIFIER - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_algorithm_identifier
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_algorithm_identifier
 
-Fields : pszObjId (0, LPSTR), Parameters (8, CRYPT_OBJID_BLOB)
-Size   : 24 bytes, 8-byte aligned.
-Purpose: Identifies a signature/hash algorithm by OID.
+Fields    : pszObjId (0, LPSTR), Parameters (8, CRYPT_OBJID_BLOB)
+Size      : 24 bytes, 8-byte aligned.
+Purpose   : Identifies a signature/hash algorithm by OID.
 
 FFM notes : Used once, as `sigAlgId`, to force CertCreateSelfSignCertificate's signature algorithm to
             SHA256RSA (OID "1.2.840.113549.1.1.11"). Parameters is empty (cbData=0, pbData=NULL),
@@ -526,13 +525,13 @@ FFM notes : Used once, as `sigAlgId`, to force CertCreateSelfSignCertificate's s
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CERT_CONTEXT (partial - reinterpret only) - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_context
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-cert_context
 
-Fields : dwCertEncodingType (0, DWORD), pbCertEncoded (8, BYTE*), cbCertEncoded (16, DWORD),
-         pCertInfo (24, PCERT_INFO), hCertStore (32, HCERTSTORE)
-Size   : 40 bytes, 8-byte aligned.
-Purpose: The structure behind every PCCERT_CONTEXT handle; only used here to pull the raw DER bytes
-         back out of an already-created certificate.
+Fields    : dwCertEncodingType (0, DWORD), pbCertEncoded (8, BYTE*), cbCertEncoded (16, DWORD),
+            pCertInfo (24, PCERT_INFO), hCertStore (32, HCERTSTORE)
+Size      : 40 bytes, 8-byte aligned.
+Purpose   : The structure behind every PCCERT_CONTEXT handle; only used here to pull the raw DER bytes
+            back out of an already-created certificate.
 
 FFM notes : The code never allocates this struct - it calls `certCtx.reinterpret(40)` on the
             MemorySegment CertCreateSelfSignCertificate returned, purely to read
@@ -861,12 +860,12 @@ FFM notes  : `FunctionDescriptor.of(PTR, PTR, PTR, PTR, DW, DW, PTR)`. Called on
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: GUID - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : general, stable Win32 knowledge (guiddef.h);
-         https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
+Source    : general, stable Win32 knowledge (guiddef.h);
+            https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
 
-Fields : Data1 (0, DWORD), Data2 (4, WORD), Data3 (6, WORD), Data4 (8, BYTE[8])
-Size   : 16 bytes, 4-byte aligned (not 8 - no pointer-sized fields).
-Purpose: The standard 128-bit Windows GUID/UUID representation.
+Fields    : Data1 (0, DWORD), Data2 (4, WORD), Data3 (6, WORD), Data4 (8, BYTE[8])
+Size      : 16 bytes, 4-byte aligned (not 8 - no pointer-sized fields).
+Purpose   : The standard 128-bit Windows GUID/UUID representation.
 
 FFM notes : Built by the private `_guid(arena, long[] parts)` helper (11-element long[]: Data1,
             Data2, Data3, then the 8 bytes of Data4). Used for INF_SUBJECT_TYPE_PARTS - the fixed
@@ -878,22 +877,22 @@ FFM notes : Built by the private `_guid(arena, long[] parts)` helper (11-element
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SPC_LINK - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : No Microsoft Learn prose page exists for this structure (learn.microsoft.com
-         wintrust/ns-wintrust-spc_link 404s). Confirmed instead via WinTrust.h (Windows SDK/WDK
-         header) and Microsoft's win32metadata-generated API reference at
-         https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Security/WinTrust/struct.SPC_LINK.html
-         - both confirm dwLinkChoice (DWORD) + union {pwszUrl, Moniker, pwszFile}, with named
-         constants SPC_URL_LINK_CHOICE=1 / SPC_MONIKER_LINK_CHOICE=2 / SPC_FILE_LINK_CHOICE=3.
-         Offsets (0 and 8) are derived from standard x64 struct-layout rules, not stated by either
-         source.
+Source    : No Microsoft Learn prose page exists for this structure (learn.microsoft.com
+            wintrust/ns-wintrust-spc_link 404s). Confirmed instead via WinTrust.h (Windows SDK/WDK
+            header) and Microsoft's win32metadata-generated API reference at
+            https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Security/WinTrust/struct.SPC_LINK.html
+            - both confirm dwLinkChoice (DWORD) + union {pwszUrl, Moniker, pwszFile}, with named
+            constants SPC_URL_LINK_CHOICE=1 / SPC_MONIKER_LINK_CHOICE=2 / SPC_FILE_LINK_CHOICE=3.
+            Offsets (0 and 8) are derived from standard x64 struct-layout rules, not stated by either
+            source.
 
-Fields : dwLinkChoice (0, DWORD), union at offset 8, active member pwszFile (LPWSTR) - only the
-         "file" variant (dwLinkChoice=3) is used.
-Size   : 16 bytes, 8-byte aligned.
-Purpose: A placeholder reference to the "subject file" this SIP-indirect data describes, using the
-         conventional literal "<<<Obsolete>>>" - a long-standing Authenticode convention marking
-         this link as intentionally non-resolvable, used when the catalog itself is the actual
-         source of truth.
+Fields    : dwLinkChoice (0, DWORD), union at offset 8, active member pwszFile (LPWSTR) - only the
+            "file" variant (dwLinkChoice=3) is used.
+Size      : 16 bytes, 8-byte aligned.
+Purpose   : A placeholder reference to the "subject file" this SIP-indirect data describes, using the
+            conventional literal "<<<Obsolete>>>" - a long-standing Authenticode convention marking
+            this link as intentionally non-resolvable, used when the catalog itself is the actual
+            source of truth.
 
 FFM notes : Encoded via CryptEncodeObjectEx with lpszStructType = "1.3.6.1.4.1.311.2.1.25"
             (SPC_CAB_DATA_OBJID) before being embedded into SIP_INDIRECT_DATA below.
@@ -901,20 +900,20 @@ FFM notes : Encoded via CryptEncodeObjectEx with lpszStructType = "1.3.6.1.4.1.3
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIP_INDIRECT_DATA - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/mssip/ns-mssip-sip_indirect_data
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/mssip/ns-mssip-sip_indirect_data
 
-Fields : (three 24/24/16-byte groups back to back, matching Data/DigestAlgorithm/Digest)
-             Data.pszObjId            ( 0, LPSTR) - the same SPC_CAB_DATA_OBJID
-             Data.cbData              ( 8, DWORD) - length of the encoded SPC_LINK
-             Data.pbData              (16, BYTE*) - the encoded SPC_LINK bytes
-             DigestAlgorithm.pszObjId (24, LPSTR) - szOID_NIST_sha256 ("2.16.840.1.101.3.4.2.1")
-             DigestAlgorithm.cbData   (32, DWORD) - 0
-             DigestAlgorithm.pbData   (40, BYTE*) - NULL
-             Digest.cbData            (48, DWORD) - the SHA-256 digest length
-             Digest.pbData            (56, BYTE*) - the SHA-256 digest bytes (`hashBuf`)
-Size   : 64 bytes, 8-byte aligned.
-Purpose: The payload CryptCATPutMemberInfo's cbSIPIndirectData/pbSIPIndirectData require - ties the
-         catalog member to both the referenced file and its digest.
+Fields    : (three 24/24/16-byte groups back to back, matching Data/DigestAlgorithm/Digest)
+                Data.pszObjId            ( 0, LPSTR) - the same SPC_CAB_DATA_OBJID
+                Data.cbData              ( 8, DWORD) - length of the encoded SPC_LINK
+                Data.pbData              (16, BYTE*) - the encoded SPC_LINK bytes
+                DigestAlgorithm.pszObjId (24, LPSTR) - szOID_NIST_sha256 ("2.16.840.1.101.3.4.2.1")
+                DigestAlgorithm.cbData   (32, DWORD) - 0
+                DigestAlgorithm.pbData   (40, BYTE*) - NULL
+                Digest.cbData            (48, DWORD) - the SHA-256 digest length
+                Digest.pbData            (56, BYTE*) - the SHA-256 digest bytes (`hashBuf`)
+Size      : 64 bytes, 8-byte aligned.
+Purpose   : The payload CryptCATPutMemberInfo's cbSIPIndirectData/pbSIPIndirectData require - ties the
+            catalog member to both the referenced file and its digest.
 
 
 ====================================================================================================
@@ -933,7 +932,7 @@ SignerSignEx - VERIFIED - USED
 Source     : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signersignex
 DLL/Header : Mssign32.dll / none (explicitly undeclared by Microsoft)
 
-Parameters (9, VERIFIED against Microsoft Learn): dwFlags (DWORD, in), pSubjectInfo
+Parameters : (9, VERIFIED against Microsoft Learn) - dwFlags (DWORD, in), pSubjectInfo
              (SIGNER_SUBJECT_INFO*, in), pSignerCert (SIGNER_CERT*, in), pSignatureInfo
              (SIGNER_SIGNATURE_INFO*, in), pProviderInfo (SIGNER_PROVIDER_INFO*, in, optional),
              pwszHttpTimeStamp (LPCWSTR, in, optional), psRequest (PCRYPT_ATTRIBUTES, in, optional),
@@ -975,14 +974,14 @@ FFM notes  : `FunctionDescriptor.of(DW, PTR)`. This file does not inspect the re
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_SUBJECT_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-subject-info
+Source    : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-subject-info
 
-Fields : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, pointed-to DWORD must be zero),
-         dwSubjectChoice (16, DWORD), union at 24 (active member: pSignerFileInfo,
-         SIGNER_FILE_INFO*)
-Size   : 32 bytes, 8-byte aligned.
-Purpose: Identifies what is being signed - a file (dwSubjectChoice = SIGNER_SUBJECT_FILE = 1, the
-         only case used here) or a BLOB (SIGNER_SUBJECT_BLOB = 2, unused).
+Fields    : cbSize (0, DWORD), pdwIndex (8, DWORD* - reserved, pointed-to DWORD must be zero),
+            dwSubjectChoice (16, DWORD), union at 24 (active member: pSignerFileInfo,
+            SIGNER_FILE_INFO*)
+Size      : 32 bytes, 8-byte aligned.
+Purpose   : Identifies what is being signed - a file (dwSubjectChoice = SIGNER_SUBJECT_FILE = 1, the
+            only case used here) or a BLOB (SIGNER_SUBJECT_BLOB = 2, unused).
 
 FFM notes : pdwIndex points at a real, writable DWORD holding 0 - Microsoft's documentation ("This
             member is reserved. It must be set to zero") describes the pointed-to DWORD's value, not
@@ -991,11 +990,11 @@ FFM notes : pdwIndex points at a real, writable DWORD holding 0 - Microsoft's do
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_FILE_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-file-info
+Source    : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-file-info
 
-Fields : cbSize (0, DWORD), pwszFileName (8, LPCWSTR), hFile (16, HANDLE, optional)
-Size   : 24 bytes, 8-byte aligned.
-Purpose: Identifies the specific file to sign.
+Fields    : cbSize (0, DWORD), pwszFileName (8, LPCWSTR), hFile (16, HANDLE, optional)
+Size      : 24 bytes, 8-byte aligned.
+Purpose   : Identifies the specific file to sign.
 
 FFM notes : pwszFileName = the .cat path; hFile = MemorySegment.NULL - SignerSignEx opens the file
             itself by path.
@@ -1003,25 +1002,25 @@ FFM notes : pwszFileName = the .cat path; hFile = MemorySegment.NULL - SignerSig
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_CERT - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
+Source    : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
 
-Fields : cbSize (0, DWORD), dwCertChoice (4, DWORD), union at 8 (active member: pCertStoreInfo,
-         SIGNER_CERT_STORE_INFO*), hwnd (16, HWND - documented as currently unused by the function)
-Size   : 24 bytes, 8-byte aligned.
-Purpose: Identifies the signing certificate - a store lookup (SIGNER_CERT_STORE=2, used here), an
-         SPC file (=1), or an SPC chain (=3).
+Fields    : cbSize (0, DWORD), dwCertChoice (4, DWORD), union at 8 (active member: pCertStoreInfo,
+            SIGNER_CERT_STORE_INFO*), hwnd (16, HWND - documented as currently unused by the function)
+Size      : 24 bytes, 8-byte aligned.
+Purpose   : Identifies the signing certificate - a store lookup (SIGNER_CERT_STORE=2, used here), an
+            SPC file (=1), or an SPC chain (=3).
 
 FFM notes : dwCertChoice = SIGNER_CERT_STORE(2); hwnd = NULL.
 
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_CERT_STORE_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info
+Source    : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info
 
-Fields : cbSize (0, DWORD), pSigningCert (8, PCCERT_CONTEXT), dwCertPolicy (16, DWORD), hCertStore
-         (24, HCERTSTORE, optional)
-Size   : 32 bytes, 8-byte aligned.
-Purpose: Specifies the exact signing certificate and the policy for building its chain.
+Fields    : cbSize (0, DWORD), pSigningCert (8, PCCERT_CONTEXT), dwCertPolicy (16, DWORD), hCertStore
+            (24, HCERTSTORE, optional)
+Size      : 32 bytes, 8-byte aligned.
+Purpose   : Specifies the exact signing certificate and the policy for building its chain.
 
 FFM notes : pSigningCert = the certificate found via CertFindCertificateInStore; dwCertPolicy =
             SIGNER_CERT_POLICY_CHAIN(0x2) (build the chain from pSigningCert directly - checks MY,
@@ -1031,13 +1030,13 @@ FFM notes : pSigningCert = the certificate found via CertFindCertificateInStore;
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_SIGNATURE_INFO - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-signature-info
+Source    : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-signature-info
 
-Fields : cbSize (0, DWORD), algidHash (4, ALG_ID), dwAttrChoice (8, DWORD), union at 16 (active
-         member pAttrAuthcode, SIGNER_ATTR_AUTHCODE*), psAuthenticated (24, PCRYPT_ATTRIBUTES,
-         optional), psUnauthenticated (32, PCRYPT_ATTRIBUTES, optional)
-Size   : 40 bytes, 8-byte aligned.
-Purpose: Specifies the hash algorithm for the signature and any extra signed/unsigned attributes.
+Fields    : cbSize (0, DWORD), algidHash (4, ALG_ID), dwAttrChoice (8, DWORD), union at 16 (active
+            member pAttrAuthcode, SIGNER_ATTR_AUTHCODE*), psAuthenticated (24, PCRYPT_ATTRIBUTES,
+            optional), psUnauthenticated (32, PCRYPT_ATTRIBUTES, optional)
+Size      : 40 bytes, 8-byte aligned.
+Purpose   : Specifies the hash algorithm for the signature and any extra signed/unsigned attributes.
 
 FFM notes : algidHash = CALG_SHA_256(0x0000800c); dwAttrChoice = SIGNER_NO_ATTR(0) with the union
             pointer left NULL; psAuthenticated points to a CRYPT_ATTRIBUTES array carrying
@@ -1047,13 +1046,13 @@ FFM notes : algidHash = CALG_SHA_256(0x0000800c); dwAttrChoice = SIGNER_NO_ATTR(
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: SIGNER_ATTR_AUTHCODE - VERIFIED - UNUSED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-attr-authcode
+Source    : https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-attr-authcode
 
-Fields : cbSize (0, DWORD), fCommercial (4, BOOL), fIndividual (8, BOOL), pwszName (16, LPCWSTR),
-         pwszInfo (24, LPCWSTR)
-Size   : 32 bytes, 8-byte aligned.
-Purpose: Specifies Authenticode display-name/publisher-type attributes for a signature whose
-         SIGNER_SIGNATURE_INFO.dwAttrChoice is SIGNER_AUTHCODE_ATTR.
+Fields    : cbSize (0, DWORD), fCommercial (4, BOOL), fIndividual (8, BOOL), pwszName (16, LPCWSTR),
+            pwszInfo (24, LPCWSTR)
+Size      : 32 bytes, 8-byte aligned.
+Purpose   : Specifies Authenticode display-name/publisher-type attributes for a signature whose
+            SIGNER_SIGNATURE_INFO.dwAttrChoice is SIGNER_AUTHCODE_ATTR.
 
 FFM notes : Not currently constructed - SIGNER_SIGNATURE_INFO.dwAttrChoice is SIGNER_NO_ATTR, so this
             structure is unused in the active code path.
@@ -1061,11 +1060,11 @@ FFM notes : Not currently constructed - SIGNER_SIGNATURE_INFO.dwAttrChoice is SI
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ATTRIBUTES - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attributes
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attributes
 
-Fields : cAttr (0, DWORD), rgAttr (8, PCRYPT_ATTRIBUTE array, not a linked list)
-Size   : 16 bytes, 8-byte aligned.
-Purpose: A counted array of CRYPT_ATTRIBUTE entries, used as SIGNER_SIGNATURE_INFO.psAuthenticated.
+Fields    : cAttr (0, DWORD), rgAttr (8, PCRYPT_ATTRIBUTE array, not a linked list)
+Size      : 16 bytes, 8-byte aligned.
+Purpose   : A counted array of CRYPT_ATTRIBUTE entries, used as SIGNER_SIGNATURE_INFO.psAuthenticated.
 
 FFM notes : cAttr = 2. rgAttr points to two contiguous CRYPT_ATTRIBUTE structures (SPC_SP_OPUS_INFO
             then SPC_STATEMENT_TYPE), built with MemorySegment.copy into one allocation (rgAttr is a
@@ -1074,11 +1073,11 @@ FFM notes : cAttr = 2. rgAttr points to two contiguous CRYPT_ATTRIBUTE structure
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ATTRIBUTE - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attribute
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_attribute
 
-Fields : pszObjId (0, LPSTR), cValue (8, DWORD), rgValue (16, PCRYPT_ATTR_BLOB array)
-Size   : 24 bytes, 8-byte aligned.
-Purpose: One signed/unsigned attribute: an OID plus one or more DER-encoded values.
+Fields    : pszObjId (0, LPSTR), cValue (8, DWORD), rgValue (16, PCRYPT_ATTR_BLOB array)
+Size      : 24 bytes, 8-byte aligned.
+Purpose   : One signed/unsigned attribute: an OID plus one or more DER-encoded values.
 
 FFM notes : cValue = 1 for both attributes built (SPC_SP_OPUS_INFO_OBJID and
             SPC_STATEMENT_TYPE_OBJID), each with a single CRYPT_ATTR_BLOB value via `_blob()`.
@@ -1086,11 +1085,11 @@ FFM notes : cValue = 1 for both attributes built (SPC_SP_OPUS_INFO_OBJID and
 ----------------------------------------------------------------------------------------------------
 STRUCTURE: CRYPT_ATTR_BLOB (reused shape, see A.2) - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_integer_blob
+Source    : https://learn.microsoft.com/en-us/windows/win32/api/wincrypt/ns-wincrypt-crypt_integer_blob
 
-Fields : cbData (0, DWORD), pbData (8, BYTE*)
-Size   : 16 bytes, 8-byte aligned.
-Purpose: A counted byte buffer - here, one DER-encoded ASN.1 value per CRYPT_ATTRIBUTE.rgValue entry.
+Fields    : cbData (0, DWORD), pbData (8, BYTE*)
+Size      : 16 bytes, 8-byte aligned.
+Purpose   : A counted byte buffer - here, one DER-encoded ASN.1 value per CRYPT_ATTRIBUTE.rgValue entry.
 
 FFM notes : Built via `_blob(Arena, int cbData, MemorySegment pbData)`, wrapping the hand-built
             SPC_SP_OPUS_INFO and SPC_STATEMENT_TYPE DER byte literals.
@@ -1165,31 +1164,31 @@ FFM notes  : `FunctionDescriptor.of(DW, DW)`. Bound against the same Setupapi.dl
 ----------------------------------------------------------------------------------------------------
 CM_WaitNoPendingInstallEvents - VERIFIED - USED
 ----------------------------------------------------------------------------------------------------
-Source     : https://learn.microsoft.com/en-us/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_waitnopendinginstallevents
-DLL        : Cfgmgr32.dll. Microsoft's api_location metadata also lists Setupapi.dll as an exporter,
-             but a live CI run showed that does NOT hold at runtime (`SymbolLookup.find(...)` against
-             a Setupapi.dll lookup failed) - bound against its own, separate Cfgmgr32.dll
-             SymbolLookup instead. Do not merge this back into the Setupapi.dll lookup without
-             re-testing on real Windows.
-Header     : cfgmgr32.h
+Source        : https://learn.microsoft.com/en-us/windows/win32/api/cfgmgr32/nf-cfgmgr32-cm_waitnopendinginstallevents
+DLL           : Cfgmgr32.dll. Microsoft's api_location metadata also lists Setupapi.dll as an exporter,
+                but a live CI run showed that does NOT hold at runtime (`SymbolLookup.find(...)`
+                against a Setupapi.dll lookup failed) - bound against its own, separate Cfgmgr32.dll
+                SymbolLookup instead. Do not merge this back into the Setupapi.dll lookup without
+                re-testing on real Windows.
+Header        : cfgmgr32.h
 
-Parameters : dwTimeout (DWORD, milliseconds)
-Return     : DWORD - nonzero (WAIT_OBJECT_0) if satisfied (no install activity pending), 0
-             (WAIT_TIMEOUT) if dwTimeout elapsed, WAIT_FAILED on error.
-Purpose    : Blocks until the PnP manager reports no device-install activity pending system-wide, so
-             a caller about to stage/install doesn't race a concurrent one.
+Parameters    : dwTimeout (DWORD, milliseconds)
+Return        : DWORD - nonzero (WAIT_OBJECT_0) if satisfied (no install activity pending), 0
+                (WAIT_TIMEOUT) if dwTimeout elapsed, WAIT_FAILED on error.
+Purpose       : Blocks until the PnP manager reports no device-install activity pending system-wide,
+                so a caller about to stage/install doesn't race a concurrent one.
 
 Exported name : the documented name "CM_WaitNoPendingInstallEvents" is NOT the symbol Cfgmgr32.dll
-             actually exports on 64-bit Windows - confirmed by a live UnsatisfiedLinkError against
-             exactly that name. The real x64 export is "CMP_WaitNoPendingInstallEvents" (one extra
-             "P"), a long-standing quirk of Cfgmgr32.dll's export table. Same documented function and
-             signature either way.
+                actually exports on 64-bit Windows - confirmed by a live UnsatisfiedLinkError against
+                exactly that name. The real x64 export is "CMP_WaitNoPendingInstallEvents" (one extra
+                "P"), a long-standing quirk of Cfgmgr32.dll's export table. Same documented function
+                and signature either way.
 
-FFM notes  : `FunctionDescriptor.of(DW, DW)`. Bound against the dedicated Cfgmgr32.dll SymbolLookup,
-             looking up "CMP_WaitNoPendingInstallEvents" (not the documented name - see above). Called
-             from `_elevatedInstallDriver` with dwTimeout=60000 (60s) immediately before
-             SetupCopyOEMInfW; the wait-satisfied case is `waitResult != 0`. A timeout here is logged
-             but does not abort the subsequent SetupCopyOEMInfW call.
+FFM notes     : `FunctionDescriptor.of(DW, DW)`. Bound against the dedicated Cfgmgr32.dll SymbolLookup,
+                looking up "CMP_WaitNoPendingInstallEvents" (not the documented name - see above).
+                Called from `_elevatedInstallDriver` with dwTimeout=60000 (60s) immediately before
+                SetupCopyOEMInfW; the wait-satisfied case is `waitResult != 0`. A timeout here is
+                logged but does not abort the subsequent SetupCopyOEMInfW call.
 
 
 ====================================================================================================

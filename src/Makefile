@@ -13,6 +13,11 @@
 # clear && uptime && echo && sensors && free -h && echo && df -h && echo
 # svn update && svn cleanups
 
+# make clean && time (make jar JDK_VER=8 && make jar JDK_VER=25)
+# make clean && time (make jar JDK_VER=8 USE_JCS=1 && make jar JDK_VER=25 USE_JCS=1)
+
+# make jar JDK_VER=8 && make jar JDK_VER=25 && make dist JDK_VER=25
+
 
 ##### ANSI escape codes for colors
 C_GRAY    = "\\033[90m"
@@ -124,7 +129,7 @@ JDS_REL_17        := 17
 JDS_REL_21        := 21
 JDS_REL_25        := 25
 
-USE_JCS           := 0
+USE_JCS           ?= 0
 JDK_VER           ?= $(JDS_REL_8)
 JPATH             := $(JDK_PATH_$(JDK_VER))
 JCS_PORT          := $(JCS_PORT_$(JDK_VER))

@@ -532,7 +532,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                 String log = "";
                 try {
-                    if( Files.exists(logFile) ) log = Files.readString(logFile, StandardCharsets.UTF_8).trim();
+                    // stripTrailing(), not trim() : a leading LOG_INDENT (see e.g. createAndSignCatalog's
+                    // first [diag] line) must survive this relay, only the trailing newline the elevated
+                    // child's own file write leaves behind needs to go
+                    if( Files.exists(logFile) ) log = Files.readString(logFile, StandardCharsets.UTF_8).stripTrailing();
                 }
                 catch(final IOException ignored) {}
 

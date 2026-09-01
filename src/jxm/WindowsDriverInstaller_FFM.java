@@ -237,7 +237,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     // Layout of the call-state segment produced by Linker.Option.captureCallState("GetLastError") -
     // a downcall handle bound with that option takes this as an extra, prepended MemorySegment
-    // argument (allocate one per call via Linker.Option.captureStateLayout()).
+    // argument - allocate one per call via Linker.Option.captureStateLayout()
     private static final GroupLayout _CAPTURE_STATE_LAYOUT = Linker.Option.captureStateLayout();
 
     private static int _capturedLastError(final MemorySegment captureState)
@@ -337,6 +337,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     @Override
     public XCom.Pair<Integer, String> isProviderAlreadyTrusted(final String providerName)
     {
+        return _isProviderAlreadyTrusted(providerName);
+    }
+
+    // Static so _elevatedInstallSelfSignedDriver() (running in the elevated child, no instance) can call
+    // it directly too - see the NOTE below on why it needs no elevation itself.
+    private static XCom.Pair<Integer, String> _isProviderAlreadyTrusted(final String providerName)
+    {
         // NOTE : isProviderAlreadyTrusted () is the only operation that does not require elevation
 
         try(
@@ -387,6 +394,22 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         try {
             return _runElevatedSelf("install", new String[]{ infPath }, 5);
+        }
+        catch(final Throwable t) {
+            if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
+            return new XCom.Pair<Integer, String>( RETCODE_EXCEPTION, t.toString() );
+        }
+    }
+
+    @Override
+    protected XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath)
+    {
+        // Overrides WindowsDriverInstaller's default 3-separate-elevated-calls sequence: this backend can
+        // relaunch itself elevated once and run trust+sign+install all inside that single elevated child
+        // (see _elevatedInstallSelfSignedDriver() below), so the end user only ever sees one UAC prompt.
+
+        try {
+            return _runElevatedSelf("all", new String[]{ infPath, PROVIDER_NAME }, 5);
         }
         catch(final Throwable t) {
             if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
@@ -601,6 +624,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 case "trust"   -> exitCode = _elevatedCreateAndTrustProvider(args[3], log);
                 case "catalog" -> exitCode = _elevatedCreateAndSignCatalog(args[3], args[4], log);
                 case "install" -> exitCode = _elevatedInstallDriver(args[3], log);
+                case "all"     -> exitCode = _elevatedInstallSelfSignedDriver(args[3], args[4], log);
                 default        -> { log.append("Unknown elevated op: ").append(args[1]); exitCode = RETCODE_EXCEPTION; }
             }
         }
@@ -790,6 +814,24 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         finally {
             _CertCloseStore.invoke(hStore, 0);
         }
+    }
+
+    // Runs trust+sign+install inside a single elevated child process (see installSelfSignedDriver()
+    // above), instead of the 3 separate elevated relaunches (and up to 3 UAC prompts) the default
+    // WindowsDriverInstaller.installSelfSignedDriver() sequence does. isProviderAlreadyTrusted() is
+    // called directly here (not via a further relaunch) since it does not require elevation itself -
+    // see its NOTE - and this method already runs elevated.
+    private static int _elevatedInstallSelfSignedDriver(final String infPath, final String providerName, final StringBuilder log) throws Throwable
+    {
+        if( _isProviderAlreadyTrusted(providerName).first() == RETCODE_OK ) {
+            final int trustResult = _elevatedCreateAndTrustProvider(providerName, log);
+            if(trustResult != RETCODE_OK) return trustResult;
+        }
+
+        final int catalogResult = _elevatedCreateAndSignCatalog(infPath, providerName, log);
+        if(catalogResult != RETCODE_OK) return catalogResult;
+
+        return _elevatedInstallDriver(infPath, log);
     }
 
     private static int _elevatedCreateAndTrustProvider(final String providerName, final StringBuilder log) throws Throwable

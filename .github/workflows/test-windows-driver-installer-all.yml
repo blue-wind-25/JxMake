@@ -61,3 +61,27 @@ jobs:
     with:
       backend: auto
       run_mutating: true
+
+  # 5. Run the PS1 combined-path test after Auto passes - installWinUSBInf()/installSelfSignedDriver()
+  # instead of the 3 individual calls above (PS1 has no override, so still 3 elevated calls under the hood)
+  run-ps1-combined:
+    name: Test PS1 Backend (combined installSelfSignedDriver)
+    needs: [build-jar, run-auto]
+    if: github.actor == 'blue-wind-25'
+    uses: ./.github/workflows/test-windows-driver-installer-core.yml
+    with:
+      backend: ps1
+      run_mutating: true
+      combined: true
+
+  # 6. Run the FFM combined-path test after the PS1 combined test passes - this is the one that actually
+  # exercises FFM's single-elevated-relaunch override (see WindowsDriverInstaller_FFM.installSelfSignedDriver())
+  run-ffm-combined:
+    name: Test FFM Backend (combined installSelfSignedDriver)
+    needs: [build-jar, run-ps1-combined]
+    if: github.actor == 'blue-wind-25'
+    uses: ./.github/workflows/test-windows-driver-installer-core.yml
+    with:
+      backend: ffm
+      run_mutating: true
+      combined: true

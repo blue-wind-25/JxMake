@@ -14,6 +14,11 @@ on:
       run_mutating:
         type: boolean
         required: true
+      combined:
+        description: 'run_mutating only: exercise installWinUSBInf() (installSelfSignedDriver()) - a single elevated call on FFM, still 3 on PS1 - instead of the 3 individual createAndTrustProvider/createAndSignCatalog/installDriver calls'
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   test:
@@ -65,16 +70,17 @@ jobs:
               public static void main(final String[] args) throws Exception {
                   final String  backend      = System.getProperty("wdi.backend", "auto");
                   final boolean runMutating  = Boolean.getBoolean("wdi.mutating");
+                  final boolean combined     = Boolean.getBoolean("wdi.combined");
 
                   int failures = 0;
 
                   switch( backend ) {
                       case "ps1":
-                          failures += test("PS1", new WindowsDriverInstaller_PS1(), runMutating);
+                          failures += test("PS1", new WindowsDriverInstaller_PS1(), runMutating, combined);
                           break;
 
                       case "ffm":
-                          failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating);
+                          failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating, combined);
                           break;
 
                       case "auto": {
@@ -87,7 +93,7 @@ jobs:
                               System.out.println("No backend usable on this VM");
                               failures++;
                           } else {
-                              failures += test(label, picked, runMutating);
+                              failures += test(label, picked, runMutating, combined);
                           }
                           break;
                       }
@@ -103,7 +109,7 @@ jobs:
                   }
               }
 
-              private static int test(final String label, final WindowsDriverInstaller wdi, final boolean runMutating) {
+              private static int test(final String label, final WindowsDriverInstaller wdi, final boolean runMutating, final boolean combined) {
                   System.out.println();
                   System.out.println("=== " + label + " backend ===");
 
@@ -132,7 +138,12 @@ jobs:
 
                       printPair(label + ".isProviderAlreadyTrusted", wdi.isProviderAlreadyTrusted(provider));
 
-                      if( runMutating ) {
+                      if( runMutating && combined ) {
+                          // installWinUSBInf() -> installSelfSignedDriver(): FFM overrides this to run
+                          // trust+sign+install inside a single elevated relaunch (one UAC prompt); PS1
+                          // has no override, so it still runs the 3 separate elevated calls under the hood.
+                          printPair(label + ".installWinUSBInf(combined)", wdi.installWinUSBInf("9abc", "def0"));
+                      } else if( runMutating ) {
                           printPair(label + ".createAndTrustProvider", wdi.createAndTrustProvider(provider));
                           printPair(label + ".isProviderAlreadyTrusted (after trust)", wdi.isProviderAlreadyTrusted(provider));
 
@@ -180,5 +191,6 @@ jobs:
             --enable-native-access=ALL-UNNAMED -ea \
             -Dwdi.backend="${{ inputs.backend }}" \
             -Dwdi.mutating="${{ inputs.run_mutating }}" \
+            -Dwdi.combined="${{ inputs.combined }}" \
             -cp "jxmake.jar;wdi_ci_out" \
             WDI_CITest

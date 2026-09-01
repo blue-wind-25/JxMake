@@ -97,12 +97,34 @@ public abstract class WindowsDriverInstaller {
     public abstract XCom.Pair<Integer, String> installDriver(final String infPath);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Runs the full trust+sign+install sequence for infPath (an already-written INF file - see
+    // _saveInfToFile() below) using PROVIDER_NAME as the self-signed cert's subject. Default
+    // implementation is the 3 separate elevated calls above (isProviderAlreadyTrusted, then
+    // createAndTrustProvider if needed, then createAndSignCatalog, then installDriver) - on backends
+    // where each of those triggers its own UAC prompt (e.g. WindowsDriverInstaller_PS1), that means up
+    // to 3 separate prompts. A backend that can do all of this within a single elevated relaunch (e.g.
+    // WindowsDriverInstaller_FFM) should override this to do so - see that class for its override.
+    protected XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath)
+    {
+        if( isProviderAlreadyTrusted(PROVIDER_NAME).first() == RETCODE_OK ) {
+            final XCom.Pair<Integer, String> res = createAndTrustProvider(PROVIDER_NAME);
+            if( res.first() != RETCODE_OK ) return res;
+        }
+
+        final XCom.Pair<Integer, String> res = createAndSignCatalog(infPath, PROVIDER_NAME);
+        if( res.first() != RETCODE_OK ) return res;
+
+        return installDriver(infPath);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Generates a formatted WinUSB INF string for a specific hardware ID. catalogFileName must be the exact
     // basename (e.g. "drv_1234_5678_9042380952345.cat") of the .cat file that will sit alongside this INF -
-    // see _saveInfToFileAndSign() below, since Windows requires CatalogFile= to name a real file in the same
+    // see _saveInfToFile() below, since Windows requires CatalogFile= to name a real file in the same
     // directory as the INF, and rejects the package (signature not found) otherwise
     public static String generateWinUSBInf(final String vid, final String pid, final String catalogFileName)
     {
@@ -317,100 +339,40 @@ public abstract class WindowsDriverInstaller {
         }
     }
 
-    private XCom.Pair<Integer, String> _saveInfToFileAndSign(final String vid, final String pid, final java.util.function.Function<String, String> infTextForCatalog)
-    {
-        final String infPath = _saveInfToFile(vid, pid, infTextForCatalog);
-        if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
-
-        if( isProviderAlreadyTrusted(PROVIDER_NAME).first() == RETCODE_OK ) {
-            final XCom.Pair<Integer, String> res = createAndTrustProvider(PROVIDER_NAME);
-            if( res.first() != RETCODE_OK ) return res;
-        }
-
-        final XCom.Pair<Integer, String> res = createAndSignCatalog(infPath, PROVIDER_NAME);
-        if( res.first() != RETCODE_OK ) return res;
-
-        return new XCom.Pair<Integer, String>(RETCODE_OK, infPath);
-    }
-
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // ##### ??? TODO : Make these accessible from SysUtil ??? #####
 
     public XCom.Pair<Integer, String> installWinUSBInf(final String vid, final String pid)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateWinUSBInf(vid, pid, catalogFileName) );
-        if( res.first() != RETCODE_OK ) return res;
+        final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateWinUSBInf(vid, pid, catalogFileName) );
+        if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installDriver( res.second() );
+        return installSelfSignedDriver(infPath);
     }
 
     public XCom.Pair<Integer, String> installHIDInf(final String vid, final String pid)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateHIDInf(vid, pid, catalogFileName) );
-        if( res.first() != RETCODE_OK ) return res;
+        final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateHIDInf(vid, pid, catalogFileName) );
+        if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installDriver( res.second() );
+        return installSelfSignedDriver(infPath);
     }
 
     public XCom.Pair<Integer, String> installCDCACMInf(final String vid, final String pid)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateCDCACMInf(vid, pid, catalogFileName) );
-        if( res.first() != RETCODE_OK ) return res;
+        final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateCDCACMInf(vid, pid, catalogFileName) );
+        if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installDriver( res.second() );
+        return installSelfSignedDriver(infPath);
     }
 
     public XCom.Pair<Integer, String> installMultiCDCACMInf(final String vid, final String pid, int numInterfaces)
     {
-        final XCom.Pair<Integer, String> res = _saveInfToFileAndSign( vid, pid, catalogFileName -> generateMultiCDCACMInf(vid, pid, numInterfaces, catalogFileName) );
-        if( res.first() != RETCODE_OK ) return res;
+        final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateMultiCDCACMInf(vid, pid, numInterfaces, catalogFileName) );
+        if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installDriver( res.second() );
+        return installSelfSignedDriver(infPath);
     }
 
 } // WindowsDriverInstaller
-
-
-
-
-
-/*
-CLAUDE - IGNORE THIS - this is my scratchpad
-
-Lets continue fixing make `jxm/WindowsDriverInstaller_FFM.java`.
-Do NOT edit the PS1 backend and its related test in the YAML file, it is already working properly.
-
-Remainder:
-- Build command: `make jar JDK_VER=8 && make jar JDK_VER=25` from `src/` is enough after editing any source file in this backend.
-- The GH workflow file is `test-windows-driver-installer.yml`. I will enable it and run it from GH web. You only need to modify the content as needed.
-
-This is a long job, so you will want to save the summary of the above instructions somewhere so they survive context compaction. Use terse sentences when storing progress to memory or `WindowsDriverInstaller_FFM-Win32API.txt`. Do NOT update the later every time you make code changes, only update with important information, do NOT put long prose.
-
----
-
-Update WindowsDriverInstaller_FFM-Win32API.txt with the API use by WindowsDriverInstaller_FFM.java and compact the investigation/implementation history.
-Remove unused text/prose/result. Ensure investigation/implementation history are not combined in the API description.
-
----
-
-Now, in WindowsDriverInstaller.java, installXXXInf perform 3 elevated call.
-This is fine with the PS1 backend (I assume the user will get 3 UAC dialog?).
-
-In WindowsDriverInstaller_FFM.java - main(), is it possible to add a combined mode to do all 3 in one elevated Java app run?
-
-Maybe create:
-
-public abstract XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath);
-
-for PS1 installSelfSignedDriver() always return null and normal (the original path) will be run.
-for FFM installSelfSignedDriver() always do all at once and return non null, and thus the original path will not be run.
-
----
-
-git add -u && git commit -S && git push
-
----
-
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
-*/

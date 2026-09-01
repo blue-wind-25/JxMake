@@ -225,7 +225,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "            Get-ChildItem Cert:\\LocalMachine\\TrustedPublisher |                                               \r\n" +
                 "                Where-Object { `$_.Subject -eq 'CN=%s' } |                                                      \r\n" +
                 "                Remove-Item -Force -ErrorAction SilentlyContinue;                                               \r\n" +
-                "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert                          `\r\n" +
+                "            `$cert = New-SelfSignedCertificate -Subject 'CN=%s' -Type CodeSigningCert                         ``\r\n" +
                 "                         -CertStoreLocation 'Cert:\\CurrentUser\\My';                                           \r\n" +
                 "                         Export-Certificate -Cert `$cert -FilePath '%s' | Out-Null;                             \r\n" +
                 /*

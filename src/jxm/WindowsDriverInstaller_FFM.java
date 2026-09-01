@@ -1271,7 +1271,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                             final StringBuilder hexTag    = new StringBuilder(hashBytes.length * 2);
                             for(final byte b : hashBytes) hexTag.append( String.format("%02X", b) );
 
-                            if(log.length() > 0) log.append(LOG_INDENT);
+                            log.append(LOG_INDENT);
                             log.append("[diag] INF hash (").append(algName).append("): cbHash=").append(cbHash).append(" hexTag=").append(hexTag);
                             savedHash[alg]    = hashBuf;
                             savedHashLen[alg] = cbHash;
@@ -1465,7 +1465,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     {
         final MemorySegment hCatAdminOut = arena.allocate(PTR);
         if( (int) _CryptCATAdminAcquireContext2.invoke(hCatAdminOut, _guid(arena, DRIVER_ACTION_VERIFY_PARTS), _wstr(arena, algName), MemorySegment.NULL, 0) == 0 ) {
-            if(log.length() > 0) log.append(LOG_INDENT);
+            log.append(LOG_INDENT);
             log.append("[diag] CryptCATAdminAcquireContext2(lookup,").append(algName).append(") failed, GetLastError=").append( _lastError() );
             return;
         }
@@ -1476,7 +1476,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 hCatAdmin, hashBuf, cbHash, 0, MemorySegment.NULL
             );
             if(hCatInfo == null || hCatInfo.address() == 0L) {
-                if(log.length() > 0) log.append(LOG_INDENT);
+                log.append(LOG_INDENT);
                 log.append("[diag] CryptCATAdminEnumCatalogFromHash(").append(algName).append("): NOT FOUND, GetLastError=").append( _lastError() );
                 return;
             }
@@ -1496,11 +1496,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                         utf16Bytes[2 * i + 1] = (byte) (chars[i] >> 8);
                     }
                     final String matchedCat = new String(utf16Bytes, java.nio.charset.StandardCharsets.UTF_16LE);
-                    if(log.length() > 0) log.append(LOG_INDENT);
+                    log.append(LOG_INDENT);
                     log.append("[diag] CryptCATAdminEnumCatalogFromHash(").append(algName).append("): FOUND, catalog=").append(matchedCat);
                 }
                 else {
-                    if(log.length() > 0) log.append(LOG_INDENT);
+                    log.append(LOG_INDENT);
                     log.append("[diag] CryptCATAdminEnumCatalogFromHash(").append(algName).append("): FOUND (catalog name unavailable)");
                 }
             }
@@ -1560,7 +1560,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         final MemorySegment actionGuid = _guid(arena, WINTRUST_ACTION_GENERIC_VERIFY_V2_PARTS);
         final int            trustResult = (int) _WinVerifyTrust.invoke(MemorySegment.NULL, actionGuid, wtData);
-        if(log.length() > 0) log.append(LOG_INDENT);
+        log.append(LOG_INDENT);
         log.append("[diag] WinVerifyTrust(catalog): result=").append(trustResult).append( trustResult == 0 ? " (TRUSTED)" : " (NOT TRUSTED)" );
 
         // Release the state WinVerifyTrust allocated for this verification, per its documented pattern

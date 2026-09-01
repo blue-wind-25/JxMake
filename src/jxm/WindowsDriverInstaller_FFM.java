@@ -407,14 +407,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     }
 
     @Override
-    protected XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath)
+    protected XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath, final String providerName)
     {
         // Overrides WindowsDriverInstaller's default 3-separate-elevated-calls sequence: this backend can
         // relaunch itself elevated once and run trust+sign+install all inside that single elevated child
         // (see _elevatedInstallSelfSignedDriver() below), so the end user only ever sees one UAC prompt.
 
         try {
-            return _runElevatedSelf("all", new String[]{ infPath, PROVIDER_NAME }, 5);
+            return _runElevatedSelf("all", new String[]{ infPath, providerName }, 5);
         }
         catch(final Throwable t) {
             if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();

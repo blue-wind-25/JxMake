@@ -99,20 +99,25 @@ public abstract class WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Runs the full trust+sign+install sequence for infPath (an already-written INF file - see
-    // _saveInfToFile() below) using PROVIDER_NAME as the self-signed cert's subject. Default
-    // implementation is the 3 separate elevated calls above (isProviderAlreadyTrusted, then
+    // _saveInfToFile() below) using providerName (PROVIDER_NAME plus the device's VID/PID - see the
+    // installXXXInf callers below) as the self-signed cert's subject. A distinct providerName per
+    // device is required: createAndTrustProvider() deletes any existing certificate under the same
+    // subject name before creating a new one, so sharing one name across devices would delete an
+    // earlier device's already-trusted certificate (and thus break its already-installed driver's
+    // signature validation - e.g. on its next unplug/replug) the moment a second device is installed.
+    // Default implementation is the 3 separate elevated calls above (isProviderAlreadyTrusted, then
     // createAndTrustProvider if needed, then createAndSignCatalog, then installDriver) - on backends
     // where each of those triggers its own UAC prompt (e.g. WindowsDriverInstaller_PS1), that means up
     // to 3 separate prompts. A backend that can do all of this within a single elevated relaunch (e.g.
     // WindowsDriverInstaller_FFM) should override this to do so - see that class for its override.
-    protected XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath)
+    protected XCom.Pair<Integer, String> installSelfSignedDriver(final String infPath, final String providerName)
     {
-        if( isProviderAlreadyTrusted(PROVIDER_NAME).first() == RETCODE_OK ) {
-            final XCom.Pair<Integer, String> res = createAndTrustProvider(PROVIDER_NAME);
+        if( isProviderAlreadyTrusted(providerName).first() == RETCODE_OK ) {
+            final XCom.Pair<Integer, String> res = createAndTrustProvider(providerName);
             if( res.first() != RETCODE_OK ) return res;
         }
 
-        final XCom.Pair<Integer, String> res = createAndSignCatalog(infPath, PROVIDER_NAME);
+        final XCom.Pair<Integer, String> res = createAndSignCatalog(infPath, providerName);
         if( res.first() != RETCODE_OK ) return res;
 
         return installDriver(infPath);
@@ -348,7 +353,7 @@ public abstract class WindowsDriverInstaller {
         final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateWinUSBInf(vid, pid, catalogFileName) );
         if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installSelfSignedDriver(infPath);
+        return installSelfSignedDriver(infPath, PROVIDER_NAME + "_" + vid + "_" + pid);
     }
 
     public XCom.Pair<Integer, String> installHIDInf(final String vid, final String pid)
@@ -356,7 +361,7 @@ public abstract class WindowsDriverInstaller {
         final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateHIDInf(vid, pid, catalogFileName) );
         if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installSelfSignedDriver(infPath);
+        return installSelfSignedDriver(infPath, PROVIDER_NAME + "_" + vid + "_" + pid);
     }
 
     public XCom.Pair<Integer, String> installCDCACMInf(final String vid, final String pid)
@@ -364,7 +369,7 @@ public abstract class WindowsDriverInstaller {
         final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateCDCACMInf(vid, pid, catalogFileName) );
         if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installSelfSignedDriver(infPath);
+        return installSelfSignedDriver(infPath, PROVIDER_NAME + "_" + vid + "_" + pid);
     }
 
     public XCom.Pair<Integer, String> installMultiCDCACMInf(final String vid, final String pid, int numInterfaces)
@@ -372,7 +377,7 @@ public abstract class WindowsDriverInstaller {
         final String infPath = _saveInfToFile( vid, pid, catalogFileName -> generateMultiCDCACMInf(vid, pid, numInterfaces, catalogFileName) );
         if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
-        return installSelfSignedDriver(infPath);
+        return installSelfSignedDriver(infPath, PROVIDER_NAME + "_" + vid + "_" + pid);
     }
 
 } // WindowsDriverInstaller

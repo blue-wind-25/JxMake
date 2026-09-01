@@ -46,8 +46,10 @@ DISCLAIMER:
        is written from scratch, using the SDK reference pages only to check facts (function/struct
        member existence, order, size, and behavior), not as source text.
     2. Consulted-but-not-copied reference:
-           pbatard/libwdi (https://github.com/pbatard/libwdi/tree/master/libwdi,
-           Copyright (C) 2010-2022 Pete Batard <pete@akeo.ie>, GNU LGPL version 3 or later)
+           libwdi: A Windows Driver Installation library for USB devices
+           https://github.com/pbatard/libwdi/tree/master/libwdi
+           Copyright (C) 2010-2023 Pete Batard <pete@akeo.ie> (and some other contributors)
+           GNU LGPL version 3 or later
        was read, read-only, to see how another open-source driver installer calls some of these same
        documented Microsoft Win32 APIs (e.g. SetupCopyOEMInfW's OEMSourceMediaType usage). No source
        code from that project is reproduced, adapted, or copied anywhere in this project - every

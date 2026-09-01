@@ -165,7 +165,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             // Advapi32.dll (wincrypt.h) - legacy CryptoAPI (CAPI1) used to provision the self-signed
             // certificate's private key, since SignerSignEx's internal CryptAcquireCertificatePrivateKey
             // call only follows the legacy CryptAcquireContext path when not given an NCrypt-allowing
-            // flag - see WindowsDriverInstaller_FFM-Win32API.txt.
+            // flag - see WindowsDriverInstaller_FFM-Win32API.txt
             _CryptAcquireContextW = _bind( linker, advapi32, "CryptAcquireContextW", FunctionDescriptor.of(DW, PTR, PTR, PTR, DW, DW) );
             _CryptGenKey          = _bind( linker, advapi32, "CryptGenKey"         , FunctionDescriptor.of(DW, PTR, DW, DW, PTR) );
             _CryptDestroyKey      = _bind( linker, advapi32, "CryptDestroyKey"     , FunctionDescriptor.of(DW, PTR) );
@@ -205,9 +205,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             _SetupCopyOEMInfW = _bind( linker, setupapi, "SetupCopyOEMInfW", FunctionDescriptor.of(DW, PTR, PTR, DW, DW, PTR, DW, PTR, PTR), Linker.Option.captureCallState("GetLastError") );
 
             // Setupapi.dll (setupapi.h) - suppresses SetupAPI's ability to show interactive UI (e.g. an
-            // unverified-publisher/unsigned-driver confirmation dialog) in the caller's context. Called
-            // right before SetupCopyOEMInfW in _elevatedInstallDriver: on a headless CI runner there is
-            // no interactive desktop session and the elevated child's thread has no Windows message pump,
+            // unverified-publisher/unsigned-driver confirmation dialog) in the caller's context.
+            //
+            // Called right before SetupCopyOEMInfW in _elevatedInstallDriver: on a headless CI runner there
+            // is no interactive desktop session and the elevated child's thread has no Windows message pump,
             // so if SetupCopyOEMInfW ever tries to raise such a dialog it blocks forever waiting for input
             // nothing can ever supply.
             _SetupSetNonInteractiveMode = _bind( linker, setupapi, "SetupSetNonInteractiveMode", FunctionDescriptor.of(DW, DW) );
@@ -248,7 +249,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     }
 
     // Diagnostic-only : lets a caller (e.g. a CI test driver) find out WHY isUsable() returned false
-    // due to the static initializer failing, instead of just seeing a bare "false" with no explanation.
+    // due to the static initializer failing, instead of just seeing a bare "false" with no explanation
     public static String initErrorDiagnostic()
     { return _initError == null ? null : _initError.toString(); }
 
@@ -341,7 +342,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     }
 
     // Static so _elevatedInstallSelfSignedDriver() (running in the elevated child, no instance) can call
-    // it directly too - see the NOTE below on why it needs no elevation itself.
+    // it directly too - see the NOTE below on why it needs no elevation itself
     private static XCom.Pair<Integer, String> _isProviderAlreadyTrusted(final String providerName)
     {
         // NOTE : isProviderAlreadyTrusted () is the only operation that does not require elevation
@@ -387,10 +388,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     public XCom.Pair<Integer, String> installDriver(final String infPath)
     {
         // Dispatch to the elevated child - stages infPath directly via SetupCopyOEMInfW (see
-        // _elevatedInstallDriver), not by shelling out to any external tool. The path/extension
-        // validation this used to do inline now happens in the elevated child (_elevatedInstallDriver)
-        // instead, matching createAndTrustProvider/createAndSignCatalog's pattern of validating
-        // everything on the far side of the elevation boundary.
+        // _elevatedInstallDriver), not by shelling out to any external tool.
+        //
+        // The path/extension validation this used to do inline now happens in the elevated child
+        // (_elevatedInstallDriver) instead, matching createAndTrustProvider/createAndSignCatalog's
+        // pattern of validating everything on the far side of the elevation boundary.
 
         try {
             return _runElevatedSelf("install", new String[]{ infPath }, 5);
@@ -422,7 +424,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Elevation plumbing (ShellExecuteExW, shellapi.h)
-    // SHELLEXECUTEINFOW (x64) field byte offsets - see shellapi.h. Struct size = 112, align = 8.
+    // SHELLEXECUTEINFOW (x64) field byte offsets - see shellapi.h. Struct size = 112, align = 8
 
     private static final int SEE_MASK_NOCLOSEPROCESS = 0x00000040;
     private static final int SEE_MASK_NOASYNC        = 0x00000100;
@@ -449,7 +451,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     /*
      * Launches 'file params' elevated (UAC prompt via lpVerb="runas"), waits up to waitTimeMinutes, then reads back
-     * logFile (written by the elevated child itself/
+     * logFile (written by the elevated child itself).
      *
      * The stdout/stderr cannot be piped across the UAC elevation boundary) exactly like WindowsDriverInstaller_PS1's
      * temp-log convention.
@@ -662,7 +664,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     // default choice (BMPString, tag 0x1E) - CI comparison against WindowsDriverInstaller_PS1's
     // New-SelfSignedCertificate-generated cert showed PS1 uses UTF8String while FFM's
     // CertStrToNameW defaulted to BMPString encoded with little-endian byte pairs (non-compliant
-    // with X.690's big-endian BMPString requirement, though self-consistent within CryptoAPI).
+    // with X.690's big-endian BMPString requirement, though self-consistent within CryptoAPI)
     private static final int    CERT_X500_NAME_STR                    = 3;
     private static final int    CERT_NAME_STR_FORCE_UTF8_DIR_STR_FLAG = 0x00080000;
     private static final int    CRYPT_ENCODE_ALLOC_FLAG               = 0x8000;
@@ -690,7 +692,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     // so this hand-encoding removes the dependency on that undocumented behavior and matches
     // WindowsDriverInstaller_PS1's New-SelfSignedCertificate output. Only ASCII providerName values
     // are ever passed in this codebase (CI test names / caller-controlled strings), so plain
-    // UTF8String bytes (== ASCII bytes for the ASCII subset) suffice.
+    // UTF8String bytes (== ASCII bytes for the ASCII subset) suffice
     private static byte[] _derEncodeCNUtf8(final String cn)
     {
         final byte[] cnBytes    = cn.getBytes(StandardCharsets.UTF_8);
@@ -785,9 +787,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
     /*
      * Deletes every certificate in the given store whose subject matches providerName so repeated runs never
-     * accumulate duplicate certificates under the same provider name. When the store is CurrentUser\My, also
-     * destroys the CAPI1 private key container backing each match first (see _destroyPrivateKey) - Root/TrustedPublisher
-     * only ever hold the public-only copy, so there is no key to destroy there.
+     * accumulate duplicate certificates under the same provider name.
+     *
+     * When the store is CurrentUser\My, also destroys the CAPI1 private key container backing each match first
+     * (see _destroyPrivateKey) - Root/TrustedPublisher only ever hold the public-only copy, so there is no key
+     * to destroy there.
      */
     private static void _deleteExistingCerts(final Arena arena, final String providerName, final int locationFlag, final String storeName, final StringBuilder log) throws Throwable
     {
@@ -816,11 +820,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
     }
 
-    // Runs trust+sign+install inside a single elevated child process (see installSelfSignedDriver()
-    // above), instead of the 3 separate elevated relaunches (and up to 3 UAC prompts) the default
-    // WindowsDriverInstaller.installSelfSignedDriver() sequence does. isProviderAlreadyTrusted() is
-    // called directly here (not via a further relaunch) since it does not require elevation itself -
-    // see its NOTE - and this method already runs elevated.
+    /*
+     * Runs trust+sign+install inside a single elevated child process (see installSelfSignedDriver()
+     * above), instead of the 3 separate elevated relaunches (and up to 3 UAC prompts) the default
+     * WindowsDriverInstaller.installSelfSignedDriver() sequence does.
+     *
+     * isProviderAlreadyTrusted() is called directly here (not via a further relaunch) since it does
+     * not require elevation itself - see its NOTE - and this method already runs elevated.
+     */
     private static int _elevatedInstallSelfSignedDriver(final String infPath, final String providerName, final StringBuilder log) throws Throwable
     {
         if( _isProviderAlreadyTrusted(providerName).first() == RETCODE_OK ) {
@@ -857,7 +864,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // 1. Acquire a legacy CryptoAPI (CAPI1) provider context and generate a 2048-bit RSA
                 //    signing key in it. A fresh, randomly-named key container is created every call, so
                 //    CRYPT_NEWKEYSET is always correct here - there is never an existing container to
-                //    reopen.
+                //    reopen
                 final String        containerName = providerName + "_" + Long.toHexString( new SecureRandom().nextLong() );
                 final MemorySegment hProviderOut  = arena.allocate(PTR);
                 if( (int) _CryptAcquireContextW.invoke(
@@ -877,7 +884,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 hKey = hKeyOut.get(PTR, 0);
 
                 // 2. Encode the "CN=<providerName>" subject name - hand-built DER (UTF8String), not
-                // CertStrToNameW; see _derEncodeCNUtf8's header comment for why.
+                // CertStrToNameW; see _derEncodeCNUtf8's header comment for why
                 final byte[]         subjectDer = _derEncodeCNUtf8(providerName);
                 final int            subjectLen = subjectDer.length;
                 final MemorySegment  subjectBuf = arena.allocate(subjectLen);
@@ -904,9 +911,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 final int ekuEncodedLen = ekuEncodedLenOut.get(ValueLayout.JAVA_INT, 0);
 
                 // 3b. Build the Key Usage (critical, digitalSignature only) and Subject Key Identifier
-                // extensions, matching what WindowsDriverInstaller_PS1's New-SelfSignedCertificate emits.
-                // Both extension VALUEs (KeyUsage BIT STRING, SKI OCTET STRING) are simple enough to
-                // hand-encode directly (reusing _derTLV) rather than going through CryptEncodeObjectEx.
+                //     extensions, matching what WindowsDriverInstaller_PS1's New-SelfSignedCertificate emits.
+                //     Both extension VALUEs (KeyUsage BIT STRING, SKI OCTET STRING) are simple enough to
+                //     hand-encode directly (reusing _derTLV) rather than going through CryptEncodeObjectEx.
 
                 // KeyUsage ::= BIT STRING - one content byte (0x80 = bit 0 = digitalSignature), 7 unused bits.
                 final byte[] keyUsageDer = _derTLV( (byte) 0x03, new byte[]{ 0x07, (byte) 0x80 } );
@@ -941,7 +948,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 final MemorySegment skiBuf = arena.allocate(skiDer.length);
                 MemorySegment.copy(skiDer, 0, skiBuf, ValueLayout.JAVA_BYTE, 0, skiDer.length);
 
-                // 3 extensions: EKU (Code Signing), Key Usage (critical, Digital Signature), Subject Key Identifier
+                // 3c. Extensions: EKU (Code Signing), Key Usage (critical, Digital Signature), Subject Key Identifier
                 final MemorySegment extensionArr = arena.allocate(32L * 3, 8);
 
                 final MemorySegment ext0 = extensionArr.asSlice(0);
@@ -970,10 +977,10 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // 4. CRYPT_KEY_PROV_INFO - links the returned cert context back to the CAPI1 key above
                 //    { LPWSTR pwszContainerName; LPWSTR pwszProvName; DWORD dwProvType; DWORD dwFlags;
                 //      DWORD cProvParam; PVOID rgProvParam; DWORD dwKeySpec; } - size 48, align 8
-                // pwszProvName=NULL selects the default RSA Full (PROV_RSA_FULL) CSP rather than naming one
-                // explicitly; dwKeySpec=AT_SIGNATURE since this private key was created via legacy
-                // CryptGenKey against a CAPI1 provider context (see WindowsDriverInstaller_FFM-Win32API.txt's
-                // CRYPT_KEY_PROV_INFO entry for why this backend uses CAPI1 rather than a CNG key).
+                //    pwszProvName=NULL selects the default RSA Full (PROV_RSA_FULL) CSP rather than naming one
+                //    explicitly; dwKeySpec=AT_SIGNATURE since this private key was created via legacy
+                //    CryptGenKey against a CAPI1 provider context (see WindowsDriverInstaller_FFM-Win32API.txt's
+                //    CRYPT_KEY_PROV_INFO entry for why this backend uses CAPI1 rather than a CNG key)
                 final MemorySegment keyProvInfo = arena.allocate(48, 8);
                 keyProvInfo.set( PTR                 ,  0, _wstr(arena, containerName) );
                 keyProvInfo.set( PTR                 ,  8, MemorySegment.NULL          );
@@ -986,14 +993,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // 5. Create the self-signed certificate (explicit SHA256RSA signature algorithm - CertCreateSelfSignCertificate
                 //    defaults pSignatureAlgorithm=NULL to SHA1RSA, which this Windows-10+-only backend must not rely on
                 //    given every other signing/hashing step in this file is deliberately pinned to SHA-256; 1 year validity)
-                // CRYPT_ALGORITHM_IDENTIFIER : { LPSTR pszObjId; CRYPT_OBJID_BLOB Parameters; } - size 24, align 8
+                //    CRYPT_ALGORITHM_IDENTIFIER : { LPSTR pszObjId; CRYPT_OBJID_BLOB Parameters; } - size 24, align 8
                 final MemorySegment sigAlgId = arena.allocate(24, 8);
                 sigAlgId.set( PTR                 ,  0, _astr(arena, szOID_RSA_SHA256RSA) );
                 sigAlgId.set( ValueLayout.JAVA_INT,  8, 0                                 );
                 sigAlgId.set( PTR                 , 16, MemorySegment.NULL                );
 
                 // hCryptProvOrNCryptKey=NULL: pKeyProvInfo above fully describes how to acquire the key,
-                // so CertCreateSelfSignCertificate does not need an already-open handle passed in.
+                // so CertCreateSelfSignCertificate does not need an already-open handle passed in
                 certCtx = (MemorySegment) _CertCreateSelfSignCertificate.invoke(
                     MemorySegment.NULL, subjectBlob, 0, keyProvInfo, sigAlgId, MemorySegment.NULL, MemorySegment.NULL, extensions
                 );
@@ -1038,7 +1045,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                 // Written to the same %TEMP%\<providerName>.cer path WindowsDriverInstaller_PS1's
                 // createAndTrustProvider() uses (Export-Certificate), so both backends' output is
-                // directly comparable byte-for-byte / name-for-name.
+                // directly comparable byte-for-byte / name-for-name
                 final Path certFile = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".cer" );
                 try {
                     Files.write(certFile, derBytes);
@@ -1093,7 +1100,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     // dwPublicVersion=0 below) - a SHA256 member alongside SHA1, or SHA256 alone, both make
     // SetupCopyOEMInfW reject the catalog with SPAPI_E_FILE_HASH_NOT_IN_CATALOG. SHA1 is deprecated
     // for general cryptographic use, but this specific legacy catalog member-hash format is a separate
-    // mechanism from that deprecation - dual SHA1+SHA256 kept below, commented out, for reference.
+    // mechanism from that deprecation - dual SHA1+SHA256 kept below, commented out, for reference
     private static final String[] CATALOG_HASH_ALGS     = { "SHA1" };
     private static final String[] CATALOG_HASH_ALG_OIDS = { szOID_OIWSEC_sha1 };
   //private static final String[] CATALOG_HASH_ALGS     = { "SHA1", "SHA256" };
@@ -1172,7 +1179,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 // dwPublicVersion=0 (NOT CRYPTCAT_VERSION_2/0x200) - a v2 header unconditionally makes
                 // SetupCopyOEMInfW reject the catalog with SPAPI_E_FILE_HASH_NOT_IN_CATALOG, regardless
                 // of member dwCertVersion or subjectGuid. Must match dwCertVersion=0 in
-                // CryptCATPutMemberInfo below.
+                // CryptCATPutMemberInfo below
                 final MemorySegment hCatalog = (MemorySegment) _CryptCATOpen.invoke(
                     _wstr(arena, catPath), CRYPTCAT_OPEN_CREATENEW, MemorySegment.NULL, 0, 0
                 );
@@ -1243,7 +1250,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
                             // "File" member attribute - matches what catalog-verification tooling expects alongside
                             // the SIP-indirect digest, and what WindowsDriverInstaller_PS1's New-FileCatalog
-                            // produces. No "OSAttr" attribute is added: adding an OS-version-scoped member makes
+                            // produces.
+                            //
+                            // No "OSAttr" attribute is added: adding an OS-version-scoped member makes
                             // SetupCopyOEMInfW reject the member entirely (SPAPI_E_FILE_HASH_NOT_IN_CATALOG) rather
                             // than just narrowing its applicability.
                             final MemorySegment fileAttr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
@@ -1266,10 +1275,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     // CryptCATPersistStore must be called first to actually write the in-memory catalog
                     // object out to the physical file; skipping it left CryptCATOpen's freshly-created file
                     // on disk at 0 bytes even though every Put* call above reported success, which is why
-                    // signtool.exe rejected it as an unrecognized file format. Both return values are
-                    // checked, since either failing here would leave a missing/corrupt .cat file on disk
-                    // that would later fail to sign with an unrelated-looking error instead of surfacing
-                    // the real problem at its source
+                    // signtool.exe rejected it as an unrecognized file format.
+                    //
+                    // Both return values are checked, since either failing here would leave a missing/corrupt
+                    // .cat file on disk that would later fail to sign with an unrelated-looking error instead
+                    // of surfacing the real problem at its source.
                     catCloseOk = (int) _CryptCATPersistStore.invoke(hCatalog) != 0;
                     catCloseOk = ( (int) _CryptCATClose.invoke(hCatalog) != 0 ) && catCloseOk;
                     _LocalFree.invoke(spcLinkEnc);
@@ -1310,18 +1320,21 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     // Register the finished, signed .cat into the system's catalog DATABASE (an index
                     // mapping file hashes -> the catalogs that contain them) via CryptCATAdminAddCatalog -
                     // documented as "the only supported way to programmatically add catalogs to the
-                    // Windows catalog database". Writing a valid, correctly-hashed, signed .cat file to
-                    // disk is not enough on its own: SetupCopyOEMInfW's own file-hash lookup consults that
-                    // database, not just any .cat file sitting next to the INF.
+                    // Windows catalog database".
+                    //
+                    // Writing a valid, correctly-hashed, signed .cat file to disk is not enough on its own:
+                    // SetupCopyOEMInfW's own file-hash lookup consults that database, not just any .cat
+                    // file sitting next to the INF.
                     final int addRc = _addCatalogToDatabase(arena, catPath, log);
                     if(addRc != RETCODE_OK) return addRc;
 
                     // Diagnostic only, does not affect the return code: independently ask Windows's own
                     // catalog-database lookup (CryptCATAdminEnumCatalogFromHash - the same API
                     // SetupCopyOEMInfW's internal hash check ultimately calls) whether it can find our
-                    // freshly-registered hash, for each algorithm. Isolates "the catalog DB entry itself
-                    // is missing/wrong" from "the DB entry is fine but SetupCopyOEMInfW rejects it for an
-                    // unrelated reason (e.g. signature trust)".
+                    // freshly-registered hash, for each algorithm.
+                    //
+                    // Isolates "the catalog DB entry itself is missing/wrong" from "the DB entry is fine
+                    // but SetupCopyOEMInfW rejects it for an unrelated reason (e.g. signature trust)".
                     for(int alg = 0; alg < CATALOG_HASH_ALGS.length; ++alg) {
                         _diagCatalogLookup(arena, CATALOG_HASH_ALGS[alg], savedHash[alg], savedHashLen[alg], log);
                     }
@@ -1352,10 +1365,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     private static final String SPC_SP_OPUS_INFO_OBJID   = "1.3.6.1.4.1.311.2.1.12";
     private static final String SPC_STATEMENT_TYPE_OBJID = "1.3.6.1.4.1.311.2.1.11";
 
-    // Registers a finished, signed .cat file into the system catalog database via CryptCATAdminAddCatalog -
-    // see the call site's comment above for why this is needed at all. The algorithm the acquired
-    // hCatAdmin context is bound to doesn't matter here (CryptCATAdminAddCatalog reads whichever
-    // hash algorithm(s) the catalog file itself declares per-member), so "SHA1" is used arbitrarily.
+    /*
+     * Registers a finished, signed .cat file into the system catalog database via CryptCATAdminAddCatalog -
+     * see the call site's comment above for why this is needed at all.
+     *
+     * The algorithm the acquired hCatAdmin context is bound to doesn't matter here (CryptCATAdminAddCatalog
+     * reads whichever hash algorithm(s) the catalog file itself declares per-member), so "SHA1" is used
+     * arbitrarily.
+     */
     private static int _addCatalogToDatabase(final Arena arena, final String catPath, final StringBuilder log) throws Throwable
     {
         final MemorySegment hCatAdminOut = arena.allocate(PTR);
@@ -1381,10 +1398,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
     }
 
-    // Diagnostic helper (see call site's comment) - queries the catalog database directly via
-    // CryptCATAdminEnumCatalogFromHash for the given hash/algorithm, logging whether a catalog was
-    // found and, if so, which .cat file it points at. Never returns a failure code: any error here
-    // is logged and swallowed so it can never mask/replace the real result of catalog creation.
+    /*
+     * Diagnostic helper (see call site's comment) - queries the catalog database directly via
+     * CryptCATAdminEnumCatalogFromHash for the given hash/algorithm, logging whether a catalog was
+     * found and, if so, which .cat file it points at.
+     *
+     * Never returns a failure code: any error here is logged and swallowed so it can never mask/replace
+     * the real result of catalog creation.
+     */
     private static void _diagCatalogLookup(final Arena arena, final String algName, final MemorySegment hashBuf, final int cbHash, final StringBuilder log) throws Throwable
     {
         final MemorySegment hCatAdminOut = arena.allocate(PTR);
@@ -1433,15 +1454,21 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         }
     }
 
-    // Diagnostic helper (see call site's comment) - runs WinVerifyTrust's standard Authenticode
-    // verification policy directly against the finished .cat file on disk, independent of
-    // SetupCopyOEMInfW and the catalog database entirely. A non-zero return here means Windows itself
-    // does not consider this .cat file's signature trusted (e.g. a chain-trust or EKU problem), which
-    // would explain SPAPI_E_FILE_HASH_NOT_IN_CATALOG even though the hash is registered and findable
-    // (per _diagCatalogLookup) - SetupCopyOEMInfW's own driver-catalog validation is understood to
-    // require BOTH a matching hash AND a trusted signature, and may surface a signature failure as the
-    // same generic "hash not in catalog" error rather than a distinct one. Logs the result only, never
-    // returns a failure code - this can never mask/replace the real result of catalog creation.
+    /*
+     * Diagnostic helper (see call site's comment) - runs WinVerifyTrust's standard Authenticode
+     * verification policy directly against the finished .cat file on disk, independent of
+     * SetupCopyOEMInfW and the catalog database entirely.
+     *
+     * A non-zero return here means Windows itself does not consider this .cat file's signature trusted
+     * (e.g. a chain-trust or EKU problem), which would explain SPAPI_E_FILE_HASH_NOT_IN_CATALOG even
+     * though the hash is registered and findable (per _diagCatalogLookup) - SetupCopyOEMInfW's own
+     * driver-catalog validation is understood to require BOTH a matching hash AND a trusted signature,
+     * and may surface a signature failure as the same generic "hash not in catalog" error rather than
+     * a distinct one.
+     *
+     * Logs the result only, never returns a failure code - this can never mask/replace the real result
+     * of catalog creation.
+     */
     private static void _diagVerifyTrustCatalog(final Arena arena, final String catPath, final StringBuilder log) throws Throwable
     {
         // WINTRUST_FILE_INFO : { DWORD cbStruct; LPCWSTR pcwszFilePath; HANDLE hFile; GUID *pgKnownSubject; }
@@ -1494,7 +1521,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // SIGNER_SUBJECT_INFO : { DWORD cbSize; DWORD *pdwIndex; DWORD dwSubjectChoice; union{ SIGNER_FILE_INFO* }; } - size 32, align 8
         // "must be set to zero" describes the pointed-to DWORD's *value*, not the pointer field itself:
         // pdwIndex must point at a real, writable zero-valued DWORD, not be NULL - see
-        // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry.
+        // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry
         final MemorySegment pdwIndex = arena.allocate(ValueLayout.JAVA_INT);
         pdwIndex.set(ValueLayout.JAVA_INT, 0, 0);
 
@@ -1509,7 +1536,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // a matching cert) or SIGNER_CERT_POLICY_CHAIN_NO_ROOT; with dwCertPolicy=SIGNER_CERT_POLICY_CHAIN
         // (build the chain from pSigningCert alone) it is unused and must be NULL - VERIFIED against
         // https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert-store-info and
-        // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry.
+        // WindowsDriverInstaller_FFM-Win32API.txt's "SignerSignEx" entry
         final MemorySegment certStoreInfo = arena.allocate(32, 8);
         certStoreInfo.set(ValueLayout.JAVA_INT,  0, 32                      );
         certStoreInfo.set(PTR                 ,  8, signingCert             );
@@ -1518,7 +1545,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         // SIGNER_CERT : { DWORD cbSize; DWORD dwCertChoice; union{...}; HWND hwnd; } - size 24, align 8
         // VERIFIED against https://learn.microsoft.com/en-us/windows/win32/seccrypto/signer-cert
-        // (see WindowsDriverInstaller_FFM-Win32API.txt) - this layout was already correct.
+        // (see WindowsDriverInstaller_FFM-Win32API.txt) - this layout was already correct
         final MemorySegment signerCert = arena.allocate(24, 8);
         signerCert.set(ValueLayout.JAVA_INT,  0, 24                );
         signerCert.set(ValueLayout.JAVA_INT,  4, SIGNER_CERT_STORE );
@@ -1527,7 +1554,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
         // SPC_STATEMENT_TYPE ::= SEQUENCE OF OBJECT IDENTIFIER - DER-encoded SEQUENCE containing exactly
         // SPC_INDIVIDUAL_SP_KEY_PURPOSE_OBJID (1.3.6.1.4.1.311.2.1.21), the "individual" (non-commercial)
-        // key-purpose signtool.exe emits when signing with a non-commercial/self-signed certificate.
+        // key-purpose signtool.exe emits when signing with a non-commercial/self-signed certificate
         // Source: "Windows Authenticode Portable Executable Signature Format" (Microsoft) -
         // https://download.microsoft.com/download/9/c/5/9c5b2167-8017-4bae-9fde-d599bac8184a/authenticode_pe.docx
         final byte[] statementTypeDer = {
@@ -1538,7 +1565,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // SPC_SP_OPUS_INFO ::= SEQUENCE { programName [0] EXPLICIT SpcString OPTIONAL;
         //                                 moreInfo [1] EXPLICIT SpcLink OPTIONAL; } - both fields are
         // OPTIONAL and this backend has neither a program name nor a more-info URL to offer, so the
-        // minimal valid encoding is an empty SEQUENCE. Same Microsoft source as above.
+        // minimal valid encoding is an empty SEQUENCE. Same Microsoft source as above
         final byte[] opusInfoDer = { (byte) 0x30, (byte) 0x00 };
 
         final MemorySegment statementTypeBuf = arena.allocate(statementTypeDer.length);
@@ -1588,14 +1615,14 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         final MemorySegment ppSignerContext = arena.allocate(PTR);
 
         // SignerSignEx (the original, simplest entry point in this family - no timestamp-flags DWORD,
-        // no crypto-policy or digest-sign-info parameters).
+        // no crypto-policy or digest-sign-info parameters)
         final int hr = (int) _SignerSignEx.invoke(
             0, subjectInfo, signerCert, sigInfo, MemorySegment.NULL,
             MemorySegment.NULL, MemorySegment.NULL, MemorySegment.NULL, ppSignerContext
         );
 
         // Captured unconditionally, before SignerFreeSignerContext can touch anything, so the CI log
-        // carries GetLastError() and the raw struct bytes regardless of which failure mode this is.
+        // carries GetLastError() and the raw struct bytes regardless of which failure mode this is
         final int lastError = _lastError();
 
         final MemorySegment signerContext = ppSignerContext.get(PTR, 0);
@@ -1628,11 +1655,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
     /*
      * Stages infPath into %windir%\Inf via SetupCopyOEMInfW (setupapi.h), guarded by
      * CM_WaitNoPendingInstallEvents (cfgmgr32.h) so this doesn't race a concurrent PnP device
-     * installation already in progress. No device needs to be physically present for this to
-     * succeed - staging alone makes the driver available to Windows, and an already-connected
-     * matching device simply needs to be replugged to pick it up (PnP does this automatically),
-     * matching the behavior WindowsDriverInstaller_PS1 already falls back to on Windows 7, where
-     * "install onto an already-connected device immediately" isn't supported at all.
+     * installation already in progress.
+     *
+     * No device needs to be physically present for this to succeed - staging alone makes the driver
+     * available to Windows, and an already-connected matching device simply needs to be replugged to
+     * pick it up (PnP does this automatically), matching the behavior WindowsDriverInstaller_PS1
+     * already falls back to on Windows 7, where "install onto an already-connected device immediately"
+     * isn't supported at all.
      */
     private static int _elevatedInstallDriver(final String infPath, final StringBuilder log) throws Throwable
     {
@@ -1643,6 +1672,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             return RETCODE_INVALID_PATH;
         }
 
+        /*
         // An earlier revision of this method shelled out to pnputil.exe /add-driver, matching
         // WindowsDriverInstaller_PS1's approach, but that reliably hung waiting for the process to exit
         // regardless of how its output was captured. The implementation below instead calls
@@ -1653,7 +1683,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         // documented Win32 API; no code was copied from anywhere.) The old pnputil.exe-based
         // implementation is kept below, commented out rather than deleted, in case this needs to be
         // swapped back in.
-        /*
+
         final Path tmpOutLog = Paths.get( System.getenv("TEMP"), "pnp_out_" + ProcessHandle.current().pid() + ".log" );
 
         try {
@@ -1696,11 +1726,13 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         ) {
             // CM_WaitNoPendingInstallEvents(dwTimeout) : blocks until the PnP manager reports no
             // install activity pending, or dwTimeout milliseconds elapse - whichever comes first.
+            //
             // Returns 0 (WAIT_OBJECT_0) if satisfied, nonzero (WAIT_TIMEOUT=0x102, or WAIT_FAILED=
-            // 0xFFFFFFFF) on timeout/failure - the standard Win32 wait-function convention. A finite
-            // timeout is used (not INFINITE) so a stuck concurrent installer elsewhere on the machine
-            // cannot cause an indefinite hang here; a timeout is logged but does not abort the
-            // SetupCopyOEMInfW call below.
+            // 0xFFFFFFFF) on timeout/failure - the standard Win32 wait-function convention.
+            //
+            // A finite timeout is used (not INFINITE) so a stuck concurrent installer elsewhere on
+            // the machine cannot cause an indefinite hang here; a timeout is logged but does not
+            // abort the SetupCopyOEMInfW call below.
             final int waitResult = (int) _CM_WaitNoPendingInstallEvents.invoke(60_000);
             if(waitResult != 0) {
                 log.append("CM_WaitNoPendingInstallEvents timed out after 60000ms - proceeding anyway\n");
@@ -1708,6 +1740,7 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
 
             // SetupSetNonInteractiveMode(TRUE) : suppresses any interactive UI SetupCopyOEMInfW might
             // otherwise try to raise (e.g. an unverified-publisher/unsigned-driver confirmation dialog).
+            //
             // A headless CI runner has no interactive desktop session and this thread has no Windows
             // message pump, so such a dialog would block forever with nothing able to dismiss it.
             _SetupSetNonInteractiveMode.invoke(1);
@@ -1723,13 +1756,16 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             //                  DestinationInfFileNameComponent)
             // OEMSourceMediaLocation=infPath's own parent directory / OEMSourceMediaType=SPOST_PATH -
             // NOT SPOST_NONE/NULL, which SetupCopyOEMInfW rejects with SPAPI_E_FILE_HASH_NOT_IN_CATALOG.
+            //
             // A real source directory with SPOST_PATH is required even when the INF path is already
             // fully qualified - see WindowsDriverInstaller_FFM-Win32API.txt for background. CopyStyle=0 : default
             // behavior (overwrite an existing same-named staged copy, auto-rename the staged copy to
-            // OEMnnnn.inf). captureState is a leading, implicit extra argument - see the
-            // Linker.Option.captureCallState binding above and _capturedLastError() below (do NOT use
-            // _lastError() here, it reads GetLastError() via a separate downcall that is not guaranteed
-            // to still hold this call's error - see the static initializer comment on this binding).
+            // OEMnnnn.inf).
+            //
+            // captureState is a leading, implicit extra argument - see the Linker.Option.captureCallState
+            // binding above and _capturedLastError() below (do NOT use _lastError() here, it reads GetLastError()
+            // via a separate downcall that is not guaranteed to still hold this call's error - see the static
+            // initializer comment on this binding).
             final int ok = (int) _SetupCopyOEMInfW.invoke(
                 captureState,
                 sourceInfFileName, sourceMediaLocation, SPOST_PATH, 0,

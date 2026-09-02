@@ -47,10 +47,18 @@ public struct STARTUPINFO {
     public IntPtr hStdError;
 }
 
+// lpCommandLine MUST be a mutable buffer, not a read-only string: when
+// lpApplicationName is NULL, CreateProcess parses the executable name out
+// of lpCommandLine itself and writes a null terminator into the buffer at
+// the split point. Marshaling it as `string` hands CreateProcess a
+// read-only/interned buffer, which corrupts that in-place parse and
+// reliably fails with ERROR_INVALID_NAME (123) rather than crashing
+// outright. StringBuilder marshals as a writable buffer, which is what
+// CreateProcess actually requires here.
 [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
 public static extern bool CreateProcess(
     string lpApplicationName,
-    string lpCommandLine,
+    System.Text.StringBuilder lpCommandLine,
     IntPtr lpProcessAttributes,
     IntPtr lpThreadAttributes,
     bool bInheritHandles,
@@ -79,7 +87,7 @@ function Start-DetachedProcess {
         [string]$Arguments
     )
 
-    $commandLine = "`"$FilePath`" $Arguments"
+    $commandLine = New-Object System.Text.StringBuilder("`"$FilePath`" $Arguments")
 
     $si    = New-Object JCS.Native+STARTUPINFO
     $si.cb = [System.Runtime.InteropServices.Marshal]::SizeOf([type][JCS.Native+STARTUPINFO])

@@ -124,7 +124,15 @@ function Start-Daemon {
     $psi.CreateNoWindow         = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError  = $true
+    # Explicitly redirect (rather than inherit) stdin. Left un-redirected,
+    # the daemon inherits whatever console/stdin handle this process has --
+    # when this wrapper itself runs several layers deep (cmd.exe -> this
+    # powershell.exe -> java.exe), that handle can be one the daemon then
+    # blocks on indefinitely. Close our end immediately so the daemon sees
+    # a closed stdin rather than something it might wait on.
+    $psi.RedirectStandardInput  = $true
     $proc                       = [System.Diagnostics.Process]::Start($psi)
+    $proc.StandardInput.Close()
 
     # Asynchronously drain output to the log file (fire-and-forget)
     $logStream = [System.IO.StreamWriter]::new($LogFile, $false,

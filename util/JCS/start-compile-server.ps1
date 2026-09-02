@@ -125,8 +125,12 @@ $psi.UseShellExecute        = $false
 $psi.CreateNoWindow         = $true
 $psi.RedirectStandardOutput = $true
 $psi.RedirectStandardError  = $true
+# Explicitly redirect (rather than inherit) stdin so the daemon can never
+# block on an inherited console/stdin handle from a parent process chain.
+$psi.RedirectStandardInput  = $true
 
 $proc = [System.Diagnostics.Process]::Start($psi)
+$proc.StandardInput.Close()
 
 # Drain output asynchronously to log file
 $logWriter = [System.IO.StreamWriter]::new($LogFile, $false,

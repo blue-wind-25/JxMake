@@ -61,7 +61,15 @@ public class JxMake {
                 SysUtil.stdDbg().println( String.format("Protocol     code    = %02X", ud.protocolCode    ) );
                 SysUtil.stdDbg().println( String.format("USB          version = %s"  , ud.usbVersion      ) );
                 SysUtil.stdDbg().println( String.format("Device       version = %s"  , ud.deviceVersion   ) );
-                SysUtil.stdDbg().println(                                                                   );
+                SysUtil.stdDbg().println( String.format("Number of interfaces = %s"  , ud.numOfInterfaces ) );
+                SysUtil.stdDbg().println( String.format("Endpoints            =   "                       ) );
+                for(int i = 0; i < ud.numOfInterfaces; ++i) {
+                    SysUtil.stdDbg().println( String.format("  Interface #%d", i) );
+                    for(int j = 0; j < ud.numOfAlternates[i]; ++j) {
+                        SysUtil.stdDbg().println( String.format("    Alternate #%d = %d endpoint(s)", j, ud.numOfEndpoints.get(i).length ) );
+                    }
+                }
+                SysUtil.stdDbg().println();
 
             } // for
         }

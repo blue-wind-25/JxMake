@@ -78,7 +78,7 @@ public class CompileServer {
         // write end open means the runner's reader never sees EOF and hangs
         // forever, even after every real command has finished. Writing our
         // own log file sidesteps the need for that redirection entirely.
-        final String logFile = System.getProperty(
+        final String      logFile   = System.getProperty(
             "java.io.tmpdir"
         ) + "/javac-daemon-" + port + ".log";
         final PrintStream logStream = new PrintStream(
@@ -270,7 +270,7 @@ public class CompileServer {
             final ByteArrayOutputStream errBuf    = new ByteArrayOutputStream();
             final PrintStream           outStream = new PrintStream(outBuf, true, "UTF-8");
             final PrintStream           errStream = new PrintStream(errBuf, true, "UTF-8");
-            int                         exitCode;
+                  int                   exitCode;
 
             // Catch anything compiler.run() itself throws (as opposed to
             // reporting via diagnostics on errStream) and still send a
@@ -278,7 +278,7 @@ public class CompileServer {
             // would close the connection before EXTCOD is ever sent, and
             // the client has no way to tell that apart from a genuine
             // compiler exit code, other than logging an ambiguous
-            // "connection closed early" message.
+            // "connection closed early" message
             try(
                 final StandardJavaFileManager fm = compiler.getStandardFileManager(null, null, null)
             ) {

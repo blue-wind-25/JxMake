@@ -89,7 +89,7 @@ $client = $null
 try {
     $client = New-Object System.Net.Sockets.TcpClient
     $client.Connect('127.0.0.1', $resolvedPort)
-    $stream           = $client.GetStream()
+    $stream = $client.GetStream()
     # [System.Text.Encoding]::UTF8 (the static instance) includes a UTF-8 BOM
     # preamble, which StreamWriter silently writes as the first 3 bytes onto
     # the socket -- corrupting whichever argument lands first in the stream
@@ -110,7 +110,7 @@ try {
     # Signal end of sending so the server's readLine() sees EOF-after-sentinel
     $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
 
-    # Read framed response sections.
+    # Read framed response sections
     $mode        = 'none'
     $stdoutLines = [System.Collections.Generic.List[string]]::new()
     $stderrLines = [System.Collections.Generic.List[string]]::new()

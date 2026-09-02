@@ -64,7 +64,7 @@ if (-not (Test-Path $javacBin)) {
 
 # See _port.ps1's Get-JavaMajorPort for why $ErrorActionPreference must be
 # relaxed around a native command's 2>&1-merged stderr output.
-$prevEAP = $ErrorActionPreference
+$prevEAP               = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 try {
     $verStr = (& $JavaBin '-version' 2>&1)[0].ToString()

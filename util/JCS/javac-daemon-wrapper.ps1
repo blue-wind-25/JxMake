@@ -162,7 +162,7 @@ function Invoke-ViaDaemon {
     try {
         $client = New-Object System.Net.Sockets.TcpClient
         $client.Connect('127.0.0.1', $Port)
-        $stream           = $client.GetStream()
+        $stream = $client.GetStream()
         # [System.Text.Encoding]::UTF8 (the static instance) includes a UTF-8 BOM
         # preamble, which StreamWriter silently writes as the first 3 bytes onto
         # the socket -- corrupting whichever argument lands first in the stream
@@ -187,8 +187,8 @@ function Invoke-ViaDaemon {
         # (used by javac-client.ps1's callers) doesn't hit this, which is
         # why that script's otherwise-identical Shutdown(Send) call is fine.
 
-        $mode       = 'none'
-        $sawExtcod  = $false
+        $mode        = 'none'
+        $sawExtcod   = $false
         $stdoutLines = [System.Collections.Generic.List[string]]::new()
         $stderrLines = [System.Collections.Generic.List[string]]::new()
         $exitCode    = 1

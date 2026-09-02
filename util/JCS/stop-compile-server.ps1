@@ -92,7 +92,7 @@ if ($Port -eq '') {
     if (-not $JavaBin) {
         $JavaBin = if ($env:JAVA_HOME) { Join-Path $env:JAVA_HOME 'bin\java.exe' } else { 'java' }
     }
-    $p = Get-JavaMajorPort -JavaBin $JavaBin
+    $p    = Get-JavaMajorPort -JavaBin $JavaBin
     $null = Stop-OneDaemon -P $p
 } else {
     $null = Stop-OneDaemon -P ([int]$Port)

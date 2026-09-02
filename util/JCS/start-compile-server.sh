@@ -31,6 +31,19 @@ if [[ -z "$PORT" ]]; then
     exit 1
 fi
 
+# ── Validate java binary ──────────────────────────────────────────────────────
+
+if ! command -v "$JAVA_BIN" >/dev/null 2>&1; then
+    echo "ERROR: java binary not found or not executable: $JAVA_BIN" >&2
+    exit 1
+fi
+
+JAVAC_BIN="$(dirname -- "$(command -v "$JAVA_BIN")")/javac"
+if [[ "$(basename -- "$JAVA_BIN")" == "javac" ]] || [[ ! -x "$JAVAC_BIN" ]]; then
+    echo "ERROR: $JAVA_BIN does not appear to come from a JDK (no javac found alongside it). A JRE-only install cannot run the compile server." >&2
+    exit 1
+fi
+
 # ── Port resolution ───────────────────────────────────────────────────────────
 
 JAVA_VER=$("$JAVA_BIN" -version 2>&1 | head -1)

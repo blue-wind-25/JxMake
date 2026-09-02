@@ -44,6 +44,21 @@ if (-not $JavaBin) {
     }
 }
 
+# ── Validate java binary ──────────────────────────────────────────────────────
+
+$javaCmd = Get-Command $JavaBin -ErrorAction SilentlyContinue
+if (-not $javaCmd) {
+    [Console]::Error.WriteLine("ERROR: java binary not found or not executable: $JavaBin")
+    exit 1
+}
+
+$javaDir  = Split-Path -Parent $javaCmd.Source
+$javacBin = Join-Path $javaDir 'javac.exe'
+if (-not (Test-Path $javacBin)) {
+    [Console]::Error.WriteLine("ERROR: $JavaBin does not appear to come from a JDK (no javac.exe found alongside it). A JRE-only install cannot run the compile server.")
+    exit 1
+}
+
 # ── Port resolution ───────────────────────────────────────────────────────────
 
 $verStr       = (& $JavaBin '-version' 2>&1)[0].ToString()

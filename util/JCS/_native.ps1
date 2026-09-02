@@ -93,10 +93,14 @@ function Start-DetachedProcess {
     $si.cb = [System.Runtime.InteropServices.Marshal]::SizeOf([type][JCS.Native+STARTUPINFO])
     $pi    = New-Object JCS.Native+PROCESS_INFORMATION
 
-    # CREATE_NO_WINDOW = 0x08000000, DETACHED_PROCESS = 0x00000008
-    $CREATE_NO_WINDOW = 0x08000000
+    # DETACHED_PROCESS = 0x00000008: no console at all for the child. Do NOT
+    # combine with CREATE_NO_WINDOW (0x08000000) -- MSDN documents the two as
+    # mutually exclusive (CREATE_NO_WINDOW only applies when starting one
+    # console process from another; DETACHED_PROCESS already forgoes a
+    # console entirely), and passing both makes CreateProcess reject the
+    # call outright as invalid.
     $DETACHED_PROCESS = 0x00000008
-    $creationFlags     = $CREATE_NO_WINDOW -bor $DETACHED_PROCESS
+    $creationFlags     = $DETACHED_PROCESS
 
     $ok = [JCS.Native]::CreateProcess(
         $null, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero,

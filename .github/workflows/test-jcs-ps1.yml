@@ -156,7 +156,13 @@ jobs:
                   Remove-Job $job -Force -ErrorAction SilentlyContinue
                   throw 'wrapper compile timed out'
               }
-              $raw = Receive-Job $job
+              $jobErrors = $null
+              $raw = Receive-Job $job -ErrorVariable jobErrors -ErrorAction SilentlyContinue
+              Write-Host "---- job state: $($job.JobStateInfo.State), raw output line count: $(@($raw).Count) ----"
+              if ($jobErrors) {
+                  Write-Host '---- job errors ----'
+                  $jobErrors | ForEach-Object { Write-Host $_.ToString() }
+              }
               Remove-Job $job -Force -ErrorAction SilentlyContinue
               $exitLine = $raw | Where-Object { $_ -match '^___EXITCODE___(-?\d+)$' } | Select-Object -Last 1
               $script:LASTEXITCODE = if ($exitLine -match '^___EXITCODE___(-?\d+)$') { [int]$Matches[1] } else { 1 }

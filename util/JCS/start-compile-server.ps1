@@ -130,7 +130,7 @@ $proc = [System.Diagnostics.Process]::Start($psi)
 
 # Drain output asynchronously to log file
 $logWriter = [System.IO.StreamWriter]::new($LogFile, $false,
-    [System.Text.Encoding]::UTF8)
+    (New-Object System.Text.UTF8Encoding($false)))
 $logWriter.AutoFlush     = $true
 # .NET events aren't PowerShell properties -- "$proc.OutputDataReceived += {...}"
 # throws "property cannot be found". Register-ObjectEvent is the correct way

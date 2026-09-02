@@ -29,10 +29,14 @@
     # After installation, normal javac invocations are automatically proxied:
     javac -cp libs\*.jar -d build\classes src\Main.java
 #>
-param(
-    [Parameter(ValueFromRemainingArguments = $true)]
-    [string[]]$CompileArgs = @()
-)
+# NOTE: deliberately NOT using [Parameter()] attributes here (which would
+# make this an "advanced" script and enable PowerShell's common parameters
+# -Debug/-Verbose/etc, with unique-prefix matching). javac flags like -d
+# and -verbose would then collide: "-d" uniquely prefix-matches "-Debug"
+# and gets silently consumed as a switch instead of reaching $CompileArgs.
+# Using plain param()/$args keeps binding literal.
+param()
+$CompileArgs = $args
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -124,7 +128,7 @@ function Start-Daemon {
 
     # Asynchronously drain output to the log file (fire-and-forget)
     $logStream = [System.IO.StreamWriter]::new($LogFile, $false,
-        [System.Text.Encoding]::UTF8)
+        (New-Object System.Text.UTF8Encoding($false)))
     $logStream.AutoFlush     = $true
     # .NET events aren't PowerShell properties -- "$proc.OutputDataReceived += {...}"
     # throws "property cannot be found". Register-ObjectEvent is the correct way
@@ -166,7 +170,12 @@ function Invoke-ViaDaemon {
         $client = New-Object System.Net.Sockets.TcpClient
         $client.Connect('127.0.0.1', $Port)
         $stream           = $client.GetStream()
-        $enc              = [System.Text.Encoding]::UTF8
+        # [System.Text.Encoding]::UTF8 (the static instance) includes a UTF-8 BOM
+        # preamble, which StreamWriter silently writes as the first 3 bytes onto
+        # the socket -- corrupting whichever argument lands first in the stream
+        # into something the daemon reads back as an unrecognized flag. Use a
+        # UTF8Encoding instance with encoderShouldEmitUTF8Identifier = $false.
+        $enc              = New-Object System.Text.UTF8Encoding($false)
         $writer           = New-Object System.IO.StreamWriter($stream, $enc)
         $writer.AutoFlush = $true
         $reader           = New-Object System.IO.StreamReader($stream, $enc)

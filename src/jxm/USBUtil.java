@@ -26,12 +26,27 @@ public class USBUtil  {
         final String productName;
         final String serialNumber;
 
+        final int    classCode;
+        final int    subclassCode;
+        final int    protocolCode;
+
+        final String usbVersion;
+        final String deviceVersion;
+
         public USBDevice(
             final int    vid,
             final int    pid,
+
             final String manufacturerName,
             final String productName,
-            final String serialNumber
+            final String serialNumber,
+
+            final int    classCode,
+            final int    subclassCode,
+            final int    protocolCode,
+
+            final String usbVersion,
+            final String deviceVersion
         ) {
             this.vid              = vid;
             this.pid              = pid;
@@ -39,6 +54,13 @@ public class USBUtil  {
             this.manufacturerName = manufacturerName;
             this.productName      = productName;
             this.serialNumber     = serialNumber;
+
+            this.classCode        = classCode;
+            this.subclassCode     = subclassCode;
+            this.protocolCode     = protocolCode;
+
+            this.usbVersion       = usbVersion;
+            this.deviceVersion    = deviceVersion;
         }
 
     } // class USBDevice
@@ -50,11 +72,16 @@ public class USBUtil  {
         for( final UsbDevice ud : Usb.getDevices() ) {
 
             devices.add( new USBDevice(
-                ud.getVendorId    (),
-                ud.getProductId   (),
-                ud.getManufacturer(),
-                ud.getProduct     (),
-                ud.getSerialNumber()
+                ud.getVendorId     ()           ,
+                ud.getProductId    ()           ,
+                ud.getManufacturer ()           ,
+                ud.getProduct      ()           ,
+                ud.getSerialNumber ()           ,
+                ud.getClassCode    ()           ,
+                ud.getSubclassCode ()           ,
+                ud.getProtocolCode ()           ,
+                ud.getUsbVersion   ().toString(),
+                ud.getDeviceVersion().toString()
             ) );
 
         } // for

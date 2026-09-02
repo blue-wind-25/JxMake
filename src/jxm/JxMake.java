@@ -46,14 +46,21 @@ public class JxMake {
 
         //*
         final java.util.ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
-        
+
         if(uDevs != null) {
             for(final USBUtil.USBDevice ud : uDevs) {
 
+                SysUtil.stdDbg().println( String.format("VID                 = %04X", ud.vid             ) );
+                SysUtil.stdDbg().println( String.format("PID                 = %04X", ud.pid             ) );
+                SysUtil.stdDbg().println( String.format("Manufacturer name   = %s"  , ud.manufacturerName) );
+                SysUtil.stdDbg().println( String.format("Product      name   = %s"  , ud.productName     ) );
+                SysUtil.stdDbg().println( String.format("Serial       number = %s"  , ud.serialNumber    ) );
+                SysUtil.stdDbg().println();
+
             } // for
         }
-
-        System.exit(1);
+        
+        SysUtil.systemExit();
         //*/
 
         try {

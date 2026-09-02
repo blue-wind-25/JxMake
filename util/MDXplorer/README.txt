@@ -17,6 +17,14 @@ Test the server:
 
 You may adjust 'pip3.12' and 'python3.12' according to your requirements.
 
+On Windows, use mdx_server.cmd instead: it checks for a Python interpreter on PATH (override with
+the PYTHON environment variable, default 'python'), installs requirements.txt automatically on
+first run, and then launches the server:
+    mdx_server.cmd -b localhost -p 8080 -C ..\..
+
+mdx_server_rr.cmd is the Windows equivalent of mdx_server_rr.sh, launching mdx_server.cmd rooted at
+the repository root.
+
 ----------------------------------------------------------------------------------------------------
 Formatted view (jxmake-code-formatter integration)
 ----------------------------------------------------------------------------------------------------

@@ -3,6 +3,15 @@
 # else who dispatches it will see the job start and immediately no-op (GitHub
 # has no way to hide workflow_dispatch itself from other collaborators, but
 # this keeps them from actually burning Windows-runner minutes with it).
+#
+# NOTE: start/compile/run/stop for a given daemon are kept within a single
+# step wherever the daemon's liveness matters across them. The GitHub Actions
+# Windows runner wraps each step's process tree in a Windows Job Object with
+# kill-on-close, so a background daemon spawned in one step is killed the
+# instant that step's process exits - it would never survive into a later
+# step. That's a CI-runner artifact, not something a real interactive user
+# hits, but it means these scripts can only be exercised end-to-end within
+# one step here.
 
 name: Test JCS PowerShell scripts
 
@@ -33,30 +42,31 @@ jobs:
         working-directory: util/JCS
         run: ./build-server.sh
 
-      - name: Start compile server (start-compile-server.ps1)
+      - name: Start server, compile, run, stop (start-compile-server.ps1 / javac-client.ps1 / stop-compile-server.ps1)
         run: |
-          .\start-compile-server.ps1 21000
-          if ($LASTEXITCODE -ne 0) { throw "start-compile-server.ps1 failed" }
+          $ErrorActionPreference = 'Stop'
+          try {
+              .\start-compile-server.ps1 21000
+              if ($LASTEXITCODE -ne 0) { throw "start-compile-server.ps1 failed" }
 
-      - name: Compile a simple program via javac-client.ps1
-        run: |
-          New-Item -ItemType Directory -Force -Path out | Out-Null
-          Set-Content -Path Hello.java -Value @'
+              New-Item -ItemType Directory -Force -Path out | Out-Null
+              Set-Content -Path Hello.java -Value @'
           public class Hello {
               public static void main(String[] args) {
                   System.out.println("Hello from JCS");
               }
           }
           '@
-          .\javac-client.ps1 21000 -d out Hello.java
-          if ($LASTEXITCODE -ne 0) { throw "javac-client.ps1 failed to compile" }
-          if (-not (Test-Path 'out\Hello.class')) { throw "Hello.class was not produced" }
+              .\javac-client.ps1 21000 -d out Hello.java
+              if ($LASTEXITCODE -ne 0) { throw "javac-client.ps1 failed to compile" }
+              if (-not (Test-Path 'out\Hello.class')) { throw "Hello.class was not produced" }
 
-      - name: Run the compiled program
-        run: |
-          $output = & java -cp out Hello
-          Write-Host $output
-          if ($output -ne 'Hello from JCS') { throw "Unexpected program output: $output" }
+              $output = & java -cp out Hello
+              Write-Host $output
+              if ($output -ne 'Hello from JCS') { throw "Unexpected program output: $output" }
+          } finally {
+              .\stop-compile-server.ps1 21000
+          }
 
       - name: Reject a JRE-only java path (should fail closed)
         run: |
@@ -65,11 +75,6 @@ jobs:
           Copy-Item (Get-Command java).Source (Join-Path $fakeJre 'java.exe')
           .\start-compile-server.ps1 21001 (Join-Path $fakeJre 'java.exe')
           if ($LASTEXITCODE -eq 0) { throw "start-compile-server.ps1 should have refused a JRE-only java path" }
-
-      - name: Stop compile server (stop-compile-server.ps1)
-        if: always()
-        run: |
-          .\stop-compile-server.ps1 21000
 
       - name: Upload daemon logs on failure
         if: failure()
@@ -112,47 +117,41 @@ jobs:
           Copy-Item util\JCS\_javac_args.ps1 (Join-Path $jdkBin '_javac_args.ps1')
           Copy-Item util\JCS\compile-server.jar (Join-Path $jdkBin 'compile-server.jar')
 
-      - name: Compile through the transparent wrapper (javac on PATH)
+      - name: Compile via wrapper, confirm daemon reuse, stop
         run: |
-          New-Item -ItemType Directory -Force -Path out | Out-Null
-          Set-Content -Path Hello.java -Value @'
+          $ErrorActionPreference = 'Stop'
+          $port    = 21000
+          $pidFile = Join-Path $env:TEMP "javac-daemon-$port.pid"
+          try {
+              New-Item -ItemType Directory -Force -Path out | Out-Null
+              Set-Content -Path Hello.java -Value @'
           public class Hello {
               public static void main(String[] args) {
                   System.out.println("Hello from wrapper");
               }
           }
           '@
-          # cmd.exe resolves .cmd before .exe, so this hits javac-daemon-wrapper.cmd
-          cmd /c javac -d out Hello.java
-          if ($LASTEXITCODE -ne 0) { throw "wrapper failed to compile" }
-          if (-not (Test-Path 'out\Hello.class')) { throw "Hello.class was not produced by the wrapper" }
+              # cmd.exe resolves .cmd before .exe, so this hits javac-daemon-wrapper.cmd
+              cmd /c javac -d out Hello.java
+              if ($LASTEXITCODE -ne 0) { throw "wrapper failed to compile" }
+              if (-not (Test-Path 'out\Hello.class')) { throw "Hello.class was not produced by the wrapper" }
 
-      - name: Run the compiled program
-        run: |
-          $output = & java -cp out Hello
-          Write-Host $output
-          if ($output -ne 'Hello from wrapper') { throw "Unexpected program output: $output" }
+              $output = & java -cp out Hello
+              Write-Host $output
+              if ($output -ne 'Hello from wrapper') { throw "Unexpected program output: $output" }
 
-      - name: Verify the daemon was actually used (PID file present)
-        run: |
-          $port = 21000
-          $pidFile = Join-Path $env:TEMP "javac-daemon-$port.pid"
-          if (-not (Test-Path $pidFile)) { throw "Expected daemon PID file $pidFile was not created; wrapper may have silently fallen back to javac.real.exe" }
+              if (-not (Test-Path $pidFile)) { throw "Expected daemon PID file $pidFile was not created; wrapper may have silently fallen back to javac.real.exe" }
+              $firstPid = Get-Content $pidFile
 
-      - name: Compile again to confirm daemon reuse (no restart)
-        run: |
-          cmd /c javac -d out Hello.java
-          if ($LASTEXITCODE -ne 0) { throw "second wrapper compile failed" }
+              cmd /c javac -d out Hello.java
+              if ($LASTEXITCODE -ne 0) { throw "second wrapper compile failed" }
 
-      - name: Stop any running daemon
-        if: always()
-        run: |
-          $jdkBin = Join-Path $env:JAVA_HOME 'bin'
-          $port = 21000
-          $pidFile = Join-Path $env:TEMP "javac-daemon-$port.pid"
-          if (Test-Path $pidFile) {
-            $daemonPid = Get-Content $pidFile
-            Stop-Process -Id $daemonPid -Force -ErrorAction SilentlyContinue
+              $secondPid = Get-Content $pidFile
+              if ($secondPid -ne $firstPid) { throw "daemon PID changed between compiles ($firstPid -> $secondPid); expected reuse of the same daemon" }
+          } finally {
+              if (Test-Path $pidFile) {
+                  Stop-Process -Id (Get-Content $pidFile) -Force -ErrorAction SilentlyContinue
+              }
           }
 
       - name: Upload daemon logs on failure

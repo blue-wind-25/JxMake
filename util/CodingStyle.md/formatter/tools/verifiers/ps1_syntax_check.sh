@@ -9,10 +9,7 @@
 # Uses PowerShell 7's own parser (System.Management.Automation.Language.Parser::ParseFile) to
 # report parse errors without executing the script.
 #
-# Command used to invoke pwsh (override in your shell/CI environment if pwsh or its runtime
-# library path live somewhere other than the defaults below):
-: "${PWSH_LD_LIBRARY_PATH:=/opt/gcc-12.2.0/lib64}"
-: "${PWSH:=/opt/powershell-7.4.19-linux-x64/pwsh}"
+# Command used to invoke pwsh:
 #     LD_LIBRARY_PATH=$PWSH_LD_LIBRARY_PATH:$LD_LIBRARY_PATH $PWSH ...
 #
 # Usage:
@@ -20,6 +17,11 @@
 #
 # Exit 0 if all files parse successfully, 1 if one or more files contain
 # syntax errors, 2 if the command-line usage is invalid.
+
+# Override in your shell/CI environment if pwsh or its runtime library path live somewhere
+# other than the defaults below.
+: "${PWSH_LD_LIBRARY_PATH:=/opt/gcc-12.2.0/lib64}"
+: "${PWSH:=/opt/powershell-7.4.19-linux-x64/pwsh}"
 
 if [ "$#" -lt 1 ]; then
     echo "Usage: ps1_syntax_check.sh <file.ps1> [file2.ps1 ...]" >&2

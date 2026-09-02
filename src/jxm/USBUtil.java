@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import jxm.xb.*;
+
 
 public class USBUtil  {
 
@@ -174,6 +176,7 @@ public class USBUtil  {
             // Library not present, or its class files cannot be loaded/parsed by this JVM - USB
             // enumeration is disabled, getDevices() will simply report no devices
             _reflectionAvailable = false;
+            if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
         }
 
         return _reflectionAvailable;
@@ -239,6 +242,7 @@ public class USBUtil  {
             // Any reflective failure at call time (e.g. an API shape change) also degrades to "no devices"
             // rather than crashing the caller
             devices.clear();
+            if( XCom.enableAllExceptionStackTrace() ) t.printStackTrace();
         }
 
         return devices;

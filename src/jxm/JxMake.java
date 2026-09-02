@@ -43,14 +43,6 @@ public class JxMake {
 
     public static void process(final String[] args)
     {
-
-        //*
-        // ##### !!! TEST ONLY !!! #####
-        final java.util.ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
-        USBUtil.dumpDevices(uDevs);
-        SysUtil.systemExit();
-        //*/
-
         try {
 
             // Parse the argument(s)
@@ -68,6 +60,13 @@ public class JxMake {
 
             // Initialize global
             initializeGlobal();
+
+            //*
+            // ##### !!! TEST ONLY !!! #####
+            final java.util.ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
+            USBUtil.dumpDevices(uDevs);
+            SysUtil.systemExit();
+            //*/
 
             /*
             // Save the current working directory

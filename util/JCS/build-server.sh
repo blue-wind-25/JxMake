@@ -29,8 +29,8 @@ echo "Packaging compile-server.jar..."
 # NOT controlled by the java.io.tmpdir system property) while it runs. If that
 # is the same root "$TMP" was created under, jar can race with its own live pid
 # file while recursively copying "$TMP" -- observed on Windows runners as:
-#   FileNotFoundException: ...\hsperfdata_<user>\<pid> (The process cannot
-#   access the file because it is being used by another process)
+#     FileNotFoundException: ...\hsperfdata_<user>\<pid> (The process cannot
+#     access the file because it is being used by another process)
 # Disabling perf-data output entirely avoids the file ever existing.
 jar -J-XX:-UsePerfData cfe "$JAR" CompileServer -C "$TMP" .
 

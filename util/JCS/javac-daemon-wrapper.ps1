@@ -116,36 +116,24 @@ function Start-Daemon {
 
     if (Test-PortOpen $Port) { return $true }
 
-    # Start daemon as a detached process
-    $psi                        = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName               = $JavaBin
-    $psi.Arguments              = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $Port"
-    $psi.UseShellExecute        = $false
-    $psi.CreateNoWindow         = $true
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError  = $true
-    # Explicitly redirect (rather than inherit) stdin. Left un-redirected,
-    # the daemon inherits whatever console/stdin handle this process has --
-    # when this wrapper itself runs several layers deep (cmd.exe -> this
-    # powershell.exe -> java.exe), that handle can be one the daemon then
-    # blocks on indefinitely. Close our end immediately so the daemon sees
-    # a closed stdin rather than something it might wait on.
-    $psi.RedirectStandardInput  = $true
-    $proc                       = [System.Diagnostics.Process]::Start($psi)
-    $proc.StandardInput.Close()
-
-    # Asynchronously drain output to the log file (fire-and-forget)
-    $logStream = [System.IO.StreamWriter]::new($LogFile, $false,
-        (New-Object System.Text.UTF8Encoding($false)))
-    $logStream.AutoFlush     = $true
-    # .NET events aren't PowerShell properties -- "$proc.OutputDataReceived += {...}"
-    # throws "property cannot be found". Register-ObjectEvent is the correct way
-    # to subscribe. -MessageData passes $logStream into the action's scope.
-    $logAction = { if ($EventArgs.Data) { $Event.MessageData.WriteLine($EventArgs.Data) } }
-    $null = Register-ObjectEvent -InputObject $proc -EventName OutputDataReceived -Action $logAction -MessageData $logStream
-    $null = Register-ObjectEvent -InputObject $proc -EventName ErrorDataReceived  -Action $logAction -MessageData $logStream
-    $proc.BeginOutputReadLine()
-    $proc.BeginErrorReadLine()
+    # Start daemon as a detached process.
+    # Deliberately NOT setting RedirectStandardOutput/Error/Input: doing so
+    # forces .NET's CreateProcess call to pass bInheritHandles=TRUE, which
+    # inherits *every* inheritable handle this process holds into the
+    # daemon - not just the ones we explicitly redirect. Several hops up
+    # a CI runner's process chain (cmd.exe -> this powershell.exe -> java),
+    # one of those inherited handles is the pipe the runner uses to capture
+    # this very step's output; the daemon outliving the step then holds
+    # that pipe's write end open forever, so the runner's reader never sees
+    # EOF and the step hangs indefinitely even after every real command has
+    # finished. CompileServer.java writes its own log file directly, so we
+    # don't need OS-level output piping here at all.
+    $psi                 = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName        = $JavaBin
+    $psi.Arguments       = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $Port"
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow  = $true
+    $proc                = [System.Diagnostics.Process]::Start($psi)
 
     # Wait up to 5 s for the daemon to open the port
     for ($i = 0; $i -lt 10; $i++) {

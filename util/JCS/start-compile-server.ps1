@@ -118,32 +118,23 @@ try {
 
 Write-Host "Starting javac daemon on port $resolvedPort using $verStr..."
 
-$psi                        = New-Object System.Diagnostics.ProcessStartInfo
-$psi.FileName               = $JavaBin
-$psi.Arguments              = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $resolvedPort"
-$psi.UseShellExecute        = $false
-$psi.CreateNoWindow         = $true
-$psi.RedirectStandardOutput = $true
-$psi.RedirectStandardError  = $true
-# Explicitly redirect (rather than inherit) stdin so the daemon can never
-# block on an inherited console/stdin handle from a parent process chain.
-$psi.RedirectStandardInput  = $true
+# Deliberately NOT setting RedirectStandardOutput/Error/Input: doing so
+# forces .NET's CreateProcess call to pass bInheritHandles=TRUE, which
+# inherits *every* inheritable handle this process holds into the daemon -
+# not just the ones we explicitly redirect. On a CI runner, one of those
+# inherited handles can be the pipe used to capture this very step's
+# output; the daemon outliving the step then holds that pipe's write end
+# open forever, so the runner's reader never sees EOF and the step hangs
+# indefinitely even after every real command has finished.
+# CompileServer.java writes its own log file directly, so we don't need
+# OS-level output piping here at all.
+$psi                 = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName        = $JavaBin
+$psi.Arguments       = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $resolvedPort"
+$psi.UseShellExecute = $false
+$psi.CreateNoWindow  = $true
 
 $proc = [System.Diagnostics.Process]::Start($psi)
-$proc.StandardInput.Close()
-
-# Drain output asynchronously to log file
-$logWriter = [System.IO.StreamWriter]::new($LogFile, $false,
-    (New-Object System.Text.UTF8Encoding($false)))
-$logWriter.AutoFlush     = $true
-# .NET events aren't PowerShell properties -- "$proc.OutputDataReceived += {...}"
-# throws "property cannot be found". Register-ObjectEvent is the correct way
-# to subscribe. -MessageData passes $logWriter into the action's scope.
-$logAction = { if ($EventArgs.Data) { $Event.MessageData.WriteLine($EventArgs.Data) } }
-$null = Register-ObjectEvent -InputObject $proc -EventName OutputDataReceived -Action $logAction -MessageData $logWriter
-$null = Register-ObjectEvent -InputObject $proc -EventName ErrorDataReceived  -Action $logAction -MessageData $logWriter
-$proc.BeginOutputReadLine()
-$proc.BeginErrorReadLine()
 
 # Wait up to 5 s for the port to open
 for ($i = 0; $i -lt 10; $i++) {

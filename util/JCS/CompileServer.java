@@ -68,6 +68,25 @@ public class CompileServer {
             return; // Unreachable - satisfies definite assignment
         }
 
+        // Write our own log file directly rather than relying on the parent
+        // process piping our stdout/stderr: this daemon outlives whatever
+        // process spawned it, and on Windows, a child process started with
+        // any std handle redirected inherits *every* inheritable handle its
+        // parent holds (not just the ones explicitly passed) - including,
+        // several process hops up, the pipe a CI runner uses to capture a
+        // build step's own output. A long-lived daemon holding that pipe's
+        // write end open means the runner's reader never sees EOF and hangs
+        // forever, even after every real command has finished. Writing our
+        // own log file sidesteps the need for that redirection entirely.
+        final String logFile = System.getProperty(
+            "java.io.tmpdir"
+        ) + "/javac-daemon-" + port + ".log";
+        final PrintStream logStream = new PrintStream(
+            new FileOutputStream(logFile, true), true, "UTF-8"
+        );
+        System.setOut(logStream);
+        System.setErr(logStream);
+
         final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
         if(compiler == null) {

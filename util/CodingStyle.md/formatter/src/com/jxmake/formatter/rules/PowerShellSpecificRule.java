@@ -8,7 +8,10 @@
 package com.jxmake.formatter.rules;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,13 +31,35 @@ import java.util.regex.Pattern;
  * pipeline split/right-align; hashtable spacing; switch keyword-paren spacing + arm {@code \{}
  * alignment; and {@code \{}/{@code \}} spacing (RDD_KEY_258, including single-line scriptblocks).
  *
- * <p>Line comments ({@code #...}) also get the optional §0 ad hoc normalization (RDD_KEY_261):
- * first-letter capitalization and sole-trailing-period stripping via
- * {@link ToolingCommentNormalizer}, plain (no word-exception list -- PowerShell's own keyword/
- * cmdlet surface is too broad to usefully curate one, per RDD_KEY_261). Block comments
- * ({@code <# ... #>}) are left untouched -- out of scope.
+ * <p>Line comments ({@code #...}) also get the optional §0 ad hoc normalization (RDD_KEY_261,
+ * refined for the cross-platform-tool-name case): first-letter capitalization (skipped when the
+ * comment's leading word is a common cross-platform CLI tool invoked from PowerShell scripts on
+ * this codebase's platforms, e.g. "java -version ..." -- PowerShell's own keyword/cmdlet surface
+ * is still too broad to usefully curate, so unlike Bash this list is deliberately narrow, external
+ * tool names only) and sole-trailing-period stripping, both via {@link ToolingCommentNormalizer}.
+ * Block comments ({@code <# ... #>}) are left untouched -- out of scope.
  */
 public final class PowerShellSpecificRule {
+
+    /** Common cross-platform CLI tool names left lowercase at the start of a comment */
+    private static final Set<String> NO_CAPITALIZE_TOOLS = new HashSet<>( Arrays.asList(
+        "java",
+        "javac",
+        "git",
+        "node",
+        "npm",
+        "python",
+        "curl",
+        "ssh",
+        "docker",
+        "kubectl",
+        "mvn",
+        "gradle",
+        "dotnet",
+        "pip",
+        "go",
+        "cargo"
+    ) );
 
     private final int     indentWidth;
     private final boolean normalizeCommentStartCase;
@@ -457,7 +482,7 @@ public final class PowerShellSpecificRule {
             preResolveTransformed,
             normalizeCommentStartCase,
             normalizeCommentEndPeriod,
-            null,
+            NO_CAPITALIZE_TOOLS,
             normalizeCommentMultiSentenceCase
         );
         // Must run after resolve() above -- reuses its per-entry resolvedLength to keep the kind
@@ -483,7 +508,7 @@ public final class PowerShellSpecificRule {
             body,
             normalizeCommentStartCase,
             normalizeCommentEndPeriod,
-            null,
+            NO_CAPITALIZE_TOOLS,
             normalizeCommentMultiSentenceCase
         );
         for( int i = 0; i < normalized.length(); ++i ) buf.emit( normalized.charAt(i), 'O' );

@@ -25,7 +25,9 @@ capitalization of the comment body, and stripping a sole trailing `.` (the
 same ad hoc pattern used for TOML and other non-curly languages) — not the
 curly-brace-family comment-classifier pipeline. Bash additionally skips
 capitalization when the comment opens with a common Unix tool name (e.g.
-`grep`, `awk`, `sed`) — Makefile, PowerShell, and E-INI capitalize
+`grep`, `awk`, `sed`); PowerShell skips it for a narrower list of common
+cross-platform CLI tool names (e.g. `java`, `git`, `node`) rather than its
+own much broader keyword/cmdlet surface — Makefile and E-INI capitalize
 unconditionally.
 
 **`%` is never a comment marker for any of these four languages** —

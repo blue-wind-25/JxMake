@@ -20,7 +20,7 @@ function Get-JavaMajorPort {
         [Parameter(Mandatory = $true)]
         [string]$JavaBin
     )
-    # Java -version writes to stderr; merging it via 2>&1 turns each line into
+    # java -version writes to stderr; merging it via 2>&1 turns each line into
     # an ErrorRecord, which would terminate the script under
     # $ErrorActionPreference = 'Stop' (set by every caller of this function).
     # Suppress that termination just for this call.

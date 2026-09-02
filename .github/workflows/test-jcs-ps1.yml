@@ -125,6 +125,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $port    = 21000
           $pidFile = Join-Path $env:TEMP "javac-daemon-$port.pid"
+          $logFile = Join-Path $env:TEMP "javac-daemon-$port.log"
+
+          function Dump-Diagnostics {
+              Write-Host '---- daemon log ----'
+              if (Test-Path $logFile) { Get-Content $logFile | Write-Host } else { Write-Host '(no log file)' }
+          }
+
           try {
               New-Item -ItemType Directory -Force -Path out | Out-Null
               Set-Content -Path Hello.java -Value @'
@@ -134,10 +141,13 @@ jobs:
               }
           }
           '@
-              # cmd.exe resolves .cmd before .exe, so this hits javac-daemon-wrapper.cmd
-              cmd /c javac -d out Hello.java
-              if ($LASTEXITCODE -ne 0) { throw "wrapper failed to compile" }
-              if (-not (Test-Path 'out\Hello.class')) { throw "Hello.class was not produced by the wrapper" }
+              # cmd.exe resolves .cmd before .exe, so this hits javac-daemon-wrapper.cmd.
+              # Merge stderr so any PowerShell terminating-error text from the wrapper
+              # itself (not just javac's own diagnostics) shows up in the CI log.
+              $compileOutput = cmd /c javac -d out Hello.java 2>&1
+              $compileOutput | Write-Host
+              if ($LASTEXITCODE -ne 0) { Dump-Diagnostics; throw "wrapper failed to compile" }
+              if (-not (Test-Path 'out\Hello.class')) { Dump-Diagnostics; throw "Hello.class was not produced by the wrapper" }
 
               $output = & java -cp out Hello
               Write-Host $output
@@ -146,8 +156,9 @@ jobs:
               if (-not (Test-Path $pidFile)) { throw "Expected daemon PID file $pidFile was not created; wrapper may have silently fallen back to javac.real.exe" }
               $firstPid = Get-Content $pidFile
 
-              cmd /c javac -d out Hello.java
-              if ($LASTEXITCODE -ne 0) { throw "second wrapper compile failed" }
+              $compileOutput = cmd /c javac -d out Hello.java 2>&1
+              $compileOutput | Write-Host
+              if ($LASTEXITCODE -ne 0) { Dump-Diagnostics; throw "second wrapper compile failed" }
 
               $secondPid = Get-Content $pidFile
               if ($secondPid -ne $firstPid) { throw "daemon PID changed between compiles ($firstPid -> $secondPid); expected reuse of the same daemon" }

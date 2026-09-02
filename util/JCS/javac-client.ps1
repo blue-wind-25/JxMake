@@ -111,7 +111,6 @@ try {
     $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
 
     # Read framed response sections.
-    # switch -Regex: `u{001F} in a .NET regex pattern matches U+001F (Unit Separator).
     $mode        = 'none'
     $stdoutLines = [System.Collections.Generic.List[string]]::new()
     $stderrLines = [System.Collections.Generic.List[string]]::new()
@@ -120,9 +119,9 @@ try {
     $line = $null
     while ($null -ne ($line = $reader.ReadLine())) {
         switch -Exact ($line) {
-            "`u{001F}STDOUT`u{001F}" { $mode = 'stdout'; break }
-            "`u{001F}STDERR`u{001F}" { $mode = 'stderr'; break }
-            "`u{001F}EXTCOD`u{001F}" { $mode = 'extcod'; break }
+            "${US}STDOUT${US}" { $mode = 'stdout'; break }
+            "${US}STDERR${US}" { $mode = 'stderr'; break }
+            "${US}EXTCOD${US}" { $mode = 'extcod'; break }
             default {
                 switch ($mode) {
                     'stdout' { $stdoutLines.Add($line) }

@@ -20,7 +20,17 @@ function Get-JavaMajorPort {
         [Parameter(Mandatory = $true)]
         [string]$JavaBin
     )
-    $verLines = & $JavaBin '-version' 2>&1
+    # java -version writes to stderr; merging it via 2>&1 turns each line into
+    # an ErrorRecord, which would terminate the script under
+    # $ErrorActionPreference = 'Stop' (set by every caller of this function).
+    # Suppress that termination just for this call.
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $verLines = & $JavaBin '-version' 2>&1
+    } finally {
+        $ErrorActionPreference = $prevEAP
+    }
     $verStr   = $verLines[0].ToString()
     if ($verStr -match '"1\.(\d+)') { return [int]$Matches[1] * 1000 }
     if ($verStr -match '"(\d+)') { return [int]$Matches[1] * 1000 }

@@ -126,8 +126,12 @@ function Start-Daemon {
     $logStream = [System.IO.StreamWriter]::new($LogFile, $false,
         [System.Text.Encoding]::UTF8)
     $logStream.AutoFlush     = $true
-    $proc.OutputDataReceived += { param($s,$e); if ($e.Data) { $logStream.WriteLine($e.Data) } }
-    $proc.ErrorDataReceived  += { param($s,$e); if ($e.Data) { $logStream.WriteLine($e.Data) } }
+    # .NET events aren't PowerShell properties -- "$proc.OutputDataReceived += {...}"
+    # throws "property cannot be found". Register-ObjectEvent is the correct way
+    # to subscribe. -MessageData passes $logStream into the action's scope.
+    $logAction = { if ($EventArgs.Data) { $Event.MessageData.WriteLine($EventArgs.Data) } }
+    $null = Register-ObjectEvent -InputObject $proc -EventName OutputDataReceived -Action $logAction -MessageData $logStream
+    $null = Register-ObjectEvent -InputObject $proc -EventName ErrorDataReceived  -Action $logAction -MessageData $logStream
     $proc.BeginOutputReadLine()
     $proc.BeginErrorReadLine()
 

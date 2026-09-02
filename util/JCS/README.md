@@ -145,9 +145,11 @@ appears in normal javac output, making framing unambiguous without escaping.
 **Bash parsing**: `awk` matches sentinel lines via the `\037` octal literal
 (0x1F) directly from the raw response; no preprocessing is required.
 
-**PowerShell parsing**: `` `u{001F} `` in a double-quoted string produces the
-Unit Separator natively; sentinel lines are matched with `switch -Exact` for
-whole-line equality (no regex engine involved).
+**PowerShell parsing**: the Unit Separator is built at runtime via
+`[char]0x1F` (not the `` `u{001F} `` escape, which is PowerShell 6+ only and
+is silently treated as literal text under Windows PowerShell 5.1, the
+runtime `javac-daemon-wrapper.cmd` launches); sentinel lines are matched
+with `switch -Exact` for whole-line equality (no regex engine involved).
 
 ### Path handling
 

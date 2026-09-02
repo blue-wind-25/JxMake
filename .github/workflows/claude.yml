@@ -70,7 +70,7 @@
 #
 # ============================================================
 
-name: Claude
+name: Run Claude Code via GitHub Issue
 
 on:
   issues:

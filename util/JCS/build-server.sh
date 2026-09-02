@@ -24,6 +24,14 @@ fi
 unset _JAVAC_VER
 
 echo "Packaging compile-server.jar..."
-jar cfe "$JAR" CompileServer -C "$TMP" .
+# -J-Djava.io.tmpdir: jar is itself a JVM process, and by default writes its own
+# hsperfdata (perf counter) file into java.io.tmpdir while it runs. If that
+# defaults to the same OS temp root $TMP was created under, jar can race with
+# its own live pid file while recursively copying "$TMP" (observed as
+# FileNotFoundException: ...\hsperfdata_<user>\<pid> on Windows runners).
+# Point it at its own scratch dir so it never writes into what it's packaging.
+JAR_TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP" "$JAR_TMP"' EXIT
+jar "-J-Djava.io.tmpdir=$JAR_TMP" cfe "$JAR" CompileServer -C "$TMP" .
 
 echo "Done: $JAR"

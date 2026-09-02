@@ -75,6 +75,9 @@ jobs:
           Copy-Item (Get-Command java).Source (Join-Path $fakeJre 'java.exe')
           .\start-compile-server.ps1 21001 (Join-Path $fakeJre 'java.exe')
           if ($LASTEXITCODE -eq 0) { throw "start-compile-server.ps1 should have refused a JRE-only java path" }
+          # Reset $LASTEXITCODE: pwsh steps fail if it's non-zero at step end,
+          # but a non-zero exit here is exactly the expected/verified outcome.
+          $LASTEXITCODE = 0
 
       - name: Upload daemon logs on failure
         if: failure()

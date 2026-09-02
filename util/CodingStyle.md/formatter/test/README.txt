@@ -4466,6 +4466,13 @@ Real-code regressions:
                                                         with its body one level deeper than the `;;` that
                                                         closes it.
 
+  real_code_regressions_247_inp/out.ps1              -- a `#` line comment opening with a common
+                                                        cross-platform CLI tool name (e.g. `java`) was getting
+                                                        capitalized like any other leading word, since
+                                                        PowerShell had no no-capitalize word list; now a
+                                                        narrow tool-name list is skipped, same idea as Bash's
+                                                        Unix-tool-name list but PowerShell-scoped.
+
 How Tests Are Run
 -----------------
 

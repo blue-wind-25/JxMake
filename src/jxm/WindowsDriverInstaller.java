@@ -9,8 +9,14 @@ package jxm;
 
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
+import java.awt.Toolkit;
 
 import java.io.IOException;
 
@@ -23,6 +29,7 @@ import java.util.ArrayList;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -465,6 +472,21 @@ public abstract class WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    // USB Hub class code (USB spec, bDeviceClass) - this is reported by the device descriptor itself,
+    // so filtering on it (rather than e.g. a vendor ID) works the same way regardless of host OS. Every
+    // root hub is also reported by the host controller as a class-09 device, so this excludes those too
+    private static final int _USB_CLASS_HUB = 0x09;
+
+    // Root/external hubs are never drivers to install here, and also tend to have no manufacturer/product/
+    // serial string descriptors at all - filter both out of the picker
+    private static boolean _isPickableDevice(final USBUtil.USBDevice ud)
+    {
+        if(ud.classCode == _USB_CLASS_HUB) return false;
+        if(ud.manufacturerName == null && ud.productName == null && ud.serialNumber == null) return false;
+
+        return true;
+    }
 
     /*
      * Small picker window that lets the user pick one of the currently connected USB devices via
@@ -501,11 +523,24 @@ public abstract class WindowsDriverInstaller {
         {
             _initializeMainWindow(Texts.WDI_DialogTitle);
 
-            final ListCellRenderer<Object> deviceRenderer = (list, value, index, isSelected, cellHasFocus) ->
-                new JLabel( value instanceof USBUtil.USBDevice ? ( (USBUtil.USBDevice) value ).label() : String.valueOf(value) );
+            // `_initializeMainWindow()` forces a fixed 900x600 size/minimum size, which is meant for
+            // full-blown tool windows like DocBrowser/ScriptEditor - drop it here so pack() below can
+            // shrink this small picker to fit its actual content, with no empty space underneath the
+            // OK/Cancel buttons
+            _mainWindow.setMinimumSize(null);
+
+            // Monospace so the "VID:PID Manufacturer Product" labels - see `USBDevice.label()` line up
+            final Font monoFont = new Font( Font.MONOSPACED, Font.PLAIN, new JLabel().getFont().getSize() );
+
+            final ListCellRenderer<Object> deviceRenderer = (list, value, index, isSelected, cellHasFocus) -> {
+                final JLabel label = new JLabel( value instanceof USBUtil.USBDevice ? ( (USBUtil.USBDevice) value ).label() : String.valueOf(value) );
+                label.setFont(monoFont);
+                return label;
+            };
 
             final JComboBox<USBUtil.USBDevice> cmbDevice = new JComboBox<>( _uDevs.toArray(new USBUtil.USBDevice[0]) );
             cmbDevice.setRenderer(deviceRenderer);
+            cmbDevice.setFont(monoFont);
 
             final JComboBox<String>  cmbDriverKind = new JComboBox<>(_DRIVER_KINDS);
             final SpinnerNumberModel numPortsModel = new SpinnerNumberModel(1, 1, 32, 1);
@@ -521,13 +556,35 @@ public abstract class WindowsDriverInstaller {
             cmbDriverKind.addActionListener( e -> syncNumPorts.run() );
             syncNumPorts.run();
 
-            final JPanel pnlFields = new JPanel( new GridLayout(0, 2, 8, 8) );
+            // GridBagLayout instead of GridLayout - the label column keeps its natural (small) width
+            // and only the field column stretches, instead of both columns being forced equally wide
+            final JPanel pnlFields = new JPanel( new GridBagLayout() );
             pnlFields.setBorder( new EmptyBorder(10, 10, 10, 10) );
-            pnlFields.add( new JLabel(Texts.WDI_LblDevice  ) ); pnlFields.add(cmbDevice    );
-            pnlFields.add( new JLabel(Texts.WDI_LblDriver  ) ); pnlFields.add(cmbDriverKind);
-            pnlFields.add( new JLabel(Texts.WDI_LblNumPorts) ); pnlFields.add(spnNumPorts  );
 
-            _mainWindow.add(pnlFields, BorderLayout.CENTER);
+            final GridBagConstraints gbcLbl = new GridBagConstraints();
+            gbcLbl.gridx  = 0;
+            gbcLbl.anchor = GridBagConstraints.WEST;
+            gbcLbl.insets = new Insets(4, 4, 4, 4);
+
+            final GridBagConstraints gbcFld = new GridBagConstraints();
+            gbcFld.gridx   = 1;
+            gbcFld.weightx = 1.0;
+            gbcFld.fill    = GridBagConstraints.HORIZONTAL;
+            gbcFld.insets  = new Insets(4, 4, 4, 4);
+
+            final JLabel[]     lbls = { new JLabel(Texts.WDI_LblDevice), new JLabel(Texts.WDI_LblDriver), new JLabel(Texts.WDI_LblNumPorts) };
+            final JComponent[] flds = { cmbDevice, cmbDriverKind, spnNumPorts };
+
+            for(int row = 0; row < lbls.length; ++row) {
+                gbcLbl.gridy = row;
+                gbcFld.gridy = row;
+                pnlFields.add(lbls[row], gbcLbl);
+                pnlFields.add(flds[row], gbcFld);
+            }
+
+            // Anchor the fields to the top instead of BorderLayout.CENTER, which would otherwise stretch the
+            // GridLayout rows (and the combo boxes/spinner inside them) to fill the whole window height
+            _mainWindow.add(pnlFields, BorderLayout.NORTH);
 
             final JButton btnOK     = _createButtonWithMnemonic(Texts.WDI_BtnOK    );
             final JButton btnCancel = _createButtonWithMnemonic(Texts.WDI_BtnCancel);
@@ -543,11 +600,22 @@ public abstract class WindowsDriverInstaller {
 
             _registerDefaultAndCancelButton(btnOK, btnCancel);
 
+            // GridLayout gives both buttons the same (largest-preferred) size; wrapping that in a FlowLayout panel
+            // keeps the pair from stretching to the full window width
+            final JPanel pnlButtonsEq = new JPanel( new GridLayout(1, 2, 10, 0) );
+            pnlButtonsEq.add(btnOK);
+            pnlButtonsEq.add(btnCancel);
+
             final JPanel pnlButtons = new JPanel( new FlowLayout(FlowLayout.CENTER) );
-            pnlButtons.add(btnOK);
-            pnlButtons.add(btnCancel);
+            pnlButtons.add(pnlButtonsEq);
 
             _mainWindow.add(pnlButtons, BorderLayout.SOUTH);
+
+            // Re-center now, using this picker's actual (packed) size rather than the 900x600 default that
+            // _initializeMainWindow() centered against
+            _mainWindow.pack();
+            final Dimension scrDim = Toolkit.getDefaultToolkit().getScreenSize();
+            _mainWindow.setLocation( ( scrDim.width - _mainWindow.getSize().width ) / 2, ( scrDim.height - _mainWindow.getSize().height ) / 3 );
 
             _showMainWindow(cmbDevice, false);
         }
@@ -570,7 +638,12 @@ public abstract class WindowsDriverInstaller {
      */
     public XCom.Pair<Integer, String> showInstallDriverDialogAndInstall(final boolean useDarkColorTheme)
     {
-        final ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
+        final ArrayList<USBUtil.USBDevice> allDevs = USBUtil.getDevices();
+        final ArrayList<USBUtil.USBDevice> uDevs   = new ArrayList<>();
+
+        for(final USBUtil.USBDevice ud : allDevs) {
+            if( _isPickableDevice(ud) ) uDevs.add(ud);
+        }
 
         if( uDevs.isEmpty() ) {
             SwingApp.showAlwaysOnTopMessageDialog(Texts.WDI_NoDevicesFound, Texts.WDI_DialogTitle, JOptionPane.WARNING_MESSAGE);

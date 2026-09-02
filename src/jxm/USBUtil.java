@@ -77,11 +77,9 @@ public class USBUtil  {
             this.numOfEndpoints   = numOfEndpoints;
         }
 
-        // Short one-line label for UI pickers, e.g. "0483:DF11  STMicroelectronics STM32  BOOTLOADER"
+        // Short one-line label for UI pickers, e.g. "0483:DF11 STMicroelectronics STM32 BOOTLOADER"
         public String label()
-        {
-            return String.format( "%04X:%04X  %s %s", vid, pid, manufacturerName, productName );
-        }
+        { return String.format("%04X:%04X %s %s", vid, pid, manufacturerName, productName); }
 
         public String dump(final int devIdx)
         {

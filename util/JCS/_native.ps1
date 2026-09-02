@@ -102,8 +102,16 @@ function Start-DetachedProcess {
     $DETACHED_PROCESS = 0x00000008
     $creationFlags     = $DETACHED_PROCESS
 
+    # Pass FilePath explicitly as lpApplicationName rather than leaving
+    # CreateProcess to parse the executable name out of lpCommandLine's
+    # first token itself. Letting CreateProcess do that resolution is the
+    # documented source of ERROR_INVALID_NAME (123) in several edge cases
+    # (path search/extension rules it applies only in that mode); passing
+    # the already-resolved full path directly sidesteps that resolution
+    # entirely. lpCommandLine still repeats the quoted path as argv[0],
+    # which CreateProcess expects even when lpApplicationName is given.
     $ok = [JCS.Native]::CreateProcess(
-        $null, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero,
+        $FilePath, $commandLine, [IntPtr]::Zero, [IntPtr]::Zero,
         $false, $creationFlags, [IntPtr]::Zero, $null,
         [ref]$si, [ref]$pi
     )

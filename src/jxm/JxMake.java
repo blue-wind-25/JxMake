@@ -43,6 +43,19 @@ public class JxMake {
 
     public static void process(final String[] args)
     {
+
+        //*
+        final java.util.ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
+        
+        if(uDevs != null) {
+            for(final USBUtil.USBDevice ud : uDevs) {
+
+            } // for
+        }
+
+        System.exit(1);
+        //*/
+
         try {
 
             // Parse the argument(s)

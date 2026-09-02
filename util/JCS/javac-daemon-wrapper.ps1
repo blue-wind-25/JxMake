@@ -176,7 +176,16 @@ function Invoke-ViaDaemon {
         foreach ($arg in $ProcessedArgs) { $writer.WriteLine($arg) }
         $writer.WriteLine($SEN_ENDINP)
         $writer.Flush()
-        $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
+        # Deliberately NOT calling $client.Client.Shutdown(Send) here: the
+        # server's read loop already stops at the ENDINP sentinel line, not
+        # on EOF, so shutting down the send side is unnecessary -- and under
+        # Windows PowerShell 5.1 (.NET Framework, as this script runs under
+        # via javac-daemon-wrapper.cmd -> powershell.exe), calling
+        # Socket.Shutdown directly on a NetworkStream's underlying .Client
+        # can make the stream's next Read() report EOF immediately, even
+        # though the server's response is still in flight. .NET Core/pwsh
+        # (used by javac-client.ps1's callers) doesn't hit this, which is
+        # why that script's otherwise-identical Shutdown(Send) call is fine.
 
         $mode       = 'none'
         $sawExtcod  = $false

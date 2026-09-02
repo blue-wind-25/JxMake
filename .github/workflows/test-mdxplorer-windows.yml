@@ -32,6 +32,9 @@ jobs:
           $env:PYTHON = 'this-python-does-not-exist'
           cmd /c mdx_server.cmd
           if ($LASTEXITCODE -eq 0) { throw "mdx_server.cmd should have failed when PYTHON is not found" }
+          # Reset $LASTEXITCODE: pwsh steps fail if it's non-zero at step end,
+          # but a non-zero exit here is exactly the expected/verified outcome.
+          $LASTEXITCODE = 0
 
       - name: Install dependencies and start server, verify it serves, stop it (mdx_server.cmd)
         run: |

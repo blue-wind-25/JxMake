@@ -1,0 +1,163 @@
+name: Test JCS PowerShell scripts
+
+on:
+  push:
+    paths:
+      - 'util/JCS/**'
+      - '.github/workflows/test-jcs-ps1.yml'
+  pull_request:
+    paths:
+      - 'util/JCS/**'
+      - '.github/workflows/test-jcs-ps1.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: util/JCS
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build compile-server.jar
+        shell: bash
+        working-directory: util/JCS
+        run: ./build-server.sh
+
+      - name: Start compile server (start-compile-server.ps1)
+        run: |
+          .\start-compile-server.ps1 21000
+          if ($LASTEXITCODE -ne 0) { throw "start-compile-server.ps1 failed" }
+
+      - name: Compile a simple program via javac-client.ps1
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Set-Content -Path Hello.java -Value @'
+          public class Hello {
+              public static void main(String[] args) {
+                  System.out.println("Hello from JCS");
+              }
+          }
+          '@
+          .\javac-client.ps1 21000 -d out Hello.java
+          if ($LASTEXITCODE -ne 0) { throw "javac-client.ps1 failed to compile" }
+          if (-not (Test-Path 'out\Hello.class')) { throw "Hello.class was not produced" }
+
+      - name: Run the compiled program
+        run: |
+          $output = & java -cp out Hello
+          Write-Host $output
+          if ($output -ne 'Hello from JCS') { throw "Unexpected program output: $output" }
+
+      - name: Reject a JRE-only java path (should fail closed)
+        run: |
+          $fakeJre = Join-Path $env:RUNNER_TEMP 'fake-jre\bin'
+          New-Item -ItemType Directory -Force -Path $fakeJre | Out-Null
+          Copy-Item (Get-Command java).Source (Join-Path $fakeJre 'java.exe')
+          .\start-compile-server.ps1 21001 (Join-Path $fakeJre 'java.exe')
+          if ($LASTEXITCODE -eq 0) { throw "start-compile-server.ps1 should have refused a JRE-only java path" }
+
+      - name: Stop compile server (stop-compile-server.ps1)
+        if: always()
+        run: |
+          .\stop-compile-server.ps1 21000
+
+      - name: Upload daemon logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcs-daemon-logs
+          path: ${{ runner.temp }}\javac-daemon-*.log
+          if-no-files-found: ignore
+
+  test-wrapper:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build compile-server.jar
+        shell: bash
+        working-directory: util/JCS
+        run: ./build-server.sh
+
+      - name: Install the transparent javac wrapper into JAVA_HOME
+        run: |
+          $jdkBin = Join-Path $env:JAVA_HOME 'bin'
+          Rename-Item (Join-Path $jdkBin 'javac.exe') 'javac.real.exe'
+          Copy-Item util\JCS\javac-daemon-wrapper.ps1 (Join-Path $jdkBin 'javac-daemon-wrapper.ps1')
+          Copy-Item util\JCS\javac-daemon-wrapper.cmd (Join-Path $jdkBin 'javac.cmd')
+          Copy-Item util\JCS\_port.ps1 (Join-Path $jdkBin '_port.ps1')
+          Copy-Item util\JCS\_javac_args.ps1 (Join-Path $jdkBin '_javac_args.ps1')
+          Copy-Item util\JCS\compile-server.jar (Join-Path $jdkBin 'compile-server.jar')
+
+      - name: Compile through the transparent wrapper (javac on PATH)
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          Set-Content -Path Hello.java -Value @'
+          public class Hello {
+              public static void main(String[] args) {
+                  System.out.println("Hello from wrapper");
+              }
+          }
+          '@
+          # cmd.exe resolves .cmd before .exe, so this hits javac-daemon-wrapper.cmd
+          cmd /c javac -d out Hello.java
+          if ($LASTEXITCODE -ne 0) { throw "wrapper failed to compile" }
+          if (-not (Test-Path 'out\Hello.class')) { throw "Hello.class was not produced by the wrapper" }
+
+      - name: Run the compiled program
+        run: |
+          $output = & java -cp out Hello
+          Write-Host $output
+          if ($output -ne 'Hello from wrapper') { throw "Unexpected program output: $output" }
+
+      - name: Verify the daemon was actually used (PID file present)
+        run: |
+          $port = 21000
+          $pidFile = Join-Path $env:TEMP "javac-daemon-$port.pid"
+          if (-not (Test-Path $pidFile)) { throw "Expected daemon PID file $pidFile was not created; wrapper may have silently fallen back to javac.real.exe" }
+
+      - name: Compile again to confirm daemon reuse (no restart)
+        run: |
+          cmd /c javac -d out Hello.java
+          if ($LASTEXITCODE -ne 0) { throw "second wrapper compile failed" }
+
+      - name: Stop any running daemon
+        if: always()
+        run: |
+          $jdkBin = Join-Path $env:JAVA_HOME 'bin'
+          $port = 21000
+          $pidFile = Join-Path $env:TEMP "javac-daemon-$port.pid"
+          if (Test-Path $pidFile) {
+            $daemonPid = Get-Content $pidFile
+            Stop-Process -Id $daemonPid -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload daemon logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jcs-wrapper-daemon-logs
+          path: ${{ runner.temp }}\javac-daemon-*.log
+          if-no-files-found: ignore

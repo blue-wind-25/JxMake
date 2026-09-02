@@ -208,7 +208,7 @@ endif
 ##### !!!        `jxm/ugc/ProgExec_RW.java`, which reports this same requirement at runtime. !!!
 #####
 ifeq ($(shell ( test "$(JAVA_MAJOR)" -lt 25 ) && echo true), true)
-    ExcludeFFM      := ProgBootUSB ProgBootLUFAHID ProgBootAVRDFU ProgBootSTM32DFU WindowsDriverInstaller_FFM
+    ExcludeFFM      := ProgBootUSB ProgBootLUFAHID ProgBootAVRDFU ProgBootSTM32DFU USBUtil WindowsDriverInstaller_FFM
     JAVA_CLASSES    := $(call filter_out_multi,$(ExcludeFFM),$(JAVA_CLASSES))
     JAVA_SOURCES_PP := $(call filter_out_multi,$(ExcludeFFM),$(JAVA_SOURCES_PP))
 endif

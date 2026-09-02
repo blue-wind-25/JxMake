@@ -15,7 +15,16 @@ Technical Preview 3 (TP3)
 
 ### Primary Application
 
-+ Various enhancements, bug fixes, and cleanups.
++ Added new programmer classes (requires Java  25 and later):
+    + `ProgBootSTM32DFU`
+    + `ProgBootLUFAHID`
+    + `ProgBootAVRDFU`
+    + `ProgBootUSBasp`
+
++ Added new utility classes:
+    + `WindowsDriverInstaller`     - base class
+    + `WindowsDriverInstaller_PS1` - PowerShell backend
+    + `WindowsDriverInstaller_FFM` - Foreign Function and Memory (FFM) backend (requires Java  25 and later)
 
 ### Hardware (Schematics, PCB Designs, Bootloaders, and Firmwares)
 

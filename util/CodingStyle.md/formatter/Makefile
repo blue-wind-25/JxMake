@@ -93,6 +93,8 @@ test-all:
 	tail -f $(LOGFILE) --pid=$$bgpid
 
 
+# LD_LIBRARY_PATH=/opt/gcc-12.2.0/lib64:$LD_LIBRARY_PATH /opt/powershell-7.4.19-linux-x64/pwsh -c '$PSVersionTable' 2>&1
+
 # clear && git status && echo && svn stat && echo
 # clear && git status -uno && echo && svn stat | grep -v '^\?' && echo
 # git stash list

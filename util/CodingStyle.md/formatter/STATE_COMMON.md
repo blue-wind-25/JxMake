@@ -222,6 +222,8 @@ makefile_syntax_check.sh
 makefile_content_diff.sh
 
 bash_syntax_check.sh
+
+ps1_syntax_check.sh
 ```
 
 **Every `*_content_diff.*` tool supports both single-pair and batch mode**

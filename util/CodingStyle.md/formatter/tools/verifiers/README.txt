@@ -466,6 +466,23 @@ Bash
       There is no bash_content_diff.sh in this directory as of this writing.
 
 
+PowerShell
+----------
+
+  ps1_syntax_check.sh
+      Syntax checker for PowerShell source files, using PowerShell 7's own parser
+      (System.Management.Automation.Language.Parser::ParseFile) to report parse errors without
+      executing the script.
+
+      Usage : ps1_syntax_check.sh <file.ps1> [file2.ps1 ...]
+
+      Standalone -- does not depend on any of the _exec_* launchers or any supporting .py/.js/
+      .java file. The pwsh binary path and its LD_LIBRARY_PATH are configurable via env vars
+      declared at the top of the script (PWSH, PWSH_LD_LIBRARY_PATH).
+
+      There is no ps1_content_diff.sh in this directory as of this writing.
+
+
 Exit codes
 -----------
 

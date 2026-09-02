@@ -1,4 +1,6 @@
 Manifest-Version: 1.0
 Application-Name: JxMake
-Created-By: https://sourceforge.net/projects/jxmake
+Created-By: JxMake Standard Build
+Home-Page: https://github.com/blue-wind-25/JxMake
+Secondary-URL: https://sourceforge.net/projects/jxmake
 Main-Class: JXM_Main

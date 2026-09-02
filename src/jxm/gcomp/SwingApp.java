@@ -559,11 +559,16 @@ public abstract class SwingApp {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Shows a simple modal message dialog forced always-on-top and centered on screen. With no real
-    // owner window, JOptionPane.showXxxDialog(null, ...) can otherwise open unfocused behind other
-    // windows on some window managers - since it is a modal dialog blocking on user input, that is
-    // indistinguishable from a hang. Anything showing a standalone message/confirm dialog (i.e. not
-    // already inside a SwingApp's own always-on-top main window) should go through this instead.
+    /*
+     * Shows a simple modal message dialog forced always-on-top and centered on screen.
+     *
+     * With no real owner window, `JOptionPane.showXxxDialog(null, ...)` can otherwise open unfocused
+     * behind other  windows on some window managers - since it is a modal dialog blocking on user input,
+     * that is indistinguishable from a hang.
+     *
+     * Anything showing a standalone message/confirm dialog (i.e. not already inside a `SwingApp`'s own
+     * always-on-top main window) should go through this instead.
+     */
     public static void showAlwaysOnTopMessageDialog(final Object message, final String title, final int messageType)
     {
         final JOptionPane pane   = new JOptionPane(message, messageType);
@@ -571,7 +576,7 @@ public abstract class SwingApp {
 
         dialog.setAlwaysOnTop(true);
         dialog.setLocationRelativeTo(null);
-        dialog.setVisible(true); // blocks (modal) until closed
+        dialog.setVisible(true); // Nlocks (modal) until closed
         dialog.dispose();
     }
 

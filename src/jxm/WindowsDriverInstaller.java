@@ -466,13 +466,10 @@ public abstract class WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Small picker window - modeled directly on DocBrowser (see jxm/DocBrowser.java) - that lets the
-    // user pick one of the currently connected USB devices (via USBUtil.getDevices()) and a driver
-    // kind. Built as a SwingApp subclass rather than a bare JOptionPane so it goes through the same
-    // proven window setup (_initializeMainWindow()/_showMainWindow(), which forces always-on-top - see
-    // SwingApp.java) instead of re-implementing that fix locally: without it, on some window managers
-    // a dialog with no real owner window can open unfocused behind other windows, which - since it is
-    // modal and blocking on user input - looks indistinguishable from a hang.
+    /*
+     * Small picker window that lets the user pick one of the currently connected USB devices via
+     * `USBUtil.getDevices()` and a driver kind
+     */
     private static class WDIPicker extends SwingApp {
 
         // The four driver kinds offered by the picker, in the order they appear in its combo box
@@ -487,13 +484,17 @@ public abstract class WindowsDriverInstaller {
         private String            _selKind   = null;
         private int               _selPorts  = 1;
 
-        WDIPicker(final boolean useDarkColorTheme, final ArrayList<USBUtil.USBDevice> uDevs)
-        { super(useDarkColorTheme, null); _uDevs = uDevs; }
+        private WDIPicker(final boolean useDarkColorTheme, final ArrayList<USBUtil.USBDevice> uDevs)
+        {
+            super(useDarkColorTheme, null);
 
-        boolean           confirmed        () { return _confirmed; }
-        USBUtil.USBDevice selectedDevice   () { return _selDevice; }
-        String            selectedDriverKind() { return _selKind;  }
-        int               selectedNumPorts () { return _selPorts;  }
+            _uDevs = uDevs;
+        }
+
+        private boolean           confirmed         () { return _confirmed; }
+        private USBUtil.USBDevice selectedDevice    () { return _selDevice; }
+        private String            selectedDriverKind() { return _selKind;   }
+        private int               selectedNumPorts  () { return _selPorts;  }
 
         @Override
         protected void _initializeAll() throws Exception
@@ -506,8 +507,7 @@ public abstract class WindowsDriverInstaller {
             final JComboBox<USBUtil.USBDevice> cmbDevice = new JComboBox<>( _uDevs.toArray(new USBUtil.USBDevice[0]) );
             cmbDevice.setRenderer(deviceRenderer);
 
-            final JComboBox<String> cmbDriverKind = new JComboBox<>(_DRIVER_KINDS);
-
+            final JComboBox<String>  cmbDriverKind = new JComboBox<>(_DRIVER_KINDS);
             final SpinnerNumberModel numPortsModel = new SpinnerNumberModel(1, 1, 32, 1);
             final JSpinner           spnNumPorts   = new JSpinner(numPortsModel);
 
@@ -554,18 +554,20 @@ public abstract class WindowsDriverInstaller {
 
     } // class WDIPicker
 
-    // Shows the picker above and, if the user confirms a selection, runs the matching installXXXInf().
-    //
-    // For "CDC-ACM (multi-port)", the port count spinner (installMultiCDCACMInf's numInterfaces - despite
-    // the name, it is the number of CDC-ACM *ports*, not the raw USB interface count: see
-    // generateMultiCDCACMInf() above, which emits one Management+Data interface pair per port) defaults to
-    // half of the selected device's total USB interface count, since each CDC-ACM port occupies exactly
-    // two interfaces. That default is only a heuristic - a device that mixes in unrelated interfaces (e.g.
-    // a vendor-specific or HID interface alongside its CDC-ACM ports) will need the user to correct it -
-    // so the spinner stays editable.
-    //
-    // Returns null if the user cancels the dialog or if no USB devices are found; otherwise returns
-    // whatever the selected installXXXInf() call returns.
+    /*
+     * Shows the picker above and, if the user confirms a selection, runs the matching `installXXXInf()`.
+     *
+     * For "CDC-ACM (multi-port)", the port count spinner (`installMultiCDCACMInf()`'s `numInterfaces`.
+     * Despite the name, it is the number of CDC-ACM ports, not the raw USB interface count: see
+     * `generateMultiCDCACMInf()` above, which emits one Management+Data interface pair per port) defaults
+     * to half of the selected device's total USB interface count, since each CDC-ACM port occupies exactly
+     * two interfaces. That default is only a heuristic - a device that mixes in unrelated interfaces (e.g.
+     * a vendor-specific or HID interface alongside its CDC-ACM ports) will need the user to correct it;
+     * hence, the spinner stays editable.
+     *
+     * Returns null if the user cancels the dialog or if no USB devices are found; otherwise returns
+     * whatever the selected `installXXXInf()` call returns.
+     */
     public XCom.Pair<Integer, String> showInstallDriverDialogAndInstall(final boolean useDarkColorTheme)
     {
         final ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
@@ -576,20 +578,20 @@ public abstract class WindowsDriverInstaller {
         }
 
         final WDIPicker picker = new WDIPicker(useDarkColorTheme, uDevs);
-        picker.run(false); // don't exit the JVM when the picker window closes
+        picker.run(false); // Do not exit the JVM when the picker window closes
 
         if( !picker.confirmed() ) return null;
 
-        final USBUtil.USBDevice ud = picker.selectedDevice();
-        final String             vid = String.format("%04X", ud.vid);
-        final String             pid = String.format("%04X", ud.pid);
-        final String             driverKind = picker.selectedDriverKind();
-        final int                numPorts   = picker.selectedNumPorts();
+        final USBUtil.USBDevice ud         = picker.selectedDevice();
+        final String            vid        = String.format("%04X", ud.vid);
+        final String            pid        = String.format("%04X", ud.pid);
+        final String            driverKind = picker.selectedDriverKind();
+        final int               numPorts   = picker.selectedNumPorts();
 
-        if     ( Texts.WDI_DrvWinUSB .equals(driverKind) ) return installWinUSBInf (vid, pid);
-        else if( Texts.WDI_DrvHID    .equals(driverKind) ) return installHIDInf    (vid, pid);
-        else if( Texts.WDI_DrvCDCACM .equals(driverKind) ) return installCDCACMInf (vid, pid);
-        else                                                return installMultiCDCACMInf( vid, pid, numPorts );
+             if( Texts.WDI_DrvWinUSB .equals(driverKind) ) return installWinUSBInf     (vid, pid          );
+        else if( Texts.WDI_DrvHID    .equals(driverKind) ) return installHIDInf        (vid, pid          );
+        else if( Texts.WDI_DrvCDCACM .equals(driverKind) ) return installCDCACMInf     (vid, pid          );
+        else                                               return installMultiCDCACMInf(vid, pid, numPorts);
     }
 
 } // WindowsDriverInstaller

@@ -1,18 +1,17 @@
+# TRIGGER: manual only (Actions tab -> this workflow -> "Run workflow"), and
+# restricted to the repo owner via the job-level `if:` check below - anyone
+# else who dispatches it will see the job start and immediately no-op (GitHub
+# has no way to hide workflow_dispatch itself from other collaborators, but
+# this keeps them from actually burning Windows-runner minutes with it).
+
 name: Test JCS PowerShell scripts
 
 on:
-  push:
-    paths:
-      - 'util/JCS/**'
-      - '.github/workflows/test-jcs-ps1.yml'
-  pull_request:
-    paths:
-      - 'util/JCS/**'
-      - '.github/workflows/test-jcs-ps1.yml'
   workflow_dispatch:
 
 jobs:
   test:
+    if: github.actor == 'blue-wind-25'
     runs-on: windows-latest
     timeout-minutes: 10
     defaults:
@@ -81,6 +80,7 @@ jobs:
           if-no-files-found: ignore
 
   test-wrapper:
+    if: github.actor == 'blue-wind-25'
     runs-on: windows-latest
     timeout-minutes: 10
     defaults:

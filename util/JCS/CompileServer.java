@@ -161,9 +161,11 @@ public class CompileServer {
                 try {
                     final Socket conn = server.accept();
                     lastActivity.set( System.currentTimeMillis() );
+                    System.err.println( "Accepted connection from " + conn.getRemoteSocketAddress() );
                     pool.submit( () -> {
                         try {
                             handleConnection(compiler, conn);
+                            System.err.println( "Connection from " + conn.getRemoteSocketAddress() + " handled, response sent" );
                         }
                         catch(final Exception e) {
                             System.err.println( "Connection error: " + e.getMessage() );
@@ -259,6 +261,8 @@ public class CompileServer {
             ) ) javacArgs.add(
                 line
             );
+
+            System.err.println( "Read " + javacArgs.size() + " javac arg(s) from " + conn.getRemoteSocketAddress() );
 
             if( javacArgs.isEmpty() ) {
                 sendFramedResponse(out, "", "", 0);

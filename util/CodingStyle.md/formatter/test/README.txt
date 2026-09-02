@@ -4458,6 +4458,14 @@ Real-code regressions:
                                                         was mistaken for a label/value alignment comment; the
                                                         equivalent `/* */` block comment was unaffected.
 
+  real_code_regressions_246_inp/out.sh               -- a `case` arm body statement's indentation was measured
+                                                        relative to the enclosing `case`'s own column instead
+                                                        of the arm pattern's original (pre-reformat) column,
+                                                        so a hand-written case statement whose arm labels were
+                                                        originally indented one level under `case` came out
+                                                        with its body one level deeper than the `;;` that
+                                                        closes it.
+
 How Tests Are Run
 -----------------
 

@@ -876,6 +876,7 @@ public final class BashSpecificRule {
         final String  bodyPrefix       = basePrefix + indent(1);
               int     idx              = startIdx;
               boolean expectingPattern = true;
+              int     armRawIndentLen  = basePrefix.length();
         while( idx < lines.size() ) {
             final String trimmed = lines.get(idx).trim();
             if( pure[idx] && ( trimmed.equals(
@@ -903,6 +904,7 @@ public final class BashSpecificRule {
                 } // if
                 final String[] arm = expectingPattern ? matchCaseArm(trimmed) : null;
                 if(arm != null) {
+                    armRawIndentLen = leadingWhitespace(lines.get(idx)).length();
                     out.add( basePrefix + arm[0].trim() + ")" );
                     String rest = arm[1].trim();
                     if( rest.endsWith(";;") ) {
@@ -932,7 +934,7 @@ public final class BashSpecificRule {
                     ++idx;
                     continue;
                 } // if
-                out.add( snapIndent( lines.get(idx), basePrefix, 1 ) + trimmed );
+                out.add( snapIndent( lines.get(idx), basePrefix, armRawIndentLen, 1 ) + trimmed );
                 ++idx;
                 continue;
             } // if
@@ -996,8 +998,22 @@ public final class BashSpecificRule {
      */
     private String snapIndent(final String rawLine, final String basePrefix, final int minLevels)
     {
+        return snapIndent(rawLine, basePrefix, basePrefix.length(), minLevels);
+    }
+
+    /**
+     * Same as {@link #snapIndent(String, String, int)}, but measures the line's authored relative
+     * depth against {@code referenceLen} instead of {@code basePrefix.length()} -- needed for case-arm
+     * bodies, whose arm pattern line may itself get repositioned (§2.4 forces arm patterns onto the
+     * case's own indent) independently of the body's original authored indentation, which was written
+     * relative to the arm's own original column, not the enclosing `case`'s.
+     */
+    private String snapIndent(
+        final String rawLine, final String basePrefix, final int referenceLen, final int minLevels
+    )
+    {
         final int rawLen  = leadingWhitespace(rawLine).length();
-        final int relLen  = Math.max( 0, rawLen - basePrefix.length() );
+        final int relLen  = Math.max( 0, rawLen - referenceLen );
         final int snapped = (relLen + indentWidth - 1) / indentWidth;
 
         return basePrefix + indent( Math.max( Math.max(0, minLevels), snapped ) );

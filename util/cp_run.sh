@@ -43,13 +43,13 @@ STATE=pre
 for ARG in "$@"; do
     case "$STATE" in
     pre)
-            if [ "$ARG" = "-cp" ]; then STATE=cp; else TOOL_ARGS_PRE+=("$ARG"); fi
+        if [ "$ARG" = "-cp" ]; then STATE=cp; else TOOL_ARGS_PRE+=("$ARG"); fi
         ;;
     cp)
-            if [ "$ARG" = "--" ]; then STATE=post; else CP_ENTRIES+=("$ARG"); fi
+        if [ "$ARG" = "--" ]; then STATE=post; else CP_ENTRIES+=("$ARG"); fi
         ;;
     post)
-            TOOL_ARGS_POST+=("$ARG")
+        TOOL_ARGS_POST+=("$ARG")
         ;;
     esac
 done

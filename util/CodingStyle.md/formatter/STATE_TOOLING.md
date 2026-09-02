@@ -72,6 +72,7 @@ started (docs-only, no code landed yet).
 | RDD_KEY_296 | PowerShell §3.1 `applyBraceIndent` bug fix (dogfood against `util/JCS/*.ps1`): scope depth generalized from brace-only to also track `(`/`[`/`)`/`]` (fixes `param(...)`-block content flushed to enclosing brace depth); new backtick-continuation-aware indent bump (`lineEndsWithBacktick`) fixes inconsistent reindent of `` ` ``-continued lines. New fixture `real_code_regressions_210` |
 | RDD_KEY_297 | Bash §2.3/§2.4 bug fix: `emitBraceBody`/`emitCaseBodyInner` no longer force every body line to a brace/case-arm-depth-derived indent, which flattened non-brace-nested `if`/`for` blocks (bash has no braces for these). New `snapIndent` helper preserves each line's own authored indentation, snapped UP to the next `indent-size` multiple, floored at the structurally-required depth. PowerShell confirmed unaffected (every block construct there requires literal `{}`). New fixture `real_code_regressions_211` |
 | RDD_KEY_300 | 2026-08-16 cleanup pass: `MakefileSpecificRule`/`BashSpecificRule`/`PowerShellSpecificRule`'s byte-identical private `repeatChar`/`indent` pair factored into new package-private `rules/ToolingSharedRule.java` (mirrors `YamlTomlSharedRule`'s shape/pattern). Pure pull-up, no behavior change. Full details/rationale (incl. why not merged with the data-format family's own `repeatChar`) in `RDD_LOG.md`. |
+| RDD_KEY_356 | Bash §2.4 bug fix (`util/cp_run.sh` user report): a case-arm body statement's `snapIndent` reference was the case's own indent instead of the arm label's original (pre-reformat) column, putting the body one level too deep relative to `;;` whenever the source originally indented arm labels one level under `case`. Fixed via a new `snapIndent(String, String, int referenceLen, int minLevels)` overload keyed off each arm's own captured raw indent. New fixture `real_code_regressions_246` |
 
 ---
 
@@ -678,3 +679,23 @@ boundary question). See `STYLE_TOOLING.md` for the resolved rule text.
       landed fix (superseding this file's own rejected-detector wording
       from earlier the same day, left in place above as a record of the
       design that didn't work and why).
+- [x] **Bash -- `util/cp_run.sh`, DONE, 1 bug found and fixed (RDD_KEY_356,
+      2026-09-02).** User reported a `case` arm's body statement rendered
+      one indent level deeper than the `;;` closing that same arm. Root
+      cause: `emitCaseBodyInner`'s fallback body-line branch measured a
+      line's authored relative indent against the case statement's own
+      `basePrefix` via `snapIndent`, while `;;`/inline-body handling always
+      emit at a fixed one-level `bodyPrefix` -- when the original source
+      indented arm labels one level under `case` (§2.4 instead forces arm
+      labels flush with `case`), the body's authored column was relative to
+      the arm's own original column, not the case's, so after the arm label
+      moved the body rendered one level too deep. Fixed via a new
+      `snapIndent(String, String, int referenceLen, int minLevels)` overload
+      keyed off each arm's own captured raw indent (`armRawIndentLen`);
+      `emitBraceBody`'s function-body call site (header line never
+      repositioned) is unaffected. New fixture
+      `test/real_code_regressions_246_{inp,out}.sh`. `make test`: 365/365 ->
+      366/366 forward + idempotency. `util/cp_run.sh` itself already had the
+      buggy output baked in (a fixed point of the old bug) and was corrected
+      by hand; reformatting it with the fixed jar now reproduces it
+      byte-identical.

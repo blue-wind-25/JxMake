@@ -31,6 +31,7 @@ jobs:
           name: compiled-jxmake-jar
           path: src/jxmake.jar
           retention-days: 1 # Automatically cleanup quickly
+          if-no-files-found: error
 
   # 2. Run the PS1 test after the build completes
   run-ps1:

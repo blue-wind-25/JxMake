@@ -395,5 +395,5 @@ jobs:
         with:
           name: wdi-compare-output
           path: src/wdi_compare_out
-          if-no-files-found: warn
-
+          retention-days: 1 # Automatically cleanup quickly
+          if-no-files-found: error

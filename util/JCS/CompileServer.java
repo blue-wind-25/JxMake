@@ -270,14 +270,25 @@ public class CompileServer {
             final ByteArrayOutputStream errBuf    = new ByteArrayOutputStream();
             final PrintStream           outStream = new PrintStream(outBuf, true, "UTF-8");
             final PrintStream           errStream = new PrintStream(errBuf, true, "UTF-8");
-            final int                   exitCode;
+            int                         exitCode;
 
+            // Catch anything compiler.run() itself throws (as opposed to
+            // reporting via diagnostics on errStream) and still send a
+            // complete framed response: letting an exception escape here
+            // would close the connection before EXTCOD is ever sent, and
+            // the client has no way to tell that apart from a genuine
+            // compiler exit code, other than logging an ambiguous
+            // "connection closed early" message.
             try(
                 final StandardJavaFileManager fm = compiler.getStandardFileManager(null, null, null)
             ) {
                 exitCode = compiler.run(
                     null, outStream, errStream, javacArgs.toArray( new String[0] )
                 );
+            }
+            catch(final Throwable t) {
+                t.printStackTrace(errStream);
+                exitCode = 1;
             }
 
             sendFramedResponse( out, outBuf.toString("UTF-8"), errBuf.toString("UTF-8"), exitCode );

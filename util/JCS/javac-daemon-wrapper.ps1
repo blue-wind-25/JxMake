@@ -178,7 +178,8 @@ function Invoke-ViaDaemon {
         $writer.Flush()
         $client.Client.Shutdown([System.Net.Sockets.SocketShutdown]::Send)
 
-        $mode        = 'none'
+        $mode       = 'none'
+        $sawExtcod  = $false
         $stdoutLines = [System.Collections.Generic.List[string]]::new()
         $stderrLines = [System.Collections.Generic.List[string]]::new()
         $exitCode    = 1
@@ -193,10 +194,23 @@ function Invoke-ViaDaemon {
                     switch ($mode) {
                         'stdout' { $stdoutLines.Add($line) }
                         'stderr' { $stderrLines.Add($line) }
-                        'extcod' { $exitCode = [int]$line }
+                        'extcod' { $exitCode = [int]$line; $sawExtcod = $true }
                     }
                 }
             }
+        }
+
+        # If the connection closed before the EXTCOD sentinel ever arrived
+        # (server crashed mid-request, or an exception escaped
+        # handleConnection before sendFramedResponse ran), $exitCode is
+        # still just its initial default of 1 -- indistinguishable from a
+        # genuine javac exit code of 1 unless flagged explicitly. Surface
+        # that distinction instead of silently reporting the default.
+        if (-not $sawExtcod) {
+            $logFile = Join-Path $TmpDir "javac-daemon-$Port.log"
+            [Console]::Error.WriteLine(
+                "ERROR: daemon connection to port $Port closed before sending a response (mode was '$mode'). Check $logFile."
+            )
         }
 
         foreach ($l in $stdoutLines) { [Console]::Out.WriteLine($l) }

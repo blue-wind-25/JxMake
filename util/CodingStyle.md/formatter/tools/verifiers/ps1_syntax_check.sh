@@ -19,7 +19,7 @@
 # syntax errors, 2 if the command-line usage is invalid.
 
 # Override in your shell/CI environment if pwsh or its runtime library path live somewhere
-# other than the defaults below.
+# other than the defaults below
 : "${PWSH_LD_LIBRARY_PATH:=/opt/gcc-12.2.0/lib64}"
 : "${PWSH:=/opt/powershell-7.4.19-linux-x64/pwsh}"
 

@@ -8,12 +8,28 @@
 package jxm;
 
 
+import java.awt.GridLayout;
+
 import java.io.IOException;
 
 import java.nio.charset.StandardCharsets;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JSpinner;
+import javax.swing.ListCellRenderer;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingUtilities;
 
 import jxm.xb.*;
 
@@ -442,6 +458,126 @@ public abstract class WindowsDriverInstaller {
         if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
 
         return installSelfSignedDriver(infPath, PROVIDER_NAME + "_" + vid + "_" + pid);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // The four driver kinds offered by the picker dialog below, in the order they appear in its combo box
+    private static final String[] _DRIVER_KINDS = {
+        Texts.WDI_DrvWinUSB, Texts.WDI_DrvHID, Texts.WDI_DrvCDCACM, Texts.WDI_DrvMultiCDCACM
+    };
+
+    // Shows a small modal dialog that lets the user pick one of the currently connected USB devices
+    // (via USBUtil.getDevices()) and a driver kind, then runs the matching installXXXInf() for it.
+    //
+    // For "CDC-ACM (multi-port)", the port count spinner (installMultiCDCACMInf's numInterfaces - despite
+    // the name, it is the number of CDC-ACM *ports*, not the raw USB interface count: see
+    // generateMultiCDCACMInf() above, which emits one Management+Data interface pair per port) defaults to
+    // half of the selected device's total USB interface count, since each CDC-ACM port occupies exactly
+    // two interfaces. That default is only a heuristic - a device that mixes in unrelated interfaces (e.g.
+    // a vendor-specific or HID interface alongside its CDC-ACM ports) will need the user to correct it -
+    // so the spinner stays editable.
+    //
+    // Returns null if the user cancels the dialog or if no USB devices are found; otherwise returns
+    // whatever the selected installXXXInf() call returns.
+    public XCom.Pair<Integer, String> showInstallDriverDialogAndInstall()
+    {
+        final ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
+
+        // All Swing component creation/display must happen on the Event Dispatch Thread. Following the
+        // same convention as SwingApp.run()/waitUntilClosed() (see jxm/gcomp/SwingApp.java) - schedule
+        // the work via invokeLater() and busy-wait on the calling thread for a completion flag, rather
+        // than blocking synchronously with invokeAndWait() from here (that can deadlock, e.g. if the
+        // calling thread is itself needed by the EDT to make progress)
+        final AtomicReference<USBUtil.USBDevice> selectedDevice = new AtomicReference<>();
+        final AtomicReference<String>            selectedKind   = new AtomicReference<>();
+        final AtomicReference<Integer>           selectedPorts  = new AtomicReference<>();
+        final AtomicBoolean                      done           = new AtomicBoolean(false);
+
+        final Runnable showDialog = () -> {
+
+            if( uDevs.isEmpty() ) {
+                final JOptionPane msgPane   = new JOptionPane(Texts.WDI_NoDevicesFound, JOptionPane.WARNING_MESSAGE);
+                final JDialog     msgDialog = msgPane.createDialog(Texts.WDI_DialogTitle);
+                // Same reasoning as the picker dialog below - force it always-on-top and centered, or on
+                // some window managers it can open unfocused behind other windows and look like a hang
+                msgDialog.setAlwaysOnTop(true);
+                msgDialog.setLocationRelativeTo(null);
+                msgDialog.setVisible(true); // blocks (modal) until closed
+                msgDialog.dispose();
+                done.set(true);
+                return;
+            }
+
+            final ListCellRenderer<Object> deviceRenderer = (list, value, index, isSelected, cellHasFocus) ->
+                new JLabel( value instanceof USBUtil.USBDevice ? ( (USBUtil.USBDevice) value ).label() : String.valueOf(value) );
+
+            final JComboBox<USBUtil.USBDevice> cmbDevice = new JComboBox<>( uDevs.toArray(new USBUtil.USBDevice[0]) );
+            cmbDevice.setRenderer(deviceRenderer);
+
+            final JComboBox<String> cmbDriverKind = new JComboBox<>(_DRIVER_KINDS);
+
+            final SpinnerNumberModel numPortsModel = new SpinnerNumberModel(1, 1, 32, 1);
+            final JSpinner           spnNumPorts   = new JSpinner(numPortsModel);
+
+            final Runnable syncNumPorts = () -> {
+                final USBUtil.USBDevice ud      = (USBUtil.USBDevice) cmbDevice.getSelectedItem();
+                final boolean           isMulti = cmbDriverKind.getSelectedIndex() == 3;
+                spnNumPorts.setEnabled(isMulti);
+                if( isMulti && ud != null ) numPortsModel.setValue( Math.max(1, ud.numOfInterfaces / 2) );
+            };
+            cmbDevice    .addActionListener( e -> syncNumPorts.run() );
+            cmbDriverKind.addActionListener( e -> syncNumPorts.run() );
+            syncNumPorts.run();
+
+            final JPanel panel = new JPanel( new GridLayout(0, 2, 8, 8) );
+            panel.add( new JLabel(Texts.WDI_LblDevice  ) ); panel.add(cmbDevice    );
+            panel.add( new JLabel(Texts.WDI_LblDriver  ) ); panel.add(cmbDriverKind);
+            panel.add( new JLabel(Texts.WDI_LblNumPorts) ); panel.add(spnNumPorts  );
+
+            final JOptionPane optionPane = new JOptionPane(panel, JOptionPane.PLAIN_MESSAGE, JOptionPane.OK_CANCEL_OPTION);
+            final JDialog     dialog     = optionPane.createDialog(Texts.WDI_DialogTitle);
+
+            // Force the dialog always-on-top and centered on screen: with no real owner window, some
+            // window managers can otherwise open it unfocused behind other windows, which - since this
+            // is a modal dialog blocking on user input - looks indistinguishable from a genuine hang
+            dialog.setAlwaysOnTop(true);
+            dialog.setLocationRelativeTo(null);
+            dialog.setVisible(true); // blocks (modal) until closed
+            dialog.dispose();
+
+            final Object choiceObj = optionPane.getValue();
+            final int    choice    = (choiceObj instanceof Integer) ? (Integer) choiceObj : JOptionPane.CLOSED_OPTION;
+
+            if( choice == JOptionPane.OK_OPTION ) {
+                selectedDevice.set( (USBUtil.USBDevice) cmbDevice.getSelectedItem() );
+                selectedKind  .set( (String) cmbDriverKind.getSelectedItem() );
+                selectedPorts .set( (Integer) spnNumPorts.getValue() );
+            }
+
+            done.set(true);
+        };
+
+        if( SwingUtilities.isEventDispatchThread() ) showDialog.run();
+        else                                         SwingUtilities.invokeLater(showDialog);
+
+        while( !done.get() ) Thread.yield();
+
+        final USBUtil.USBDevice ud = selectedDevice.get();
+        if( ud == null ) return null; // cancelled, or no devices found
+
+        final String vid = String.format("%04X", ud.vid);
+        final String pid = String.format("%04X", ud.pid);
+
+        final String   driverKind = selectedKind.get();
+        final Integer  numPorts   = selectedPorts.get();
+
+        if     ( Texts.WDI_DrvWinUSB     .equals(driverKind) ) return installWinUSBInf (vid, pid);
+        else if( Texts.WDI_DrvHID        .equals(driverKind) ) return installHIDInf    (vid, pid);
+        else if( Texts.WDI_DrvCDCACM     .equals(driverKind) ) return installCDCACMInf (vid, pid);
+        else                                                   return installMultiCDCACMInf( vid, pid, numPorts );
     }
 
 } // WindowsDriverInstaller

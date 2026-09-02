@@ -43,6 +43,7 @@ public class JxMake {
 
     public static void process(final String[] args)
     {
+
         try {
 
             // Parse the argument(s)
@@ -65,6 +66,27 @@ public class JxMake {
             // ##### !!! TEST ONLY !!! #####
             final java.util.ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
             USBUtil.dumpDevices(uDevs);
+
+            final WindowsDriverInstaller wdi = new WindowsDriverInstaller() {
+                @Override public boolean isUsable()
+                { return true; }
+
+                @Override public XCom.Pair<Integer, String> isProviderAlreadyTrusted(final String providerName)
+                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+
+                @Override public XCom.Pair<Integer, String> createAndTrustProvider(final String providerName)
+                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+
+                @Override public XCom.Pair<Integer, String> createAndSignCatalog(final String infPath, final String providerName)
+                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+
+                @Override public XCom.Pair<Integer, String> installDriver(final String infPath)
+                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+            };
+
+            final XCom.Pair<Integer, String> wdiResult = wdi.showInstallDriverDialogAndInstall();
+            SysUtil.stdDbg().println("Result: " + wdiResult);
+
             SysUtil.systemExit();
             //*/
 

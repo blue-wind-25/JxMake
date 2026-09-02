@@ -428,6 +428,16 @@ public class Texts {
     public static final String EMsg_WDriverInstallInvInfPth = _T("invalid INF path '%s'; it must be absolute and exist");
     public static final String EMsg_WDriverInstallTimeoutMN = _T("TIMEOUT: The driver installation took longer than %d minutes.\nThe driver may still be installing in the background.");
 
+    public static final String WDI_DialogTitle              = _T("Install Windows Driver");
+    public static final String WDI_NoDevicesFound           = _T("No USB devices found.");
+    public static final String WDI_LblDevice                = _T("Device:");
+    public static final String WDI_LblDriver                = _T("Driver:");
+    public static final String WDI_LblNumPorts              = _T("CDC-ACM ports:");
+    public static final String WDI_DrvWinUSB                = _T("WinUSB");
+    public static final String WDI_DrvHID                   = _T("HID");
+    public static final String WDI_DrvCDCACM                = _T("CDC-ACM (single port)");
+    public static final String WDI_DrvMultiCDCACM           = _T("CDC-ACM (multi-port)");
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
     public static String JxMakeAboutStringText()

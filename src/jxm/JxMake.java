@@ -84,7 +84,7 @@ public class JxMake {
                 { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
             };
 
-            final XCom.Pair<Integer, String> wdiResult = wdi.showInstallDriverDialogAndInstall();
+            final XCom.Pair<Integer, String> wdiResult = wdi.showInstallDriverDialogAndInstall( !argParser.useLightColorThemeGUI() );
             SysUtil.stdDbg().println("Result: " + wdiResult);
 
             SysUtil.systemExit();

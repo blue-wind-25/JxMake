@@ -437,6 +437,8 @@ public class Texts {
     public static final String WDI_DrvHID                   = _T("HID");
     public static final String WDI_DrvCDCACM                = _T("CDC-ACM (single port)");
     public static final String WDI_DrvMultiCDCACM           = _T("CDC-ACM (multi-port)");
+    public static final String WDI_BtnOK                    = _T("&OK");
+    public static final String WDI_BtnCancel                = _T("&Cancel");
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

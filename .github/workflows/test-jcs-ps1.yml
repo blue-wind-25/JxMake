@@ -118,6 +118,7 @@ jobs:
           Copy-Item util\JCS\javac-daemon-wrapper.cmd (Join-Path $jdkBin 'javac.cmd')
           Copy-Item util\JCS\_port.ps1 (Join-Path $jdkBin '_port.ps1')
           Copy-Item util\JCS\_javac_args.ps1 (Join-Path $jdkBin '_javac_args.ps1')
+          Copy-Item util\JCS\_native.ps1 (Join-Path $jdkBin '_native.ps1')
           Copy-Item util\JCS\compile-server.jar (Join-Path $jdkBin 'compile-server.jar')
 
       - name: Compile via wrapper, confirm daemon reuse, stop

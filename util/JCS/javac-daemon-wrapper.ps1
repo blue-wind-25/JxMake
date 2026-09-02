@@ -45,6 +45,7 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\_port.ps1"
 . "$PSScriptRoot\_javac_args.ps1"
+. "$PSScriptRoot\_native.ps1"
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 $TmpDir = $env:TEMP
@@ -116,30 +117,26 @@ function Start-Daemon {
 
     if (Test-PortOpen $Port) { return $true }
 
-    # Start daemon as a detached process.
-    # Deliberately NOT setting RedirectStandardOutput/Error/Input: doing so
-    # forces .NET's CreateProcess call to pass bInheritHandles=TRUE, which
-    # inherits *every* inheritable handle this process holds into the
-    # daemon - not just the ones we explicitly redirect. Several hops up
-    # a CI runner's process chain (cmd.exe -> this powershell.exe -> java),
-    # one of those inherited handles is the pipe the runner uses to capture
-    # this very step's output; the daemon outliving the step then holds
-    # that pipe's write end open forever, so the runner's reader never sees
-    # EOF and the step hangs indefinitely even after every real command has
-    # finished. CompileServer.java writes its own log file directly, so we
-    # don't need OS-level output piping here at all.
-    $psi                 = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName        = $JavaBin
-    $psi.Arguments       = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $Port"
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow  = $true
-    $proc                = [System.Diagnostics.Process]::Start($psi)
+    # Start daemon as a fully detached process via raw CreateProcess with
+    # bInheritHandles = $false (see _native.ps1). [System.Diagnostics.Process]
+    # ::Start is not safe here even without our own redirection: this script
+    # is launched via powershell.exe (Windows PowerShell 5.1 / .NET
+    # Framework), several hops into a CI runner's process chain (cmd.exe ->
+    # this powershell.exe -> java.exe), and .NET Framework's CreateProcess
+    # call can still leak inherited handles from further up that chain -
+    # including the pipe a CI runner uses to capture a step's own output.
+    # A long-lived daemon holding that pipe's write end open means the
+    # runner's reader never sees EOF and the step hangs indefinitely, even
+    # after every real command has finished. CompileServer.java writes its
+    # own log file directly, so no stdio piping is needed here at all.
+    $daemonPid = Start-DetachedProcess -FilePath $JavaBin `
+        -Arguments "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $Port"
 
     # Wait up to 5 s for the daemon to open the port
     for ($i = 0; $i -lt 10; $i++) {
         Start-Sleep -Milliseconds 500
         if (Test-PortOpen $Port) {
-            $proc.Id |
+            $daemonPid |
                 Set-Content $PidFile
             return $true
         }

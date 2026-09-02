@@ -30,6 +30,7 @@ $ErrorActionPreference = 'Stop'
 # ── Includes ──────────────────────────────────────────────────────────────────
 
 . "$PSScriptRoot\_port.ps1"
+. "$PSScriptRoot\_native.ps1"
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 $TmpDir = $env:TEMP
@@ -118,23 +119,17 @@ try {
 
 Write-Host "Starting javac daemon on port $resolvedPort using $verStr..."
 
-# Deliberately NOT setting RedirectStandardOutput/Error/Input: doing so
-# forces .NET's CreateProcess call to pass bInheritHandles=TRUE, which
-# inherits *every* inheritable handle this process holds into the daemon -
-# not just the ones we explicitly redirect. On a CI runner, one of those
-# inherited handles can be the pipe used to capture this very step's
-# output; the daemon outliving the step then holds that pipe's write end
-# open forever, so the runner's reader never sees EOF and the step hangs
-# indefinitely even after every real command has finished.
-# CompileServer.java writes its own log file directly, so we don't need
-# OS-level output piping here at all.
-$psi                 = New-Object System.Diagnostics.ProcessStartInfo
-$psi.FileName        = $JavaBin
-$psi.Arguments       = "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $resolvedPort"
-$psi.UseShellExecute = $false
-$psi.CreateNoWindow  = $true
-
-$proc = [System.Diagnostics.Process]::Start($psi)
+# Start daemon as a fully detached process via raw CreateProcess with
+# bInheritHandles = $false (see _native.ps1). [System.Diagnostics.Process]
+# ::Start is not safe here even without our own redirection: this process's
+# .NET CreateProcess call can still leak inherited handles from further up
+# the calling chain - including the pipe a CI runner uses to capture a
+# step's own output. A long-lived daemon holding that pipe's write end open
+# means the runner's reader never sees EOF and the step hangs indefinitely,
+# even after every real command has finished. CompileServer.java writes its
+# own log file directly, so no stdio piping is needed here at all.
+$daemonPid = Start-DetachedProcess -FilePath $JavaBin `
+    -Arguments "-Djava.io.tmpdir=`"$TmpDir`" -jar `"$JarPath`" $resolvedPort"
 
 # Wait up to 5 s for the port to open
 for ($i = 0; $i -lt 10; $i++) {
@@ -143,9 +138,9 @@ for ($i = 0; $i -lt 10; $i++) {
         $t = New-Object System.Net.Sockets.TcpClient
         $t.Connect('127.0.0.1', $resolvedPort)
         $t.Close()
-        $proc.Id |
+        $daemonPid |
             Set-Content $PidFile
-        Write-Host "Daemon started (PID $($proc.Id)), listening on port $resolvedPort"
+        Write-Host "Daemon started (PID $daemonPid), listening on port $resolvedPort"
         Write-Host "Log: $LogFile"
         exit 0
     } catch {}

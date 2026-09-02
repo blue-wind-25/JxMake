@@ -130,6 +130,36 @@ jobs:
           function Dump-Diagnostics {
               Write-Host '---- daemon log ----'
               if (Test-Path $logFile) { Get-Content $logFile | Write-Host } else { Write-Host '(no log file)' }
+              Write-Host '---- live processes (java/javac/cmd/powershell) ----'
+              Get-Process -ErrorAction SilentlyContinue |
+                  Where-Object { $_.ProcessName -match '^(java|javac|cmd|powershell|pwsh)' } |
+                  Format-Table Id, ProcessName, StartTime | Out-String | Write-Host
+          }
+
+          # Run a wrapper compile with a bounded timeout via a background job,
+          # so a hang shows live diagnostics instead of silently eating the
+          # whole 10-minute job timeout with zero output (output piped into a
+          # variable, as a plain `cmd /c ... 2>&1` capture would do, only
+          # flushes once the command returns -- useless if it never does).
+          function Invoke-WrapperCompile {
+              $job = Start-Job -ScriptBlock {
+                  Set-Location $using:PWD
+                  cmd /c javac -d out Hello.java 2>&1
+                  "___EXITCODE___$LASTEXITCODE"
+              }
+              if (-not (Wait-Job $job -Timeout 60)) {
+                  Write-Host '---- TIMEOUT: wrapper compile did not finish within 60s ----'
+                  Receive-Job $job | Write-Host
+                  Dump-Diagnostics
+                  Stop-Job $job -ErrorAction SilentlyContinue
+                  Remove-Job $job -Force -ErrorAction SilentlyContinue
+                  throw 'wrapper compile timed out'
+              }
+              $raw = Receive-Job $job
+              Remove-Job $job -Force -ErrorAction SilentlyContinue
+              $exitLine = $raw | Where-Object { $_ -match '^___EXITCODE___(-?\d+)$' } | Select-Object -Last 1
+              $script:LASTEXITCODE = if ($exitLine -match '^___EXITCODE___(-?\d+)$') { [int]$Matches[1] } else { 1 }
+              $raw | Where-Object { $_ -notmatch '^___EXITCODE___' } | Write-Host
           }
 
           try {
@@ -142,10 +172,7 @@ jobs:
           }
           '@
               # cmd.exe resolves .cmd before .exe, so this hits javac-daemon-wrapper.cmd.
-              # Merge stderr so any PowerShell terminating-error text from the wrapper
-              # itself (not just javac's own diagnostics) shows up in the CI log.
-              $compileOutput = cmd /c javac -d out Hello.java 2>&1
-              $compileOutput | Write-Host
+              Invoke-WrapperCompile
               if ($LASTEXITCODE -ne 0) { Dump-Diagnostics; throw "wrapper failed to compile" }
               if (-not (Test-Path 'out\Hello.class')) { Dump-Diagnostics; throw "Hello.class was not produced by the wrapper" }
 
@@ -156,8 +183,7 @@ jobs:
               if (-not (Test-Path $pidFile)) { throw "Expected daemon PID file $pidFile was not created; wrapper may have silently fallen back to javac.real.exe" }
               $firstPid = Get-Content $pidFile
 
-              $compileOutput = cmd /c javac -d out Hello.java 2>&1
-              $compileOutput | Write-Host
+              Invoke-WrapperCompile
               if ($LASTEXITCODE -ne 0) { Dump-Diagnostics; throw "second wrapper compile failed" }
 
               $secondPid = Get-Content $pidFile

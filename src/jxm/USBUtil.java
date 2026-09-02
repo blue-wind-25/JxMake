@@ -43,4 +43,23 @@ public class USBUtil  {
 
     } // class USBDevice
 
+    public static ArrayList<USBDevice> getDevices()
+    {
+        final ArrayList<USBDevice> devices = new ArrayList<>();
+
+        for( final UsbDevice ud : Usb.getDevices() ) {
+
+            devices.add( new USBDevice(
+                ud.getVendorId    (),
+                ud.getProductId   (),
+                ud.getManufacturer(),
+                ud.getProduct     (),
+                ud.getSerialNumber()
+            ) );
+
+        } // for
+
+        return devices;
+    }
+
 } // class USBUtil

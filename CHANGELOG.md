@@ -21,10 +21,11 @@ Technical Preview 3 (TP3)
     + `ProgBootAVRDFU`
     + `ProgBootUSBasp`
 
-+ Added new utility classes:
++ Added new utility classes (not yet exposed via JxMake built-in functions):
+    + `USBUtil`                    -                          (requires Java  25 and later)
     + `WindowsDriverInstaller`     - base class
-    + `WindowsDriverInstaller_PS1` - PowerShell backend
-    + `WindowsDriverInstaller_FFM` - Foreign Function and Memory (FFM) backend (requires Java  25 and later)
+    + `WindowsDriverInstaller_PS1` - backend using PowerShell
+    + `WindowsDriverInstaller_FFM` - backend using Java FFM   (requires Java  25 and later)
 
 ### Hardware (Schematics, PCB Designs, Bootloaders, and Firmwares)
 

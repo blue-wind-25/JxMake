@@ -472,7 +472,7 @@ public abstract class WindowsDriverInstaller {
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     // USB Hub class code (USB spec, bDeviceClass) - this is reported by the device descriptor itself,
     // so filtering on it (rather than e.g. a vendor ID) works the same way regardless of host OS. Every
     // root hub is also reported by the host controller as a class-09 device, so this excludes those too
@@ -559,18 +559,17 @@ public abstract class WindowsDriverInstaller {
             // GridBagLayout instead of GridLayout - the label column keeps its natural (small) width
             // and only the field column stretches, instead of both columns being forced equally wide
             final JPanel pnlFields = new JPanel( new GridBagLayout() );
-            pnlFields.setBorder( new EmptyBorder(10, 10, 10, 10) );
 
             final GridBagConstraints gbcLbl = new GridBagConstraints();
             gbcLbl.gridx  = 0;
             gbcLbl.anchor = GridBagConstraints.WEST;
-            gbcLbl.insets = new Insets(4, 4, 4, 4);
+            gbcLbl.insets = new Insets(0, 0, 5, 5);
 
             final GridBagConstraints gbcFld = new GridBagConstraints();
             gbcFld.gridx   = 1;
             gbcFld.weightx = 1.0;
             gbcFld.fill    = GridBagConstraints.HORIZONTAL;
-            gbcFld.insets  = new Insets(4, 4, 4, 4);
+            gbcFld.insets  = new Insets(0, 0, 5, 5);
 
             final JLabel[]     lbls = { new JLabel(Texts.WDI_LblDevice), new JLabel(Texts.WDI_LblDriver), new JLabel(Texts.WDI_LblNumPorts) };
             final JComponent[] flds = { cmbDevice, cmbDriverKind, spnNumPorts };

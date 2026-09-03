@@ -861,7 +861,7 @@ define PP_IGNORE_UPDATE
             D="$(dir $(1))"; F="$(notdir $(1))";                                                              \
             CUR=`svn propget svn:ignore "$$$$D" 2>/dev/null`;                                                 \
             if ! printf '%s\n' "$$$$CUR" | grep -qxF "$$$$F"; then                                            \
-                NEW=`printf '%s\n%s\n' "$$$$CUR" "$$$$F" | sed '/^$$$$/d'`;                                   \
+                NEW=`printf '%s\n%s\n' "$$$$CUR" "$$$$F" | sed '/^$$$$/d' | LC_ALL=C sort -u`;                \
                 svn propset -q svn:ignore "$$$$NEW" "$$$$D" >/dev/null;                                       \
             fi;                                                                                               \
         fi;                                                                                                   \

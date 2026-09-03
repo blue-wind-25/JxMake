@@ -3239,6 +3239,49 @@ public class SysUtil {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    private static String _windowsDriverDir = null;
+
+    /*
+     * Locates the 'windows_driver' directory holding the bundled 3rd-party driver '.sys' binaries
+     * 'libusbK' and 'libusb0'.
+     *
+     * See WindowsDriverInstaller.generateLibusbKInf()/generateLibusb0Inf(), in both a distribution layout
+     * ('jxmake_dist/windows_driver') and a source-tree test-run layout ('../3rd_party/windows_driver'),
+     * same pattern as findSpellingParserDicDir()/findUnicodeTextDir() above.
+     */
+    public static String findWindowsDriverDir()
+    {
+        if(_windowsDriverDir != null) return _windowsDriverDir;
+
+        // Get the root path
+        final String rootPath = get3rdPartyRootDirectory();
+
+        if(rootPath == null) return null;
+
+        // Check some directories
+        final String[] paths = new String[] {
+            "windows_driver"                 ,
+            _JxMakeDistDir + "windows_driver",
+            "3rd_party/windows_driver"       ,
+            "../3rd_party/windows_driver"    ,
+            "../../3rd_party/windows_driver"
+        };
+
+
+        for(final String p : paths) {
+            final String path = SysUtil.resolvePath(p, rootPath);
+            if( SysUtil.pathIsValidDirectory(path) ) {
+                _windowsDriverDir = path;
+                return _windowsDriverDir;
+            }
+        }
+
+        // Not found
+        return null;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
     public static URL getTranslationFileURL_defLoc(final String name)
     { return getResourceURL("jxm/resource/l10n/text/" + name + ".po"); }
 

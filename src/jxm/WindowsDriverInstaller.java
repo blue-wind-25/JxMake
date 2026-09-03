@@ -317,7 +317,7 @@ public abstract class WindowsDriverInstaller {
             "                                                                 \r\n" +
             "[DriverInstall.NT]                                               \r\n" +
             "Include = mdmcpq.inf                                             \r\n" +
-            "CopyFiles = FakeCopyFiles                                        \r\n" +
+            "CopyFiles = FakeModemCopyFileSection                             \r\n" +
             "AddReg = DriverInstall.NT.AddReg                                 \r\n" +
             "                                                                 \r\n" +
             "[DriverInstall.NT.AddReg]                                        \r\n" +
@@ -375,7 +375,7 @@ public abstract class WindowsDriverInstaller {
         // --- INSTALLATION SECTION ---
         sb.append("[DriverInstall.NT]                                               \r\n");
         sb.append("Include = mdmcpq.inf                                             \r\n");
-        sb.append("CopyFiles = FakeCopyFiles                                        \r\n");
+        sb.append("CopyFiles = FakeModemCopyFileSection                             \r\n");
         sb.append("AddReg = DriverInstall.NT.AddReg                                 \r\n");
         sb.append("                                                                 \r\n");
 
@@ -407,6 +407,141 @@ public abstract class WindowsDriverInstaller {
         }
 
         return sb.toString();
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    // Generates a formatted libusbK INF string for a specific hardware ID. catalogFileName must be the exact
+    // basename of the .cat file that will sit alongside this INF - see generateWinUSBInf() above. sysFileName
+    // must be the exact basename (e.g. "libusbK.sys") of the driver binary that _installLibusbKOrLibusb0()
+    // below copies alongside this INF, since SourceDisksFiles below names it as source disk 1's own file
+    public static String generateLibusbKInf(final String vid, final String pid, final String catalogFileName, final String sysFileName)
+    {
+        final String hwId = String.format( "USB\\VID_%s&PID_%s", vid.toUpperCase(), pid.toUpperCase() );
+
+        return
+            "[Version]                                                        \r\n" +
+            "Signature   = \"$Windows NT$\"                                   \r\n" +
+            "Class       = libusbk devices                                    \r\n" +
+            "ClassGUID   = {ECFB0CFD-74C4-4f52-BBF7-343461CD72AC}             \r\n" +
+            "Provider    = %ManufacturerName%                                 \r\n" +
+            "CatalogFile = " + catalogFileName + "                            \r\n" +
+            "DriverVer   = 05/02/2026,1.0.0.0                                 \r\n" +
+            "                                                                 \r\n" +
+            "[ClassInstall32]                                                 \r\n" +
+            "Addreg = LUsbK_Class_AddReg                                      \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_Class_AddReg]                                             \r\n" +
+            "HKR,,,0,\"libusbK USB Devices\"                                  \r\n" +
+            "HKR,,Icon,,-20                                                   \r\n" +
+            "                                                                 \r\n" +
+            "[Manufacturer]                                                   \r\n" +
+            "%ManufacturerName% = LUsbK_DeviceGroup, NTamd64                  \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_DeviceGroup.NTamd64]                                      \r\n" +
+            "%DeviceName% = LUsbK_Device, " + hwId + "                        \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_Device.NT]                                                \r\n" +
+            "CopyFiles = LUsbK_CopyFiles                                      \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_Device.NT.HW]                                             \r\n" +
+            "AddReg = LUsbK_Dev_AddReg                                        \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_Dev_AddReg]                                               \r\n" +
+            "HKR,,DeviceInterfaceGUIDs,0x00010000,\"{dee82443-396a-4b21-822e-13c3a2f8b503}\" \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_Device.NT.Services]                                       \r\n" +
+            "Addservice = libusbK, 2, LUsbK_AddService                        \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_AddService]                                               \r\n" +
+            "DisplayName   = \"libusbK USB Driver\"                           \r\n" +
+            "ServiceType   = 1                                                \r\n" +
+            "StartType     = 3                                                \r\n" +
+            "ErrorControl  = 1                                                \r\n" +
+            "ServiceBinary = %12%\\" + sysFileName + "                       \r\n" +
+            "                                                                 \r\n" +
+            "[DestinationDirs]                                                \r\n" +
+            "LUsbK_CopyFiles = 12                                             \r\n" +
+            "                                                                 \r\n" +
+            "[SourceDisksNames]                                               \r\n" +
+            "1 = %SourceName%                                                 \r\n" +
+            "                                                                 \r\n" +
+            "[SourceDisksFiles]                                               \r\n" +
+            sysFileName + " = 1                                               \r\n" +
+            "                                                                 \r\n" +
+            "[LUsbK_CopyFiles]                                                \r\n" +
+            sysFileName + "                                                   \r\n" +
+            "                                                                 \r\n" +
+            "[Strings]                                                        \r\n" +
+            "ManufacturerName = \"Generic libusbK Device\"                    \r\n" +
+            "DeviceName       = \"libusbK Automated Driver\"                  \r\n" +
+            "SourceName       = \"libusbK Install Disk\"                      \r\n" ;
+    }
+
+    // Generates a formatted libusb0 (libusb-win32) INF string for a specific hardware ID. catalogFileName and
+    // sysFileName follow the same rules as generateLibusbKInf() above
+    public static String generateLibusb0Inf(final String vid, final String pid, final String catalogFileName, final String sysFileName)
+    {
+        final String hwId = String.format( "USB\\VID_%s&PID_%s", vid.toUpperCase(), pid.toUpperCase() );
+
+        return
+            "[Version]                                                        \r\n" +
+            "Signature   = \"$Windows NT$\"                                   \r\n" +
+            "Class       = libusb-win32 devices                               \r\n" +
+            "ClassGUID   = {EB781AAF-9C70-4523-A5DF-642A87ECA567}             \r\n" +
+            "Provider    = %ManufacturerName%                                 \r\n" +
+            "CatalogFile = " + catalogFileName + "                            \r\n" +
+            "DriverVer   = 05/02/2026,1.0.0.0                                 \r\n" +
+            "                                                                 \r\n" +
+            "[ClassInstall32]                                                 \r\n" +
+            "Addreg = Libusb0_Class_AddReg                                    \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_Class_AddReg]                                           \r\n" +
+            "HKR,,,0,\"libusb-win32 devices\"                                 \r\n" +
+            "HKR,,Icon,,-20                                                   \r\n" +
+            "                                                                 \r\n" +
+            "[Manufacturer]                                                   \r\n" +
+            "%ManufacturerName% = Libusb0_DeviceGroup, NTamd64                \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_DeviceGroup.NTamd64]                                    \r\n" +
+            "%DeviceName% = Libusb0_Device, " + hwId + "                      \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_Device.NT]                                              \r\n" +
+            "CopyFiles = Libusb0_CopyFiles                                    \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_Device.NT.HW]                                           \r\n" +
+            "AddReg = Libusb0_Dev_AddReg                                      \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_Dev_AddReg]                                             \r\n" +
+            "HKR,,SurpriseRemovalOK,0x00010001,1                             \r\n" +
+            "HKR,,DeviceInterfaceGUIDs,0x00010000,\"{dee82443-396a-4b21-822e-13c3a2f8b503}\" \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_Device.NT.Services]                                     \r\n" +
+            "AddService = libusb0, 0x00000002, Libusb0_AddService             \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_AddService]                                             \r\n" +
+            "DisplayName   = \"libusb-win32 Kernel Driver\"                   \r\n" +
+            "ServiceType   = 1                                                \r\n" +
+            "StartType     = 3                                                \r\n" +
+            "ErrorControl  = 0                                                \r\n" +
+            "ServiceBinary = %12%\\" + sysFileName + "                       \r\n" +
+            "                                                                 \r\n" +
+            "[DestinationDirs]                                                \r\n" +
+            "Libusb0_CopyFiles = 12                                           \r\n" +
+            "                                                                 \r\n" +
+            "[SourceDisksNames]                                               \r\n" +
+            "1 = %SourceName%                                                 \r\n" +
+            "                                                                 \r\n" +
+            "[SourceDisksFiles]                                               \r\n" +
+            sysFileName + " = 1                                               \r\n" +
+            "                                                                 \r\n" +
+            "[Libusb0_CopyFiles]                                              \r\n" +
+            sysFileName + "                                                   \r\n" +
+            "                                                                 \r\n" +
+            "[Strings]                                                        \r\n" +
+            "ManufacturerName = \"Generic libusb-win32 Device\"               \r\n" +
+            "DeviceName       = \"libusb-win32 Automated Driver\"             \r\n" +
+            "SourceName       = \"libusb-win32 Install Disk\"                 \r\n" ;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -471,6 +606,63 @@ public abstract class WindowsDriverInstaller {
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    /*
+     * Resolves the bundled driver binary for driverSubDir (e.g. "libusbK", "libusb0") under
+     * SysUtil.findWindowsDriverDir(), and copies it to destDir/sysFileName.
+
+     * The generated INF's SourceDisksFiles/CopyFiles sections - see generateLibusbKInf()/generateLibusb0Inf()
+     * above require the .sys to sit next to the .inf, under source disk 1, for Windows to find it during
+     * install.
+     */
+    private static boolean _copyBundledSysFile(final String driverSubDir, final String sysFileName, final String destDir)
+    {
+        final String windowsDriverDir = SysUtil.findWindowsDriverDir();
+        if(windowsDriverDir == null) return false;
+
+        final Path srcPath = java.nio.file.Paths.get(windowsDriverDir, driverSubDir, "amd64", sysFileName);
+        if( !Files.isRegularFile(srcPath) ) return false;
+
+        try {
+            Files.copy( srcPath, java.nio.file.Paths.get(destDir, sysFileName) );
+            return true;
+        }
+        catch(final IOException e) {
+            // Print the stack trace if requested
+            if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+            return false;
+        }
+    }
+
+    public XCom.Pair<Integer, String> installLibusbKInf(final String vid, final String pid)
+    {
+        final String sysFileName = "libusbK.sys";
+        final String infPath     = _saveInfToFile( vid, pid, catalogFileName -> generateLibusbKInf(vid, pid, catalogFileName, sysFileName) );
+        if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
+
+        final String infDir = ( new java.io.File(infPath) ).getParent();
+        if( !_copyBundledSysFile("libusbK", sysFileName, infDir) ) {
+            return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallSysNotFound, sysFileName) );
+        }
+
+        return installSelfSignedDriver(infPath, PROVIDER_NAME + "_" + vid + "_" + pid);
+    }
+
+    public XCom.Pair<Integer, String> installLibusb0Inf(final String vid, final String pid)
+    {
+        final String sysFileName = "libusb0.sys";
+        final String infPath     = _saveInfToFile( vid, pid, catalogFileName -> generateLibusb0Inf(vid, pid, catalogFileName, sysFileName) );
+        if(infPath == null) return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallInvInfPth, "drv_" + vid + "_" + pid) );
+
+        final String infDir = ( new java.io.File(infPath) ).getParent();
+        if( !_copyBundledSysFile("libusb0", sysFileName, infDir) ) {
+            return new XCom.Pair<Integer, String>( RETCODE_INVALID_PATH, String.format(Texts.EMsg_WDriverInstallSysNotFound, sysFileName) );
+        }
+
+        return installSelfSignedDriver(infPath, PROVIDER_NAME + "_" + vid + "_" + pid);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -498,9 +690,10 @@ public abstract class WindowsDriverInstaller {
      */
     private static class WDIPicker extends SwingApp {
 
-        // The four driver kinds offered by the picker, in the order they appear in its combo box
+        // The driver kinds offered by the picker, in the order they appear in its combo box
         private static final String[] _DRIVER_KINDS = {
-            Texts.WDI_DrvWinUSB, Texts.WDI_DrvHID, Texts.WDI_DrvCDCACM, Texts.WDI_DrvMultiCDCACM
+            Texts.WDI_DrvWinUSB, Texts.WDI_DrvLibusbK, Texts.WDI_DrvLibusb0,
+            Texts.WDI_DrvHID   , Texts.WDI_DrvCDCACM , Texts.WDI_DrvMultiCDCACM
         };
 
         private final ArrayList<USBUtil.USBDevice> _uDevs;
@@ -682,10 +875,12 @@ public abstract class WindowsDriverInstaller {
         final String            driverKind = picker.selectedDriverKind();
         final int               numPorts   = picker.selectedNumPorts();
 
-             if( Texts.WDI_DrvWinUSB .equals(driverKind) ) return installWinUSBInf     (vid, pid          );
-        else if( Texts.WDI_DrvHID    .equals(driverKind) ) return installHIDInf        (vid, pid          );
-        else if( Texts.WDI_DrvCDCACM .equals(driverKind) ) return installCDCACMInf     (vid, pid          );
-        else                                               return installMultiCDCACMInf(vid, pid, numPorts);
+             if( Texts.WDI_DrvWinUSB  .equals(driverKind) ) return installWinUSBInf     (vid, pid          );
+        else if( Texts.WDI_DrvLibusbK .equals(driverKind) ) return installLibusbKInf    (vid, pid          );
+        else if( Texts.WDI_DrvLibusb0 .equals(driverKind) ) return installLibusb0Inf    (vid, pid          );
+        else if( Texts.WDI_DrvHID     .equals(driverKind) ) return installHIDInf        (vid, pid          );
+        else if( Texts.WDI_DrvCDCACM  .equals(driverKind) ) return installCDCACMInf     (vid, pid          );
+        else                                                return installMultiCDCACMInf(vid, pid, numPorts);
     }
 
 } // WindowsDriverInstaller

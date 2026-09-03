@@ -48,7 +48,7 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or wdi_sideload_fixtures_ps1/ (not committed - see the README.md in each) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether generated artifacts are themselves defective vs the installing backend''s own install mechanics, drivers exercises installLibusbKInf()/installLibusb0Inf() (auto-picked backend) end-to-end, including SysUtil.findWindowsDriverDir() actually locating and copying the bundled .sys files - the one part of the non-WinUSB driver kinds that a raw generateXXXInf() fixture (what every other mode uses) never touches'
+        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or wdi_sideload_fixtures_ps1/ (not committed - see the README.md in each) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether generated artifacts are themselves defective vs the installing backend''s own install mechanics, drivers exercises installLibusbKInf()/installLibusb0Inf() end-to-end against both PS1 and FFM, each on its own fresh runner VM (see the separate test-drivers job below) - a shared VM would let one backend''s catalog-database registration of the bundled .sys silently satisfy the other backend''s own hash check, since Windows looks that hash up system-wide rather than scoped to the specific catalog named by the INF, masking a bug in whichever backend runs second. Covers SysUtil.findWindowsDriverDir() actually locating and copying the bundled .sys files - the one part of the non-WinUSB driver kinds that a raw generateXXXInf() fixture (what every other mode uses) never touches'
         type: choice
         options: [ps1, ffm, auto, compare, sideload, drivers]
         default: auto
@@ -64,7 +64,9 @@ on:
 
 jobs:
   test:
-    if: github.actor == 'blue-wind-25'
+    # drivers mode runs in the separate test-drivers job below instead (two fresh VMs, one per
+    # backend - see that job's own comment for why a shared VM isn't safe for it)
+    if: github.actor == 'blue-wind-25' && inputs.backend != 'drivers'
     runs-on: windows-latest
     defaults:
       run:
@@ -180,241 +182,7 @@ jobs:
 
       - name: Write test driver
         if: ${{ inputs.backend != 'sideload' }}
-        working-directory: src
-        run: |
-          cat > WDI_CITest.java <<'EOF'
-          import jxm.WindowsDriverInstaller;
-          import jxm.WindowsDriverInstaller_PS1;
-          import jxm.WindowsDriverInstaller_FFM;
-          import jxm.xb.XCom;
-
-          public class WDI_CITest {
-
-              private static final String PROVIDER = "JxMake_CITest";
-
-              public static void main(final String[] args) throws Exception {
-                  final String  backend      = System.getProperty("wdi.backend", "auto");
-                  final boolean runMutating  = Boolean.getBoolean("wdi.mutating");
-
-                  int failures = 0;
-
-                  switch( backend ) {
-                      case "ps1":
-                          failures += test("PS1", new WindowsDriverInstaller_PS1(), runMutating);
-                          break;
-
-                      case "ffm":
-                          failures += test("FFM", new WindowsDriverInstaller_FFM(), runMutating);
-                          break;
-
-                      case "compare":
-                          compare();
-                          break;
-
-                      case "drivers": {
-                          final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
-                          System.out.println("=== create() factory pick (drivers mode) ===");
-                          System.out.println("create() returned: " + (picked == null ? "null" : picked.getClass().getSimpleName()));
-
-                          if( picked == null ) {
-                              System.out.println("No backend usable on this VM");
-                              failures++;
-                          } else {
-                              failures += testDriverKinds(picked, runMutating);
-                          }
-                          break;
-                      }
-
-                      case "auto": {
-                          final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
-                          final String label = "AUTO_" + (picked == null ? "null" : picked.getClass().getSimpleName());
-                          System.out.println("=== create() factory pick ===");
-                          System.out.println("create() returned: " + (picked == null ? "null" : picked.getClass().getSimpleName()));
-
-                          if( picked == null ) {
-                              System.out.println("No backend usable on this VM");
-                              failures++;
-                          } else {
-                              failures += test(label, picked, runMutating);
-                          }
-                          break;
-                      }
-
-                      default:
-                          throw new IllegalArgumentException("Unknown wdi.backend: " + backend);
-                  }
-
-                  if( failures > 0 ) {
-                      System.out.println();
-                      System.out.println(failures + " backend(s) reported a hard failure - see above");
-                      System.exit(1);
-                  }
-              }
-
-              private static int test(final String label, final WindowsDriverInstaller wdi, final boolean runMutating) {
-                  System.out.println();
-                  System.out.println("=== " + label + " backend ===");
-
-                  // Distinct per-backend provider name: PS1 and FFM both run against the same
-                  // CurrentUser\My store in this one process/VM, and CertAddCertificateContextToStore's
-                  // CERT_STORE_ADD_REPLACE_EXISTING only replaces a certificate with the same
-                  // issuer+serial, not merely the same subject text - so sharing PROVIDER here left two
-                  // unrelated self-signed certificates both named "JxMake_CITest" in the store by the
-                  // time FFM ran, and CertFindCertificateInStore's match order against that name is not
-                  // guaranteed (per Microsoft's own note on CertAddCertificateContextToStore). Giving
-                  // each backend its own name removes that cross-backend ambiguity from the test.
-                  final String provider = PROVIDER + "_" + label;
-
-                  try {
-                      final boolean usable = wdi.isUsable();
-                      System.out.println(label + ".isUsable() = " + usable);
-
-                      if( !usable ) {
-                          if( wdi instanceof WindowsDriverInstaller_FFM ) {
-                              final String diag = WindowsDriverInstaller_FFM.initErrorDiagnostic();
-                              if( diag != null ) System.out.println(label + ": static init failed - " + diag);
-                          }
-                          System.out.println(label + " not usable on this VM - skipping remaining checks");
-                          return 0;
-                      }
-
-                      printPair(label + ".isProviderAlreadyTrusted", wdi.isProviderAlreadyTrusted(provider));
-
-                      if( runMutating ) {
-                          printPair(label + ".createAndTrustProvider", wdi.createAndTrustProvider(provider));
-                          printPair(label + ".isProviderAlreadyTrusted (after trust)", wdi.isProviderAlreadyTrusted(provider));
-
-                          final java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("wdi_ci");
-                          final String catName = "wdi_ci_test.cat";
-                          final java.nio.file.Path inf = dir.resolve("wdi_ci_test.inf");
-                          java.nio.file.Files.writeString(inf, WindowsDriverInstaller.generateWinUSBInf("1234", "5678", catName));
-
-                          printPair(label + ".createAndSignCatalog", wdi.createAndSignCatalog(inf.toString(), provider));
-                          printPair(label + ".installDriver", wdi.installDriver(inf.toString()));
-                      } else {
-                          System.out.println(label + ": skipping mutating/elevated calls (run_mutating=false)");
-                      }
-
-                      return 0;
-                  }
-                  catch(final Throwable t) {
-                      System.out.println(label + ": EXCEPTION - " + t);
-                      t.printStackTrace(System.out);
-                      return 1;
-                  }
-              }
-
-              // "drivers" mode: unlike every other mode (which only ever exercises generateWinUSBInf()
-              // as a driver-kind-agnostic fixture for the PS1/FFM primitives), this calls the
-              // installLibusbKInf()/installLibusb0Inf() convenience wrappers directly - the only path
-              // that exercises SysUtil.findWindowsDriverDir() actually resolving the bundled .sys next
-              // to the checked-out 3rd_party/windows_driver directory on a real runner, and copying it
-              // alongside the generated INF before signing (see WindowsDriverInstaller._copyBundledSysFile()).
-              private static int testDriverKinds(final WindowsDriverInstaller wdi, final boolean runMutating) {
-                  System.out.println();
-                  System.out.println("=== driver-kind wrappers (libusbK, libusb0) ===");
-
-                  if( !runMutating ) {
-                      System.out.println("skipping (run_mutating=false) - installLibusbKInf()/installLibusb0Inf() are always mutating (trust+sign+install)");
-                      return 0;
-                  }
-
-                  int failures = 0;
-
-                  try {
-                      printPair("installLibusbKInf", wdi.installLibusbKInf("1234", "5678"));
-                  }
-                  catch(final Throwable t) {
-                      System.out.println("installLibusbKInf: EXCEPTION - " + t);
-                      t.printStackTrace(System.out);
-                      failures++;
-                  }
-
-                  try {
-                      printPair("installLibusb0Inf", wdi.installLibusb0Inf("1234", "5679"));
-                  }
-                  catch(final Throwable t) {
-                      System.out.println("installLibusb0Inf: EXCEPTION - " + t);
-                      t.printStackTrace(System.out);
-                      failures++;
-                  }
-
-                  return failures;
-              }
-
-              private static void printPair(final String label, final XCom.Pair<Integer, String> p) {
-                  System.out.println(label + " = [" + p.first() + "] " + p.second());
-              }
-
-              // "compare" mode: runs PS1 then FFM against distinct provider names, but with both
-              // producing an identically-named INF/CAT pair (only the output directory differs) and an
-              // identically-named cert file (%TEMP%\<provider>.cer, same convention both backends use),
-              // deliberately never calling installDriver() - the point is comparing what each backend
-              // GENERATES (INF, .cat, .cer), not exercising the still-unresolved install path. Every
-              // output file is copied into wdi_compare_out/ with a PS1-/FFM- prefix so a later workflow
-              // step can upload the whole directory as one artifact for offline diffing.
-              private static void compare() throws Exception {
-                  final java.nio.file.Path outDir = java.nio.file.Paths.get("wdi_compare_out");
-                  java.nio.file.Files.createDirectories(outDir);
-
-                  compareOne("PS1", new WindowsDriverInstaller_PS1(), outDir);
-                  compareOne("FFM", new WindowsDriverInstaller_FFM(), outDir);
-
-                  System.out.println();
-                  System.out.println("Compare output written to: " + outDir.toAbsolutePath());
-              }
-
-              private static void compareOne(final String prefix, final WindowsDriverInstaller wdi, final java.nio.file.Path outDir) throws Exception {
-                  System.out.println();
-                  System.out.println("=== " + prefix + " compare ===");
-
-                  final boolean usable = wdi.isUsable();
-                  System.out.println(prefix + ".isUsable() = " + usable);
-                  if( !usable ) {
-                      if( wdi instanceof WindowsDriverInstaller_FFM ) {
-                          final String diag = WindowsDriverInstaller_FFM.initErrorDiagnostic();
-                          if( diag != null ) System.out.println(prefix + ": static init failed - " + diag);
-                      }
-                      System.out.println(prefix + " not usable on this VM - skipping");
-                      return;
-                  }
-
-                  // Distinct provider name per backend for the same reason "test" uses one - see its
-                  // own comment above - but same PROVIDER prefix and a fixed "_CMP_" tag so re-running
-                  // this mode never accumulates unrelated certs across runs/modes.
-                  final String provider = PROVIDER + "_CMP_" + prefix;
-
-                  printPair(prefix + ".createAndTrustProvider", wdi.createAndTrustProvider(provider));
-
-                  // Both backends write the public cert here - WindowsDriverInstaller_PS1's
-                  // createAndTrustProvider() always has; WindowsDriverInstaller_FFM's now does too.
-                  final java.nio.file.Path certSrc = java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), provider + ".cer");
-                  copyIfExists(certSrc, outDir.resolve(prefix + "-cert.cer"));
-
-                  final java.nio.file.Path dir     = java.nio.file.Files.createTempDirectory("wdi_cmp_" + prefix);
-                  final String             catName = "wdi_cmp.cat";
-                  final java.nio.file.Path inf     = dir.resolve("wdi_cmp.inf");
-                  java.nio.file.Files.writeString(inf, WindowsDriverInstaller.generateWinUSBInf("1234", "5678", catName));
-
-                  printPair(prefix + ".createAndSignCatalog", wdi.createAndSignCatalog(inf.toString(), provider));
-
-                  copyIfExists(inf, outDir.resolve(prefix + "-wdi_cmp.inf"));
-                  copyIfExists(dir.resolve(catName), outDir.resolve(prefix + "-wdi_cmp.cat"));
-
-                  // Deliberately no installDriver() call here - see this method's own header comment.
-              }
-
-              private static void copyIfExists(final java.nio.file.Path src, final java.nio.file.Path dst) throws java.io.IOException {
-                  if( java.nio.file.Files.exists(src) ) {
-                      java.nio.file.Files.copy(src, dst, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                      System.out.println("Copied " + src + " -> " + dst);
-                  } else {
-                      System.out.println("MISSING: " + src);
-                  }
-              }
-
-          } // class WDI_CITest
-          EOF
+        run: cp .github/workflows/WDI_CITest.java src/WDI_CITest.java
 
       - name: Compile test driver against jxmake.jar
         if: ${{ inputs.backend != 'sideload' }}
@@ -449,3 +217,72 @@ jobs:
           path: src/wdi_compare_out
           retention-days: 1 # Automatically cleanup quickly
           if-no-files-found: error
+
+  # drivers mode's own job: one matrix leg per backend, each getting its own fresh runner VM (its
+  # own catalog database under \Windows\system32\CatRoot\) - see the "backend" input description
+  # above for why a shared VM is not safe here. Every step below is the drivers-relevant subset of
+  # the "test" job's steps, run against a fixed -Dwdi.driverbackend=${{ matrix.wdi_backend }}.
+  test-drivers:
+    if: github.actor == 'blue-wind-25' && inputs.backend == 'drivers'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        wdi_backend: [PS1, FFM]
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install GNU make
+        run: choco install make -y
+
+      # See the "test" job's own copy of this step for the full rationale - drivers mode is always
+      # mutating (installLibusbKInf()/installLibusb0Inf() always trust+sign+install), so this always runs here.
+      - name: Allow silent admin elevation and unsigned driver installs
+        if: ${{ inputs.run_mutating }}
+        shell: pwsh
+        run: |
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
+          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
+          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+
+      - name: Build jxmake.jar (JDK 25, both backends)
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          make jar JDK_VER=25 "JDK_PATH_25=$JDK_UNIX_PATH"
+          ls -la jxmake.jar
+
+      - name: Write test driver
+        run: cp .github/workflows/WDI_CITest.java src/WDI_CITest.java
+
+      - name: Compile test driver against jxmake.jar
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          mkdir -p wdi_ci_out
+          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
+
+      - name: Run WindowsDriverInstaller test
+        working-directory: src
+        run: |
+          set -euo pipefail
+          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+          "$JDK_UNIX_PATH/bin/java" \
+            --enable-native-access=ALL-UNNAMED -ea \
+            -Dwdi.backend="drivers" \
+            -Dwdi.driverbackend="${{ matrix.wdi_backend }}" \
+            -Dwdi.mutating="${{ inputs.run_mutating }}" \
+            -cp "jxmake.jar;wdi_ci_out" \
+            WDI_CITest

@@ -1187,13 +1187,11 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
         ) {
             final String catPath  = infPath.substring( 0, infPath.lastIndexOf('.') ) + ".cat";
 
-            // Every regular file sitting alongside the INF gets its own catalog member below, not just the
-            // INF itself - required for installLibusbKInf()/installLibusb0Inf(), whose CopyFiles-driven .sys
-            // (see _copyBundledSysFile()) is staged into this same temp directory before
-            // createAndSignCatalog() runs, and SetupCopyOEMInfW hash-checks that .sys against the catalog
-            // too. For the inbox-driver kinds (WinUSB/HID/CDC-ACM), this directory only ever contains the
-            // INF itself, so behavior there is unchanged. Mirrors WindowsDriverInstaller_PS1's
-            // New-FileCatalog -Path <dir>, which catalogs a whole directory the same way.
+            // List every file next to the INF - each one becomes its own catalog member below (see the loop
+            // further down). Usually that's just the INF itself, but installLibusbKInf()/installLibusb0Inf()
+            // also stage a .sys here first via _copyBundledSysFile(), and SetupCopyOEMInfW hash-checks that
+            // .sys against the catalog too via CopyFiles. Same idea as WindowsDriverInstaller_PS1's
+            // New-FileCatalog -Path <dir>.
             final java.util.List<String> memberFileNames = new java.util.ArrayList<>();
             try(
                 final java.util.stream.Stream<Path> dirFiles = Files.list( Paths.get(infPath).getParent() )
@@ -1201,10 +1199,9 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 dirFiles.filter(Files::isRegularFile).forEach( p -> memberFileNames.add( p.getFileName().toString() ) );
             }
 
-            // Saved off per-algorithm (for the INF specifically) so _diagCatalogLookup (called much further
-            // down, after signing and database registration) can re-query the catalog database with the
-            // exact same hash bytes - these MemorySegments are arena-allocated so they stay valid past their
-            // file handle's own close
+            // The INF's own hash (only), saved so _diagCatalogLookup() further down can re-query the catalog
+            // database with the exact same hash bytes. Arena-allocated so it stays valid past the file
+            // handle's close, back in the member loop below.
             final MemorySegment[] savedHash    = new MemorySegment[CATALOG_HASH_ALGS.length];
             final int[]           savedHashLen = new int[CATALOG_HASH_ALGS.length];
 

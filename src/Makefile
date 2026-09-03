@@ -876,7 +876,7 @@ define PP_JSI_MULTI
 PP_JSI_MULTI_OUTPUTS += $(1).tmp
 $(1): PP_JSI_MULTI_RUN
 	@if [ -f $(1).tmp ]; then                                                 \
-		$(call PP_PCPP_STRIP,$(1).tmp,$(1),    );                        \
+		$(call PP_PCPP_STRIP,$(1).tmp,$(1),   );                         \
 		rm -f $(1).tmp;                                                   \
 	fi
 $(call PP_IGNORE_UPDATE,$(1))

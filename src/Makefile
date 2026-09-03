@@ -841,6 +841,18 @@ $(eval $(call GEN_DBUILD_RULE, 8952          , APP    , ../test/src/cpp_at89s52 
 	@echo $@
 	@$(JC) $(JFLAGS) $<
 
+define PP_IGNORE_UPDATE
+	@grep -qxF "src/$(1)" ../.gitignore 2>/dev/null || echo "src/$(1)" >> ../.gitignore
+	@if svn info $(dir $(1)) >/dev/null 2>&1; then                                 \
+		D="$(dir $(1))"; F="$(notdir $(1))";                                   \
+		CUR=`svn propget svn:ignore "$$$$D" 2>/dev/null`;                      \
+		if ! printf '%s\n' "$$$$CUR" | grep -qxF "$$$$F"; then                 \
+			NEW=`printf '%s\n%s\n' "$$$$CUR" "$$$$F" | sed '/^$$$$/d'`;       \
+			svn propset -q svn:ignore "$$$$NEW" "$$$$D" >/dev/null;        \
+		fi;                                                                     \
+	fi
+endef
+
 define PP_JSI_SNGLE
 $(1): $(1).in
 	@echo "[PCPP] $(1).in"
@@ -852,15 +864,7 @@ $(1): $(1).in
 		| sed -r '/\/\*{5} PCPP_BEG \*{5}\//,/\/\*{5} PCPP_END \*{5}\//d' \
 		| sed 's/__NL__/\n   /g' > $(1)
 	@rm -f $(1).tmp
-	@grep -qxF "src/$(1)" ../.gitignore 2>/dev/null || echo "src/$(1)" >> ../.gitignore
-	@if svn info $(dir $(1)) >/dev/null 2>&1; then                                 \
-		D="$(dir $(1))"; F="$(notdir $(1))";                                   \
-		CUR=`svn propget svn:ignore "$$$$D" 2>/dev/null`;                      \
-		if ! printf '%s\n' "$$$$CUR" | grep -qxF "$$$$F"; then                 \
-			NEW=`printf '%s\n%s\n' "$$$$CUR" "$$$$F" | sed '/^$$$$/d'`;       \
-			svn propset -q svn:ignore "$$$$NEW" "$$$$D" >/dev/null;        \
-		fi;                                                                     \
-	fi
+$(call PP_IGNORE_UPDATE,$(1))
 endef
 
 PP_JSI_MULTI_OUTPUTS :=
@@ -874,15 +878,7 @@ $(1): PP_JSI_MULTI_RUN
 			| sed 's/__NL__/\n    /g' > $(1);                                 \
 		rm -f $(1).tmp;                                                           \
 	fi
-	@grep -qxF "src/$(1)" ../.gitignore 2>/dev/null || echo "src/$(1)" >> ../.gitignore
-	@if svn info $(dir $(1)) >/dev/null 2>&1; then                                 \
-		D="$(dir $(1))"; F="$(notdir $(1))";                                   \
-		CUR=`svn propget svn:ignore "$$$$D" 2>/dev/null`;                      \
-		if ! printf '%s\n' "$$$$CUR" | grep -qxF "$$$$F"; then                 \
-			NEW=`printf '%s\n%s\n' "$$$$CUR" "$$$$F" | sed '/^$$$$/d'`;       \
-			svn propset -q svn:ignore "$$$$NEW" "$$$$D" >/dev/null;        \
-		fi;                                                                     \
-	fi
+$(call PP_IGNORE_UPDATE,$(1))
 endef
 PP_JSI_MULTI_CHK = $(if $(wildcard $(1)),$(if $(shell find $(1).in -newer $(1) 2>/dev/null),$(1).in,),$(1).in)
 PP_JSI_MULTI_RUN:

@@ -558,8 +558,8 @@ public abstract class WindowsDriverInstaller {
      *
      * The .inf's basename (not chosen until Files.createTempFile returns) is what createAndSignCatalog()
      * below will derive the .cat file's name from, so infTextForCatalog is only called once that basename
-     * is known - it must embed the given catalogFileName verbatim as this INF's CatalogFile= value (see
-     * generateWinUSBInf() and friends), or Windows will reject the package as unsigned/mismatched.
+     * is known - it must embed the given catalogFileName verbatim as this INF's CatalogFile= value - see
+     * generateWinUSBInf() and friends - or Windows will reject the package as unsigned/mismatched.
      */
     private static String _saveInfToFile(final String vid, final String pid, final java.util.function.Function<String, String> infTextForCatalog)
     {

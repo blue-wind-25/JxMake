@@ -63,7 +63,7 @@ Pick the connected device and the driver kind it needs. Bootloaders using libusb
 the AVR/STM32 DFU and USBasp programmers, need WinUSB; bootloaders that enumerate as a HID device,
 such as LUFA HID, need the HID option instead. Composite devices in particular are often left as
 "Unknown device" by Windows until an INF matching their hardware ID forces the right class driver
-in, so this step is not optional for them either), then click OK to install it. This only needs to
+in, so this step is not optional for them either, then click OK to install it. This only needs to
 be done once per device (per USB port, if Windows assigns drivers per-port rather than per-device
 instance).
 

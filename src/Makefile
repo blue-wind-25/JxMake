@@ -16,6 +16,7 @@
 # make clean && time (make jar JDK_VER=8 && make jar JDK_VER=25)
 # make clean && time (make jar JDK_VER=8 USE_JCS=1 && make jar JDK_VER=25 USE_JCS=1)
 
+# make jar JDK_VER=8 && make jar JDK_VER=25
 # make jar JDK_VER=8 && make jar JDK_VER=25 && make dist JDK_VER=25
 
 

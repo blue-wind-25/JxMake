@@ -140,7 +140,7 @@ public class JxMake {
 
                 WindowsDriverInstaller wdi = null;
 
-                if(true) {
+                if( SysUtil.osIsWindows() ) {
                     wdi = WindowsDriverInstaller.create();
                     if(wdi == null) {
                         SysUtil.stdDbg().println(Texts.WDI_NotWindows);
@@ -167,8 +167,13 @@ public class JxMake {
                 }
 
                 final XCom.Pair<Integer, String> wdiResult = wdi.showInstallDriverDialogAndInstall( !argParser.useLightColorThemeGUI() );
-                SysUtil.stdDbg().println( wdiResult.first () );
-                SysUtil.stdDbg().println( wdiResult.second() );
+                if(wdiResult == null) {
+                    SysUtil.stdDbg().println("null");
+                }
+                else {
+                    SysUtil.stdDbg().println( wdiResult.first () );
+                    SysUtil.stdDbg().println( wdiResult.second() );
+                }
 
                 SysUtil.systemExit();
 

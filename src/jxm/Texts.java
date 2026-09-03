@@ -429,7 +429,7 @@ public class Texts {
     public static final String EMsg_WDriverInstallTimeoutMN = _T("TIMEOUT: The driver installation took longer than %d minutes.\nThe driver may still be installing in the background.");
 
     public static final String WDI_NotWindows               = _T("This feature is only usable on Windows!");
-    public static final String WDI_Stub                     = _T("stub: not on Window!s");
+    public static final String WDI_Stub                     = _T("stub: not on Windows!");
 
     public static final String WDI_DialogTitle              = _T("Install Windows Driver");
     public static final String WDI_NoDevicesFound           = _T("No USB devices found.");

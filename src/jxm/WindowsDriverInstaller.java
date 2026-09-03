@@ -484,7 +484,10 @@ public abstract class WindowsDriverInstaller {
     private static boolean _isPickableDevice(final USBUtil.USBDevice ud)
     {
         if(ud.classCode == _USB_CLASS_HUB) return false;
+
+        /*
         if(ud.manufacturerName == null && ud.productName == null && ud.serialNumber == null) return false;
+        */
 
         return true;
     }

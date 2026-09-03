@@ -843,13 +843,13 @@ $(eval $(call GEN_DBUILD_RULE, 8952          , APP    , ../test/src/cpp_at89s52 
 
 define PP_IGNORE_UPDATE
 	@grep -qxF "src/$(1)" ../.gitignore 2>/dev/null || echo "src/$(1)" >> ../.gitignore
-	@if svn info $(dir $(1)) >/dev/null 2>&1; then                                 \
-		D="$(dir $(1))"; F="$(notdir $(1))";                                   \
-		CUR=`svn propget svn:ignore "$$$$D" 2>/dev/null`;                      \
-		if ! printf '%s\n' "$$$$CUR" | grep -qxF "$$$$F"; then                 \
-			NEW=`printf '%s\n%s\n' "$$$$CUR" "$$$$F" | sed '/^$$$$/d'`;       \
-			svn propset -q svn:ignore "$$$$NEW" "$$$$D" >/dev/null;        \
-		fi;                                                                     \
+	@if svn info $(dir $(1)) >/dev/null 2>&1; then                              \
+		D="$(dir $(1))"; F="$(notdir $(1))";                                \
+		CUR=`svn propget svn:ignore "$$$$D" 2>/dev/null`;                   \
+		if ! printf '%s\n' "$$$$CUR" | grep -qxF "$$$$F"; then              \
+			NEW=`printf '%s\n%s\n' "$$$$CUR" "$$$$F" | sed '/^$$$$/d'`; \
+			svn propset -q svn:ignore "$$$$NEW" "$$$$D" >/dev/null;     \
+		fi;                                                                 \
 	fi
 endef
 
@@ -900,7 +900,7 @@ define PB_DEP
 jxm/ugc/Prog$(strip $(1)).java : $(wildcard jxm/ugc/Prog$(strip $(2))_*.java.inc)
 endef
 
-USE_MULTI := 1
+USE_MULTI ?= 1
 ifeq ($(USE_MULTI),1)
     # Batch preprocessing via PCPP_JAVA
     PCPP_JAVA   = $(JPATH)/bin/java -jar ../3rd_party/tools/pcpp_java/$(PCPP_JAVA_JAR) --line-directive '' --passthru-comments

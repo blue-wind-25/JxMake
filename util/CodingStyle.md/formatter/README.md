@@ -1321,6 +1321,30 @@ used as an expression, an elvis-operator (`?:`) continuation, or a trailing lamb
 line break ambiguous in ways this option cannot safely resolve). No workaround exists beyond keeping
 those specific lines shorter by hand.
 
+### Data-format family (JSON/JSON5/CSS/YAML/TOML)
+
+#### 1. YAML block scalars, including embedded CI/build scripts, are left completely untouched
+
+A literal (`|`) or folded (`>`) block scalar's body is preserved byte-for-byte, exactly as
+written — this is not a limitation but a deliberate guarantee. A common case this covers: a
+GitHub Actions (or similar CI) workflow file's `run: |` step embeds a shell/PowerShell script
+directly inside the YAML:
+
+```yaml
+steps:
+  - name: Build
+    run: |
+      set -euo pipefail
+      make jar JDK_VER=25
+```
+
+The formatter never parses or reformats that embedded script — it isn't dispatched to the Bash
+or PowerShell pipeline the way HTML5's `<script>` tag is dispatched to JS/TS (see "Tag-based
+family" below). Only the block scalar's header line (`run: |`) participates in ordinary YAML
+key/value alignment; the body always moves as a single rigid unit if the surrounding mapping's
+own indentation shifts, but its own internal indentation and content are never reindented,
+reflowed, or otherwise rewritten. See `STYLE_DATA_FORMATS.md` §5.6.
+
 ### Tag-based family (XML/HTML5)
 
 #### 1. HTML5 deep tree-construction gap coverage is a narrow, documented approximation, not a full spec-faithful implementation

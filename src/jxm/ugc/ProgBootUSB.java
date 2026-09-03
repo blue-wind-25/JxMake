@@ -154,7 +154,8 @@ public abstract class ProgBootUSB implements IProgCommon {
 
     protected void _openClaimDevice(final boolean detachStandardDrivers)
     {
-        // ##### !!! TODO : Create alternative for Windows !!! #####
+        // On Windows there is no runtime equivalent of this - the correct driver (WinUSB/HID/CDC-ACM)
+        // must already be bound to the device beforehand; see WindowsDriverInstaller / '--wdi'
         if(detachStandardDrivers) _device.detachStandardDrivers();
 
         _device.open();

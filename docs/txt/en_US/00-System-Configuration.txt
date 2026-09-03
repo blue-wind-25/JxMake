@@ -42,6 +42,26 @@ JXMAKE_WDI_ALWAYS_USE_FFM     - if set and not zero, force the FFM backend, even
 
 
 ----------------------------------------------------------------------------------------------------
+USB Driver Access on Windows
+----------------------------------------------------------------------------------------------------
+
+Unlike Linux, where the kernel driver bound to a USB device can simply be detached at runtime so a
+JxMake programmer can claim the device's raw interface itself, Windows requires the correct driver
+(WinUSB, HID, or CDC-ACM) to already be bound to the device *before* JxMake can talk to it - there is
+no runtime equivalent of Linux's "detach the kernel driver" step.
+
+If a target device does not already have a suitable driver installed on Windows, run:
+
+    jxmake --wdi
+
+to open the "Install Windows Driver" dialog. Pick the connected device and the driver kind it needs
+(most bootloaders using libusb/WinUSB, such as the AVR/STM32 DFU and USBasp programmers, need WinUSB;
+bootloaders that enumerate as a HID device, such as LUFA HID, already work with Windows' built-in HID
+driver and do not need this step), then click OK to install it. This only needs to be done once per
+device (per USB port, if Windows assigns drivers per-port rather than per-device instance).
+
+
+----------------------------------------------------------------------------------------------------
 Serial Port Access in MacOS
 ----------------------------------------------------------------------------------------------------
 

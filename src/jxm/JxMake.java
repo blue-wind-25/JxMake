@@ -63,7 +63,7 @@ public class JxMake {
             initializeGlobal();
 
             /*
-            // ##### !!! TEST ONLY !!! #####
+            // ##### !!! FOR TESTING ONLY - DO NOT ENABLE !!! #####
             final java.util.ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
             USBUtil.dumpDevices(uDevs);
             SysUtil.systemExit();
@@ -142,6 +142,10 @@ public class JxMake {
 
                 if(true) {
                     wdi = WindowsDriverInstaller.create();
+                    if(wdi == null) {
+                        SysUtil.stdDbg().println(Texts.WDI_NotWindows);
+                        SysUtil.systemExitError();
+                    }
                 }
                 else {
                     wdi = new WindowsDriverInstaller() {
@@ -149,16 +153,16 @@ public class JxMake {
                         { return true; }
 
                         @Override public XCom.Pair<Integer, String> isProviderAlreadyTrusted(final String providerName)
-                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, Texts.WDI_Stub); }
 
                         @Override public XCom.Pair<Integer, String> createAndTrustProvider(final String providerName)
-                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, Texts.WDI_Stub); }
 
                         @Override public XCom.Pair<Integer, String> createAndSignCatalog(final String infPath, final String providerName)
-                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, Texts.WDI_Stub); }
 
                         @Override public XCom.Pair<Integer, String> installDriver(final String infPath)
-                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, Texts.WDI_Stub); }
                     };
                 }
 
@@ -167,7 +171,8 @@ public class JxMake {
                 SysUtil.stdDbg().println( wdiResult.second() );
 
                 SysUtil.systemExit();
-            }
+
+            } // if
 
             // Enable warning when evaluating reference variables which contain invalid references if asked
             if( argParser.enableWarnEvalInvRefVar() ) Option.OptionStack.setGlobalEnableWarnEvalInvRefVar(true);

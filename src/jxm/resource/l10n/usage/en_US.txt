@@ -75,6 +75,8 @@ Options:
 
     --script-editor         Run the script editor and exit when the window is closed.
 
+    --wdi                   Run the Windows driver installer and exit when the window is closed.
+
     --__compile__           Compile the specified JxMake specification file ('*.jxm') to make
                             a precompiled '*.jxm.bin' library file and exit.
                             [[[ WARNING: FOR DEVELOPER ONLY! ]]]

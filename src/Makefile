@@ -298,10 +298,6 @@ jar:
 	@$(MAKE) -s MAIN_CLASS=$(APP_CLASS) JAR_FILE=$(APP_JAR) build_jar
 
 xjar: jar
-	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st
-#--en-headless
-
-hjar: jar
 	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-headless -h
 
 jbd: jar
@@ -318,6 +314,9 @@ jse2: jar
 
 jsef: jar
 	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --script-editor -f ../test/FunSupTest.jxm
+
+wdi: jar
+	@$(subst .:,$(APP_JAR):,$(JVM) $(EN_NAA_FLAG)) $(basename $(APP_CLASS)) --en-all-exception-st --en-opengl --lct --wdi
 
 
 ##### Build distribution

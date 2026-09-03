@@ -62,31 +62,10 @@ public class JxMake {
             // Initialize global
             initializeGlobal();
 
-            //*
+            /*
             // ##### !!! TEST ONLY !!! #####
             final java.util.ArrayList<USBUtil.USBDevice> uDevs = USBUtil.getDevices();
             USBUtil.dumpDevices(uDevs);
-
-            final WindowsDriverInstaller wdi = new WindowsDriverInstaller() {
-                @Override public boolean isUsable()
-                { return true; }
-
-                @Override public XCom.Pair<Integer, String> isProviderAlreadyTrusted(final String providerName)
-                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
-
-                @Override public XCom.Pair<Integer, String> createAndTrustProvider(final String providerName)
-                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
-
-                @Override public XCom.Pair<Integer, String> createAndSignCatalog(final String infPath, final String providerName)
-                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
-
-                @Override public XCom.Pair<Integer, String> installDriver(final String infPath)
-                { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
-            };
-
-            final XCom.Pair<Integer, String> wdiResult = wdi.showInstallDriverDialogAndInstall( !argParser.useLightColorThemeGUI() );
-            SysUtil.stdDbg().println("Result: " + wdiResult);
-
             SysUtil.systemExit();
             //*/
 
@@ -153,6 +132,40 @@ public class JxMake {
             if( argParser.runScriptEditor() ) {
                 final String initialFilePath = SysUtil.pathIsValidFile(jxmSpecFile_absPath) ? argParser.jxmSpecFile() : null;
                 ( new ScriptEditor( !argParser.useLightColorThemeGUI(), initialFilePath ) ).run();
+                SysUtil.systemExit();
+            }
+
+            // Run the script editor and exit if the user requests it
+            if( argParser.runWindowsDriverInstaller() ) {
+
+                WindowsDriverInstaller wdi = null;
+
+                if(true) {
+                    wdi = WindowsDriverInstaller.create();
+                }
+                else {
+                    wdi = new WindowsDriverInstaller() {
+                        @Override public boolean isUsable()
+                        { return true; }
+
+                        @Override public XCom.Pair<Integer, String> isProviderAlreadyTrusted(final String providerName)
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+
+                        @Override public XCom.Pair<Integer, String> createAndTrustProvider(final String providerName)
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+
+                        @Override public XCom.Pair<Integer, String> createAndSignCatalog(final String infPath, final String providerName)
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+
+                        @Override public XCom.Pair<Integer, String> installDriver(final String infPath)
+                        { return new XCom.Pair<Integer, String>(RETCODE_EXCEPTION, "stub: not on Windows"); }
+                    };
+                }
+
+                final XCom.Pair<Integer, String> wdiResult = wdi.showInstallDriverDialogAndInstall( !argParser.useLightColorThemeGUI() );
+                SysUtil.stdDbg().println( wdiResult.first () );
+                SysUtil.stdDbg().println( wdiResult.second() );
+
                 SysUtil.systemExit();
             }
 

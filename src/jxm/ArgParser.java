@@ -89,6 +89,7 @@ public class ArgParser {
 
     private       boolean           _runDocumentBrowser            = false;
     private       boolean           _runScriptEditor               = false;
+    private       boolean           _runWindowsDriverInstaller     = false;
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -178,6 +179,9 @@ public class ArgParser {
 
     public boolean runScriptEditor()
     { return _runScriptEditor; }
+
+    public boolean runWindowsDriverInstaller()
+    { return _runWindowsDriverInstaller; }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -546,6 +550,11 @@ public class ArgParser {
                 // Run the script editor and exit
                 case "--script-editor":
                     _runScriptEditor = true;
+                    break;
+
+                // Run the Windows driver installer and exit
+                case "--wdi":
+                    _runWindowsDriverInstaller = true;
                     break;
 
                 // Compile the specified JxMake specification file to make a '*.bin' file and exit

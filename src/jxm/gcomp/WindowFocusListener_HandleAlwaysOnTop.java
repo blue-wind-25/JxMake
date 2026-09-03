@@ -31,6 +31,9 @@ import jxm.*;
  */
 public class WindowFocusListener_HandleAlwaysOnTop implements WindowFocusListener {
 
+    private static final int BOUNCE_WINDOW_MS   =  100;
+    private static final int REFOCUS_TIMEOUT_MS = 1000;
+
     private final JFrame _mainWindow;
     private       long   _lastTime;
 
@@ -42,7 +45,7 @@ public class WindowFocusListener_HandleAlwaysOnTop implements WindowFocusListene
         _mainWindow = mainWindow;
         _lastTime   = SysUtil.getMS();
 
-        _timer = new Timer( 250, e -> _checkTimeout() );
+        _timer = new Timer( BOUNCE_WINDOW_MS, e -> _checkTimeout() );
         _timer.start();
     }
 
@@ -51,14 +54,12 @@ public class WindowFocusListener_HandleAlwaysOnTop implements WindowFocusListene
     {
         final long newTime = SysUtil.getMS();
 
-        if(newTime - _lastTime < 250) {
-
-                _mainWindow.setFocusableWindowState(false);
-
-            SwingUtilities.invokeLater( () -> {
-                _mainWindow.setFocusableWindowState(true );
-            } );
-
+        if(newTime - _lastTime < BOUNCE_WINDOW_MS) {
+                                                _mainWindow.setFocusableWindowState(false);
+            SwingUtilities.invokeLater( () -> { _mainWindow.setFocusableWindowState(true ); } );
+        }
+        else {
+            _removeHandlers(true);
         }
 
         _lastTime = newTime;
@@ -69,7 +70,7 @@ public class WindowFocusListener_HandleAlwaysOnTop implements WindowFocusListene
     {
         final long newTime = SysUtil.getMS();
 
-        if(newTime - _lastTime > 250) _removeHandlers(false);
+        if(newTime - _lastTime > BOUNCE_WINDOW_MS) _removeHandlers(false);
 
         _lastTime = newTime;
     }
@@ -78,7 +79,7 @@ public class WindowFocusListener_HandleAlwaysOnTop implements WindowFocusListene
     {
         final long newTime = SysUtil.getMS();
 
-        if( !_mainWindow.isFocused() && newTime - _lastTime > 2500 ) _removeHandlers(true);
+        if( !_mainWindow.isFocused() && newTime - _lastTime > REFOCUS_TIMEOUT_MS ) _removeHandlers(true);
     }
 
     private void _removeHandlers(final boolean requestFocus)

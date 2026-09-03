@@ -48,9 +48,9 @@ on:
   workflow_dispatch:
     inputs:
       backend:
-        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or wdi_sideload_fixtures_ps1/ (not committed - see the README.md in each) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether generated artifacts are themselves defective vs the installing backend''s own install mechanics'
+        description: 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or wdi_sideload_fixtures_ps1/ (not committed - see the README.md in each) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether generated artifacts are themselves defective vs the installing backend''s own install mechanics, drivers exercises installLibusbKInf()/installLibusb0Inf() (auto-picked backend) end-to-end, including SysUtil.findWindowsDriverDir() actually locating and copying the bundled .sys files - the one part of the non-WinUSB driver kinds that a raw generateXXXInf() fixture (what every other mode uses) never touches'
         type: choice
-        options: [ps1, ffm, auto, compare, sideload]
+        options: [ps1, ffm, auto, compare, sideload, drivers]
         default: auto
       run_mutating:
         description: 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
@@ -211,6 +211,20 @@ jobs:
                           compare();
                           break;
 
+                      case "drivers": {
+                          final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
+                          System.out.println("=== create() factory pick (drivers mode) ===");
+                          System.out.println("create() returned: " + (picked == null ? "null" : picked.getClass().getSimpleName()));
+
+                          if( picked == null ) {
+                              System.out.println("No backend usable on this VM");
+                              failures++;
+                          } else {
+                              failures += testDriverKinds(picked, runMutating);
+                          }
+                          break;
+                      }
+
                       case "auto": {
                           final WindowsDriverInstaller picked = WindowsDriverInstaller.create();
                           final String label = "AUTO_" + (picked == null ? "null" : picked.getClass().getSimpleName());
@@ -288,6 +302,44 @@ jobs:
                       t.printStackTrace(System.out);
                       return 1;
                   }
+              }
+
+              // "drivers" mode: unlike every other mode (which only ever exercises generateWinUSBInf()
+              // as a driver-kind-agnostic fixture for the PS1/FFM primitives), this calls the
+              // installLibusbKInf()/installLibusb0Inf() convenience wrappers directly - the only path
+              // that exercises SysUtil.findWindowsDriverDir() actually resolving the bundled .sys next
+              // to the checked-out 3rd_party/windows_driver directory on a real runner, and copying it
+              // alongside the generated INF before signing (see WindowsDriverInstaller._copyBundledSysFile()).
+              private static int testDriverKinds(final WindowsDriverInstaller wdi, final boolean runMutating) {
+                  System.out.println();
+                  System.out.println("=== driver-kind wrappers (libusbK, libusb0) ===");
+
+                  if( !runMutating ) {
+                      System.out.println("skipping (run_mutating=false) - installLibusbKInf()/installLibusb0Inf() are always mutating (trust+sign+install)");
+                      return 0;
+                  }
+
+                  int failures = 0;
+
+                  try {
+                      printPair("installLibusbKInf", wdi.installLibusbKInf("1234", "5678"));
+                  }
+                  catch(final Throwable t) {
+                      System.out.println("installLibusbKInf: EXCEPTION - " + t);
+                      t.printStackTrace(System.out);
+                      failures++;
+                  }
+
+                  try {
+                      printPair("installLibusb0Inf", wdi.installLibusb0Inf("1234", "5679"));
+                  }
+                  catch(final Throwable t) {
+                      System.out.println("installLibusb0Inf: EXCEPTION - " + t);
+                      t.printStackTrace(System.out);
+                      failures++;
+                  }
+
+                  return failures;
               }
 
               private static void printPair(final String label, final XCom.Pair<Integer, String> p) {

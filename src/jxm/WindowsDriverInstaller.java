@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -558,6 +559,21 @@ public abstract class WindowsDriverInstaller {
             cmbDevice    .addActionListener( e -> syncNumPorts.run() );
             cmbDriverKind.addActionListener( e -> syncNumPorts.run() );
             syncNumPorts.run();
+
+            // SwingApp does not apply _useDCT on its own (see DocBrowser's _lstFiles/_txtDocView) - each
+            // subclass darkens its own content controls
+            if(_useDCT) {
+                for(final JComponent c : new JComponent[]{ cmbDevice, cmbDriverKind, spnNumPorts }) {
+                    c.setBackground( rgbInvertOrDarken  ( c.getBackground() ) );
+                    c.setForeground( rgbInvertOrBrighten( c.getForeground() ) );
+                }
+
+                // JSpinner is a composite - painting is actually done by its editor's text field, which
+                // does not inherit colors set on the JSpinner itself
+                final JFormattedTextField spnTxt = ( (JSpinner.DefaultEditor) spnNumPorts.getEditor() ).getTextField();
+                spnTxt.setBackground( rgbInvertOrDarken  ( spnTxt.getBackground() ) );
+                spnTxt.setForeground( rgbInvertOrBrighten( spnTxt.getForeground() ) );
+            }
 
             // GridBagLayout instead of GridLayout - the label column keeps its natural (small) width
             // and only the field column stretches, instead of both columns being forced equally wide

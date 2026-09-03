@@ -853,11 +853,13 @@ define PP_IGNORE_UPDATE
 	fi
 endef
 
+PP_PCPP_STRIP_INDENT := $(subst X, ,XXX)
+
 define PP_PCPP_STRIP
 cat $(1)                                                              \
 	| sed -r '/\/\*{5} PCPP_END \*{5}\//{n;N;d}'                      \
 	| sed -r '/\/\*{5} PCPP_BEG \*{5}\//,/\/\*{5} PCPP_END \*{5}\//d' \
-	| sed 's/__NL__/\n$(3)/g' > $(2)
+	| sed 's/__NL__/\n$(PP_PCPP_STRIP_INDENT)/g' > $(2)
 endef
 
 define PP_JSI_SNGLE
@@ -866,7 +868,7 @@ $(1): $(1).in
 #	@gcc   -x c -nostdinc -E -P -C $(1).in -o $(1).tmp
 #	@clang -x c -nostdinc -E -P -C $(1).in -o $(1).tmp
 	@$(PCPP_PYTHON) $(1).in -o $(1).tmp
-	@$(call PP_PCPP_STRIP,$(1).tmp,$(1),   )
+	@$(call PP_PCPP_STRIP,$(1).tmp,$(1))
 	@rm -f $(1).tmp
 $(call PP_IGNORE_UPDATE,$(1))
 endef
@@ -876,7 +878,7 @@ define PP_JSI_MULTI
 PP_JSI_MULTI_OUTPUTS += $(1).tmp
 $(1): PP_JSI_MULTI_RUN
 	@if [ -f $(1).tmp ]; then                                                 \
-		$(call PP_PCPP_STRIP,$(1).tmp,$(1),   );                         \
+		$(call PP_PCPP_STRIP,$(1).tmp,$(1));                              \
 		rm -f $(1).tmp;                                                   \
 	fi
 $(call PP_IGNORE_UPDATE,$(1))

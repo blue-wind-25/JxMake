@@ -546,17 +546,21 @@ public abstract class WindowsDriverInstaller {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    // Reserves a uniquely-named temp .inf file, inside its own fresh temp directory (not directly under
-    // the shared system temp dir), and writes infTextForCatalog's result into it. A dedicated directory
-    // matters because createAndSignCatalog() catalogs every file next to the .inf (see
-    // WindowsDriverInstaller_PS1/_FFM) - installLibusbKInf()/installLibusb0Inf() rely on that to also
-    // catalog the .sys they stage there, but placing the .inf straight in the shared system temp dir
-    // would instead sweep in whatever unrelated files/other-processes' temp files happen to be there too,
-    // some of which can be locked or mid-write and make the hash computation itself fail.
-    // The .inf's basename (not chosen until Files.createTempFile returns) is what createAndSignCatalog()
-    // below will derive the .cat file's name from, so infTextForCatalog is only called once that basename
-    // is known - it must embed the given catalogFileName verbatim as this INF's CatalogFile= value (see
-    // generateWinUSBInf() and friends), or Windows will reject the package as unsigned/mismatched
+    /*
+     * Reserves a uniquely-named temp .inf file, inside its own fresh temp directory (not directly under
+     * the shared system temp dir), and writes infTextForCatalog's result into it.
+     *
+     * A dedicated directory matters because createAndSignCatalog() catalogs every file next to the .inf
+     * (see WindowsDriverInstaller_PS1/_FFM) - installLibusbKInf()/installLibusb0Inf() rely on that to also
+     * catalog the .sys they stage there, but placing the .inf straight in the shared system temp dir
+     * would instead sweep in whatever unrelated files/other-processes' temp files happen to be there too,
+     * some of which can be locked or mid-write and make the hash computation itself fail.
+     *
+     * The .inf's basename (not chosen until Files.createTempFile returns) is what createAndSignCatalog()
+     * below will derive the .cat file's name from, so infTextForCatalog is only called once that basename
+     * is known - it must embed the given catalogFileName verbatim as this INF's CatalogFile= value (see
+     * generateWinUSBInf() and friends), or Windows will reject the package as unsigned/mismatched.
+     */
     private static String _saveInfToFile(final String vid, final String pid, final java.util.function.Function<String, String> infTextForCatalog)
     {
         try {

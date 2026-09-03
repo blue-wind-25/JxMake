@@ -10,9 +10,11 @@ binary release:
     No arm64 build is published for this driver, so libusbK install is x86/amd64 only.
 
     Licensed under the GNU Lesser General Public License (LGPL) - see
-    '<JxMake_Source_Root>/3rd_party_library_licenses/LICENSE_LGPLv3.txt'. The release archive
-    itself carries no separate license file; this is per the "(GNU LGPL)" notice in the project's
-    own '.inf.in' template (libwdi, https://github.com/pbatard/libwdi, LGPL v3).
+    '<JxMake_Source_Root>/3rd_party_library_licenses/LICENSE_LGPLv3.txt' (also shipped alongside
+    this distribution as 'jxmake_dist/3rd_party_library_licenses/', see 'make dist' in
+    '<JxMake_Source_Root>/src/Makefile'). The release archive itself carries no separate license
+    file; this is per the "(GNU LGPL)" notice in the project's own '.inf.in' template (libwdi,
+    https://github.com/pbatard/libwdi, LGPL v3).
 
 The '.inf' that binds this driver to a specific VID/PID is generated at install time by
 generateLibusbKInf() in WindowsDriverInstaller.java - not the release archive's own template INF

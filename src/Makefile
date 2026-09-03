@@ -338,6 +338,7 @@ dist: fjar
 	@mkdir -p $(DIST_DIR)/jxmake_dist/dics
 	@mkdir -p $(DIST_DIR)/jxmake_dist/unicode
 	@mkdir -p $(DIST_DIR)/jxmake_dist/windows_driver
+	@mkdir -p $(DIST_DIR)/jxmake_dist/3rd_party_library_licenses
 	@cp  -v ../3rd_party/tools/pcpp_java/$(PCPP_JAVA_JAR)        $(DIST_DIR)/jxmake_dist/apps/pcpp-java/pcpp-java.jar
 	@cp  -v ../3rd_party/tools/pcpp_java/LICENSE.txt             $(DIST_DIR)/jxmake_dist/apps/pcpp-java/LICENSE.txt
 	@cp  -v ../3rd_party/tools/pcpp_java/TRANSLATION_NOTES.txt   $(DIST_DIR)/jxmake_dist/apps/pcpp-java/TRANSLATION_NOTES.txt
@@ -358,6 +359,7 @@ dist: fjar
 	@cp  -v ../3rd_party/dics/*                                  $(DIST_DIR)/jxmake_dist/dics
 	@cp  -v ../3rd_party/unicode/*                               $(DIST_DIR)/jxmake_dist/unicode
 	@cp -rv ../3rd_party/windows_driver/*                        $(DIST_DIR)/jxmake_dist/windows_driver
+	@cp  -v ../3rd_party_library_licenses/*                      $(DIST_DIR)/jxmake_dist/3rd_party_library_licenses
 	@cp  -v $(APP_JAR)                                           $(DIST_DIR)/jxmake_dist
 	@cp  -v jxmake.sh                                            $(DIST_DIR)/jxmake
 	@cp  -v jxmake.bat                                           $(DIST_DIR)/jxmake.bat

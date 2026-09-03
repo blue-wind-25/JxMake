@@ -1,4 +1,39 @@
 ----------------------------------------------------------------------------------------------------
+----- CI Build --------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+
+Workflow: .github/workflows/build-hid-bootloader-cli.yml (repo root, since this is a monorepo)
+
+Builds the full portability matrix without needing any of the local cross-toolchains below:
+
+    Linux   : x86, amd64, arm32, arm64   - static, musl libc (no glibc version dependency at all)
+    Windows : x86, amd64, arm32, arm64   - native MSVC, cross-compiled via VS Build Tools on
+                                            windows-latest (ilammy/msvc-dev-cmd action)
+    MacOS   : universal (x86_64 + arm64) - native Xcode clang on macos-latest,
+                                            -mmacosx-version-min=10.13
+    FreeBSD : x64                        - built inside a QEMU VM (vmactions/freebsd-vm)
+    OpenBSD : x64                        - built inside a QEMU VM (vmactions/openbsd-vm)
+
+Notes / known limitations:
+    - Windows ARM32 has no usable mingw/MXE HID+SetupAPI support, so it's built with MSVC's
+      x64_arm cross toolset instead of the xwin/xwin-libusb mingw path used below.
+    - MacOS is built on real GitHub-hosted macOS runners rather than osxcross, because osxcross
+      needs the Xcode SDK, which can't be auto-downloaded in CI (Apple EULA/licensing).
+    - Linux targets use static musl builds (same "fully static, runs anywhere" idea as this
+      Makefile's `mkblob`/`-static` trick for linux-x64) instead of chasing "oldest glibc",
+      which is fragile because glibc symbol versioning ties the binary to the build host.
+
+Manual dispatch only (Actions tab -> "Build hid_bootloader_cli" -> "Run workflow"), gated to the
+repo owner. The `target` input lets you build ONE target at a time while debugging a toolchain
+issue (fix it, re-dispatch with that same target until it's green) instead of the whole matrix
+failing together. Once every individual target is green, dispatch with `target: all` to build
+everything and produce a single packaged download: each target's binary is collected into its
+own `build/ci/<target>/` subdirectory (mirroring the layout below) and the whole tree is zipped
+into `build/hid_bootloader_cli-<version>-all-targets.zip`, uploaded as the `package` job's
+artifact.
+
+
+----------------------------------------------------------------------------------------------------
 ----- Linux Build ----------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
 

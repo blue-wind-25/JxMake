@@ -535,6 +535,9 @@ public abstract class WindowsDriverInstaller {
             final ListCellRenderer<Object> deviceRenderer = (list, value, index, isSelected, cellHasFocus) -> {
                 final JLabel label = new JLabel( value instanceof USBUtil.USBDevice ? ( (USBUtil.USBDevice) value ).label() : String.valueOf(value) );
                 label.setFont(monoFont);
+                label.setOpaque(true);
+                label.setBackground( isSelected ? list.getSelectionBackground() : list.getBackground() );
+                label.setForeground( isSelected ? list.getSelectionForeground() : list.getForeground() );
                 return label;
             };
 
@@ -563,13 +566,13 @@ public abstract class WindowsDriverInstaller {
             final GridBagConstraints gbcLbl = new GridBagConstraints();
             gbcLbl.gridx  = 0;
             gbcLbl.anchor = GridBagConstraints.WEST;
-            gbcLbl.insets = new Insets(0, 0, 5, 5);
+            gbcLbl.insets = new Insets(5, 0, 5, 5);
 
             final GridBagConstraints gbcFld = new GridBagConstraints();
             gbcFld.gridx   = 1;
             gbcFld.weightx = 1.0;
             gbcFld.fill    = GridBagConstraints.HORIZONTAL;
-            gbcFld.insets  = new Insets(0, 0, 5, 5);
+            gbcFld.insets  = new Insets(5, 0, 5, 0);
 
             final JLabel[]     lbls = { new JLabel(Texts.WDI_LblDevice), new JLabel(Texts.WDI_LblDriver), new JLabel(Texts.WDI_LblNumPorts) };
             final JComponent[] flds = { cmbDevice, cmbDriverKind, spnNumPorts };

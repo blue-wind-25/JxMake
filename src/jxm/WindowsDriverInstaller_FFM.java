@@ -1186,26 +1186,30 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
             final Arena arena = Arena.ofConfined()
         ) {
             final String catPath  = infPath.substring( 0, infPath.lastIndexOf('.') ) + ".cat";
-            final String fileName = Paths.get(infPath).getFileName().toString();
 
-            // Saved off per-algorithm so _diagCatalogLookup (called much further down, after signing and
-            // database registration) can re-query the catalog database with the exact same hash bytes -
-            // these MemorySegments are arena-allocated so they stay valid past hInfFile's own close
+            // Every regular file sitting alongside the INF gets its own catalog member below, not just the
+            // INF itself - required for installLibusbKInf()/installLibusb0Inf(), whose CopyFiles-driven .sys
+            // (see _copyBundledSysFile()) is staged into this same temp directory before
+            // createAndSignCatalog() runs, and SetupCopyOEMInfW hash-checks that .sys against the catalog
+            // too. For the inbox-driver kinds (WinUSB/HID/CDC-ACM), this directory only ever contains the
+            // INF itself, so behavior there is unchanged. Mirrors WindowsDriverInstaller_PS1's
+            // New-FileCatalog -Path <dir>, which catalogs a whole directory the same way.
+            final java.util.List<String> memberFileNames = new java.util.ArrayList<>();
+            try(
+                final java.util.stream.Stream<Path> dirFiles = Files.list( Paths.get(infPath).getParent() )
+            ) {
+                dirFiles.filter(Files::isRegularFile).forEach( p -> memberFileNames.add( p.getFileName().toString() ) );
+            }
+
+            // Saved off per-algorithm (for the INF specifically) so _diagCatalogLookup (called much further
+            // down, after signing and database registration) can re-query the catalog database with the
+            // exact same hash bytes - these MemorySegments are arena-allocated so they stay valid past their
+            // file handle's own close
             final MemorySegment[] savedHash    = new MemorySegment[CATALOG_HASH_ALGS.length];
             final int[]           savedHashLen = new int[CATALOG_HASH_ALGS.length];
 
-            // Open the INF and, once, encode the SIP-indirect "SPC_LINK" placeholder every member below shares
-            // - it doesn't depend on the hash/algorithm, only on there being a non-PE/CAB subject file at all
-            final MemorySegment hInfFile = (MemorySegment) _CreateFileW.invoke(
-                _wstr(arena, infPath), GENERIC_READ, FILE_SHARE_READ, MemorySegment.NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, MemorySegment.NULL
-            );
-            if(hInfFile == null || hInfFile.address() == INVALID_HANDLE_VALUE) {
-                log.append("CreateFileW(inf) failed, GetLastError=").append( _lastError() );
-                return RETCODE_EXCEPTION;
-            }
-
             boolean catCloseOk = false;
-            try {
+            {
                 // subjectGuid is the fixed "this is an INF" subject-type GUID (SPC_INC_SPL_INF_ style),
                 // not a value derived from CryptSIPRetrieveSubjectGuid/DRIVER_ACTION_VERIFY
                 final long[] INF_SUBJECT_TYPE_PARTS = { 0xDE351A42L, 0x8E59L, 0x11D0L, 0x8CL, 0x47L, 0x00L, 0xC0L, 0x4FL, 0xC2L, 0x95L, 0xEEL };
@@ -1243,85 +1247,111 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                 }
 
                 try {
-                    for(int alg = 0; alg < CATALOG_HASH_ALGS.length; ++alg) {
-                        final String algName = CATALOG_HASH_ALGS[alg];
-                        final String algOid  = CATALOG_HASH_ALG_OIDS[alg];
+                    // One catalog member per file in the INF's directory (memberFileNames), one hash
+                    // algorithm each (CATALOG_HASH_ALGS is SHA1-only - see its declaration above)
+                    for(final String memberFileName : memberFileNames) {
+                        final Path memberPath = Paths.get(infPath).getParent().resolve(memberFileName);
 
-                        final MemorySegment hCatAdminOut = arena.allocate(PTR);
-                        if( (int) _CryptCATAdminAcquireContext2.invoke(hCatAdminOut, _guid(arena, DRIVER_ACTION_VERIFY_PARTS), _wstr(arena, algName), MemorySegment.NULL, 0) == 0 ) {
-                            log.append("CryptCATAdminAcquireContext2(").append(algName).append(") failed, GetLastError=").append( _lastError() );
+                        final MemorySegment hMemberFile = (MemorySegment) _CreateFileW.invoke(
+                            _wstr(arena, memberPath.toString()), GENERIC_READ, FILE_SHARE_READ, MemorySegment.NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, MemorySegment.NULL
+                        );
+                        if(hMemberFile == null || hMemberFile.address() == INVALID_HANDLE_VALUE) {
+                            log.append("CreateFileW(").append(memberFileName).append(") failed, GetLastError=").append( _lastError() );
                             return RETCODE_EXCEPTION;
                         }
-                        final MemorySegment hCatAdmin = hCatAdminOut.get(PTR, 0);
 
                         try {
-                            final MemorySegment cbHashOut = arena.allocate(ValueLayout.JAVA_INT);
-                            _CryptCATAdminCalcHashFromFileHandle2.invoke(hCatAdmin, hInfFile, cbHashOut, MemorySegment.NULL, 0);
+                            for(int alg = 0; alg < CATALOG_HASH_ALGS.length; ++alg) {
+                                final String algName = CATALOG_HASH_ALGS[alg];
+                                final String algOid  = CATALOG_HASH_ALG_OIDS[alg];
 
-                            final int cbHash = cbHashOut.get(ValueLayout.JAVA_INT, 0);
-                            if(cbHash <= 0) {
-                                log.append("CryptCATAdminCalcHashFromFileHandle2(").append(algName).append(") (sizing) failed, GetLastError=").append( _lastError() );
-                                return RETCODE_EXCEPTION;
-                            }
+                                final MemorySegment hCatAdminOut = arena.allocate(PTR);
+                                if( (int) _CryptCATAdminAcquireContext2.invoke(hCatAdminOut, _guid(arena, DRIVER_ACTION_VERIFY_PARTS), _wstr(arena, algName), MemorySegment.NULL, 0) == 0 ) {
+                                    log.append("CryptCATAdminAcquireContext2(").append(algName).append(") failed, GetLastError=").append( _lastError() );
+                                    return RETCODE_EXCEPTION;
+                                }
+                                final MemorySegment hCatAdmin = hCatAdminOut.get(PTR, 0);
 
-                            final MemorySegment hashBuf = arena.allocate(cbHash);
-                            if( (int) _CryptCATAdminCalcHashFromFileHandle2.invoke(hCatAdmin, hInfFile, cbHashOut, hashBuf, 0) == 0 ) {
-                                log.append("CryptCATAdminCalcHashFromFileHandle2(").append(algName).append(") failed, GetLastError=").append( _lastError() );
-                                return RETCODE_EXCEPTION;
-                            }
+                                try {
+                                    final MemorySegment cbHashOut = arena.allocate(ValueLayout.JAVA_INT);
+                                    _CryptCATAdminCalcHashFromFileHandle2.invoke(hCatAdmin, hMemberFile, cbHashOut, MemorySegment.NULL, 0);
 
-                            final byte[]        hashBytes = hashBuf.toArray(ValueLayout.JAVA_BYTE);
-                            final StringBuilder hexTag    = new StringBuilder(hashBytes.length * 2);
-                            for(final byte b : hashBytes) hexTag.append( String.format("%02X", b) );
+                                    final int cbHash = cbHashOut.get(ValueLayout.JAVA_INT, 0);
+                                    if(cbHash <= 0) {
+                                        log.append("CryptCATAdminCalcHashFromFileHandle2(").append(algName).append(") (sizing) failed, GetLastError=").append( _lastError() );
+                                        return RETCODE_EXCEPTION;
+                                    }
 
-                            log.append(LOG_INDENT);
-                            log.append("[diag] INF hash (").append(algName).append("): cbHash=").append(cbHash).append(" hexTag=").append(hexTag);
-                            savedHash[alg]    = hashBuf;
-                            savedHashLen[alg] = cbHash;
+                                    final MemorySegment hashBuf = arena.allocate(cbHash);
+                                    if( (int) _CryptCATAdminCalcHashFromFileHandle2.invoke(hCatAdmin, hMemberFile, cbHashOut, hashBuf, 0) == 0 ) {
+                                        log.append("CryptCATAdminCalcHashFromFileHandle2(").append(algName).append(") failed, GetLastError=").append( _lastError() );
+                                        return RETCODE_EXCEPTION;
+                                    }
 
-                            // SIP_INDIRECT_DATA : { CRYPT_ATTRIBUTE_TYPE_VALUE Data; CRYPT_ALGORITHM_IDENTIFIER DigestAlgorithm;
-                            //                       CRYPT_HASH_BLOB Digest; } - size 64, align 8 (three {ptr/DWORD-and-pad,ptr}
-                            //                       pairs of 24, 24, and 16 bytes respectively)
-                            final MemorySegment sipData = arena.allocate(64, 8);
-                            sipData.set( PTR                 ,  0, _astr(arena, SPC_CAB_DATA_OBJID) );
-                            sipData.set( ValueLayout.JAVA_INT,  8, spcLinkEncLen                    );
-                            sipData.set( PTR                 , 16, spcLinkEnc                       );
-                            sipData.set( PTR                 , 24, _astr(arena, algOid)             );
-                            sipData.set( ValueLayout.JAVA_INT, 32, 0                                );
-                            sipData.set( PTR                 , 40, MemorySegment.NULL               );
-                            sipData.set( ValueLayout.JAVA_INT, 48, cbHash                           );
-                            sipData.set( PTR                 , 56, hashBuf                          );
+                                    final byte[]        hashBytes = hashBuf.toArray(ValueLayout.JAVA_BYTE);
+                                    final StringBuilder hexTag    = new StringBuilder(hashBytes.length * 2);
+                                    for(final byte b : hashBytes) hexTag.append( String.format("%02X", b) );
 
-                            // pwszFileName is passed NULL, not fileName - the member is identified by its
-                            // tag/hash, and the filename is separately conveyed via the "File" attribute
-                            // below. dwCertVersion=0, matching CryptCATOpen's header version above
-                            final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
-                                hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
-                            );
-                            if(pMember == null || pMember.address() == 0L) {
-                                log.append("CryptCATPutMemberInfo(").append(algName).append(") failed, GetLastError=").append( _lastError() );
-                                return RETCODE_EXCEPTION;
-                            }
+                                    log.append(LOG_INDENT);
+                                    log.append("[diag] ").append(memberFileName).append(" hash (").append(algName).append("): cbHash=").append(cbHash).append(" hexTag=").append(hexTag);
 
-                            // "File" member attribute - matches what catalog-verification tooling expects alongside
-                            // the SIP-indirect digest, and what WindowsDriverInstaller_PS1's New-FileCatalog
-                            // produces.
-                            //
-                            // No "OSAttr" attribute is added: adding an OS-version-scoped member makes
-                            // SetupCopyOEMInfW reject the member entirely (SPAPI_E_FILE_HASH_NOT_IN_CATALOG) rather
-                            // than just narrowing its applicability.
-                            final MemorySegment fileAttr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
-                                hCatalog, pMember, _wstr(arena, "File"),
-                                CRYPTCAT_ATTR_AUTHENTICATED | CRYPTCAT_ATTR_NAMEASCII | CRYPTCAT_ATTR_DATAASCII,
-                                (fileName.length() + 1) * 2, _wstr( arena, fileName.toLowerCase(Locale.ROOT) )
-                            );
-                            if(fileAttr == null || fileAttr.address() == 0L) {
-                                log.append("CryptCATPutAttrInfo(File,").append(algName).append(") failed, GetLastError=").append( _lastError() );
-                                return RETCODE_EXCEPTION;
+                                    // Only the INF's own hash is kept for _diagCatalogLookup() below - it's
+                                    // purely a diagnostic sanity check that the DB registration round-trips,
+                                    // one representative member is enough
+                                    if( memberFileName.equals( Paths.get(infPath).getFileName().toString() ) ) {
+                                        savedHash[alg]    = hashBuf;
+                                        savedHashLen[alg] = cbHash;
+                                    }
+
+                                    // SIP_INDIRECT_DATA : { CRYPT_ATTRIBUTE_TYPE_VALUE Data; CRYPT_ALGORITHM_IDENTIFIER DigestAlgorithm;
+                                    //                       CRYPT_HASH_BLOB Digest; } - size 64, align 8 (three {ptr/DWORD-and-pad,ptr}
+                                    //                       pairs of 24, 24, and 16 bytes respectively)
+                                    final MemorySegment sipData = arena.allocate(64, 8);
+                                    sipData.set( PTR                 ,  0, _astr(arena, SPC_CAB_DATA_OBJID) );
+                                    sipData.set( ValueLayout.JAVA_INT,  8, spcLinkEncLen                    );
+                                    sipData.set( PTR                 , 16, spcLinkEnc                       );
+                                    sipData.set( PTR                 , 24, _astr(arena, algOid)             );
+                                    sipData.set( ValueLayout.JAVA_INT, 32, 0                                );
+                                    sipData.set( PTR                 , 40, MemorySegment.NULL               );
+                                    sipData.set( ValueLayout.JAVA_INT, 48, cbHash                           );
+                                    sipData.set( PTR                 , 56, hashBuf                          );
+
+                                    // pwszFileName is passed NULL, not the member's filename - the member is
+                                    // identified by its tag/hash, and the filename is separately conveyed via
+                                    // the "File" attribute below. dwCertVersion=0, matching CryptCATOpen's
+                                    // header version above
+                                    final MemorySegment pMember = (MemorySegment) _CryptCATPutMemberInfo.invoke(
+                                        hCatalog, MemorySegment.NULL, _wstr(arena, hexTag.toString() ), subjectGuid, 0, 64, sipData
+                                    );
+                                    if(pMember == null || pMember.address() == 0L) {
+                                        log.append("CryptCATPutMemberInfo(").append(algName).append(") failed, GetLastError=").append( _lastError() );
+                                        return RETCODE_EXCEPTION;
+                                    }
+
+                                    // "File" member attribute - matches what catalog-verification tooling expects alongside
+                                    // the SIP-indirect digest, and what WindowsDriverInstaller_PS1's New-FileCatalog
+                                    // produces.
+                                    //
+                                    // No "OSAttr" attribute is added: adding an OS-version-scoped member makes
+                                    // SetupCopyOEMInfW reject the member entirely (SPAPI_E_FILE_HASH_NOT_IN_CATALOG) rather
+                                    // than just narrowing its applicability.
+                                    final MemorySegment fileAttr = (MemorySegment) _CryptCATPutAttrInfo.invoke(
+                                        hCatalog, pMember, _wstr(arena, "File"),
+                                        CRYPTCAT_ATTR_AUTHENTICATED | CRYPTCAT_ATTR_NAMEASCII | CRYPTCAT_ATTR_DATAASCII,
+                                        (memberFileName.length() + 1) * 2, _wstr( arena, memberFileName.toLowerCase(Locale.ROOT) )
+                                    );
+                                    if(fileAttr == null || fileAttr.address() == 0L) {
+                                        log.append("CryptCATPutAttrInfo(File,").append(algName).append(") failed, GetLastError=").append( _lastError() );
+                                        return RETCODE_EXCEPTION;
+                                    }
+                                }
+                                finally {
+                                    _CryptCATAdminReleaseContext.invoke(hCatAdmin, 0);
+                                }
                             }
                         }
                         finally {
-                            _CryptCATAdminReleaseContext.invoke(hCatAdmin, 0);
+                            _CloseHandle.invoke(hMemberFile);
                         }
                     }
                 }
@@ -1339,9 +1369,6 @@ public final class WindowsDriverInstaller_FFM extends WindowsDriverInstaller {
                     catCloseOk = ( (int) _CryptCATClose.invoke(hCatalog) != 0 ) && catCloseOk;
                     _LocalFree.invoke(spcLinkEnc);
                 }
-            }
-            finally {
-                _CloseHandle.invoke(hInfFile);
             }
             if(!catCloseOk) {
                 log.append("CryptCATClose failed, GetLastError=").append( _lastError() );

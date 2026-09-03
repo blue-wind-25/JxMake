@@ -334,6 +334,14 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
     {
         // Catalog file must usually be in the same folder as INF
         final String catPath  = infPath.substring( 0, infPath.lastIndexOf('.') ) + ".cat";
+
+        // -Path below is the INF's parent directory, not infPath itself: New-FileCatalog -Path <dir>
+        // catalogs every file in that directory, which is required for installLibusbKInf()/
+        // installLibusb0Inf() - their CopyFiles-driven .sys (see _copyBundledSysFile()) is staged into
+        // this same temp directory before createAndSignCatalog() runs, and SetupCopyOEMInfW hash-checks
+        // that .sys against the catalog too. For the inbox-driver kinds (WinUSB/HID/CDC-ACM), this
+        // directory only ever contains the INF itself, so behavior there is unchanged.
+        final String  infDir  = Paths.get(infPath).getParent().toString();
         final Path    pfxFile = Paths.get( System.getProperty("java.io.tmpdir"), providerName + ".pfx" );
         final String  pfxPwd  = _pfxPassword(providerName);
 
@@ -416,7 +424,7 @@ public class WindowsDriverInstaller_PS1 extends WindowsDriverInstaller {
                 "exit $exitCode                                                                                         \r\n",
                 providerName,
                 pfxFile.toAbsolutePath(), pfxFile.toAbsolutePath(), pfxFile.toAbsolutePath(), pfxPwd,
-                infPath, catPath, catPath,
+                infDir, catPath, catPath,
                 RETCODE_PH_NULL, RETCODE_UAC_DECLINED, RETCODE_EXCEPTION
             );
 

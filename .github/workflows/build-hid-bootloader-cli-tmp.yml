@@ -8,7 +8,7 @@
 #   - macos-universal                             (changed: floor raised 10.13 -> 11.0 for the arm64 slice)
 #   - freebsd-x64 / openbsd-x64                   (changed: pinned to older releases, 13.2 / 7.4)
 #
-# The `target` input lets you dispatch ONE target at a time to debug it, or `all` to run every
+# The `target` input lets you dispatch ONE target at a time to debug it, or `new-changed` to run every
 # target in this file (there's no `package` job here - this workflow is for iterating on
 # individual toolchains, not producing a release artifact).
 #
@@ -22,11 +22,11 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Which new/changed target to build ("all" runs every target in this file)'
+        description: 'Which new/changed target to build ("new-changed" runs every target in this file)'
         type: choice
-        default: all
+        default: new-changed
         options:
-          - all
+          - new-changed
           - windows-x86
           - windows-x64
           - windows-arm64
@@ -66,7 +66,7 @@ jobs:
             {"name":"macos-x86_64","archs":"-arch x86_64","min":"10.13"},
             {"name":"macos-universal","archs":"-arch x86_64 -arch arm64","min":"11.0"}
           ]'
-          if [ "$TARGET" = "all" ]; then
+          if [ "$TARGET" = "new-changed" ]; then
             WINDOWS_SEL="$WINDOWS_ALL"
             MACOS_SEL="$MACOS_ALL"
           else
@@ -169,7 +169,7 @@ jobs:
           if-no-files-found: error
 
   freebsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64-static')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'new-changed' || github.event.inputs.target == 'freebsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -201,7 +201,7 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64-static')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'new-changed' || github.event.inputs.target == 'openbsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

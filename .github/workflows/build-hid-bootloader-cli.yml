@@ -190,20 +190,14 @@ jobs:
           static __inline void usleep(long usec) { Sleep((DWORD)((usec + 999) / 1000)); }
           '@
 
-      - name: Install Meson/Ninja (libusb build only)
-        if: matrix.libusb == true
-        run: pip install meson ninja
-
-      - name: Build static libusb-1.0 (WinUSB backend) for ${{ matrix.msvc_arch }}
+      - name: Build static libusb-1.0 (WinUSB backend) for ${{ matrix.msvc_arch }} via vcpkg
         if: matrix.libusb == true
         shell: cmd
         run: |
-          curl -fSL --connect-timeout 15 --max-time 45 --retry 2 --retry-max-time 120 "https://github.com/libusb/libusb/archive/refs/tags/v%LIBUSB_VERSION%.zip" -o libusb.zip || exit /b 1
-          tar xf libusb.zip || exit /b 1
-          cd libusb-%LIBUSB_VERSION%
-          meson setup build --default-library=static --buildtype=release --wrap-mode=nodownload || exit /b 1
-          meson compile -C build || exit /b 1
-          dir /s /b build\*.lib
+          for /f "delims=" %%v in ('where vcpkg') do set VCPKG_EXE=%%v
+          for %%v in ("%VCPKG_EXE%") do set VCPKG_DIR=%%~dpv
+          vcpkg install libusb:${{ matrix.msvc_arch }}-windows-static || exit /b 1
+          dir /s /b "%VCPKG_DIR%installed\${{ matrix.msvc_arch }}-windows-static\lib\libusb-1.0.lib"
 
       - name: Compile hid_bootloader_cli.c (HidUsb)
         if: matrix.libusb != true
@@ -217,10 +211,10 @@ jobs:
         working-directory: ${{ env.SRC_DIR }}
         shell: cmd
         run: |
-          mkdir libusb-1.0
-          copy "%GITHUB_WORKSPACE%\libusb-%LIBUSB_VERSION%\libusb\libusb.h" libusb-1.0\libusb.h || exit /b 1
-          for /f "delims=" %%f in ('dir /s /b "%GITHUB_WORKSPACE%\libusb-%LIBUSB_VERSION%\build\*.lib"') do set LIBUSB_LIB=%%f
-          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%LIBUSB_LIB%" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
+          for /f "delims=" %%v in ('where vcpkg') do set VCPKG_EXE=%%v
+          for %%v in ("%VCPKG_EXE%") do set VCPKG_DIR=%%~dpv
+          set VCPKG_TRIPLET_DIR=%VCPKG_DIR%installed\${{ matrix.msvc_arch }}-windows-static
+          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /I "%VCPKG_TRIPLET_DIR%\include" /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%VCPKG_TRIPLET_DIR%\lib\libusb-1.0.lib" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
 
       - uses: actions/upload-artifact@v4
         with:

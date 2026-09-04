@@ -60,15 +60,15 @@ Notes/known limitations:
       but `/MT` still applies there for the same redistributable reason.
     - Windows builds both HidUsb (-DUSE_WIN32, SetupAPI/hid.lib - same as this Makefile's `xwin`
       target) and WinUSB via libusb (-DUSE_LIBUSB - same as `xwin-libusb`), the latter built with
-      a Meson-built static libusb (x86/x64 only, see below). HidUsb is the standard HID class
-      driver built into Windows, so it works immediately on any Windows 7-11 machine with no
-      driver changes; WinUSB only sees the device after the end user manually re-drivers it with
-      Zadig (HidUsb -> WinUSB), so it's published as an explicit opt-in alternative, not the
-      default.
-    - Windows WinUSB/libusb is x86/x64 only: libusb has no officially supported static/MSVC ARM64
-      build path (no precompiled binaries, and the source tree's own Meson support for that
-      combo is unverified). ARM64 already gets HidUsb, which needs no extra driver on the target
-      machine anyway, so this isn't a real gap.
+      a vcpkg-built static libusb (x86/x64 only, see below) using the `<arch>-windows-static`
+      triplet - vcpkg is preinstalled on the GitHub-hosted Windows runner, so this needs no extra
+      toolchain install. HidUsb is the standard HID class driver built into Windows, so it works
+      immediately on any Windows 7-11 machine with no driver changes; WinUSB only sees the device
+      after the end user manually re-drivers it with Zadig (HidUsb -> WinUSB), so it's published
+      as an explicit opt-in alternative, not the default.
+    - Windows WinUSB/libusb is x86/x64 only: an `arm64-windows-static` libusb build via vcpkg is
+      unverified here. ARM64 already gets HidUsb, which needs no extra driver on the target
+      machine anyway, so this isn't a real gap worth chasing.
     - Windows ARM32 is NOT built at all: the GitHub-hosted Windows VS installs no longer ship a
       32-bit ARM toolset (only x86/amd64/arm64), and 32-bit ARM Windows hardware is essentially
       extinct anyway (superseded by ARM64 since ~2017).

@@ -67,6 +67,8 @@ jobs:
 
       - name: Build static libusb-1.0 for ${{ matrix.cross_triple }}
         if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
+        env:
+          CC: ${{ matrix.cross_triple }}-gcc
         run: |
           set -eux
           curl -fsSL "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" -o libusb.tar.bz2
@@ -78,6 +80,8 @@ jobs:
       - name: Compile hid_bootloader_cli.c
         if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         working-directory: ${{ env.SRC_DIR }}
+        env:
+          CC: ${{ matrix.cross_triple }}-gcc
         run: |
           set -eux
           $CC -O2 -Wall -Wno-misleading-indentation -static -s \

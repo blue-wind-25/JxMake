@@ -14,6 +14,10 @@ Builds the full portability matrix without needing any of the local cross-toolch
     FreeBSD : x64                        - static, libusb built from source (vmactions/freebsd-vm)
     OpenBSD : x64                        - static, libusb built from source (vmactions/openbsd-vm)
 
+Every CI target above is fully static except Windows (which dynamically links the MSVC CRT, as
+usual for that platform) - so unlike the local `make` targets below, none of the `-static` /
+`-libusb` suffixes apply here; there's only one flavor of each target.
+
 Notes / known limitations:
     - Windows ARM32 is NOT built: the GitHub-hosted windows-latest VS install no longer ships a
       32-bit ARM toolset at all (only x86/amd64/arm64 - confirmed via VC\Auxiliary\Build listing,

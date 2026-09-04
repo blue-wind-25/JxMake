@@ -42,7 +42,7 @@ jobs:
   # Linux - static musl builds (portable across glibc versions since there's no glibc at all)
   # --------------------------------------------------------------------------------------------
   linux:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name)
+    if: github.actor == 'blue-wind-25'
     strategy:
       fail-fast: false
       matrix:
@@ -63,8 +63,10 @@ jobs:
     container: ${{ matrix.image }}
     steps:
       - uses: actions/checkout@v4
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
 
       - name: Build static libusb-1.0 for ${{ matrix.cross_triple }}
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         run: |
           set -eux
           curl -fsSL "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" -o libusb.tar.bz2
@@ -74,6 +76,7 @@ jobs:
           make -j"$(nproc)"
 
       - name: Compile hid_bootloader_cli.c
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         working-directory: ${{ env.SRC_DIR }}
         run: |
           set -eux
@@ -86,6 +89,7 @@ jobs:
           file hid_bootloader_cli
 
       - uses: actions/upload-artifact@v4
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         with:
           name: ${{ matrix.name }}
           path: ${{ env.SRC_DIR }}/hid_bootloader_cli
@@ -95,7 +99,7 @@ jobs:
   # Windows - native MSVC cross toolsets (windows-latest ships full VS Build Tools, incl. ARM)
   # --------------------------------------------------------------------------------------------
   windows:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name)
+    if: github.actor == 'blue-wind-25'
     strategy:
       fail-fast: false
       matrix:
@@ -111,18 +115,22 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
 
       - uses: ilammy/msvc-dev-cmd@v1
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         with:
           arch: ${{ matrix.msvc_arch }}
 
       - name: Compile hid_bootloader_cli.c
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         working-directory: ${{ env.SRC_DIR }}
         shell: cmd
         run: |
           cl /O2 /W3 /DUSE_WIN32 /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib
 
       - uses: actions/upload-artifact@v4
+        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         with:
           name: ${{ matrix.name }}
           path: ${{ env.SRC_DIR }}/hid_bootloader_cli.exe

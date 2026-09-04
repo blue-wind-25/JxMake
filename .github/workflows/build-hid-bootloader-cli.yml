@@ -147,6 +147,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: TEMP diagnostic - list available vcvarsall targets
+        if: matrix.name == 'windows-arm32'
+        shell: cmd
+        run: |
+          dir "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build"
+
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.msvc_arch }}
@@ -250,7 +256,7 @@ jobs:
             hdr="$(find /usr/local/include -maxdepth 2 -name libusb.h | head -n1)"
             mkdir -p /tmp/incshim/libusb-1.0
             ln -sf "$hdr" /tmp/incshim/libusb-1.0/libusb.h
-            cc -O2 -Wall -I /tmp/incshim -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb-1.0
+            cc -O2 -Wall -I /tmp/incshim -L /usr/local/lib -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb-1.0
       - uses: actions/upload-artifact@v4
         with:
           name: openbsd-x64

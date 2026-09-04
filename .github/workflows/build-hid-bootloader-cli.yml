@@ -207,7 +207,9 @@ jobs:
       - uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
-          prepare: pkg install -y libusb gcc
+          envs: 'SRC_DIR'
+          # libusb has shipped in the FreeBSD base system since 10.0 - no port/package for it.
+          prepare: pkg install -y gcc
           run: |
             set -eux
             cd "${SRC_DIR}"
@@ -227,7 +229,10 @@ jobs:
       - uses: vmactions/openbsd-vm@v1
         with:
           usesh: true
-          prepare: pkg_add libusb1
+          envs: 'SRC_DIR'
+          # Trailing '--' pins the default (non-debug) flavor; plain 'libusb1' is ambiguous
+          # between libusb1-<ver> and libusb1-<ver>-debug.
+          prepare: pkg_add libusb1--
           run: |
             set -eux
             cd "${SRC_DIR}"

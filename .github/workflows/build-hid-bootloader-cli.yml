@@ -39,34 +39,60 @@ env:
 jobs:
 
   # --------------------------------------------------------------------------------------------
+  # Setup - filters the linux/windows matrices down to just the selected `target` (or everything,
+  # for `target: all`) BEFORE any runner spins up, so picking one target doesn't burn minutes
+  # spinning up containers/VMs for the other arches in that OS's matrix just to no-op them.
+  # --------------------------------------------------------------------------------------------
+  setup:
+    if: github.actor == 'blue-wind-25'
+    runs-on: ubuntu-latest
+    outputs:
+      linux_matrix: ${{ steps.filter.outputs.linux_matrix }}
+      windows_matrix: ${{ steps.filter.outputs.windows_matrix }}
+    steps:
+      - id: filter
+        env:
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          set -eux
+          LINUX_ALL='[
+            {"name":"linux-x86","image":"messense/rust-musl-cross:i686-musl","cross_triple":"i686-linux-musl"},
+            {"name":"linux-x64","image":"messense/rust-musl-cross:x86_64-musl","cross_triple":"x86_64-linux-musl"},
+            {"name":"linux-arm32","image":"messense/rust-musl-cross:armv7-musleabihf","cross_triple":"armv7-linux-musleabihf"},
+            {"name":"linux-arm64","image":"messense/rust-musl-cross:aarch64-musl","cross_triple":"aarch64-linux-musl"}
+          ]'
+          WINDOWS_ALL='[
+            {"name":"windows-x86","msvc_arch":"x86"},
+            {"name":"windows-x64","msvc_arch":"x64"},
+            {"name":"windows-arm32","msvc_arch":"x64_arm"},
+            {"name":"windows-arm64","msvc_arch":"x64_arm64"}
+          ]'
+          if [ "$TARGET" = "all" ]; then
+            LINUX_SEL="$LINUX_ALL"
+            WINDOWS_SEL="$WINDOWS_ALL"
+          else
+            LINUX_SEL="$(echo "$LINUX_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+            WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+          fi
+          echo "linux_matrix=$(echo "$LINUX_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+          echo "windows_matrix=$(echo "$WINDOWS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  # --------------------------------------------------------------------------------------------
   # Linux - static musl builds (portable across glibc versions since there's no glibc at all)
   # --------------------------------------------------------------------------------------------
   linux:
-    if: github.actor == 'blue-wind-25'
+    needs: setup
+    if: github.actor == 'blue-wind-25' && needs.setup.outputs.linux_matrix != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: linux-x86
-            image: messense/rust-musl-cross:i686-musl
-            cross_triple: i686-linux-musl
-          - name: linux-x64
-            image: messense/rust-musl-cross:x86_64-musl
-            cross_triple: x86_64-linux-musl
-          - name: linux-arm32
-            image: messense/rust-musl-cross:armv7-musleabihf
-            cross_triple: armv7-linux-musleabihf
-          - name: linux-arm64
-            image: messense/rust-musl-cross:aarch64-musl
-            cross_triple: aarch64-linux-musl
+        include: ${{ fromJson(needs.setup.outputs.linux_matrix) }}
     runs-on: ubuntu-latest
     container: ${{ matrix.image }}
     steps:
       - uses: actions/checkout@v4
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
 
       - name: Build static libusb-1.0 for ${{ matrix.cross_triple }}
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         env:
           CC: ${{ matrix.cross_triple }}-gcc
         run: |
@@ -81,7 +107,6 @@ jobs:
           make -j"$(nproc)"
 
       - name: Compile hid_bootloader_cli.c
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         working-directory: ${{ env.SRC_DIR }}
         env:
           CC: ${{ matrix.cross_triple }}-gcc
@@ -96,7 +121,6 @@ jobs:
           file hid_bootloader_cli
 
       - uses: actions/upload-artifact@v4
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         with:
           name: ${{ matrix.name }}
           path: ${{ env.SRC_DIR }}/hid_bootloader_cli
@@ -106,38 +130,27 @@ jobs:
   # Windows - native MSVC cross toolsets (windows-latest ships full VS Build Tools, incl. ARM)
   # --------------------------------------------------------------------------------------------
   windows:
-    if: github.actor == 'blue-wind-25'
+    needs: setup
+    if: github.actor == 'blue-wind-25' && needs.setup.outputs.windows_matrix != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: windows-x86
-            msvc_arch: x86
-          - name: windows-x64
-            msvc_arch: x64
-          - name: windows-arm32
-            msvc_arch: x64_arm
-          - name: windows-arm64
-            msvc_arch: x64_arm64
+        include: ${{ fromJson(needs.setup.outputs.windows_matrix) }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
 
       - uses: ilammy/msvc-dev-cmd@v1
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         with:
           arch: ${{ matrix.msvc_arch }}
 
       - name: Compile hid_bootloader_cli.c
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         working-directory: ${{ env.SRC_DIR }}
         shell: cmd
         run: |
           cl /O2 /W3 /DUSE_WIN32 /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib
 
       - uses: actions/upload-artifact@v4
-        if: github.event.inputs.target == 'all' || github.event.inputs.target == matrix.name
         with:
           name: ${{ matrix.name }}
           path: ${{ env.SRC_DIR }}/hid_bootloader_cli.exe

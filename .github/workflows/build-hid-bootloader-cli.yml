@@ -250,7 +250,9 @@ jobs:
             ftp -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
             tar xjf /tmp/libusb.tar.bz2 -C /tmp
             cd "/tmp/libusb-${LIBUSB_VERSION}"
-            ./configure --disable-shared --enable-static --disable-udev
+            # OpenBSD's clang errors (not just warns) on the implicit syscall()
+            # declaration in libusb's os/threads_posix.c; relax it to a warning.
+            CFLAGS="-Wno-error=implicit-function-declaration" ./configure --disable-shared --enable-static --disable-udev
             gmake -j"$(sysctl -n hw.ncpu)"
             cd "$GITHUB_WORKSPACE/${SRC_DIR}"
             mkdir -p /tmp/incshim/libusb-1.0

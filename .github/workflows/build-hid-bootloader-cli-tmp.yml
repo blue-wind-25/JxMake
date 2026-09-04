@@ -6,11 +6,14 @@
 #   - windows-x86-libusb / windows-x64-libusb     (new: WinUSB backend via a Meson-built static libusb)
 #   - macos-x86_64                                (new: Intel-only, 10.13 floor)
 #   - macos-universal                             (changed: floor raised 10.13 -> 11.0 for the arm64 slice)
-#   - freebsd-x64 / openbsd-x64                   (changed: pinned to older releases, 13.2 / 7.4)
+#   - freebsd-x64 / openbsd-x64                   (changed: pinned to older still-supported releases,
+#                                                  13.2 / 7.8)
 #
-# The `target` input lets you dispatch ONE target at a time to debug it, or `new-changed` to run every
-# target in this file (there's no `package` job here - this workflow is for iterating on
-# individual toolchains, not producing a release artifact).
+# The `target` input lets you dispatch ONE target at a time to debug it, `new-changed` to run every
+# target in this file, or `failed` to re-run just the last known-bad set (openbsd-x64-static,
+# windows-x86-libusb, windows-x64-libusb) - update `failed`'s selection below as you fix things
+# (there's no `package` job here - this workflow is for iterating on individual toolchains, not
+# producing a release artifact).
 #
 # Once every target you dispatch here is green, delete this file - it exists purely to iterate on
 # new/changed jobs without touching the (already-verified) linux jobs or the `package` job in the
@@ -22,11 +25,12 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Which new/changed target to build ("new-changed" runs every target in this file)'
+        description: 'Which new/changed target to build ("new-changed" = every target here, "failed" = just the last known-bad set)'
         type: choice
         default: new-changed
         options:
           - new-changed
+          - failed
           - windows-x86
           - windows-x64
           - windows-arm64
@@ -69,6 +73,9 @@ jobs:
           if [ "$TARGET" = "new-changed" ]; then
             WINDOWS_SEL="$WINDOWS_ALL"
             MACOS_SEL="$MACOS_ALL"
+          elif [ "$TARGET" = "failed" ]; then
+            WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c '[.[] | select(.name == "windows-x86-libusb" or .name == "windows-x64-libusb")]')"
+            MACOS_SEL='[]'
           else
             WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
             MACOS_SEL="$(echo "$MACOS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
@@ -84,6 +91,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.setup.outputs.windows_matrix) }}
     runs-on: windows-2022
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -108,10 +116,10 @@ jobs:
         if: matrix.libusb == true
         shell: cmd
         run: |
-          curl -fsSL "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
+          curl -fsSL --connect-timeout 20 --max-time 120 --retry 3 "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
           tar xf libusb.tar.bz2 || exit /b 1
           cd libusb-%LIBUSB_VERSION%
-          meson setup build --default-library=static --buildtype=release || exit /b 1
+          meson setup build --default-library=static --buildtype=release --wrap-mode=nodownload || exit /b 1
           meson compile -C build || exit /b 1
           dir /s /b build\*.lib
 
@@ -182,7 +190,7 @@ jobs:
           prepare: pkg install -y gmake
           run: |
             set -eux
-            fetch -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            fetch -T 120 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
             tar xf /tmp/libusb.tar.bz2 -C /tmp
             cd "/tmp/libusb-${LIBUSB_VERSION}"
             ./configure --disable-shared --enable-static --disable-udev
@@ -201,19 +209,23 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'new-changed' || github.event.inputs.target == 'openbsd-x64-static')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'new-changed' || github.event.inputs.target == 'failed' || github.event.inputs.target == 'openbsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: vmactions/openbsd-vm@v1
         with:
-          release: "7.4"
+          # OpenBSD's package mirror deletes packages/<arch>/ entirely once a release goes EOL
+          # (unlike FreeBSD, which archives it) - pinning to an EOL release breaks `pkg_add`
+          # outright. OpenBSD supports only the two most recent releases; pin to the OLDER of
+          # those two (still receiving errata) rather than always-newest.
+          release: "7.8"
           usesh: true
           envs: 'SRC_DIR LIBUSB_VERSION'
-          prepare: pkg_add gmake
+          prepare: pkg_add gmake curl
           run: |
             set -eux
-            ftp -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            curl -fsSL --connect-timeout 20 --max-time 120 --retry 3 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
             tar xjf /tmp/libusb.tar.bz2 -C /tmp
             cd "/tmp/libusb-${LIBUSB_VERSION}"
             ./configure --disable-shared --enable-static --disable-udev

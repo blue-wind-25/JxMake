@@ -173,6 +173,7 @@ jobs:
       matrix:
         include: ${{ fromJson(needs.setup.outputs.windows_matrix) }}
     runs-on: windows-2022
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -197,10 +198,10 @@ jobs:
         if: matrix.libusb == true
         shell: cmd
         run: |
-          curl -fsSL "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
+          curl -fsSL --connect-timeout 20 --max-time 120 --retry 3 "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
           tar xf libusb.tar.bz2 || exit /b 1
           cd libusb-%LIBUSB_VERSION%
-          meson setup build --default-library=static --buildtype=release || exit /b 1
+          meson setup build --default-library=static --buildtype=release --wrap-mode=nodownload || exit /b 1
           meson compile -C build || exit /b 1
           dir /s /b build\*.lib
 
@@ -289,7 +290,7 @@ jobs:
           prepare: pkg install -y gmake
           run: |
             set -eux
-            fetch -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            fetch -T 120 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
             tar xf /tmp/libusb.tar.bz2 -C /tmp
             cd "/tmp/libusb-${LIBUSB_VERSION}"
             ./configure --disable-shared --enable-static --disable-udev
@@ -316,15 +317,21 @@ jobs:
       - uses: actions/checkout@v4
       - uses: vmactions/openbsd-vm@v1
         with:
-          release: "7.4"
+          # OpenBSD's package mirror (cdn.openbsd.org) DELETES the packages/<arch>/ directory
+          # entirely once a release goes EOL - unlike FreeBSD, which keeps an archive - so
+          # pinning to an EOL release breaks `pkg_add` outright. OpenBSD only supports the two
+          # most recent releases at any time; pin to the OLDER of those two (still receiving
+          # errata, not yet EOL) rather than always-newest, for the same toolchain-portability
+          # reasoning as the FreeBSD pin above. Update this alongside each new OpenBSD release.
+          release: "7.8"
           usesh: true
           envs: 'SRC_DIR LIBUSB_VERSION'
           # Same reasoning as FreeBSD above: build libusb from source and link statically instead
           # of depending on the libusb1 package's .so, which is tied to this OpenBSD release.
-          prepare: pkg_add gmake
+          prepare: pkg_add gmake curl
           run: |
             set -eux
-            ftp -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            curl -fsSL --connect-timeout 20 --max-time 120 --retry 3 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
             tar xjf /tmp/libusb.tar.bz2 -C /tmp
             cd "/tmp/libusb-${LIBUSB_VERSION}"
             ./configure --disable-shared --enable-static --disable-udev

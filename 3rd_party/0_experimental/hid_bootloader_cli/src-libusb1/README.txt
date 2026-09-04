@@ -20,7 +20,7 @@ Builds the full portability matrix without needing any of the local cross-toolch
                                                -mmacosx-version-min=11.0
     - FreeBSD : x64                          : static, libusb built from source, FreeBSD 13.2
                                                (vmactions/freebsd-vm)
-    - OpenBSD : x64                          : static, libusb built from source, OpenBSD 7.4
+    - OpenBSD : x64                          : static, libusb built from source, OpenBSD 7.8
                                                (vmactions/openbsd-vm)
 
 Artifact/`build/ci/<target>/` naming mirrors the local `make` targets below:
@@ -81,10 +81,12 @@ Notes/known limitations:
     - FreeBSD/OpenBSD build libusb from source and link it (and libc) statically rather than
       using the base/port libusb.so, since that .so is tied to the exact release it was built
       on - OpenBSD in particular gives no ABI stability guarantee across releases.
-    - FreeBSD/OpenBSD are pinned to older point releases (13.2 / 7.4) rather than each project's
+    - FreeBSD/OpenBSD are pinned to older point releases (13.2 / 7.8) rather than each project's
       newest stable, purely for build-toolchain portability/reproducibility - the output itself
       is fully static (libc included), so it doesn't actually depend on the release it was built
-      on.
+      on. OpenBSD only supports its two most recent releases and DELETES the package mirror for
+      anything older (unlike FreeBSD, which archives it), so the OpenBSD pin must always be the
+      older of the two current releases, never an arbitrary older one, or `pkg_add` breaks.
 
 Manual dispatch only (Actions tab -> "Build hid_bootloader_cli" -> "Run workflow"), gated to the
 repo owner. The `target` input lets you build ONE target at a time while debugging a toolchain

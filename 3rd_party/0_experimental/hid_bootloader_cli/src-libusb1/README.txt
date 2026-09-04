@@ -50,6 +50,12 @@ Notes / known limitations:
     - FreeBSD/OpenBSD build libusb from source and link it (and libc) statically rather than
       using the base/port libusb.so, since that .so is tied to the exact release it was built
       on - OpenBSD in particular gives no ABI stability guarantee across releases.
+    - Windows binaries use HidUsb (-DUSE_WIN32, SetupAPI/hid.lib), NOT WinUSB/libusb - same as
+      this Makefile's `xwin` target, not `xwin-libusb`. HidUsb is the standard HID class driver
+      built into Windows, so the binary works immediately on any Windows 7-11 machine with no
+      driver changes. A WinUSB/libusb build would only see the device after the end user
+      manually re-drivers it with Zadig (HidUsb -> WinUSB), which isn't reasonable to ask of a
+      downstream user for a prebuilt binary, so CI does not build that variant at all.
 
 Manual dispatch only (Actions tab -> "Build hid_bootloader_cli" -> "Run workflow"), gated to the
 repo owner. The `target` input lets you build ONE target at a time while debugging a toolchain

@@ -201,9 +201,6 @@ To-Do List (Tentative - Somewhat Sorted by Importance)
 
 # Replace all 'Makefile' with 'JxMakeFile' to make JxMake truly self-hosting.
 
-# Create another repository for the 'hid_bootloader_cli' source code and for distributing the
-  compiled binaries?
-
 # Implement syntax highlighting scripts or rules for other editors?
 
 ----------------------------------------------------------------------------------------------------

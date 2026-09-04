@@ -8,9 +8,9 @@ Builds the full portability matrix without needing any of the local cross-toolch
 
     Linux   : x86, amd64, arm32, arm64   - static, musl libc (no glibc version dependency at all)
     Windows : x86, amd64, arm64          - native MSVC, cross-compiled via VS Build Tools on
-                                            windows-latest (ilammy/msvc-dev-cmd action)
+                                           windows-latest (ilammy/msvc-dev-cmd action)
     MacOS   : universal (x86_64 + arm64) - native Xcode clang on macos-latest,
-                                            -mmacosx-version-min=10.13
+                                           -mmacosx-version-min=10.13
     FreeBSD : x64                        - static, libusb built from source (vmactions/freebsd-vm)
     OpenBSD : x64                        - static, libusb built from source (vmactions/openbsd-vm)
 
@@ -37,25 +37,25 @@ updated upstream (e.g. a newer windows-latest VS release, a newer macos-latest X
 workflow with `target: all` and re-copy `build/ci/` from the downloaded artifact if you need a
 refresh; don't hand-edit the binaries in place.
 
-Notes / known limitations:
-    - Windows ARM32 is NOT built: the GitHub-hosted windows-latest VS install no longer ships a
-      32-bit ARM toolset at all (only x86/amd64/arm64 - confirmed via VC\Auxiliary\Build listing,
-      Sept 2026), and 32-bit ARM Windows hardware is essentially extinct anyway (superseded by
-      ARM64 since ~2017).
-    - MacOS is built on real GitHub-hosted macOS runners rather than osxcross, because osxcross
-      needs the Xcode SDK, which can't be auto-downloaded in CI (Apple EULA/licensing).
+Notes/known limitations:
     - Linux targets use static musl builds (same "fully static, runs anywhere" idea as this
       Makefile's `mkblob`/`-static` trick for linux-x64) instead of chasing "oldest glibc",
       which is fragile because glibc symbol versioning ties the binary to the build host.
-    - FreeBSD/OpenBSD build libusb from source and link it (and libc) statically rather than
-      using the base/port libusb.so, since that .so is tied to the exact release it was built
-      on - OpenBSD in particular gives no ABI stability guarantee across releases.
     - Windows binaries use HidUsb (-DUSE_WIN32, SetupAPI/hid.lib), NOT WinUSB/libusb - same as
       this Makefile's `xwin` target, not `xwin-libusb`. HidUsb is the standard HID class driver
       built into Windows, so the binary works immediately on any Windows 7-11 machine with no
       driver changes. A WinUSB/libusb build would only see the device after the end user
       manually re-drivers it with Zadig (HidUsb -> WinUSB), which isn't reasonable to ask of a
       downstream user for a prebuilt binary, so CI does not build that variant at all.
+    - Windows ARM32 is NOT built: the GitHub-hosted windows-latest VS install no longer ships a
+      32-bit ARM toolset at all (only x86/amd64/arm64 - confirmed via VC\Auxiliary\Build listing,
+      Sept 2026), and 32-bit ARM Windows hardware is essentially extinct anyway (superseded by
+      ARM64 since ~2017).
+    - MacOS is built on real GitHub-hosted macOS runners rather than osxcross, because osxcross
+      needs the Xcode SDK, which can't be auto-downloaded in CI (Apple EULA/licensing).
+    - FreeBSD/OpenBSD build libusb from source and link it (and libc) statically rather than
+      using the base/port libusb.so, since that .so is tied to the exact release it was built
+      on - OpenBSD in particular gives no ABI stability guarantee across releases.
 
 Manual dispatch only (Actions tab -> "Build hid_bootloader_cli" -> "Run workflow"), gated to the
 repo owner. The `target` input lets you build ONE target at a time while debugging a toolchain

@@ -26,12 +26,10 @@ on:
           - linux-arm64
           - windows-x86
           - windows-x64
-          - windows-arm32
           - windows-arm64
           - macos
           - freebsd-x64
           - openbsd-x64
-          - retry-failed # TEMP: windows-arm32 + freebsd-x64 + openbsd-x64 only - remove once all green
 
 env:
   SRC_DIR: 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
@@ -65,15 +63,11 @@ jobs:
           WINDOWS_ALL='[
             {"name":"windows-x86","msvc_arch":"x86"},
             {"name":"windows-x64","msvc_arch":"x64"},
-            {"name":"windows-arm32","msvc_arch":"amd64_arm"},
             {"name":"windows-arm64","msvc_arch":"x64_arm64"}
           ]'
           if [ "$TARGET" = "all" ]; then
             LINUX_SEL="$LINUX_ALL"
             WINDOWS_SEL="$WINDOWS_ALL"
-          elif [ "$TARGET" = "retry-failed" ]; then
-            LINUX_SEL='[]'
-            WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c '[.[] | select(.name == "windows-arm32")]')"
           else
             LINUX_SEL="$(echo "$LINUX_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
             WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
@@ -147,12 +141,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: TEMP diagnostic - list available vcvarsall targets
-        if: matrix.name == 'windows-arm32'
-        shell: cmd
-        run: |
-          dir "C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Auxiliary\Build"
-
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: ${{ matrix.msvc_arch }}
@@ -210,7 +198,7 @@ jobs:
   # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists)
   # --------------------------------------------------------------------------------------------
   freebsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64' || github.event.inputs.target == 'retry-failed')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -237,7 +225,7 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64' || github.event.inputs.target == 'retry-failed')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

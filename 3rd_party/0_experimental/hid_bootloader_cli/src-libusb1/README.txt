@@ -7,7 +7,7 @@ Workflow: .github/workflows/build-hid-bootloader-cli.yml (repo root, since this 
 Builds the full portability matrix without needing any of the local cross-toolchains below:
 
     Linux   : x86, amd64, arm32, arm64   - static, musl libc (no glibc version dependency at all)
-    Windows : x86, amd64, arm32, arm64   - native MSVC, cross-compiled via VS Build Tools on
+    Windows : x86, amd64, arm64          - native MSVC, cross-compiled via VS Build Tools on
                                             windows-latest (ilammy/msvc-dev-cmd action)
     MacOS   : universal (x86_64 + arm64) - native Xcode clang on macos-latest,
                                             -mmacosx-version-min=10.13
@@ -15,8 +15,10 @@ Builds the full portability matrix without needing any of the local cross-toolch
     OpenBSD : x64                        - built inside a QEMU VM (vmactions/openbsd-vm)
 
 Notes / known limitations:
-    - Windows ARM32 has no usable mingw/MXE HID+SetupAPI support, so it's built with MSVC's
-      x64_arm cross toolset instead of the xwin/xwin-libusb mingw path used below.
+    - Windows ARM32 is NOT built: the GitHub-hosted windows-latest VS install no longer ships a
+      32-bit ARM toolset at all (only x86/amd64/arm64 - confirmed via VC\Auxiliary\Build listing,
+      Sept 2026), and 32-bit ARM Windows hardware is essentially extinct anyway (superseded by
+      ARM64 since ~2017).
     - MacOS is built on real GitHub-hosted macOS runners rather than osxcross, because osxcross
       needs the Xcode SDK, which can't be auto-downloaded in CI (Apple EULA/licensing).
     - Linux targets use static musl builds (same "fully static, runs anywhere" idea as this

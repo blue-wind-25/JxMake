@@ -8,6 +8,10 @@
 #   - macos-universal                             (changed: floor raised 10.13 -> 11.0 for the arm64 slice)
 #   - freebsd-x64 / openbsd-x64                   (changed: pinned to older releases, 13.2 / 7.4)
 #
+# The `target` input lets you dispatch ONE target at a time to debug it, or `all` to run every
+# target in this file (there's no `package` job here - this workflow is for iterating on
+# individual toolchains, not producing a release artifact).
+#
 # Once every target you dispatch here is green, delete this file - it exists purely to iterate on
 # new/changed jobs without touching the (already-verified) linux jobs or the `package` job in the
 # main build-hid-bootloader-cli.yml workflow.
@@ -18,10 +22,11 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Which new/changed target to build'
+        description: 'Which new/changed target to build ("all" runs every target in this file)'
         type: choice
-        default: windows-x64-libusb
+        default: all
         options:
+          - all
           - windows-x86
           - windows-x64
           - windows-arm64
@@ -61,8 +66,13 @@ jobs:
             {"name":"macos-x86_64","archs":"-arch x86_64","min":"10.13"},
             {"name":"macos-universal","archs":"-arch x86_64 -arch arm64","min":"11.0"}
           ]'
-          WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
-          MACOS_SEL="$(echo "$MACOS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+          if [ "$TARGET" = "all" ]; then
+            WINDOWS_SEL="$WINDOWS_ALL"
+            MACOS_SEL="$MACOS_ALL"
+          else
+            WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+            MACOS_SEL="$(echo "$MACOS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+          fi
           echo "windows_matrix=$(echo "$WINDOWS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
           echo "macos_matrix=$(echo "$MACOS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
 
@@ -159,7 +169,7 @@ jobs:
           if-no-files-found: error
 
   freebsd:
-    if: github.actor == 'blue-wind-25' && github.event.inputs.target == 'freebsd-x64-static'
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -191,7 +201,7 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && github.event.inputs.target == 'openbsd-x64-static'
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

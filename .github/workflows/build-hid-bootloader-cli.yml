@@ -261,6 +261,9 @@ jobs:
     if: github.actor == 'blue-wind-25' && github.event.inputs.target == 'all'
     needs: [linux, windows, macos, freebsd, openbsd]
     runs-on: ubuntu-latest
+    permissions:
+      actions: write # needed to delete the per-target artifacts once they're packaged
+      contents: read
     steps:
       - uses: actions/checkout@v4
 

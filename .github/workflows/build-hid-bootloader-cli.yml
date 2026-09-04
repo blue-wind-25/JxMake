@@ -31,6 +31,7 @@ on:
           - macos
           - freebsd-x64
           - openbsd-x64
+          - retry-failed # TEMP: windows-arm32 + freebsd-x64 + openbsd-x64 only - remove once all green
 
 env:
   SRC_DIR: 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
@@ -64,12 +65,15 @@ jobs:
           WINDOWS_ALL='[
             {"name":"windows-x86","msvc_arch":"x86"},
             {"name":"windows-x64","msvc_arch":"x64"},
-            {"name":"windows-arm32","msvc_arch":"x64_arm"},
+            {"name":"windows-arm32","msvc_arch":"amd64_arm"},
             {"name":"windows-arm64","msvc_arch":"x64_arm64"}
           ]'
           if [ "$TARGET" = "all" ]; then
             LINUX_SEL="$LINUX_ALL"
             WINDOWS_SEL="$WINDOWS_ALL"
+          elif [ "$TARGET" = "retry-failed" ]; then
+            LINUX_SEL='[]'
+            WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c '[.[] | select(.name == "windows-arm32")]')"
           else
             LINUX_SEL="$(echo "$LINUX_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
             WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
@@ -200,7 +204,7 @@ jobs:
   # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists)
   # --------------------------------------------------------------------------------------------
   freebsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64' || github.event.inputs.target == 'retry-failed')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -213,7 +217,12 @@ jobs:
           run: |
             set -eux
             cd "${SRC_DIR}"
-            cc -O2 -Wall -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb
+            # FreeBSD base's libusb headers live flat at /usr/include/libusb.h, not under a
+            # libusb-1.0/ subdir like the source's `#include <libusb-1.0/libusb.h>` expects.
+            hdr="$(find /usr/include /usr/local/include -maxdepth 1 -name libusb.h | head -n1)"
+            mkdir -p /tmp/incshim/libusb-1.0
+            ln -sf "$hdr" /tmp/incshim/libusb-1.0/libusb.h
+            cc -O2 -Wall -I /tmp/incshim -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb
       - uses: actions/upload-artifact@v4
         with:
           name: freebsd-x64
@@ -222,7 +231,7 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64' || github.event.inputs.target == 'retry-failed')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -236,7 +245,12 @@ jobs:
           run: |
             set -eux
             cd "${SRC_DIR}"
-            cc -O2 -Wall -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb-1.0
+            # OpenBSD's libusb1 package installs headers under /usr/local/include/libusb-1.0/ -
+            # find it rather than hardcode, in case the package layout ever changes.
+            hdr="$(find /usr/local/include -maxdepth 2 -name libusb.h | head -n1)"
+            mkdir -p /tmp/incshim/libusb-1.0
+            ln -sf "$hdr" /tmp/incshim/libusb-1.0/libusb.h
+            cc -O2 -Wall -I /tmp/incshim -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb-1.0
       - uses: actions/upload-artifact@v4
         with:
           name: openbsd-x64

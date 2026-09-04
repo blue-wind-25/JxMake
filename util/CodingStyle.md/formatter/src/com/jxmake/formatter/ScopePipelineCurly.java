@@ -1790,12 +1790,18 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             for( int i = 1; i < lines.size(); ++i ) text.append('\n').append( lines.get(i) );
             if(throwsEndIdx >= 0) {
                 // Append normalized throws clause: scan significant tokens from `throws` keyword
-                // through the last exception class name, joining with single spaces
-                int ti = nextSignificantIndex(tokens, closeParenIdx);
+                // through the last exception class name, joining via `renderTokens`'s tight-token
+                // rules -- a blind single-space join between every significant token (the prior
+                // approach) breaks a qualified exception name's dots apart (`java.io.IOException`
+                // -> `java . io . IOException`), since `.` is a tight token on both sides, not a
+                // plain space-separated one.
+                final List<Token> throwsTokens = new ArrayList<>();
+                int               ti           = nextSignificantIndex(tokens, closeParenIdx);
                 while(ti >= 0 && ti <= throwsEndIdx) {
-                    text.append(' ').append( tokens.get(ti).text );
+                    throwsTokens.add( tokens.get(ti) );
                     ti = nextSignificantIndex(tokens, ti);
                 }
+                text.append(' ').append( miscRule.renderTokens(throwsTokens) );
                 replacements.add(
                     new Replacement( span.start, throwsEndIdx + 1, text.toString() )
                 );

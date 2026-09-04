@@ -1505,7 +1505,7 @@ public static final class Assignment {
      * `[`/`]`/`,`), duplicated here rather than shared since neither class currently exposes
      * these as a shared utility (each rule class keeps its own small token-joining helpers).
      */
-    protected String renderTokens(final List<Token> tokens)
+    public String renderTokens(final List<Token> tokens)
     {
         final Set<Token> templateOpens  = new HashSet<>();
         final Set<Token> templateCloses = new HashSet<>();

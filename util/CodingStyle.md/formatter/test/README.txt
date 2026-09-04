@@ -4473,6 +4473,14 @@ Real-code regressions:
                                                         narrow tool-name list is skipped, same idea as Bash's
                                                         Unix-tool-name list but PowerShell-scoped.
 
+  real_code_regressions_248_inp/out.java             -- a wrapped multi-line method signature's `throws`
+                                                        clause was rendered by blindly single-space-joining
+                                                        every significant token instead of `renderTokens`'s
+                                                        tight-token rules, so a qualified exception name's
+                                                        dots got spaced apart (`throws java.io.IOException` ->
+                                                        `throws java . io . IOException`); fixed by routing
+                                                        the throws-clause tail through `renderTokens`.
+
 How Tests Are Run
 -----------------
 

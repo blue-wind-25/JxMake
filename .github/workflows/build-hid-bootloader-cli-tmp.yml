@@ -10,8 +10,9 @@
 #                                                  13.2 / 7.8)
 #
 # The `target` input lets you dispatch ONE target at a time to debug it, `new-changed` to run every
-# target in this file, or `failed` to re-run just the last known-bad set (openbsd-x64-static,
-# windows-x86-libusb, windows-x64-libusb) - update `failed`'s selection below as you fix things
+# target in this file, or `failed` to re-run just the last known-bad set (currently
+# windows-x86-libusb / windows-x64-libusb; openbsd-x64-static was in this set too until it went
+# green) - update `failed`'s selection (setup job + relevant `if:` guards) below as you fix things
 # (there's no `package` job here - this workflow is for iterating on individual toolchains, not
 # producing a release artifact).
 #
@@ -117,10 +118,15 @@ jobs:
         shell: cmd
         run: |
           curl -fSL --connect-timeout 15 --max-time 45 --retry 2 --retry-max-time 120 "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
+          echo MARKER: curl done
           tar xf libusb.tar.bz2 || exit /b 1
+          echo MARKER: tar done
           cd libusb-%LIBUSB_VERSION%
+          echo MARKER: cd done, cwd=%CD%
           meson setup build --default-library=static --buildtype=release --wrap-mode=nodownload || exit /b 1
-          meson compile -C build || exit /b 1
+          echo MARKER: meson setup done
+          meson compile -C build -v || exit /b 1
+          echo MARKER: meson compile done
           dir /s /b build\*.lib
 
       - name: Compile hid_bootloader_cli.c (HidUsb)
@@ -209,7 +215,7 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'new-changed' || github.event.inputs.target == 'failed' || github.event.inputs.target == 'openbsd-x64-static')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'new-changed' || github.event.inputs.target == 'openbsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

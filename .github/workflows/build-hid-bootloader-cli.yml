@@ -110,11 +110,15 @@ jobs:
           CC: ${{ matrix.cross_triple }}-gcc
         run: |
           set -eux
+          # hid_bootloader_cli.c does `#include <libusb-1.0/libusb.h>`, but libusb's own
+          # source tree has the header directly in libusb/ (no libusb-1.0/ subdir) - only
+          # `make install` creates that layout. Fake it with a symlink instead of installing.
+          ln -sf "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb" "$GITHUB_WORKSPACE/libusb-1.0"
           $CC -O2 -Wall -Wno-misleading-indentation -static -s \
             -o hid_bootloader_cli \
             hid_bootloader_cli.c \
             -DUSE_LIBUSB \
-            -I "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb" \
+            -I "$GITHUB_WORKSPACE" \
             "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a"
           file hid_bootloader_cli
 
@@ -142,11 +146,20 @@ jobs:
         with:
           arch: ${{ matrix.msvc_arch }}
 
+      - name: Write unistd.h compat shim (MSVC has no unistd.h; the source only needs usleep())
+        shell: pwsh
+        run: |
+          Set-Content -Path "${{ env.SRC_DIR }}\unistd.h" -Value @'
+          #pragma once
+          #include <windows.h>
+          static __inline void usleep(long usec) { Sleep((DWORD)((usec + 999) / 1000)); }
+          '@
+
       - name: Compile hid_bootloader_cli.c
         working-directory: ${{ env.SRC_DIR }}
         shell: cmd
         run: |
-          cl /O2 /W3 /DUSE_WIN32 /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib
+          cl /O2 /W3 /DUSE_WIN32 /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib
 
       - uses: actions/upload-artifact@v4
         with:

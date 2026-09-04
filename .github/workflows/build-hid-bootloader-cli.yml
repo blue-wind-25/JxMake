@@ -282,14 +282,18 @@ jobs:
             mkdir -p "build/ci/$name"
             cp -a "$d"/* "build/ci/$name/"
           done
+          # actions/upload-artifact and/or a zip archive don't reliably round-trip the Unix
+          # executable bit (Windows unzip tools in particular ignore Info-ZIP's unix-mode extra
+          # field) - restore +x explicitly, then use tar.bz2 instead of zip so it actually sticks.
+          find build/ci -type f ! -name '*.exe' -exec chmod +x {} +
           VERSION="$(sed -n "s/^PROGRAM_VERSION *:= *//p" Makefile)"
-          ( cd build/ci && zip -r "../hid_bootloader_cli-${VERSION}-all-targets.zip" . )
+          ( cd build/ci && tar -cjf "../hid_bootloader_cli-${VERSION}-all-targets.tar.bz2" . )
           ls -la build/
 
       - uses: actions/upload-artifact@v4
         with:
           name: hid_bootloader_cli-all-targets
-          path: ${{ env.SRC_DIR }}/build/*-all-targets.zip
+          path: ${{ env.SRC_DIR }}/build/*-all-targets.tar.bz2
           retention-days: 1 # Automatically cleanup quickly
           if-no-files-found: error
 

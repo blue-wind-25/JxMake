@@ -30,9 +30,10 @@ repo owner. The `target` input lets you build ONE target at a time while debuggi
 issue (fix it, re-dispatch with that same target until it's green) instead of the whole matrix
 failing together. Once every individual target is green, dispatch with `target: all` to build
 everything and produce a single packaged download: each target's binary is collected into its
-own `build/ci/<target>/` subdirectory (mirroring the layout below) and the whole tree is zipped
-into `build/hid_bootloader_cli-<version>-all-targets.zip`, uploaded as the `package` job's
-artifact.
+own `build/ci/<target>/` subdirectory (mirroring the layout below), the Unix executable bit is
+restored (round-tripping through GitHub artifacts / a zip doesn't reliably preserve it), and the
+whole tree is packed into `build/hid_bootloader_cli-<version>-all-targets.tar.bz2` (tar instead
+of zip, so +x actually survives extraction), uploaded as the `package` job's artifact.
 
 
 ----------------------------------------------------------------------------------------------------

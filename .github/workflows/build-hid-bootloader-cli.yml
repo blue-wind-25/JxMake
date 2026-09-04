@@ -74,7 +74,10 @@ jobs:
           curl -fsSL "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" -o libusb.tar.bz2
           tar xf libusb.tar.bz2
           cd "libusb-${LIBUSB_VERSION}"
-          CC=$CC ./configure --host="${{ matrix.cross_triple }}" --disable-shared --enable-static --disable-udev
+          echo "int main(void){return 0;}" > /tmp/cc-check.c
+          $CC -v /tmp/cc-check.c -o /tmp/cc-check || true
+          CC=$CC ./configure --host="${{ matrix.cross_triple }}" --disable-shared --enable-static --disable-udev \
+            || { echo '----- config.log -----'; cat config.log; exit 1; }
           make -j"$(nproc)"
 
       - name: Compile hid_bootloader_cli.c

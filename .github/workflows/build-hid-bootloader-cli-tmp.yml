@@ -118,7 +118,7 @@ jobs:
           echo MARKER: found vcpkg at %VCPKG_EXE%
           vcpkg install libusb:${{ matrix.msvc_arch }}-windows-static || exit /b 1
           echo MARKER: vcpkg install done
-          dir /s /b "%VCPKG_DIR%installed\${{ matrix.msvc_arch }}-windows-static\lib\libusb-1.0.lib"
+          dir /s /b "%VCPKG_DIR%packages\libusb_${{ matrix.msvc_arch }}-windows-static\lib\libusb-1.0.lib"
 
       - name: Compile hid_bootloader_cli.c (HidUsb)
         if: matrix.libusb != true
@@ -134,7 +134,7 @@ jobs:
         run: |
           for /f "delims=" %%v in ('where vcpkg') do set VCPKG_EXE=%%v
           for %%v in ("%VCPKG_EXE%") do set VCPKG_DIR=%%~dpv
-          set VCPKG_TRIPLET_DIR=%VCPKG_DIR%installed\${{ matrix.msvc_arch }}-windows-static
+          set VCPKG_TRIPLET_DIR=%VCPKG_DIR%packages\libusb_${{ matrix.msvc_arch }}-windows-static
           cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /I "%VCPKG_TRIPLET_DIR%\include" /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%VCPKG_TRIPLET_DIR%\lib\libusb-1.0.lib" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
 
       - uses: actions/upload-artifact@v4

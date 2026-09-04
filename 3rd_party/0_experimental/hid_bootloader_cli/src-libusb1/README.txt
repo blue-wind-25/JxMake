@@ -20,18 +20,18 @@ usual for that platform) - so unlike the local `make` targets below, none of the
 
 The binaries checked into `build/ci/` were built by run 33824894707 (2026-09-04) using:
     linux-x86/x64/arm32/arm64 : messense/rust-musl-cross Docker images, libusb 1.0.27
-                                 (i686/x86_64/armv7/aarch64-unknown-linux-musl)
+                                (i686/x86_64/armv7/aarch64-unknown-linux-musl)
     windows-x86/x64/arm64     : windows-2025-vs2026 runner image, Visual Studio "18" Enterprise,
-                                 MSVC 14.51.36231, Windows SDK 10.0.26100.0
+                                MSVC 14.51.36231, Windows SDK 10.0.26100.0
     macos-universal           : macos-26-arm64 runner image, native Xcode clang,
-                                 -mmacosx-version-min=10.13
+                                -mmacosx-version-min=10.13
     freebsd-x64               : ubuntu-24.04 host + vmactions/freebsd-vm, FreeBSD 15.1,
-                                 libusb 1.0.27 built from source, static
+                                libusb 1.0.27 built from source, static
     openbsd-x64               : ubuntu-24.04 host + vmactions/openbsd-vm, OpenBSD 7.9,
-                                 libusb 1.0.27 built from source, static (note: OpenBSD's `-static`
-                                 produces a static-PIE - `file` reports "dynamically linked" / ELF
-                                 type DYN, but `readelf -d` shows no NEEDED entries and there's no
-                                 PT_INTERP, confirming it has no actual runtime library dependency)
+                                libusb 1.0.27 built from source, static (note: OpenBSD's `-static`
+                                produces a static-PIE - `file` reports "dynamically linked" / ELF
+                                type DYN, but `readelf -d` shows no NEEDED entries and there's no
+                                PT_INTERP, confirming it has no actual runtime library dependency)
 These binaries will drift from what a fresh CI run produces as runner images and toolchains get
 updated upstream (e.g. a newer windows-latest VS release, a newer macos-latest Xcode) - re-run the
 workflow with `target: all` and re-copy `build/ci/` from the downloaded artifact if you need a

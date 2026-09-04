@@ -31,13 +31,13 @@ all:
 	@$(MAKE) -s xmac
 
 tar: all
-	@(                                                                     \
-		echo                                                         ; \
-		cd $(COMMON_BUILD_ROOT)                                      ; \
-		tar -cjvpf $(COMMON_ARCV_NAME)linux-x64.tar.bz2   linux*     ; \
-		tar -cjvpf $(COMMON_ARCV_NAME)windows-x64.tar.bz2 windows*   ; \
-		tar -cjvpf $(COMMON_ARCV_NAME)macos-x64.tar.bz2       macos* ; \
-		echo                                                         ; \
+	@(                                                                   \
+		echo                                                       ; \
+		cd $(COMMON_BUILD_ROOT)                                    ; \
+		tar -cjvpf $(COMMON_ARCV_NAME)linux-x64.tar.bz2   linux*   ; \
+		tar -cjvpf $(COMMON_ARCV_NAME)windows-x64.tar.bz2 windows* ; \
+		tar -cjvpf $(COMMON_ARCV_NAME)macos-x64.tar.bz2   macos*   ; \
+		echo                                                       ; \
 	)
 
 clean:

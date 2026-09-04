@@ -92,6 +92,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Discover the actual cross-gcc name/env in this image
+        run: |
+          set -x
+          env | sort
+          echo '--- /usr/local/musl/bin ---'
+          ls -la /usr/local/musl/bin 2>&1 || true
+          echo '--- gcc on PATH ---'
+          which gcc 2>&1 || true
+          ls -la "$(dirname "$(which gcc 2>/dev/null)")" 2>&1 || true
+
       - name: Build static libusb-1.0 for ${{ matrix.cross_triple }}
         env:
           CC: ${{ matrix.cross_triple }}-gcc

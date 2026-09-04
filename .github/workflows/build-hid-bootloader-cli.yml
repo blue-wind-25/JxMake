@@ -30,6 +30,7 @@ on:
           - macos
           - freebsd-x64
           - openbsd-x64
+          - retry-bsd-static # TEMP: freebsd-x64 + openbsd-x64 only - remove once both are green
 
 env:
   SRC_DIR: 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
@@ -198,25 +199,33 @@ jobs:
   # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists)
   # --------------------------------------------------------------------------------------------
   freebsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64' || github.event.inputs.target == 'retry-bsd-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
-          envs: 'SRC_DIR'
-          # libusb has shipped in the FreeBSD base system since 10.0 - no port/package for it.
-          prepare: pkg install -y gcc
+          envs: 'SRC_DIR LIBUSB_VERSION'
+          # Build libusb from source and link statically instead of using the base system's
+          # libusb.so, so the binary isn't tied to this specific FreeBSD release's library ABI
+          # (same reasoning as the Linux musl-static builds).
+          prepare: pkg install -y gmake
           run: |
             set -eux
-            cd "${SRC_DIR}"
-            # FreeBSD base's libusb headers live flat at /usr/include/libusb.h, not under a
-            # libusb-1.0/ subdir like the source's `#include <libusb-1.0/libusb.h>` expects.
-            hdr="$(find /usr/include /usr/local/include -maxdepth 1 -name libusb.h | head -n1)"
+            fetch -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            tar xf /tmp/libusb.tar.bz2 -C /tmp
+            cd "/tmp/libusb-${LIBUSB_VERSION}"
+            ./configure --disable-shared --enable-static --disable-udev
+            gmake -j"$(sysctl -n hw.ncpu)"
+            cd "$GITHUB_WORKSPACE/${SRC_DIR}"
+            # The source does `#include <libusb-1.0/libusb.h>`, but libusb's own source tree has
+            # the header directly in libusb/ (no libusb-1.0/ subdir) - symlink around it.
             mkdir -p /tmp/incshim/libusb-1.0
-            ln -sf "$hdr" /tmp/incshim/libusb-1.0/libusb.h
-            cc -O2 -Wall -I /tmp/incshim -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb
+            ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
+            cc -O2 -Wall -static -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+              -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
+            file hid_bootloader_cli
       - uses: actions/upload-artifact@v4
         with:
           name: freebsd-x64
@@ -225,26 +234,30 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64' || github.event.inputs.target == 'retry-bsd-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: vmactions/openbsd-vm@v1
         with:
           usesh: true
-          envs: 'SRC_DIR'
-          # Trailing '--' pins the default (non-debug) flavor; plain 'libusb1' is ambiguous
-          # between libusb1-<ver> and libusb1-<ver>-debug.
-          prepare: pkg_add libusb1--
+          envs: 'SRC_DIR LIBUSB_VERSION'
+          # Same reasoning as FreeBSD above: build libusb from source and link statically instead
+          # of depending on the libusb1 package's .so, which is tied to this OpenBSD release.
+          prepare: pkg_add gmake
           run: |
             set -eux
-            cd "${SRC_DIR}"
-            # OpenBSD's libusb1 package installs headers under /usr/local/include/libusb-1.0/ -
-            # find it rather than hardcode, in case the package layout ever changes.
-            hdr="$(find /usr/local/include -maxdepth 2 -name libusb.h | head -n1)"
+            ftp -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            tar xf /tmp/libusb.tar.bz2 -C /tmp
+            cd "/tmp/libusb-${LIBUSB_VERSION}"
+            ./configure --disable-shared --enable-static --disable-udev
+            gmake -j"$(sysctl -n hw.ncpu)"
+            cd "$GITHUB_WORKSPACE/${SRC_DIR}"
             mkdir -p /tmp/incshim/libusb-1.0
-            ln -sf "$hdr" /tmp/incshim/libusb-1.0/libusb.h
-            cc -O2 -Wall -I /tmp/incshim -L /usr/local/lib -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB -lusb-1.0
+            ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
+            cc -O2 -Wall -static -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+              -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
+            file hid_bootloader_cli
       - uses: actions/upload-artifact@v4
         with:
           name: openbsd-x64

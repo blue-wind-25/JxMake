@@ -11,8 +11,8 @@ Builds the full portability matrix without needing any of the local cross-toolch
                                             windows-latest (ilammy/msvc-dev-cmd action)
     MacOS   : universal (x86_64 + arm64) - native Xcode clang on macos-latest,
                                             -mmacosx-version-min=10.13
-    FreeBSD : x64                        - built inside a QEMU VM (vmactions/freebsd-vm)
-    OpenBSD : x64                        - built inside a QEMU VM (vmactions/openbsd-vm)
+    FreeBSD : x64                        - static, libusb built from source (vmactions/freebsd-vm)
+    OpenBSD : x64                        - static, libusb built from source (vmactions/openbsd-vm)
 
 Notes / known limitations:
     - Windows ARM32 is NOT built: the GitHub-hosted windows-latest VS install no longer ships a
@@ -24,6 +24,9 @@ Notes / known limitations:
     - Linux targets use static musl builds (same "fully static, runs anywhere" idea as this
       Makefile's `mkblob`/`-static` trick for linux-x64) instead of chasing "oldest glibc",
       which is fragile because glibc symbol versioning ties the binary to the build host.
+    - FreeBSD/OpenBSD build libusb from source and link it (and libc) statically rather than
+      using the base/port libusb.so, since that .so is tied to the exact release it was built
+      on - OpenBSD in particular gives no ABI stability guarantee across releases.
 
 Manual dispatch only (Actions tab -> "Build hid_bootloader_cli" -> "Run workflow"), gated to the
 repo owner. The `target` input lets you build ONE target at a time while debugging a toolchain

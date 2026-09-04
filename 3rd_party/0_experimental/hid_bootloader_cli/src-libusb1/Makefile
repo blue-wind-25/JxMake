@@ -1,3 +1,5 @@
+# clear && gh run list --workflow=build-hid-bootloader-cli.yml -L1
+
 # Synchronize the version with the string in 'show_banner()' in 'hid_bootloader_cli.c'
 PROGRAM_VERSION   := 1.0.0
 COMMON_ARCV_NAME  := hid_bootloader_cli-$(PROGRAM_VERSION)-

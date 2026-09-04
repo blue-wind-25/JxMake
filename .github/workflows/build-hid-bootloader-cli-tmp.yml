@@ -119,7 +119,7 @@ jobs:
         run: |
           curl -fSL --connect-timeout 15 --max-time 45 --retry 2 --retry-max-time 120 "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
           echo MARKER: curl done
-          tar xf libusb.tar.bz2 || exit /b 1
+          tar xjf libusb.tar.bz2 || exit /b 1
           echo MARKER: tar done
           cd libusb-%LIBUSB_VERSION%
           echo MARKER: cd done, cwd=%CD%

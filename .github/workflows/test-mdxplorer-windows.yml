@@ -2,33 +2,31 @@
 # restricted to the repo owner via the job-level `if:` check below - anyone
 # else who dispatches it will see the job start and immediately no-op (GitHub
 # has no way to hide workflow_dispatch itself from other collaborators, but
-# this keeps them from actually burning Windows-runner minutes with it).
+# this keeps them from actually burning Windows-runner minutes with it)
+name : Test MDXplorer Windows runners
 
-name: Test MDXplorer Windows runners
+on   :
+  workflow_dispatch :
 
-on:
-  workflow_dispatch:
+jobs :
+  test :
+    if              : github.actor == 'blue-wind-25'
+    runs-on         : windows-latest
+    timeout-minutes : 10
+    defaults        :
+      run :
+        shell             : pwsh
+        working-directory : util/MDXplorer
 
-jobs:
-  test:
-    if: github.actor == 'blue-wind-25'
-    runs-on: windows-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: util/MDXplorer
+    steps           :
+      - uses : actions/checkout@v4
+      - name : Set up Python
+        uses : actions/setup-python@v5
+        with :
+          python-version : '3.12'
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Fail closed when Python is not on PATH
-        run: |
+      - name : Fail closed when Python is not on PATH
+        run  : |
           $env:PYTHON = 'this-python-does-not-exist'
           cmd /c mdx_server.cmd
           if ($LASTEXITCODE -eq 0) { throw "mdx_server.cmd should have failed when PYTHON is not found" }
@@ -36,8 +34,8 @@ jobs:
           # but a non-zero exit here is exactly the expected/verified outcome.
           $LASTEXITCODE = 0
 
-      - name: Install dependencies and start server, verify it serves, stop it (mdx_server.cmd)
-        run: |
+      - name : Install dependencies and start server, verify it serves, stop it (mdx_server.cmd)
+        run  : |
           $ErrorActionPreference = 'Stop'
 
           # Prove requirements.txt gets installed automatically: uninstall
@@ -75,8 +73,8 @@ jobs:
               } | Stop-Process -Force -ErrorAction SilentlyContinue
           }
 
-      - name: Start server via mdx_server_rr.cmd, verify it serves repo root, stop it
-        run: |
+      - name : Start server via mdx_server_rr.cmd, verify it serves repo root, stop it
+        run  : |
           $ErrorActionPreference = 'Stop'
 
           $job = Start-Job -ScriptBlock {

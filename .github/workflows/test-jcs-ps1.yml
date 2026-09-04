@@ -12,38 +12,35 @@
 # step. That's a CI-runner artifact, not something a real interactive user
 # hits, but it means these scripts can only be exercised end-to-end within
 # one step here.
+name : Test JCS PowerShell scripts
 
-name: Test JCS PowerShell scripts
+on   :
+  workflow_dispatch :
 
-on:
-  workflow_dispatch:
+jobs :
+  test         :
+    if              : github.actor == 'blue-wind-25'
+    runs-on         : windows-latest
+    timeout-minutes : 10
+    defaults        :
+      run :
+        shell             : pwsh
+        working-directory : util/JCS
 
-jobs:
-  test:
-    if: github.actor == 'blue-wind-25'
-    runs-on: windows-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: util/JCS
+    steps           :
+      - uses : actions/checkout@v4
+      - name : Set up JDK 21
+        uses : actions/setup-java@v4
+        with :
+          distribution : temurin
+          java-version : '21'
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Build compile-server.jar
-        shell: bash
-        working-directory: util/JCS
-        run: ./build-server.sh
-
-      - name: Start server, compile, run, stop (start-compile-server.ps1 / javac-client.ps1 / stop-compile-server.ps1)
-        run: |
+      - name              : Build compile-server.jar
+        shell             : bash
+        working-directory : util/JCS
+        run               : ./build-server.sh
+      - name : Start server, compile, run, stop (start-compile-server.ps1 / javac-client.ps1 / stop-compile-server.ps1)
+        run  : |
           $ErrorActionPreference = 'Stop'
           try {
               .\start-compile-server.ps1 21000
@@ -68,8 +65,8 @@ jobs:
               .\stop-compile-server.ps1 21000
           }
 
-      - name: Reject a JRE-only java path (should fail closed)
-        run: |
+      - name : Reject a JRE-only java path (should fail closed)
+        run  : |
           $fakeJre = Join-Path $env:RUNNER_TEMP 'fake-jre\bin'
           New-Item -ItemType Directory -Force -Path $fakeJre | Out-Null
           Copy-Item (Get-Command java).Source (Join-Path $fakeJre 'java.exe')
@@ -79,39 +76,37 @@ jobs:
           # but a non-zero exit here is exactly the expected/verified outcome.
           $LASTEXITCODE = 0
 
-      - name: Upload daemon logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jcs-daemon-logs
-          path: ${{ runner.temp }}\javac-daemon-*.log
-          if-no-files-found: ignore
+      - name : Upload daemon logs on failure
+        if   : failure()
+        uses : actions/upload-artifact@v4
+        with :
+          name              : jcs-daemon-logs
+          path              : ${{ runner.temp }}\javac-daemon-*.log
+          if-no-files-found : ignore
 
-  test-wrapper:
-    needs: test
-    if: github.actor == 'blue-wind-25'
-    runs-on: windows-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        shell: pwsh
+  test-wrapper :
+    needs           : test
+    if              : github.actor == 'blue-wind-25'
+    runs-on         : windows-latest
+    timeout-minutes : 10
+    defaults        :
+      run :
+        shell : pwsh
 
-    steps:
-      - uses: actions/checkout@v4
+    steps           :
+      - uses : actions/checkout@v4
+      - name : Set up JDK 21
+        uses : actions/setup-java@v4
+        with :
+          distribution : temurin
+          java-version : '21'
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Build compile-server.jar
-        shell: bash
-        working-directory: util/JCS
-        run: ./build-server.sh
-
-      - name: Install the transparent javac wrapper into JAVA_HOME
-        run: |
+      - name              : Build compile-server.jar
+        shell             : bash
+        working-directory : util/JCS
+        run               : ./build-server.sh
+      - name : Install the transparent javac wrapper into JAVA_HOME
+        run  : |
           $jdkBin = Join-Path $env:JAVA_HOME 'bin'
           Rename-Item (Join-Path $jdkBin 'javac.exe') 'javac.real.exe'
           Copy-Item util\JCS\javac-daemon-wrapper.ps1 (Join-Path $jdkBin 'javac-daemon-wrapper.ps1')
@@ -121,8 +116,8 @@ jobs:
           Copy-Item util\JCS\_native.ps1 (Join-Path $jdkBin '_native.ps1')
           Copy-Item util\JCS\compile-server.jar (Join-Path $jdkBin 'compile-server.jar')
 
-      - name: Compile via wrapper, confirm daemon reuse, stop
-        run: |
+      - name : Compile via wrapper, confirm daemon reuse, stop
+        run  : |
           $ErrorActionPreference = 'Stop'
           $port    = 21000
           $pidFile = Join-Path $env:TEMP "javac-daemon-$port.pid"
@@ -201,10 +196,10 @@ jobs:
               }
           }
 
-      - name: Upload daemon logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jcs-wrapper-daemon-logs
-          path: ${{ runner.temp }}\javac-daemon-*.log
-          if-no-files-found: ignore
+      - name : Upload daemon logs on failure
+        if   : failure()
+        uses : actions/upload-artifact@v4
+        with :
+          name              : jcs-wrapper-daemon-logs
+          path              : ${{ runner.temp }}\javac-daemon-*.log
+          if-no-files-found : ignore

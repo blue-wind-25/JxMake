@@ -1,99 +1,97 @@
 # Calls `test-windows-driver-installer-core.yml`
+name : Test WindowsDriverInstaller (ALL PATHS)
 
-name: Test WindowsDriverInstaller (ALL PATHS)
+on   :
+  workflow_dispatch :
 
-on:
-  workflow_dispatch:
-
-jobs:
+jobs :
   # 1. Build the JAR exactly once on a fast, cheap Linux runner
-  build-jar:
-    name: Pre-build JxMake JAR
-    if: github.actor == 'blue-wind-25'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  build-jar :
+    name    : Pre-build JxMake JAR
+    if      : github.actor == 'blue-wind-25'
+    runs-on : ubuntu-latest
+    steps   :
+      - uses : actions/checkout@v4
+      - name : Set up JDK 25
+        uses : actions/setup-java@v4
+        with :
+          distribution : temurin
+          java-version : '25'
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Build JAR File
-        working-directory: src
-        run: |
+      - name              : Build JAR File
+        working-directory : src
+        run               : |
           make jar JDK_VER=25 JDK_PATH_25="$JAVA_HOME"
 
-      - name: Upload JAR as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: compiled-jxmake-jar
-          path: src/jxmake.jar
-          retention-days: 1 # Automatically cleanup quickly
-          if-no-files-found: error
+      - name : Upload JAR as Artifact
+        uses : actions/upload-artifact@v4
+        with :
+          name              : compiled-jxmake-jar
+          path              : src/jxmake.jar
+          retention-days    : 1 # Automatically cleanup quickly
+          if-no-files-found : error
 
   # 2. Run the PS1 test after the build completes
-  run-ps1:
-    name: Test PS1 Backend
-    needs: build-jar
-    if: github.actor == 'blue-wind-25'
-    uses: ./.github/workflows/test-windows-driver-installer-core.yml
-    with:
-      backend: ps1
-      run_mutating: true
+  run-ps1 :
+    name  : Test PS1 Backend
+    needs : build-jar
+    if    : github.actor == 'blue-wind-25'
+    uses  : ./.github/workflows/test-windows-driver-installer-core.yml
+    with  :
+      backend      : ps1
+      run_mutating : true
 
   # 3. Run the FFM test after PS1 passes
-  run-ffm:
-    name: Test FFM Backend
-    needs: [build-jar, run-ps1]
-    if: github.actor == 'blue-wind-25'
-    uses: ./.github/workflows/test-windows-driver-installer-core.yml
-    with:
-      backend: ffm
-      run_mutating: true
+  run-ffm :
+    name  : Test FFM Backend
+    needs : [build-jar, run-ps1]
+    if    : github.actor == 'blue-wind-25'
+    uses  : ./.github/workflows/test-windows-driver-installer-core.yml
+    with  :
+      backend      : ffm
+      run_mutating : true
 
   # 4. Run the Auto test after FFM passes
-  run-auto:
-    name: Test Auto Backend
-    needs: [build-jar, run-ffm]
-    if: github.actor == 'blue-wind-25'
-    uses: ./.github/workflows/test-windows-driver-installer-core.yml
-    with:
-      backend: auto
-      run_mutating: true
+  run-auto :
+    name  : Test Auto Backend
+    needs : [build-jar, run-ffm]
+    if    : github.actor == 'blue-wind-25'
+    uses  : ./.github/workflows/test-windows-driver-installer-core.yml
+    with  :
+      backend      : auto
+      run_mutating : true
 
   # 5. Run the PS1 combined-path test after Auto passes - installWinUSBInf()/installSelfSignedDriver()
   # instead of the 3 individual calls above (PS1 has no override, so still 3 elevated calls under the hood)
-  run-ps1-combined:
-    name: Test PS1 Backend (combined installSelfSignedDriver)
-    needs: [build-jar, run-auto]
-    if: github.actor == 'blue-wind-25'
-    uses: ./.github/workflows/test-windows-driver-installer-core.yml
-    with:
-      backend: ps1
-      run_mutating: true
-      combined: true
+  run-ps1-combined :
+    name  : Test PS1 Backend (combined installSelfSignedDriver)
+    needs : [build-jar, run-auto]
+    if    : github.actor == 'blue-wind-25'
+    uses  : ./.github/workflows/test-windows-driver-installer-core.yml
+    with  :
+      backend      : ps1
+      run_mutating : true
+      combined     : true
 
   # 6. Run the FFM combined-path test after the PS1 combined test passes - this is the one that actually
   # exercises FFM's single-elevated-relaunch override (see WindowsDriverInstaller_FFM.installSelfSignedDriver())
-  run-ffm-combined:
-    name: Test FFM Backend (combined installSelfSignedDriver)
-    needs: [build-jar, run-ps1-combined]
-    if: github.actor == 'blue-wind-25'
-    uses: ./.github/workflows/test-windows-driver-installer-core.yml
-    with:
-      backend: ffm
-      run_mutating: true
-      combined: true
+  run-ffm-combined :
+    name  : Test FFM Backend (combined installSelfSignedDriver)
+    needs : [build-jar, run-ps1-combined]
+    if    : github.actor == 'blue-wind-25'
+    uses  : ./.github/workflows/test-windows-driver-installer-core.yml
+    with  :
+      backend      : ffm
+      run_mutating : true
+      combined     : true
 
   # 7. Run the Auto combined-path last
-  run-auto-combined:
-    name: Test Auto Backend (combined installSelfSignedDriver)
-    needs: [build-jar, run-ffm-combined]
-    if: github.actor == 'blue-wind-25'
-    uses: ./.github/workflows/test-windows-driver-installer-core.yml
-    with:
-      backend: auto
-      run_mutating: true
-      combined: true
+  run-auto-combined :
+    name  : Test Auto Backend (combined installSelfSignedDriver)
+    needs : [build-jar, run-ffm-combined]
+    if    : github.actor == 'blue-wind-25'
+    uses  : ./.github/workflows/test-windows-driver-installer-core.yml
+    with  :
+      backend      : auto
+      run_mutating : true
+      combined     : true

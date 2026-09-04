@@ -1,62 +1,60 @@
 # Called by `test-windows-driver-installer-all.yml`
 
 # See `test-windows-driver-installer.yml` for more details
-
-name: Test WindowsDriverInstaller (CORE)
+name : Test WindowsDriverInstaller (CORE)
 
 # Ensure your workflow_call accepts the artifact name if needed
-on:
-  workflow_call:
-    inputs:
-      backend:
-        type: string
-        required: true
-      run_mutating:
-        type: boolean
-        required: true
-      combined:
-        description: 'run_mutating only: exercise installWinUSBInf() (installSelfSignedDriver()) - a single elevated call on FFM, still 3 on PS1 - instead of the 3 individual createAndTrustProvider/createAndSignCatalog/installDriver calls'
-        type: boolean
-        required: false
-        default: false
+on   :
+  workflow_call :
+    inputs :
+      backend      :
+        type     : string
+        required : true
+      run_mutating :
+        type     : boolean
+        required : true
+      combined     :
+        description : 'run_mutating only: exercise installWinUSBInf() (installSelfSignedDriver()) - a single elevated call on FFM, still 3 on PS1 - instead of the 3 individual createAndTrustProvider/createAndSignCatalog/installDriver calls'
+        type        : boolean
+        required    : false
+        default     : false
 
-jobs:
-  test:
-    if: github.actor == 'blue-wind-25'
-    runs-on: windows-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        shell: bash
+jobs :
+  test :
+    if              : github.actor == 'blue-wind-25'
+    runs-on         : windows-latest
+    timeout-minutes : 10
+    defaults        :
+      run :
+        shell : bash
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
+    steps           :
+      - uses : actions/checkout@v4
+      - name : Set up JDK 25
+        uses : actions/setup-java@v4
+        with :
+          distribution : temurin
+          java-version : '25'
 
       # Download the pre-compiled JAR built by the coordinator workflow
-      - name: Download Pre-built JAR
-        uses: actions/download-artifact@v4
-        with:
-          name: compiled-jxmake-jar
-          path: src/
+      - name : Download Pre-built JAR
+        uses : actions/download-artifact@v4
+        with :
+          name : compiled-jxmake-jar
+          path : src/
 
       # Keep this step for system elevation
-      - name: Allow silent admin elevation and unsigned driver installs
-        if: ${{ inputs.run_mutating == true }}
-        shell: pwsh
-        run: |
+      - name  : Allow silent admin elevation and unsigned driver installs
+        if    : ${{ inputs.run_mutating == true }}
+        shell : pwsh
+        run   : |
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
           New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
 
-      - name: Write test driver
-        working-directory: src
-        run: |
+      - name              : Write test driver
+        working-directory : src
+        run               : |
           cat > WDI_CITest.java <<'EOF'
           import jxm.WindowsDriverInstaller;
           import jxm.WindowsDriverInstaller_PS1;
@@ -174,17 +172,17 @@ jobs:
           } // class WDI_CITest
           EOF
 
-      - name: Compile test driver against jxmake.jar
-        working-directory: src
-        run: |
+      - name              : Compile test driver against jxmake.jar
+        working-directory : src
+        run               : |
           set -euo pipefail
           JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
           mkdir -p wdi_ci_out
           "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
 
-      - name: Run WindowsDriverInstaller test
-        working-directory: src
-        run: |
+      - name              : Run WindowsDriverInstaller test
+        working-directory : src
+        run               : |
           set -euo pipefail
           JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
           "$JDK_UNIX_PATH/bin/java" \

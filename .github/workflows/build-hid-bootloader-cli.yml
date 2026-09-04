@@ -295,3 +295,12 @@ jobs:
           path: ${{ env.SRC_DIR }}/build/*-all-targets.zip
           retention-days: 1 # Automatically cleanup quickly
           if-no-files-found: error
+
+      - name: Delete per-target artifacts now that they're packaged into the zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          for name in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --paginate --jq '.artifacts[] | select(.name != "hid_bootloader_cli-all-targets") | .id'); do
+            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$name"
+          done

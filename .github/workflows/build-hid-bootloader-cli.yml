@@ -20,16 +20,19 @@ on:
         default: all
         options:
           - all
-          - linux-x86
-          - linux-x64
-          - linux-arm32
-          - linux-arm64
+          - linux-x86-static
+          - linux-x64-static
+          - linux-arm32-static
+          - linux-arm64-static
           - windows-x86
           - windows-x64
           - windows-arm64
-          - macos
-          - freebsd-x64
-          - openbsd-x64
+          - windows-x86-libusb
+          - windows-x64-libusb
+          - macos-x86_64
+          - macos-universal
+          - freebsd-x64-static
+          - openbsd-x64-static
 
 env:
   SRC_DIR: 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
@@ -38,9 +41,9 @@ env:
 jobs:
 
   # --------------------------------------------------------------------------------------------
-  # Setup - filters the linux/windows matrices down to just the selected `target` (or everything,
-  # for `target: all`) BEFORE any runner spins up, so picking one target doesn't burn minutes
-  # spinning up containers/VMs for the other arches in that OS's matrix just to no-op them.
+  # Setup - filters the linux/windows/macos matrices down to just the selected `target` (or
+  # everything, for `target: all`) BEFORE any runner spins up, so picking one target doesn't burn
+  # minutes spinning up containers/VMs for the other arches in that OS's matrix just to no-op them.
   # --------------------------------------------------------------------------------------------
   setup:
     if: github.actor == 'blue-wind-25'
@@ -48,6 +51,7 @@ jobs:
     outputs:
       linux_matrix: ${{ steps.filter.outputs.linux_matrix }}
       windows_matrix: ${{ steps.filter.outputs.windows_matrix }}
+      macos_matrix: ${{ steps.filter.outputs.macos_matrix }}
     steps:
       - id: filter
         env:
@@ -55,25 +59,43 @@ jobs:
         run: |
           set -eux
           LINUX_ALL='[
-            {"name":"linux-x86","image":"messense/rust-musl-cross:i686-musl","cross_triple":"i686-unknown-linux-musl"},
-            {"name":"linux-x64","image":"messense/rust-musl-cross:x86_64-musl","cross_triple":"x86_64-unknown-linux-musl"},
-            {"name":"linux-arm32","image":"messense/rust-musl-cross:armv7-musleabihf","cross_triple":"armv7-unknown-linux-musleabihf"},
-            {"name":"linux-arm64","image":"messense/rust-musl-cross:aarch64-musl","cross_triple":"aarch64-unknown-linux-musl"}
+            {"name":"linux-x86-static","image":"messense/rust-musl-cross:i686-musl","cross_triple":"i686-unknown-linux-musl"},
+            {"name":"linux-x64-static","image":"messense/rust-musl-cross:x86_64-musl","cross_triple":"x86_64-unknown-linux-musl"},
+            {"name":"linux-arm32-static","image":"messense/rust-musl-cross:armv7-musleabihf","cross_triple":"armv7-unknown-linux-musleabihf"},
+            {"name":"linux-arm64-static","image":"messense/rust-musl-cross:aarch64-musl","cross_triple":"aarch64-unknown-linux-musl"}
           ]'
+          # `libusb: true` targets build+link libusb (WinUSB backend) instead of HidUsb. Only
+          # x86/x64 - libusb has no officially supported static-static ARM64/MSVC build path
+          # (no precompiled binaries, and the source tree's own Meson support for that combo is
+          # unverified), and ARM64 already gets HidUsb, which needs no extra driver on the target
+          # machine anyway (see README "WinUSB requires Zadig re-driver" note).
           WINDOWS_ALL='[
-            {"name":"windows-x86","msvc_arch":"x86"},
-            {"name":"windows-x64","msvc_arch":"x64"},
-            {"name":"windows-arm64","msvc_arch":"x64_arm64"}
+            {"name":"windows-x86","msvc_arch":"x86","libusb":false},
+            {"name":"windows-x64","msvc_arch":"x64","libusb":false},
+            {"name":"windows-arm64","msvc_arch":"x64_arm64","libusb":false},
+            {"name":"windows-x86-libusb","msvc_arch":"x86","libusb":true},
+            {"name":"windows-x64-libusb","msvc_arch":"x64","libusb":true}
+          ]'
+          # macos-x86_64 targets the oldest still-linkable Intel deployment target (10.13, no
+          # arm64 slice so no Big Sur floor). macos-universal must carry an arm64 slice, and Apple
+          # Silicon never shipped a macOS older than 11.0, so 11.0 is the oldest that slice (and
+          # therefore the whole fat binary) can declare.
+          MACOS_ALL='[
+            {"name":"macos-x86_64","archs":"-arch x86_64","min":"10.13"},
+            {"name":"macos-universal","archs":"-arch x86_64 -arch arm64","min":"11.0"}
           ]'
           if [ "$TARGET" = "all" ]; then
             LINUX_SEL="$LINUX_ALL"
             WINDOWS_SEL="$WINDOWS_ALL"
+            MACOS_SEL="$MACOS_ALL"
           else
             LINUX_SEL="$(echo "$LINUX_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
             WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+            MACOS_SEL="$(echo "$MACOS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
           fi
           echo "linux_matrix=$(echo "$LINUX_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
           echo "windows_matrix=$(echo "$WINDOWS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+          echo "macos_matrix=$(echo "$MACOS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
 
   # --------------------------------------------------------------------------------------------
   # Linux - static musl builds (portable across glibc versions since there's no glibc at all)
@@ -128,7 +150,20 @@ jobs:
           if-no-files-found: error
 
   # --------------------------------------------------------------------------------------------
-  # Windows - native MSVC cross toolsets (windows-latest ships full VS Build Tools, incl. ARM)
+  # Windows - native MSVC cross toolsets, on windows-2022 (Server 2022 / VS2022 toolset) rather
+  # than windows-latest (currently windows-2025 / VS "18") - the older, still-supported hosted
+  # image tracks a toolset lineage closer to what a Windows 10 end-user machine would have, and
+  # keeps the compiler/CRT further from bleeding-edge so target-OS compatibility is easier to
+  # reason about. Portability back to Windows 7 is then handled explicitly at compile time:
+  #   /MT              statically links the MSVC CRT, so the binary doesn't depend on the
+  #                     matching Visual C++ Redistributable being installed on the target
+  #                     machine (the actual #1 cause of "won't run on an old Windows box").
+  #   /D_WIN32_WINNT    sets the Windows API level the source is compiled against down to
+  #                     0x0601 (Windows 7), so no Windows 8+-only API accidentally slips in.
+  #   /SUBSYSTEM:...,6.01  stamps the PE header's minimum OS version as 6.01 (Windows 7) instead
+  #                     of whatever the toolset defaults to, so Windows won't refuse to launch it.
+  # This only affects x86/x64 - ARM64 Windows only ever shipped as Windows 10+, so the WINNT/
+  # SUBSYSTEM floor is moot there, but /MT still applies for the same redistributable reason.
   # --------------------------------------------------------------------------------------------
   windows:
     needs: setup
@@ -137,7 +172,7 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.setup.outputs.windows_matrix) }}
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
 
@@ -154,11 +189,37 @@ jobs:
           static __inline void usleep(long usec) { Sleep((DWORD)((usec + 999) / 1000)); }
           '@
 
-      - name: Compile hid_bootloader_cli.c
+      - name: Install Meson/Ninja (libusb build only)
+        if: matrix.libusb == true
+        run: pip install meson ninja
+
+      - name: Build static libusb-1.0 (WinUSB backend) for ${{ matrix.msvc_arch }}
+        if: matrix.libusb == true
+        shell: cmd
+        run: |
+          curl -fsSL "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
+          tar xf libusb.tar.bz2 || exit /b 1
+          cd libusb-%LIBUSB_VERSION%
+          meson setup build --default-library=static --buildtype=release || exit /b 1
+          meson compile -C build || exit /b 1
+          dir /s /b build\*.lib
+
+      - name: Compile hid_bootloader_cli.c (HidUsb)
+        if: matrix.libusb != true
         working-directory: ${{ env.SRC_DIR }}
         shell: cmd
         run: |
-          cl /O2 /W3 /DUSE_WIN32 /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib
+          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_WIN32 /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib /link /SUBSYSTEM:CONSOLE,6.01
+
+      - name: Compile hid_bootloader_cli.c (WinUSB via libusb)
+        if: matrix.libusb == true
+        working-directory: ${{ env.SRC_DIR }}
+        shell: cmd
+        run: |
+          mkdir libusb-1.0
+          copy "%GITHUB_WORKSPACE%\libusb-%LIBUSB_VERSION%\libusb\libusb.h" libusb-1.0\libusb.h || exit /b 1
+          for /f "delims=" %%f in ('dir /s /b "%GITHUB_WORKSPACE%\libusb-%LIBUSB_VERSION%\build\*.lib"') do set LIBUSB_LIB=%%f
+          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%LIBUSB_LIB%" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
 
       - uses: actions/upload-artifact@v4
         with:
@@ -168,42 +229,58 @@ jobs:
           if-no-files-found: error
 
   # --------------------------------------------------------------------------------------------
-  # MacOS - universal binary (x86_64 + arm64) built natively with Xcode's clang
+  # MacOS - two artifacts:
+  #   macos-x86_64    Intel-only, -mmacosx-version-min=10.13, for older/non-Apple-Silicon Macs
+  #   macos-universal x86_64 + arm64 fat binary, -mmacosx-version-min=11.0 (the oldest version
+  #                   that ever shipped an arm64 kernel - a universal binary can't declare a
+  #                   lower floor than its oldest-supported slice)
+  # Both still built natively with Xcode's clang on macos-latest.
   # --------------------------------------------------------------------------------------------
   macos:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'macos')
+    needs: setup
+    if: github.actor == 'blue-wind-25' && needs.setup.outputs.macos_matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.macos_matrix) }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile universal hid_bootloader_cli
+      - name: Compile hid_bootloader_cli (${{ matrix.name }})
         working-directory: ${{ env.SRC_DIR }}
         run: |
           set -eux
-          clang -O2 -Wall -mmacosx-version-min=10.13 \
-            -arch x86_64 -arch arm64 \
+          clang -O2 -Wall -mmacosx-version-min=${{ matrix.min }} \
+            ${{ matrix.archs }} \
             -DUSE_APPLE_IOKIT \
             -framework IOKit -framework CoreFoundation \
             -o hid_bootloader_cli hid_bootloader_cli.c
-          lipo -info hid_bootloader_cli
+          lipo -info hid_bootloader_cli || true
 
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-universal
+          name: ${{ matrix.name }}
           path: ${{ env.SRC_DIR }}/hid_bootloader_cli
           retention-days: 1 # Automatically cleanup quickly
           if-no-files-found: error
 
   # --------------------------------------------------------------------------------------------
-  # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists)
+  # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists).
+  # Pinned to older point releases (rather than each project's newest stable) purely for build
+  # portability of the *toolchain* used to produce the binary - the output itself is fully static
+  # (libc included), so it doesn't actually depend on the release it was built on; the pin just
+  # keeps the build reproducible against an older, still-supported base system.
   # --------------------------------------------------------------------------------------------
   freebsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: vmactions/freebsd-vm@v1
         with:
+          release: "13.2"
+          arch: x86_64
           usesh: true
           envs: 'SRC_DIR LIBUSB_VERSION'
           # Build libusb from source and link statically instead of using the base system's
@@ -227,18 +304,19 @@ jobs:
             file hid_bootloader_cli
       - uses: actions/upload-artifact@v4
         with:
-          name: freebsd-x64
+          name: freebsd-x64-static
           path: ${{ env.SRC_DIR }}/hid_bootloader_cli
           retention-days: 1 # Automatically cleanup quickly
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64-static')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: vmactions/openbsd-vm@v1
         with:
+          release: "7.4"
           usesh: true
           envs: 'SRC_DIR LIBUSB_VERSION'
           # Same reasoning as FreeBSD above: build libusb from source and link statically instead
@@ -259,7 +337,7 @@ jobs:
             file hid_bootloader_cli
       - uses: actions/upload-artifact@v4
         with:
-          name: openbsd-x64
+          name: openbsd-x64-static
           path: ${{ env.SRC_DIR }}/hid_bootloader_cli
           retention-days: 1 # Automatically cleanup quickly
           if-no-files-found: error

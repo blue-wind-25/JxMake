@@ -3,59 +3,88 @@
 ----------------------------------------------------------------------------------------------------
 
 Workflow: .github/workflows/build-hid-bootloader-cli.yml (repo root, since this is a monorepo)
+Tmp workflow: .github/workflows/build-hid-bootloader-cli-tmp.yml - scoped to just the new/changed
+targets below, for iterating on a toolchain without touching the (already-verified) linux jobs
+or the `package` job in the main workflow. Delete it once those targets are green.
 
 Builds the full portability matrix without needing any of the local cross-toolchains below:
 
-    Linux   : x86, amd64, arm32, arm64   - static, musl libc (no glibc version dependency at all)
-    Windows : x86, amd64, arm64          - native MSVC, cross-compiled via VS Build Tools on
-                                           windows-latest (ilammy/msvc-dev-cmd action)
-    MacOS   : universal (x86_64 + arm64) - native Xcode clang on macos-latest,
-                                           -mmacosx-version-min=10.13
-    FreeBSD : x64                        - static, libusb built from source (vmactions/freebsd-vm)
-    OpenBSD : x64                        - static, libusb built from source (vmactions/openbsd-vm)
+    - Linux   : x86, amd64, arm32, arm64     : static, musl libc (no glibc version dependency)
+    - Windows : x86, amd64, arm64            : HidUsb, native MSVC on windows-2022, /MT + Win7
+                                               API floor (see notes below)
+    - Windows : x86, amd64                   : WinUSB via libusb, native MSVC on windows-2022,
+                                               same /MT + Win7 floor
+    - MacOS   : x86_64 only                  : native Xcode clang on macos-latest,
+                                               -mmacosx-version-min=10.13
+    - MacOS   : universal (x86_64 + arm64)   : native Xcode clang on macos-latest,
+                                               -mmacosx-version-min=11.0
+    - FreeBSD : x64                          : static, libusb built from source, FreeBSD 13.2
+                                               (vmactions/freebsd-vm)
+    - OpenBSD : x64                          : static, libusb built from source, OpenBSD 7.4
+                                               (vmactions/openbsd-vm)
 
-Every CI target above is fully static except Windows (which dynamically links the MSVC CRT, as
-usual for that platform) - so unlike the local `make` targets below, none of the `-static` /
-`-libusb` suffixes apply here; there's only one flavor of each target.
+Artifact/`build/ci/<target>/` naming mirrors the local `make` targets below:
+    - `-static` suffix   : matches the local `-static` mkblob suffix - Linux, FreeBSD and OpenBSD
+                           CI builds are all fully static, so they all carry it.
+    - `-libusb` suffix   : matches the local `xwin-libusb` target - the WinUSB/libusb Windows
+                           build, as opposed to the default HidUsb one.
+    - everything else    : dynamically linked (Windows' MSVC CRT is still dynamic even with
+                           `/MT` statically linking the *C* runtime - `/MT` only removes the
+                           redistributable-version dependency, see notes below) or, for MacOS,
+                           not meaningfully "static" at all on that platform.
 
-The binaries checked into `build/ci/` were built by run 33824894707 (2026-09-04) using:
-    linux-x86/x64/arm32/arm64 : messense/rust-musl-cross Docker images, libusb 1.0.27
-                                (i686/x86_64/armv7/aarch64-unknown-linux-musl)
-    windows-x86/x64/arm64     : windows-2025-vs2026 runner image, Visual Studio "18" Enterprise,
-                                MSVC 14.51.36231, Windows SDK 10.0.26100.0
-    macos-universal           : macos-26-arm64 runner image, native Xcode clang,
-                                -mmacosx-version-min=10.13
-    freebsd-x64               : ubuntu-24.04 host + vmactions/freebsd-vm, FreeBSD 15.1,
-                                libusb 1.0.27 built from source, static
-    openbsd-x64               : ubuntu-24.04 host + vmactions/openbsd-vm, OpenBSD 7.9,
-                                libusb 1.0.27 built from source, static (note: OpenBSD's `-static`
-                                produces a static-PIE - `file` reports "dynamically linked" / ELF
-                                type DYN, but `readelf -d` shows no NEEDED entries and there's no
-                                PT_INTERP, confirming it has no actual runtime library dependency)
-These binaries will drift from what a fresh CI run produces as runner images and toolchains get
-updated upstream (e.g. a newer windows-latest VS release, a newer macos-latest Xcode) - re-run the
-workflow with `target: all` and re-copy `build/ci/` from the downloaded artifact if you need a
-refresh; don't hand-edit the binaries in place.
+The `windows-x86-libusb`, `windows-x64-libusb` and `macos-x86_64` targets are new and have not
+yet been built by CI - their `build/ci/` subdirectories hold a `PENDING.txt` placeholder until a
+`target: all` (or per-target) dispatch populates them; delete the placeholder once that happens.
+Re-dispatching `target: all` and re-copying `build/ci/` from the downloaded artifact is also how
+to refresh the checked-in binaries generally, since they will drift as runner images and
+toolchains get updated upstream (e.g. a newer windows-2022 VS servicing update, a newer
+macos-latest Xcode) - don't hand-edit the binaries in place.
 
 Notes/known limitations:
     - Linux targets use static musl builds (same "fully static, runs anywhere" idea as this
       Makefile's `mkblob`/`-static` trick for linux-x64) instead of chasing "oldest glibc",
       which is fragile because glibc symbol versioning ties the binary to the build host.
-    - Windows binaries use HidUsb (-DUSE_WIN32, SetupAPI/hid.lib), NOT WinUSB/libusb - same as
-      this Makefile's `xwin` target, not `xwin-libusb`. HidUsb is the standard HID class driver
-      built into Windows, so the binary works immediately on any Windows 7-11 machine with no
-      driver changes. A WinUSB/libusb build would only see the device after the end user
-      manually re-drivers it with Zadig (HidUsb -> WinUSB), which isn't reasonable to ask of a
-      downstream user for a prebuilt binary, so CI does not build that variant at all.
-    - Windows ARM32 is NOT built: the GitHub-hosted windows-latest VS install no longer ships a
-      32-bit ARM toolset at all (only x86/amd64/arm64 - confirmed via VC\Auxiliary\Build listing,
-      Sept 2026), and 32-bit ARM Windows hardware is essentially extinct anyway (superseded by
-      ARM64 since ~2017).
+    - Windows runs on windows-2022 (Server 2022 / VS2022 toolset), not windows-latest (currently
+      windows-2025 / VS "18") - an older, still-supported hosted image whose toolset lineage is
+      closer to a Windows 10 end-user machine. Windows 7 compatibility is then handled
+      explicitly at compile time:
+        - `/MT` statically links the MSVC CRT, so the binary doesn't depend on the matching
+          Visual C++ Redistributable being installed on the target machine (the actual #1 cause
+          of "won't run on an old Windows box").
+        - `/D_WIN32_WINNT=0x0601` caps the Windows API level compiled against at Windows 7, so
+          no Windows 8+-only API accidentally slips in.
+        - `/SUBSYSTEM:CONSOLE,6.01` stamps the PE header's minimum OS version as Windows 7
+          instead of whatever the toolset defaults to, so Windows won't refuse to launch it.
+      These floors are moot for windows-arm64 (ARM64 Windows only ever shipped as Windows 10+),
+      but `/MT` still applies there for the same redistributable reason.
+    - Windows builds both HidUsb (-DUSE_WIN32, SetupAPI/hid.lib - same as this Makefile's `xwin`
+      target) and WinUSB via libusb (-DUSE_LIBUSB - same as `xwin-libusb`), the latter built with
+      a Meson-built static libusb (x86/x64 only, see below). HidUsb is the standard HID class
+      driver built into Windows, so it works immediately on any Windows 7-11 machine with no
+      driver changes; WinUSB only sees the device after the end user manually re-drivers it with
+      Zadig (HidUsb -> WinUSB), so it's published as an explicit opt-in alternative, not the
+      default.
+    - Windows WinUSB/libusb is x86/x64 only: libusb has no officially supported static/MSVC ARM64
+      build path (no precompiled binaries, and the source tree's own Meson support for that
+      combo is unverified). ARM64 already gets HidUsb, which needs no extra driver on the target
+      machine anyway, so this isn't a real gap.
+    - Windows ARM32 is NOT built at all: the GitHub-hosted Windows VS installs no longer ship a
+      32-bit ARM toolset (only x86/amd64/arm64), and 32-bit ARM Windows hardware is essentially
+      extinct anyway (superseded by ARM64 since ~2017).
+    - MacOS ships two artifacts because a universal (fat) binary can't declare a version floor
+      lower than its oldest-supported slice, and Apple Silicon never shipped a macOS older than
+      11.0: `macos-x86_64` (Intel-only, floor 10.13) covers older/non-Apple-Silicon Macs, while
+      `macos-universal` (x86_64 + arm64, floor 11.0) covers everything from Big Sur on.
     - MacOS is built on real GitHub-hosted macOS runners rather than osxcross, because osxcross
       needs the Xcode SDK, which can't be auto-downloaded in CI (Apple EULA/licensing).
     - FreeBSD/OpenBSD build libusb from source and link it (and libc) statically rather than
       using the base/port libusb.so, since that .so is tied to the exact release it was built
       on - OpenBSD in particular gives no ABI stability guarantee across releases.
+    - FreeBSD/OpenBSD are pinned to older point releases (13.2 / 7.4) rather than each project's
+      newest stable, purely for build-toolchain portability/reproducibility - the output itself
+      is fully static (libc included), so it doesn't actually depend on the release it was built
+      on.
 
 Manual dispatch only (Actions tab -> "Build hid_bootloader_cli" -> "Run workflow"), gated to the
 repo owner. The `target` input lets you build ONE target at a time while debugging a toolchain

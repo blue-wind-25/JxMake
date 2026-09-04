@@ -1,0 +1,222 @@
+# TEMPORARY debug workflow - manual dispatch only, gated to the repo owner.
+#
+# Scope: only the targets that are NEW or were CHANGED and not yet verified green in the main
+# workflow (windows/macos/freebsd/openbsd - linux is untouched, so it's not duplicated here):
+#   - windows-x86 / windows-x64 / windows-arm64   (Win7 portability flags: /MT, _WIN32_WINNT, subsystem)
+#   - windows-x86-libusb / windows-x64-libusb     (new: WinUSB backend via a Meson-built static libusb)
+#   - macos-x86_64                                (new: Intel-only, 10.13 floor)
+#   - macos-universal                             (changed: floor raised 10.13 -> 11.0 for the arm64 slice)
+#   - freebsd-x64 / openbsd-x64                   (changed: pinned to older releases, 13.2 / 7.4)
+#
+# Once every target you dispatch here is green, delete this file - it exists purely to iterate on
+# new/changed jobs without touching the (already-verified) linux jobs or the `package` job in the
+# main build-hid-bootloader-cli.yml workflow.
+
+name: Build hid_bootloader_cli (tmp - new/changed targets only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which new/changed target to build'
+        type: choice
+        default: windows-x64-libusb
+        options:
+          - windows-x86
+          - windows-x64
+          - windows-arm64
+          - windows-x86-libusb
+          - windows-x64-libusb
+          - macos-x86_64
+          - macos-universal
+          - freebsd-x64-static
+          - openbsd-x64-static
+
+env:
+  SRC_DIR: 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
+  LIBUSB_VERSION: 1.0.27
+
+jobs:
+
+  setup:
+    if: github.actor == 'blue-wind-25'
+    runs-on: ubuntu-latest
+    outputs:
+      windows_matrix: ${{ steps.filter.outputs.windows_matrix }}
+      macos_matrix: ${{ steps.filter.outputs.macos_matrix }}
+    steps:
+      - id: filter
+        env:
+          TARGET: ${{ github.event.inputs.target }}
+        run: |
+          set -eux
+          WINDOWS_ALL='[
+            {"name":"windows-x86","msvc_arch":"x86","libusb":false},
+            {"name":"windows-x64","msvc_arch":"x64","libusb":false},
+            {"name":"windows-arm64","msvc_arch":"x64_arm64","libusb":false},
+            {"name":"windows-x86-libusb","msvc_arch":"x86","libusb":true},
+            {"name":"windows-x64-libusb","msvc_arch":"x64","libusb":true}
+          ]'
+          MACOS_ALL='[
+            {"name":"macos-x86_64","archs":"-arch x86_64","min":"10.13"},
+            {"name":"macos-universal","archs":"-arch x86_64 -arch arm64","min":"11.0"}
+          ]'
+          WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+          MACOS_SEL="$(echo "$MACOS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+          echo "windows_matrix=$(echo "$WINDOWS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+          echo "macos_matrix=$(echo "$MACOS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: setup
+    if: github.actor == 'blue-wind-25' && needs.setup.outputs.windows_matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.windows_matrix) }}
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+
+      - name: Write unistd.h compat shim (MSVC has no unistd.h; the source only needs usleep())
+        shell: pwsh
+        run: |
+          Set-Content -Path "${{ env.SRC_DIR }}\unistd.h" -Value @'
+          #pragma once
+          #include <windows.h>
+          static __inline void usleep(long usec) { Sleep((DWORD)((usec + 999) / 1000)); }
+          '@
+
+      - name: Install Meson/Ninja (libusb build only)
+        if: matrix.libusb == true
+        run: pip install meson ninja
+
+      - name: Build static libusb-1.0 (WinUSB backend) for ${{ matrix.msvc_arch }}
+        if: matrix.libusb == true
+        shell: cmd
+        run: |
+          curl -fsSL "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
+          tar xf libusb.tar.bz2 || exit /b 1
+          cd libusb-%LIBUSB_VERSION%
+          meson setup build --default-library=static --buildtype=release || exit /b 1
+          meson compile -C build || exit /b 1
+          dir /s /b build\*.lib
+
+      - name: Compile hid_bootloader_cli.c (HidUsb)
+        if: matrix.libusb != true
+        working-directory: ${{ env.SRC_DIR }}
+        shell: cmd
+        run: |
+          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_WIN32 /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib /link /SUBSYSTEM:CONSOLE,6.01
+
+      - name: Compile hid_bootloader_cli.c (WinUSB via libusb)
+        if: matrix.libusb == true
+        working-directory: ${{ env.SRC_DIR }}
+        shell: cmd
+        run: |
+          mkdir libusb-1.0
+          copy "%GITHUB_WORKSPACE%\libusb-%LIBUSB_VERSION%\libusb\libusb.h" libusb-1.0\libusb.h || exit /b 1
+          for /f "delims=" %%f in ('dir /s /b "%GITHUB_WORKSPACE%\libusb-%LIBUSB_VERSION%\build\*.lib"') do set LIBUSB_LIB=%%f
+          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%LIBUSB_LIB%" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.SRC_DIR }}/hid_bootloader_cli.exe
+          retention-days: 1
+          if-no-files-found: error
+
+  macos:
+    needs: setup
+    if: github.actor == 'blue-wind-25' && needs.setup.outputs.macos_matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.macos_matrix) }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile hid_bootloader_cli (${{ matrix.name }})
+        working-directory: ${{ env.SRC_DIR }}
+        run: |
+          set -eux
+          clang -O2 -Wall -mmacosx-version-min=${{ matrix.min }} \
+            ${{ matrix.archs }} \
+            -DUSE_APPLE_IOKIT \
+            -framework IOKit -framework CoreFoundation \
+            -o hid_bootloader_cli hid_bootloader_cli.c
+          lipo -info hid_bootloader_cli || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ env.SRC_DIR }}/hid_bootloader_cli
+          retention-days: 1
+          if-no-files-found: error
+
+  freebsd:
+    if: github.actor == 'blue-wind-25' && github.event.inputs.target == 'freebsd-x64-static'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vmactions/freebsd-vm@v1
+        with:
+          release: "13.2"
+          arch: x86_64
+          usesh: true
+          envs: 'SRC_DIR LIBUSB_VERSION'
+          prepare: pkg install -y gmake
+          run: |
+            set -eux
+            fetch -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            tar xf /tmp/libusb.tar.bz2 -C /tmp
+            cd "/tmp/libusb-${LIBUSB_VERSION}"
+            ./configure --disable-shared --enable-static --disable-udev
+            gmake -j"$(sysctl -n hw.ncpu)"
+            cd "$GITHUB_WORKSPACE/${SRC_DIR}"
+            mkdir -p /tmp/incshim/libusb-1.0
+            ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
+            cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+              -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
+            file hid_bootloader_cli
+      - uses: actions/upload-artifact@v4
+        with:
+          name: freebsd-x64-static
+          path: ${{ env.SRC_DIR }}/hid_bootloader_cli
+          retention-days: 1
+          if-no-files-found: error
+
+  openbsd:
+    if: github.actor == 'blue-wind-25' && github.event.inputs.target == 'openbsd-x64-static'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vmactions/openbsd-vm@v1
+        with:
+          release: "7.4"
+          usesh: true
+          envs: 'SRC_DIR LIBUSB_VERSION'
+          prepare: pkg_add gmake
+          run: |
+            set -eux
+            ftp -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+            tar xjf /tmp/libusb.tar.bz2 -C /tmp
+            cd "/tmp/libusb-${LIBUSB_VERSION}"
+            ./configure --disable-shared --enable-static --disable-udev
+            gmake -j"$(sysctl -n hw.ncpu)"
+            cd "$GITHUB_WORKSPACE/${SRC_DIR}"
+            mkdir -p /tmp/incshim/libusb-1.0
+            ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
+            cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+              -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
+            file hid_bootloader_cli
+      - uses: actions/upload-artifact@v4
+        with:
+          name: openbsd-x64-static
+          path: ${{ env.SRC_DIR }}/hid_bootloader_cli
+          retention-days: 1
+          if-no-files-found: error

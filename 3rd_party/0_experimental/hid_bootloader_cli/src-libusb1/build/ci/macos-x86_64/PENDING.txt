@@ -1,0 +1,3 @@
+This target was added to the CI matrix but has not been built by CI yet.
+Dispatch the "Build hid_bootloader_cli" workflow with target: all (or this
+target's name) to populate this directory, then delete this placeholder.

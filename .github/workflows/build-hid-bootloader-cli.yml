@@ -198,8 +198,8 @@ jobs:
         if: matrix.libusb == true
         shell: cmd
         run: |
-          curl -fSL --connect-timeout 15 --max-time 45 --retry 2 --retry-max-time 120 "https://github.com/libusb/libusb/releases/download/v%LIBUSB_VERSION%/libusb-%LIBUSB_VERSION%.tar.bz2" -o libusb.tar.bz2 || exit /b 1
-          tar xjf libusb.tar.bz2 || exit /b 1
+          curl -fSL --connect-timeout 15 --max-time 45 --retry 2 --retry-max-time 120 "https://github.com/libusb/libusb/archive/refs/tags/v%LIBUSB_VERSION%.zip" -o libusb.zip || exit /b 1
+          tar xf libusb.zip || exit /b 1
           cd libusb-%LIBUSB_VERSION%
           meson setup build --default-library=static --buildtype=release --wrap-mode=nodownload || exit /b 1
           meson compile -C build || exit /b 1

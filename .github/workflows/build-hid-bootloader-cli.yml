@@ -56,10 +56,10 @@ jobs:
         run: |
           set -eux
           LINUX_ALL='[
-            {"name":"linux-x86","image":"messense/rust-musl-cross:i686-musl","cross_triple":"i686-linux-musl"},
-            {"name":"linux-x64","image":"messense/rust-musl-cross:x86_64-musl","cross_triple":"x86_64-linux-musl"},
-            {"name":"linux-arm32","image":"messense/rust-musl-cross:armv7-musleabihf","cross_triple":"armv7-linux-musleabihf"},
-            {"name":"linux-arm64","image":"messense/rust-musl-cross:aarch64-musl","cross_triple":"aarch64-linux-musl"}
+            {"name":"linux-x86","image":"messense/rust-musl-cross:i686-musl","cross_triple":"i686-unknown-linux-musl"},
+            {"name":"linux-x64","image":"messense/rust-musl-cross:x86_64-musl","cross_triple":"x86_64-unknown-linux-musl"},
+            {"name":"linux-arm32","image":"messense/rust-musl-cross:armv7-musleabihf","cross_triple":"armv7-unknown-linux-musleabihf"},
+            {"name":"linux-arm64","image":"messense/rust-musl-cross:aarch64-musl","cross_triple":"aarch64-unknown-linux-musl"}
           ]'
           WINDOWS_ALL='[
             {"name":"windows-x86","msvc_arch":"x86"},
@@ -92,16 +92,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Discover the actual cross-gcc name/env in this image
-        run: |
-          set -x
-          env | sort
-          echo '--- /usr/local/musl/bin ---'
-          ls -la /usr/local/musl/bin 2>&1 || true
-          echo '--- gcc on PATH ---'
-          which gcc 2>&1 || true
-          ls -la "$(dirname "$(which gcc 2>/dev/null)")" 2>&1 || true
-
       - name: Build static libusb-1.0 for ${{ matrix.cross_triple }}
         env:
           CC: ${{ matrix.cross_triple }}-gcc
@@ -110,8 +100,6 @@ jobs:
           curl -fsSL "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" -o libusb.tar.bz2
           tar xf libusb.tar.bz2
           cd "libusb-${LIBUSB_VERSION}"
-          echo "int main(void){return 0;}" > /tmp/cc-check.c
-          $CC -v /tmp/cc-check.c -o /tmp/cc-check || true
           CC=$CC ./configure --host="${{ matrix.cross_triple }}" --disable-shared --enable-static --disable-udev \
             || { echo '----- config.log -----'; cat config.log; exit 1; }
           make -j"$(nproc)"

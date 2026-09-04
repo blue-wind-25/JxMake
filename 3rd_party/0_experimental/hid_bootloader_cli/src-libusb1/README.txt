@@ -3,9 +3,6 @@
 ----------------------------------------------------------------------------------------------------
 
 Workflow: .github/workflows/build-hid-bootloader-cli.yml (repo root, since this is a monorepo)
-Tmp workflow: .github/workflows/build-hid-bootloader-cli-tmp.yml - scoped to just the new/changed
-targets below, for iterating on a toolchain without touching the (already-verified) linux jobs
-or the `package` job in the main workflow. Delete it once those targets are green.
 
 Builds the full portability matrix without needing any of the local cross-toolchains below:
 
@@ -33,13 +30,11 @@ Artifact/`build/ci/<target>/` naming mirrors the local `make` targets below:
                            redistributable-version dependency, see notes below) or, for MacOS,
                            not meaningfully "static" at all on that platform.
 
-The `windows-x86-libusb`, `windows-x64-libusb` and `macos-x86_64` targets are new and have not
-yet been built by CI - their `build/ci/` subdirectories hold a `PENDING.txt` placeholder until a
-`target: all` (or per-target) dispatch populates them; delete the placeholder once that happens.
-Re-dispatching `target: all` and re-copying `build/ci/` from the downloaded artifact is also how
-to refresh the checked-in binaries generally, since they will drift as runner images and
-toolchains get updated upstream (e.g. a newer windows-2022 VS servicing update, a newer
-macos-latest Xcode) - don't hand-edit the binaries in place.
+All targets have been built by CI at least once; their binaries are checked in under `build/ci/`.
+Re-dispatching `target: all` and re-copying `build/ci/` from the downloaded artifact is how to
+refresh the checked-in binaries as runner images and toolchains drift upstream (e.g. a newer
+windows-2022 VS servicing update, a newer macos-latest Xcode) - don't hand-edit the binaries in
+place.
 
 Notes/known limitations:
     - Linux targets use static musl builds (same "fully static, runs anywhere" idea as this

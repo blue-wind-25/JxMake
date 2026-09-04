@@ -30,7 +30,6 @@ on:
           - macos
           - freebsd-x64
           - openbsd-x64
-          - retry-bsd-static # TEMP: freebsd-x64 + openbsd-x64 only - remove once both are green
 
 env:
   SRC_DIR: 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
@@ -199,7 +198,7 @@ jobs:
   # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists)
   # --------------------------------------------------------------------------------------------
   freebsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64' || github.event.inputs.target == 'retry-bsd-static')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -234,7 +233,7 @@ jobs:
           if-no-files-found: error
 
   openbsd:
-    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64' || github.event.inputs.target == 'retry-bsd-static')
+    if: github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

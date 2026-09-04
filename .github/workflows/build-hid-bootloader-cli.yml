@@ -222,7 +222,7 @@ jobs:
             # the header directly in libusb/ (no libusb-1.0/ subdir) - symlink around it.
             mkdir -p /tmp/incshim/libusb-1.0
             ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
-            cc -O2 -Wall -static -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+            cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
               -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
             file hid_bootloader_cli
       - uses: actions/upload-artifact@v4
@@ -254,7 +254,7 @@ jobs:
             cd "$GITHUB_WORKSPACE/${SRC_DIR}"
             mkdir -p /tmp/incshim/libusb-1.0
             ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
-            cc -O2 -Wall -static -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+            cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
               -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
             file hid_bootloader_cli
       - uses: actions/upload-artifact@v4

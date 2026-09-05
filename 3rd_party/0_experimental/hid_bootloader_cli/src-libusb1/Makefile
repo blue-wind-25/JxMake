@@ -61,6 +61,7 @@ lin lin_clean: OUTPUT_EXE_NAME := hid_bootloader_cli
 lin lin_clean: OUTPUT_DIR_NAME := $(COMMON_BUILD_ROOT)/linux-x64
 
 lin_clean:
+	@mkdir -p $(OUTPUT_DIR_NAME) $(OUTPUT_DIR_NAME)-static
 	@rm -vf $(OUTPUT_DIR_NAME)/$(OUTPUT_EXE_NAME)
 	@rm -vf $(OUTPUT_DIR_NAME)-static/$(OUTPUT_EXE_NAME)
 
@@ -93,6 +94,7 @@ xwin xwin_clean: OUTPUT_EXE_NAME := hid_bootloader_cli.exe
 xwin xwin_clean: OUTPUT_DIR_NAME := $(COMMON_BUILD_ROOT)/windows-x64
 
 xwin_clean:
+	@mkdir -p $(OUTPUT_DIR_NAME)
 	@rm -vf $(OUTPUT_DIR_NAME)/$(OUTPUT_EXE_NAME)
 
 xwin: xwin_clean
@@ -111,6 +113,7 @@ xwin-libusb xwin-libusb_clean: OUTPUT_EXE_NAME := hid_bootloader_cli.exe
 xwin-libusb xwin-libusb_clean: OUTPUT_DIR_NAME := $(COMMON_BUILD_ROOT)/windows-x64-libusb
 
 xwin-libusb_clean:
+	@mkdir -p $(OUTPUT_DIR_NAME)
 	@rm -vf $(OUTPUT_DIR_NAME)/$(OUTPUT_EXE_NAME)
 
 xwin-libusb: xwin-libusb_clean
@@ -137,6 +140,7 @@ xmac xmac_clean: OUTPUT_EXE_NAME := hid_bootloader_cli
 xmac xmac_clean: OUTPUT_DIR_NAME := $(COMMON_BUILD_ROOT)/macos-x64
 
 xmac_clean:
+	@mkdir -p $(OUTPUT_DIR_NAME)
 	@rm -vf $(OUTPUT_DIR_NAME)/$(OUTPUT_EXE_NAME)
 
 xmac: xmac_clean

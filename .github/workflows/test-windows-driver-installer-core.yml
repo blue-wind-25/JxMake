@@ -21,7 +21,7 @@ on   :
 
 jobs :
   test :
-    if              : github.actor == 'blue-wind-25' && vars.CORE_WORKFLOW_ENABLED != 'false'
+    if              : github.actor == 'blue-wind-25' && vars.WDI_CORE_WORKFLOW_ENABLED != 'false'
     runs-on         : windows-latest
     timeout-minutes : 10
     defaults        :

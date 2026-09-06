@@ -100,7 +100,7 @@ jobs :
         with :
           name              : jxmake-dist-zip
           path              : dist_build/JxMake-${{ env.DIST_VER }}.zip
-          retention-days    : 1
+          retention-days    : 1 # Automatically cleanup quickly
           if-no-files-found : error
 
   # --------------------------------------------------------------------------------------------

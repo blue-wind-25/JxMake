@@ -22,10 +22,10 @@
 #   native_macos_build - runs `make dist` directly on the macOS runner, with
 #             JDK_PATH_8/JDK_PATH_25 pointed at that runner's installed JDKs
 #             (src/Makefile reads these as overridable `?=` vars - see
-#             src/Makefile around line 113). Only checks that the build
-#             succeeds and produces the zip; does not re-run the
-#             zip_smoke_test checks against that macOS-built zip (add as a
-#             follow-up if that combination needs its own coverage).
+#             src/Makefile around line 113), then runs the same two smoke
+#             commands as zip_smoke_test directly against that freshly
+#             built dist_build/ (no zip round-trip needed, since it's
+#             already sitting on disk in the right layout).
 #
 #   both              - runs zip_smoke_test then native_macos_build.
 #
@@ -54,6 +54,21 @@
 # /bin/sh regardless of the workflow step's shell, and /bin/sh is dash on
 # Ubuntu (not bash) - so every `make dist` invocation below passes
 # `SHELL=/bin/bash` explicitly to override make's recipe shell.
+#
+# WHERE TO ADD MORE TESTS:
+#   - New test_phase: add its value to the `options:` list below, then a
+#     new job gated on `inputs.test_phase == '<name>' || inputs.test_phase == 'both'`
+#     (see the existing jobs for the pattern; keep `both` meaning "run
+#     everything" by adding every new phase to its own condition too).
+#   - More smoke checks against an already-built dist (either the
+#     Linux-built zip or the macOS-built one): extend `run_for_jdk` in
+#     test-zip-macos and/or build-dist-macos's "Run smoke tests" step - both
+#     currently only check the usage-error text and one `-e` eval; add more
+#     assertions inside that same function so they run under both JDKs.
+#   - A genuinely different scenario (e.g. an actual .jxm build/run, a
+#     third JDK, exercising JCS or a real hardware-facing feature): add it
+#     as its own step within the relevant job rather than growing
+#     run_for_jdk indefinitely once it stops being a one-liner check.
 # ============================================================
 name : Test JxMake (macOS)
 
@@ -165,7 +180,7 @@ jobs :
 
   # --------------------------------------------------------------------------------------------
   # native_macos_build - build the distribution directly on macOS (the actual feasibility
-  # question).
+  # question), then run the same smoke checks against that macOS-built output.
   # --------------------------------------------------------------------------------------------
   build-dist-macos :
     if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'native_macos_build' || inputs.test_phase == 'both')
@@ -193,6 +208,45 @@ jobs :
         run  : |
           set -euo pipefail
           ls -l dist_build/JxMake-${{ env.DIST_VER }}.zip
+
+      # Same checks as zip_smoke_test's "Run smoke tests" step, run here against the
+      # macOS-built dist_build/ directly (no zip/unzip round-trip needed - the layout
+      # `make dist` leaves on disk is already what a user would get after unzipping).
+      # TODO: if this duplication grows past this one function, factor it into a
+      # small reusable script committed to the repo (e.g. test/smoke_test_jxmake.sh)
+      # that both jobs call instead of inlining it twice.
+      - name              : Run smoke tests against the macOS-built dist
+        working-directory : dist_build
+        run               : |
+          set -euo pipefail
+          chmod +x jxmake
+
+          run_for_jdk() {
+            local jdk_home="$1"
+            local label="$2"
+            export JXMAKE_JAVA="$jdk_home/bin/java"
+
+            echo "=== [$label] ./jxmake (no args) ==="
+            usage_out="$(./jxmake 2>&1 || true)"
+            echo "$usage_out"
+            if [[ "$usage_out" != *"no command line arguments specified and no 'JxMakeFile' in the current directory"* ]]; then
+              echo "FAIL [$label]: usage-error text not found" >&2
+              exit 1
+            fi
+
+            echo "=== [$label] ./jxmake -e '\$printf(...)' ==="
+            eval_out="$(./jxmake -e '$printf("%s is %d\n", "A", 10)')"
+            echo "$eval_out"
+            if [[ "$eval_out" != "A is 10" ]]; then
+              echo "FAIL [$label]: expected 'A is 10', got '$eval_out'" >&2
+              exit 1
+            fi
+          }
+
+          run_for_jdk "$JAVA_HOME_8_ARM64"  "Java 8"
+          run_for_jdk "$JAVA_HOME_25_ARM64" "Java 25"
+
+          echo "PASS: macOS-built dist works under Java 8 and Java 25."
 
       - uses : actions/upload-artifact@v4
         with :

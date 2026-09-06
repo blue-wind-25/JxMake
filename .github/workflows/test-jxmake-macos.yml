@@ -149,8 +149,8 @@ jobs :
             - name : Run smoke tests under Java 8 and Java 25
               run  : |
                 "$GITHUB_WORKSPACE/.github/workflows/test-jxmake-macos_smoke_test.sh" \
-                  "$JAVA_HOME_8_ARM64"  "Java 8" \
-                  "$JAVA_HOME_25_ARM64" "Java 25"
+                  "$JAVA_HOME_8_AARCH64"  "Java 8" \
+                  "$JAVA_HOME_25_AARCH64" "Java 25"
 
     # --------------------------------------------------------------------------------------------
     # native_macos_build - build the distribution directly on macOS (the actual feasibility
@@ -175,7 +175,7 @@ jobs :
 
             - name              : Build distribution zip on macOS
               working-directory : src
-              run               : make dist SHELL=/bin/bash JDK_PATH_8="$JAVA_HOME_8_ARM64" JDK_PATH_25="$JAVA_HOME_25_ARM64"
+              run               : make dist SHELL=/bin/bash JDK_PATH_8="$JAVA_HOME_8_AARCH64" JDK_PATH_25="$JAVA_HOME_25_AARCH64"
             - name : Verify zip was produced
               run  : |
                 set -euo pipefail
@@ -189,8 +189,8 @@ jobs :
               working-directory : dist_build
               run               : |
                 "$GITHUB_WORKSPACE/.github/workflows/test-jxmake-macos_smoke_test.sh" \
-                  "$JAVA_HOME_8_ARM64"  "Java 8" \
-                  "$JAVA_HOME_25_ARM64" "Java 25"
+                  "$JAVA_HOME_8_AARCH64"  "Java 8" \
+                  "$JAVA_HOME_25_AARCH64" "Java 25"
 
             - uses : actions/upload-artifact@v7
               with :

@@ -19,6 +19,8 @@
 # make jar JDK_VER=8 && make jar JDK_VER=25
 # make jar JDK_VER=8 && make jar JDK_VER=25 && make dist JDK_VER=25
 
+# clear && gh run list --workflow=test-jxmake-macos.yml -L1
+
 
 ##### ANSI escape codes for colors
 C_GRAY    = "\\033[90m"
@@ -874,9 +876,9 @@ endef
 
 PP_PCPP_STRIP_INDENT := $(subst X, ,XXX)
 define PP_PCPP_STRIP
-    cat $(1)                                                              \
-        | sed -r '/\/\*{5} PCPP_END \*{5}\//{n;N;d}'                      \
-        | sed -r '/\/\*{5} PCPP_BEG \*{5}\//,/\/\*{5} PCPP_END \*{5}\//d' \
+    cat $(1)                                                                  \
+        | sed -E -e '/\/\*{5} PCPP_END \*{5}\//{' -e 'n' -e 'N' -e 'd' -e '}' \
+        | sed -E '/\/\*{5} PCPP_BEG \*{5}\//,/\/\*{5} PCPP_END \*{5}\//d'     \
         | sed 's/__NL__/\n$(PP_PCPP_STRIP_INDENT)/g' > $(2)
 endef
 

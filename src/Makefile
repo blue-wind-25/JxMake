@@ -858,7 +858,7 @@ define PP_IGNORE_UPDATE
         F="src/$(1)";                                                                                         \
         if ! grep -qxF "$$$$F" ../.gitignore 2>/dev/null; then                                                \
             if grep -qxF "$(PP_GITIGNORE_END)" ../.gitignore 2>/dev/null; then                                \
-                sed -i "/^$(PP_GITIGNORE_END_RE)\$$$$/i $$$$F" ../.gitignore;                                 \
+                sed -i.bak "/^$(PP_GITIGNORE_END_RE)\$$$$/i $$$$F" ../.gitignore; rm -f ../.gitignore.bak;    \
             else                                                                                              \
                 printf '\n%s\n%s\n%s\n' "$(PP_GITIGNORE_BEG)" "$$$$F" "$(PP_GITIGNORE_END)" >> ../.gitignore; \
             fi;                                                                                               \

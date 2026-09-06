@@ -19,6 +19,7 @@
 # make jar JDK_VER=8 && make jar JDK_VER=25
 # make jar JDK_VER=8 && make jar JDK_VER=25 && make dist JDK_VER=25
 
+# gh run list --workflow= -L7
 # clear && gh run list --workflow=test-jxmake-macos.yml -L1
 
 

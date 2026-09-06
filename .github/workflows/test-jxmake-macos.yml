@@ -40,10 +40,15 @@
 #     picking an arbitrary `java` via the JXMAKE_JAVA env var, so testing
 #     both JDKs against one extracted zip needs no re-extraction.
 #
-# Runner: macos-13 (Intel) is used rather than macos-latest (Apple Silicon)
-# because it's the safer bet for Temurin JDK 8 availability; switch the
-# `runs-on` values below to macos-latest once arm64 JDK 8 is confirmed to
-# work here, or add it as a second matrix leg.
+# Runner: macos-14 (Apple Silicon) is used - macos-13 (Intel)-hosted runners
+# have been getting stuck with no runner ever picked up (GitHub has been
+# retiring/throttling that image), so avoid it here.
+#
+# `make dist`'s recipes need bash (`[ x == y ]` tests, `{a,b,c}` brace
+# expansion in `mkdir -p .../apps/{...}`) but `make` runs recipes via
+# /bin/sh regardless of the workflow step's shell, and /bin/sh is dash on
+# Ubuntu (not bash) - so every `make dist` invocation below passes
+# `SHELL=/bin/bash` explicitly to override make's recipe shell.
 # ============================================================
 name : Test JxMake (macOS)
 
@@ -83,7 +88,7 @@ jobs :
 
       - name              : Build distribution zip
         working-directory : src
-        run               : make dist JDK_PATH_8="$JAVA_HOME_8_X64" JDK_PATH_25="$JAVA_HOME_25_X64"
+        run               : make dist SHELL=/bin/bash JDK_PATH_8="$JAVA_HOME_8_X64" JDK_PATH_25="$JAVA_HOME_25_X64"
 
       - uses : actions/upload-artifact@v4
         with :
@@ -99,7 +104,7 @@ jobs :
   test-zip-macos :
     needs   : build-dist-linux
     if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'phase1' || inputs.test_phase == 'both')
-    runs-on : macos-13
+    runs-on : macos-14
     steps   :
       - name : Set up JDK 8
         uses : actions/setup-java@v4
@@ -147,8 +152,8 @@ jobs :
             fi
           }
 
-          run_for_jdk "$JAVA_HOME_8_X64"  "Java 8"
-          run_for_jdk "$JAVA_HOME_25_X64" "Java 25"
+          run_for_jdk "$JAVA_HOME_8_ARM64"  "Java 8"
+          run_for_jdk "$JAVA_HOME_25_ARM64" "Java 25"
 
           echo "PASS: Java 8 and Java 25 produced matching results."
 
@@ -157,7 +162,7 @@ jobs :
   # --------------------------------------------------------------------------------------------
   build-dist-macos :
     if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'phase2' || inputs.test_phase == 'both')
-    runs-on : macos-13
+    runs-on : macos-14
     steps   :
       - uses : actions/checkout@v4
 
@@ -175,7 +180,7 @@ jobs :
 
       - name              : Build distribution zip on macOS
         working-directory : src
-        run               : make dist JDK_PATH_8="$JAVA_HOME_8_X64" JDK_PATH_25="$JAVA_HOME_25_X64"
+        run               : make dist SHELL=/bin/bash JDK_PATH_8="$JAVA_HOME_8_ARM64" JDK_PATH_25="$JAVA_HOME_25_ARM64"
 
       - name : Verify zip was produced
         run  : |

@@ -3,7 +3,7 @@ import jxm.WindowsDriverInstaller_FFM;
 import jxm.WindowsDriverInstaller_PS1;
 import jxm.xb.XCom;
 
-public class WDI_CITest {
+public class TestWindowsDriverInstaller {
 
     private static final String PROVIDER = "JxMake_CITest";
 
@@ -294,4 +294,4 @@ public class WDI_CITest {
         }
     }
 
-} // class WDI_CITest
+} // class TestWindowsDriverInstaller

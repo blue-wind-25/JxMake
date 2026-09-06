@@ -104,7 +104,7 @@ jobs :
           Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
 
       # Sideload mode short-circuits everything else: it never touches the Java/FFM code at all,
-      # so it doesn't need the jar built or WDI_CITest run. Instead it directly trusts and installs
+      # so it doesn't need the jar built or TestWindowsDriverInstaller run. Instead it directly trusts and installs
       # a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or
       # wdi_sideload_fixtures_ps1/ (not committed to the repo - see the README.md in each; populate
       # them from a prior "compare" mode artifact download when this mode is needed) using the exact
@@ -179,7 +179,7 @@ jobs :
 
       - name : Write test driver
         if   : ${{ inputs.backend != 'sideload' }}
-        run  : cp .github/workflows/WDI_CITest.java src/WDI_CITest.java
+        run  : cp .github/workflows/TestWindowsDriverInstaller.java src/TestWindowsDriverInstaller.java
       - name              : Compile test driver against jxmake.jar
         if                : ${{ inputs.backend != 'sideload' }}
         working-directory : src
@@ -187,7 +187,7 @@ jobs :
           set -euo pipefail
           JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
           mkdir -p wdi_ci_out
-          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
+          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out TestWindowsDriverInstaller.java
 
       - name              : Run WindowsDriverInstaller test
         if                : ${{ inputs.backend != 'sideload' }}
@@ -200,9 +200,9 @@ jobs :
             -Dwdi.backend="${{ inputs.backend }}" \
             -Dwdi.mutating="${{ inputs.run_mutating }}" \
             -cp "jxmake.jar;wdi_ci_out" \
-            WDI_CITest
+            TestWindowsDriverInstaller
 
-      # Compare mode only - uploads the PS1-/FFM- prefixed INF/CAT/CER files written by WDI_CITest's
+      # Compare mode only - uploads the PS1-/FFM- prefixed INF/CAT/CER files written by TestWindowsDriverInstaller's
       # compare() into wdi_compare_out/, zipped by actions/upload-artifact itself on download, so they
       # can be pulled down and diffed offline instead of only ever being read back through CI logs
       - name : Upload compare output (compare mode only)
@@ -258,14 +258,14 @@ jobs :
           ls -la jxmake.jar
 
       - name : Write test driver
-        run  : cp .github/workflows/WDI_CITest.java src/WDI_CITest.java
+        run  : cp .github/workflows/TestWindowsDriverInstaller.java src/TestWindowsDriverInstaller.java
       - name              : Compile test driver against jxmake.jar
         working-directory : src
         run               : |
           set -euo pipefail
           JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
           mkdir -p wdi_ci_out
-          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out WDI_CITest.java
+          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out TestWindowsDriverInstaller.java
 
       - name              : Run WindowsDriverInstaller test
         working-directory : src
@@ -278,4 +278,4 @@ jobs :
             -Dwdi.driverbackend="${{ matrix.wdi_backend }}" \
             -Dwdi.mutating="${{ inputs.run_mutating }}" \
             -cp "jxmake.jar;wdi_ci_out" \
-            WDI_CITest
+            TestWindowsDriverInstaller

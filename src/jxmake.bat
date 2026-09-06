@@ -32,7 +32,7 @@ for /f "tokens=1 delims=." %%V in ("!JAVA_VER!") do set "JAVA_MAJOR=%%V"
 ::::: Check if "--enable-native-access" flag is required
 set "NATIVE_ACCESS_FLAG="
 if !JAVA_MAJOR! GEQ 22 (
-    set "NATIVE_ACCESS_FLAG=--enable-native-access=org.fusesource.jansi,com.fazecast.jSerialComm,com.github.luben.zstd,net.codecrete.usb,com.sun.jna,com.sun.jna.platform,ALL-UNNAMED"
+    set "NATIVE_ACCESS_FLAG=--enable-native-access=org.fusesource.jansi,com.fazecast.jSerialComm,com.github.luben.zstd_jni,net.codecrete.usb,com.sun.jna,com.sun.jna.platform,ALL-UNNAMED"
 )
 
 ::::: Build the full classpath

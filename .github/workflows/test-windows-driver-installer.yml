@@ -44,238 +44,238 @@
 name : Test WindowsDriverInstaller
 
 on   :
-  workflow_dispatch :
-    inputs :
-      backend         :
-        description : 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or wdi_sideload_fixtures_ps1/ (not committed - see the README.md in each) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether generated artifacts are themselves defective vs the installing backend''s own install mechanics, drivers exercises installLibusbKInf()/installLibusb0Inf() end-to-end against both PS1 and FFM, each on its own fresh runner VM (see the separate test-drivers job below) - a shared VM would let one backend''s catalog-database registration of the bundled .sys silently satisfy the other backend''s own hash check, since Windows looks that hash up system-wide rather than scoped to the specific catalog named by the INF, masking a bug in whichever backend runs second. Covers SysUtil.findWindowsDriverDir() actually locating and copying the bundled .sys files - the one part of the non-WinUSB driver kinds that a raw generateXXXInf() fixture (what every other mode uses) never touches'
-        type        : choice
-        options     : [ps1, ffm, auto, compare, sideload, drivers]
-        default     : auto
-      run_mutating    :
-        description : 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
-        type        : boolean
-        default     : false
-      sideload_source :
-        description : 'sideload mode only: which locally-placed fixture set to trust+install via certutil.exe/pnputil.exe - ffm (wdi_sideload_fixtures_ffm/) or ps1 (wdi_sideload_fixtures_ps1/), a control to isolate whether a hang is specific to one backend''s generated artifacts'
-        type        : choice
-        options     : [ffm, ps1]
-        default     : ffm
+    workflow_dispatch :
+        inputs :
+            backend         :
+                description : 'Which backend to test: ps1/ffm test that backend directly, auto tests whichever WindowsDriverInstaller.create() picks, compare runs PS1 then FFM (cert+catalog only, no install) and uploads their generated INF/CAT/CER files as an artifact for offline diffing, sideload trusts+installs a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or wdi_sideload_fixtures_ps1/ (not committed - see the README.md in each) via certutil.exe/pnputil.exe directly - no Java/FFM code runs at all - to isolate whether generated artifacts are themselves defective vs the installing backend''s own install mechanics, drivers exercises installLibusbKInf()/installLibusb0Inf() end-to-end against both PS1 and FFM, each on its own fresh runner VM (see the separate test-drivers job below) - a shared VM would let one backend''s catalog-database registration of the bundled .sys silently satisfy the other backend''s own hash check, since Windows looks that hash up system-wide rather than scoped to the specific catalog named by the INF, masking a bug in whichever backend runs second. Covers SysUtil.findWindowsDriverDir() actually locating and copying the bundled .sys files - the one part of the non-WinUSB driver kinds that a raw generateXXXInf() fixture (what every other mode uses) never touches'
+                type        : choice
+                options     : [ps1, ffm, auto, compare, sideload, drivers]
+                default     : auto
+            run_mutating    :
+                description : 'Also run the UAC-elevated, state-changing calls (create+trust cert, sign catalog, install driver)'
+                type        : boolean
+                default     : false
+            sideload_source :
+                description : 'sideload mode only: which locally-placed fixture set to trust+install via certutil.exe/pnputil.exe - ffm (wdi_sideload_fixtures_ffm/) or ps1 (wdi_sideload_fixtures_ps1/), a control to isolate whether a hang is specific to one backend''s generated artifacts'
+                type        : choice
+                options     : [ffm, ps1]
+                default     : ffm
 
 jobs :
-  test :
-    # Drivers mode runs in the separate test-drivers job below instead (two fresh VMs, one per
-    # backend - see that job's own comment for why a shared VM isn't safe for it)
-    if       : github.actor == 'blue-wind-25' && inputs.backend != 'drivers'
-    runs-on  : windows-latest
-    defaults :
-      run :
-        shell : bash
+    test :
+        # Drivers mode runs in the separate test-drivers job below instead (two fresh VMs, one per
+        # backend - see that job's own comment for why a shared VM isn't safe for it)
+        if       : github.actor == 'blue-wind-25' && inputs.backend != 'drivers'
+        runs-on  : windows-latest
+        defaults :
+            run :
+                shell : bash
 
-    steps    :
-      - uses : actions/checkout@v4
-      - name : Set up JDK 25
-        uses : actions/setup-java@v4
-        with :
-          distribution : temurin
-          java-version : '25'
+        steps    :
+            - uses : actions/checkout@v4
+            - name : Set up JDK 25
+              uses : actions/setup-java@v4
+              with :
+                    distribution : temurin
+                    java-version : '25'
 
-      - name : Install GNU make
-        run  : choco install make -y
-      # Only needed for run_mutating - lets `Start-Process -Verb RunAs` elevate
-      # silently in this non-interactive session instead of failing immediately
-      # with the UAC-declined path (which is what we'd hit otherwise, since
-      # there's no desktop session here to show a consent prompt on).
-      #
-      # Also silences the separate "Windows can't verify the publisher of this
-      # driver software" consent dialog that pnputil/SetupCopyOEMInfW can raise
-      # when staging a validly self-signed but non-WHQL driver on a headless
-      # runner with no desktop to show it on - a generally-useful CI setting
-      # for both backends' mutating runs.
-      # The legacy "Driver Signing\Policy" REG_BINARY value's first byte selects
-      # 0=silently succeed, 1=warn, 2=block; this session has no desktop to show
-      # a "warn" prompt on regardless, so silently-succeed is the only option
-      # that doesn't hang.
-      - name  : Allow silent admin elevation and unsigned driver installs (mutating run only)
-        if    : ${{ inputs.run_mutating || inputs.backend == 'compare' || inputs.backend == 'sideload' }}
-        shell : pwsh
-        run   : |
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
-          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+            - name : Install GNU make
+              run  : choco install make -y
+            # Only needed for run_mutating - lets `Start-Process -Verb RunAs` elevate
+            # silently in this non-interactive session instead of failing immediately
+            # with the UAC-declined path (which is what we'd hit otherwise, since
+            # there's no desktop session here to show a consent prompt on).
+            #
+            # Also silences the separate "Windows can't verify the publisher of this
+            # driver software" consent dialog that pnputil/SetupCopyOEMInfW can raise
+            # when staging a validly self-signed but non-WHQL driver on a headless
+            # runner with no desktop to show it on - a generally-useful CI setting
+            # for both backends' mutating runs.
+            # The legacy "Driver Signing\Policy" REG_BINARY value's first byte selects
+            # 0=silently succeed, 1=warn, 2=block; this session has no desktop to show
+            # a "warn" prompt on regardless, so silently-succeed is the only option
+            # that doesn't hang.
+            - name  : Allow silent admin elevation and unsigned driver installs (mutating run only)
+              if    : ${{ inputs.run_mutating || inputs.backend == 'compare' || inputs.backend == 'sideload' }}
+              shell : pwsh
+              run   : |
+                Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
+                New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
+                Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
 
-      # Sideload mode short-circuits everything else: it never touches the Java/FFM code at all,
-      # so it doesn't need the jar built or TestWindowsDriverInstaller run. Instead it directly trusts and installs
-      # a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or
-      # wdi_sideload_fixtures_ps1/ (not committed to the repo - see the README.md in each; populate
-      # them from a prior "compare" mode artifact download when this mode is needed) using the exact
-      # same tools PS1's working path uses (certutil.exe -addstore, pnputil.exe /add-driver),
-      # bypassing WindowsDriverInstaller_FFM/_PS1 entirely. This isolates whether a backend's
-      # generated artifacts are themselves defective vs. that backend's own install-time mechanics
-      # (elevation/process handling).
-      - name  : Sideload a locally-placed cert+cat+inf fixture set via certutil/pnputil directly (sideload mode only)
-        if    : ${{ inputs.backend == 'sideload' }}
-        shell : pwsh
-        run   : |
-          $srcDir = if ("${{ inputs.sideload_source }}" -eq "ps1") { "wdi_sideload_fixtures_ps1" } else { "wdi_sideload_fixtures_ffm" }
-          $srcPath = "$env:GITHUB_WORKSPACE\.github\workflows\$srcDir"
+            # Sideload mode short-circuits everything else: it never touches the Java/FFM code at all,
+            # so it doesn't need the jar built or TestWindowsDriverInstaller run. Instead it directly trusts and installs
+            # a cert/cat/inf fixture set placed locally under wdi_sideload_fixtures_ffm/ or
+            # wdi_sideload_fixtures_ps1/ (not committed to the repo - see the README.md in each; populate
+            # them from a prior "compare" mode artifact download when this mode is needed) using the exact
+            # same tools PS1's working path uses (certutil.exe -addstore, pnputil.exe /add-driver),
+            # bypassing WindowsDriverInstaller_FFM/_PS1 entirely. This isolates whether a backend's
+            # generated artifacts are themselves defective vs. that backend's own install-time mechanics
+            # (elevation/process handling).
+            - name  : Sideload a locally-placed cert+cat+inf fixture set via certutil/pnputil directly (sideload mode only)
+              if    : ${{ inputs.backend == 'sideload' }}
+              shell : pwsh
+              run   : |
+                $srcDir = if ("${{ inputs.sideload_source }}" -eq "ps1") { "wdi_sideload_fixtures_ps1" } else { "wdi_sideload_fixtures_ffm" }
+                $srcPath = "$env:GITHUB_WORKSPACE\.github\workflows\$srcDir"
 
-          $certFile = "$srcPath\cert.cer"
-          $infFile  = "$srcPath\wdi_cmp.inf"
-          if( -not (Test-Path $certFile) -or -not (Test-Path $infFile) ) {
-              Write-Error "Sideload fixture files missing under $srcPath (expected cert.cer and wdi_cmp.inf) - nothing to sideload"
-              exit 1
-          }
+                $certFile = "$srcPath\cert.cer"
+                $infFile  = "$srcPath\wdi_cmp.inf"
+                if( -not (Test-Path $certFile) -or -not (Test-Path $infFile) ) {
+                    Write-Error "Sideload fixture files missing under $srcPath (expected cert.cer and wdi_cmp.inf) - nothing to sideload"
+                    exit 1
+                }
 
-          $work = New-Item -ItemType Directory -Force -Path "$env:TEMP\wdi_sideload"
-          Copy-Item "$srcPath\*" $work.FullName -Force
-          Write-Host "Sideload source: $srcDir"
-          Get-ChildItem $work.FullName
+                $work = New-Item -ItemType Directory -Force -Path "$env:TEMP\wdi_sideload"
+                Copy-Item "$srcPath\*" $work.FullName -Force
+                Write-Host "Sideload source: $srcDir"
+                Get-ChildItem $work.FullName
 
-          try {
-              Write-Host "=== certutil -addstore Root ==="
-              certutil.exe -addstore -f Root "$($work.FullName)\cert.cer"
+                try {
+                    Write-Host "=== certutil -addstore Root ==="
+                    certutil.exe -addstore -f Root "$($work.FullName)\cert.cer"
 
-              Write-Host "=== certutil -addstore TrustedPublisher ==="
-              certutil.exe -addstore -f TrustedPublisher "$($work.FullName)\cert.cer"
+                    Write-Host "=== certutil -addstore TrustedPublisher ==="
+                    certutil.exe -addstore -f TrustedPublisher "$($work.FullName)\cert.cer"
 
-              Write-Host "=== pnputil /add-driver ==="
-              pnputil.exe /add-driver "$($work.FullName)\wdi_cmp.inf"
-              Write-Host "pnputil exit code: $LASTEXITCODE"
-          }
-          finally {
-              # Test cert/driver cleanup - even though this runner VM is destroyed after the job, don't
-              # leave the sideloaded test cert usable to sign other INFs, or the staged driver package
-              # left registered, for the rest of this job's lifetime.
-              Write-Host "=== cleanup: removing sideloaded driver package ==="
-              # pnputil /enum-drivers prints one block per staged package; find the block whose
-              # "Original Name" is wdi_cmp.inf and delete it by its "Published Name" (the oemNN.inf
-              # alias Windows assigned it).
-              $blocks   = ((pnputil.exe /enum-drivers) -join "`n") -split "(?=Published Name\s*:)"
-              $ourBlock = $blocks | Where-Object { $_ -match 'Original Name\s*:\s*wdi_cmp\.inf' } | Select-Object -First 1
-              if( $ourBlock -and ($ourBlock -match 'Published Name\s*:\s*(oem\d+\.inf)') ) {
-                  pnputil.exe /delete-driver $Matches[1] /uninstall /force
-              } else {
-                  Write-Host "No matching staged driver found to remove (already absent, or enum-drivers output format changed)"
-              }
+                    Write-Host "=== pnputil /add-driver ==="
+                    pnputil.exe /add-driver "$($work.FullName)\wdi_cmp.inf"
+                    Write-Host "pnputil exit code: $LASTEXITCODE"
+                }
+                finally {
+                    # Test cert/driver cleanup - even though this runner VM is destroyed after the job, don't
+                    # leave the sideloaded test cert usable to sign other INFs, or the staged driver package
+                    # left registered, for the rest of this job's lifetime.
+                    Write-Host "=== cleanup: removing sideloaded driver package ==="
+                    # pnputil /enum-drivers prints one block per staged package; find the block whose
+                    # "Original Name" is wdi_cmp.inf and delete it by its "Published Name" (the oemNN.inf
+                    # alias Windows assigned it).
+                    $blocks   = ((pnputil.exe /enum-drivers) -join "`n") -split "(?=Published Name\s*:)"
+                    $ourBlock = $blocks | Where-Object { $_ -match 'Original Name\s*:\s*wdi_cmp\.inf' } | Select-Object -First 1
+                    if( $ourBlock -and ($ourBlock -match 'Published Name\s*:\s*(oem\d+\.inf)') ) {
+                        pnputil.exe /delete-driver $Matches[1] /uninstall /force
+                    } else {
+                        Write-Host "No matching staged driver found to remove (already absent, or enum-drivers output format changed)"
+                    }
 
-              Write-Host "=== cleanup: removing sideloaded cert from Root/TrustedPublisher ==="
-              # certutil -delstore identifies a cert by thumbprint/serial/CN, not by file path, so read
-              # the thumbprint back out of the .cer file first via the Cert: provider's own store view.
-              $thumb = (Get-PfxCertificate -FilePath "$($work.FullName)\cert.cer").Thumbprint
-              Get-ChildItem "Cert:\LocalMachine\Root\$thumb"             -ErrorAction SilentlyContinue | Remove-Item -Force
-              Get-ChildItem "Cert:\LocalMachine\TrustedPublisher\$thumb" -ErrorAction SilentlyContinue | Remove-Item -Force
+                    Write-Host "=== cleanup: removing sideloaded cert from Root/TrustedPublisher ==="
+                    # certutil -delstore identifies a cert by thumbprint/serial/CN, not by file path, so read
+                    # the thumbprint back out of the .cer file first via the Cert: provider's own store view.
+                    $thumb = (Get-PfxCertificate -FilePath "$($work.FullName)\cert.cer").Thumbprint
+                    Get-ChildItem "Cert:\LocalMachine\Root\$thumb"             -ErrorAction SilentlyContinue | Remove-Item -Force
+                    Get-ChildItem "Cert:\LocalMachine\TrustedPublisher\$thumb" -ErrorAction SilentlyContinue | Remove-Item -Force
 
-              Remove-Item -Recurse -Force $work.FullName -ErrorAction SilentlyContinue
-          }
+                    Remove-Item -Recurse -Force $work.FullName -ErrorAction SilentlyContinue
+                }
 
-      - name              : Build jxmake.jar (JDK 25, both backends)
-        if                : ${{ inputs.backend != 'sideload' }}
-        working-directory : src
-        run               : |
-          set -euo pipefail
-          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
-          make jar JDK_VER=25 "JDK_PATH_25=$JDK_UNIX_PATH"
-          ls -la jxmake.jar
+            - name              : Build jxmake.jar (JDK 25, both backends)
+              if                : ${{ inputs.backend != 'sideload' }}
+              working-directory : src
+              run               : |
+                set -euo pipefail
+                JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+                make jar JDK_VER=25 "JDK_PATH_25=$JDK_UNIX_PATH"
+                ls -la jxmake.jar
 
-      - name : Write test driver
-        if   : ${{ inputs.backend != 'sideload' }}
-        run  : cp .github/workflows/TestWindowsDriverInstaller.java src/TestWindowsDriverInstaller.java
-      - name              : Compile test driver against jxmake.jar
-        if                : ${{ inputs.backend != 'sideload' }}
-        working-directory : src
-        run               : |
-          set -euo pipefail
-          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
-          mkdir -p wdi_ci_out
-          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out TestWindowsDriverInstaller.java
+            - name : Write test driver
+              if   : ${{ inputs.backend != 'sideload' }}
+              run  : cp .github/workflows/TestWindowsDriverInstaller.java src/TestWindowsDriverInstaller.java
+            - name              : Compile test driver against jxmake.jar
+              if                : ${{ inputs.backend != 'sideload' }}
+              working-directory : src
+              run               : |
+                set -euo pipefail
+                JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+                mkdir -p wdi_ci_out
+                "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out TestWindowsDriverInstaller.java
 
-      - name              : Run WindowsDriverInstaller test
-        if                : ${{ inputs.backend != 'sideload' }}
-        working-directory : src
-        run               : |
-          set -euo pipefail
-          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
-          "$JDK_UNIX_PATH/bin/java" \
-            --enable-native-access=ALL-UNNAMED -ea \
-            -Dwdi.backend="${{ inputs.backend }}" \
-            -Dwdi.mutating="${{ inputs.run_mutating }}" \
-            -cp "jxmake.jar;wdi_ci_out" \
-            TestWindowsDriverInstaller
+            - name              : Run WindowsDriverInstaller test
+              if                : ${{ inputs.backend != 'sideload' }}
+              working-directory : src
+              run               : |
+                set -euo pipefail
+                JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+                "$JDK_UNIX_PATH/bin/java" \
+                  --enable-native-access=ALL-UNNAMED -ea \
+                  -Dwdi.backend="${{ inputs.backend }}" \
+                  -Dwdi.mutating="${{ inputs.run_mutating }}" \
+                  -cp "jxmake.jar;wdi_ci_out" \
+                  TestWindowsDriverInstaller
 
-      # Compare mode only - uploads the PS1-/FFM- prefixed INF/CAT/CER files written by TestWindowsDriverInstaller's
-      # compare() into wdi_compare_out/, zipped by actions/upload-artifact itself on download, so they
-      # can be pulled down and diffed offline instead of only ever being read back through CI logs
-      - name : Upload compare output (compare mode only)
-        if   : ${{ inputs.backend == 'compare' }}
-        uses : actions/upload-artifact@v4
-        with :
-          name              : wdi-compare-output
-          path              : src/wdi_compare_out
-          retention-days    : 1 # Automatically cleanup quickly
-          if-no-files-found : error
+            # Compare mode only - uploads the PS1-/FFM- prefixed INF/CAT/CER files written by TestWindowsDriverInstaller's
+            # compare() into wdi_compare_out/, zipped by actions/upload-artifact itself on download, so they
+            # can be pulled down and diffed offline instead of only ever being read back through CI logs
+            - name : Upload compare output (compare mode only)
+              if   : ${{ inputs.backend == 'compare' }}
+              uses : actions/upload-artifact@v4
+              with :
+                    name              : wdi-compare-output
+                    path              : src/wdi_compare_out
+                    retention-days    : 1 # Automatically cleanup quickly
+                    if-no-files-found : error
 
-  # Drivers mode's own job: one matrix leg per backend, each getting its own fresh runner VM (its
-  # own catalog database under \Windows\system32\CatRoot\) - see the "backend" input description
-  # above for why a shared VM is not safe here. Every step below is the drivers-relevant subset of
-  # the "test" job's steps, run against a fixed -Dwdi.driverbackend=${{ matrix.wdi_backend }}.
-  test-drivers :
-    if       : github.actor == 'blue-wind-25' && inputs.backend == 'drivers'
-    runs-on  : windows-latest
-    strategy :
-      fail-fast : false
-      matrix    :
-        wdi_backend : [PS1, FFM]
-    defaults :
-      run :
-        shell : bash
+    # Drivers mode's own job: one matrix leg per backend, each getting its own fresh runner VM (its
+    # own catalog database under \Windows\system32\CatRoot\) - see the "backend" input description
+    # above for why a shared VM is not safe here. Every step below is the drivers-relevant subset of
+    # the "test" job's steps, run against a fixed -Dwdi.driverbackend=${{ matrix.wdi_backend }}.
+    test-drivers :
+        if       : github.actor == 'blue-wind-25' && inputs.backend == 'drivers'
+        runs-on  : windows-latest
+        strategy :
+            fail-fast : false
+            matrix    :
+                wdi_backend : [PS1, FFM]
+        defaults :
+            run :
+                shell : bash
 
-    steps    :
-      - uses : actions/checkout@v4
-      - name : Set up JDK 25
-        uses : actions/setup-java@v4
-        with :
-          distribution : temurin
-          java-version : '25'
+        steps    :
+            - uses : actions/checkout@v4
+            - name : Set up JDK 25
+              uses : actions/setup-java@v4
+              with :
+                    distribution : temurin
+                    java-version : '25'
 
-      - name : Install GNU make
-        run  : choco install make -y
-      # See the "test" job's own copy of this step for the full rationale - drivers mode is always
-      # mutating (installLibusbKInf()/installLibusb0Inf() always trust+sign+install), so this always runs here
-      - name  : Allow silent admin elevation and unsigned driver installs
-        if    : ${{ inputs.run_mutating }}
-        shell : pwsh
-        run   : |
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
-          New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
-          Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
+            - name : Install GNU make
+              run  : choco install make -y
+            # See the "test" job's own copy of this step for the full rationale - drivers mode is always
+            # mutating (installLibusbKInf()/installLibusb0Inf() always trust+sign+install), so this always runs here
+            - name  : Allow silent admin elevation and unsigned driver installs
+              if    : ${{ inputs.run_mutating }}
+              shell : pwsh
+              run   : |
+                Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name ConsentPromptBehaviorAdmin -Value 0
+                New-Item -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Force | Out-Null
+                Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\Driver Signing' -Name 'Policy' -Type Binary -Value ([byte[]](0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
 
-      - name              : Build jxmake.jar (JDK 25, both backends)
-        working-directory : src
-        run               : |
-          set -euo pipefail
-          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
-          make jar JDK_VER=25 "JDK_PATH_25=$JDK_UNIX_PATH"
-          ls -la jxmake.jar
+            - name              : Build jxmake.jar (JDK 25, both backends)
+              working-directory : src
+              run               : |
+                set -euo pipefail
+                JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+                make jar JDK_VER=25 "JDK_PATH_25=$JDK_UNIX_PATH"
+                ls -la jxmake.jar
 
-      - name : Write test driver
-        run  : cp .github/workflows/TestWindowsDriverInstaller.java src/TestWindowsDriverInstaller.java
-      - name              : Compile test driver against jxmake.jar
-        working-directory : src
-        run               : |
-          set -euo pipefail
-          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
-          mkdir -p wdi_ci_out
-          "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out TestWindowsDriverInstaller.java
+            - name : Write test driver
+              run  : cp .github/workflows/TestWindowsDriverInstaller.java src/TestWindowsDriverInstaller.java
+            - name              : Compile test driver against jxmake.jar
+              working-directory : src
+              run               : |
+                set -euo pipefail
+                JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+                mkdir -p wdi_ci_out
+                "$JDK_UNIX_PATH/bin/javac" -cp jxmake.jar -d wdi_ci_out TestWindowsDriverInstaller.java
 
-      - name              : Run WindowsDriverInstaller test
-        working-directory : src
-        run               : |
-          set -euo pipefail
-          JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
-          "$JDK_UNIX_PATH/bin/java" \
-            --enable-native-access=ALL-UNNAMED -ea \
-            -Dwdi.backend="drivers" \
-            -Dwdi.driverbackend="${{ matrix.wdi_backend }}" \
-            -Dwdi.mutating="${{ inputs.run_mutating }}" \
-            -cp "jxmake.jar;wdi_ci_out" \
-            TestWindowsDriverInstaller
+            - name              : Run WindowsDriverInstaller test
+              working-directory : src
+              run               : |
+                set -euo pipefail
+                JDK_UNIX_PATH="$(cygpath -u "$JAVA_HOME")"
+                "$JDK_UNIX_PATH/bin/java" \
+                  --enable-native-access=ALL-UNNAMED -ea \
+                  -Dwdi.backend="drivers" \
+                  -Dwdi.driverbackend="${{ matrix.wdi_backend }}" \
+                  -Dwdi.mutating="${{ inputs.run_mutating }}" \
+                  -cp "jxmake.jar;wdi_ci_out" \
+                  TestWindowsDriverInstaller

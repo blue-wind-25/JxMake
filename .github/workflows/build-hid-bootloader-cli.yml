@@ -11,382 +11,382 @@
 name : Build hid_bootloader_cli
 
 on   :
-  workflow_dispatch :
-    inputs :
-      target :
-        description : 'Which target to build (use a single target to debug, "all" to build+package everything)'
-        type        : choice
-        default     : all
-        options     :
-          - all
-          - linux-x86-static
-          - linux-x64-static
-          - linux-arm32-static
-          - linux-arm64-static
-          - windows-x86
-          - windows-x64
-          - windows-arm64
-          - windows-x86-libusb
-          - windows-x64-libusb
-          - macos-x86_64
-          - macos-universal
-          - freebsd-x64-static
-          - openbsd-x64-static
+    workflow_dispatch :
+        inputs :
+            target :
+                description : 'Which target to build (use a single target to debug, "all" to build+package everything)'
+                type        : choice
+                default     : all
+                options     :
+                    - all
+                    - linux-x86-static
+                    - linux-x64-static
+                    - linux-arm32-static
+                    - linux-arm64-static
+                    - windows-x86
+                    - windows-x64
+                    - windows-arm64
+                    - windows-x86-libusb
+                    - windows-x64-libusb
+                    - macos-x86_64
+                    - macos-universal
+                    - freebsd-x64-static
+                    - openbsd-x64-static
 
 env  :
-  SRC_DIR        : 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
-  LIBUSB_VERSION : 1.0.27
+    SRC_DIR        : 3rd_party/0_experimental/hid_bootloader_cli/src-libusb1
+    LIBUSB_VERSION : 1.0.27
 
 jobs :
-  # --------------------------------------------------------------------------------------------
-  # Setup - filters the linux/windows/macos matrices down to just the selected `target` (or
-  # everything, for `target: all`) BEFORE any runner spins up, so picking one target doesn't burn
-  # minutes spinning up containers/VMs for the other arches in that OS's matrix just to no-op them.
-  # --------------------------------------------------------------------------------------------
-  setup :
-    if      : github.actor == 'blue-wind-25'
-    runs-on : ubuntu-latest
-    outputs :
-      linux_matrix   : ${{ steps.filter.outputs.linux_matrix }}
-      windows_matrix : ${{ steps.filter.outputs.windows_matrix }}
-      macos_matrix   : ${{ steps.filter.outputs.macos_matrix }}
-    steps   :
-      - id  : filter
-        env :
-          TARGET : ${{ github.event.inputs.target }}
-        run : |
-          set -eux
-          LINUX_ALL='[
-            {"name":"linux-x86-static","image":"messense/rust-musl-cross:i686-musl","cross_triple":"i686-unknown-linux-musl"},
-            {"name":"linux-x64-static","image":"messense/rust-musl-cross:x86_64-musl","cross_triple":"x86_64-unknown-linux-musl"},
-            {"name":"linux-arm32-static","image":"messense/rust-musl-cross:armv7-musleabihf","cross_triple":"armv7-unknown-linux-musleabihf"},
-            {"name":"linux-arm64-static","image":"messense/rust-musl-cross:aarch64-musl","cross_triple":"aarch64-unknown-linux-musl"}
-          ]'
-          # `libusb: true` targets build+link libusb (WinUSB backend) instead of HidUsb. Only
-          # x86/x64 - libusb has no officially supported static-static ARM64/MSVC build path
-          # (no precompiled binaries, and the source tree's own Meson support for that combo is
-          # unverified), and ARM64 already gets HidUsb, which needs no extra driver on the target
-          # machine anyway (see README "WinUSB requires Zadig re-driver" note).
-          WINDOWS_ALL='[
-            {"name":"windows-x86","msvc_arch":"x86","libusb":false},
-            {"name":"windows-x64","msvc_arch":"x64","libusb":false},
-            {"name":"windows-arm64","msvc_arch":"x64_arm64","libusb":false},
-            {"name":"windows-x86-libusb","msvc_arch":"x86","libusb":true},
-            {"name":"windows-x64-libusb","msvc_arch":"x64","libusb":true}
-          ]'
-          # macos-x86_64 targets the oldest still-linkable Intel deployment target (10.13, no
-          # arm64 slice so no Big Sur floor). macos-universal must carry an arm64 slice, and Apple
-          # Silicon never shipped a macOS older than 11.0, so 11.0 is the oldest that slice (and
-          # therefore the whole fat binary) can declare.
-          MACOS_ALL='[
-            {"name":"macos-x86_64","archs":"-arch x86_64","min":"10.13"},
-            {"name":"macos-universal","archs":"-arch x86_64 -arch arm64","min":"11.0"}
-          ]'
-          if [ "$TARGET" = "all" ]; then
-            LINUX_SEL="$LINUX_ALL"
-            WINDOWS_SEL="$WINDOWS_ALL"
-            MACOS_SEL="$MACOS_ALL"
-          else
-            LINUX_SEL="$(echo "$LINUX_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
-            WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
-            MACOS_SEL="$(echo "$MACOS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
-          fi
-          echo "linux_matrix=$(echo "$LINUX_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
-          echo "windows_matrix=$(echo "$WINDOWS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
-          echo "macos_matrix=$(echo "$MACOS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+    # --------------------------------------------------------------------------------------------
+    # Setup - filters the linux/windows/macos matrices down to just the selected `target` (or
+    # everything, for `target: all`) BEFORE any runner spins up, so picking one target doesn't burn
+    # minutes spinning up containers/VMs for the other arches in that OS's matrix just to no-op them.
+    # --------------------------------------------------------------------------------------------
+    setup :
+        if      : github.actor == 'blue-wind-25'
+        runs-on : ubuntu-latest
+        outputs :
+            linux_matrix   : ${{ steps.filter.outputs.linux_matrix }}
+            windows_matrix : ${{ steps.filter.outputs.windows_matrix }}
+            macos_matrix   : ${{ steps.filter.outputs.macos_matrix }}
+        steps   :
+            - id  : filter
+              env :
+                    TARGET : ${{ github.event.inputs.target }}
+              run : |
+                set -eux
+                LINUX_ALL='[
+                  {"name":"linux-x86-static","image":"messense/rust-musl-cross:i686-musl","cross_triple":"i686-unknown-linux-musl"},
+                  {"name":"linux-x64-static","image":"messense/rust-musl-cross:x86_64-musl","cross_triple":"x86_64-unknown-linux-musl"},
+                  {"name":"linux-arm32-static","image":"messense/rust-musl-cross:armv7-musleabihf","cross_triple":"armv7-unknown-linux-musleabihf"},
+                  {"name":"linux-arm64-static","image":"messense/rust-musl-cross:aarch64-musl","cross_triple":"aarch64-unknown-linux-musl"}
+                ]'
+                # `libusb: true` targets build+link libusb (WinUSB backend) instead of HidUsb. Only
+                # x86/x64 - libusb has no officially supported static-static ARM64/MSVC build path
+                # (no precompiled binaries, and the source tree's own Meson support for that combo is
+                # unverified), and ARM64 already gets HidUsb, which needs no extra driver on the target
+                # machine anyway (see README "WinUSB requires Zadig re-driver" note).
+                WINDOWS_ALL='[
+                  {"name":"windows-x86","msvc_arch":"x86","libusb":false},
+                  {"name":"windows-x64","msvc_arch":"x64","libusb":false},
+                  {"name":"windows-arm64","msvc_arch":"x64_arm64","libusb":false},
+                  {"name":"windows-x86-libusb","msvc_arch":"x86","libusb":true},
+                  {"name":"windows-x64-libusb","msvc_arch":"x64","libusb":true}
+                ]'
+                # macos-x86_64 targets the oldest still-linkable Intel deployment target (10.13, no
+                # arm64 slice so no Big Sur floor). macos-universal must carry an arm64 slice, and Apple
+                # Silicon never shipped a macOS older than 11.0, so 11.0 is the oldest that slice (and
+                # therefore the whole fat binary) can declare.
+                MACOS_ALL='[
+                  {"name":"macos-x86_64","archs":"-arch x86_64","min":"10.13"},
+                  {"name":"macos-universal","archs":"-arch x86_64 -arch arm64","min":"11.0"}
+                ]'
+                if [ "$TARGET" = "all" ]; then
+                  LINUX_SEL="$LINUX_ALL"
+                  WINDOWS_SEL="$WINDOWS_ALL"
+                  MACOS_SEL="$MACOS_ALL"
+                else
+                  LINUX_SEL="$(echo "$LINUX_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+                  WINDOWS_SEL="$(echo "$WINDOWS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+                  MACOS_SEL="$(echo "$MACOS_ALL" | jq -c --arg t "$TARGET" '[.[] | select(.name == $t)]')"
+                fi
+                echo "linux_matrix=$(echo "$LINUX_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+                echo "windows_matrix=$(echo "$WINDOWS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
+                echo "macos_matrix=$(echo "$MACOS_SEL" | jq -c .)" >> "$GITHUB_OUTPUT"
 
-  # --------------------------------------------------------------------------------------------
-  # Linux - static musl builds (portable across glibc versions since there's no glibc at all)
-  # --------------------------------------------------------------------------------------------
-  linux :
-    needs     : setup
-    if        : github.actor == 'blue-wind-25' && needs.setup.outputs.linux_matrix != '[]'
-    strategy  :
-      fail-fast : false
-      matrix    :
-        include : ${{ fromJson(needs.setup.outputs.linux_matrix) }}
-    runs-on   : ubuntu-latest
-    container : ${{ matrix.image }}
-    steps     :
-      - uses : actions/checkout@v4
-      - name : Build static libusb-1.0 for ${{ matrix.cross_triple }}
-        env  :
-          CC : ${{ matrix.cross_triple }}-gcc
-        run  : |
-          set -eux
-          curl -fsSL "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" -o libusb.tar.bz2
-          tar xf libusb.tar.bz2
-          cd "libusb-${LIBUSB_VERSION}"
-          CC=$CC ./configure --host="${{ matrix.cross_triple }}" --disable-shared --enable-static --disable-udev \
-            || { echo '----- config.log -----'; cat config.log; exit 1; }
-          make -j"$(nproc)"
+    # --------------------------------------------------------------------------------------------
+    # Linux - static musl builds (portable across glibc versions since there's no glibc at all)
+    # --------------------------------------------------------------------------------------------
+    linux :
+        needs     : setup
+        if        : github.actor == 'blue-wind-25' && needs.setup.outputs.linux_matrix != '[]'
+        strategy  :
+            fail-fast : false
+            matrix    :
+                include : ${{ fromJson(needs.setup.outputs.linux_matrix) }}
+        runs-on   : ubuntu-latest
+        container : ${{ matrix.image }}
+        steps     :
+            - uses : actions/checkout@v4
+            - name : Build static libusb-1.0 for ${{ matrix.cross_triple }}
+              env  :
+                    CC : ${{ matrix.cross_triple }}-gcc
+              run  : |
+                set -eux
+                curl -fsSL "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2" -o libusb.tar.bz2
+                tar xf libusb.tar.bz2
+                cd "libusb-${LIBUSB_VERSION}"
+                CC=$CC ./configure --host="${{ matrix.cross_triple }}" --disable-shared --enable-static --disable-udev \
+                  || { echo '----- config.log -----'; cat config.log; exit 1; }
+                make -j"$(nproc)"
 
-      - name              : Compile hid_bootloader_cli.c
-        working-directory : ${{ env.SRC_DIR }}
-        env               :
-          CC : ${{ matrix.cross_triple }}-gcc
-        run               : |
-          set -eux
-          # hid_bootloader_cli.c does `#include <libusb-1.0/libusb.h>`, but libusb's own
-          # source tree has the header directly in libusb/ (no libusb-1.0/ subdir) - only
-          # `make install` creates that layout. Fake it with a symlink instead of installing.
-          ln -sf "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb" "$GITHUB_WORKSPACE/libusb-1.0"
-          $CC -O2 -Wall -Wno-misleading-indentation -static -s \
-            -o hid_bootloader_cli \
-            hid_bootloader_cli.c \
-            -DUSE_LIBUSB \
-            -I "$GITHUB_WORKSPACE" \
-            "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a"
-          file hid_bootloader_cli
+            - name              : Compile hid_bootloader_cli.c
+              working-directory : ${{ env.SRC_DIR }}
+              env               :
+                    CC : ${{ matrix.cross_triple }}-gcc
+              run               : |
+                set -eux
+                # hid_bootloader_cli.c does `#include <libusb-1.0/libusb.h>`, but libusb's own
+                # source tree has the header directly in libusb/ (no libusb-1.0/ subdir) - only
+                # `make install` creates that layout. Fake it with a symlink instead of installing.
+                ln -sf "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb" "$GITHUB_WORKSPACE/libusb-1.0"
+                $CC -O2 -Wall -Wno-misleading-indentation -static -s \
+                  -o hid_bootloader_cli \
+                  hid_bootloader_cli.c \
+                  -DUSE_LIBUSB \
+                  -I "$GITHUB_WORKSPACE" \
+                  "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a"
+                file hid_bootloader_cli
 
-      - uses : actions/upload-artifact@v4
-        with :
-          name              : ${{ matrix.name }}
-          path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
-          retention-days    : 1 # Automatically cleanup quickly
-          if-no-files-found : error
+            - uses : actions/upload-artifact@v4
+              with :
+                    name              : ${{ matrix.name }}
+                    path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
+                    retention-days    : 1 # Automatically cleanup quickly
+                    if-no-files-found : error
 
-  # --------------------------------------------------------------------------------------------
-  # Windows - native MSVC cross toolsets, on windows-2022 (Server 2022 / VS2022 toolset) rather
-  # than windows-latest (currently windows-2025 / VS "18") - the older, still-supported hosted
-  # image tracks a toolset lineage closer to what a Windows 10 end-user machine would have, and
-  # keeps the compiler/CRT further from bleeding-edge so target-OS compatibility is easier to
-  # reason about. Portability back to Windows 7 is then handled explicitly at compile time:
-  #   /MT              statically links the MSVC CRT, so the binary doesn't depend on the
-  #                     matching Visual C++ Redistributable being installed on the target
-  #                     machine (the actual #1 cause of "won't run on an old Windows box").
-  #   /D_WIN32_WINNT    sets the Windows API level the source is compiled against down to
-  #                     0x0601 (Windows 7), so no Windows 8+-only API accidentally slips in.
-  #   /SUBSYSTEM:...,6.01  stamps the PE header's minimum OS version as 6.01 (Windows 7) instead
-  #                     of whatever the toolset defaults to, so Windows won't refuse to launch it.
-  # This only affects x86/x64 - ARM64 Windows only ever shipped as Windows 10+, so the WINNT/
-  # SUBSYSTEM floor is moot there, but /MT still applies for the same redistributable reason.
-  # --------------------------------------------------------------------------------------------
-  windows :
-    needs           : setup
-    if              : github.actor == 'blue-wind-25' && needs.setup.outputs.windows_matrix != '[]'
-    strategy        :
-      fail-fast : false
-      matrix    :
-        include : ${{ fromJson(needs.setup.outputs.windows_matrix) }}
-    runs-on         : windows-2022
-    timeout-minutes : 20
-    steps           :
-      - uses : actions/checkout@v4
-      - uses : ilammy/msvc-dev-cmd@v1
-        with :
-          arch : ${{ matrix.msvc_arch }}
+    # --------------------------------------------------------------------------------------------
+    # Windows - native MSVC cross toolsets, on windows-2022 (Server 2022 / VS2022 toolset) rather
+    # than windows-latest (currently windows-2025 / VS "18") - the older, still-supported hosted
+    # image tracks a toolset lineage closer to what a Windows 10 end-user machine would have, and
+    # keeps the compiler/CRT further from bleeding-edge so target-OS compatibility is easier to
+    # reason about. Portability back to Windows 7 is then handled explicitly at compile time:
+    #   /MT              statically links the MSVC CRT, so the binary doesn't depend on the
+    #                     matching Visual C++ Redistributable being installed on the target
+    #                     machine (the actual #1 cause of "won't run on an old Windows box").
+    #   /D_WIN32_WINNT    sets the Windows API level the source is compiled against down to
+    #                     0x0601 (Windows 7), so no Windows 8+-only API accidentally slips in.
+    #   /SUBSYSTEM:...,6.01  stamps the PE header's minimum OS version as 6.01 (Windows 7) instead
+    #                     of whatever the toolset defaults to, so Windows won't refuse to launch it.
+    # This only affects x86/x64 - ARM64 Windows only ever shipped as Windows 10+, so the WINNT/
+    # SUBSYSTEM floor is moot there, but /MT still applies for the same redistributable reason.
+    # --------------------------------------------------------------------------------------------
+    windows :
+        needs           : setup
+        if              : github.actor == 'blue-wind-25' && needs.setup.outputs.windows_matrix != '[]'
+        strategy        :
+            fail-fast : false
+            matrix    :
+                include : ${{ fromJson(needs.setup.outputs.windows_matrix) }}
+        runs-on         : windows-2022
+        timeout-minutes : 20
+        steps           :
+            - uses : actions/checkout@v4
+            - uses : ilammy/msvc-dev-cmd@v1
+              with :
+                    arch : ${{ matrix.msvc_arch }}
 
-      - name  : Write unistd.h compat shim (MSVC has no unistd.h; the source only needs usleep())
-        shell : pwsh
-        run   : |
-          Set-Content -Path "${{ env.SRC_DIR }}\unistd.h" -Value @'
-          #pragma once
-          #include <windows.h>
-          static __inline void usleep(long usec) { Sleep((DWORD)((usec + 999) / 1000)); }
-          '@
+            - name  : Write unistd.h compat shim (MSVC has no unistd.h; the source only needs usleep())
+              shell : pwsh
+              run   : |
+                Set-Content -Path "${{ env.SRC_DIR }}\unistd.h" -Value @'
+                #pragma once
+                #include <windows.h>
+                static __inline void usleep(long usec) { Sleep((DWORD)((usec + 999) / 1000)); }
+                '@
 
-      - name  : Build static libusb-1.0 (WinUSB backend) for ${{ matrix.msvc_arch }} via vcpkg
-        if    : matrix.libusb == true
-        shell : cmd
-        run   : |
-          rem `where vcpkg` can resolve to the VS-bundled shim (...\VC\vcpkg\vcpkg.exe), but that
-          rem shim always installs into C:\vcpkg regardless (see its own "ignoring mismatched
-          rem VCPKG_ROOT" warning), so hardcode the real root rather than derive it from the shim.
-          set VCPKG_DIR=C:\vcpkg\
-          vcpkg install libusb:${{ matrix.msvc_arch }}-windows-static || exit /b 1
-          dir /s /b "%VCPKG_DIR%packages\libusb_${{ matrix.msvc_arch }}-windows-static\lib\libusb-1.0.lib"
+            - name  : Build static libusb-1.0 (WinUSB backend) for ${{ matrix.msvc_arch }} via vcpkg
+              if    : matrix.libusb == true
+              shell : cmd
+              run   : |
+                rem `where vcpkg` can resolve to the VS-bundled shim (...\VC\vcpkg\vcpkg.exe), but that
+                rem shim always installs into C:\vcpkg regardless (see its own "ignoring mismatched
+                rem VCPKG_ROOT" warning), so hardcode the real root rather than derive it from the shim.
+                set VCPKG_DIR=C:\vcpkg\
+                vcpkg install libusb:${{ matrix.msvc_arch }}-windows-static || exit /b 1
+                dir /s /b "%VCPKG_DIR%packages\libusb_${{ matrix.msvc_arch }}-windows-static\lib\libusb-1.0.lib"
 
-      - name              : Compile hid_bootloader_cli.c (HidUsb)
-        if                : matrix.libusb != true
-        working-directory : ${{ env.SRC_DIR }}
-        shell             : cmd
-        run               : |
-          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_WIN32 /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib /link /SUBSYSTEM:CONSOLE,6.01
+            - name              : Compile hid_bootloader_cli.c (HidUsb)
+              if                : matrix.libusb != true
+              working-directory : ${{ env.SRC_DIR }}
+              shell             : cmd
+              run               : |
+                cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_WIN32 /I . /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c setupapi.lib hid.lib /link /SUBSYSTEM:CONSOLE,6.01
 
-      - name              : Compile hid_bootloader_cli.c (WinUSB via libusb)
-        if                : matrix.libusb == true
-        working-directory : ${{ env.SRC_DIR }}
-        shell             : cmd
-        run               : |
-          set VCPKG_TRIPLET_DIR=C:\vcpkg\packages\libusb_${{ matrix.msvc_arch }}-windows-static
-          cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /I "%VCPKG_TRIPLET_DIR%\include" /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%VCPKG_TRIPLET_DIR%\lib\libusb-1.0.lib" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
+            - name              : Compile hid_bootloader_cli.c (WinUSB via libusb)
+              if                : matrix.libusb == true
+              working-directory : ${{ env.SRC_DIR }}
+              shell             : cmd
+              run               : |
+                set VCPKG_TRIPLET_DIR=C:\vcpkg\packages\libusb_${{ matrix.msvc_arch }}-windows-static
+                cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /I "%VCPKG_TRIPLET_DIR%\include" /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%VCPKG_TRIPLET_DIR%\lib\libusb-1.0.lib" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
 
-      - uses : actions/upload-artifact@v4
-        with :
-          name              : ${{ matrix.name }}
-          path              : ${{ env.SRC_DIR }}/hid_bootloader_cli.exe
-          retention-days    : 1 # Automatically cleanup quickly
-          if-no-files-found : error
+            - uses : actions/upload-artifact@v4
+              with :
+                    name              : ${{ matrix.name }}
+                    path              : ${{ env.SRC_DIR }}/hid_bootloader_cli.exe
+                    retention-days    : 1 # Automatically cleanup quickly
+                    if-no-files-found : error
 
-  # --------------------------------------------------------------------------------------------
-  # MacOS - two artifacts:
-  #   macos-x86_64    Intel-only, -mmacosx-version-min=10.13, for older/non-Apple-Silicon Macs
-  #   macos-universal x86_64 + arm64 fat binary, -mmacosx-version-min=11.0 (the oldest version
-  #                   that ever shipped an arm64 kernel - a universal binary can't declare a
-  #                   lower floor than its oldest-supported slice)
-  # Both still built natively with Xcode's clang on macos-latest.
-  # --------------------------------------------------------------------------------------------
-  macos :
-    needs    : setup
-    if       : github.actor == 'blue-wind-25' && needs.setup.outputs.macos_matrix != '[]'
-    strategy :
-      fail-fast : false
-      matrix    :
-        include : ${{ fromJson(needs.setup.outputs.macos_matrix) }}
-    runs-on  : macos-latest
-    steps    :
-      - uses : actions/checkout@v4
-      - name              : Compile hid_bootloader_cli (${{ matrix.name }})
-        working-directory : ${{ env.SRC_DIR }}
-        run               : |
-          set -eux
-          clang -O2 -Wall -mmacosx-version-min=${{ matrix.min }} \
-            ${{ matrix.archs }} \
-            -DUSE_APPLE_IOKIT \
-            -framework IOKit -framework CoreFoundation \
-            -o hid_bootloader_cli hid_bootloader_cli.c
-          lipo -info hid_bootloader_cli || true
+    # --------------------------------------------------------------------------------------------
+    # MacOS - two artifacts:
+    #   macos-x86_64    Intel-only, -mmacosx-version-min=10.13, for older/non-Apple-Silicon Macs
+    #   macos-universal x86_64 + arm64 fat binary, -mmacosx-version-min=11.0 (the oldest version
+    #                   that ever shipped an arm64 kernel - a universal binary can't declare a
+    #                   lower floor than its oldest-supported slice)
+    # Both still built natively with Xcode's clang on macos-latest.
+    # --------------------------------------------------------------------------------------------
+    macos :
+        needs    : setup
+        if       : github.actor == 'blue-wind-25' && needs.setup.outputs.macos_matrix != '[]'
+        strategy :
+            fail-fast : false
+            matrix    :
+                include : ${{ fromJson(needs.setup.outputs.macos_matrix) }}
+        runs-on  : macos-latest
+        steps    :
+            - uses : actions/checkout@v4
+            - name              : Compile hid_bootloader_cli (${{ matrix.name }})
+              working-directory : ${{ env.SRC_DIR }}
+              run               : |
+                set -eux
+                clang -O2 -Wall -mmacosx-version-min=${{ matrix.min }} \
+                  ${{ matrix.archs }} \
+                  -DUSE_APPLE_IOKIT \
+                  -framework IOKit -framework CoreFoundation \
+                  -o hid_bootloader_cli hid_bootloader_cli.c
+                lipo -info hid_bootloader_cli || true
 
-      - uses : actions/upload-artifact@v4
-        with :
-          name              : ${{ matrix.name }}
-          path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
-          retention-days    : 1 # Automatically cleanup quickly
-          if-no-files-found : error
+            - uses : actions/upload-artifact@v4
+              with :
+                    name              : ${{ matrix.name }}
+                    path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
+                    retention-days    : 1 # Automatically cleanup quickly
+                    if-no-files-found : error
 
-  # --------------------------------------------------------------------------------------------
-  # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists).
-  # Pinned to older point releases (rather than each project's newest stable) purely for build
-  # portability of the *toolchain* used to produce the binary - the output itself is fully static
-  # (libc included), so it doesn't actually depend on the release it was built on; the pin just
-  # keeps the build reproducible against an older, still-supported base system.
-  # --------------------------------------------------------------------------------------------
-  freebsd :
-    if      : github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64-static')
-    runs-on : ubuntu-latest
-    steps   :
-      - uses : actions/checkout@v4
-      - uses : vmactions/freebsd-vm@v1
-        with :
-          release : "13.2"
-          arch    : x86_64
-          usesh   : true
-          envs    : 'SRC_DIR LIBUSB_VERSION'
-          # Build libusb from source and link statically instead of using the base system's
-          # libusb.so, so the binary isn't tied to this specific FreeBSD release's library ABI
-          # (same reasoning as the Linux musl-static builds).
-          prepare : pkg install -y gmake
-          run     : |
-            set -eux
-            fetch -T 120 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
-            tar xf /tmp/libusb.tar.bz2 -C /tmp
-            cd "/tmp/libusb-${LIBUSB_VERSION}"
-            ./configure --disable-shared --enable-static --disable-udev
-            gmake -j"$(sysctl -n hw.ncpu)"
-            cd "$GITHUB_WORKSPACE/${SRC_DIR}"
-            # The source does `#include <libusb-1.0/libusb.h>`, but libusb's own source tree has
-            # the header directly in libusb/ (no libusb-1.0/ subdir) - symlink around it.
-            mkdir -p /tmp/incshim/libusb-1.0
-            ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
-            cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
-              -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
-            file hid_bootloader_cli
-      - uses : actions/upload-artifact@v4
-        with :
-          name              : freebsd-x64-static
-          path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
-          retention-days    : 1 # Automatically cleanup quickly
-          if-no-files-found : error
+    # --------------------------------------------------------------------------------------------
+    # FreeBSD / OpenBSD - built inside a QEMU VM via vmactions (no native GH-hosted runner exists).
+    # Pinned to older point releases (rather than each project's newest stable) purely for build
+    # portability of the *toolchain* used to produce the binary - the output itself is fully static
+    # (libc included), so it doesn't actually depend on the release it was built on; the pin just
+    # keeps the build reproducible against an older, still-supported base system.
+    # --------------------------------------------------------------------------------------------
+    freebsd :
+        if      : github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64-static')
+        runs-on : ubuntu-latest
+        steps   :
+            - uses : actions/checkout@v4
+            - uses : vmactions/freebsd-vm@v1
+              with :
+                    release : "13.2"
+                    arch    : x86_64
+                    usesh   : true
+                    envs    : 'SRC_DIR LIBUSB_VERSION'
+                    # Build libusb from source and link statically instead of using the base system's
+                    # libusb.so, so the binary isn't tied to this specific FreeBSD release's library ABI
+                    # (same reasoning as the Linux musl-static builds).
+                    prepare : pkg install -y gmake
+                    run     : |
+                      set -eux
+                      fetch -T 120 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+                      tar xf /tmp/libusb.tar.bz2 -C /tmp
+                      cd "/tmp/libusb-${LIBUSB_VERSION}"
+                      ./configure --disable-shared --enable-static --disable-udev
+                      gmake -j"$(sysctl -n hw.ncpu)"
+                      cd "$GITHUB_WORKSPACE/${SRC_DIR}"
+                      # The source does `#include <libusb-1.0/libusb.h>`, but libusb's own source tree has
+                      # the header directly in libusb/ (no libusb-1.0/ subdir) - symlink around it.
+                      mkdir -p /tmp/incshim/libusb-1.0
+                      ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
+                      cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+                        -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
+                      file hid_bootloader_cli
+            - uses : actions/upload-artifact@v4
+              with :
+                    name              : freebsd-x64-static
+                    path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
+                    retention-days    : 1 # Automatically cleanup quickly
+                    if-no-files-found : error
 
-  openbsd :
-    if      : github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64-static')
-    runs-on : ubuntu-latest
-    steps   :
-      - uses : actions/checkout@v4
-      - uses : vmactions/openbsd-vm@v1
-        with :
-          # OpenBSD's package mirror (cdn.openbsd.org) DELETES the packages/<arch>/ directory
-          # entirely once a release goes EOL - unlike FreeBSD, which keeps an archive - so
-          # pinning to an EOL release breaks `pkg_add` outright. OpenBSD only supports the two
-          # most recent releases at any time; pin to the OLDER of those two (still receiving
-          # errata, not yet EOL) rather than always-newest, for the same toolchain-portability
-          # reasoning as the FreeBSD pin above. Update this alongside each new OpenBSD release.
-          release : "7.8"
-          usesh   : true
-          envs    : 'SRC_DIR LIBUSB_VERSION'
-          # Same reasoning as FreeBSD above: build libusb from source and link statically instead
-          # of depending on the libusb1 package's .so, which is tied to this OpenBSD release.
-          prepare : pkg_add gmake curl
-          run     : |
-            set -eux
-            curl -fsSL --connect-timeout 20 --max-time 120 --retry 3 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
-            tar xjf /tmp/libusb.tar.bz2 -C /tmp
-            cd "/tmp/libusb-${LIBUSB_VERSION}"
-            ./configure --disable-shared --enable-static --disable-udev
-            gmake -j"$(sysctl -n hw.ncpu)"
-            cd "$GITHUB_WORKSPACE/${SRC_DIR}"
-            mkdir -p /tmp/incshim/libusb-1.0
-            ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
-            cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
-              -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
-            file hid_bootloader_cli
-      - uses : actions/upload-artifact@v4
-        with :
-          name              : openbsd-x64-static
-          path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
-          retention-days    : 1 # Automatically cleanup quickly
-          if-no-files-found : error
+    openbsd :
+        if      : github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64-static')
+        runs-on : ubuntu-latest
+        steps   :
+            - uses : actions/checkout@v4
+            - uses : vmactions/openbsd-vm@v1
+              with :
+                    # OpenBSD's package mirror (cdn.openbsd.org) DELETES the packages/<arch>/ directory
+                    # entirely once a release goes EOL - unlike FreeBSD, which keeps an archive - so
+                    # pinning to an EOL release breaks `pkg_add` outright. OpenBSD only supports the two
+                    # most recent releases at any time; pin to the OLDER of those two (still receiving
+                    # errata, not yet EOL) rather than always-newest, for the same toolchain-portability
+                    # reasoning as the FreeBSD pin above. Update this alongside each new OpenBSD release.
+                    release : "7.8"
+                    usesh   : true
+                    envs    : 'SRC_DIR LIBUSB_VERSION'
+                    # Same reasoning as FreeBSD above: build libusb from source and link statically instead
+                    # of depending on the libusb1 package's .so, which is tied to this OpenBSD release.
+                    prepare : pkg_add gmake curl
+                    run     : |
+                      set -eux
+                      curl -fsSL --connect-timeout 20 --max-time 120 --retry 3 -o /tmp/libusb.tar.bz2 "https://github.com/libusb/libusb/releases/download/v${LIBUSB_VERSION}/libusb-${LIBUSB_VERSION}.tar.bz2"
+                      tar xjf /tmp/libusb.tar.bz2 -C /tmp
+                      cd "/tmp/libusb-${LIBUSB_VERSION}"
+                      ./configure --disable-shared --enable-static --disable-udev
+                      gmake -j"$(sysctl -n hw.ncpu)"
+                      cd "$GITHUB_WORKSPACE/${SRC_DIR}"
+                      mkdir -p /tmp/incshim/libusb-1.0
+                      ln -sf "/tmp/libusb-${LIBUSB_VERSION}/libusb/libusb.h" /tmp/incshim/libusb-1.0/libusb.h
+                      cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
+                        -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
+                      file hid_bootloader_cli
+            - uses : actions/upload-artifact@v4
+              with :
+                    name              : openbsd-x64-static
+                    path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
+                    retention-days    : 1 # Automatically cleanup quickly
+                    if-no-files-found : error
 
-  # --------------------------------------------------------------------------------------------
-  # Package - only runs on a full ("all") dispatch, once every job above is green.
-  # Collects every per-target artifact into build/<target>/ (mirroring the local Makefile's
-  # build/ layout) and zips the whole tree into one download.
-  # --------------------------------------------------------------------------------------------
-  package :
-    if          : github.actor == 'blue-wind-25' && github.event.inputs.target == 'all'
-    needs       : [linux, windows, macos, freebsd, openbsd]
-    runs-on     : ubuntu-latest
-    permissions :
-      actions  : write # Needed to delete the per-target artifacts once they're packaged
-      contents : read
-    steps       :
-      - uses : actions/checkout@v4
-      - name : Download all target artifacts
-        uses : actions/download-artifact@v4
-        with :
-          path : downloaded
+    # --------------------------------------------------------------------------------------------
+    # Package - only runs on a full ("all") dispatch, once every job above is green.
+    # Collects every per-target artifact into build/<target>/ (mirroring the local Makefile's
+    # build/ layout) and zips the whole tree into one download.
+    # --------------------------------------------------------------------------------------------
+    package :
+        if          : github.actor == 'blue-wind-25' && github.event.inputs.target == 'all'
+        needs       : [linux, windows, macos, freebsd, openbsd]
+        runs-on     : ubuntu-latest
+        permissions :
+            actions  : write # Needed to delete the per-target artifacts once they're packaged
+            contents : read
+        steps       :
+            - uses : actions/checkout@v4
+            - name : Download all target artifacts
+              uses : actions/download-artifact@v4
+              with :
+                    path : downloaded
 
-      - name              : Assemble build/<target>/ tree and zip it
-        working-directory : ${{ env.SRC_DIR }}
-        run               : |
-          set -eux
-          rm -rf build/ci
-          for d in "$GITHUB_WORKSPACE"/downloaded/*/; do
-            name="$(basename "$d")"
-            mkdir -p "build/ci/$name"
-            cp -a "$d"/* "build/ci/$name/"
-          done
-          # actions/upload-artifact and/or a zip archive don't reliably round-trip the Unix
-          # executable bit (Windows unzip tools in particular ignore Info-ZIP's unix-mode extra
-          # field) - restore +x explicitly, then use tar.bz2 instead of zip so it actually sticks.
-          find build/ci -type f ! -name '*.exe' -exec chmod +x {} +
-          VERSION="$(sed -n "s/^PROGRAM_VERSION *:= *//p" Makefile)"
-          ( cd build/ci && tar -cjf "../hid_bootloader_cli-${VERSION}-all-targets.tar.bz2" . )
-          ls -la build/
+            - name              : Assemble build/<target>/ tree and zip it
+              working-directory : ${{ env.SRC_DIR }}
+              run               : |
+                set -eux
+                rm -rf build/ci
+                for d in "$GITHUB_WORKSPACE"/downloaded/*/; do
+                  name="$(basename "$d")"
+                  mkdir -p "build/ci/$name"
+                  cp -a "$d"/* "build/ci/$name/"
+                done
+                # actions/upload-artifact and/or a zip archive don't reliably round-trip the Unix
+                # executable bit (Windows unzip tools in particular ignore Info-ZIP's unix-mode extra
+                # field) - restore +x explicitly, then use tar.bz2 instead of zip so it actually sticks.
+                find build/ci -type f ! -name '*.exe' -exec chmod +x {} +
+                VERSION="$(sed -n "s/^PROGRAM_VERSION *:= *//p" Makefile)"
+                ( cd build/ci && tar -cjf "../hid_bootloader_cli-${VERSION}-all-targets.tar.bz2" . )
+                ls -la build/
 
-      - uses : actions/upload-artifact@v4
-        with :
-          name              : hid_bootloader_cli-all-targets
-          path              : ${{ env.SRC_DIR }}/build/*-all-targets.tar.bz2
-          retention-days    : 1 # Automatically cleanup quickly
-          if-no-files-found : error
+            - uses : actions/upload-artifact@v4
+              with :
+                    name              : hid_bootloader_cli-all-targets
+                    path              : ${{ env.SRC_DIR }}/build/*-all-targets.tar.bz2
+                    retention-days    : 1 # Automatically cleanup quickly
+                    if-no-files-found : error
 
-      - name : Delete per-target artifacts now that they're packaged into the zip
-        env  :
-          GH_TOKEN : ${{ github.token }}
-        run  : |
-          set -eux
-          for name in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --paginate --jq '.artifacts[] | select(.name != "hid_bootloader_cli-all-targets") | .id'); do
-            gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$name"
-          done
+            - name : Delete per-target artifacts now that they're packaged into the zip
+              env  :
+                    GH_TOKEN : ${{ github.token }}
+              run  : |
+                set -eux
+                for name in $(gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" --paginate --jq '.artifacts[] | select(.name != "hid_bootloader_cli-all-targets") | .id'); do
+                  gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/$name"
+                done

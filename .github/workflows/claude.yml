@@ -72,164 +72,164 @@
 name : Run Claude Code via GitHub Issue
 
 on   :
-  issues :
-    types : [assigned]
+    issues :
+        types : [assigned]
 
 jobs :
-  claude :
-    runs-on     : ubuntu-latest
-    if          : >-
-      github.event.assignee.login == 'blue-wind-25' &&
-      github.event.sender.login == 'blue-wind-25' &&
-      (contains(github.event.issue.title, '@Claude') ||
-       contains(github.event.issue.body || '',  '@Claude'))
+    claude :
+        runs-on     : ubuntu-latest
+        if          : >-
+          github.event.assignee.login == 'blue-wind-25' &&
+          github.event.sender.login == 'blue-wind-25' &&
+          (contains(github.event.issue.title, '@Claude') ||
+           contains(github.event.issue.body || '',  '@Claude'))
 
-    permissions :
-      contents      : write
-      issues        : write
-      pull-requests : write
-      id-token      : write
+        permissions :
+            contents      : write
+            issues        : write
+            pull-requests : write
+            id-token      : write
 
-    env         :
-      ISSUE_TITLE  : ${{ github.event.issue.title }}
-      ISSUE_BODY   : ${{ github.event.issue.body || '' }}
-      MODEL_HAIKU  : ${{ vars.CLAUDE_MODEL_HAIKU  || 'claude-haiku-4-5' }}
-      MODEL_SONNET : ${{ vars.CLAUDE_MODEL_SONNET || 'claude-sonnet-5'  }}
-      MODEL_OPUS   : ${{ vars.CLAUDE_MODEL_OPUS   || 'claude-opus-5'    }}
-      MODEL_FABLE  : ${{ vars.CLAUDE_MODEL_FABLE  || 'claude-fable-5'   }}
+        env         :
+            ISSUE_TITLE  : ${{ github.event.issue.title }}
+            ISSUE_BODY   : ${{ github.event.issue.body || '' }}
+            MODEL_HAIKU  : ${{ vars.CLAUDE_MODEL_HAIKU  || 'claude-haiku-4-5' }}
+            MODEL_SONNET : ${{ vars.CLAUDE_MODEL_SONNET || 'claude-sonnet-5'  }}
+            MODEL_OPUS   : ${{ vars.CLAUDE_MODEL_OPUS   || 'claude-opus-5'    }}
+            MODEL_FABLE  : ${{ vars.CLAUDE_MODEL_FABLE  || 'claude-fable-5'   }}
 
-    steps       :
-      - uses : actions/checkout@v4
-      # ----------------------------------------------------------
-      # Parse @Claude[model:effort=maxturns+output] from title or body
-      # ----------------------------------------------------------
-      - name  : Parse @Claude directive
-        id    : claude_args
-        shell : bash
-        run   : |
-          set -euo pipefail
+        steps       :
+            - uses : actions/checkout@v4
+            # ----------------------------------------------------------
+            # Parse @Claude[model:effort=maxturns+output] from title or body
+            # ----------------------------------------------------------
+            - name  : Parse @Claude directive
+              id    : claude_args
+              shell : bash
+              run   : |
+                set -euo pipefail
 
-          USAGE="
-          Usage: @Claude[model:effort=maxturns+output]   (all parts optional)
+                USAGE="
+                Usage: @Claude[model:effort=maxturns+output]   (all parts optional)
 
-            Param     Values                            Default
-            --------  --------------------------------  -------
-            model     haiku, sonnet, opus, fable         sonnet
-            effort    low, medium, high, xhigh, max      low
-            maxturns  positive integer                   20
-            output    off, on  (default = alias)         off
-          "
+                  Param     Values                            Default
+                  --------  --------------------------------  -------
+                  model     haiku, sonnet, opus, fable         sonnet
+                  effort    low, medium, high, xhigh, max      low
+                  maxturns  positive integer                   20
+                  output    off, on  (default = alias)         off
+                "
 
-          # --- Case-sensitive extraction (-oP instead of -oiP to respect your rules) ---
-          MENTION=$(printf '%s' "$ISSUE_TITLE" | grep -oP '@Claude(\[[^\]]*\])?' | head -1 || true)
-          if [ -z "$MENTION" ]; then
-            MENTION=$(printf '%s' "$ISSUE_BODY" | grep -oP '@Claude(\[[^\]]*\])?' | head -1 || true)
-          fi
+                # --- Case-sensitive extraction (-oP instead of -oiP to respect your rules) ---
+                MENTION=$(printf '%s' "$ISSUE_TITLE" | grep -oP '@Claude(\[[^\]]*\])?' | head -1 || true)
+                if [ -z "$MENTION" ]; then
+                  MENTION=$(printf '%s' "$ISSUE_BODY" | grep -oP '@Claude(\[[^\]]*\])?' | head -1 || true)
+                fi
 
-          # --- Extract bracketed content (may be empty) ---
-          BRACKET=$(printf '%s' "$MENTION" | grep -oP '(?<=\[)[^\]]*(?=\])' || true)
+                # --- Extract bracketed content (may be empty) ---
+                BRACKET=$(printf '%s' "$MENTION" | grep -oP '(?<=\[)[^\]]*(?=\])' || true)
 
-          # --- Split on '+' → left=core, right=output_raw ---
-          CORE=$(printf '%s' "$BRACKET"       | cut -d+ -f1)
-          OUTPUT_RAW=$(printf '%s' "$BRACKET" | cut -s -d+ -f2)
+                # --- Split on '+' → left=core, right=output_raw ---
+                CORE=$(printf '%s' "$BRACKET"       | cut -d+ -f1)
+                OUTPUT_RAW=$(printf '%s' "$BRACKET" | cut -s -d+ -f2)
 
-          # --- Split core on ':' → left=model_raw, right=effort_and_turns ---
-          MODEL_RAW=$(printf '%s' "$CORE"     | cut -d: -f1)
-          AFTER_COLON=$(printf '%s' "$CORE"   | cut -s -d: -f2)
+                # --- Split core on ':' → left=model_raw, right=effort_and_turns ---
+                MODEL_RAW=$(printf '%s' "$CORE"     | cut -d: -f1)
+                AFTER_COLON=$(printf '%s' "$CORE"   | cut -s -d: -f2)
 
-          # --- Split right of ':' on '=' → left=effort_raw, right=turns_raw ---
-          EFFORT_RAW=$(printf '%s' "$AFTER_COLON" | cut -d= -f1)
-          TURNS_RAW=$(printf '%s' "$AFTER_COLON"  | cut -s -d= -f2)
+                # --- Split right of ':' on '=' → left=effort_raw, right=turns_raw ---
+                EFFORT_RAW=$(printf '%s' "$AFTER_COLON" | cut -d= -f1)
+                TURNS_RAW=$(printf '%s' "$AFTER_COLON"  | cut -s -d= -f2)
 
-          # --- Normalize everything inside the brackets to lowercase ---
-          MODEL_RAW=$(printf  '%s' "$MODEL_RAW"  | tr '[:upper:]' '[:lower:]')
-          EFFORT_RAW=$(printf '%s' "$EFFORT_RAW" | tr '[:upper:]' '[:lower:]')
-          OUTPUT_RAW=$(printf '%s' "$OUTPUT_RAW" | tr '[:upper:]' '[:lower:]')
+                # --- Normalize everything inside the brackets to lowercase ---
+                MODEL_RAW=$(printf  '%s' "$MODEL_RAW"  | tr '[:upper:]' '[:lower:]')
+                EFFORT_RAW=$(printf '%s' "$EFFORT_RAW" | tr '[:upper:]' '[:lower:]')
+                OUTPUT_RAW=$(printf '%s' "$OUTPUT_RAW" | tr '[:upper:]' '[:lower:]')
 
-          # --- Collect all errors before failing ---
-          ERRORS=""
+                # --- Collect all errors before failing ---
+                ERRORS=""
 
-          # Model
-          case "$MODEL_RAW" in
-            haiku)     MODEL="$MODEL_HAIKU"  ;;
-            opus)      MODEL="$MODEL_OPUS"   ;;
-            fable)     MODEL="$MODEL_FABLE"  ;;
-            sonnet|"") MODEL="$MODEL_SONNET" ;;
-            *)         ERRORS="${ERRORS}\n  - Unknown model '${MODEL_RAW}' (valid: haiku, sonnet, opus, fable)" ;;
-          esac
+                # Model
+                case "$MODEL_RAW" in
+                  haiku)     MODEL="$MODEL_HAIKU"  ;;
+                  opus)      MODEL="$MODEL_OPUS"   ;;
+                  fable)     MODEL="$MODEL_FABLE"  ;;
+                  sonnet|"") MODEL="$MODEL_SONNET" ;;
+                  *)         ERRORS="${ERRORS}\n  - Unknown model '${MODEL_RAW}' (valid: haiku, sonnet, opus, fable)" ;;
+                esac
 
-          # Effort (low is sufficient for most issue-driven edits here in
-          # practice; raise per-invocation via @Claude[:xhigh] etc. for
-          # harder multi-step work)
-          case "$EFFORT_RAW" in
-            low|medium|high|xhigh|max) EFFORT="$EFFORT_RAW" ;;
-            "")                        EFFORT="low"         ;;
-            *) ERRORS="${ERRORS}\n  - Unknown effort '${EFFORT_RAW}' (valid: low, medium, high, xhigh, max)" ;;
-          esac
+                # Effort (low is sufficient for most issue-driven edits here in
+                # practice; raise per-invocation via @Claude[:xhigh] etc. for
+                # harder multi-step work)
+                case "$EFFORT_RAW" in
+                  low|medium|high|xhigh|max) EFFORT="$EFFORT_RAW" ;;
+                  "")                        EFFORT="low"         ;;
+                  *) ERRORS="${ERRORS}\n  - Unknown effort '${EFFORT_RAW}' (valid: low, medium, high, xhigh, max)" ;;
+                esac
 
-          # Max turns
-          if [ -z "$TURNS_RAW" ]; then
-            TURNS="20"
-          elif printf '%s' "$TURNS_RAW" | grep -qP '^[1-9][0-9]*$'; then
-            TURNS="$TURNS_RAW"
-          else
-            ERRORS="${ERRORS}\n  - Invalid max-turns '${TURNS_RAW}' (must be a positive integer)"
-          fi
+                # Max turns
+                if [ -z "$TURNS_RAW" ]; then
+                  TURNS="20"
+                elif printf '%s' "$TURNS_RAW" | grep -qP '^[1-9][0-9]*$'; then
+                  TURNS="$TURNS_RAW"
+                else
+                  ERRORS="${ERRORS}\n  - Invalid max-turns '${TURNS_RAW}' (must be a positive integer)"
+                fi
 
-          # Output (boolean; `default` kept as alias for `off`)
-          case "$OUTPUT_RAW" in
-            off|default|"") SHOW_OUTPUT="false" ;;
-            on)             SHOW_OUTPUT="true"  ;;
-            *) ERRORS="${ERRORS}\n  - Unknown output '${OUTPUT_RAW}' (valid: off, on)" ;;
-          esac
+                # Output (boolean; `default` kept as alias for `off`)
+                case "$OUTPUT_RAW" in
+                  off|default|"") SHOW_OUTPUT="false" ;;
+                  on)             SHOW_OUTPUT="true"  ;;
+                  *) ERRORS="${ERRORS}\n  - Unknown output '${OUTPUT_RAW}' (valid: off, on)" ;;
+                esac
 
-          # --- Fail early with all errors + usage ---
-          if [ -n "$ERRORS" ]; then
-            echo "::error::@Claude directive has invalid parameter(s):"
-            printf '%b\n' "$ERRORS"
-            printf '%s\n' "$USAGE"
-            exit 1
-          fi
+                # --- Fail early with all errors + usage ---
+                if [ -n "$ERRORS" ]; then
+                  echo "::error::@Claude directive has invalid parameter(s):"
+                  printf '%b\n' "$ERRORS"
+                  printf '%s\n' "$USAGE"
+                  exit 1
+                fi
 
-          {
-            echo "model=$MODEL"
-            echo "effort=$EFFORT"
-            echo "turns=$TURNS"
-            echo "show_output=$SHOW_OUTPUT"
-          } >> "$GITHUB_OUTPUT"
+                {
+                  echo "model=$MODEL"
+                  echo "effort=$EFFORT"
+                  echo "turns=$TURNS"
+                  echo "show_output=$SHOW_OUTPUT"
+                } >> "$GITHUB_OUTPUT"
 
-          echo "Resolved → model=$MODEL  effort=$EFFORT  max-turns=$TURNS  show_full_output=$SHOW_OUTPUT"
+                echo "Resolved → model=$MODEL  effort=$EFFORT  max-turns=$TURNS  show_full_output=$SHOW_OUTPUT"
 
-      # ----------------------------------------------------------
-      # Run Claude
-      # ----------------------------------------------------------
-      - uses : anthropics/claude-code-action@v1
-        with :
-          claude_code_oauth_token : ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          show_full_output        : ${{ steps.claude_args.outputs.show_output }}
+            # ----------------------------------------------------------
+            # Run Claude
+            # ----------------------------------------------------------
+            - uses : anthropics/claude-code-action@v1
+              with :
+                    claude_code_oauth_token : ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+                    show_full_output        : ${{ steps.claude_args.outputs.show_output }}
 
-          prompt      : |
-            ${{ env.ISSUE_TITLE }}
+                    prompt      : |
+                      ${{ env.ISSUE_TITLE }}
 
-            ${{ env.ISSUE_BODY }}
+                      ${{ env.ISSUE_BODY }}
 
-            The repository is already checked out locally.
+                      The repository is already checked out locally.
 
-            All paths are relative to the repo root.
-            Use gh only for pull request and issue operations.
+                      All paths are relative to the repo root.
+                      Use gh only for pull request and issue operations.
 
-            Before making any commits, run:
-              git checkout -b claude/issue-${{ github.event.issue.number }}
-              git config user.name "claude[bot]"
-              git config user.email "claude[bot]@users.noreply.github.com"
+                      Before making any commits, run:
+                        git checkout -b claude/issue-${{ github.event.issue.number }}
+                        git config user.name "claude[bot]"
+                        git config user.email "claude[bot]@users.noreply.github.com"
 
-            Then make the requested changes,
-            commit them, push the branch, and open a pull request.
+                      Then make the requested changes,
+                      commit them, push the branch, and open a pull request.
 
-            After the pull request is opened, comment on issue #${{ github.event.issue.number }} with the PR link and close it.
+                      After the pull request is opened, comment on issue #${{ github.event.issue.number }} with the PR link and close it.
 
-          claude_args : |
-            --model ${{ steps.claude_args.outputs.model }}
-            --allowedTools "Edit,Write,Read,Bash(awk:*),Bash(basename:*),Bash(cat:*),Bash(chmod:*),Bash(cp:*),Bash(curl:*),Bash(cut:*),Bash(date:*),Bash(diff:*),Bash(dirname:*),Bash(echo:*),Bash(expr:*),Bash(file:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(hexdump:*),Bash(jq:*),Bash(ls:*),Bash(mkdir:*),Bash(mv:*),Bash(od:*),Bash(patch:*),Bash(printf:*),Bash(printenv:*),Bash(pwd:*),Bash(python3:*),Bash(realpath:*),Bash(rg:*),Bash(rm:*),Bash(sed:*),Bash(sleep:*),Bash(sort:*),Bash(stat:*),Bash(strings:*),Bash(tail:*),Bash(tar:*),Bash(tee:*),Bash(test:*),Bash(touch:*),Bash(tr:*),Bash(uniq:*),Bash(unzip:*),Bash(wc:*),Bash(which:*),Bash(xargs:*),Bash(xxd:*),Bash(zip:*),Bash(gh:*),Bash(git:*)"
-            --effort ${{ steps.claude_args.outputs.effort }}
-            --max-turns ${{ steps.claude_args.outputs.turns }}
+                    claude_args : |
+                      --model ${{ steps.claude_args.outputs.model }}
+                      --allowedTools "Edit,Write,Read,Bash(awk:*),Bash(basename:*),Bash(cat:*),Bash(chmod:*),Bash(cp:*),Bash(curl:*),Bash(cut:*),Bash(date:*),Bash(diff:*),Bash(dirname:*),Bash(echo:*),Bash(expr:*),Bash(file:*),Bash(find:*),Bash(grep:*),Bash(head:*),Bash(hexdump:*),Bash(jq:*),Bash(ls:*),Bash(mkdir:*),Bash(mv:*),Bash(od:*),Bash(patch:*),Bash(printf:*),Bash(printenv:*),Bash(pwd:*),Bash(python3:*),Bash(realpath:*),Bash(rg:*),Bash(rm:*),Bash(sed:*),Bash(sleep:*),Bash(sort:*),Bash(stat:*),Bash(strings:*),Bash(tail:*),Bash(tar:*),Bash(tee:*),Bash(test:*),Bash(touch:*),Bash(tr:*),Bash(uniq:*),Bash(unzip:*),Bash(wc:*),Bash(which:*),Bash(xargs:*),Bash(xxd:*),Bash(zip:*),Bash(gh:*),Bash(git:*)"
+                      --effort ${{ steps.claude_args.outputs.effort }}
+                      --max-turns ${{ steps.claude_args.outputs.turns }}

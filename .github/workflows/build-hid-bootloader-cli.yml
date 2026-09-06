@@ -108,7 +108,7 @@ jobs :
         runs-on   : ubuntu-latest
         container : ${{ matrix.image }}
         steps     :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - name : Build static libusb-1.0 for ${{ matrix.cross_triple }}
               env  :
                     CC : ${{ matrix.cross_triple }}-gcc
@@ -139,7 +139,7 @@ jobs :
                   "$GITHUB_WORKSPACE/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a"
                 file hid_bootloader_cli
 
-            - uses : actions/upload-artifact@v4
+            - uses : actions/upload-artifact@v7
               with :
                     name              : ${{ matrix.name }}
                     path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
@@ -172,7 +172,7 @@ jobs :
         runs-on         : windows-2022
         timeout-minutes : 20
         steps           :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - uses : ilammy/msvc-dev-cmd@v1
               with :
                     arch : ${{ matrix.msvc_arch }}
@@ -212,7 +212,7 @@ jobs :
                 set VCPKG_TRIPLET_DIR=C:\vcpkg\packages\libusb_${{ matrix.msvc_arch }}-windows-static
                 cl /O2 /W3 /MT /D_WIN32_WINNT=0x0601 /DUSE_LIBUSB /I . /I "%VCPKG_TRIPLET_DIR%\include" /Fe:hid_bootloader_cli.exe hid_bootloader_cli.c "%VCPKG_TRIPLET_DIR%\lib\libusb-1.0.lib" Advapi32.lib Setupapi.lib Ole32.lib /link /SUBSYSTEM:CONSOLE,6.01
 
-            - uses : actions/upload-artifact@v4
+            - uses : actions/upload-artifact@v7
               with :
                     name              : ${{ matrix.name }}
                     path              : ${{ env.SRC_DIR }}/hid_bootloader_cli.exe
@@ -236,7 +236,7 @@ jobs :
                 include : ${{ fromJson(needs.setup.outputs.macos_matrix) }}
         runs-on  : macos-latest
         steps    :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - name              : Compile hid_bootloader_cli (${{ matrix.name }})
               working-directory : ${{ env.SRC_DIR }}
               run               : |
@@ -248,7 +248,7 @@ jobs :
                   -o hid_bootloader_cli hid_bootloader_cli.c
                 lipo -info hid_bootloader_cli || true
 
-            - uses : actions/upload-artifact@v4
+            - uses : actions/upload-artifact@v7
               with :
                     name              : ${{ matrix.name }}
                     path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
@@ -266,7 +266,7 @@ jobs :
         if      : github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'freebsd-x64-static')
         runs-on : ubuntu-latest
         steps   :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - uses : vmactions/freebsd-vm@v1
               with :
                     release : "13.2"
@@ -292,7 +292,7 @@ jobs :
                       cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
                         -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
                       file hid_bootloader_cli
-            - uses : actions/upload-artifact@v4
+            - uses : actions/upload-artifact@v7
               with :
                     name              : freebsd-x64-static
                     path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
@@ -303,7 +303,7 @@ jobs :
         if      : github.actor == 'blue-wind-25' && (github.event.inputs.target == 'all' || github.event.inputs.target == 'openbsd-x64-static')
         runs-on : ubuntu-latest
         steps   :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - uses : vmactions/openbsd-vm@v1
               with :
                     # OpenBSD's package mirror (cdn.openbsd.org) DELETES the packages/<arch>/ directory
@@ -331,7 +331,7 @@ jobs :
                       cc -O2 -Wall -static -s -o hid_bootloader_cli hid_bootloader_cli.c -DUSE_LIBUSB \
                         -I /tmp/incshim "/tmp/libusb-${LIBUSB_VERSION}/libusb/.libs/libusb-1.0.a" -lpthread
                       file hid_bootloader_cli
-            - uses : actions/upload-artifact@v4
+            - uses : actions/upload-artifact@v7
               with :
                     name              : openbsd-x64-static
                     path              : ${{ env.SRC_DIR }}/hid_bootloader_cli
@@ -351,9 +351,9 @@ jobs :
             actions  : write # Needed to delete the per-target artifacts once they're packaged
             contents : read
         steps       :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - name : Download all target artifacts
-              uses : actions/download-artifact@v4
+              uses : actions/download-artifact@v8
               with :
                     path : downloaded
 
@@ -375,7 +375,7 @@ jobs :
                 ( cd build/ci && tar -cjf "../hid_bootloader_cli-${VERSION}-all-targets.tar.bz2" . )
                 ls -la build/
 
-            - uses : actions/upload-artifact@v4
+            - uses : actions/upload-artifact@v7
               with :
                     name              : hid_bootloader_cli-all-targets
                     path              : ${{ env.SRC_DIR }}/build/*-all-targets.tar.bz2

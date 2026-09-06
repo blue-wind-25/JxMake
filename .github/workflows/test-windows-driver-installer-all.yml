@@ -11,9 +11,9 @@ jobs :
         if      : github.actor == 'blue-wind-25'
         runs-on : ubuntu-latest
         steps   :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - name : Set up JDK 25
-              uses : actions/setup-java@v4
+              uses : actions/setup-java@v6
               with :
                     distribution : temurin
                     java-version : '25'
@@ -24,7 +24,7 @@ jobs :
                 make jar JDK_VER=25 JDK_PATH_25="$JAVA_HOME"
 
             - name : Upload JAR as Artifact
-              uses : actions/upload-artifact@v4
+              uses : actions/upload-artifact@v7
               with :
                     name              : compiled-jxmake-jar
                     path              : src/jxmake.jar

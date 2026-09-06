@@ -72,9 +72,9 @@ jobs :
                 shell : bash
 
         steps    :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - name : Set up JDK 25
-              uses : actions/setup-java@v4
+              uses : actions/setup-java@v6
               with :
                     distribution : temurin
                     java-version : '25'
@@ -207,7 +207,7 @@ jobs :
             # can be pulled down and diffed offline instead of only ever being read back through CI logs
             - name : Upload compare output (compare mode only)
               if   : ${{ inputs.backend == 'compare' }}
-              uses : actions/upload-artifact@v4
+              uses : actions/upload-artifact@v7
               with :
                     name              : wdi-compare-output
                     path              : src/wdi_compare_out
@@ -230,9 +230,9 @@ jobs :
                 shell : bash
 
         steps    :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             - name : Set up JDK 25
-              uses : actions/setup-java@v4
+              uses : actions/setup-java@v6
               with :
                     distribution : temurin
                     java-version : '25'

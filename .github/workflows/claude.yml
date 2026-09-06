@@ -99,7 +99,7 @@ jobs :
             MODEL_FABLE  : ${{ vars.CLAUDE_MODEL_FABLE  || 'claude-fable-5'   }}
 
         steps       :
-            - uses : actions/checkout@v4
+            - uses : actions/checkout@v7
             # ----------------------------------------------------------
             # Parse @Claude[model:effort=maxturns+output] from title or body
             # ----------------------------------------------------------

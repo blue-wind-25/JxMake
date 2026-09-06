@@ -7,35 +7,35 @@
 #
 # Two independent phases, selectable via the `test_phase` input:
 #
-#   phase1  (priority, cheap) - builds the distribution zip once on a Linux
-#           runner (`make dist` under src/, same as this repo's normal dev
-#           flow), uploads it as an artifact, then on a macOS runner
-#           downloads + unzips it and runs:
+#   zip_smoke_test    (priority, cheap) - builds the distribution zip once on
+#           a Linux runner (`make dist` under src/, same as this repo's
+#           normal dev flow), uploads it as an artifact, then on a macOS
+#           runner downloads + unzips it and runs:
 #             ./jxmake                                          (expect usage error text)
 #             ./jxmake -e '$printf("%s is %d\n", "A", 10)'      (expect "A is 10")
 #           against BOTH Java 8 and Java 25 (via JXMAKE_JAVA=<jdk>/bin/java,
 #           see jxmake.sh) and asserts both give byte-identical output.
 #           This only proves the *already-built* jar/launcher works on macOS -
 #           it says nothing about whether `make dist` itself would succeed
-#           there (that's phase2).
+#           there (that's native_macos_build).
 #
-#   phase2  - runs `make dist` directly on the macOS runner, with
+#   native_macos_build - runs `make dist` directly on the macOS runner, with
 #             JDK_PATH_8/JDK_PATH_25 pointed at that runner's installed JDKs
 #             (src/Makefile reads these as overridable `?=` vars - see
 #             src/Makefile around line 113). Only checks that the build
-#             succeeds and produces the zip; does not re-run the phase1
-#             smoke tests against that macOS-built zip (add as a follow-up
-#             if that combination needs its own coverage).
+#             succeeds and produces the zip; does not re-run the
+#             zip_smoke_test checks against that macOS-built zip (add as a
+#             follow-up if that combination needs its own coverage).
 #
-#   both    - runs phase1 then phase2.
+#   both              - runs zip_smoke_test then native_macos_build.
 #
 # Feasibility notes:
 #   - `make dist` (src/Makefile) uses `cp ... *.{sh,cmd}` brace expansion,
 #     which needs bash; macOS's /bin/sh is bash-compatible for this. `zip`
 #     ships with macOS. No GNU-only flags were found in the `jar`/`dist`
-#     target chain, so phase2 should need "minimal changes" as expected -
-#     but this has not been verified end-to-end on a real macOS runner yet,
-#     which is the whole point of adding this workflow.
+#     target chain, so native_macos_build should need "minimal changes" as
+#     expected - but this has not been verified end-to-end on a real macOS
+#     runner yet, which is the whole point of adding this workflow.
 #   - jxmake.sh (renamed to `jxmake` in the dist zip) already supports
 #     picking an arbitrary `java` via the JXMAKE_JAVA env var, so testing
 #     both JDKs against one extracted zip needs no re-extraction.
@@ -43,6 +43,11 @@
 # Runner: macos-14 (Apple Silicon) is used - macos-13 (Intel)-hosted runners
 # have been getting stuck with no runner ever picked up (GitHub has been
 # retiring/throttling that image), so avoid it here.
+#
+# JDK 8 on macOS-aarch64: Temurin does not publish a macOS-aarch64 JDK 8
+# build, so the macOS jobs use Zulu for Java 8 instead (Zulu does ship one).
+# Java 25 stays on Temurin everywhere. The Linux job keeps Temurin 8, which
+# is fine there.
 #
 # `make dist`'s recipes need bash (`[ x == y ]` tests, `{a,b,c}` brace
 # expansion in `mkdir -p .../apps/{...}`) but `make` runs recipes via
@@ -58,18 +63,19 @@ on   :
       test_phase :
         description : 'Which phase(s) to run'
         type        : choice
-        options     : [phase1, phase2, both]
-        default     : phase1
+        options     : [zip_smoke_test, native_macos_build, both]
+        default     : zip_smoke_test
 
 env  :
   DIST_VER : 0.9.9-tp3
 
 jobs :
   # --------------------------------------------------------------------------------------------
-  # phase1a - build the dist zip once, on Linux (cheap runner minutes), for phase1 to consume.
+  # zip_smoke_test (1/2) - build the dist zip once, on Linux (cheap runner minutes), for the
+  # macOS smoke-test job below to consume.
   # --------------------------------------------------------------------------------------------
   build-dist-linux :
-    if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'phase1' || inputs.test_phase == 'both')
+    if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'zip_smoke_test' || inputs.test_phase == 'both')
     runs-on : ubuntu-latest
     steps   :
       - uses : actions/checkout@v4
@@ -98,18 +104,18 @@ jobs :
           if-no-files-found : error
 
   # --------------------------------------------------------------------------------------------
-  # phase1b - the priority test: extract the zip on macOS and run the two smoke commands under
-  # both Java 8 and Java 25, asserting identical output.
+  # zip_smoke_test (2/2) - the priority test: extract the zip on macOS and run the two smoke
+  # commands under both Java 8 and Java 25, asserting identical output.
   # --------------------------------------------------------------------------------------------
   test-zip-macos :
     needs   : build-dist-linux
-    if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'phase1' || inputs.test_phase == 'both')
+    if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'zip_smoke_test' || inputs.test_phase == 'both')
     runs-on : macos-14
     steps   :
-      - name : Set up JDK 8
+      - name : Set up JDK 8 (Zulu - Temurin has no macOS-aarch64 JDK 8 build)
         uses : actions/setup-java@v4
         with :
-          distribution : temurin
+          distribution : zulu
           java-version : '8'
 
       - name : Set up JDK 25
@@ -158,18 +164,19 @@ jobs :
           echo "PASS: Java 8 and Java 25 produced matching results."
 
   # --------------------------------------------------------------------------------------------
-  # phase2 - build the distribution directly on macOS (the actual feasibility question).
+  # native_macos_build - build the distribution directly on macOS (the actual feasibility
+  # question).
   # --------------------------------------------------------------------------------------------
   build-dist-macos :
-    if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'phase2' || inputs.test_phase == 'both')
+    if      : github.actor == 'blue-wind-25' && (inputs.test_phase == 'native_macos_build' || inputs.test_phase == 'both')
     runs-on : macos-14
     steps   :
       - uses : actions/checkout@v4
 
-      - name : Set up JDK 8
+      - name : Set up JDK 8 (Zulu - Temurin has no macOS-aarch64 JDK 8 build)
         uses : actions/setup-java@v4
         with :
-          distribution : temurin
+          distribution : zulu
           java-version : '8'
 
       - name : Set up JDK 25

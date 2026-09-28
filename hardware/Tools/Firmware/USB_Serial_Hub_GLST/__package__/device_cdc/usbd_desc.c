@@ -63,8 +63,8 @@
   * @{
   */
 
-#define USBD_VID                     0x0483
-#define USBD_PID_FS                  0x5740
+#define USBD_VID                     0x1209
+#define USBD_PID_FS                  0x25F0
 #define USBD_LANGID_STRING           1033
 #define USBD_MANUFACTURER_STRING     "JxMake (https://github.com/blue-wind-25/JxMake)"
 #define USBD_PRODUCT_STRING_FS       "USB-to-Serial Converter ('JxMake USB Serial Hub - GLST' Module)"

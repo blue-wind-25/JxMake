@@ -580,10 +580,83 @@ public final class FormatterCurly extends FormatterCore {
             );
         }
 
+        // A namespace's own closing `}` (first on its line) is aligned with the line its
+        // `namespace` keyword sits on -- the scope pipeline's inherited-indent chain
+        // over-indents it for namespaces nested on one source line (`namespace a { namespace b {`
+        // ... `}}`), flipping on round2 once the header line's real indent is visible (RDD_KEY_359).
+        if(lang.isCpp) text = alignNamespaceClosingBraces( tokenizer.apply(text) );
+
         // Phase 6: final whitespace normalization, last
         text = miscRule.convertIndentation( tokenizer.apply(text), config.indentStyle() );
 
         return text;
+    }
+
+    /**
+     * Re-indents every `}` that is the first token on its line and closes a `namespace [name] {`
+     * body to the leading whitespace of the line holding that `namespace` keyword. Idempotent by
+     * construction (the target is read from the same text it is applied to).
+     */
+    private static final String NOT_NAMESPACE = new String("<not-namespace>");
+
+    private static String alignNamespaceClosingBraces(final List<Token> tokens)
+    {
+        final int n = tokens.size();
+        // Per `{` index: line indent of its `namespace` keyword, or null when not a namespace brace
+        final java.util.ArrayDeque<String> stack = new java.util.ArrayDeque<>();
+        final String[] closeIndent = new String[n];
+        for(int i = 0; i < n; ++i) {
+            final Token t = tokens.get(i);
+            if( t.type == TokenType.PUNCT && "{".equals(t.text) ) {
+                final String hdr = namespaceHeaderLineIndent(tokens, i);
+                stack.push(hdr == null ? NOT_NAMESPACE : hdr);
+            }
+            else if( t.type == TokenType.PUNCT && "}".equals(t.text) && !stack.isEmpty() ) {
+                final String popped = stack.pop();
+                closeIndent[i] = popped == NOT_NAMESPACE ? null : popped;
+            }
+        } // for
+        final StringBuilder out = new StringBuilder();
+        for(int i = 0; i < n; ++i) {
+            final Token t = tokens.get(i);
+            if( closeIndent[i] != null && !t.frozen ) {
+                // `}` first on its line: previous tokens are only WHITESPACE back to a NEWLINE
+                int j = i - 1;
+                while( j >= 0 && tokens.get(j).type == TokenType.WHITESPACE ) --j;
+                if( j >= 0 && tokens.get(j).type == TokenType.NEWLINE ) {
+                    // Drop the whitespace already emitted for this line, substitute the target
+                    int k = out.length();
+                    while( k > 0 && ( out.charAt(k - 1) == ' ' || out.charAt(k - 1) == '\t' ) ) --k;
+                    out.setLength(k);
+                    out.append( closeIndent[i] );
+                }
+            }
+            out.append(t.text);
+        } // for
+
+        return out.toString();
+    }
+
+    /**
+     * If the `{` at {@code braceIdx} opens `namespace [a::b] {`, returns the leading whitespace of
+     * the line containing the `namespace` keyword; otherwise null.
+     */
+    private static String namespaceHeaderLineIndent(final List<Token> tokens, final int braceIdx)
+    {
+        int i = braceIdx - 1;
+        while( i >= 0 && ( tokens.get(i).type == TokenType.WHITESPACE
+                || tokens.get(i).type == TokenType.NEWLINE ) ) --i;
+        // Optional `name`, `a::b` chain, and `inline`/attributes are not handled beyond ident/::
+        while( i >= 0 && ( tokens.get(i).type == TokenType.IDENTIFIER
+                || tokens.get(i).text.equals("::") || tokens.get(i).type == TokenType.WHITESPACE ) ) --i;
+        if( i < 0 || tokens.get(i).type != TokenType.KEYWORD || !"namespace".equals( tokens.get(i).text ) ) return null;
+        int j = i - 1;
+        // Walk back to the line start, collecting its leading whitespace
+        while( j >= 0 && tokens.get(j).type != TokenType.NEWLINE ) --j;
+        final StringBuilder indent = new StringBuilder();
+        for(int k = j + 1; k < tokens.size() && tokens.get(k).type == TokenType.WHITESPACE; ++k) indent.append( tokens.get(k).text );
+
+        return indent.toString();
     }
 
 } // class FormatterCurly

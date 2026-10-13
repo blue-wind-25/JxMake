@@ -446,9 +446,10 @@ public class SwitchRule {
         final Map<Integer, String> overrides
     )
     {
-        int depth      = 0;
-        int parenDepth = 0;
-        int i          = braceIdx + 1;
+        int depth         = 0;
+        int parenDepth    = 0;
+        int headLineDelta = 0; // delta applied to the most recent paren-depth-0 (statement-head) line
+        int i             = braceIdx + 1;
         while(i < braceClose) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.NEWLINE) {
@@ -492,7 +493,16 @@ public class SwitchRule {
                         tokens, lineStart
                     ).length();
                     if(delta != 0) shiftLineIndent(tokens, lineStart, delta, overrides);
+                    headLineDelta = delta;
                 } // if
+                else if(headLineDelta != 0) {
+                    // A continuation line of an already-wrapped statement (call args, closing `)`),
+                    // owned by the line-wrap pass for its own relative shape -- but when this
+                    // pass moves the statement's head line, the continuation lines must move with
+                    // it by the same delta or they keep a stale absolute indent (the wrapped
+                    // statement's head and tail then disagree until a second format round).
+                    shiftLineIndent(tokens, lineStart, headLineDelta, overrides);
+                } // else if
             } // if
             else {
                      if( isPunct(t, "{") ) depth++;

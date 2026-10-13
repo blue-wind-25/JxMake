@@ -187,10 +187,23 @@ public abstract class DeclarationAlignmentRuleCore {
             final Token prev = i > 0 ? tokens.get(i - 1) : null;
             final Token next = i < tokens.size() - 1 ? tokens.get(i + 1) : null;
             if(prev != null) {
+                // Binary `*`/`&` whose left operand is unambiguous (a NUMBER anywhere, or any
+                // value-ending token in Java, which has no pointer declarators): always spaced,
+                // regardless of what follows (`2 * (a + 1)` was rendered `2* (a + 1)`).
                 if( isTightToken(t) && ( isOp(t, "*") || isOp(t, "&") )
+                        && ( prev.type == TokenType.NUMBER || ( lang.isJava && (
+                            prev.type == TokenType.IDENTIFIER || isPunct(prev, ")") || isPunct(prev, "]")
+                        ) ) ) ) {
+                    sb.append(' ');
+                }
+                else if( isTightToken(t) && ( isOp(t, "*") || isOp(t, "&") )
                         && next != null
                         && (next.type == TokenType.IDENTIFIER || next.type == TokenType.NUMBER) ) {
-                    if(prev.type != TokenType.IDENTIFIER && prev.type != TokenType.WHITESPACE) {
+                    // A NUMBER on the left can never be a pointer-declarator type, and Java has no
+                    // pointer/reference declarators at all -- `*`/`&` is always a binary operator
+                    // there (`20 * 60` was rendered `20* 60`).
+                    if( prev.type != TokenType.IDENTIFIER && prev.type != TokenType.WHITESPACE
+                            && prev.type != TokenType.NUMBER && !lang.isJava ) {
                     }
                     else {
                         sb.append(' '); // Binary * or & in expression context

@@ -119,7 +119,13 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
     @Override
     public String process(final String source)
     {
-        final List<Token>       tokens       = new TokenizerIndent(lang).tokenize(source);
+        // Comment normalization runs as its own pre-stage: its single-token replacements would
+        // otherwise overlap a wider replacement covering the same line (e.g. an import-sort
+        // reorder, which carries the trailing comment along) and be dropped as stale by render(),
+        // surfacing only on the next format() call (non-idempotent `# noqa` -> `# Noqa`).
+        final List<Token> commentTokens = new TokenizerIndent(lang).tokenize(source);
+        final String      normalized    = render( commentTokens, applyCommentNormalization(commentTokens) );
+        final List<Token>       tokens       = new TokenizerIndent(lang).tokenize(normalized);
         final List<RawLine>     rawLines     = splitRawLines(tokens);
         final List<Replacement> replacements = new ArrayList<>();
         replacements.addAll( applyAssignmentAlignment(tokens, rawLines) );
@@ -131,7 +137,6 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         replacements.addAll( applyCaseColonAlignment(tokens, rawLines) );
         replacements.addAll( applySingleStatementBody(tokens, rawLines) );
         replacements.addAll( applyControlFlowBlankLines(tokens, rawLines) );
-        replacements.addAll( applyCommentNormalization(tokens) );
         // Ties on `start` must put zero-width insertions (start == end, e.g. §9's blank-line-before
         // insertion) ahead of any wider, token-consuming replacement at that same position (e.g. §8's
         // header-rewriting join) -- a zero-width entry renders without advancing the render() cursor,

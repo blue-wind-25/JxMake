@@ -779,6 +779,10 @@ INP_FILES += real_code_regressions_245_inp.cpp
 INP_FILES += real_code_regressions_246_inp.sh
 INP_FILES += real_code_regressions_247_inp.ps1
 INP_FILES += real_code_regressions_248_inp.java
+INP_FILES += real_code_regressions_249_inp.java
+INP_FILES += real_code_regressions_250_inp.cpp
+INP_FILES += real_code_regressions_251_inp.py
+INP_FILES += real_code_regressions_252_inp.inc
 
 REF_FILES := $(subst _inp,_out,$(INP_FILES))
 

@@ -4481,6 +4481,28 @@ Real-code regressions:
                                                         `throws java . io . IOException`); fixed by routing
                                                         the throws-clause tail through `renderTokens`.
 
+  real_code_regressions_249_inp/out.java             -- binary `*` after a numeric literal / value-ending
+                                                        token in a Java declaration initializer lost its left
+                                                        space (`20 * 60` -> `20* 60`, `2 * (a + 1)` -> `2* (a
+                                                        + 1)`).
+
+  real_code_regressions_250_inp/out.cpp              -- two round1-vs-round2 flips: (1) the innermost closing
+                                                        `}` of one-line-nested `namespace a { namespace b {
+                                                        namespace c` was over-indented on round1; (2) a
+                                                        multi-declarator statement inside a case body had its
+                                                        last wrapped call's continuation lines left at the
+                                                        pre-shift indent when the case-body shift moved the
+                                                        statement's head line.
+
+  real_code_regressions_251_inp/out.py               -- `# noqa: E402` trailing a reordered import was
+                                                        capitalized to `# Noqa` on round2 (comment
+                                                        normalization overlapped the import-sort replacement
+                                                        and was dropped on round1); directive words are now
+                                                        never capitalized.
+
+  real_code_regressions_252_inp/out.inc              -- an `.inc` file (no inferable extension) is formatted
+                                                        as C via the in-file `--lang=c` directive.
+
 How Tests Are Run
 -----------------
 

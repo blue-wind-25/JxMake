@@ -4503,6 +4503,23 @@ Real-code regressions:
   real_code_regressions_252_inp/out.inc              -- an `.inc` file (no inferable extension) is formatted
                                                         as C via the in-file `--lang=c` directive.
 
+  real_code_regressions_253_inp/out.cpp              -- an `if (...) {` after an earlier statement's ternary
+                                                        `a ? f(...) : g(...);` had its `{` Allman-placed at
+                                                        the ternary line's stale indent on round1 (the
+                                                        constructor-initializer-list `:` scan walked back
+                                                        across the previous `;`).
+
+  real_code_regressions_254_inp/out.hpp              -- plain `inline int f(...) {...}` rows grouped under a
+                                                        `template<...> inline T f(T) {...}` row got their
+                                                        blank template-column padding re-read as indentation
+                                                        and doubled on round2.
+
+  real_code_regressions_255_inp/out.hpp              -- a one-liner definition group whose column-aligned
+                                                        rows would exceed the line limit (each row fits on
+                                                        its own) was padded, then wrapped by the call-wrap
+                                                        pass, then dissolved on round2; the group is now
+                                                        left untouched when alignment would overflow.
+
 How Tests Are Run
 -----------------
 

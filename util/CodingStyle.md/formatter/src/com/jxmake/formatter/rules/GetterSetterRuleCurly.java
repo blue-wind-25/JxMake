@@ -394,6 +394,39 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
 
 
 
+    /**
+     * True if rendering {@code group} as one column-aligned block would push any row past
+     * {@code lineLengthLimit} at {@code column}, AND that group contains a
+     * member whose line {@code enforceCallLineBreaking} would then wrap (a definition with a
+     * breakable body call, or a declaration with a non-empty parameter list). Each member passed
+     * {@link #parseOneLinerMember}'s fit check on its own UNPADDED width, but the shared grid's
+     * padding can widen every row to the widest member's column: a fresh format then wraps the
+     * rows (round1) and a reformat no longer sees one-liners, dissolving the group and its padding
+     * (round2). Callers leave such a group untouched.
+     */
+    public boolean groupOverflowsAfterAlignment(
+        final List<Token>  tokens,
+        final List<Member> group,
+        final List<String> lines,
+        final int          column
+    )
+    {
+        boolean breakable = false;
+        for(final Member m : group) {
+            if( ( m.isDefinition && hasBreakableCall(tokens, m.bodyFrom, m.bodyTo) )
+                    || ( !m.isDefinition && m.paramsFrom < m.paramsTo ) ) {
+                breakable = true;
+                break;
+            }
+        } // for
+        if(!breakable) return false;
+        for(final String line : lines) {
+            if(column + line.length() > lineLengthLimit) return true;
+        }
+
+        return false;
+    }
+
     // ── One-liner method recognition ────────────────────────────────────────────
     /**
      * Recognises one of three shapes (all on a single source line, no intervening NEWLINE):

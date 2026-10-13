@@ -387,8 +387,11 @@ public class CppSpecificRule {
             else if( isPunct(t, "(") || isPunct(t, "[") ) {
                 --depth;
             }
-            else if( depth == 0 && ( isPunct(t, "{") || isPunct(t, "}") ) ) {
-                // Crossed a scope boundary -- stop; no initializer-list in this candidate
+            else if( depth == 0 && ( isPunct(t, "{") || isPunct(t, "}") || isPunct(t, ";") ) ) {
+                // Crossed a scope boundary (or a prior statement's `;`) -- stop; no
+                // initializer-list in this candidate. Without the `;` stop, an `if(...) {` after
+                // an earlier statement's ternary `a ? b : c;` picked up that `:` as a constructor
+                // initializer-list colon and Allman-braced with the ternary line's stale indent.
                 return candidate;
             }
             else if( depth == 0 && isOp(t, ":") ) {

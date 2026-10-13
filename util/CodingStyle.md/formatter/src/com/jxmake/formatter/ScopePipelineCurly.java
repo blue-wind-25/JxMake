@@ -2052,11 +2052,40 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                     break;
                 } // for m
             } // if
+            // Same idempotency hazard for a C++ `template<...>` column (e.g. a plain `inline int
+            // f(uchar x) { ... }` row grouped under a `template<typename T> inline T f(T x) {...}`
+            // row): GetterSetterRuleCurly pads template-less rows with blank cells, and a second
+            // format would otherwise read that padding as the row's own indentation and add it
+            // again. A template-less row takes the indent of the group's first template row.
+            boolean templateGroupIndent = false;
+            if(groupIndent == null && lang.isCpp) {
+                for(final Member m : filtered) {
+                    if(m.templatePrefixFrom == m.templatePrefixTo) continue;
+                    final String gap     = joinText(tokens, m.memberFrom, m.templatePrefixFrom);
+                    final int    newline = gap.lastIndexOf('\n');
+                    groupIndent         = newline >= 0 ? gap.substring(newline + 1) : gap;
+                    templateGroupIndent = true;
+                    break;
+                } // for m
+            } // if
             final List<String> lines = lang.isKotlin ? renderKotlinFilteredRuns(
                 tokens, group, filtered, depth
             ) : getterSetterRule.render(
                 tokens, filtered
             );
+            if( !lang.isKotlin && getterSetterRule instanceof GetterSetterRuleCurly ) {
+                // Real source column of the group's rows: leading whitespace of the first
+                // member's own line (a flush-namespace/top-level snippet can sit at an indent that
+                // `depth * indentWidth` does not reproduce)
+                final Member first    = filtered.get(0);
+                final int    firstSig = first.templatePrefixFrom != first.templatePrefixTo
+                                      ? first.templatePrefixFrom : first.returnTypeFrom;
+                final String gap      = joinText(tokens, first.memberFrom, firstSig);
+                final String lastLine = gap.substring(gap.lastIndexOf('\n') + 1);
+                if( ( (GetterSetterRuleCurly) getterSetterRule ).groupOverflowsAfterAlignment(
+                    tokens, filtered, lines, Math.max( depth * indentWidth, lastLine.length() )
+                ) ) continue;
+            } // if
             for( int i = 0; i < filtered.size(); ++i ) {
                 final Member m        = filtered.get(i);
                 final int    startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m.templatePrefixFrom : m.returnTypeFrom;
@@ -2068,7 +2097,8 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // itself stamped frozen), which must not falsely freeze this unrelated member.
                 if( anyFrozen(tokens, sigIdx, m.memberTo) ) continue;
                 String leadingGap = joinText(tokens, m.memberFrom, sigIdx);
-                if(groupIndent != null && m.returnTypeFrom == m.nameFrom) {
+                if( groupIndent != null && ( templateGroupIndent
+                        ? m.templatePrefixFrom == m.templatePrefixTo : m.returnTypeFrom == m.nameFrom ) ) {
                     final int newline = leadingGap.lastIndexOf('\n');
                     leadingGap = ( newline >= 0 ? leadingGap.substring(0, newline + 1) : "" )
                                + groupIndent;

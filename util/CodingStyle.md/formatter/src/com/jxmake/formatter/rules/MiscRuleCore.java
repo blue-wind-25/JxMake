@@ -2041,7 +2041,9 @@ public static final class Assignment {
                 "\r"
             ) ) {
                 final String inner = t.text.substring( 2, t.text.length() - 2 );
-                if( "FALL-THROUGH".equals( inner.trim() ) ) out.append(t.text);
+                if( "FALL-THROUGH".equals( inner.trim() ) || ( isInlineBlockComment(tokens, i)
+                        && !inner.isEmpty() && !Character.isWhitespace( inner.charAt(0) )
+                        && !Character.isWhitespace( inner.charAt( inner.length() - 1 ) ) ) ) out.append(t.text);
                 else out.append("/*").append( applyCommentTextRules(inner) ).append("*/");
             }
             else if(t.type == TokenType.COMMENT_BLOCK) {
@@ -2058,6 +2060,34 @@ public static final class Assignment {
         } // for
 
         return out.toString();
+    }
+    /**
+     * True iff the single-line block comment at {@code idx} has real code on the same physical
+     * line BOTH before and after it (e.g. `size_t /*sz*\/)`, `f(/*flag=*\/ true)`). The caller
+     * additionally requires the comment to be UNPADDED (no space inside the delimiters): that is
+     * the unnamed-parameter-name / argument-label style, not prose -- capitalizing it
+     * (`/*sz*\/` -> `/*Sz*\/`) silently changed it. A padded inline comment (`/* check *\/`) is
+     * still normalized like any other comment (existing fixtures).
+     */
+    protected boolean isInlineBlockComment(final List<Token> tokens, final int idx)
+    {
+        boolean before = false;
+        for(int i = idx - 1; i >= 0; --i) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.NEWLINE) break;
+            if(t.type == TokenType.WHITESPACE) continue;
+            before = true;
+            break;
+        }
+        if(!before) return false;
+        for(int i = idx + 1; i < tokens.size(); ++i) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.NEWLINE) return false;
+            if(t.type == TokenType.WHITESPACE || t.type == TokenType.COMMENT_LINE) continue;
+            return true;
+        }
+
+        return false;
     }
     /**
      * A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token

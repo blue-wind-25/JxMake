@@ -508,7 +508,23 @@ public class JavaSpecificRule {
                 ) : terminators.get(
                     lastSignificant
                 );
+                // Comments in the gap (a trailing `; // note`, or a member's leading Javadoc
+                // right after the terminator) must survive -- only the whitespace/newlines are
+                // regenerated: same-line comments stay glued to the preceding token, standalone
+                // ones are re-emitted on their own indented line
+                boolean sawNewline = false;
+                final List<String> standalone = new ArrayList<>();
+                for(final Token g : gap) {
+                    if(g.type == TokenType.NEWLINE) {
+                        sawNewline = true;
+                    }
+                    else if(g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK) {
+                        if(sawNewline) standalone.add(g.text);
+                        else           out.append(' ').append(g.text);
+                    }
+                } // for
                 out.append('\n').append('\n').append(indent);
+                for(final String c : standalone) out.append(c).append('\n').append(indent);
             } // if
             else {
                 for(final Token g : gap) out.append(g.text);

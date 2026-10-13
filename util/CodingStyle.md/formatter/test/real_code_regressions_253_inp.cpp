@@ -3,34 +3,34 @@
  * SPDX-License-Identifier: MIT
  */
 
-namespace pettrain {
+namespace demo {
 namespace {
 }
-float train_minibatch_epoch_ext(ExtractorModelExt* model, const std::vector<Sample>& data,
-                                int train_threads, int seed, int epoch, float gray_aug) {
-    struct Worker {
+float run_batch_pass(Net* model, const std::vector<Item>& data,
+                                int workers, int seed, int round_no, float jitter) {
+    struct Slot {
     };
-    auto run_slice = [&](int t, size_t begin, size_t end) {
-        for (int t = 0; t < nthreads; t++) {
-            if (t == nthreads - 1) {
+    auto do_slice = [&](int t, size_t begin, size_t end) {
+        for (int t = 0; t < nworkers; t++) {
+            if (t == nworkers - 1) {
             }
         }
     }
 }
     for (size_t i = 0; i + 1 < args.size(); i++) {
-                                   ? train_minibatch_epoch_ext(&model, data, train_idx, lr_cur, batch, clip, train_threads,
-                                                               seed, epoch, gray_aug)
-                                   : train_one_epoch_ext(&model, data, train_idx, lr_cur, train_threads);
-        if (!held_out.empty()) {
-            if (held_out_loss < best_held_out_loss - 1e-4f) {
+                                   ? run_batch_pass(&model, data, order, rate, batch, limit, workers,
+                                                               seed, round_no, jitter)
+                                   : run_single_pass(&model, data, order, rate, workers);
+        if (!val_set.empty()) {
+            if (val_loss < best_val_loss - 1e-4f) {
             }
         }
     };
-    tensors.push_back({"extractor_conv1.w",
-                        {(uint16_t)kExtractorConv1OutC, (uint16_t)kExtractorInC, (uint16_t)kExtractorConv1K,
-                         (uint16_t)kExtractorConv1K},
-                        emit_model.conv1_w});
-    tensors.push_back({"extractor_conv2.w",
-                        emit_model.conv2_w});
+    entries.push_back({"stage1.w",
+                        {(uint16_t)kStage1Out, (uint16_t)kStageIn, (uint16_t)kStage1Kernel,
+                         (uint16_t)kStage1Kernel},
+                        snapshot.w1});
+    entries.push_back({"stage2.w",
+                        snapshot.w2});
 }
-}  // namespace pettrain
+}  // namespace demo

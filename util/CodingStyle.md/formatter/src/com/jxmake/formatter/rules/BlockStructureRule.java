@@ -2553,7 +2553,8 @@ public class BlockStructureRule {
                     if( safeToCommentAfter(tokens, insertAt) ) {
                         comments.put(insertAt, comment);
                     }
-                    else if(existingCommentIdx >= 0) {
+                    else if( existingCommentIdx >= 0
+                            && isReplaceableClosingLabel( tokens.get(existingCommentIdx).text, comment ) ) {
                         replaceTokens.put(existingCommentIdx, "// " + comment);
                         normalizeWhitespaceBefore(
                             tokens, insertAt + 1, existingCommentIdx, replaceTokens
@@ -2590,6 +2591,33 @@ public class BlockStructureRule {
         while( k < n && tokens.get(k).type == TokenType.WHITESPACE ) k++;
 
         return ( k < n && tokens.get(k).type == TokenType.COMMENT_LINE ) ? k : -1;
+    }
+
+    /** First words of every closing-comment label this class generates (`} // if`, `} // enum Foo`, ...) */
+    private static final java.util.Set<String> CLOSING_LABEL_FIRST_WORDS = new java.util.HashSet<>(
+        java.util.Arrays.asList(
+            "if", "else", "for", "while", "do", "switch", "case", "default", "try", "catch", "finally",
+            "class", "struct", "union", "enum", "interface", "namespace", "record", "object", "fun",
+            "function", "when", "lambda", "end", "extern", "annotation", "trait", "impl", "module"
+        )
+    );
+
+    /**
+     * True iff the existing trailing `//` comment after a closing `}` may be overwritten with the
+     * generated closing label: it already equals that label (case-insensitively), or it itself
+     * reads like a closing label (first word is a construct keyword -- a stale/renamed label from
+     * an earlier pass). Any other trailing comment is the author's own prose (`} // last three:
+     * RDD_503`) and must be kept: overwriting it silently destroyed user text.
+     */
+    private boolean isReplaceableClosingLabel(final String existing, final String label)
+    {
+        String body = existing.startsWith("//") ? existing.substring(2) : existing;
+        body = body.trim();
+        if( body.equalsIgnoreCase( label.trim() ) ) return true;
+        final int sp = body.indexOf(' ');
+        final String first = ( sp < 0 ? body : body.substring(0, sp) ).toLowerCase();
+
+        return CLOSING_LABEL_FIRST_WORDS.contains(first);
     }
 
     /**

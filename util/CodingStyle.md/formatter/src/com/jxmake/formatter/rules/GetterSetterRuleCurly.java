@@ -757,6 +757,22 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
             if(estimatedWidth > lineLengthLimit) return null;
         }
 
+        // A comment inside the parameter list (`size_t /*sz*/`) or the body (`{ /* noop */ }`) has
+        // no cell in the column grid -- `cellText` joins only the significant tokens -- so
+        // rendering this member as part of an aligned group would silently drop it. Leave it be.
+        // (raw paren/brace ranges: `trimLeadingWs`/`trimTrailingWs` also step over comments, so
+        // the trimmed [paramsFrom, paramsTo)/[bodyFrom, bodyTo) ranges would miss a leading or
+        // trailing comment)
+        for(int k = parenOpenIdx + 1; k < parenCloseIdx; ++k) {
+            if( Token.isComment( tokens.get(k) ) ) return null;
+        }
+        if(isDefinition) {
+            final int bodyCloseIdx = matchBracket(tokens, terminatorIdx, "{", "}");
+            for(int k = terminatorIdx + 1; k < bodyCloseIdx; ++k) {
+                if( Token.isComment( tokens.get(k) ) ) return null;
+            }
+        }
+
         return new Member(
             modifiers, templatePrefixFrom, templatePrefixTo, effectiveReturnTypeFrom, returnTypeTo,
             nameFrom, nameIdx, paramsFrom, paramsTo, bodyFrom, bodyTo, from, to, trailingComment, blankBefore,

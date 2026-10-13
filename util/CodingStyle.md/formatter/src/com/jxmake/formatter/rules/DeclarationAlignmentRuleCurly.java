@@ -981,8 +981,59 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         return true;
     }
 
+    /**
+     * True iff a comment token sits strictly between {@code stmt}'s first and last significant
+     * tokens (e.g. a comment between two enum constants of a constant list): the declaration
+     * model has no home for it, so rendering the statement would silently drop it.
+     */
+    private boolean hasInteriorComment(final List<Token> stmt)
+    {
+        int first = -1;
+        int last  = -1;
+        for( int i = 0; i < stmt.size(); ++i ) {
+            final Token t = stmt.get(i);
+            if( t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE || Token.isComment(t) ) continue;
+            // A leading preprocessor directive (`#include ...` right before the statement's own
+            // comment block) is not part of the declaration proper
+            if( t.type == TokenType.PREPROCESSOR || t.type == TokenType.MACRO_DEF ) continue;
+            if(first < 0) first = i;
+            last = i;
+        } // for
+        if(first < 0) return false;
+        for(int i = first + 1; i < last; ++i) {
+            if( Token.isComment( stmt.get(i) ) ) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * True for `auto [a /* c *\/, b] = ...;` / `const auto& [a, b] = ...;`: the declaration model
+     * already carries a structured binding's bracketed name list through verbatim (comments
+     * included), so its interior comments are not lost and the statement is still normalized.
+     */
+    private boolean isStructuredBindingStatement(final List<Token> stmt)
+    {
+        final List<Token> sig = significantOnly(stmt);
+        for(int i = 0; i < sig.size() && i < 5; ++i) {
+            if( isPunct( sig.get(i), "[" ) ) {
+                for(int j = 0; j < i; ++j) {
+                    if( "auto".equals( sig.get(j).text ) ) return true;
+                }
+                return false;
+            }
+        } // for
+
+        return false;
+    }
+
     private Declaration parseDeclaration(final List<Token> stmt, final boolean blankBefore)
     {
+        // A statement with a comment between its first and last significant tokens (a comment
+        // between enum constants, commented-out parameter names in a function-pointer typedef,
+        // `int /*c*/ x = 1;`) is left untouched: the `Declaration` model regenerates the statement
+        // from its significant tokens only, which would silently discard that comment.
+        if( hasInteriorComment(stmt) && !isStructuredBindingStatement(stmt) ) return null;
         final Token       trailingComment = findTrailingComment(stmt);
         final List<Token> sig             = significantOnly(stmt);
 
@@ -1251,6 +1302,16 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             );
             if( rawInitForBraceCheck != null
                     && containsMultilineBraceBody(rawInitForBraceCheck) ) return null;
+            // Any comment sitting INSIDE the initializer (between its first and last token -- e.g.
+            // a `// note` line between two argument groups of a wrapped `Set.of(...)` call) has no
+            // home in the one-line `Declaration` model: `renderInitTokens` joins only the
+            // significant tokens, so the comment would be silently dropped. Leave such a
+            // statement untouched (found via a content-diff triage of a real corpus).
+            if(rawInitForBraceCheck != null) {
+                for(final Token t : rawInitForBraceCheck) {
+                    if( Token.isComment(t) ) return null;
+                }
+            }
         } // if
 
         // Direct function-pointer declaration (`void (*fp)(int) = NULL;`): shaped as

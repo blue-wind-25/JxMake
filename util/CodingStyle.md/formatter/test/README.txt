@@ -4514,11 +4514,30 @@ Real-code regressions:
                                                         blank template-column padding re-read as indentation
                                                         and doubled on round2.
 
-  real_code_regressions_255_inp/out.hpp              -- a one-liner definition group whose column-aligned
-                                                        rows would exceed the line limit (each row fits on
-                                                        its own) was padded, then wrapped by the call-wrap
-                                                        pass, then dissolved on round2; the group is now
-                                                        left untouched when alignment would overflow.
+  real_code_regressions_255_inp/out.hpp              -- a one-liner definition group whose column-aligned rows
+                                                        would exceed the line limit (each row fits on its own)
+                                                        was padded, then wrapped by the call-wrap pass, then
+                                                        dissolved on round2; the group is now left untouched
+                                                        when alignment would overflow.
+
+  real_code_regressions_256_inp/out.java             -- four silent comment losses: a comment between enum
+                                                        constants, the Javadoc of the first member after the
+                                                        constant list's `;`, a `//` line between argument
+                                                        groups of a wrapped `Set.of(...)` initializer, and a
+                                                        trailing `//` after a one-line `enum { ... }` (the
+                                                        generated `} // enum X` label overwrote it).
+
+  real_code_regressions_257_inp/out.cpp              -- unnamed-parameter name comments (`size_t /*n*/`) were
+                                                        dropped when a one-liner group was column- aligned,
+                                                        and trailing `//` comments after one-line
+                                                        `enum`/`struct` bodies were overwritten by the
+                                                        generated closing label; commented-out parameter names
+                                                        in a function-pointer `typedef` were dropped when the
+                                                        statement was regenerated.
+
+  real_code_regressions_258_inp/out.kt               -- trailing `//` after a one-line `enum class { ... }`
+                                                        was overwritten by the generated `} // enum class X`
+                                                        closing label.
 
 How Tests Are Run
 -----------------

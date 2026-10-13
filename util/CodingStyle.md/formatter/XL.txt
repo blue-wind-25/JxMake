@@ -245,7 +245,28 @@ Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
 
-NONE FOR NOW
+State: commits e685aa7, 0b90ed9, e44ad5d are in util/CodingStyle.md/formatter.
+- make test passes 378/378 forward and idempotency.
+- The HowToTrainYourPetAI dogfood corpus has 0 non-idempotent files out of 902.
+- RDD_KEY_359/360/361 are logged in RDD_LOG.md and STATE_C_CPP_JAVA.md, and STATE_DOGFOOD.md is updated.
+- STATE_COMMON.md and code-formatter-1.0.1.jar show as modified but are not mine: leave them out of commits.
+
+Open item (cosmetic):
+- Padded inline block comments are capitalized, e.g. int /* code */, → /* Code */. This is a parameter-name annotation, so it subtly alters meaning.
+- Fix location: the COMMENT_BLOCK branch of MiscRuleCore.enforceCommentStyle, which currently skips only unpadded comments via isInlineBlockComment.
+- Blocker: a narrower rule would need to distinguish parameter names from prose like i /* Step */), and several _out fixtures encode the capitalized form.
+- Fixtures that would change: c_comments, cpp_comments, java_comments, kt_comments, ts_comments, and c_combined/cpp_combined.
+- Needs: your explicit go-ahead to update those _out files.
+
+Build and workflow reminders:
+- Build with make jar from the formatter dir (fast), then make test.
+- Bisect repros with a delta-debugging script like the one I used in the scratchpad: format twice and compare, keeping brace and paren balance relative to the seed.
+- Find the culprit pass by instrumenting the tokenizer lambda in FormatterCurly.formatOnePass to print the next call-site line when a pattern first appears.
+- Verify each new fixture against a true HEAD build: copy your changed files aside, git checkout them, make jar, copy the jar, restore.
+
+Triage method that worked: the shipped content-diff checkers are noisy on this corpus.
+- Compare comment-word bags plus code-token multisets (scripts were in the scratchpad: cmpwords.py, cmpcode.py).
+- Run both before and after formatting. Only the void toggles and namespace-label rewrites should remain.
 
 Use sub-agent. This can be a substantial work.
 

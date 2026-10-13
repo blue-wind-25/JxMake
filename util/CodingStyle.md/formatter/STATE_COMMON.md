@@ -44,7 +44,8 @@ grep -Fm1 'RDD_KEY_n' util/CodingStyle.md/formatter/RDD_LOG.md
   util/CodingStyle.md/formatter/`; (3) `git reset
   util/CodingStyle.md/formatter/target/` (exclude build output); (4)
   `git commit -m "<message>"` — short descriptive message, trailer ending
-  `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`.
+  `Co-Authored-By: Claude XXXXX N <noreply@anthropic.com>`; replace `XXXXX N`
+  with your model and version (e.g. `Opus 5.5`, `Sonnet 5.5`).
 - Small trivially-related items may share one commit — use judgment against
   the ~50-line threshold.
 - Never let implemented files and the state file drift out of sync.

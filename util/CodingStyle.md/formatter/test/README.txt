@@ -4576,6 +4576,10 @@ Real-code regressions:
                                                         ternary initializer wrapped over two lines was joined
                                                         into one over-length line.
 
+  real_code_regressions_269_inp/out.java             -- a postfix `++`/`--` (`vals[n++] = x;`) was rendered
+                                                        with a space before the operator (`n ++`) when its
+                                                        statement was re-rendered.
+
 How Tests Are Run
 -----------------
 

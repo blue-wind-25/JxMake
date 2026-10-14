@@ -422,6 +422,11 @@ public abstract class DeclarationAlignmentRuleCore {
         ) || isOp(
             prev, "--"
         ) ) && cur.type == TokenType.IDENTIFIER ) return false;
+        // Postfix `++`/`--` is tight against its operand (`n++`, `a[i]--`) -- mirrors the same
+        // rule in `MiscRuleCore.needsSpaceBetween`
+        if( ( isOp(cur, "++") || isOp(cur, "--") ) && ( prev.type == TokenType.IDENTIFIER || isPunct(
+            prev, ")"
+        ) || isPunct(prev, "]") ) ) return false;
         // A unary logical-NOT `!` is always tight against its operand (`!atEnd`, `!foo.bar()`)
         // -- C/C++/Java/Kotlin/JS/TS have no binary `!` operator at all (Kotlin's own `!is`/`!in`
         // carve-out above already handles its one keyword-operand exception before reaching this

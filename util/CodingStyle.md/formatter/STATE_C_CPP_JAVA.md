@@ -187,11 +187,45 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_366 | `MiscRuleCore.startsWithSnakeCaseIdentifier` widened to `public`; now also used by `FormatterSimpleBraced` (JSON5/CSS). Shared by every comment family -- keep its semantics stable. See `RDD_LOG.md`'s `RDD_KEY_366`. |
 | RDD_KEY_367 | `MiscRuleCore.startsWithSnakeCaseIdentifier` now also used by `XmlSpecificRule` (XML/HTML5) -- every comment family now shares it. See `RDD_LOG.md`'s `RDD_KEY_367`. |
 | RDD_KEY_368 | Self-format dogfood, 2 pre-existing bugs: (1) `alignBracelessElseIfChain` paren scans not string-literal-aware (`"("` in an `else if` condition hid its `{`, mixed chain wrongly left-padded) -- new `findConditionCloseParen`; (2) `parseDeclaration` joined a hand-wrapped, paren-free initializer into an over-length line -- new bail (multi-line + no `(` + over `lineLengthLimit`), README Known Limitations curly #12. Fixture `real_code_regressions_268`. `make test` 387/387 -> 388/388. See `RDD_LOG.md`'s `RDD_KEY_368`. |
+| RDD_KEY_369 | Postfix `++`/`--` got a space before it on re-render (`vals[n++]` -> `vals[n ++]`) -- tight-join rule added to `MiscRuleCore`/`DeclarationAlignmentRuleCore.needsSpaceBetween` after IDENTIFIER/`)`/`]`. Found by the line-length audit. Fixture `real_code_regressions_269`. `make test` 388/388 -> 389/389. See `RDD_LOG.md`'s `RDD_KEY_369`. |
 | RDD_KEY_321 | Real root-cause FIX for RDD_KEY_318/RDD_KEY_319's Java anonymous-class-as-call-argument CORRUPTION (distinct from the still-open "not reformatted" gap, RDD_KEY_314/315). Actual culprit, found via debug instrumentation: `DeclarationAlignmentRuleCurly.parseDeclaration`'s `eqIdx` scan was the one scan in that method with no depth-tracking (unlike the depth-aware `colonIdx` scan right above it) -- it locked onto the first `=` anywhere in a statement regardless of nesting, so a plain call like `run(new Runnable() { public void run() { int x = 1; ... } });` had its nested `int x = 1`'s `=` mistaken for the statement's own, splitting a `{`/`}` pair across the `typeTokens`/`initTokens` boundary and bypassing every existing brace-balance safety check (each assumes a pair stays fully on one side). Fixed by making `eqIdx` depth-aware, identical shape to `colonIdx`. Verified: the anonymous class body is no longer collapsed (each statement stays on its own line, matching source), idempotent, C++/Kotlin's already-working RDD_KEY_317 lambda fix unaffected (byte-identical). **Not Java-specific**: `parseDeclaration` is shared by C/C++/Java (Kotlin/JS/TS use their own separate declaration-parsing methods, unaffected) -- confirmed the same latent corruption pre-existed for C++ too, just not caught by RDD_KEY_317/219's own repro (`std::sort(v.begin(), v.end(), ...)`) because its `.`s incidentally tripped an unrelated existing guard (`typeTokens` containing a `.`/`->` token is already rejected). A C++ repro with no preceding `.`/`->` (`invoke([]() { int x = 1; ... });`) reproduced the identical corruption pre-fix and is fixed the same way; new fixture `test/real_code_regressions_222_{inp,out}.cpp`. Re-enabling Java in RDD_KEY_315/317/318's side channel on top of this fix was tried and reverted -- no longer corrupts, but produces a different bug (wrong indentation); see RDD_KEY_322 for the precise two-part diagnosis. The "not reformatted" gap stays open, unrelated to this fix. New fixtures `test/real_code_regressions_221_{inp,out}.java`, `test/real_code_regressions_222_{inp,out}.cpp`. `make test`: 332/332 -> 334/334 forward + idempotency, zero regressions. See "Known Gaps -- Open" (Java entry reworded) and `RDD_LOG.md`'s `RDD_KEY_321`/`RDD_KEY_322` for the full writeup. |
 
 ---
 
 ## Open Questions
+
+- **Line-length audit (started 2026-10-15) -- BLOCKED on 2 user decisions, both change `_out`
+  fixtures.** Scope: code-only lines >120 cols (no `//`, not comment-only) in the formatter's own
+  `src/` -- 118 of them (909 lines >100 in all: 448 comment-only, 124 code+trailing `//`, 337
+  code-only). Shapes: control heads 29, ternary decls 19, boolean decls 18, other 16, string-concat
+  continuations 14, array/other decls 10, `case` grids 11, `return` 1. Causal probe (feed each
+  shape already wrapped under the limit, see if the formatter re-joins it): `case` grids, array
+  initializers, multi-declarator lines and wrapped `return`s stay as written (hand-written long
+  lines, not formatter output; `case` grids' padded `;` is documented STYLE.md §13 grid style).
+  Formatter-produced, unresolved:
+  1. `[~]` **Single-statement collapse joins a wrapped condition past `line-length` (C/C++/Java/
+     Kotlin).** `BlockStructureRule.refuseUnrescuableCollapse` (the width guard) is JS/TS-only.
+     Widening it to every language regressed the 6 `line-split-by-operator-priority=on` fixtures
+     (that option re-splits the collapsed condition later). Variant "all languages unless
+     `line-split-by-operator-priority` is on" (patch kept outside the repo, not committed): only
+     `java_combined` changes (its two 120+-col braceless `if ... return ...;` lines become braced);
+     HowToTrainYourPetAI corpus 37 files / 70 over-long collapsed lines (median 121, max 291)
+     re-braced, idempotent; `src/` unchanged. **Blocker:** the guard runs per branch after
+     `chainAllBranchesCollapsible` (RDD_KEY_129) already approved the whole chain, so it can leave
+     a MIXED chain (first branches braced, last one collapsed) -- seen in `java_combined`'s
+     `describe()`. Needs the width check folded into the chain-eligibility decision, plus user
+     approval to update `java_combined_out.java`.
+  2. `[~]` **Declaration initializer containing a call is joined past `line-length`.**
+     RDD_KEY_368 deliberately left these joined because call-arg/method-chain wrapping later
+     re-wraps them -- but it only breaks the LAST call's arguments, so the head can stay over the
+     limit (`multipass = a.x() && a.y() && a.z();` 155 cols, zero-arg calls, nothing to wrap).
+     A first, unconditioned RDD_KEY_368 variant that also bailed these changed `java_combined`/
+     `real_code_regressions_55`/`207` and made `208` non-idempotent. Candidate rule: bail when the
+     text up to the last call's `(` already exceeds the limit. Needs approval for the resulting
+     `_out` changes.
+  Landed from the audit so far: RDD_KEY_369 (postfix `++`/`--` spacing). Still open, not yet
+  investigated: unary `&` spacing in a C declaration initializer (`& device_table[i]`, corpus
+  `dongle_protocol.c`).
 
 - **`.h` -> C++26 §5 reflection rules (`^^`/`[: :]`) gap: VERIFIED, not a bug, documented.**
   `Lang.infer` maps `.h` to `"c"` by default, so `FormatterCurly`'s `lang.isCpp`-gated

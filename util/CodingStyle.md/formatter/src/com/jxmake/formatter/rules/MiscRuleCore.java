@@ -1781,6 +1781,10 @@ public static final class Assignment {
         // converted `for(...; ++i)` header lost the tight join `enforcePreIncrement` had produced on
         // round1).
         if( isIncrementOp(prev) && cur.type == TokenType.IDENTIFIER ) return false;
+        // Postfix `++`/`--` (`n++`, `a[i]--`, `f()++`) is tight against its operand too -- a
+        // `++`/`--` right after an identifier/`)`/`]` can only be postfix. Without this a
+        // statement re-rendered through this join (`vals[n++] = x;`) came out as `vals[n ++]`.
+        if( isIncrementOp(cur) && ( prev.type == TokenType.IDENTIFIER || isPunct(prev, ")") || isPunct(prev, "]") ) ) return false;
         // A unary logical-NOT `!` is always tight against its operand (`!atEnd`, `!foo.bar()`)
         // -- C/C++/Java/Kotlin/JS/TS have no binary `!` operator at all (Kotlin's own `!is`/`!in`
         // carve-out below already handles its one keyword-operand exception before reaching this

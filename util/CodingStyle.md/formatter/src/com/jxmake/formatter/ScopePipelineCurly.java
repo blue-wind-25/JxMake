@@ -2097,8 +2097,10 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 // itself stamped frozen), which must not falsely freeze this unrelated member.
                 if( anyFrozen(tokens, sigIdx, m.memberTo) ) continue;
                 String leadingGap = joinText(tokens, m.memberFrom, sigIdx);
-                if( groupIndent != null && (templateGroupIndent
-                        ? m.templatePrefixFrom == m.templatePrefixTo : m.returnTypeFrom == m.nameFrom) ) {
+                final boolean hasNoOwnPrefix = templateGroupIndent
+                                               ? m.templatePrefixFrom == m.templatePrefixTo
+                                               : m.returnTypeFrom == m.nameFrom;
+                if(groupIndent != null && hasNoOwnPrefix) {
                     final int newline = leadingGap.lastIndexOf('\n');
                     leadingGap = ( newline >= 0 ? leadingGap.substring(0, newline + 1) : "" )
                                + groupIndent;

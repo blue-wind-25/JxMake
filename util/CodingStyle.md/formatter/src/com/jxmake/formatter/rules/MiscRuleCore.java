@@ -2043,7 +2043,8 @@ public static final class Assignment {
                 final String inner = t.text.substring( 2, t.text.length() - 2 );
                 if( "FALL-THROUGH".equals( inner.trim() ) || ( isInlineBlockComment(tokens, i)
                         && !inner.isEmpty() && !Character.isWhitespace( inner.charAt(0) )
-                        && !Character.isWhitespace( inner.charAt( inner.length() - 1 ) ) ) ) out.append(t.text);
+                        && !Character.isWhitespace( inner.charAt( inner.length() - 1 ) ) )
+                        || isUnnamedParamNameComment(tokens, i, inner) ) out.append(t.text);
                 else out.append("/*").append( applyCommentTextRules(inner) ).append("*/");
             }
             else if(t.type == TokenType.COMMENT_BLOCK) {
@@ -2088,6 +2089,121 @@ public static final class Assignment {
         }
 
         return false;
+    }
+    private static final Pattern    SINGLE_IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+    private static final Set<String> PARAM_TYPE_KEYWORDS      = setOf(
+        "void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "bool",
+        "_Bool", "wchar_t", "char8_t", "char16_t", "char32_t", "const", "volatile"
+    );
+    private static final Set<String> PARAM_QUALIFIER_KEYWORDS = setOf(
+        "const", "volatile", "struct", "enum", "union", "class", "typename"
+    );
+    /**
+     * True iff the single-line block comment at {@code idx} (C/C++ only) names an otherwise
+     * unnamed parameter -- `cl_context /* context *\/,`, `void* /* svm_ptr *\/)`,
+     * `int /* code *\/,` -- padded or not. Capitalizing it (`/* Context *\/`) changes the name it
+     * documents. Requires all of: the trimmed content is one identifier; real code precedes it on
+     * the same line; the next real token (newlines allowed) is `,` or `)`; and the parameter slot
+     * before it has no name of its own -- it ends with `*`/`&`/`>`/a built-in type keyword, or it is a
+     * lone (optionally qualified) type identifier inside a declaration's parameter list (see
+     * {@link #isDeclarationParamListOpen}). A named slot (`cfg /* config *\/,`) or a call
+     * argument (`out /* dest *\/,`) is normalized like any other comment.
+     */
+    protected boolean isUnnamedParamNameComment(final List<Token> tokens, final int idx, final String inner)
+    {
+        if( !(lang.isC || lang.isCpp) ) return false;
+        if( !SINGLE_IDENTIFIER_PATTERN.matcher( inner.trim() ).matches() ) return false;
+
+        int next = idx + 1;
+        while( next < tokens.size() && ( isGapToken( tokens.get(next) ) || tokens.get(next).type == TokenType.NEWLINE ) ) ++next;
+        if( next >= tokens.size() || !( isPunct(tokens.get(next), ",") || isPunct(tokens.get(next), ")") ) ) return false;
+
+        // Collect the slot's significant tokens backward to its opening `(`/`,`
+        final List<Token> slot  = new ArrayList<>();
+        int               depth = 0;
+        int               i     = idx - 1;
+        for( ; i >= 0; --i ) {
+            final Token t = tokens.get(i);
+            if(t.type == TokenType.NEWLINE) {
+                if( slot.isEmpty() ) return false;
+                continue;
+            }
+            if( isGapToken(t) ) continue;
+            if( isPunct(t, ")") || isPunct(t, "]") ) ++depth;
+            else if( isPunct(t, "(") || isPunct(t, "[") ) {
+                if(depth == 0) break;
+                --depth;
+            }
+            else if(depth == 0 && isPunct(t, ",") ) break;
+            else if( isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}") ) return false;
+            slot.add(t);
+        } // for
+        if( i < 0 || slot.isEmpty() ) return false;
+
+        final Token last = slot.get(0);
+        if( isRepOp(last, '*') || isRepOp(last, '&') ) return true;
+        if( last.type == TokenType.KEYWORD && PARAM_TYPE_KEYWORDS.contains(last.text) ) return true;
+        if(last.type == TokenType.ANGLE_BRACKET_CLOSE) return true;
+
+        // Lone type identifier: `cl_context /* context */,` -- only inside a declaration's list
+        int names = 0;
+        for( int k = 0; k < slot.size(); ++k ) {
+            final Token t = slot.get(k);
+            if(t.type == TokenType.IDENTIFIER) {
+                if( k == 0 || !isOp(slot.get(k - 1), "::") ) ++names; // `std` in `std::string` qualifies
+            }
+            else if( isOp(t, "::") || ( t.type == TokenType.KEYWORD && PARAM_QUALIFIER_KEYWORDS.contains(t.text) ) ) continue;
+            else return false;
+        } // for
+        if(names != 1 || last.type != TokenType.IDENTIFIER) return false;
+
+        // `i` is the slot's opener; from a `,`, walk back over earlier slots to the list's own `(`
+        if( isPunct(tokens.get(i), "[") ) return false;
+        if( isPunct(tokens.get(i), ",") ) --i;
+        for( ; i >= 0 && !isPunct( tokens.get(i), "(" ); --i ) {
+            final Token t = tokens.get(i);
+            if( isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}") ) return false;
+            if( isPunct(t, ")") || isPunct(t, "]") ) {
+                // Skip a nested group whole
+                for( depth = 1, --i; i >= 0 && depth > 0; --i ) {
+                    if( isPunct(tokens.get(i), ")") || isPunct(tokens.get(i), "]") ) ++depth;
+                    else if( isPunct(tokens.get(i), "(") || isPunct(tokens.get(i), "[") ) --depth;
+                } // for
+                ++i;
+            }
+        } // for
+
+        return i >= 0 && isDeclarationParamListOpen(tokens, i);
+    }
+    /**
+     * True iff the `(` at {@code openIdx} opens a function declaration's parameter list rather
+     * than a call: it follows a function-pointer declarator's `)` (`(*fn)(`), or a name that
+     * itself follows a type (`void f(`, `T* f(`, `Map<K, V> f(`).
+     */
+    protected boolean isDeclarationParamListOpen(final List<Token> tokens, final int openIdx)
+    {
+        final int nameIdx = prevNonGapIndex(tokens, openIdx - 1);
+        if(nameIdx < 0) return false;
+        final Token name = tokens.get(nameIdx);
+        if( isPunct(name, ")") ) return true;
+        if(name.type != TokenType.IDENTIFIER) return false;
+
+        final int typeIdx = prevNonGapIndex(tokens, nameIdx - 1);
+        if(typeIdx < 0) return false;
+        final Token type = tokens.get(typeIdx);
+
+        return type.type == TokenType.IDENTIFIER
+               || ( type.type == TokenType.KEYWORD && PARAM_TYPE_KEYWORDS.contains(type.text) )
+               || isRepOp(type, '*') || isRepOp(type, '&')
+               || type.type == TokenType.ANGLE_BRACKET_CLOSE;
+    }
+    /** Index of the last non-whitespace/newline/comment token at or before {@code from}, or -1. */
+    private static int prevNonGapIndex(final List<Token> tokens, final int from)
+    {
+        int i = from;
+        while( i >= 0 && ( isGapToken( tokens.get(i) ) || tokens.get(i).type == TokenType.NEWLINE ) ) --i;
+
+        return i;
     }
     /**
      * A `#define NAME VALUE // comment` line is lexed as one opaque {@code PREPROCESSOR} token

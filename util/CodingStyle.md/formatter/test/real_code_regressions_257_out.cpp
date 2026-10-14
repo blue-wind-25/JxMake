@@ -25,6 +25,6 @@ struct Counter {
 
 typedef int
 (CALLBACK * on_event_fn)(
-    int          /* Code */,
-    void*        /* Payload */,
-    unsigned int /* Flags */);
+    int          /* code */,
+    void*        /* payload */,
+    unsigned int /* flags */);

@@ -867,6 +867,20 @@ dogfood trees found zero genuine one-word English prose comments that this rule 
 leave lowercase, so it was accepted as-is rather than built as a maintained allow-list. See
 "Known Limitations" below for the accepted risk this leaves.
 
+In C and C++, a block comment that names an otherwise unnamed parameter in a function
+declaration is also left exactly as written, padded or not, because capitalizing it would change
+the name it documents:
+
+```c
+typedef int (CALLBACK * on_event_fn)(int /* code */, void* /* payload */, cl_context /* ctx */);
+```
+
+This applies only when the comment is a single identifier that directly follows the parameter's
+type (no parameter name in between) and comes right before the `,` or `)`. A comment after a named
+parameter (`size_t len /* buffer size */`) or after a call argument (`foo(out /* dest */)`) is
+still normalized like any other comment. An unpadded inline comment between code (`size_t
+/*sz*/)`, `f(/*flag=*/ true)`) is always kept verbatim in every curly-brace language.
+
 ### `.jxmake-code-formatter` inheritance
 
 A `.jxmake-code-formatter` file in a subdirectory fully inherits from the nearest `.jxmake-code-formatter`

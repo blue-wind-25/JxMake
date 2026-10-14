@@ -116,6 +116,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_300 | 2026-08-16 cleanup pass: `JsonSpecificRule`/`CssSpecificRule`'s `repeatChar`/`indent` (byte-identical to each other and to `YamlTomlSharedRule`'s own pre-RDD_KEY_280 copy) promoted to `FormatterSimpleBraced`; `YamlTomlSharedRule` re-routed to delegate there too. Full details/rationale in `RDD_LOG.md`. |
 | RDD_KEY_302 | Follow-up to RDD_KEY_300's deferred item: `TomlSpecificRule.bracketBalance`/`findAssignmentEquals`/`YamlSpecificRule.findMappingColon`'s duplicated quote-aware bracket-depth scanner consolidated into `YamlTomlSharedRule.scanQuoteAwareBracket` (real parameterized-terminal-condition abstraction, `BracketScanStop`/`BracketScanResult`, not a packed-int return). Full details/rationale (including the packed-int-return regression found and fixed mid-task) in `RDD_LOG.md`. |
 | RDD_KEY_364 | YAML/TOML: a `#` comment whose whole text is one snake_case identifier (`# db_host`, trailing `# db_port`) is no longer capitalized -- standalone chains via the shared `ToolingCommentNormalizer` (tooling job's change), trailing comments via a new gate in `YamlTomlSharedRule.normComment`; both reuse `MiscRuleCore.isSnakeCaseIdentifierOnly`. JSON5/CSS not covered. Fixture `real_code_regressions_261` (.yaml) |
+| RDD_KEY_365 | YAML/TOML gate broadened from identifier-only to leading-word (`# db_port is ...`) via `MiscRuleCore.startsWithSnakeCaseIdentifier` -- same two call sites |
 
 ---
 

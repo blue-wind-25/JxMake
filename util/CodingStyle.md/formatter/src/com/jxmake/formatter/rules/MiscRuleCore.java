@@ -2856,19 +2856,36 @@ public static final class Assignment {
     private static final Pattern SNAKE_CASE_IDENTIFIER_PATTERN = Pattern.compile(
         "[A-Za-z0-9]*[A-Za-z0-9]_[A-Za-z0-9_]*[A-Za-z0-9]"
     );
+    // Superseded by startsWithSnakeCaseIdentifier (RDD_KEY_365), which also covers this case
+    // /**
+    //  * True iff the whole comment text (trimmed) is one identifier with an interior `_`
+    //  * (`cl_device_info`, `svm_ptr`) -- a section header or annotation naming a code symbol, never
+    //  * prose (`_` is rare in English), so capitalizing it (`Cl_device_info`) would change the name.
+    //  */
+    // protected static boolean isSnakeCaseIdentifierOnly(final String content)
+    // {
+    //     return SNAKE_CASE_IDENTIFIER_PATTERN.matcher( content.trim() ).matches();
+    // }
     /**
-     * True iff the whole comment text (trimmed) is one identifier with an interior `_`
-     * (`cl_device_info`, `svm_ptr`) -- a section header or annotation naming a code symbol, never
-     * prose (`_` is rare in English), so capitalizing it (`Cl_device_info`) would change the name.
+     * True iff the comment text's leading word -- the maximal `[A-Za-z0-9_]` run after leading
+     * whitespace -- is an identifier with an interior `_` (`cl_device_info`, `my_var is reset`,
+     * `max_len: limit`, `do_work() returns`). Such a word names a code symbol, never prose (`_` is
+     * rare in English), so capitalizing it (`My_var`) would change the name. Shared by every
+     * comment-normalization family (curly, Python, `#`-comment tooling/YAML/TOML, JSON5/CSS).
      */
-    protected static boolean isSnakeCaseIdentifierOnly(final String content)
+    protected static boolean startsWithSnakeCaseIdentifier(final String content)
     {
-        return SNAKE_CASE_IDENTIFIER_PATTERN.matcher( content.trim() ).matches();
+        int start = 0;
+        while( start < content.length() && Character.isWhitespace( content.charAt(start) ) ) ++start;
+        int end = start;
+        while( end < content.length() && ( Character.isLetterOrDigit( content.charAt(end) ) || content.charAt(end) == '_' ) ) ++end;
+
+        return SNAKE_CASE_IDENTIFIER_PATTERN.matcher( content.substring(start, end) ).matches();
     }
     protected String capitalizeFirstLetter(final String content)
     {
         if(!normalizeCommentStartCase) return content;
-        if( isSnakeCaseIdentifierOnly(content) ) return content;
+        if( startsWithSnakeCaseIdentifier(content) ) return content;
         for( int i = 0; i < content.length(); ++i ) {
             final char c = content.charAt(i);
             if( Character.isWhitespace(c) ) continue;

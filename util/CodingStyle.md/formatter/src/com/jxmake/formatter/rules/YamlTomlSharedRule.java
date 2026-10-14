@@ -100,7 +100,7 @@ final class YamlTomlSharedRule {
             commentText
         ) : commentText;
         if(!normalizeCommentStartCase) return text;
-        if( MiscRuleCore.isSnakeCaseIdentifierOnly( text.substring(1) ) ) return text; // `# db_port` names a key
+        if( MiscRuleCore.startsWithSnakeCaseIdentifier( text.substring(1) ) ) return text; // `# db_port ...` names a key
         int i = 1;
         while( i < text.length() && text.charAt(i) == ' ' ) i++;
         if( i < text.length() ) {

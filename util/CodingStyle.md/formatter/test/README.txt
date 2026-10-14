@@ -4550,6 +4550,14 @@ Real-code regressions:
   real_code_regressions_261_inp/out.yaml             -- same as 259 for YAML (shared by TOML): standalone `#
                                                         db_host` and trailing `# db_port` were capitalized.
 
+  real_code_regressions_262_inp/out.c                -- a comment merely STARTING with a snake_case identifier
+                                                        (`// my_var is reset here`, `// max_len: ...`,
+                                                        trailing `// buf_size ...`) was capitalized
+                                                        (`My_var`).
+
+  real_code_regressions_263_inp/out.py               -- same as 262 for Python `#` comments (`#
+                                                        capture_output=True needs ...`).
+
 How Tests Are Run
 -----------------
 

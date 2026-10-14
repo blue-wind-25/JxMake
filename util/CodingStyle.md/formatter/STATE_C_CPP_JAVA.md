@@ -223,6 +223,25 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
      `real_code_regressions_55`/`207` and made `208` non-idempotent. Candidate rule: bail when the
      text up to the last call's `(` already exceeds the limit. Needs approval for the resulting
      `_out` changes.
+  **2026-10-15 end-of-session status (quota): both items APPROVED by the user ("Keep braces",
+  "Bail when head too long") and IMPLEMENTED, UNCOMMITTED** in the working tree (backup:
+  `target/line-length-audit-wip.patch`, `git apply` it if the tree was reset). Item 1:
+  `refuseUnrescuableCollapse` for every language unless `line-split-by-operator-priority` is on
+  (`BlockStructureRule.setLineSplitByOperatorPriority`, set from `FormatterCurly`), and folded
+  into `chainAllBranchesCollapsible` (non-JS/TS only -- JS/TS fixtures 172/209 deliberately keep
+  a collapsed `if` + braced `else`) so a chain is never half-braced; plus a pre-existing Kotlin
+  bug it exposed: a braced block after a wrapped `if`/`while`/`for` condition put its `}` at the
+  continuation indent -- new `ScopePipelineCurly.isControlStatementHead` exclusion next to
+  `hasWhereClauseHeader`. Item 2: `DeclarationAlignmentRuleCurly.isRescuableByCallWrap` (some
+  call with args whose head and tail both fit) replaces the "no `(`" condition; a first "text up
+  to the LAST `(`" version flapped alignment groups on 13 corpus files and was replaced.
+  `make test` 387/389: the only failures are the 2 fixtures whose new output is CORRECT and still
+  needs the user's OK to update -- `java_combined_out.java` (approved item 1/2 shapes: chain
+  re-braced, `verdict` ternary keeps author's wrap) and `real_code_regressions_159_out.kt`
+  (Kotlin `}` bug was baked in: `}` at 8 under an `if` at 4, new output 4). NOT yet done: re-run
+  HowToTrainYourPetAI + `src/` idempotency with the final `isRescuableByCallWrap` version (was
+  running when the session ended), fixture for item 1/2/Kotlin, RDD_KEY_370 log row, README
+  Known Limitations update (curly #12 wording now covers calls too), commit.
   Landed from the audit so far: RDD_KEY_369 (postfix `++`/`--` spacing). Still open, not yet
   investigated: unary `&` spacing in a C declaration initializer (`& device_table[i]`, corpus
   `dongle_protocol.c`).

@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import com.jxmake.formatter.rules.MiscRuleCore;
+
 /**
  * Shared base for the "SimpleBraced" family (RDD_KEY_190): brace/bracket-delimited formats with no
  * imperative control flow -- JSON/JSON5 ({@link FormatterJson}) and, eventually, CSS. Holds
@@ -99,6 +101,7 @@ public abstract class FormatterSimpleBraced extends FormatterCore {
     {
         final int delimLen = commentText.startsWith("//") || commentText.startsWith("/*") ? 2 : 0;
               int i        = delimLen;
+        if( MiscRuleCore.startsWithSnakeCaseIdentifier( commentText.substring(delimLen) ) ) return commentText; // `// max_len ...` names a symbol
         while( i < commentText.length() && commentText.charAt(i) == ' ' ) i++;
         if( i < commentText.length() ) {
             final char c = commentText.charAt(i);

@@ -2873,7 +2873,7 @@ public static final class Assignment {
      * rare in English), so capitalizing it (`My_var`) would change the name. Shared by every
      * comment-normalization family (curly, Python, `#`-comment tooling/YAML/TOML, JSON5/CSS).
      */
-    protected static boolean startsWithSnakeCaseIdentifier(final String content)
+    public static boolean startsWithSnakeCaseIdentifier(final String content)
     {
         int start = 0;
         while( start < content.length() && Character.isWhitespace( content.charAt(start) ) ) ++start;

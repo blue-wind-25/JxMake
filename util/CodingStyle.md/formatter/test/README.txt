@@ -4558,6 +4558,12 @@ Real-code regressions:
   real_code_regressions_263_inp/out.py               -- same as 262 for Python `#` comments (`#
                                                         capture_output=True needs ...`).
 
+  real_code_regressions_264_inp/out.json5            -- same as 262 for JSON5 `//`/`/* */` comments (`//
+                                                        max_len is ...`, trailing `// buf_size ...`).
+
+  real_code_regressions_265_inp/out.css              -- same as 262 for CSS `/* */` comments (`/* grid_gap is
+                                                        ...`, trailing `/* nav_bar ... */`).
+
 How Tests Are Run
 -----------------
 

@@ -1,0 +1,12 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+/* grid_gap is shared */
+.a {
+    color : red;
+} /* nav_bar height */
+/* Plain words */
+.b {
+    color : blue;
+}

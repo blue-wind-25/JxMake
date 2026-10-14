@@ -884,8 +884,8 @@ still normalized like any other comment. An unpadded inline comment between code
 A comment whose first word is an identifier containing an interior underscore is also never
 capitalized, wherever it appears, since that word names a code symbol rather than starting a
 sentence (`// my_var is reset here`, `// max_len: upper bound`).
-This applies to `//` and `/* */` comments in the curly-brace languages and to `#` comments in
-Python, YAML, TOML, Makefile, Bash and PowerShell:
+This applies to `//` and `/* */` comments in the curly-brace languages, JSON5 and CSS, and to `#`
+comments in Python, YAML, TOML, Makefile, Bash and PowerShell:
 
 ```c
 /* cl_device_info */
@@ -897,8 +897,6 @@ out.writeInt(1); // schema_version
 # db_host
 host: localhost # db_port
 ```
-
-JSON5 and CSS comments are not covered by this exception.
 
 ### `.jxmake-code-formatter` inheritance
 

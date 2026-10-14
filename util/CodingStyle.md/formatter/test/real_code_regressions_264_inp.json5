@@ -1,0 +1,12 @@
+/*
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+ */
+{
+  // max_len is the upper bound
+  a: 1, // buf_size must match
+  /* db_host is used below */
+  b: 2,
+  // plain words
+  c: 3
+}

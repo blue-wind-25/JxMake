@@ -884,8 +884,9 @@ still normalized like any other comment. An unpadded inline comment between code
 A comment whose first word is an identifier containing an interior underscore is also never
 capitalized, wherever it appears, since that word names a code symbol rather than starting a
 sentence (`// my_var is reset here`, `// max_len: upper bound`).
-This applies to `//` and `/* */` comments in the curly-brace languages, JSON5 and CSS, and to `#`
-comments in Python, YAML, TOML, Makefile, Bash and PowerShell:
+This applies to `//` and `/* */` comments in the curly-brace languages, JSON5 and CSS, to `#`
+comments in Python, YAML, TOML, Makefile, Bash and PowerShell, and to `<!-- -->` comments in XML
+and HTML5:
 
 ```c
 /* cl_device_info */

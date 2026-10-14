@@ -1638,6 +1638,8 @@ public final class XmlSpecificRule {
                 first.charAt(i)
             ) && !isSingleWordDirective(
                 first
+            ) && !MiscRuleCore.startsWithSnakeCaseIdentifier(
+                first
             ) && !isMarkupFragmentDirective(
                 first.substring(i)
             ) ) contentLines.set(
@@ -1697,6 +1699,8 @@ public final class XmlSpecificRule {
         if( i >= text.length() || !Character.isLowerCase(
             text.charAt(i)
         ) || isSingleWordDirective(
+            text
+        ) || MiscRuleCore.startsWithSnakeCaseIdentifier(
             text
         ) || isMarkupFragmentDirective(
             text.substring(i)

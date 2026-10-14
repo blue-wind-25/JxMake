@@ -4564,6 +4564,12 @@ Real-code regressions:
   real_code_regressions_265_inp/out.css              -- same as 262 for CSS `/* */` comments (`/* grid_gap is
                                                         ...`, trailing `/* nav_bar ... */`).
 
+  real_code_regressions_266_inp/out.xml              -- same as 262 for XML `<!-- -->` comments, single-line
+                                                        (`<!-- db_host is ...`) and banner first line (` *
+                                                        max_len is ...`).
+
+  real_code_regressions_267_inp/out.html             -- same as 262 for HTML5 (`<!-- nav_bar is ...`).
+
 How Tests Are Run
 -----------------
 

@@ -118,6 +118,7 @@ See `STATE_COMMON.md`'s lookup convention (`grep -Fm1`, no `-A`).
 | RDD_KEY_364 | YAML/TOML: a `#` comment whose whole text is one snake_case identifier (`# db_host`, trailing `# db_port`) is no longer capitalized -- standalone chains via the shared `ToolingCommentNormalizer` (tooling job's change), trailing comments via a new gate in `YamlTomlSharedRule.normComment`; both reuse `MiscRuleCore.isSnakeCaseIdentifierOnly`. JSON5/CSS not covered. Fixture `real_code_regressions_261` (.yaml) |
 | RDD_KEY_365 | YAML/TOML gate broadened from identifier-only to leading-word (`# db_port is ...`) via `MiscRuleCore.startsWithSnakeCaseIdentifier` -- same two call sites |
 | RDD_KEY_366 | JSON5/CSS: comment led by a snake_case identifier (`// max_len is ...`, `/* grid_gap is shared */`) no longer capitalized -- gate in `FormatterSimpleBraced.capitalizeCommentStart` via `MiscRuleCore.startsWithSnakeCaseIdentifier` (now `public`). Identifier-only case was already covered by `isSingleTokenDirective`. Fixtures `real_code_regressions_264` (.json5), `_265` (.css). `make test` 383/383 -> 385/385 |
+| RDD_KEY_367 | XML/HTML5: comment led by a snake_case identifier (`<!-- db_host is ... -->`) no longer capitalized -- both `XmlSpecificRule` capitalization sites (`normComment` and banner first line) gated via `MiscRuleCore.startsWithSnakeCaseIdentifier`. Single-word case already covered by `isSingleWordDirective`. Fixtures `real_code_regressions_266` (.xml), `_267` (.html). `make test` 385/385 -> 387/387 |
 
 ---
 

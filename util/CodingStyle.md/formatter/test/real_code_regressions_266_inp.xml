@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!--
+ * Copyright (C) 2024 Example Corp.
+ * SPDX-License-Identifier: MIT
+-->
+<root>
+  <!-- db_host is read at startup -->
+  <host>x</host>
+  <!-- plain words -->
+  <!--
+   * max_len is the upper bound
+   * second line
+   -->
+  <port>1</port>
+</root>

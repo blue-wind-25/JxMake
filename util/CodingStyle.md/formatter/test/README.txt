@@ -4543,6 +4543,13 @@ Real-code regressions:
                                                         dev_info */`, `// mem_flags`) was capitalized,
                                                         changing the symbol name it labels.
 
+  real_code_regressions_260_inp/out.sh               -- same as 259 for `#` comments in Bash (shared by
+                                                        Makefile/PowerShell): `# max_retries` and a trailing
+                                                        `# retry_count` were capitalized.
+
+  real_code_regressions_261_inp/out.yaml             -- same as 259 for YAML (shared by TOML): standalone `#
+                                                        db_host` and trailing `# db_port` were capitalized.
+
 How Tests Are Run
 -----------------
 

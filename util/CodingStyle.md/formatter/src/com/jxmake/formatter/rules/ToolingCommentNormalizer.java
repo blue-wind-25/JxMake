@@ -66,6 +66,7 @@ final class ToolingCommentNormalizer {
         int i = 0;
         while( i < text.length() && text.charAt(i) == ' ' ) ++i;
         if( i >= text.length() ) return text;
+        if( MiscRuleCore.isSnakeCaseIdentifierOnly(text) ) return text; // `# max_retries` names a symbol
 
         int wordEnd = i;
         while( wordEnd < text.length() && Character.isLetter( text.charAt(wordEnd) ) ) ++wordEnd;

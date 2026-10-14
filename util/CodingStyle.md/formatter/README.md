@@ -881,6 +881,20 @@ parameter (`size_t len /* buffer size */`) or after a call argument (`foo(out /*
 still normalized like any other comment. An unpadded inline comment between code (`size_t
 /*sz*/)`, `f(/*flag=*/ true)`) is always kept verbatim in every curly-brace language.
 
+A comment (`//`, `/* */`, or Python `#`) whose entire text is one identifier containing an
+interior underscore is also never capitalized, wherever it appears, since it names a code symbol
+rather than starting a sentence:
+
+```c
+/* cl_device_info */
+#define CL_DEVICE_SVM_CAPABILITIES_AMD 0x1053
+out.writeInt(1); // schema_version
+```
+
+A comment that merely *starts* with such an identifier (`// my_var is reset here`) is still
+capitalized as before, and this exception does not yet cover Makefile, Bash, PowerShell, YAML
+or TOML comments.
+
 ### `.jxmake-code-formatter` inheritance
 
 A `.jxmake-code-formatter` file in a subdirectory fully inherits from the nearest `.jxmake-code-formatter`

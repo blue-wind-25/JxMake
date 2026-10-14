@@ -4539,6 +4539,10 @@ Real-code regressions:
                                                         was overwritten by the generated `} // enum class X`
                                                         closing label.
 
+  real_code_regressions_259_inp/out.c                -- a comment that is only a snake_case identifier (`/*
+                                                        dev_info */`, `// mem_flags`) was capitalized,
+                                                        changing the symbol name it labels.
+
 How Tests Are Run
 -----------------
 

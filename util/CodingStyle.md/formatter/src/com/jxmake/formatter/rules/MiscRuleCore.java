@@ -2853,9 +2853,22 @@ public static final class Assignment {
 
         return ( i < 0 || tokens.get(i).type == TokenType.NEWLINE ) ? indent.toString() : "";
     }
+    private static final Pattern SNAKE_CASE_IDENTIFIER_PATTERN = Pattern.compile(
+        "[A-Za-z0-9]*[A-Za-z0-9]_[A-Za-z0-9_]*[A-Za-z0-9]"
+    );
+    /**
+     * True iff the whole comment text (trimmed) is one identifier with an interior `_`
+     * (`cl_device_info`, `svm_ptr`) -- a section header or annotation naming a code symbol, never
+     * prose (`_` is rare in English), so capitalizing it (`Cl_device_info`) would change the name.
+     */
+    protected static boolean isSnakeCaseIdentifierOnly(final String content)
+    {
+        return SNAKE_CASE_IDENTIFIER_PATTERN.matcher( content.trim() ).matches();
+    }
     protected String capitalizeFirstLetter(final String content)
     {
         if(!normalizeCommentStartCase) return content;
+        if( isSnakeCaseIdentifierOnly(content) ) return content;
         for( int i = 0; i < content.length(); ++i ) {
             final char c = content.charAt(i);
             if( Character.isWhitespace(c) ) continue;

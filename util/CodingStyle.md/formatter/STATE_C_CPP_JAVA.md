@@ -244,7 +244,10 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   Known Limitations update (curly #12 wording now covers calls too), commit.
   Landed from the audit so far: RDD_KEY_369 (postfix `++`/`--` spacing). Still open, not yet
   investigated: unary `&` spacing in a C declaration initializer (`& device_table[i]`, corpus
-  `dongle_protocol.c`).
+  `dongle_protocol.c`). Source is `device_record_t *r = &device_table[device_count++];` --
+  UNARY address-of only; binary AND (`A = b & c[i]`) stays spaced and must not change. Tell them
+  apart by the previous token (`=`/`(`/`,`/`return`/operator -> unary; identifier/`)`/`]` ->
+  binary), same pattern as `Token.isUnaryMinusOperand`.
 
 - **`.h` -> C++26 §5 reflection rules (`^^`/`[: :]`) gap: VERIFIED, not a bug, documented.**
   `Lang.infer` maps `.h` to `"c"` by default, so `FormatterCurly`'s `lang.isCpp`-gated

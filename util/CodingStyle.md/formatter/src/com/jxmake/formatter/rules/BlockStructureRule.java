@@ -3475,21 +3475,7 @@ public class BlockStructureRule {
                 final boolean isBare   = line.regionMatches(indentLen, "else ", 0, 5) && !isElseIf;
                 if(isBare) continue; // Bare `else { ... }` is a deliberately supported shape
                 final int condStart  = isElseIf ? indentLen + "else if".length() : indentLen + 2;
-                      int depth      = 0;
-                      int closeParen = -1;
-                for( int c = condStart; c < line.length(); ++c ) {
-                    final char ch = line.charAt(c);
-                    if(ch == '(') {
-                        ++depth;
-                    }
-                    else if(ch == ')') {
-                        --depth;
-                        if(depth == 0) {
-                            closeParen = c;
-                            break;
-                        }
-                    }
-                } // for c
+                final int closeParen = findConditionCloseParen(line, condStart);
                 if( closeParen >= 0 && startsBracedBody(line, closeParen + 1) ) anyBraced = true;
             } // for k
             if(anyBraced) {
@@ -3557,21 +3543,7 @@ public class BlockStructureRule {
                     continue;
                 } // if
                 final int openParen  = isElseIf ? indentLen + "else if".length() : indentLen + leftPad[k] + 2;
-                      int depth      = 0;
-                      int closeParen = -1;
-                for( int c = openParen; c < line.length(); ++c ) {
-                    final char ch = line.charAt(c);
-                    if(ch == '(') {
-                        ++depth;
-                    }
-                    else if(ch == ')') {
-                        --depth;
-                        if(depth == 0) {
-                            closeParen = c;
-                            break;
-                        }
-                    }
-                } // for c
+                final int closeParen = findConditionCloseParen(line, openParen);
                 if( closeParen < 0 || closeParen + 2 > line.length() || line.charAt(
                     closeParen + 1
                 ) != ' ' ) {
@@ -3648,6 +3620,32 @@ public class BlockStructureRule {
      * braced (not braceless) body. Used by {@link #alignBracelessElseIfChain} to bail its
      * whole-chain keyword/body-column alignment on any member with a braced body.
      */
+    /**
+     * Index of the `)` closing the condition whose `(` is the first one at or after {@code from},
+     * or -1. Skips `"..."`/`'...'` literals (backslash escapes honored) -- a paren inside one
+     * (`else if( isPunct(t, "(") ) {`) previously skewed the depth count, so the real `)` and the
+     * braced body after it were never found and a mixed chain got column-aligned anyway.
+     */
+    private static int findConditionCloseParen(final String line, final int from)
+    {
+        int depth = 0;
+        for( int c = from; c < line.length(); ++c ) {
+            final char ch = line.charAt(c);
+            if(ch == '"' || ch == '\'') {
+                for( ++c; c < line.length() && line.charAt(c) != ch; ++c ) {
+                    if( line.charAt(c) == '\\' ) ++c;
+                } // for
+            }
+            else if(ch == '(') {
+                ++depth;
+            }
+            else if(ch == ')') {
+                if(--depth == 0) return c;
+            }
+        } // for c
+
+        return -1;
+    }
     private boolean startsBracedBody(final String line, final int from)
     {
         int idx = from;

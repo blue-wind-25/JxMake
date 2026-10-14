@@ -4570,6 +4570,12 @@ Real-code regressions:
 
   real_code_regressions_267_inp/out.html             -- same as 262 for HTML5 (`<!-- nav_bar is ...`).
 
+  real_code_regressions_268_inp/out.java             -- (1) a braceless `if` was left-padded to align with an
+                                                        `else if(...) {` whose condition held a `"("` string
+                                                        literal (braced-member guard miscounted parens); (2) a
+                                                        ternary initializer wrapped over two lines was joined
+                                                        into one over-length line.
+
 How Tests Are Run
 -----------------
 

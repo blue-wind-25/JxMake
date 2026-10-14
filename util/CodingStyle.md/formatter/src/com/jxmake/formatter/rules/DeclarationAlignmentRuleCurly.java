@@ -832,6 +832,37 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
      * with one space after each comma. Does not include the declaration's own type/name/`=`
      * prefix -- callers only need this as a lower-bound check against `lineLengthLimit`.
      */
+    private static boolean containsNewline(final List<Token> tokens)
+    {
+        for(final Token t : tokens) {
+            if(t.type == TokenType.NEWLINE) return true;
+        }
+
+        return false;
+    }
+
+    private static boolean containsOpenParen(final List<Token> tokens)
+    {
+        for(final Token t : tokens) {
+            if( isPunct(t, "(") ) return true;
+        }
+
+        return false;
+    }
+
+    /** Width of the whitespace in front of {@code stmt}'s first real token, if {@code stmt} carries it */
+    private static int leadingIndentWidth(final List<Token> stmt)
+    {
+        int width = 0;
+        for(final Token t : stmt) {
+            if(t.type == TokenType.NEWLINE) width = 0;
+            else if(t.type == TokenType.WHITESPACE) width += t.text.length();
+            else break;
+        } // for
+
+        return width;
+    }
+
     private int flatAggregateInitRenderedWidth(final List<Token> rawInit)
     {
         int width = 0;
@@ -1312,6 +1343,16 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                     if( Token.isComment(t) ) return null;
                 }
             }
+            // An initializer already wrapped across lines (`x = cond\n ? a : b;`) whose flattened
+            // statement would overflow `lineLengthLimit`: `renderInitTokens` has no wrap path, and
+            // with no `(` in it no later pass (call-argument wrap, method-chain split) can re-wrap
+            // it either, so the join would leave a permanent over-length line (found via
+            // self-format dogfood, a 141-char ternary). Leave it as written, same posture as the
+            // aggregate-init width bail above. An initializer containing a call is deliberately
+            // not covered -- those passes do re-wrap it (existing fixtures depend on that).
+            if( rawInitForBraceCheck != null && containsNewline(rawInitForBraceCheck)
+                    && !containsOpenParen(initTokens)
+                    && leadingIndentWidth(stmt) + renderTokens(sig).length() > lineLengthLimit ) return null;
         } // if
 
         // Direct function-pointer declaration (`void (*fp)(int) = NULL;`): shaped as

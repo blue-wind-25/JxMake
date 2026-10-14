@@ -1353,6 +1353,24 @@ used as an expression, an elvis-operator (`?:`) continuation, or a trailing lamb
 line break ambiguous in ways this option cannot safely resolve). No workaround exists beyond keeping
 those specific lines shorter by hand.
 
+#### 12. A hand-wrapped declaration initializer with no call in it is left as written when it wouldn't fit on one line (C/C++/Java)
+
+A declaration whose initializer you already wrapped across lines, and which contains no call or
+other parenthesized part, is left exactly as you wrote it whenever joining it onto one line would
+exceed `line-length`:
+
+```java
+final int firstSig = first.templatePrefixFrom != first.templatePrefixTo
+                   ? first.templatePrefixFrom : first.returnTypeFrom;
+```
+
+The formatter has no way to re-wrap such an expression itself, so joining it would leave a
+permanently over-long line. The side effect is that this declaration no longer takes part in the
+`=` column alignment of the declarations around it, and those neighbours align among themselves
+only. An initializer that contains a call is still joined, because the call-wrapping rules can
+then break it again at its arguments. Workaround: none needed for correctness; if you want the
+alignment back, shorten the expression (for example via a local variable) so it fits on one line.
+
 ### Data-format family (JSON/JSON5/CSS/YAML/TOML)
 
 #### 1. YAML block scalars, including embedded CI/build scripts, are left completely untouched

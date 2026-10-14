@@ -121,9 +121,15 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
     // Pattern matching
     public String describe(Object obj)
     {
-        if(obj instanceof ChannelConfig cc)                return "config: " + cc.channels() + "ch @ " + cc.sampleRate() + "Hz";
-        else if(obj instanceof ProcessResult pr)           return pr.success() ? "ok:" + pr.framesProcessed() : "err:" + pr.error();
-        else if( obj instanceof String s && !s.isEmpty() ) return "label: " + s;
+        if(obj instanceof ChannelConfig cc) {
+            return "config: " + cc.channels() + "ch @ " + cc.sampleRate() + "Hz";
+        }
+        else if(obj instanceof ProcessResult pr) {
+            return pr.success() ? "ok:" + pr.framesProcessed() : "err:" + pr.error();
+        }
+        else if( obj instanceof String s && !s.isEmpty() ) {
+            return "label: " + s;
+        }
 
         return "unknown";
     }
@@ -191,9 +197,8 @@ public sealed class AudioEngine permits AudioEngine.LocalEngine, AudioEngine.Rem
         int yesCorrect = 0, yesIncorrect = 0, noCorrect = 0, noIncorrect = 0, abstain = 0;
         int total      = scored.size();
         for(Scored s : scored) {
-            CommentDecision verdict = s.probabilities == null ? CommentDecision.ABSTAIN : GruClassifier.decide(
-                s.probabilities, threshold
-            );
+            CommentDecision verdict = s.probabilities == null
+                    ? CommentDecision.ABSTAIN : GruClassifier.decide(s.probabilities, threshold);
             if(verdict == CommentDecision.ABSTAIN) {
                 ++abstain;
                 continue;

@@ -841,11 +841,24 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         return false;
     }
 
-    private static boolean containsOpenParen(final List<Token> tokens)
+    /**
+     * True iff a later call-argument wrap could bring the joined statement {@code sig} under
+     * `lineLengthLimit`: some call with a non-empty argument list whose head (text up to and
+     * including its `(`) and tail (text from its `)` on) each fit on their own line. Must stay a
+     * pure function of the significant tokens -- it is asked again on the next round, when the
+     * same statement arrives already wrapped, and has to give the same answer (an earlier
+     * "up to the LAST `(`" rule did not, and flapped alignment groups between rounds)
+     */
+    private boolean isRescuableByCallWrap(final List<Token> sig, final int indentWidth)
     {
-        for(final Token t : tokens) {
-            if( isPunct(t, "(") ) return true;
-        }
+        for( int k = 1; k < sig.size(); ++k ) {
+            if( !isPunct( sig.get(k), "(" ) || sig.get(k - 1).type != TokenType.IDENTIFIER ) continue;
+            final int close = MiscRuleCore.matchParenForward(sig, k);
+            if(close <= k + 1) continue; // Unmatched, or no arguments to move off the line
+            final int head = indentWidth + renderTokens( sig.subList(0, k + 1) ).length();
+            final int tail = indentWidth + renderTokens( sig.subList( close, sig.size() ) ).length();
+            if(head <= lineLengthLimit && tail <= lineLengthLimit) return true;
+        } // for
 
         return false;
     }
@@ -1350,15 +1363,14 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // with no `(` in it no later pass (call-argument wrap, method-chain split) can re-wrap
             // it either, so the join would leave a permanent over-length line (found via
             // self-format dogfood, a 141-char ternary). Leave it as written, same posture as the
-            // aggregate-init width bail above. An initializer containing a call is deliberately
-            // not covered -- those passes do re-wrap it (existing fixtures depend on that).
+            // aggregate-init width bail above. An initializer WITH a call is joined only when some
+            // call could rescue it (see `isRescuableByCallWrap`); otherwise a long head
+            // (`multipass = a.x() && a.y() && a.z();`, zero-arg calls) stayed over the limit too
+            // (RDD_KEY_370).
+            final int indentWidth = leadingIndentWidth(stmt);
             if( rawInitForBraceCheck != null && containsNewline(rawInitForBraceCheck)
-                    && !containsOpenParen(initTokens)
-                    && leadingIndentWidth(
-                        stmt
-                    ) + renderTokens(
-                        sig
-                    ).length() > lineLengthLimit ) return null;
+                    && indentWidth + renderTokens(sig).length() > lineLengthLimit
+                    && !isRescuableByCallWrap(sig, indentWidth) ) return null;
         } // if
 
         // Direct function-pointer declaration (`void (*fp)(int) = NULL;`): shaped as

@@ -10,7 +10,7 @@ fun computeAllSupertypes(result: MutableList<Int>)
             klass != null && (klass == 1 || klass == 2)
         } ) {
         result += 3
-        }
+    }
 }
 
 fun checkOther(list: List<Int>, flag: Boolean): Boolean
@@ -20,7 +20,7 @@ fun checkOther(list: List<Int>, flag: Boolean): Boolean
             y > 10
         }) {
         return true
-        }
+    }
 
     return false
 }

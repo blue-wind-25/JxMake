@@ -1133,6 +1133,29 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         return "\n" + text.substring(lastNewline + 1);
     }
 
+    /**
+     * True iff {@code span}'s first real token is an `if`/`while`/`for` keyword (optionally after
+     * `else`) and its `{` directly follows that keyword's own header `)` -- a control statement,
+     * never a trailing lambda on a call chain
+     */
+    private boolean isControlStatementHead(final List<Token> tokens, final Span span)
+    {
+        int first = nextSignificantIndex(tokens, span.start - 1);
+        if( first >= 0 && tokens.get(first).type == TokenType.KEYWORD && "else".equals( tokens.get(first).text ) ) {
+            first = nextSignificantIndex(tokens, first);
+        }
+        if( first < 0 || first >= span.openBraceIdx || tokens.get(first).type != TokenType.KEYWORD ) return false;
+        final String kw = tokens.get(first).text;
+        if( !"if".equals(kw) && !"while".equals(kw) && !"for".equals(kw) ) return false;
+        // The `{` must follow THIS keyword's own header `)` -- a Kotlin span can start at an
+        // earlier `;`-less statement (`if(x) return` + a call chain ending in a trailing lambda)
+        final int open = nextSignificantIndex(tokens, first);
+        if( open < 0 || !isPunct( tokens.get(open), "(" ) ) return false;
+        final int close = matchParenForward(tokens, open);
+
+        return close > open && nextSignificantIndex(tokens, close) == span.openBraceIdx;
+    }
+
     private String braceLineIndent(final List<Token> tokens, final int idx)
     {
         int i = idx - 1;
@@ -2480,8 +2503,14 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             final boolean hasWhereClauseHeader = lang.isKotlin && headerHasTopLevelWhereClause(
                 current, span
             );
+            // Same continuation-line trap for a control statement whose wrapped condition puts its
+            // `{` on a continuation line (`if(a\n        && b) {`): the body and closing `}` belong
+            // to the `if` line, not the deeper continuation line (`}` landed at the continuation
+            // indent -- line-length audit, RDD_KEY_370)
+            final boolean hasControlHeader = lang.isKotlin && isControlStatementHead(current, span);
             if(isChainedCatchFinally || isChainedFluentCall)                            effectiveSpanIndent = prevEffectiveSpanIndent;
-            else if(braceIndent == null || isNamedScope || hasWhereClauseHeader)        effectiveSpanIndent = spanIndent;
+            else if(braceIndent == null || isNamedScope || hasWhereClauseHeader
+                    || hasControlHeader)                                                effectiveSpanIndent = spanIndent;
             else if( spanIndent == null || braceIndent.length() > spanIndent.length() ) effectiveSpanIndent = braceIndent;
             else effectiveSpanIndent = spanIndent;
             // Pre-expand named-construct one-liner bodies (`struct Foo { int a; int b; };`)

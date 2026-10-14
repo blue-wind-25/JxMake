@@ -102,6 +102,12 @@ public class BlockStructureRule {
      * it, since this pass runs last)
      */
     private final int lineLengthLimit;
+    private boolean   lineSplitByOperatorPriority = false;
+
+    public void setLineSplitByOperatorPriority(final boolean on)
+    {
+        lineSplitByOperatorPriority = on;
+    }
     /**
      * Configured `indent-size`, kept alongside the pre-built {@link #indentUnit} string so
      * {@code MiscRuleCore.expandedIndentWidth} can tab-expand a raw (not-yet-converted)
@@ -630,12 +636,7 @@ public class BlockStructureRule {
         // vuejs/core real-code testing, `parser.ts`'s `onCloseTag`'s `inlineTemplateProp.value =
         // { ... }` and `compiler-sfc/resolveType.ts`'s analogous shape).
         if( containsBrace(contents) ) return null;
-        final String prefix    = tightenParenPrefix(
-            tokens.get(kwIndex).text,
-            renderInline( tokens.subList(kwIndex, block.closeParenIndex + 1) )
-        );
-        final String body      = renderInline(contents);
-        final String candidate = prefix + " " + body;
+        final String candidate = collapseCandidate(tokens, kwIndex, block, contents);
         // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/scoping pass") -- see
         // `refuseUnrescuableCollapse`'s javadoc for the full mechanism
         if( refuseUnrescuableCollapse(
@@ -643,6 +644,22 @@ public class BlockStructureRule {
         ) ) return null;
 
         return candidate;
+    }
+
+    /** The one-line `if(cond) stmt;` text {@link #tryCollapse} would emit for a braced block */
+    private String collapseCandidate(
+        final List<Token>  tokens,
+        final int          kwIndex,
+        final ControlBlock block,
+        final List<Token>  contents
+    )
+    {
+        final String prefix = tightenParenPrefix(
+            tokens.get(kwIndex).text,
+            renderInline( tokens.subList(kwIndex, block.closeParenIndex + 1) )
+        );
+
+        return prefix + " " + renderInline(contents);
     }
 
     /**
@@ -1368,7 +1385,14 @@ public class BlockStructureRule {
                         ++j;
                     }
                     if(depth != 0) return false;
-                    return isSingleStatementBody( tokens.subList(next + 1, j - 1) );
+                    final List<Token> contents = tokens.subList(next + 1, j - 1);
+                    if( !isSingleStatementBody(contents) ) return false;
+
+                    // Same width gate, same inputs as the bare-else collapse path itself (not for
+                    // JS/TS, whose fixtures deliberately keep a collapsed `if` + braced `else`)
+                    return lang.isJs || lang.isTs || !refuseUnrescuableCollapse(
+                        tokens, pos, next + 1, j - 2, "else " + renderInline(contents)
+                    );
                 } // if
                 return true; // Already brace-free bare else -- nothing to collapse, chain ends here
             } // if
@@ -1377,8 +1401,17 @@ public class BlockStructureRule {
             final ControlBlock block = matchControlBlock(tokens, pos);
             if(block == null) return false;
             if(block.openBraceIndex >= 0) {
-                if( !isSingleStatementBody(
-                    tokens.subList(block.openBraceIndex + 1, block.closeBraceIndex)
+                final List<Token> contents = tokens.subList(
+                    block.openBraceIndex + 1, block.closeBraceIndex
+                );
+                if( !isSingleStatementBody(contents) ) return false;
+                // Ask the per-branch width gate here, with the exact inputs `tryCollapse` will
+                // use, so the chain is approved only if every branch will really collapse --
+                // otherwise a branch refused later would leave a half-braced chain. Not for JS/TS,
+                // whose fixtures deliberately keep a collapsed `if` + braced `else`
+                if( !(lang.isJs || lang.isTs) && refuseUnrescuableCollapse(
+                    tokens, pos, pos, block.closeBraceIndex - 1,
+                    collapseCandidate(tokens, pos, block, contents)
                 ) ) return false;
                 final int after = skipWhitespaceOnly(tokens, block.closeBraceIndex + 1);
                 if( after < n && ( tokens.get(
@@ -2199,7 +2232,9 @@ public class BlockStructureRule {
         final String      candidate
     )
     {
-        if( !(lang.isJs || lang.isTs) ) return false;
+        // EXPERIMENT (line-length audit): C/C++/Java/Kotlin too, unless the operator-priority
+        // splitter will re-split the collapsed condition afterwards
+        if( !(lang.isJs || lang.isTs) && lineSplitByOperatorPriority ) return false;
         final int width = MiscRuleCore.expandedIndentWidth(
             lineIndent(tokens, indentAnchorIdx), indentWidth
         ) + candidate.length();

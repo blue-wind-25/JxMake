@@ -117,6 +117,7 @@ public final class FormatterCurly extends FormatterCore {
         final BlockStructureRule blockRule                  = new BlockStructureRule(
             lang, config.closingCommentMinLines(), indentWidth, lineLengthLimit
         );
+        blockRule.setLineSplitByOperatorPriority( config.lineSplitByOperatorPriority() );
         final SwitchRule         switchRule                 = new SwitchRule(
             lang, lineLengthLimit, indentWidth
         );

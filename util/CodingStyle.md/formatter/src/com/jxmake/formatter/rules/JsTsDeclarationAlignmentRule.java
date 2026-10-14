@@ -215,7 +215,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                 final Token t = sig.get(i);
                      if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
                 else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
-                else if( depth == 0 && ( isPunct(t, ";") || isPunct(t, ",") ) ) break;
+                else if( depth == 0 && ( isPunct(t, ";") || isPunct(t, ",") ) )  break;
                 ++i;
             } // while
             if( i < sig.size() && isPunct(
@@ -293,8 +293,8 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
                   int d         = 0;
             while( i < sig.size() ) {
                 final Token t = sig.get(i);
-                     if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) d++;
-                else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) d--;
+                     if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") )            d++;
+                else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") )            d--;
                 else if( d == 0 && ( isOp(t, "=") || isPunct(t, ";") || isPunct(t, ",") ) ) break;
                 ++i;
             } // while
@@ -315,7 +315,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
             final Token t = sig.get(i);
                  if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) d++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) d--;
-            else if( d == 0 && ( isPunct(t, ";") || isPunct(t, ",") ) ) break;
+            else if( d == 0 && ( isPunct(t, ";") || isPunct(t, ",") ) )      break;
             ++i;
         } // while
         if( i < sig.size() && isPunct(
@@ -400,7 +400,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
             final Token t = sig.get(i);
                  if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
-            else if( depth == 0 && isPunct(t, ";") ) break;
+            else if( depth == 0 && isPunct(t, ";") )                         break;
             ++i;
         } // while
         final List<Token> initTokens = sig.subList(initStart, i);

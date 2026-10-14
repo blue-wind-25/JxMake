@@ -638,7 +638,7 @@ public final class JsTsSpecificRule {
         final Deque<Integer>        stack       = new ArrayDeque<>();
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-                 if( isPunct(t, "(") ) stack.push(i);
+                 if( isPunct(t, "(") )                     stack.push(i);
             else if( isPunct(t, ")") && !stack.isEmpty() ) openToClose.put( stack.pop(), i );
         }
 
@@ -3962,8 +3962,8 @@ public final class JsTsSpecificRule {
             if( isGapToken(t) ) continue;
                  if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
-            else if( depth == 0 && isPunct(t, ",") ) return true;
-            else if( depth == 0 && isPunct(t, ";") ) return false;
+            else if( depth == 0 && isPunct(t, ",") )                         return true;
+            else if( depth == 0 && isPunct(t, ";") )                         return false;
         } // for
 
         return false;

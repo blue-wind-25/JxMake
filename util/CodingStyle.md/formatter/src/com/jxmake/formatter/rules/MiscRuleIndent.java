@@ -122,7 +122,7 @@ public final class MiscRuleIndent extends MiscRuleCore {
      * Magic-comment directive words (see {@link #COMMENT_NO_CAPITALIZE_PYTHON}'s family (2)) that
      * must stay lowercase regardless of {@code comment-normalization-classifier}: the classifier
      * path in {@link MiscRuleCore#capitalizeFirstLetter} never consults the keyword set, and it
-     * happily judged `# noqa: E402` capitalizable -- silently breaking the linter directive.
+     * happily judged `# noqa: E402` capitalizable -- silently breaking the linter directive
      */
     private static final Set<String> PYTHON_DIRECTIVE_WORDS = setOf(
         "noqa", "type", "pragma", "coding", "fmt", "isort", "pylint", "mypy", "flake8", "nosec"
@@ -138,7 +138,7 @@ public final class MiscRuleIndent extends MiscRuleCore {
             while( end < content.length() && ( Character.isLetterOrDigit( content.charAt(end) )
                     || content.charAt(end) == '_' ) ) ++end;
             if( PYTHON_DIRECTIVE_WORDS.contains( content.substring(i, end) ) ) return content;
-        }
+        } // if
 
         return super.capitalizeFirstLetter(content);
     }

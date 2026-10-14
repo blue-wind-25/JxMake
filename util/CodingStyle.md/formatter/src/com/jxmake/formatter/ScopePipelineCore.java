@@ -187,7 +187,7 @@ public abstract class ScopePipelineCore {
         // Zero-width is valid (global/top-level scope, column 0).  Multiples of indentWidth
         // are valid.  Only round up a non-zero non-multiple (malformed indentation in source).
         if(width == 0 || width % indentWidth == 0) return rawIndent;
-        final int           normalized = ( (width + indentWidth - 1) / indentWidth )* indentWidth;
+        final int           normalized = ( (width + indentWidth - 1) / indentWidth ) * indentWidth;
         final StringBuilder sb         = new StringBuilder(normalized);
         for(int i = 0; i < normalized; ++i) sb.append(' ');
 

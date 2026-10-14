@@ -904,7 +904,7 @@ public final class BashSpecificRule {
                 } // if
                 final String[] arm = expectingPattern ? matchCaseArm(trimmed) : null;
                 if(arm != null) {
-                    armRawIndentLen = leadingWhitespace(lines.get(idx)).length();
+                    armRawIndentLen = leadingWhitespace( lines.get(idx) ).length();
                     out.add( basePrefix + arm[0].trim() + ")" );
                     String rest = arm[1].trim();
                     if( rest.endsWith(";;") ) {
@@ -998,7 +998,7 @@ public final class BashSpecificRule {
      */
     private String snapIndent(final String rawLine, final String basePrefix, final int minLevels)
     {
-        return snapIndent(rawLine, basePrefix, basePrefix.length(), minLevels);
+        return snapIndent( rawLine, basePrefix, basePrefix.length(), minLevels );
     }
 
     /**
@@ -1009,11 +1009,14 @@ public final class BashSpecificRule {
      * relative to the arm's own original column, not the enclosing `case`'s.
      */
     private String snapIndent(
-        final String rawLine, final String basePrefix, final int referenceLen, final int minLevels
+        final String rawLine,
+        final String basePrefix,
+        final int    referenceLen,
+        final int    minLevels
     )
     {
         final int rawLen  = leadingWhitespace(rawLine).length();
-        final int relLen  = Math.max( 0, rawLen - referenceLen );
+        final int relLen  = Math.max(0, rawLen - referenceLen);
         final int snapped = (relLen + indentWidth - 1) / indentWidth;
 
         return basePrefix + indent( Math.max( Math.max(0, minLevels), snapped ) );

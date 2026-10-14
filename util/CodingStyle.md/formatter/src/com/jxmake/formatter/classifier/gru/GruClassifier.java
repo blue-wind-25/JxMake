@@ -326,7 +326,7 @@ public final class GruClassifier {
         double[][] bZ = new double[t][], bR = new double[t][], bHTilde = new double[t][], bH = new double[t][], bRH = new double[t][];
         runGruDirection(weights.backward, x, h, t - 1, targetIndex, -1, bZ, bR, bHTilde, bRH, bH);
 
-        double[] denseInput = new double[2* h];
+        double[] denseInput = new double[2 * h];
         System.arraycopy( fH[targetIndex], 0, denseInput, 0, h );
         System.arraycopy( bH[targetIndex], 0, denseInput, h, h );
 
@@ -521,7 +521,7 @@ public final class GruClassifier {
                 for(int j = 0; j < h; ++j) {
                     gradWeights.Uz[i][j] += dAz[i] * hPrev[j];
                     gradWeights.Ur[i][j] += dAr[i] * hPrev[j];
-                    double rh = r[j]* hPrev[j];
+                    double rh = r[j] * hPrev[j];
                     gradWeights.Uh[i][j] += dAh[i] * rh;
                 }
                 gradWeights.bz[i] += dAz[i];

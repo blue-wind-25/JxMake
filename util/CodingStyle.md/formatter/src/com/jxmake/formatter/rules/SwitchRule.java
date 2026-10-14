@@ -165,8 +165,8 @@ public class SwitchRule {
             final Token t = tokens.get(i);
                  if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
-            else if( depth == 0 && isOp(t, ":") ) return i;
-            else if( depth == 0 && isPunct(t, ";") ) return -1;
+            else if( depth == 0 && isOp(t, ":") )         return i;
+            else if( depth == 0 && isPunct(t, ";") )      return -1;
         } // for
 
         return -1;
@@ -448,7 +448,7 @@ public class SwitchRule {
     {
         int depth         = 0;
         int parenDepth    = 0;
-        int headLineDelta = 0; // delta applied to the most recent paren-depth-0 (statement-head) line
+        int headLineDelta = 0;            // Delta applied to the most recent paren-depth-0 (statement-head) line
         int i             = braceIdx + 1;
         while(i < braceClose) {
             final Token t = tokens.get(i);
@@ -500,13 +500,13 @@ public class SwitchRule {
                     // owned by the line-wrap pass for its own relative shape -- but when this
                     // pass moves the statement's head line, the continuation lines must move with
                     // it by the same delta or they keep a stale absolute indent (the wrapped
-                    // statement's head and tail then disagree until a second format round).
+                    // statement's head and tail then disagree until a second format round)
                     shiftLineIndent(tokens, lineStart, headLineDelta, overrides);
                 } // else if
             } // if
             else {
-                     if( isPunct(t, "{") ) depth++;
-                else if( isPunct(t, "}") ) depth--;
+                     if( isPunct(t, "{") )                    depth++;
+                else if( isPunct(t, "}") )                    depth--;
                 else if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;
                 else if( isPunct(t, ")") || isPunct(t, "]") ) parenDepth--;
             } // else
@@ -861,7 +861,7 @@ public class SwitchRule {
             final Token t = tokens.get(i);
                  if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
-            else if( depth == 0 && isPunct(t, ";") ) return i;
+            else if( depth == 0 && isPunct(t, ";") )      return i;
         }
 
         return -1;

@@ -992,3 +992,11 @@ adoption):
   re-width, call-wrap reflow, known comment-capitalization exception-list
   quirk, `// if`/`// for opText` closing-brace annotations). `make test`
   363/363; `tools/gru/*.java` (13 files) still compiled clean.
+- **2026-10-15** (`src/`, 100 files, after RDD_KEY_362-367 comment-normalization work): round1 ==
+  round2; 25 files adopted, all cosmetic (`2* h` -> `2 * h` from RDD_KEY_359, braceless-chain body
+  alignment, comment trailing-period strip, closing labels). Found and fixed 2 pre-existing bugs
+  first (RDD_KEY_368: string-literal parens in `else if` chain detection; over-length joined
+  paren-free initializer), fixture `real_code_regressions_268`. `java_content_diff` 96/100 OK,
+  4 comment-only false positives (closing-label rewrites, trailing period). Flushed-left scan
+  (`tools/detect_flushed_left_lines.py`): clean on `src/` and round1. Adopted tree is a fixed
+  point. `make test` 388/388.

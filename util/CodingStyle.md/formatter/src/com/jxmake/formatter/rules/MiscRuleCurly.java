@@ -196,7 +196,7 @@ public class MiscRuleCurly extends MiscRuleCore {
                 final Token tk = tokens.get(k);
                      if( isPunct(tk, "(") || isPunct(tk, "[") ) depth++;
                 else if( isPunct(tk, ")") || isPunct(tk, "]") ) depth--;
-                else if( depth == 0 && isPunct(tk, ";") ) semiIdx.add(k);
+                else if( depth == 0 && isPunct(tk, ";") )       semiIdx.add(k);
             }
             if( semiIdx.size() != 2 ) continue;
 
@@ -1727,7 +1727,7 @@ public static final class Signature {
         final ColumnGrid grid = new ColumnGrid();
         for( int r = 0; r < rows.size(); ++r ) {
             final List<Param> row   = rows.get(r);
-            final String[]    cells = new String[ row.size()* 2 ];
+            final String[]    cells = new String[ row.size() * 2 ];
             for( int c = 0; c < row.size(); ++c ) {
                 final Param   p             = row.get(c);
                 final boolean isLastOverall = ( r == rows.size() - 1 ) && ( c == row.size() - 1 );
@@ -2391,7 +2391,7 @@ public static final class Signature {
         for( int i = from; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.PUNCT) {
-                     if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
+                if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) {
                     if(depth == 0) return -1; // Left the enclosing scope -- not a statement we own
                     --depth;
@@ -2424,7 +2424,7 @@ public static final class Signature {
         for(int i = from; i <= to; ++i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.PUNCT) {
-                     if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
+                if( "(".equals(t.text) || "[".equals(t.text) || "{".equals(t.text) ) ++depth;
                 else if( ")".equals(t.text) || "]".equals(t.text) || "}".equals(t.text) ) {
                     if(depth > 0) --depth;
                 }

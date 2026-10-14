@@ -629,8 +629,8 @@ public final class FormatterCurly extends FormatterCore {
                     while( k > 0 && ( out.charAt(k - 1) == ' ' || out.charAt(k - 1) == '\t' ) ) --k;
                     out.setLength(k);
                     out.append( closeIndent[i] );
-                }
-            }
+                } // if
+            } // if
             out.append(t.text);
         } // for
 
@@ -639,7 +639,7 @@ public final class FormatterCurly extends FormatterCore {
 
     /**
      * If the `{` at {@code braceIdx} opens `namespace [a::b] {`, returns the leading whitespace of
-     * the line containing the `namespace` keyword; otherwise null.
+     * the line containing the `namespace` keyword; otherwise null
      */
     private static String namespaceHeaderLineIndent(final List<Token> tokens, final int braceIdx)
     {
@@ -648,13 +648,27 @@ public final class FormatterCurly extends FormatterCore {
                 || tokens.get(i).type == TokenType.NEWLINE ) ) --i;
         // Optional `name`, `a::b` chain, and `inline`/attributes are not handled beyond ident/::
         while( i >= 0 && ( tokens.get(i).type == TokenType.IDENTIFIER
-                || tokens.get(i).text.equals("::") || tokens.get(i).type == TokenType.WHITESPACE ) ) --i;
-        if( i < 0 || tokens.get(i).type != TokenType.KEYWORD || !"namespace".equals( tokens.get(i).text ) ) return null;
+                || tokens.get(
+                    i
+                ).text.equals(
+                    "::"
+                ) || tokens.get(
+                    i
+                ).type == TokenType.WHITESPACE ) ) --i;
+        if( i < 0 || tokens.get(
+            i
+        ).type != TokenType.KEYWORD || !"namespace".equals(
+            tokens.get(i).text
+        ) ) return null;
         int j = i - 1;
         // Walk back to the line start, collecting its leading whitespace
         while( j >= 0 && tokens.get(j).type != TokenType.NEWLINE ) --j;
         final StringBuilder indent = new StringBuilder();
-        for(int k = j + 1; k < tokens.size() && tokens.get(k).type == TokenType.WHITESPACE; ++k) indent.append( tokens.get(k).text );
+        for( int k = j + 1; k < tokens.size() && tokens.get(
+            k
+        ).type == TokenType.WHITESPACE; ++k ) indent.append(
+            tokens.get(k).text
+        );
 
         return indent.toString();
     }

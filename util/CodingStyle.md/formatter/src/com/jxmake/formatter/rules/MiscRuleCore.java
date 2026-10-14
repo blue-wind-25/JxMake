@@ -1372,7 +1372,7 @@ public static final class Assignment {
             final Token t = tokens.get(i);
                  if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
-            else if( depth == 0 && isPunct(t, ";") ) return i;
+            else if( depth == 0 && isPunct(t, ";") )                         return i;
         }
 
         return -1;
@@ -2079,9 +2079,9 @@ public static final class Assignment {
             if(t.type == TokenType.WHITESPACE) continue;
             before = true;
             break;
-        }
+        } // for
         if(!before) return false;
-        for(int i = idx + 1; i < tokens.size(); ++i) {
+        for( int i = idx + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.NEWLINE) return false;
             if(t.type == TokenType.WHITESPACE || t.type == TokenType.COMMENT_LINE) continue;
@@ -2090,12 +2090,29 @@ public static final class Assignment {
 
         return false;
     }
-    private static final Pattern    SINGLE_IDENTIFIER_PATTERN = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
-    private static final Set<String> PARAM_TYPE_KEYWORDS      = setOf(
-        "void", "char", "short", "int", "long", "float", "double", "signed", "unsigned", "bool",
-        "_Bool", "wchar_t", "char8_t", "char16_t", "char32_t", "const", "volatile"
+    private static final Pattern     SINGLE_IDENTIFIER_PATTERN = Pattern.compile(
+        "[A-Za-z_][A-Za-z0-9_]*"
     );
-    private static final Set<String> PARAM_QUALIFIER_KEYWORDS = setOf(
+    private static final Set<String> PARAM_TYPE_KEYWORDS       = setOf(
+        "void",
+        "char",
+        "short",
+        "int",
+        "long",
+        "float",
+        "double",
+        "signed",
+        "unsigned",
+        "bool",
+        "_Bool",
+        "wchar_t",
+        "char8_t",
+        "char16_t",
+        "char32_t",
+        "const",
+        "volatile"
+    );
+    private static final Set<String> PARAM_QUALIFIER_KEYWORDS  = setOf(
         "const", "volatile", "struct", "enum", "union", "class", "typename"
     );
     /**
@@ -2109,20 +2126,32 @@ public static final class Assignment {
      * {@link #isDeclarationParamListOpen}). A named slot (`cfg /* config *\/,`) or a call
      * argument (`out /* dest *\/,`) is normalized like any other comment.
      */
-    protected boolean isUnnamedParamNameComment(final List<Token> tokens, final int idx, final String inner)
+    protected boolean isUnnamedParamNameComment(
+        final List<Token> tokens,
+        final int         idx,
+        final String      inner
+    )
     {
         if( !(lang.isC || lang.isCpp) ) return false;
         if( !SINGLE_IDENTIFIER_PATTERN.matcher( inner.trim() ).matches() ) return false;
 
         int next = idx + 1;
-        while( next < tokens.size() && ( isGapToken( tokens.get(next) ) || tokens.get(next).type == TokenType.NEWLINE ) ) ++next;
-        if( next >= tokens.size() || !( isPunct(tokens.get(next), ",") || isPunct(tokens.get(next), ")") ) ) return false;
+        while( next < tokens.size() && ( isGapToken(
+            tokens.get(next)
+        ) || tokens.get(
+            next
+        ).type == TokenType.NEWLINE ) ) ++next;
+        if( next >= tokens.size() || !( isPunct(
+            tokens.get(next), ","
+        ) || isPunct(
+            tokens.get(next), ")"
+        ) ) ) return false;
 
         // Collect the slot's significant tokens backward to its opening `(`/`,`
         final List<Token> slot  = new ArrayList<>();
-        int               depth = 0;
-        int               i     = idx - 1;
-        for( ; i >= 0; --i ) {
+              int         depth = 0;
+              int         i     = idx - 1;
+        for(; i >= 0; --i) {
             final Token t = tokens.get(i);
             if(t.type == TokenType.NEWLINE) {
                 if( slot.isEmpty() ) return false;
@@ -2134,7 +2163,7 @@ public static final class Assignment {
                 if(depth == 0) break;
                 --depth;
             }
-            else if(depth == 0 && isPunct(t, ",") ) break;
+            else if( depth == 0 && isPunct(t, ",") ) break;
             else if( isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}") ) return false;
             slot.add(t);
         } // for
@@ -2150,35 +2179,43 @@ public static final class Assignment {
         for( int k = 0; k < slot.size(); ++k ) {
             final Token t = slot.get(k);
             if(t.type == TokenType.IDENTIFIER) {
-                if( k == 0 || !isOp(slot.get(k - 1), "::") ) ++names; // `std` in `std::string` qualifies
+                if( k == 0 || !isOp( slot.get(k - 1), "::" ) ) ++names; // `std` in `std::string` qualifies
             }
-            else if( isOp(t, "::") || ( t.type == TokenType.KEYWORD && PARAM_QUALIFIER_KEYWORDS.contains(t.text) ) ) continue;
+            else if( isOp(
+                t, "::"
+            ) || ( t.type == TokenType.KEYWORD && PARAM_QUALIFIER_KEYWORDS.contains(
+                t.text
+            ) ) ) continue;
             else return false;
         } // for
         if(names != 1 || last.type != TokenType.IDENTIFIER) return false;
 
         // `i` is the slot's opener; from a `,`, walk back over earlier slots to the list's own `(`
-        if( isPunct(tokens.get(i), "[") ) return false;
-        if( isPunct(tokens.get(i), ",") ) --i;
+        if( isPunct( tokens.get(i), "[" ) ) return false;
+        if( isPunct( tokens.get(i), "," ) ) --i;
         for( ; i >= 0 && !isPunct( tokens.get(i), "(" ); --i ) {
             final Token t = tokens.get(i);
             if( isPunct(t, ";") || isPunct(t, "{") || isPunct(t, "}") ) return false;
             if( isPunct(t, ")") || isPunct(t, "]") ) {
                 // Skip a nested group whole
-                for( depth = 1, --i; i >= 0 && depth > 0; --i ) {
-                    if( isPunct(tokens.get(i), ")") || isPunct(tokens.get(i), "]") ) ++depth;
-                    else if( isPunct(tokens.get(i), "(") || isPunct(tokens.get(i), "[") ) --depth;
-                } // for
+                for(depth = 1, --i; i >= 0 && depth > 0; --i) {
+                    if( isPunct( tokens.get(i), ")" ) || isPunct( tokens.get(i), "]" ) ) ++depth;
+                    else if( isPunct(
+                        tokens.get(i), "("
+                    ) || isPunct(
+                        tokens.get(i), "["
+                    ) ) --depth;
+                } // for depth
                 ++i;
-            }
-        } // for
+            } // if
+        } // for i
 
         return i >= 0 && isDeclarationParamListOpen(tokens, i);
     }
     /**
      * True iff the `(` at {@code openIdx} opens a function declaration's parameter list rather
      * than a call: it follows a function-pointer declarator's `)` (`(*fn)(`), or a name that
-     * itself follows a type (`void f(`, `T* f(`, `Map<K, V> f(`).
+     * itself follows a type (`void f(`, `T* f(`, `Map<K, V> f(`)
      */
     protected boolean isDeclarationParamListOpen(final List<Token> tokens, final int openIdx)
     {
@@ -2197,11 +2234,15 @@ public static final class Assignment {
                || isRepOp(type, '*') || isRepOp(type, '&')
                || type.type == TokenType.ANGLE_BRACKET_CLOSE;
     }
-    /** Index of the last non-whitespace/newline/comment token at or before {@code from}, or -1. */
+    /** Index of the last non-whitespace/newline/comment token at or before {@code from}, or -1 */
     private static int prevNonGapIndex(final List<Token> tokens, final int from)
     {
         int i = from;
-        while( i >= 0 && ( isGapToken( tokens.get(i) ) || tokens.get(i).type == TokenType.NEWLINE ) ) --i;
+        while( i >= 0 && ( isGapToken(
+            tokens.get(i)
+        ) || tokens.get(
+            i
+        ).type == TokenType.NEWLINE ) ) --i;
 
         return i;
     }
@@ -2876,9 +2917,15 @@ public static final class Assignment {
     public static boolean startsWithSnakeCaseIdentifier(final String content)
     {
         int start = 0;
-        while( start < content.length() && Character.isWhitespace( content.charAt(start) ) ) ++start;
+        while( start < content.length() && Character.isWhitespace(
+            content.charAt(start)
+        ) ) ++start;
         int end = start;
-        while( end < content.length() && ( Character.isLetterOrDigit( content.charAt(end) ) || content.charAt(end) == '_' ) ) ++end;
+        while( end < content.length() && ( Character.isLetterOrDigit(
+            content.charAt(end)
+        ) || content.charAt(
+            end
+        ) == '_' ) ) ++end;
 
         return SNAKE_CASE_IDENTIFIER_PATTERN.matcher( content.substring(start, end) ).matches();
     }

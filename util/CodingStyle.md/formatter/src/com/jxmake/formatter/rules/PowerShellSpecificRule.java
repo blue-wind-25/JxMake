@@ -1055,7 +1055,7 @@ public final class PowerShellSpecificRule {
         for( int i = 0; i < line.length(); ++i ) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-                 if(c == '(' || c == '[' || c == '{') depth++;
+            if(c == '(' || c == '[' || c == '{') depth++;
             else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
             else if( depth == 0 && c == '|' && !isDoublePipe(line, i) ) return true;
         } // for
@@ -1074,7 +1074,7 @@ public final class PowerShellSpecificRule {
         for(int i = 0; i <= end; ++i) {
             if( i < kind.length && kind[i] != 'C' ) continue;
             final char c = line.charAt(i);
-                 if(c == '(' || c == '[' || c == '{') depth++;
+            if(c == '(' || c == '[' || c == '{') depth++;
             else if(c == ')' || c == ']' || c == '}') { if(depth > 0) depth--; }
         }
 

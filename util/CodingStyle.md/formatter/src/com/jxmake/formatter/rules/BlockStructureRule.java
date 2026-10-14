@@ -2141,7 +2141,7 @@ public class BlockStructureRule {
         int depth = 0;
         for( int i = openIdx; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-                 if( isPunct(t, "(") ) ++depth;
+            if( isPunct(t, "(") ) ++depth;
             else if( isPunct(t, ")") ) {
                 --depth;
                 if(depth == 0) return i;
@@ -2554,7 +2554,9 @@ public class BlockStructureRule {
                         comments.put(insertAt, comment);
                     }
                     else if( existingCommentIdx >= 0
-                            && isReplaceableClosingLabel( tokens.get(existingCommentIdx).text, comment ) ) {
+                            && isReplaceableClosingLabel(
+                                tokens.get(existingCommentIdx).text, comment
+                            ) ) {
                         replaceTokens.put(existingCommentIdx, "// " + comment);
                         normalizeWhitespaceBefore(
                             tokens, insertAt + 1, existingCommentIdx, replaceTokens
@@ -2614,7 +2616,7 @@ public class BlockStructureRule {
         String body = existing.startsWith("//") ? existing.substring(2) : existing;
         body = body.trim();
         if( body.equalsIgnoreCase( label.trim() ) ) return true;
-        final int sp = body.indexOf(' ');
+        final int    sp    = body.indexOf(' ');
         final String first = ( sp < 0 ? body : body.substring(0, sp) ).toLowerCase();
 
         return CLOSING_LABEL_FIRST_WORDS.contains(first);
@@ -3130,9 +3132,9 @@ public class BlockStructureRule {
         final List<Integer> semiIdx  = new ArrayList<>();
         for( int k = 0; k < body.size(); ++k ) {
             final Token t = body.get(k);
-                 if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
-            else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
-            else if( depth == 0 && isPunct(t, ";") ) semiIdx.add(k);
+                 if( isPunct(t, "(") || isPunct(t, "[") )         depth++;
+            else if( isPunct(t, ")") || isPunct(t, "]") )         depth--;
+            else if( depth == 0 && isPunct(t, ";") )              semiIdx.add(k);
             else if( depth == 0 && colonIdx < 0 && isOp(t, ":") ) colonIdx = k;
         } // for
 
@@ -3477,7 +3479,7 @@ public class BlockStructureRule {
                 final int condStart  = isElseIf ? indentLen + "else if".length() : indentLen + 2;
                 final int closeParen = findConditionCloseParen(line, condStart);
                 if( closeParen >= 0 && startsBracedBody(line, closeParen + 1) ) anyBraced = true;
-            } // for k
+            } // for
             if(anyBraced) {
                 i = j;
                 continue;
@@ -3572,7 +3574,7 @@ public class BlockStructureRule {
                 target = Math.max(
                     target, prefixEnd[k] + 1
                 ); // +1: desired body column, one past the space
-            } // for k
+            } // for
             if(!ok || target < 0) {
                 i = j;
                 continue;

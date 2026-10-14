@@ -698,8 +698,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             final Token t = body.get(j);
                  if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) ++depth;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) --depth;
-            else if( depth == 0 && stopOp != null && isOp(t, stopOp) ) return -1;
-            else if( depth == 0 && isOp(t, targetOp) ) return j;
+            else if( depth == 0 && stopOp != null && isOp(t, stopOp) )       return -1;
+            else if( depth == 0 && isOp(t, targetOp) )                       return j;
         } // for
 
         return -1;
@@ -855,9 +855,9 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     {
         int width = 0;
         for(final Token t : stmt) {
-            if(t.type == TokenType.NEWLINE) width = 0;
+                 if(t.type == TokenType.NEWLINE)    width = 0;
             else if(t.type == TokenType.WHITESPACE) width += t.text.length();
-            else break;
+            else                                    break;
         } // for
 
         return width;
@@ -1015,7 +1015,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     /**
      * True iff a comment token sits strictly between {@code stmt}'s first and last significant
      * tokens (e.g. a comment between two enum constants of a constant list): the declaration
-     * model has no home for it, so rendering the statement would silently drop it.
+     * model has no home for it, so rendering the statement would silently drop it
      */
     private boolean hasInteriorComment(final List<Token> stmt)
     {
@@ -1023,10 +1023,12 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         int last  = -1;
         for( int i = 0; i < stmt.size(); ++i ) {
             final Token t = stmt.get(i);
-            if( t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE || Token.isComment(t) ) continue;
+            if( t.type == TokenType.WHITESPACE || t.type == TokenType.NEWLINE || Token.isComment(
+                t
+            ) ) continue;
             // A leading preprocessor directive (`#include ...` right before the statement's own
             // comment block) is not part of the declaration proper
-            if( t.type == TokenType.PREPROCESSOR || t.type == TokenType.MACRO_DEF ) continue;
+            if(t.type == TokenType.PREPROCESSOR || t.type == TokenType.MACRO_DEF) continue;
             if(first < 0) first = i;
             last = i;
         } // for
@@ -1046,14 +1048,14 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     private boolean isStructuredBindingStatement(final List<Token> stmt)
     {
         final List<Token> sig = significantOnly(stmt);
-        for(int i = 0; i < sig.size() && i < 5; ++i) {
+        for( int i = 0; i < sig.size() && i < 5; ++i ) {
             if( isPunct( sig.get(i), "[" ) ) {
                 for(int j = 0; j < i; ++j) {
                     if( "auto".equals( sig.get(j).text ) ) return true;
                 }
                 return false;
             }
-        } // for
+        } // for i
 
         return false;
     }
@@ -1063,7 +1065,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // A statement with a comment between its first and last significant tokens (a comment
         // between enum constants, commented-out parameter names in a function-pointer typedef,
         // `int /*c*/ x = 1;`) is left untouched: the `Declaration` model regenerates the statement
-        // from its significant tokens only, which would silently discard that comment.
+        // from its significant tokens only, which would silently discard that comment
         if( hasInteriorComment(stmt) && !isStructuredBindingStatement(stmt) ) return null;
         final Token       trailingComment = findTrailingComment(stmt);
         final List<Token> sig             = significantOnly(stmt);
@@ -1352,7 +1354,11 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // not covered -- those passes do re-wrap it (existing fixtures depend on that).
             if( rawInitForBraceCheck != null && containsNewline(rawInitForBraceCheck)
                     && !containsOpenParen(initTokens)
-                    && leadingIndentWidth(stmt) + renderTokens(sig).length() > lineLengthLimit ) return null;
+                    && leadingIndentWidth(
+                        stmt
+                    ) + renderTokens(
+                        sig
+                    ).length() > lineLengthLimit ) return null;
         } // if
 
         // Direct function-pointer declaration (`void (*fp)(int) = NULL;`): shaped as

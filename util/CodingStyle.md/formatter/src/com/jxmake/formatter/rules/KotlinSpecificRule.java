@@ -220,7 +220,7 @@ public class KotlinSpecificRule {
             final Token t = tokens.get(i);
                  if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
-            else if( depth == 0 && isOp(t, "->") ) return i;
+            else if( depth == 0 && isOp(t, "->") )                           return i;
         }
 
         return -1;
@@ -234,7 +234,7 @@ public class KotlinSpecificRule {
             final Token t = tokens.get(i);
                  if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) depth++;
             else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) depth--;
-            else if(depth == 0 && t.type == TokenType.NEWLINE) return i;
+            else if(depth == 0 && t.type == TokenType.NEWLINE)               return i;
         }
 
         return -1;

@@ -512,7 +512,7 @@ public class JavaSpecificRule {
                 // right after the terminator) must survive -- only the whitespace/newlines are
                 // regenerated: same-line comments stay glued to the preceding token, standalone
                 // ones are re-emitted on their own indented line
-                boolean sawNewline = false;
+                      boolean      sawNewline = false;
                 final List<String> standalone = new ArrayList<>();
                 for(final Token g : gap) {
                     if(g.type == TokenType.NEWLINE) {
@@ -522,7 +522,7 @@ public class JavaSpecificRule {
                         if(sawNewline) standalone.add(g.text);
                         else           out.append(' ').append(g.text);
                     }
-                } // for
+                } // for g
                 out.append('\n').append('\n').append(indent);
                 for(final String c : standalone) out.append(c).append('\n').append(indent);
             } // if
@@ -532,7 +532,7 @@ public class JavaSpecificRule {
             gap.clear();
             out.append(t.text);
             lastSignificant = i;
-        } // for
+        } // for i
         for(final Token g : gap) out.append(g.text);
 
         return out.toString();
@@ -1248,10 +1248,10 @@ public class JavaSpecificRule {
         int depth = 0;
         for(int i = kwIdx + 1; i < limit; ++i) {
             final Token t = tokens.get(i);
-                 if( isPunct(t, "(") || isPunct(t, "[") ) depth++;
-            else if( isPunct(t, ")") || isPunct(t, "]") ) depth--;
-            else if( depth == 0 && isOp(t, "->") ) return i;
-            else if( depth == 0 && isOp(t, ":") ) return COLON_FOUND;
+                 if( isPunct(t, "(") || isPunct(t, "[") )                   depth++;
+            else if( isPunct(t, ")") || isPunct(t, "]") )                   depth--;
+            else if( depth == 0 && isOp(t, "->") )                          return i;
+            else if( depth == 0 && isOp(t, ":") )                           return COLON_FOUND;
             else if( depth == 0 && ( isPunct(t, ";") || isPunct(t, "{") ) ) return ARROW_NOT_FOUND;
         } // for
 

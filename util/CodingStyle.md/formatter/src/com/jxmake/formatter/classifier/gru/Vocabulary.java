@@ -40,7 +40,7 @@ public final class Vocabulary {
     public Vocabulary(List<String> explicitWords)
     {
         this.explicitVocabSize = explicitWords.size();
-        Map<String, Integer> index = new HashMap<>( explicitWords.size()* 2 );
+        Map<String, Integer> index = new HashMap<>( explicitWords.size() * 2 );
         for( int i = 0; i < explicitWords.size(); ++i ) index.putIfAbsent(
             explicitWords.get(i), i
         );

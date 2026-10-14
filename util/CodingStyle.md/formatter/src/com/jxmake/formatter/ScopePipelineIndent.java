@@ -122,12 +122,14 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         // Comment normalization runs as its own pre-stage: its single-token replacements would
         // otherwise overlap a wider replacement covering the same line (e.g. an import-sort
         // reorder, which carries the trailing comment along) and be dropped as stale by render(),
-        // surfacing only on the next format() call (non-idempotent `# noqa` -> `# Noqa`).
-        final List<Token> commentTokens = new TokenizerIndent(lang).tokenize(source);
-        final String      normalized    = render( commentTokens, applyCommentNormalization(commentTokens) );
-        final List<Token>       tokens       = new TokenizerIndent(lang).tokenize(normalized);
-        final List<RawLine>     rawLines     = splitRawLines(tokens);
-        final List<Replacement> replacements = new ArrayList<>();
+        // surfacing only on the next format() call (non-idempotent `# noqa` -> `# Noqa`)
+        final List<Token>       commentTokens = new TokenizerIndent(lang).tokenize(source);
+        final String            normalized    = render(
+            commentTokens, applyCommentNormalization(commentTokens)
+        );
+        final List<Token>       tokens        = new TokenizerIndent(lang).tokenize(normalized);
+        final List<RawLine>     rawLines      = splitRawLines(tokens);
+        final List<Replacement> replacements  = new ArrayList<>();
         replacements.addAll( applyAssignmentAlignment(tokens, rawLines) );
         replacements.addAll( applyImportSort(tokens, rawLines) );
         replacements.addAll( applyDecoratorSpacing(tokens, rawLines) );

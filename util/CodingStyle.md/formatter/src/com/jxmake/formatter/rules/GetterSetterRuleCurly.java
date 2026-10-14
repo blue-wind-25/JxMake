@@ -414,14 +414,14 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         boolean breakable = false;
         for(final Member m : group) {
             if( ( m.isDefinition && hasBreakableCall(tokens, m.bodyFrom, m.bodyTo) )
-                    || ( !m.isDefinition && m.paramsFrom < m.paramsTo ) ) {
+                    || (!m.isDefinition && m.paramsFrom < m.paramsTo) ) {
                 breakable = true;
                 break;
             }
         } // for
         if(!breakable) return false;
         for(final String line : lines) {
-            if(column + line.length() > lineLengthLimit) return true;
+            if( column + line.length() > lineLengthLimit ) return true;
         }
 
         return false;

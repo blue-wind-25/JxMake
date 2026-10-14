@@ -1867,8 +1867,8 @@ public class TokenizerCurly extends TokenizerCore {
         for(int i = pos + 2; i < limit; ++i) {
             final char c = source.charAt(i);
             if(c == '\n' || c == '\r' || c == ';' || c == '{' || c == '}' || c == '"' || c == '\'') return false;
-                 if(c == '(') depth++;
-            else if(c == ')') depth--;
+                 if(c == '(')               depth++;
+            else if(c == ')')               depth--;
             else if(c == ']' && depth == 0) return i + 1 < length && source.charAt(i + 1) == ']';
         } // for
 

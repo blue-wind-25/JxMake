@@ -40,7 +40,7 @@ import javax.tools.*;
  */
 public class CompileServer {
 
-    static final long IDLE_TIMEOUT_MS = 3L* 60* 60* 1000; // 3 hours
+    static final long IDLE_TIMEOUT_MS = 3L * 60 * 60 * 1000; // 3 hours
 
     // US-wrapped sentinel tags.
     // \u001F is the Java Unicode escape for U+001F (the Unit Separator character).

@@ -787,7 +787,7 @@ public class Preprocessor extends PreprocessorHooks {
                 }
                 else if( expand_countermacro && "__COUNTER__".equals(t.value) ) {
                     t.type  = t_INTEGER;
-                    t.value = countermacro ++;
+                    t.value = countermacro++;
                 }
             } // if
             ++i;

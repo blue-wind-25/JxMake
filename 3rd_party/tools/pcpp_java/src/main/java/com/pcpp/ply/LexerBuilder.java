@@ -280,7 +280,7 @@ public final class LexerBuilder {
             Integer gnum  = groupIndex.get(gname);
             if(gnum == null) continue;
 
-            String  tokType  = tokenNames.get(i);
+            String tokType = tokenNames.get(i);
             boolean isIgnore = rule.ignore || tokType == null || tokType.isEmpty() || tokType.contains(
                 "ignore_"
             );

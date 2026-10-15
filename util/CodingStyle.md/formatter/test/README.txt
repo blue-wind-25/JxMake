@@ -4594,6 +4594,10 @@ Real-code regressions:
                                                         condition puts `{` on a continuation line was placed
                                                         at the continuation indent instead of the keyword's.
 
+  real_code_regressions_273_inp/out.java             -- inside a braced `case` body that gets re-indented, a
+                                                        statement's operator-led or `.method(` continuation
+                                                        line was pulled onto its first line's column.
+
 How Tests Are Run
 -----------------
 

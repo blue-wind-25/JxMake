@@ -424,6 +424,9 @@ public class SwitchRule {
      * wrapped statement's continuation line, owned by a separate line-wrap pass) is left
      * completely untouched -- claiming it via brace-depth alone would fight that other pass's
      * already-correct indent every other round.
+     * <li>Likewise a line whose previous code token does not end a statement (`;`, `{`, `}`, `:`)
+     * -- an operator-led continuation such as {@code ? a : b} kept as written by the declaration
+     * bail (RDD_KEY_370) has no open paren, and depth alone would pull it onto its head's column.
      * </ul>
      *
      * <p>A nested {@code switch(...) { ... }} found while scanning is treated as fully opaque:
@@ -449,6 +452,7 @@ public class SwitchRule {
         int depth         = 0;
         int parenDepth    = 0;
         int headLineDelta = 0;            // Delta applied to the most recent paren-depth-0 (statement-head) line
+        int lastCode      = braceIdx;     // Most recent code token (no comment/whitespace/preprocessor)
         int i             = braceIdx + 1;
         while(i < braceClose) {
             final Token t = tokens.get(i);
@@ -485,7 +489,11 @@ public class SwitchRule {
 
                 final boolean leadingClose = isPunct( tokens.get(firstSig), "}" );
                 final int     lineDepth    = leadingClose ? depth - 1 : depth;
-                if(parenDepth <= 0) {
+                final Token   prevCode     = tokens.get(lastCode);
+                final boolean statementEnd = isPunct(prevCode, ";") || isPunct(prevCode, "{") || isPunct(
+                    prevCode, "}"
+                ) || isPunct(prevCode, ":") || isOp(prevCode, ":");
+                if(parenDepth <= 0 && statementEnd) {
                     final String target = lineDepth <= 0 ? bodyIndent : bodyIndent + repeatUnit(
                         unit, lineDepth
                     );
@@ -505,6 +513,7 @@ public class SwitchRule {
                 } // else if
             } // if
             else {
+                if( !isGapToken(t) && t.type != TokenType.PREPROCESSOR ) lastCode = i;
                      if( isPunct(t, "{") )                    depth++;
                 else if( isPunct(t, "}") )                    depth--;
                 else if( isPunct(t, "(") || isPunct(t, "[") ) parenDepth++;

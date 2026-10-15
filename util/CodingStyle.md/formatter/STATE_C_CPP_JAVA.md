@@ -45,6 +45,7 @@ util/CodingStyle.md/formatter/
         GetterSetterRuleCore.java / GetterSetterRuleCurly.java
         MiscRuleCore.java / MiscRuleCurly.java
         CppSpecificRule.java
+        CPointerOpSpacing.java     (C/C++ binary-vs-unary `*`/`&`/`&&` spacing, RDD_KEY_375-377)
         JavaSpecificRule.java
 ```
 

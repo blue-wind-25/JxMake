@@ -1606,7 +1606,15 @@ public static final class Assignment {
                 ) || isPunct(
                     prev, "]"
                 );
-                if( isTightToken(t) && ( isOp(t, "*") || isOp(t, "&") ) && prevIsValue
+                // C/C++ single `*`/`&`: one binary-vs-unary decision for the operator and the
+                // token after it (RDD_KEY_375); null leaves both to the rules below
+                final Boolean cSpace = lang.isC || lang.isCpp ? CPointerOpSpacing.spaceBefore(
+                    tokens, i, k->isCStyleCastClose(tokens, k)
+                ) : null;
+                if(cSpace != null) {
+                    if(cSpace) sb.append(' ');
+                }
+                else if( isTightToken(t) && ( isOp(t, "*") || isOp(t, "&") ) && prevIsValue
                         && ( next == null || next.type == TokenType.IDENTIFIER
                         || next.type == TokenType.NUMBER || isPunct(next, "(") ) ) {
                     sb.append(' '); // Binary * or & in expression context

@@ -4606,6 +4606,10 @@ Real-code regressions:
                                                         one-liner member group was aligned left the group
                                                         misaligned until a second format pass.
 
+  real_code_regressions_276_inp/out.c                -- C/C++ binary vs unary `*`/`&` spacing: after a postfix
+                                                        `++`/`--`, a subscript, a call, `sizeof(...)`; a unary
+                                                        one after a binary operator or a cast.
+
 How Tests Are Run
 -----------------
 

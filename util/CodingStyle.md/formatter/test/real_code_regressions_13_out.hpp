@@ -17,7 +17,7 @@ namespace Catch {
             Class cls = classes[c];
             {
                 u_int   count;
-                Method* methods = class_copyMethodList(cls,& count);
+                Method* methods = class_copyMethodList(cls, &count);
                 for(u_int m = 0; m < count ; ++m) {
                     SEL         selector   = method_getName( methods[m] );
                     std::string methodName = sel_getName(selector);

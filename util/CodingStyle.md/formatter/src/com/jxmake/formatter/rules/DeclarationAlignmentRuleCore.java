@@ -190,7 +190,15 @@ public abstract class DeclarationAlignmentRuleCore {
                 // Binary `*`/`&` whose left operand is unambiguous (a NUMBER anywhere, or any
                 // value-ending token in Java, which has no pointer declarators): always spaced,
                 // regardless of what follows (`2 * (a + 1)` was rendered `2* (a + 1)`)
-                if( isTightToken(t) && ( isOp(t, "*") || isOp(t, "&") )
+                // C/C++ single `*`/`&`: one binary-vs-unary decision for the operator and the
+                // token after it (RDD_KEY_375); null leaves both to the rules below
+                final Boolean cSpace = lang.isC || lang.isCpp ? CPointerOpSpacing.spaceBefore(
+                    tokens, i, k->isCStyleCastClose(tokens, k)
+                ) : null;
+                if(cSpace != null) {
+                    if(cSpace) sb.append(' ');
+                }
+                else if( isTightToken(t) && ( isOp(t, "*") || isOp(t, "&") )
                         && ( prev.type == TokenType.NUMBER || ( lang.isJava && (
                             prev.type == TokenType.IDENTIFIER || isPunct(
                                 prev, ")"

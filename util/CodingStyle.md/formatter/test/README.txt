@@ -4580,6 +4580,10 @@ Real-code regressions:
                                                         with a space before the operator (`n ++`) when its
                                                         statement was re-rendered.
 
+  real_code_regressions_270_inp/out.cpp              -- splitting one-line nested namespace headers
+                                                        (`namespace a { namespace b {`) indented the inner
+                                                        headers/closers while the body stayed at column 0.
+
 How Tests Are Run
 -----------------
 

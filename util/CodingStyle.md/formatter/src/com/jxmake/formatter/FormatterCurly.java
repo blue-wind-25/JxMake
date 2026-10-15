@@ -585,6 +585,10 @@ public final class FormatterCurly extends FormatterCore {
         // `namespace` keyword sits on -- the scope pipeline's inherited-indent chain
         // over-indents it for namespaces nested on one source line (`namespace a { namespace b {`
         // ... `}}`), flipping on round2 once the header line's real indent is visible (RDD_KEY_359).
+        // Opener lines first, so the closing-brace pass reads the corrected header indent. Splitting
+        // a one-line `namespace a { namespace b {` indents the split-out inner headers while the
+        // author's flush body stays at column 0 (RDD_KEY_371).
+        if(lang.isCpp) text = alignNamespaceOpeners( tokenizer.apply(text) );
         if(lang.isCpp) text = alignNamespaceClosingBraces( tokenizer.apply(text) );
 
         // Phase 6: final whitespace normalization, last
@@ -636,6 +640,100 @@ public final class FormatterCurly extends FormatterCore {
         } // for
 
         return out.toString();
+    }
+
+    /**
+     * Lowers a `namespace [name] {` header line (first on its line) to the indent of its body's
+     * first code line when that body line sits shallower -- nested namespace headers, comments and
+     * preprocessor lines are skipped when looking for it. Never raises an indent, so an author's
+     * indented nested namespaces are untouched. Idempotent: the body line itself never moves.
+     */
+    private static String alignNamespaceOpeners(final List<Token> tokens)
+    {
+        final int      n         = tokens.size();
+        final String[] newIndent = new String[n]; // Per line-leading `namespace` token index
+        for(int i = 0; i < n; ++i) {
+            final Token t = tokens.get(i);
+            if( t.type != TokenType.PUNCT || !"{".equals(t.text) ) continue;
+            if( namespaceHeaderLineIndent(tokens, i) == null ) continue;
+            final int kw = namespaceKeywordIndex(tokens, i);
+            if( kw < 0 || !isFirstOnLine(tokens, kw) || tokens.get(kw).frozen ) continue;
+            final int body = firstNamespaceBodyCodeToken(tokens, i);
+            if( body < 0 || !isFirstOnLine(tokens, body) ) continue;
+            final String hdr = lineIndentOf(tokens, kw);
+            final String bdy = lineIndentOf(tokens, body);
+            if( bdy.length() < hdr.length() ) newIndent[kw] = bdy;
+        } // for
+        final StringBuilder out = new StringBuilder();
+        for(int i = 0; i < n; ++i) {
+            if(newIndent[i] != null) {
+                int k = out.length();
+                while( k > 0 && ( out.charAt(k - 1) == ' ' || out.charAt(k - 1) == '\t' ) ) --k;
+                out.setLength(k);
+                out.append(newIndent[i]);
+            }
+            out.append( tokens.get(i).text );
+        } // for
+
+        return out.toString();
+    }
+
+    /** Index of the `namespace` keyword owning the `{` at {@code braceIdx} (already known to be one) */
+    private static int namespaceKeywordIndex(final List<Token> tokens, final int braceIdx)
+    {
+        int i = braceIdx - 1;
+        while( i >= 0 && !( tokens.get(i).type == TokenType.KEYWORD && "namespace".equals( tokens.get(i).text ) ) ) --i;
+
+        return i;
+    }
+
+    /**
+     * First token inside the namespace body opened at {@code braceIdx} that is code, skipping
+     * comments, preprocessor lines and nested `namespace ... {` headers; -1 when the body has none
+     */
+    private static int firstNamespaceBodyCodeToken(final List<Token> tokens, final int braceIdx)
+    {
+        for( int i = braceIdx + 1; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            switch(t.type) {
+                case WHITESPACE : case NEWLINE : case COMMENT_LINE : case COMMENT_BLOCK : case PREPROCESSOR : continue;
+                default         : break;
+            }
+            if( t.type == TokenType.KEYWORD && "inline".equals(t.text) ) {
+                int k = i + 1;
+                while( k < tokens.size() && tokens.get(k).type == TokenType.WHITESPACE ) ++k;
+                if( k < tokens.size() && "namespace".equals( tokens.get(k).text ) ) continue; // `inline namespace`
+            }
+            if( t.type == TokenType.KEYWORD && "namespace".equals(t.text) ) {
+                while( i < tokens.size() && !( tokens.get(i).type == TokenType.PUNCT && "{".equals( tokens.get(i).text ) ) ) ++i;
+                continue;
+            }
+            if( t.type == TokenType.PUNCT && "}".equals(t.text) ) return -1;
+
+            return i;
+        } // for
+
+        return -1;
+    }
+
+    /** True iff only WHITESPACE separates the token at {@code idx} from the previous NEWLINE */
+    private static boolean isFirstOnLine(final List<Token> tokens, final int idx)
+    {
+        int j = idx - 1;
+        while( j >= 0 && tokens.get(j).type == TokenType.WHITESPACE ) --j;
+
+        return j < 0 || tokens.get(j).type == TokenType.NEWLINE;
+    }
+
+    /** Leading whitespace of the line holding the token at {@code idx} */
+    private static String lineIndentOf(final List<Token> tokens, final int idx)
+    {
+        int j = idx - 1;
+        while( j >= 0 && tokens.get(j).type != TokenType.NEWLINE ) --j;
+        final StringBuilder indent = new StringBuilder();
+        for( int k = j + 1; k < tokens.size() && tokens.get(k).type == TokenType.WHITESPACE; ++k ) indent.append( tokens.get(k).text );
+
+        return indent.toString();
     }
 
     /**

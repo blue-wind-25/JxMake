@@ -166,6 +166,9 @@ public final class FormatterCurly extends FormatterCore {
         // same as enforceComplexityPadding above; the Phase 4 call stays too (idempotent, and
         // still needed for any angle brackets introduced by Phase 0-3's own transformations).
         if(lang.isCpp) text = cppRule.enforceTemplateAngleBracketSpacing( tokenizer.apply(text) );
+        // Same reason for C's `()` -> `(void)`: inserted only in Phase 1, it widened one row of an
+        // already-aligned one-liner group, and round 2 then padded the siblings' `()` (RDD_KEY_374)
+        if(isCOrCpp) text = cppRule.enforceEmptyParameterList( tokenizer.apply(text) );
         if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §2: always insert explicit semicolons. Must run before
             // ScopePipelineCurly.process below -- its own §11 declaration-alignment-grid pass

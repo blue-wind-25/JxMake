@@ -4602,6 +4602,10 @@ Real-code regressions:
                                                         was rendered with a space after it (`= & x`), and a
                                                         `&` after a ternary `?`/`:` lost its leading space.
 
+  real_code_regressions_275_inp/out.h                -- C: an empty `()` rewritten to `(void)` after a
+                                                        one-liner member group was aligned left the group
+                                                        misaligned until a second format pass.
+
 How Tests Are Run
 -----------------
 

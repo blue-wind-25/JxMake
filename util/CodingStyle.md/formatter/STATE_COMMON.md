@@ -1007,3 +1007,8 @@ adoption):
   `case` switch the grid rule pads). `java_content_diff` 99/100 OK, 1 known brace-collapse false
   positive (`ScopePipelineCurly.isControlStatementHead`). Trial JAR `make test` 393/393, fixed
   point confirmed. Flushed-left scan clean. Adopted; `make test` 393/393, `make test-server` passed.
+- **2026-10-16, later** (`src/`, 101 files, after RDD_KEY_373-378 and the external JCS/MDXplorer/
+  pcpp_java/colordiff.py adopt): src == round1 == round2 -- nothing to adopt (each fix's own new code
+  was tidied to the formatter's output as it landed). Syntax check clean, `java_content_diff`
+  101/101 OK, trial JAR built from round1 `make test` 398/398, fixed point confirmed
+  (round1b/round2b identical), flushed-left scan clean.

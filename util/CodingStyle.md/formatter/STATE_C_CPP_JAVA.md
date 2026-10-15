@@ -209,11 +209,6 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
   shapes (`case` grids, array initializers, multi-declarator lines, wrapped `return`s) stay as
   written by design.
 
-- **C/C++ function-pointer declaration inside a declaration group (found 2026-10-16 with
-  RDD_KEY_377, pre-existing, cosmetic, not investigated).** `void (*fp)(int) = nullptr;` next to
-  other declarations is column-split as type `void` + name `(*fp)(int)`, so the name column puts
-  the whole declarator far from `void`. Valid code; only the alignment looks odd.
-
 - **`.h` -> C++26 §5 reflection rules (`^^`/`[: :]`) gap: VERIFIED, not a bug, documented.**
   `Lang.infer` maps `.h` to `"c"` by default, so `FormatterCurly`'s `lang.isCpp`-gated
   `enforceReflectionOperatorSpacing`/`enforceAttributeAndSpliceBracketPadding` never run for a

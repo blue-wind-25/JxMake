@@ -2769,12 +2769,38 @@ public class TokenizerCurly extends TokenizerCore {
             // `Record<string, { local: string; default?: Expression }>`: the member name
             // `default` is a KEYWORD not in `GENERIC_SAFE_KEYWORDS`, which invalidated the
             // enclosing `Record<...>` tracking before this exclusion existed).
+            final boolean rvalueRef = isCppRvalueRefInTemplateArgs(tokens, sig, s, openStack);
+            if(nestedBraceDepth == 0 && rvalueRef) continue;
             if( nestedBraceDepth == 0 && !isGenericSafeToken(
                 cur
             ) && !openStack.isEmpty() ) invalidateAll(
                 openStack
             );
         } // for
+    }
+
+    /**
+     * C++ only: a `&&` inside a tracked `<...>` that is an rvalue-reference declarator, not a
+     * logical AND -- right before `>`/`>>`/`,`/`)`/`...` (`static_cast<Foo&&>(a)`), or nested in a
+     * parenthesized function-type parameter list (`std::function<void(Foo&& a)>`). A `&&` at the
+     * `<`'s own paren level followed by an operand (`x<y && w>(z)`) still cancels the template
+     * guess (RDD_KEY_377)
+     */
+    private boolean isCppRvalueRefInTemplateArgs(
+        final List<Token>   tokens,
+        final List<Integer> sig,
+        final int           s,
+        final Deque<int[]>  openStack
+    )
+    {
+        final Token cur = tokens.get( sig.get(s) );
+        if( !lang.isCpp || openStack.isEmpty() || !isOp(cur, "&&") ) return false;
+        final Token next = s + 1 < sig.size() ? tokens.get( sig.get(s + 1) ) : null;
+        if(next == null) return false;
+        if( next.text.startsWith(">") || isOp(next, "...") ) return true;
+        if( isPunct(next, ",") || isPunct(next, ")") ) return true;
+
+        return cur.parenDepth > tokens.get( openStack.peek()[0] ).parenDepth; // `void(Foo&& a)`
     }
 
     private void shiftSigAfter(final List<Integer> sig, final int afterPos, final int newIndex)

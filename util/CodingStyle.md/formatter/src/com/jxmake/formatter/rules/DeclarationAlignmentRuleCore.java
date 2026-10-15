@@ -400,6 +400,13 @@ public abstract class DeclarationAlignmentRuleCore {
         // call/expression join (`MiscRuleCore.needsSpaceBetween`) already does (RDD_KEY_376)
         if( (lang.isC || lang.isCpp) && isPunct(cur, "(") && prev.type == TokenType.KEYWORD
                 && FUNCTION_LIKE_KEYWORDS.contains(prev.text) ) return false;
+        // C++ function-type template argument: `std::function<void(int)>` -- a type keyword right
+        // after the template `<` takes its parameter list tight (RDD_KEY_377). A function-pointer
+        // declarator elsewhere (`void (*fp)(int)`) keeps its space
+        final Token   before2    = tokens != null && curIdx >= 2 ? tokens.get(curIdx - 2) : null;
+        final boolean afterAngle = before2 != null && before2.type == TokenType.ANGLE_BRACKET_OPEN;
+        final boolean typeParen  = prev.type == TokenType.KEYWORD && isPunct(cur, "(");
+        if(lang.isCpp && afterAngle && typeParen) return false;
         // Kotlin `get`/`set` accessor keywords act like an ordinary call name immediately before
         // `(` (e.g. a merged §8 one-liner property, `val x : Int get() = 1`, RDD_KEY_133) --
         // `get`/`set` are lexed as TokenType.KEYWORD (STYLE_KOTLIN.md's soft-keyword list), not

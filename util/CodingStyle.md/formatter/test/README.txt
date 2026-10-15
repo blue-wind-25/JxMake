@@ -4615,6 +4615,11 @@ Real-code regressions:
                                                         destructor name), and a logical `&&` after a value is
                                                         spaced while an rvalue-reference `&&` stays tight.
 
+  real_code_regressions_278_inp/out.cpp              -- C++ template arguments containing an rvalue-reference
+                                                        `&&` (`std::forward<T&&>`, `std::function<void(Foo&& b)>`)
+                                                        were spaced out as comparisons; a real comparison
+                                                        `x<y && w>(z)` must stay one.
+
 How Tests Are Run
 -----------------
 

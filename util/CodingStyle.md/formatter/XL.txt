@@ -241,23 +241,6 @@ Use sub-agent. This can be a substantial work.
 
 NONE FOR NOW
 
-Done, in the working tree (4 source files):
-- Item 1 (keep braces): a braced if/while/for is no longer collapsed into a one-liner longer than the line limit. This applies to C/C++/Java/Kotlin unless the line-splitting option is on. A whole if/else chain is now either fully collapsed or fully braced; JS/TS keep their existing behaviour.
-- Kotlin fix exposed by item 1: when a braced block followed a wrapped condition, its closing } landed at the continuation indent. This was a pre-existing bug.
-- Item 2 (long declarations with calls): a declaration you wrapped yourself is kept as written unless a call in it could bring the joined line back under the limit. My first version of this rule made 13 corpus files format differently on a second pass. I replaced it, but haven't re-checked the replacement on the corpus.
-
-Your OK needed for two fixture updates. make test is at 387/389, and the only two failures are cases where the new output is correct:
-- java_combined: the describe() chain gets its braces back, and the verdict line keeps its two-line wrap instead of a 105-character line.
-- real_code_regressions_159: its expected output recorded the Kotlin bug, a } at column 8 under an if at column 4. The new output puts it at 4.
-
-Still to do next session:
-- re-run the corpus and src/ checks on the final version (the run was cut off);
-- add a new fixture and log the decision as RDD_KEY_370;
-- update the README limitation note;
-- commit.
-
-
-
 Use sub-agent. This can be a substantial work.
 
 === TIER 2: Narrow/cosmetic fixes — low risk ===
@@ -267,16 +250,6 @@ NONE FOR NOW
 Use sub-agent. This can be a substantial work.
 
 === TIER 3: Real feature gaps — medium risk ===
-
-1. Read the "Line-length audit" entry under Open Questions in STATE_C_CPP_JAVA.md.
-2. The code is committed, so ignore that entry's "UNCOMMITTED" note and the target/line-length-audit-wip.patch backup.
-3. Run tools/detect_flushed_left_lines.py on HEAD-build and new-build corpus output. It found 7 lines; check whether they're new.
-4. Read through the 64 changed corpus files and 14 changed src/ files.
-5. Add a fixture covering three cases: the collapse width guard, the call-rescue declaration rule, and the Kotlin } indent.
-6. Add RDD_KEY_370 to RDD_LOG.md and the index in STATE_C_CPP_JAVA.md.
-7. Update README Known Limitations, curly item 12: declarations with calls are now covered too.
-8. Run the self-format on src/ and adopt it if it's clean.
-9. Still open from the audit: C & device_table[i] gets a space after the unary address-of &.
 
 NONE FOR NOW
 

@@ -452,6 +452,7 @@ public final class Main {
                 final Path outParent = outPath.toAbsolutePath().getParent();
                 if(outParent != null) Files.createDirectories(outParent);
                 writeFile(outPath, formatted);
+                copyPermissions(path, outPath);
                 break;
 
             case IN_PLACE:
@@ -757,6 +758,22 @@ public final class Main {
     private static void writeFile(final Path path, final String content) throws IOException
     {
         Files.write( path, content.getBytes(StandardCharsets.UTF_8) );
+    }
+
+    /**
+     * Gives an `--out` copy the source file's POSIX permissions, so a formatted script copied back
+     * over its original keeps its executable bit (RDD_KEY_378). A no-op where the file system has
+     * no POSIX permissions (Windows) or they can't be read/set -- the formatted content is
+     * already written, the mode is only a convenience
+     */
+    private static void copyPermissions(final Path from, final Path to)
+    {
+        try {
+            Files.setPosixFilePermissions( to, Files.getPosixFilePermissions(from) );
+        }
+        catch(final UnsupportedOperationException | IOException | SecurityException ignored) {
+            // Non-POSIX file system or no permission to change the mode
+        }
     }
 
     // ---- unified diff (--diff) ----

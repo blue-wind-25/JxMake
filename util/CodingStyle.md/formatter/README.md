@@ -130,6 +130,9 @@ structure. `--root DIR` has no effect and is a usage error without `--preserve-t
 input file that doesn't resolve under `--root DIR` is a per-file error. Opt-in only — omitting
 `--preserve-tree` keeps the original flattening behavior unchanged.
 
+Each file written under `--out DIR` gets the same permissions as its input file (on file systems
+that have them), so a formatted shell script copied back over the original stays executable.
+
 ### Server mode (faster for batch)
 
 ```sh

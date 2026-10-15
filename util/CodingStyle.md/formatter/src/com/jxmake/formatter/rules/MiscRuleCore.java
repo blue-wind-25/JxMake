@@ -1609,7 +1609,7 @@ public static final class Assignment {
                 // C/C++ single `*`/`&`: one binary-vs-unary decision for the operator and the
                 // token after it (RDD_KEY_375); null leaves both to the rules below
                 final Boolean cSpace = lang.isC || lang.isCpp ? CPointerOpSpacing.spaceBefore(
-                    tokens, i, k->isCStyleCastClose(tokens, k)
+                    tokens, i, k->isCStyleCastClose(tokens, k), lang.isCpp
                 ) : null;
                 if(cSpace != null) {
                     if(cSpace) sb.append(' ');
@@ -1815,6 +1815,8 @@ public static final class Assignment {
         // after `!` (`! atEnd`) once the assignment-RHS respacing fix below started re-deriving
         // spacing for that shape.
         if( isOp(prev, "!") ) return false;
+        // Unary bitwise-NOT `~` likewise (`~mask`, `r & ~c`), never binary (RDD_KEY_376)
+        if( isOp(prev, "~") ) return false;
         // An annotation's `@` (e.g. `@RaiseDSL public inline fun ...`, Java's `@NonNull String
         // id`) is tight against the identifier that follows it -- without this, an annotation
         // that shares its source line with a signature/parameter (so it becomes part of

@@ -53,13 +53,25 @@ final class CPointerOpSpacing {
     {
     }
 
+    /** Keywords whose `(` opens an expression, not a parameter list (`if(a && b)`, `return(x)`) */
+    private static final Set<String> EXPRESSION_PAREN_KEYWORDS = new HashSet<>( Arrays.asList(
+        "if", "while", "for", "switch", "return", "case", "throw", "sizeof", "alignof", "decltype"
+    ) );
+
     /**
      * Whether a space goes before {@code tokens.get(i)}, or null when neither it nor its left
-     * neighbour is a single `*`/`&` (the caller's own rules then decide)
+     * neighbour is a single `*`/`&` and it is not a logical `&&` (the caller's own rules decide)
      */
-    static Boolean spaceBefore(final List<Token> tokens, final int i, final IntPredicate castAt)
+    static Boolean spaceBefore(
+        final List<Token>  tokens,
+        final int          i,
+        final IntPredicate castAt,
+        final boolean      cpp
+    )
     {
         if(i <= 0) return null;
+        final Token t = tokens.get(i);
+        if( isOp(t, "&&") ) return isLogicalAnd(tokens, i, castAt, cpp) ? Boolean.TRUE : null;
         final int self = classify(tokens, i, castAt);
         if(self == BINARY) return true;
         if(self == UNARY) return unaryNeedsSpaceBefore(tokens, i, castAt);
@@ -68,6 +80,45 @@ final class CPointerOpSpacing {
         if(left == UNARY) return false;
 
         return null;
+    }
+
+    /**
+     * `&&` between a value and an operand is a logical AND (spaced, `f(x) && ok`); it is tight on
+     * the left elsewhere as the C++ rvalue-reference sigil. In C++ `Foo&& x` inside a lambda or
+     * function-type parameter list (`[](Foo&& x)`, `void(Foo&& x)`) has the same shape, so a `&&`
+     * whose enclosing `(` follows `]` or a non-expression keyword stays tight there (RDD_KEY_376)
+     */
+    private static boolean isLogicalAnd(
+        final List<Token>  tokens,
+        final int          i,
+        final IntPredicate castAt,
+        final boolean      cpp
+    )
+    {
+        final Token next = i + 1 < tokens.size() ? tokens.get(i + 1) : null;
+        if( !endsValue(tokens, i - 1, castAt) || !startsOperand(next) ) return false;
+
+        return !cpp || !inParameterList(tokens, i);
+    }
+
+    private static boolean inParameterList(final List<Token> tokens, final int i)
+    {
+        int depth = 0;
+        for(int k = i - 1; k >= 0; --k) {
+            final Token t = tokens.get(k);
+            if( isPunct(t, ")") ) ++depth;
+            else if( isPunct(t, "(") && depth-- == 0 ) {
+                if(k == 0) return false;
+                final Token before = tokens.get(k - 1);
+                if( isPunct(before, "]") ) return true; // Lambda `[...](...)`
+
+                final boolean exprKeyword = EXPRESSION_PAREN_KEYWORDS.contains(before.text);
+
+                return before.type == TokenType.KEYWORD && !exprKeyword;
+            }
+        } // for
+
+        return false;
     }
 
     private static int classify(final List<Token> tokens, final int i, final IntPredicate castAt)

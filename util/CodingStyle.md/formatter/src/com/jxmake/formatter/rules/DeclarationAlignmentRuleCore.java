@@ -36,6 +36,11 @@ public abstract class DeclarationAlignmentRuleCore {
      * Control-flow keywords whose own condition/argument parens must never be mistaken for a
      * C-style cast's parens by {@link #isCStyleCastClose} -- see that method's call site
      */
+    /** C/C++ keywords used like a function name, `(` tight after them */
+    private static final Set<String> FUNCTION_LIKE_KEYWORDS = setOf(
+        "sizeof", "alignof", "_Alignof", "decltype", "typeid", "noexcept", "alignas", "_Alignas"
+    );
+
     private static final Set<String> CONTROL_FLOW_KEYWORDS = setOf(
         "if", "while", "for", "switch", "catch", "do", "else"
     );
@@ -193,7 +198,7 @@ public abstract class DeclarationAlignmentRuleCore {
                 // C/C++ single `*`/`&`: one binary-vs-unary decision for the operator and the
                 // token after it (RDD_KEY_375); null leaves both to the rules below
                 final Boolean cSpace = lang.isC || lang.isCpp ? CPointerOpSpacing.spaceBefore(
-                    tokens, i, k->isCStyleCastClose(tokens, k)
+                    tokens, i, k->isCStyleCastClose(tokens, k), lang.isCpp
                 ) : null;
                 if(cSpace != null) {
                     if(cSpace) sb.append(' ');
@@ -391,6 +396,10 @@ public abstract class DeclarationAlignmentRuleCore {
         if( isPunct(
             cur, "("
         ) && (prev.type == TokenType.IDENTIFIER || prev.type == TokenType.ANGLE_BRACKET_CLOSE) ) return false;
+        // C/C++ function-like keywords take their `(` tight, like a call (`sizeof(float)`) -- the
+        // call/expression join (`MiscRuleCore.needsSpaceBetween`) already does (RDD_KEY_376)
+        if( (lang.isC || lang.isCpp) && isPunct(cur, "(") && prev.type == TokenType.KEYWORD
+                && FUNCTION_LIKE_KEYWORDS.contains(prev.text) ) return false;
         // Kotlin `get`/`set` accessor keywords act like an ordinary call name immediately before
         // `(` (e.g. a merged §8 one-liner property, `val x : Int get() = 1`, RDD_KEY_133) --
         // `get`/`set` are lexed as TokenType.KEYWORD (STYLE_KOTLIN.md's soft-keyword list), not
@@ -459,6 +468,8 @@ public abstract class DeclarationAlignmentRuleCore {
         // after `!` (`! atEnd`) once the assignment-RHS respacing fix below started re-deriving
         // spacing for that shape.
         if( isOp(prev, "!") ) return false;
+        // Unary bitwise-NOT `~` likewise (`~mask`, `r & ~c`), never binary (RDD_KEY_376)
+        if( isOp(prev, "~") ) return false;
         // JS/TS spread/rest `...` is always tight against what follows it (`...rest`,
         // `...items`) -- STYLE_JS_TS.md §3, enforced file-wide by
         // JsTsSpecificRule.enforceSpreadRestSpacing, which runs long after this class's own

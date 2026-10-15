@@ -11,7 +11,7 @@ void spacing(int n, int mask, int* p, int** pp, char* s, int x)
     int   d = n + *p;
     int   e = n & *p;
     int   f = (int)*p;
-    int   g = sizeof (int*) * n;
+    int   g = sizeof(int*) * n;
     int   k = s[1] * *p;
     int   q = **pp;
     char* t = (char*)s;

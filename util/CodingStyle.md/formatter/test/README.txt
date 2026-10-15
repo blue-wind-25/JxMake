@@ -4610,6 +4610,11 @@ Real-code regressions:
                                                         `++`/`--`, a subscript, a call, `sizeof(...)`; a unary
                                                         one after a binary operator or a cast.
 
+  real_code_regressions_277_inp/out.cpp              -- C/C++ expression spacing: `sizeof(` stays tight, a
+                                                        unary `~` is tight against its operand (incl. a
+                                                        destructor name), and a logical `&&` after a value is
+                                                        spaced while an rvalue-reference `&&` stays tight.
+
 How Tests Are Run
 -----------------
 

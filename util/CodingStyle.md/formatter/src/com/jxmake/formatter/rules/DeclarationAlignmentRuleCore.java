@@ -208,6 +208,8 @@ public abstract class DeclarationAlignmentRuleCore {
                     // there (`20 * 60` was rendered `20* 60`)
                     if(prev.type != TokenType.IDENTIFIER && prev.type != TokenType.WHITESPACE
                             && prev.type != TokenType.NUMBER && !lang.isJava) {
+                        // Unary: tight on the right; still spaced after a ternary `?`/`:`
+                        if( "?".equals(prev.text) || ":".equals(prev.text) ) sb.append(' ');
                     }
                     else {
                         sb.append(' '); // Binary * or & in expression context
@@ -218,11 +220,13 @@ public abstract class DeclarationAlignmentRuleCore {
                 ) && needsSpaceBetween(
                     prev, t, tokens, i
                 ) ) {
-                    final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
-                    if( t.type == TokenType.IDENTIFIER && isRepOp(prev, '*')
-                        && (prev2 == null || prev2.type == TokenType.OP)
-                        && (lang.isC || lang.isCpp) ) {
-                        // Pointer dereference: add nothing
+                    final Token   prev2     = i > 1 ? tokens.get(i - 2) : null;
+                    final boolean postfix2  = isOp(prev2, "++") || isOp(prev2, "--");
+                    final boolean opBefore  = prev2 == null || (prev2.type == TokenType.OP && !postfix2);
+                    final boolean derefOrAt = isRepOp(prev, '*') || isOp(prev, "&");
+                    if( t.type == TokenType.IDENTIFIER && derefOrAt && opBefore && (lang.isC || lang.isCpp) ) {
+                        // Pointer dereference / address-of (`*ptr`, `&table[i]`): add nothing. A
+                        // postfix `++`/`--` before it leaves the operator binary (`n++ & mask`)
                     }
                     else if( isPunct(prev, ")") && isCStyleCastClose(tokens, i - 1) ) {
                         // C-style cast `(Type)expr`: add nothing
@@ -340,6 +344,10 @@ public abstract class DeclarationAlignmentRuleCore {
         // real-fixture scale for the first time; the segmented shape's original `.jsx`/`.tsx`-only
         // validation never happened to include a template literal inside a declaration statement.
         if(prev.type == TokenType.TEMPLATE_HOLE_OPEN || prev.type == TokenType.TEMPLATE_HOLE_CLOSE || cur.type == TokenType.TEMPLATE_HOLE_OPEN || cur.type == TokenType.TEMPLATE_HOLE_CLOSE) return false;
+        // A unary `&`/`*` operand of a ternary branch (`c ? &a : &b`) is not a declarator sigil:
+        // keep the space after `?`/`:` that the always-tight `&`/`*` rule below would drop
+        if( (lang.isC || lang.isCpp) && ( isOp(cur, "&") || isOp(cur, "*") )
+                && ( "?".equals(prev.text) || ":".equals(prev.text) ) ) return true;
         if( isTightToken(cur) ) return false;
         // Kotlin's negated type-check/containment operators (`!is`, `!in`) are a single tight
         // lexical unit -- STYLE_KOTLIN.md renders them with no space between `!` and the

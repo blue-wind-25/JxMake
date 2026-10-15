@@ -191,22 +191,25 @@ Lookup convention in `STATE_COMMON.md`. Index below (topic only, full text in `R
 | RDD_KEY_370 | Line-length audit: collapse width guard for every curly language unless `line-split-by-operator-priority` is on, decided chain-wide for non-JS/TS; Kotlin `}` after a wrapped control condition at the keyword's indent (`isControlStatementHead`); wrapped declaration kept as written when joining overflows and no call can rescue it (`isRescuableByCallWrap`, extends RDD_KEY_368). Fixtures `real_code_regressions_271`/`272`. `make test` 390/390 -> 392/392. See `RDD_LOG.md`'s `RDD_KEY_370`. |
 | RDD_KEY_371 | One-line `namespace a { namespace b {` split onto separate lines indented the inner headers/closers while the author's flush body stayed at column 0 (7 flushed-left detector hits in the HowToTrainYourPetAI corpus, pre-existing) -- new C++-only `FormatterCurly.alignNamespaceOpeners` lowers such a header to its body's first code line (never raises). Fixture `real_code_regressions_270`. `make test` 389/389 -> 390/390. See `RDD_LOG.md`'s `RDD_KEY_371`. |
 | RDD_KEY_372 | Non-inline `case` body re-indent (`SwitchRule.applyDepthDerivedBodyIndent`) pulled a paren-free continuation line (`? a : b`, `.method(`) onto its head's column -- a line is a head only after `;`/`{`/`}`/`:`, otherwise it moves by the head's delta. Fixture `real_code_regressions_273`. `make test` 392/392 -> 393/393. See `RDD_LOG.md`'s `RDD_KEY_372`. |
+| RDD_KEY_373 | Unary address-of `&` in a C/C++ initializer/assignment no longer spaced (`= &table[i]`), extending the pointer-dereference rule; a unary `&`/`*` after a ternary `?`/`:` keeps its leading space. Fixture `real_code_regressions_274`. `make test` 393/393 -> 394/394. See `RDD_LOG.md`'s `RDD_KEY_373`. |
 | RDD_KEY_321 | Real root-cause FIX for RDD_KEY_318/RDD_KEY_319's Java anonymous-class-as-call-argument CORRUPTION (distinct from the still-open "not reformatted" gap, RDD_KEY_314/315). Actual culprit, found via debug instrumentation: `DeclarationAlignmentRuleCurly.parseDeclaration`'s `eqIdx` scan was the one scan in that method with no depth-tracking (unlike the depth-aware `colonIdx` scan right above it) -- it locked onto the first `=` anywhere in a statement regardless of nesting, so a plain call like `run(new Runnable() { public void run() { int x = 1; ... } });` had its nested `int x = 1`'s `=` mistaken for the statement's own, splitting a `{`/`}` pair across the `typeTokens`/`initTokens` boundary and bypassing every existing brace-balance safety check (each assumes a pair stays fully on one side). Fixed by making `eqIdx` depth-aware, identical shape to `colonIdx`. Verified: the anonymous class body is no longer collapsed (each statement stays on its own line, matching source), idempotent, C++/Kotlin's already-working RDD_KEY_317 lambda fix unaffected (byte-identical). **Not Java-specific**: `parseDeclaration` is shared by C/C++/Java (Kotlin/JS/TS use their own separate declaration-parsing methods, unaffected) -- confirmed the same latent corruption pre-existed for C++ too, just not caught by RDD_KEY_317/219's own repro (`std::sort(v.begin(), v.end(), ...)`) because its `.`s incidentally tripped an unrelated existing guard (`typeTokens` containing a `.`/`->` token is already rejected). A C++ repro with no preceding `.`/`->` (`invoke([]() { int x = 1; ... });`) reproduced the identical corruption pre-fix and is fixed the same way; new fixture `test/real_code_regressions_222_{inp,out}.cpp`. Re-enabling Java in RDD_KEY_315/317/318's side channel on top of this fix was tried and reverted -- no longer corrupts, but produces a different bug (wrong indentation); see RDD_KEY_322 for the precise two-part diagnosis. The "not reformatted" gap stays open, unrelated to this fix. New fixtures `test/real_code_regressions_221_{inp,out}.java`, `test/real_code_regressions_222_{inp,out}.cpp`. `make test`: 332/332 -> 334/334 forward + idempotency, zero regressions. See "Known Gaps -- Open" (Java entry reworded) and `RDD_LOG.md`'s `RDD_KEY_321`/`RDD_KEY_322` for the full writeup. |
 
 ---
 
 ## Open Questions
 
-- **Line-length audit (2026-10-15/16) -- DONE except one item.** Both formatter-produced shapes
-  fixed and documented as RDD_KEY_370 (collapse width guard, declaration call-rescue bail, Kotlin
-  `}`); side findings RDD_KEY_369 (postfix `++`), RDD_KEY_371 (split nested namespace headers),
-  RDD_KEY_372 (case-body continuation lines). Remaining hand-written over-long shapes (`case` grids,
-  array initializers, multi-declarator lines, wrapped `return`s) stay as written by design.
-  Still open: unary `&` spacing in a C declaration initializer (`& device_table[i]`, corpus
-  `dongle_protocol.c`). Source is `device_record_t *r = &device_table[device_count++];` -- UNARY
-  address-of only; binary AND (`A = b & c[i]`) stays spaced and must not change. Tell them apart by
-  the previous token (`=`/`(`/`,`/`return`/operator -> unary; identifier/`)`/`]` -> binary), same
-  pattern as `Token.isUnaryMinusOperand`.
+- **Line-length audit (2026-10-15/16) -- DONE.** Both formatter-produced shapes fixed and
+  documented as RDD_KEY_370 (collapse width guard, declaration call-rescue bail, Kotlin `}`); side
+  findings RDD_KEY_369 (postfix `++`), RDD_KEY_371 (split nested namespace headers), RDD_KEY_372
+  (case-body continuation lines), RDD_KEY_373 (unary `&` spacing). Remaining hand-written over-long
+  shapes (`case` grids, array initializers, multi-declarator lines, wrapped `return`s) stay as
+  written by design.
+
+- **C/C++ `*`/`&` after a postfix `++`/`--` or a binary `*` (found 2026-10-16 with RDD_KEY_373,
+  pre-existing, not fixed).** `int a = n++ & mask;` renders `n++& mask` (the `++` isn't treated as
+  a value-ending token by the binary-operator branch); `int c = n * *p;` renders `n**p` on round 1
+  and `n** p` on round 2 (non-idempotent -- the tokenizer re-lexes `**` as one run). Rare shapes;
+  neither seen in the corpora.
 
 - **HowToTrainYourPetAI `trainer/src/train/extractor_model_v7.h` idempotency flap (found
   2026-10-16, pre-existing on the pre-audit build too, not investigated).** A column-aligned

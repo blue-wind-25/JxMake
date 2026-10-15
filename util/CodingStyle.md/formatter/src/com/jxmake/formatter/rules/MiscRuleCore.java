@@ -1616,11 +1616,13 @@ public static final class Assignment {
                 ) && needsSpaceBetween(
                     prev, t, templateOpens, templateCloses, tokens, i
                 ) ) {
-                    final Token prev2 = i > 1 ? tokens.get(i - 2) : null;
-                    if( t.type == TokenType.IDENTIFIER && isRepOp(prev, '*')
-                        && (prev2 == null || prev2.type == TokenType.OP)
-                        && (lang.isC || lang.isCpp) ) {
-                        // Pointer dereference: add nothing
+                    final Token   prev2     = i > 1 ? tokens.get(i - 2) : null;
+                    final boolean postfix2  = prev2 != null && isIncrementOp(prev2);
+                    final boolean opBefore  = prev2 == null || (prev2.type == TokenType.OP && !postfix2);
+                    final boolean derefOrAt = isRepOp(prev, '*') || isOp(prev, "&");
+                    if( t.type == TokenType.IDENTIFIER && derefOrAt && opBefore && (lang.isC || lang.isCpp) ) {
+                        // Pointer dereference / address-of (`*ptr`, `&table[i]`): add nothing. A
+                        // postfix `++`/`--` before it leaves the operator binary (`n++ & mask`)
                     }
                     else if( isPunct(prev, ")") && isCStyleCastClose(
                         tokens, i - 1
@@ -1717,6 +1719,10 @@ public static final class Assignment {
         // never an indexing expression. Scoped narrowly to "`{` immediately before `[`" so it
         // can't affect any other `[` use (C6j).
         if( lang.isKotlin && isPunct(cur, "[") && isPunct(prev, "{") ) return true;
+        // A unary `&`/`*` operand of a ternary branch (`c ? &a : &b`) is not a declarator sigil:
+        // keep the space after `?`/`:` that the always-tight `&`/`*` rule below would drop
+        if( (lang.isC || lang.isCpp) && ( isOp(cur, "&") || isOp(cur, "*") )
+                && ( "?".equals(prev.text) || ":".equals(prev.text) ) ) return true;
         if( isTightToken(
             cur
         ) || templateCloses.contains(

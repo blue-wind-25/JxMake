@@ -4598,6 +4598,10 @@ Real-code regressions:
                                                         statement's operator-led or `.method(` continuation
                                                         line was pulled onto its first line's column.
 
+  real_code_regressions_274_inp/out.c                -- a unary address-of `&` in an initializer or assignment
+                                                        was rendered with a space after it (`= & x`), and a
+                                                        `&` after a ternary `?`/`:` lost its leading space.
+
 How Tests Are Run
 -----------------
 

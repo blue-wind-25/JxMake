@@ -4584,6 +4584,16 @@ Real-code regressions:
                                                         (`namespace a { namespace b {`) indented the inner
                                                         headers/closers while the body stayed at column 0.
 
+  real_code_regressions_271_inp/out.java             -- line-length guards: a braced single-statement body (or
+                                                        a whole if/else-if chain) whose collapsed form would
+                                                        exceed the limit stays braced; a wrapped declaration
+                                                        whose joined form would overflow is kept as written
+                                                        unless some call's arguments can be wrapped to fit.
+
+  real_code_regressions_272_inp/out.kt               -- the closing `}` of an `if`/`while` whose wrapped
+                                                        condition puts `{` on a continuation line was placed
+                                                        at the continuation indent instead of the keyword's.
+
 How Tests Are Run
 -----------------
 

@@ -1315,6 +1315,14 @@ standalone expression like `a * b;`, which reads the same as a pointer declarati
 symbol table). The result is always valid code; the only downside is an occasional brace pair
 that a human reader could tell is safe to remove but this pass conservatively leaves in place.
 
+Braces are also kept, in every language of this family, when removing them would put the
+condition and its statement on one line longer than `line-length` and nothing could wrap that
+line again afterwards. In C, C++, Java and Kotlin an `if`/`else if`/`else` chain is decided as a
+whole, so it is never left with some branches braced and others not (JS/TS decides each branch on
+its own). With
+`line-split-by-operator-priority = on`, the long condition is instead split at its operators, so
+this check does not apply.
+
 #### 10. Operator-priority line splitting is not always idempotent
 
 Like the multi-line-call/condition wrapping described in limitation 3 above,
@@ -1353,23 +1361,33 @@ used as an expression, an elvis-operator (`?:`) continuation, or a trailing lamb
 line break ambiguous in ways this option cannot safely resolve). No workaround exists beyond keeping
 those specific lines shorter by hand.
 
-#### 12. A hand-wrapped declaration initializer with no call in it is left as written when it wouldn't fit on one line (C/C++/Java)
+#### 12. A hand-wrapped declaration initializer is left as written when it can't be made to fit (C/C++/Java)
 
-A declaration whose initializer you already wrapped across lines, and which contains no call or
-other parenthesized part, is left exactly as you wrote it whenever joining it onto one line would
-exceed `line-length`:
+A declaration whose initializer you already wrapped across lines is left exactly as you wrote it
+whenever joining it onto one line would exceed `line-length` and no call in it could be broken at
+its arguments to bring it back under the limit. That covers an initializer with no call at all:
 
 ```java
 final int firstSig = first.templatePrefixFrom != first.templatePrefixTo
                    ? first.templatePrefixFrom : first.returnTypeFrom;
 ```
 
-The formatter has no way to re-wrap such an expression itself, so joining it would leave a
-permanently over-long line. The side effect is that this declaration no longer takes part in the
-`=` column alignment of the declarations around it, and those neighbours align among themselves
-only. An initializer that contains a call is still joined, because the call-wrapping rules can
-then break it again at its arguments. Workaround: none needed for correctness; if you want the
-alignment back, shorten the expression (for example via a local variable) so it fits on one line.
+and one whose calls don't help, because they take no arguments or because the text up to a
+call's opening parenthesis is already too long on its own:
+
+```java
+boolean multipass = a.isGeneralScopeReindentEnabled() && a.isMultipassEnabled()
+        && a.isLineSplitEnabled();
+```
+
+The formatter has no way to re-wrap such an expression at its operators, so joining it would leave
+a permanently over-long line. When some call does have arguments and both the part before them
+and the part after them fit, the declaration is still joined and then broken at that call's
+arguments instead. The side effect is that a declaration left as written no longer takes part in
+the `=` column alignment of the declarations around it (its own spacing around `=` is kept as you
+wrote it), and the declarations before and after it align separately. Workaround: none needed for
+correctness; if you want the alignment back, shorten the expression (for example via a local
+variable) so it fits on one line.
 
 ### Data-format family (JSON/JSON5/CSS/YAML/TOML)
 

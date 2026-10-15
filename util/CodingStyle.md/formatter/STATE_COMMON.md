@@ -1000,3 +1000,10 @@ adoption):
   4 comment-only false positives (closing-label rewrites, trailing period). Flushed-left scan
   (`tools/detect_flushed_left_lines.py`): clean on `src/` and round1. Adopted tree is a fixed
   point. `make test` 388/388.
+- **2026-10-16** (`src/`, 100 files, after RDD_KEY_370-372): round1 == round2; 15 files adopted, all
+  cosmetic -- `=` alignment groups split where a member is now kept as written (RDD_KEY_370, README
+  curly #12), call-argument wrap of over-100-col lines, `x ++` -> `x++` (RDD_KEY_369). This
+  session's own new helpers were first rewritten to fit 100 cols (and to avoid a one-line multi-
+  `case` switch the grid rule pads). `java_content_diff` 99/100 OK, 1 known brace-collapse false
+  positive (`ScopePipelineCurly.isControlStatementHead`). Trial JAR `make test` 393/393, fixed
+  point confirmed. Flushed-left scan clean. Adopted; `make test` 393/393, `make test-server` passed.

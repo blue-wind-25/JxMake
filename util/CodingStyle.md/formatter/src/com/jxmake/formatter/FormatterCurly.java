@@ -118,10 +118,8 @@ public final class FormatterCurly extends FormatterCore {
             lang, config.closingCommentMinLines(), indentWidth, lineLengthLimit
         );
         blockRule.setLineSplitByOperatorPriority( config.lineSplitByOperatorPriority() );
-        final SwitchRule         switchRule                 = new SwitchRule(
-            lang, lineLengthLimit, indentWidth
-        );
-        final MiscRuleCurly      miscRule                   = new MiscRuleCurly(
+        final SwitchRule    switchRule = new SwitchRule(lang, lineLengthLimit, indentWidth);
+        final MiscRuleCurly miscRule   = new MiscRuleCurly(
             lang,
             config.isNormalizeCommentStartCase(),
             config.isNormalizeCommentEndPeriod(),
@@ -666,11 +664,11 @@ public final class FormatterCurly extends FormatterCore {
         } // for
         final StringBuilder out = new StringBuilder();
         for(int i = 0; i < n; ++i) {
-            if(newIndent[i] != null) {
+            if( newIndent[i] != null ) {
                 int k = out.length();
                 while( k > 0 && ( out.charAt(k - 1) == ' ' || out.charAt(k - 1) == '\t' ) ) --k;
                 out.setLength(k);
-                out.append(newIndent[i]);
+                out.append( newIndent[i] );
             }
             out.append( tokens.get(i).text );
         } // for
@@ -682,7 +680,7 @@ public final class FormatterCurly extends FormatterCore {
     private static int namespaceKeywordIndex(final List<Token> tokens, final int braceIdx)
     {
         int i = braceIdx - 1;
-        while( i >= 0 && !( tokens.get(i).type == TokenType.KEYWORD && "namespace".equals( tokens.get(i).text ) ) ) --i;
+        while( i >= 0 && !isKeywordToken( tokens.get(i), "namespace" ) ) --i;
 
         return i;
     }
@@ -695,17 +693,14 @@ public final class FormatterCurly extends FormatterCore {
     {
         for( int i = braceIdx + 1; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);
-            switch(t.type) {
-                case WHITESPACE : case NEWLINE : case COMMENT_LINE : case COMMENT_BLOCK : case PREPROCESSOR : continue;
-                default         : break;
-            }
-            if( t.type == TokenType.KEYWORD && "inline".equals(t.text) ) {
+            if( Token.isGapToken(t) || t.type == TokenType.PREPROCESSOR ) continue;
+            if( isKeywordToken(t, "inline") ) {
                 int k = i + 1;
                 while( k < tokens.size() && tokens.get(k).type == TokenType.WHITESPACE ) ++k;
                 if( k < tokens.size() && "namespace".equals( tokens.get(k).text ) ) continue; // `inline namespace`
             }
-            if( t.type == TokenType.KEYWORD && "namespace".equals(t.text) ) {
-                while( i < tokens.size() && !( tokens.get(i).type == TokenType.PUNCT && "{".equals( tokens.get(i).text ) ) ) ++i;
+            if( isKeywordToken(t, "namespace") ) {
+                while( i < tokens.size() && !Token.isPunct( tokens.get(i), "{" ) ) ++i;
                 continue;
             }
             if( t.type == TokenType.PUNCT && "}".equals(t.text) ) return -1;
@@ -731,9 +726,18 @@ public final class FormatterCurly extends FormatterCore {
         int j = idx - 1;
         while( j >= 0 && tokens.get(j).type != TokenType.NEWLINE ) --j;
         final StringBuilder indent = new StringBuilder();
-        for( int k = j + 1; k < tokens.size() && tokens.get(k).type == TokenType.WHITESPACE; ++k ) indent.append( tokens.get(k).text );
+        for( int k = j + 1; k < tokens.size(); ++k ) {
+            final Token t = tokens.get(k);
+            if(t.type != TokenType.WHITESPACE) break;
+            indent.append(t.text);
+        }
 
         return indent.toString();
+    }
+
+    private static boolean isKeywordToken(final Token t, final String text)
+    {
+        return t.type == TokenType.KEYWORD && text.equals(t.text);
     }
 
     /**

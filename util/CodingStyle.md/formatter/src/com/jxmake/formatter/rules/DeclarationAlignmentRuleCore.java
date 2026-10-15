@@ -424,7 +424,11 @@ public abstract class DeclarationAlignmentRuleCore {
         ) ) && cur.type == TokenType.IDENTIFIER ) return false;
         // Postfix `++`/`--` is tight against its operand (`n++`, `a[i]--`) -- mirrors the same
         // rule in `MiscRuleCore.needsSpaceBetween`
-        if( ( isOp(cur, "++") || isOp(cur, "--") ) && ( prev.type == TokenType.IDENTIFIER || isPunct(
+        if( ( isOp(
+            cur, "++"
+        ) || isOp(
+            cur, "--"
+        ) ) && ( prev.type == TokenType.IDENTIFIER || isPunct(
             prev, ")"
         ) || isPunct(prev, "]") ) ) return false;
         // A unary logical-NOT `!` is always tight against its operand (`!atEnd`, `!foo.bar()`)

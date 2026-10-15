@@ -489,11 +489,7 @@ public class SwitchRule {
 
                 final boolean leadingClose = isPunct( tokens.get(firstSig), "}" );
                 final int     lineDepth    = leadingClose ? depth - 1 : depth;
-                final Token   prevCode     = tokens.get(lastCode);
-                final boolean statementEnd = isPunct(prevCode, ";") || isPunct(prevCode, "{") || isPunct(
-                    prevCode, "}"
-                ) || isPunct(prevCode, ":") || isOp(prevCode, ":");
-                if(parenDepth <= 0 && statementEnd) {
+                if( parenDepth <= 0 && endsStatement( tokens.get(lastCode) ) ) {
                     final String target = lineDepth <= 0 ? bodyIndent : bodyIndent + repeatUnit(
                         unit, lineDepth
                     );
@@ -521,6 +517,14 @@ public class SwitchRule {
             } // else
             ++i;
         } // while
+    }
+
+    /** True iff a line following {@code t} starts a new statement (`;`, `{`, `}`, label `:`) */
+    private static boolean endsStatement(final Token t)
+    {
+        final boolean punctOrOp = t.type == TokenType.PUNCT || t.type == TokenType.OP;
+
+        return punctOrOp && t.text.length() == 1 && ";{}:".indexOf( t.text.charAt(0) ) >= 0;
     }
 
     private String repeatUnit(final String unit, final int count)
@@ -950,7 +954,7 @@ public class SwitchRule {
         for( int i = 0; i < rows.size(); ++i ) {
             final CaseRow row = rows.get(i);
             if(row.callShaped) {
-                final String[] cell = callPadded.get(callIdx ++);
+                final String[] cell = callPadded.get(callIdx++);
                 content[i] = cell[0] + "(" + cell[1] + ")";
             }
             else if(row.hasContent) {

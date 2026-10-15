@@ -1319,7 +1319,7 @@ public class CppSpecificRule {
                 // a space here corrupted the expression (e.g. `_Other.\n_Owns` -> `_Other. _Owns`,
                 // found via microsoft/STL real-code testing). Same fix as
                 // MiscRuleCurly.collapseToOneLine's own identical gap.
-                final Token   next      = i + 1 <= toInclusive ? nextSignificantForCollapse(
+                final Token next = i + 1 <= toInclusive ? nextSignificantForCollapse(
                     tokens, i, toInclusive
                 ) : null;
                 final boolean tightJoin = ( prevSignificant != null && ( isOp(

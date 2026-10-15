@@ -1141,10 +1141,16 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
     private boolean isControlStatementHead(final List<Token> tokens, final Span span)
     {
         int first = nextSignificantIndex(tokens, span.start - 1);
-        if( first >= 0 && tokens.get(first).type == TokenType.KEYWORD && "else".equals( tokens.get(first).text ) ) {
-            first = nextSignificantIndex(tokens, first);
-        }
-        if( first < 0 || first >= span.openBraceIdx || tokens.get(first).type != TokenType.KEYWORD ) return false;
+        if( first >= 0 && tokens.get(
+            first
+        ).type == TokenType.KEYWORD && "else".equals(
+            tokens.get(first).text
+        ) ) first = nextSignificantIndex(
+            tokens, first
+        );
+        if( first < 0 || first >= span.openBraceIdx || tokens.get(
+            first
+        ).type != TokenType.KEYWORD ) return false;
         final String kw = tokens.get(first).text;
         if( !"if".equals(kw) && !"while".equals(kw) && !"for".equals(kw) ) return false;
         // The `{` must follow THIS keyword's own header `)` -- a Kotlin span can start at an
@@ -2422,7 +2428,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             // `braceIndent` reads a stale, too-deep value with nothing to correct it (found via
             // `kotlinx.coroutines`'s `SystemProps.kt`, the try/catch-as-expression idempotency
             // bug documented in STATE_KOTLIN.md's Open Questions).
-            final int     chainKwIdx            = nextSignificantIndex(current, span.start - 1);
+            final int chainKwIdx = nextSignificantIndex(current, span.start - 1);
             final boolean isChainedCatchFinally = lang.isKotlin && prevEffectiveSpanIndent != null && prevCloseBraceIdx >= 0 && nextSignificantIndex(
                 current, prevCloseBraceIdx
             ) == chainKwIdx && chainKwIdx >= 0 && chainKwIdx < current.size() && current.get(

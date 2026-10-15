@@ -1752,7 +1752,7 @@ public final class ScopePipelineIndent extends ScopePipelineCore {
         // already handled above via the embedded-NEWLINE check). Reject it so the whole signature is
         // left untouched, per this class's own documented multi-physical-line-type-hint gap, instead
         // of misclassifying the continuation as a bogus parameter of its own.
-        final Token   startTok        = tokens.get(nameStart);
+        final Token startTok = tokens.get(nameStart);
         final boolean validParamStart = startTok.type == TokenType.IDENTIFIER || ( startTok.type == TokenType.OP && ( "*".equals(
             startTok.text
         ) || "**".equals(

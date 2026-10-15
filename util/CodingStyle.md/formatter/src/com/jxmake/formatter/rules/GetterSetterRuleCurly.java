@@ -651,7 +651,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
         if( eqSigIdx >= 0 && isOp( tokens.get(eqSigIdx), "=" ) ) {
             final int specIdx = nextSignificant(tokens, eqSigIdx + 1, to);
             if(specIdx >= 0) {
-                final Token   st     = tokens.get(specIdx);
+                final Token st = tokens.get(specIdx);
                 final boolean isPure = ( st.type == TokenType.NUMBER && "0".equals(
                     st.text
                 ) ) || ( st.type == TokenType.KEYWORD && ( "delete".equals(

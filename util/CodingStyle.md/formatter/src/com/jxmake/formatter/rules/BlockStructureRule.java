@@ -101,8 +101,8 @@ public class BlockStructureRule {
      * could otherwise silently render over the limit with no downstream pass left to re-wrap
      * it, since this pass runs last)
      */
-    private final int lineLengthLimit;
-    private boolean   lineSplitByOperatorPriority = false;
+    private final int     lineLengthLimit;
+    private       boolean lineSplitByOperatorPriority = false;
 
     public void setLineSplitByOperatorPriority(final boolean on)
     {
@@ -1248,7 +1248,7 @@ public class BlockStructureRule {
         ).type == TokenType.WHITESPACE || tokens.get(
             bodyEnd - 1
         ).type == TokenType.NEWLINE );
-        final String  candidate            = restoreTrailingSpace ? prefix + " " + body + " " : prefix + " " + body;
+        final String candidate = restoreTrailingSpace ? prefix + " " + body + " " : prefix + " " + body;
         // JS/TS root cause #3 (STATE_JS_TS.md, "2026-07-30 design/scoping pass"): refuse this
         // collapse when the joined one-line candidate would exceed `lineLengthLimit` AND nothing
         // later can rescue it (no breakable call in the body for `MiscRuleCurly

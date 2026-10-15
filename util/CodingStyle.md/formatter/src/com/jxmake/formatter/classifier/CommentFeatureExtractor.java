@@ -88,9 +88,7 @@ public final class CommentFeatureExtractor {
         final boolean hasLeadingKeywordMatch        = targetWordIndex == 0 && KeywordAmbiguityGate.hasLeadingKeywordMatch(
             targetWord, lang
         );
-        final boolean isDecorativeOnly              = DecorativeSeparatorGate.isDecorativeOnly(
-            commentText
-        );
+        final boolean isDecorativeOnly = DecorativeSeparatorGate.isDecorativeOnly(commentText);
         // TargetWordIndex == 0 scoped, same as hasLeadingKeywordMatch above -- this signals a
         // slash-separated list of code tokens/identifiers immediately after the leading word (e.g.
         // "sizeTokens/initTokens get flattened...", "open/final/abstract/sealed share one

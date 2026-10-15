@@ -852,11 +852,17 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     private boolean isRescuableByCallWrap(final List<Token> sig, final int indentWidth)
     {
         for( int k = 1; k < sig.size(); ++k ) {
-            if( !isPunct( sig.get(k), "(" ) || sig.get(k - 1).type != TokenType.IDENTIFIER ) continue;
+            if( !isPunct(
+                sig.get(k), "("
+            ) || sig.get(
+                k - 1
+            ).type != TokenType.IDENTIFIER ) continue;
             final int close = MiscRuleCore.matchParenForward(sig, k);
             if(close <= k + 1) continue; // Unmatched, or no arguments to move off the line
             final int head = indentWidth + renderTokens( sig.subList(0, k + 1) ).length();
-            final int tail = indentWidth + renderTokens( sig.subList( close, sig.size() ) ).length();
+            final int tail = indentWidth + renderTokens(
+                sig.subList( close, sig.size() )
+            ).length();
             if(head <= lineLengthLimit && tail <= lineLengthLimit) return true;
         } // for
 
@@ -1420,7 +1426,7 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                             i, nameOpenIdx
                         ) );
                         if( !funcPtrTypeTokens.isEmpty() ) {
-                            final List<Token> rawParams         = rawSliceBetween(
+                            final List<Token> rawParams = rawSliceBetween(
                                 stmt, body.get(paramsOpenIdx), body.get(end - 1)
                             );
                             final List<Token> funcPtrSizeTokens = new ArrayList<>( rawParams != null ? rawParams : body.subList(

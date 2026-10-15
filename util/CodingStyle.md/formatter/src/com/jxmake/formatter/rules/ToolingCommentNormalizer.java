@@ -259,7 +259,7 @@ final class ToolingCommentNormalizer {
         /** Allocates a new placeholder, records {@code body}/{@code lineNo} behind it, and returns the marker text */
         String defer(final String body, final int lineNo)
         {
-            final String placeholder = markerPrefix + (seq ++) + markerSuffix;
+            final String placeholder = markerPrefix + (seq++) + markerSuffix;
             entries.add( new Entry(placeholder, body, lineNo) );
 
             return placeholder;

@@ -467,8 +467,8 @@ public final class JsTsSpecificRule {
     )
     {
         for( final Integer openIdx : openToClose.keySet() ) {
-            final int     prevIdx             = prevSignificantIndex(tokens, openIdx - 1);
-            final Token   prev                = prevIdx >= 0 ? tokens.get(prevIdx) : null;
+            final int   prevIdx = prevSignificantIndex(tokens, openIdx - 1);
+            final Token prev    = prevIdx >= 0 ? tokens.get(prevIdx) : null;
             final boolean isImportBraceHeader = prev != null && ( ( prev.type == TokenType.KEYWORD && "import".equals(
                 prev.text
             ) ) || ( "type".equals(
@@ -1494,20 +1494,18 @@ public final class JsTsSpecificRule {
         ).indexOf(
             '\n'
         ) >= 0;
-        final String  tagIndent           = tagAlreadyMultiline ? lineIndentAt(text, 0) : null;
+        final String tagIndent = tagAlreadyMultiline ? lineIndentAt(text, 0) : null;
         for( final int[] h : holes ) {
             final int hs = h[0];
             final int he = h[1];
             if( hs < pos || he > text.length() || hs >= he ) continue; // Defensive -- shouldn't happen
             out.append(text, pos, hs);
-            final String  interior   = text.substring(
-                hs + 1, he - 1
-            );                                                               // Strip the braces themselves
+            final String  interior   = text.substring(hs + 1, he - 1); // Strip the braces themselves
             final boolean isAttrHole = hs < jsxOpeningTagEndOffset;
             final String  indent     = (isAttrHole && tagAlreadyMultiline) ? tagIndent + defaultIndentUnit : lineIndentAt(
                 text, hs
             );
-            final String  formatted  = formatJsxHoleInterior(interior, indent);
+            final String formatted = formatJsxHoleInterior(interior, indent);
             if(formatted != null) {
                 out.append('{').append(formatted).append('}');
                 changed = true;

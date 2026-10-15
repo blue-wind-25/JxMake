@@ -703,9 +703,9 @@ public static final class Signature {
             Collections.< Token > emptySet(),
             Collections.< Token > emptySet()
         );
-        final String  head                      = ( lead.isEmpty() ? "" : lead + (leadNeedsSpace ? " " : "") ) + sig.name.text + "(";
-        final String  inline                    = head + renderParamsInline(sig) + ")";
-        final int     startColumn               = indentLevel * indentWidth;
+        final String head        = ( lead.isEmpty() ? "" : lead + (leadNeedsSpace ? " " : "") ) + sig.name.text + "(";
+        final String inline      = head + renderParamsInline(sig) + ")";
+        final int    startColumn = indentLevel * indentWidth;
 
         // Param comments don't count toward the line-length break decision -- only the code
         // itself should trigger wrapping to the multi-line param-per-line form

@@ -542,16 +542,14 @@ public abstract class MiscRuleCore {
                 continue;
             }
 
-            final boolean lastIsOpen    = isPunct(
+            final boolean lastIsOpen  = isPunct(
                 lastSignificant, "("
             ) || isPunct(
                 lastSignificant, "["
             );
-            final boolean curIsClose    = isPunct(t, ")") || isPunct(t, "]");
-            final Boolean afterOpen     = lastIsOpen ? looseByOpenIdx.get(
-                lastSignificantIdx
-            ) : null;
-            final Boolean beforeClose   = curIsClose ? looseByCloseIdx.get(i) : null;
+            final boolean curIsClose  = isPunct(t, ")") || isPunct(t, "]");
+            final Boolean afterOpen   = lastIsOpen ? looseByOpenIdx.get(lastSignificantIdx) : null;
+            final Boolean beforeClose = curIsClose ? looseByCloseIdx.get(i) : null;
             final boolean gapHasBlocker = gap.stream().anyMatch(
                 this:: isCommentOrNewline
             ) || t.frozen || (lastSignificant != null && lastSignificant.frozen) || gap.stream().anyMatch(
@@ -704,7 +702,7 @@ public abstract class MiscRuleCore {
                 ) || "var".equals(
                     lastSignificant.text
                 ) ) );
-                final boolean isInit        = startsNewInit || ( ( isPunct(
+                final boolean isInit = startsNewInit || ( ( isPunct(
                     lastSignificant, "{"
                 ) || isPunct(
                     lastSignificant, ","
@@ -1784,7 +1782,13 @@ public static final class Assignment {
         // Postfix `++`/`--` (`n++`, `a[i]--`, `f()++`) is tight against its operand too -- a
         // `++`/`--` right after an identifier/`)`/`]` can only be postfix. Without this a
         // statement re-rendered through this join (`vals[n++] = x;`) came out as `vals[n ++]`.
-        if( isIncrementOp(cur) && ( prev.type == TokenType.IDENTIFIER || isPunct(prev, ")") || isPunct(prev, "]") ) ) return false;
+        if( isIncrementOp(
+            cur
+        ) && ( prev.type == TokenType.IDENTIFIER || isPunct(
+            prev, ")"
+        ) || isPunct(
+            prev, "]"
+        ) ) ) return false;
         // A unary logical-NOT `!` is always tight against its operand (`!atEnd`, `!foo.bar()`)
         // -- C/C++/Java/Kotlin/JS/TS have no binary `!` operator at all (Kotlin's own `!is`/`!in`
         // carve-out below already handles its one keyword-operand exception before reaching this

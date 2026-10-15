@@ -650,9 +650,7 @@ public class KotlinSpecificRule {
                 continue;
             }
 
-            final boolean gapBlocked       = TokenNavigationRule.isGapBlocked(
-                gap, lastSignificant, t
-            );
+            final boolean gapBlocked = TokenNavigationRule.isGapBlocked(gap, lastSignificant, t);
             final boolean tightBeforeAt    = isOp(
                 t, "@"
             ) && ( state == JumpState.AFTER_JUMP_KEYWORD || state == JumpState.AFTER_THIS_KEYWORD || ( state == JumpState.AFTER_PLAIN_IDENT && isLoopLabelTarget(

@@ -354,6 +354,35 @@ Example content of '/etc/fstab' after completing this step (for normal RPi):
 
 ----------------------------------------------------------------------------------------------------
 
+Disable swap (Raspberry Pi OS rpi-swap). On a read-only root its default "zram+file" mechanism
+attaches /var/swap to a loop device whenever the root is remounted rw, which keeps the root busy so
+it cannot be remounted ro again:
+
+Check the current state:
+    free -m | grep Swap
+    systemctl list-units --all | grep -i -E "swap|zram"
+
+Tell rpi-swap to configure no swap (a drop-in file; delete it to undo):
+    sudo mkdir -p /etc/rpi/swap.conf.d
+    sudo nano /etc/rpi/swap.conf.d/90-readonly-root.conf
+add (without the preceding indent):
+    [Main]
+    Mechanism=none
+
+Stop the swap that is already running, then reload so the setting takes effect:
+    sudo systemctl stop dev-zram0.swap rpi-zram-writeback.timer systemd-zram-setup@zram0.service rpi-setup-loop@var-swap.service
+    sudo systemctl daemon-reload
+
+Verify:
+    free -m | grep Swap                      # Swap:  0  0  0
+    cat /sys/block/loop0/loop/backing_file   # "No such file or directory" = no loop on /var/swap
+    sudo mount -o remount,ro /               # (read-only root only) must succeed, not "mount point is busy"
+
+Optional, frees disk space (2 GB by default):
+    sudo rm -f /var/swap
+
+----------------------------------------------------------------------------------------------------
+
 If you are using the CM5 and plan to use the external NVMe as the extra programs and data partition,
 boot the CM5 and edit 'config.txt':
     sudo nano /boot/firmware/config.txt

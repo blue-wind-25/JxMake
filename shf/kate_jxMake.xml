@@ -13,16 +13,14 @@
         <!ENTITY rvmark    "[\^](?=&symname;)"     >
     ]
 >
-<!-- ~/.kde/share/apps/katepart/syntax/ -->
-<!-- ~/.local/share/katepart5/syntax/ (KDE5) -->
-<!-- https://docs.kde.org/stable5/en/kate/katepart/highlight.html -->
+<!-- ~/.local/share/org.kde.syntax-highlighting/syntax/ (KF5 / KF6; KDE 4: kate_jxMake-KDE4.xml) -->
+<!-- https://docs.kde.org/stable_kf6/en/kate/katepart/highlight.html -->
 <language
     name="JxMake Specification File"
     section="Other"
-    version="1.0.123"
-    kateversion="2.4"
+    version="1.0.124"
+    kateversion="5.0"
     indenter="normal"
-    mimetype="text/plain"
     extensions="JxMakeFile;JxMakeSpec;*.jxm"
     author="Aloysius Indrayanto"
     license="LGPL"

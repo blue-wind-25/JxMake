@@ -113,9 +113,9 @@ CP_JDS            := --class-path ".$(CP_ALL)"
 # process instead.
 CP_JAVAC_ENTRIES  := . $(CP_CUSTOM_LIST) $(CP_VENDOR_LIST)
 
-JDK_PATH_8        ?= /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.161-0.b14.el7_4.x86_64
-JDK_PATH_11       ?= /usr/lib/jvm/java-11-openjdk-11.0.17.0.8-2.el7_9.x86_64
-JDK_PATH_17       ?= /usr/java/jdk-17.0.5
+JDK_PATH_8        ?= /opt/jdk8u432-b06
+JDK_PATH_11       ?= /opt/jdk-11.0.23+9
+JDK_PATH_17       ?= /opt/jdk-17.0.20.1+1
 JDK_PATH_21       ?= /opt/openjdk-21_linux-x64_bin/jdk-21
 JDK_PATH_25       ?= /opt/openjdk-25_linux-x64_bin/jdk-25
 

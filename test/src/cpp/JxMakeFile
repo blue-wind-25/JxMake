@@ -6,8 +6,8 @@ PreferClang := 1 # 0 or 1
 #(*
 if ${__gcc__}
     if !$or(__os_cygwin__, __os_mingw__, __os_msys__)
-        LDLibraryPath := '/opt/isl-0.16.1/lib:/opt/gcc-12.2.0/lib:/opt/gcc-12.2.0/lib64'
-        CppToolBinDir := '/opt/gcc-12.2.0/bin'
+        LDLibraryPath := '/opt/isl-0.16.1/lib:/opt/gcc-12.5.0/lib:/opt/gcc-12.5.0/lib64'
+        CppToolBinDir := '/opt/gcc-12.5.0/bin'
     endif
 endif
 #*)

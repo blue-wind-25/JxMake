@@ -8,7 +8,7 @@
 # not have these exact paths -- only this dev PC does, verified 2026-08-15).
 #
 
-: "${GXX:=/opt/gcc-12.2.0/bin/g++}"
+: "${GXX:=/opt/gcc-12.5.0/bin/g++}"
 : "${CLANGXX:=$HOME/xsdk/clang22/LLVM-22.1.8-Linux-X64/bin/clang++}"
 : "${USER_LD_LIBRARY_PATH:=/opt/isl-0.16.1/lib}"
 

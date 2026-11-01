@@ -58,7 +58,7 @@ it can be overridden in your shell or CI environment without editing any script 
 machine has these tools installed somewhere other than the paths baked in here.
 
   GXX                    Defined in : _exec_c_cpp_env.sh
-                         Default    : /opt/gcc-12.2.0/bin/g++
+                         Default    : /opt/gcc-12.5.0/bin/g++
 
                          Path to the g++ binary used by every C/C++ syntax_check/content_diff script
                          that runs GCC.

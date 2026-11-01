@@ -133,7 +133,7 @@ corpus-scale)" above (all four candidates DONE). Not an open item — new §5
 real-code coverage would need a brand-new candidate/task, not this one.
 
 ## Tools/compiler used
-(1) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.2.0/bin/g++`; PEGTL,
+(1) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.5.0/bin/g++`; PEGTL,
     stdexec, and mp11 additionally need `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` with this
     toolchain
 (2) `clang++ -std=c++23 -fsyntax-only <file>.cpp` (with/without `-stdlib=libc++`) at

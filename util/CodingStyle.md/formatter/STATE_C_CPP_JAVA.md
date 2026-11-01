@@ -428,7 +428,7 @@ still available via `git log`/`git show` on the noted commits/fixtures.
 
 **Tools/compiler used**
 (1) `gcc -std=gnu99 -fsyntax-only <file>.c` (used for `tongsuo-mini`)
-(2) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.2.0/bin/g++`; PEGTL,
+(2) `g++ -std=c++20 -fsyntax-only <file>` — usually `/opt/gcc-12.5.0/bin/g++`; PEGTL,
     stdexec, and mp11 additionally need `LD_LIBRARY_PATH=/opt/isl-0.16.1/lib` with this
     toolchain
 (3) `clang++ -std=c++23 -fsyntax-only <file>.cpp` (with/without `-stdlib=libc++`) at

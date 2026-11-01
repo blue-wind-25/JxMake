@@ -7,7 +7,7 @@ ifneq ($(shell uname -s | grep -i cygwin),)
 else
     F_NVIA_ERR_FN = _err.txt
     FILTER_NVIA_N = 2>$(F_NVIA_ERR_FN); ERR=$$?; cat $(F_NVIA_ERR_FN) | grep -v 'no version information available'; rm -f $(F_NVIA_ERR_FN); exit $$ERR
-    GPP           = LD_LIBRARY_PATH=/opt/isl-0.16.1/lib:/opt/gcc-12.2.0/lib64 /opt/gcc-12.2.0/bin/g++ -fdiagnostics-color=always
+    GPP           = LD_LIBRARY_PATH=/opt/isl-0.16.1/lib:/opt/gcc-12.5.0/lib64 /opt/gcc-12.5.0/bin/g++ -fdiagnostics-color=always
 endif
 
 OBJ_FILES = main.cpp.o              \

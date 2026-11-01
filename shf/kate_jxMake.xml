@@ -14,11 +14,12 @@
     ]
 >
 <!-- ~/.local/share/org.kde.syntax-highlighting/syntax/ (KF5 / KF6; KDE 4: kate_jxMake-KDE4.xml) -->
+<!-- Colours come from the Kate theme; kate_themes/ has themes with the JxMake palette (README.txt there) -->
 <!-- https://docs.kde.org/stable_kf6/en/kate/katepart/highlight.html -->
 <language
     name="JxMake Specification File"
     section="Other"
-    version="1.0.124"
+    version="1.0.125"
     kateversion="5.0"
     indenter="normal"
     extensions="JxMakeFile;JxMakeSpec;*.jxm"
@@ -877,42 +878,42 @@
             </context>
         </contexts>
         <itemDatas>
-            <itemData name="NormalText"     defStyleNum="dsNormal"   spellChecking="false" color="#000000" selColor="#000000" bold="false" italic="false" underline="false"/>
-            <itemData name="ErrorText"      defStyleNum="dsError"    spellChecking="false" color="#FF0000" selColor="#FF0000" bold="true"  italic="true"  underline="true" />
-            <itemData name="CombineNL"      defStyleNum="dsNormal"   spellChecking="false" color="#808080" selColor="#808080" bold="false" italic="false" underline="false"/>
-            <itemData name="ForceNL"        defStyleNum="dsKeyword"  spellChecking="false" color="#FF0000" selColor="#FF0000" bold="true"  italic="true"  underline="false"/>
-            <itemData name="Comment"        defStyleNum="dsComment"  spellChecking="true"  color="#808080" selColor="#808080" bold="false" italic="false" underline="false"/>
-            <itemData name="Keyword"        defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="false"/>
-            <itemData name="SKeyword"       defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="true" />
-            <itemData name="MacroDef"       defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="false" underline="true" />
-            <itemData name="MacroUseMark"   defStyleNum="dsKeyword"  spellChecking="false" color="#FF3F3F" selColor="#FF3F3F" bold="true"  italic="true"  underline="true" />
-            <itemData name="MacroUse"       defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="false" italic="true"  underline="false"/>
-            <itemData name="IncLibName"     defStyleNum="dsKeyword"  spellChecking="false" color="#000000" selColor="#000000" bold="false" italic="true"  underline="false"/>
-            <itemData name="Number"         defStyleNum="dsDecVal"   spellChecking="false" color="#B08000" selColor="#B08000" bold="false" italic="false" underline="false"/>
-            <itemData name="String"         defStyleNum="dsString"   spellChecking="false" color="#BF0000" selColor="#BF0000" bold="false" italic="false" underline="false"/>
-            <itemData name="StringMLMarker" defStyleNum="dsString"   spellChecking="false" color="#BF0000" selColor="#BF0000" bold="true"  italic="false" underline="false"/>
-            <itemData name="StringDQF"      defStyleNum="dsString"   spellChecking="false" color="#007F7F" selColor="#007F7F" bold="true"  italic="true"  underline="false"/>
-            <itemData name="ODString"       defStyleNum="dsString"   spellChecking="false" color="#007F7F" selColor="#007F7F" bold="false" italic="false" underline="false"/>
-            <itemData name="EscapeSeq"      defStyleNum="dsString"   spellChecking="false" color="#005AB3" selColor="#005AB3" bold="true"  italic="false" underline="false"/>
-            <itemData name="PROperEval"     defStyleNum="dsString"   spellChecking="false" color="#D08290" selColor="#D08290" bold="true"  italic="false" underline="false"/>
-            <itemData name="SROperEval"     defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="true"  italic="false" underline="false"/>
-            <itemData name="RefVarMark"     defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="false" italic="false" underline="false"/>
-            <itemData name="RVariableEval"  defStyleNum="dsVariable" spellChecking="false" color="#006A00" selColor="#006A00" bold="false" italic="false" underline="false"/>
-            <itemData name="SVariableEval"  defStyleNum="dsVariable" spellChecking="false" color="#5A00B3" selColor="#5A00B3" bold="false" italic="false" underline="false"/>
-            <itemData name="SVarShortcut"   defStyleNum="dsVariable" spellChecking="false" color="#000000" selColor="#000000" bold="true"  italic="true"  underline="false"/>
-            <itemData name="VariableEvalN"  defStyleNum="dsVariable" spellChecking="false" color="#FF3F3F" selColor="#FF3F3F" bold="true"  italic="false" underline="false"/>
-            <itemData name="ANSIEscapeCode" defStyleNum="dsVariable" spellChecking="false" color="#404040" selColor="#404040" bold="true"  italic="true"  underline="false"/>
-            <itemData name="SuppressError"  defStyleNum="dsFunction" spellChecking="false" color="#0000BF" selColor="#0000BF" bold="true"  italic="true"  underline="true" />
-            <itemData name="BFunctionCall"  defStyleNum="dsFunction" spellChecking="false" color="#0000BF" selColor="#0000BF" bold="false" italic="true"  underline="false"/>
-            <itemData name="UFunctionName"  defStyleNum="dsFunction" spellChecking="false" color="#007F7F" selColor="#007F7F" bold="false" italic="false" underline="false"/>
-            <itemData name="ROperator"      defStyleNum="dsOperator" spellChecking="false" color="#CF6E00" selColor="#CF6E00" bold="false" italic="false" underline="false"/>
-            <itemData name="SOperator"      defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="false" italic="false" underline="false"/>
-            <itemData name="SOperatorIF"    defStyleNum="dsOperator" spellChecking="false" color="#B300B3" selColor="#B300B3" bold="false" italic="true"  underline="false"/>
-            <itemData name="Command"        defStyleNum="dsNormal"   spellChecking="false" color="#C8A4A2" selColor="#C8A4A2" bold="true"  italic="false" underline="false"/>
-            <itemData name="CommandSpcXDir" defStyleNum="dsNormal"   spellChecking="false" color="#C8A4A2" selColor="#C8A4A2" bold="true"  italic="false" underline="true" />
-            <itemData name="RegExprM"       defStyleNum="dsNormal"   spellChecking="false" color="#50C0C0" selColor="#50C0C0" bold="true"  italic="true"  underline="false"/>
-            <itemData name="RegExpr1"       defStyleNum="dsNormal"   spellChecking="false" color="#5F5FBF" selColor="#5F5FBF" bold="false" italic="true"  underline="false"/>
-            <itemData name="RegExpr2"       defStyleNum="dsNormal"   spellChecking="false" color="#BF5F5F" selColor="#BF5F5F" bold="false" italic="true"  underline="false"/>
+            <itemData name="NormalText"     defStyleNum="dsNormal"         spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="ErrorText"      defStyleNum="dsError"          spellChecking="false" bold="true"  italic="true"  underline="true" />
+            <itemData name="CombineNL"      defStyleNum="dsComment"        spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="ForceNL"        defStyleNum="dsAlert"          spellChecking="false" bold="true"  italic="true"  underline="false"/>
+            <itemData name="Comment"        defStyleNum="dsComment"        spellChecking="true"  bold="false" italic="false" underline="false"/>
+            <itemData name="Keyword"        defStyleNum="dsControlFlow"    spellChecking="false" bold="true"  italic="false" underline="false"/>
+            <itemData name="SKeyword"       defStyleNum="dsControlFlow"    spellChecking="false" bold="true"  italic="false" underline="true" />
+            <itemData name="MacroDef"       defStyleNum="dsPreprocessor"   spellChecking="false" bold="true"  italic="false" underline="true" />
+            <itemData name="MacroUseMark"   defStyleNum="dsAlert"          spellChecking="false" bold="true"  italic="true"  underline="true" />
+            <itemData name="MacroUse"       defStyleNum="dsPreprocessor"   spellChecking="false" bold="false" italic="true"  underline="false"/>
+            <itemData name="IncLibName"     defStyleNum="dsImport"         spellChecking="false" bold="false" italic="true"  underline="false"/>
+            <itemData name="Number"         defStyleNum="dsDecVal"         spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="String"         defStyleNum="dsString"         spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="StringMLMarker" defStyleNum="dsString"         spellChecking="false" bold="true"  italic="false" underline="false"/>
+            <itemData name="StringDQF"      defStyleNum="dsSpecialString"  spellChecking="false" bold="true"  italic="true"  underline="false"/>
+            <itemData name="ODString"       defStyleNum="dsVerbatimString" spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="EscapeSeq"      defStyleNum="dsSpecialChar"    spellChecking="false" bold="true"  italic="false" underline="false"/>
+            <itemData name="PROperEval"     defStyleNum="dsAnnotation"     spellChecking="false" bold="true"  italic="false" underline="false"/>
+            <itemData name="SROperEval"     defStyleNum="dsOperator"       spellChecking="false" bold="true"  italic="false" underline="false"/>
+            <itemData name="RefVarMark"     defStyleNum="dsOperator"       spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="RVariableEval"  defStyleNum="dsVariable"       spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="SVariableEval"  defStyleNum="dsAttribute"      spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="SVarShortcut"   defStyleNum="dsVariable"       spellChecking="false" bold="true"  italic="true"  underline="false"/>
+            <itemData name="VariableEvalN"  defStyleNum="dsWarning"        spellChecking="false" bold="true"  italic="false" underline="false"/>
+            <itemData name="ANSIEscapeCode" defStyleNum="dsOthers"         spellChecking="false" bold="true"  italic="true"  underline="false"/>
+            <itemData name="SuppressError"  defStyleNum="dsBuiltIn"        spellChecking="false" bold="true"  italic="true"  underline="true" />
+            <itemData name="BFunctionCall"  defStyleNum="dsBuiltIn"        spellChecking="false" bold="false" italic="true"  underline="false"/>
+            <itemData name="UFunctionName"  defStyleNum="dsFunction"       spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="ROperator"      defStyleNum="dsExtension"      spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="SOperator"      defStyleNum="dsOperator"       spellChecking="false" bold="false" italic="false" underline="false"/>
+            <itemData name="SOperatorIF"    defStyleNum="dsOperator"       spellChecking="false" bold="false" italic="true"  underline="false"/>
+            <itemData name="Command"        defStyleNum="dsDataType"       spellChecking="false" bold="true"  italic="false" underline="false"/>
+            <itemData name="CommandSpcXDir" defStyleNum="dsDataType"       spellChecking="false" bold="true"  italic="false" underline="true" />
+            <itemData name="RegExprM"       defStyleNum="dsConstant"       spellChecking="false" bold="true"  italic="true"  underline="false"/>
+            <itemData name="RegExpr1"       defStyleNum="dsOthers"         spellChecking="false" bold="false" italic="true"  underline="false"/>
+            <itemData name="RegExpr2"       defStyleNum="dsFloat"          spellChecking="false" bold="false" italic="true"  underline="false"/>
         </itemDatas>
     </highlighting>
     <general>

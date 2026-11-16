@@ -244,6 +244,15 @@ set (without the preceding indent):
 then restart the service:
     sudo systemctl restart ssh
 
+Make bulk SSH trafic has lower priority for convenience:
+    sudo nano /etc/ssh/sshd_config.d/ipqos.conf
+and add (without the preceding indent):
+    # Interactive sessions ultra-low latency; bulk (scp/rsync/sftp) DSCP CS1 = lower priority on the switch
+    IPQoS ef cs1
+then:
+    sudo sshd -t
+    sudo systemctl reload ssh
+
 
 ##### On the Host PC #####
 

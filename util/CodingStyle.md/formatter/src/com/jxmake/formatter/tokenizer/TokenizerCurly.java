@@ -68,6 +68,16 @@ public class TokenizerCurly extends TokenizerCore {
     );
 
     private static final Set<String> KEYWORDS_CPP = setOf(
+        // CUDA execution-space / memory-space qualifiers and inlining hints (`.cu`/`.cuh` files
+        // use this pipeline); reserved names, so plain C++ never declares them
+        "__constant__",
+        "__device__",
+        "__forceinline__",
+        "__global__",
+        "__host__",
+        "__managed__",
+        "__noinline__",
+        "__shared__",
         "alignas",
         "alignof",
         "asm",

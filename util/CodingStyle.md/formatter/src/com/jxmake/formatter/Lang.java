@@ -245,6 +245,10 @@ public final class Lang {
             ".hpp"
         ) || lower.endsWith(
             ".hxx"
+        ) || lower.endsWith(
+            ".cu"
+        ) || lower.endsWith(
+            ".cuh"
         ) ) return "cpp";
         if( lower.endsWith(".kt") || lower.endsWith(".kts") ) return "kotlin";
         if( lower.endsWith(".json5") ) return "json5";

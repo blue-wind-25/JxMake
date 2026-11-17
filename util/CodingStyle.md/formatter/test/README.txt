@@ -4628,6 +4628,12 @@ Real-code regressions:
                                                         comment starting with `out[j] +=`/`y += x`/`d_img_:`
                                                         was capitalized.
 
+  real_code_regressions_280_inp/out.cu               -- CUDA: `.cu` is formatted as C++; `__global__`/`__host__`/
+                                                        `__device__`/`__shared__`/`__constant__`/
+                                                        `__forceinline__` sit in their own modifier columns
+                                                        (`__host__ __device__` both kept); kernel launches
+                                                        `<<<...>>>` are left intact.
+
 How Tests Are Run
 -----------------
 

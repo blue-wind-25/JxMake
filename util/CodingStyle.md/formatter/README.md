@@ -44,6 +44,7 @@ java -jar code-formatter-1.0.1.jar include/Module.h
 ```
 
 Language is detected from the file extension (`.c` → C, `.h` → C, `.cpp`/`.cc`/`.cxx` → C++,
+`.cu`/`.cuh` → C++ (CUDA),
 `.java` → Java, `.kt`/`.kts` → Kotlin, `.json`/`.json5` → JSON/JSON5, `.css` → CSS,
 `.yaml`/`.yml` → YAML, `.toml` → TOML, `.xml` → XML, `.html`/`.htm` → HTML5,
 `.js`/`.jsx`/`.mjs`/`.cjs` → JavaScript, `.ts`/`.tsx` → TypeScript, `.py` → Python 3,
@@ -1444,13 +1445,15 @@ bool gemm = false;    // 1x1, stride 1: cuBLAS gemm (cuDNN's FMA
 
 Workaround: put a multi-line explanation on its own lines above the declaration.
 
-#### 17. CUDA sources (`.cu`/`.cuh`) need `--lang cpp`, and CUDA qualifiers are treated as ordinary names
+#### 17. CUDA sources are formatted as C++ with no CUDA-specific layout
 
-`.cu`/`.cuh` files are not recognized by extension; format them with `--lang cpp` (or the
-`JXM_CFMT_CFG --lang=cpp` directive). The C++ rules then apply and kernel launches
-(`k<<<grid, block, 0, s>>>(args)`) are kept intact, but `__global__`/`__device__`/`__shared__`
-are treated like a type name rather than a qualifier, so `__shared__ double sh[256];` widens the
-type column of every declaration aligned with it.
+`.cu`/`.cuh` files go through the C++ rules. Kernel launches (`k<<<grid, block, 0, s>>>(args)`)
+are kept intact, and `__global__`/`__host__`/`__device__`/`__shared__`/`__constant__`/
+`__managed__`/`__forceinline__`/`__noinline__` are treated as qualifiers (their own modifier
+columns, like `static`), so `__shared__ double sh[256];` lines up with the declarations around it
+without widening their type column. Nothing else is CUDA-aware: `__launch_bounds__(...)`,
+`__restrict__` and other compiler extensions are formatted as ordinary names, and a CUDA header
+named `.h` is still read as C unless overridden with `--lang cpp`.
 
 ### Data-format family (JSON/JSON5/CSS/YAML/TOML)
 

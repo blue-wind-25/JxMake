@@ -4657,6 +4657,11 @@ Real-code regressions:
                                                         an over-long qualified declaration still stays out; a
                                                         lambda arrow in a declaration stays spaced (`x -> x`).
 
+  real_code_regressions_285_inp/out.java             -- Java casts take one space before their operand in
+                                                        every context (declaration, assignment, call argument,
+                                                        condition, `return`); `(x) - 1`, `(a) -> b` and
+                                                        `synchronized (lock)` are not casts.
+
 How Tests Are Run
 -----------------
 

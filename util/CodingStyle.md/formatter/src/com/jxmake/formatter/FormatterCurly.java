@@ -73,7 +73,7 @@ public final class FormatterCurly extends FormatterCore {
     {
         // A trailing `//` comment continued on the next line(s) is folded into that comment for
         // every pass and put back afterwards (RDD_KEY_381); a lost marker formats the input as is
-        final int tabWidth = config.indentSize();
+        final int                               tabWidth = config.indentSize();
         final HangingCommentContinuation.Joined joined   = HangingCommentContinuation.join(
             content, lang, formatOff, tabWidth
         );
@@ -189,6 +189,9 @@ public final class FormatterCurly extends FormatterCore {
         // Same reason for C's `()` -> `(void)`: inserted only in Phase 1, it widened one row of an
         // already-aligned one-liner group, and round 2 then padded the siblings' `()` (RDD_KEY_374)
         if(isCOrCpp) text = cppRule.enforceEmptyParameterList( tokenizer.apply(text) );
+        // Java casts take one space before their operand (`(Type) x`) everywhere; before any
+        // width is measured, so every round measures the same text
+        if(lang.isJava) text = javaRule.enforceCastSpacing( tokenizer.apply(text) );
         if(lang.isJs || lang.isTs) {
             // STYLE_JS_TS.md §2: always insert explicit semicolons. Must run before
             // ScopePipelineCurly.process below -- its own §11 declaration-alignment-grid pass
@@ -629,8 +632,8 @@ public final class FormatterCurly extends FormatterCore {
     {
         final int n = tokens.size();
         // Per `{` index: line indent of its `namespace` keyword, or null when not a namespace brace
-        final java.util.ArrayDeque<String> stack = new java.util.ArrayDeque<>();
-        final String[] closeIndent = new String[n];
+        final java.util.ArrayDeque<String> stack       = new java.util.ArrayDeque<>();
+        final String[]                     closeIndent = new String[n];
         for(int i = 0; i < n; ++i) {
             final Token t = tokens.get(i);
             if( t.type == TokenType.PUNCT && "{".equals(t.text) ) {

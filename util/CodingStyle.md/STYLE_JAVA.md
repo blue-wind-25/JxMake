@@ -171,3 +171,15 @@ responsibility of the IDE or a separate lint tool.
 ## 8. Preserve-As-Is Cases
 
 - `else`/`else if` closing comments: never add them — see STYLE.md §7.
+
+---
+
+## 9. Cast Spacing
+
+One space between a cast and its operand, in every context:
+
+```java
+final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+foo( (String) o, (int) -x );
+return (List<String>) value;
+```

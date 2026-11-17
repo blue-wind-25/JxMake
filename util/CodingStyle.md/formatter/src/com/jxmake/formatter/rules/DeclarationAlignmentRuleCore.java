@@ -127,10 +127,10 @@ public abstract class DeclarationAlignmentRuleCore {
      */
     private java.util.Set<Token> computeJsObjectPropertyColons(final List<Token> tokens)
     {
-        final java.util.Set<Token> result = new java.util.HashSet<>();
-        final java.util.Deque<Boolean> objFrame = new java.util.ArrayDeque<>();
+        final java.util.Set<Token>     result    = new java.util.HashSet<>();
+        final java.util.Deque<Boolean> objFrame  = new java.util.ArrayDeque<>();
         final java.util.Deque<Boolean> expectKey = new java.util.ArrayDeque<>();
-        Token prevSig = null;
+              Token                    prevSig   = null;
         for(final Token t : tokens) {
             if( isGapToken(t) ) continue;
             if( isPunct(t, "{") ) {
@@ -186,7 +186,8 @@ public abstract class DeclarationAlignmentRuleCore {
      */
     protected String renderInitTokens(final List<Token> tokens)
     {
-        final StringBuilder sb = new StringBuilder();
+        final boolean       tightCast = lang.isC || lang.isCpp; // Java keeps `(Type) x`
+        final StringBuilder sb        = new StringBuilder();
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t    = tokens.get(i);
             final Token prev = i > 0 ? tokens.get(i - 1) : null;
@@ -198,7 +199,7 @@ public abstract class DeclarationAlignmentRuleCore {
                 // C/C++ single `*`/`&`: one binary-vs-unary decision for the operator and the
                 // token after it (RDD_KEY_375); null leaves both to the rules below
                 final Boolean cSpace = lang.isC || lang.isCpp ? CPointerOpSpacing.spaceBefore(
-                    tokens, i, k->isCStyleCastClose(tokens, k), lang.isCpp
+                    tokens, i, k -> isCStyleCastClose(tokens, k), lang.isCpp
                 ) : null;
                 if(cSpace != null) {
                     if(cSpace) sb.append(' ');
@@ -241,8 +242,9 @@ public abstract class DeclarationAlignmentRuleCore {
                         // Pointer dereference / address-of (`*ptr`, `&table[i]`): add nothing. A
                         // postfix `++`/`--` before it leaves the operator binary (`n++ & mask`)
                     }
-                    else if( isPunct(prev, ")") && isCStyleCastClose(tokens, i - 1) ) {
-                        // C-style cast `(Type)expr`: add nothing
+                    else if( tightCast && isPunct(prev, ")") && isCStyleCastClose(tokens, i - 1) ) {
+                        // C-style cast `(Type)expr`: add nothing. Java keeps one space after a
+                        // cast, as `MiscRuleCore.renderExpressionTokens` already did for assignments
                     }
                     else {
                         sb.append(' ');

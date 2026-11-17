@@ -18,7 +18,7 @@ public class LambdaTypeExtractor {
             );
         }
         else if( lambdaExpr.getBody() instanceof BlockStmt ) {
-            BlockStmt blockStmt = (BlockStmt)lambdaExpr.getBody();
+            BlockStmt blockStmt = (BlockStmt) lambdaExpr.getBody();
 
             List<ReturnStmt> returnStmts = blockStmt.findAll(ReturnStmt.class);
 

@@ -1473,6 +1473,13 @@ way: moving a lone number onto its own line cannot meaningfully shorten anything
 only by such calls (`{ { f.kx(0), f.ky(0) }, { f.kx(1), f.ky(1) } }`) stays over the limit.
 Workaround: none needed for correctness; wrap such a line by hand where you want it broken.
 
+#### 19. A Java cast to an array type gets padding inside its parentheses
+
+Java casts always take exactly one space before their operand (`(HttpURLConnection) url`,
+`foo( (String) o )`, `return (int) x;`). A cast to an array type is additionally padded inside its
+parentheses, like any parenthesized expression containing brackets: `( String[] ) arr`. Workaround:
+none needed for correctness.
+
 ### Data-format family (JSON/JSON5/CSS/YAML/TOML)
 
 #### 1. YAML block scalars, including embedded CI/build scripts, are left completely untouched

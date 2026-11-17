@@ -89,6 +89,125 @@ public class JavaSpecificRule {
         this.defaultIndentUnit = sb.toString();
     }
 
+    /** Primitive cast types, after which a leading `+`/`-` is unary (`(int) -1`) */
+    private static final Set<String> PRIMITIVE_TYPES = new HashSet<>( Arrays.asList(
+        "boolean", "byte", "char", "short", "int", "long", "float", "double"
+    ) );
+
+    /** Keywords whose `(` opens a condition/resource/lock, never a cast */
+    private static final Set<String> NON_CAST_PAREN_KEYWORDS = new HashSet<>( Arrays.asList(
+        "if", "while", "for", "switch", "catch", "synchronized", "try"
+    ) );
+
+    /** Keywords that start an operand (`(Foo) this`, `(Object) null`) */
+    private static final Set<String> OPERAND_KEYWORDS = new HashSet<>( Arrays.asList(
+        "this", "super", "new", "null", "true", "false"
+    ) );
+
+    /**
+     * Exactly one space after a Java cast, in every context (`(HttpURLConnection) url`,
+     * `foo( (String) o )`, `return (int) x;`), as STYLE_JAVA.md asks. Runs before the
+     * width-measuring passes so every round measures the same text. A `(...)` is a cast only
+     * when unambiguous: a type inside (primitive, or a dotted name with optional `<...>`/`[]`),
+     * not preceded by a name/`)`/`]` (a call) or a condition keyword, and directly followed by
+     * an operand; a following `+`/`-` counts only after a primitive (`(a) - b` is subtraction).
+     */
+    public String enforceCastSpacing(final List<Token> tokens)
+    {
+        final StringBuilder out = new StringBuilder();
+        for( int i = 0; i < tokens.size(); ++i ) {
+            final Token t = tokens.get(i);
+            out.append(t.text);
+            if( !isPunct(t, ")") || t.frozen ) continue;
+            final int open = castOpenIdx(tokens, i);
+            if(open < 0) continue;
+            int next = i + 1;
+            while( next < tokens.size() && tokens.get(next).type == TokenType.WHITESPACE ) ++next;
+            if( next >= tokens.size() || tokens.get(next).frozen ) continue;
+            final boolean primitive = PRIMITIVE_TYPES.contains( tokens.get(open + 1).text );
+            if( !startsCastOperand( tokens.get(next), primitive ) ) continue;
+            out.append(' ');
+            i = next - 1; // Drop the original gap (none, or several spaces)
+        } // for
+
+        return out.toString();
+    }
+
+    /** The cast's `(` index if the `)` at {@code close} ends a Java cast, else -1 */
+    private static int castOpenIdx(final List<Token> tokens, final int close)
+    {
+        // Whitespace is skipped throughout: a padded `( String[] )` is still a cast
+        int k = prevNonSpace(tokens, close - 1);
+        // Optional `[]` pairs (`(int[]) o`)
+        while( k >= 0 && isPunct( tokens.get(k), "]" ) ) {
+            final int lb = prevNonSpace(tokens, k - 1);
+            if( lb < 0 || !isPunct( tokens.get(lb), "[" ) ) return -1;
+            k = prevNonSpace(tokens, lb - 1);
+        }
+        // Optional generic arguments (`(List<String>) o`)
+        if( k >= 0 && tokens.get(k).type == TokenType.ANGLE_BRACKET_CLOSE ) {
+            int depth = 0;
+            for(; k >= 0; --k) {
+                final Token a = tokens.get(k);
+                     if(a.type == TokenType.ANGLE_BRACKET_CLOSE) depth += a.text.length();
+                else if(a.type == TokenType.ANGLE_BRACKET_OPEN && --depth == 0)  break;
+                else if( isPunct(a, "(") || isPunct(a, ")") || isPunct(a, ";") ) return -1;
+            }
+            k = prevNonSpace(tokens, k - 1);
+        } // if
+        if(k < 0) return -1;
+        final Token last = tokens.get(k);
+        if(last.type == TokenType.KEYWORD) {
+            if( !PRIMITIVE_TYPES.contains(last.text) ) return -1;
+            k = prevNonSpace(tokens, k - 1);
+        }
+        else if(last.type == TokenType.IDENTIFIER) {
+            k = prevNonSpace(tokens, k - 1);
+            // A dotted name (`java.net.HttpURLConnection`)
+            while( k >= 0 && isOp( tokens.get(k), "." ) ) {
+                final int id = prevNonSpace(tokens, k - 1);
+                if( id < 0 || tokens.get(id).type != TokenType.IDENTIFIER ) return -1;
+                k = prevNonSpace(tokens, id - 1);
+            }
+        }
+        else {
+            return -1;
+        }
+        if( k < 0 || !isPunct( tokens.get(k), "(" ) ) return -1;
+        final int open = k;
+              int p    = open - 1;
+        while( p >= 0 && isGapToken( tokens.get(p) ) ) --p;
+        if(p < 0) return open;
+        final Token before = tokens.get(p);
+        if(before.type == TokenType.IDENTIFIER) return -1; // A call `foo(x)`
+        if( isPunct(before, ")") || isPunct(before, "]") ) return -1;
+        if(before.type == TokenType.ANGLE_BRACKET_CLOSE) return -1; // Generic call `foo.<T>bar(x)`
+        if( isOp(before, "@") ) return -1;
+        final boolean conditionKeyword = NON_CAST_PAREN_KEYWORDS.contains(before.text);
+
+        return before.type == TokenType.KEYWORD && conditionKeyword ? -1 : open;
+    }
+
+    /** Index of the last non-WHITESPACE token at or before {@code k}, or -1 */
+    private static int prevNonSpace(final List<Token> tokens, final int k)
+    {
+        int p = k;
+        while( p >= 0 && tokens.get(p).type == TokenType.WHITESPACE ) --p;
+
+        return p;
+    }
+
+    private static boolean startsCastOperand(final Token next, final boolean primitive)
+    {
+        final TokenType type = next.type;
+        if(type == TokenType.IDENTIFIER || type == TokenType.NUMBER) return true;
+        if(type == TokenType.STRING || type == TokenType.CHAR) return true;
+        if(type == TokenType.KEYWORD) return OPERAND_KEYWORDS.contains(next.text);
+        if( isPunct(next, "(") || isOp(next, "!") || isOp(next, "~") ) return true;
+
+        return primitive && ( isOp(next, "-") || isOp(next, "+") );
+    }
+
     /**
      * STYLE_JAVA.md §2: a recognized Java <b>method definition</b>'s own brace moves to its own
      * line (Allman) whenever it is currently K&amp;R/same-line. Class/interface/enum body braces

@@ -268,6 +268,13 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     public List<List<Declaration>> groupDeclarations(final List<Token> scopeTokens)
     {
         final List<List<Token>> statements = splitStatements(scopeTokens);
+        // The scope's own indent: an aligned group's modifier-column padding only ever adds to a
+        // statement's leading whitespace (`      int n` under `const int`), never removes from it
+        scopeIndentWidth = Integer.MAX_VALUE;
+        for(final List<Token> stmt : statements) {
+            if( !startsLine(stmt) ) continue;
+            scopeIndentWidth = Math.min( scopeIndentWidth, leadingIndentWidth(stmt) );
+        }
 
         final List<List<Declaration>> groups  = new ArrayList<>();
               List<Declaration>       current = new ArrayList<>();
@@ -1098,6 +1105,24 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         return false;
     }
 
+    /**
+     * True iff {@code stmt}'s first code token begins a line (a statement sharing a line with the
+     * previous one has no indent of its own)
+     */
+    private static boolean startsLine(final List<Token> stmt)
+    {
+        boolean newline = false;
+        for(final Token t : stmt) {
+                 if(t.type == TokenType.NEWLINE) newline = true;
+            else if( !isGapToken(t) )            return newline;
+        }
+
+        return false;
+    }
+
+    /** The current scope's indent width, set by {@link #groupDeclarations} */
+    private int scopeIndentWidth = Integer.MAX_VALUE;
+
     private Declaration parseDeclaration(final List<Token> stmt, final boolean blankBefore)
     {
         // A statement with a comment between its first and last significant tokens (a comment
@@ -1399,8 +1424,10 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             // call could rescue it (see `isRescuableByCallWrap`); otherwise a long head
             // (`multipass = a.x() && a.y() && a.z();`, zero-arg calls) stayed over the limit too
             // (RDD_KEY_370).
-            final int indentWidth = leadingIndentWidth(stmt);
-            if( rawInitForBraceCheck != null && containsNewline(rawInitForBraceCheck)
+            // Measured from the scope's indent, not this line's: a previous round's alignment
+            // padding would flip the decision on the next round (round1 != round2)
+            final int indentWidth = Math.min( leadingIndentWidth(stmt), scopeIndentWidth );
+            if( rawInitForBraceCheck != null
                     && indentWidth + renderTokens(sig).length() > lineLengthLimit
                     && !isRescuableByCallWrap(sig, indentWidth) ) return null;
         } // if

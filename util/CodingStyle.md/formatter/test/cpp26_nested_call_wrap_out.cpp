@@ -5,8 +5,6 @@
 void f()
 {
   {
-      glz::patch_document ops = { {glz::patch_op_type::add, "/b", glz::generic(
-          2.0
-      ), std::nullopt} };
+      glz::patch_document ops = { { glz::patch_op_type::add, "/b", glz::generic(2.0), std::nullopt } };
   }
 }

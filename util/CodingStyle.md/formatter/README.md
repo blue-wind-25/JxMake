@@ -1365,11 +1365,11 @@ used as an expression, an elvis-operator (`?:`) continuation, or a trailing lamb
 line break ambiguous in ways this option cannot safely resolve). No workaround exists beyond keeping
 those specific lines shorter by hand.
 
-#### 12. A hand-wrapped declaration initializer is left as written when it can't be made to fit (C/C++/Java)
+#### 12. A declaration too long for `line-length` is left as written when it can't be made to fit (C/C++/Java)
 
-A declaration whose initializer you already wrapped across lines is left exactly as you wrote it
-whenever joining it onto one line would exceed `line-length` and no call in it could be broken at
-its arguments to bring it back under the limit. That covers an initializer with no call at all:
+A declaration, on one line or already wrapped across lines by you, is left exactly as you wrote it
+whenever its one-line form would exceed `line-length` and no call in it could be broken at its
+arguments to bring it back under the limit. That covers an initializer with no call at all:
 
 ```java
 final int firstSig = first.templatePrefixFrom != first.templatePrefixTo
@@ -1415,21 +1415,20 @@ ck(
 
 Workaround: move the inner call into a local variable first.
 
-#### 15. Loose bracket padding added after `=` alignment can leave one row of a group off by a column or two (C/C++)
+#### 15. A padded template argument can leave one declaration of a group off by a column or two (C++)
 
-The `=` column of an aligned group is chosen before loose `( ... )`/`[ ... ]`/`< ... >` padding is
-added to a nested expression, so a row whose left side gains that padding ends up with its `=`
+The type column of an aligned declaration group is chosen before loose `< ... >` padding is added
+to a nested template argument, so a row whose type gains that padding ends up with its name
 slightly to the right of the others:
 
 ```cpp
-t0[o]                 = 1;
-t0[ (size_t)s * T + o ] = 2;
 std::map<int, int>                 m;
 std::pair< std::vector<int>, int > pp;
 ```
 
-The result is stable (formatting again changes nothing). Workaround: put such a statement in its
-own group with a blank line, or simplify the subscript/template argument.
+The result is stable (formatting again changes nothing). Workaround: put such a declaration in its
+own group with a blank line, or introduce a `using` alias for the type. (An assignment whose
+left-hand subscript gets loose padding, `t0[ (size_t)s * T + o ] = 2;`, does line up with its group.)
 
 #### 16. A trailing `//` comment continued on the next line is kept verbatim
 
@@ -1457,6 +1456,14 @@ columns, like `static`), so `__shared__ double sh[256];` lines up with the decla
 without widening their type column. Nothing else is CUDA-aware: `__launch_bounds__(...)`,
 `__restrict__` and other compiler extensions are formatted as ordinary names, and a CUDA header
 named `.h` is still read as C unless overridden with `--lang cpp`.
+
+#### 18. A call whose only argument is a number is never wrapped
+
+When a line is too long, calls are broken one argument per line to bring it under `line-length`, but
+a call whose only argument is a single number (`get(0)`, `f.kx(1)`, `rows(0)`) is never split that
+way: moving a lone number onto its own line cannot meaningfully shorten anything. A line made long
+only by such calls (`{ { f.kx(0), f.ky(0) }, { f.kx(1), f.ky(1) } }`) stays over the limit.
+Workaround: none needed for correctness; wrap such a line by hand where you want it broken.
 
 ### Data-format family (JSON/JSON5/CSS/YAML/TOML)
 

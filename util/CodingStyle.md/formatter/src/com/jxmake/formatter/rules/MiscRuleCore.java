@@ -31,6 +31,7 @@ import com.jxmake.formatter.evaluator.ComplexityPaddingEvaluator;
 import com.jxmake.formatter.grid.ColumnGrid;
 import com.jxmake.formatter.tokenizer.TokenizerCore.Token;
 import com.jxmake.formatter.tokenizer.TokenizerCore.TokenType;
+import com.jxmake.formatter.tokenizer.TokenizerCurly;
 
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isGapToken;
 import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isOp;
@@ -632,16 +633,9 @@ public abstract class MiscRuleCore {
      */
     public String enforceInitializerBraceSpacing(final List<Token> tokens)
     {
-        final StringBuilder  out       = new StringBuilder();
-        final List<Token>    gap       = new ArrayList<>();
-        final Deque<Boolean> initStack = new ArrayDeque<>();
-        // Parallel stack: true only for the frame directly opened by `=` (a fresh top-level
-        // initializer), false for every other frame -- including a nested initializer frame
-        // continuing an already-active parent initializer, and any non-initializer scope brace
-        // (function/control-flow body) that happens to enclose an initializer. `initStack` alone
-        // can't distinguish "outermost" this way since a non-initializer enclosing scope brace
-        // (e.g. a function body) also occupies a stack slot, offsetting a naive depth count.
-        final Deque<Boolean> outermostStack        = new ArrayDeque<>();
+        final StringBuilder  out                   = new StringBuilder();
+        final List<Token>    gap                   = new ArrayList<>();
+        final Deque<Boolean> initStack             = new ArrayDeque<>();
               Token          lastSignificant       = null;
               Token          secondLastSignificant = null;
               Token          thirdLastSignificant  = null;
@@ -657,13 +651,11 @@ public abstract class MiscRuleCore {
             }
 
             final boolean inInit = !initStack.isEmpty() && initStack.peek();
-            // Inside-brace padding applies only at the outermost initializer level -- STYLE.md
-            // §3.3's worked example pads only the outer pair of a nested brace-initializer
-            // (`{ {1, 2}, {3, 4} }`), leaving inner element braces tight. Comma spacing, by
-            // contrast, applies at every nesting level.
-            final boolean atOutermostInit = inInit && !outermostStack.isEmpty() && outermostStack.peek();
-            final boolean afterInitOpen   = isPunct(lastSignificant, "{") && atOutermostInit;
-            final boolean beforeInitClose = isPunct(t, "}") && atOutermostInit;
+            // Inside-brace padding applies at every initializer level -- STYLE.md §3.3 and
+            // STYLE_JAVA.md: "Nested `{}` -- both levels pad" (`{ { 1, 2 }, { 3, 4 } }`); only the
+            // outer pair used to be padded (`{ {1, 2}, {3, 4} }`)
+            final boolean afterInitOpen   = isPunct(lastSignificant, "{") && inInit;
+            final boolean beforeInitClose = isPunct(t, "}") && inInit;
             final boolean beforeComma     = isPunct(t, ",") && inInit;
             final boolean afterComma      = isPunct(lastSignificant, ",") && inInit;
             final boolean gapHasBlocker   = gap.stream().anyMatch(
@@ -708,11 +700,9 @@ public abstract class MiscRuleCore {
                     lastSignificant, ","
                 ) ) && !initStack.isEmpty() && initStack.peek() );
                 initStack.push(isInit);
-                outermostStack.push(startsNewInit);
             } // if
             else if( isPunct(t, "}") && !initStack.isEmpty() ) {
                 initStack.pop();
-                outermostStack.pop();
             }
 
             out.append(t.text);
@@ -1215,7 +1205,7 @@ public static final class Assignment {
             final Token t = stmt.get(k);
             if( !isGapToken(t) ) lhsSigTokens.add(t);
         }
-        final String lhsText = renderExpressionTokens(lhsSigTokens);
+        final String lhsText = paddedLhs( renderExpressionTokens(lhsSigTokens) );
 
         final int valueFrom = nextSignificantIndex(stmt, opIdx + 1);
         if( valueFrom < 0 || !noBlockerBetween(stmt, targetIdx, valueFrom) ) return null;
@@ -1572,6 +1562,18 @@ public static final class Assignment {
 
         return true;
     }
+    /**
+     * An assignment target with its subscripts already padded as the later complexity-padding pass
+     * will pad them (`t0[ (size_t)s * T + o ]`): the group's `=` column is chosen from this width,
+     * which otherwise grew after alignment and left that row's `=` off the column
+     */
+    private String paddedLhs(final String lhs)
+    {
+        if( !lang.isCurly || lhs.indexOf('[') < 0 ) return lhs;
+
+        return enforceComplexityPadding( new TokenizerCurly(lang).tokenize(lhs) );
+    }
+
     /**
      * Renders an arbitrary expression's token list (e.g. a plain assignment statement's RHS)
      * where `*`/`&` may be either binary operators or unary pointer/reference/dereference

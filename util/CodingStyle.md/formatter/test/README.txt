@@ -4639,6 +4639,18 @@ Real-code regressions:
                                                         comment to its new column, verbatim (not capitalized),
                                                         and the declaration group stays aligned across it.
 
+  real_code_regressions_282_inp/out.cpp              -- RDD_KEY_285's shape with a non-number argument (a call
+                                                        nested in an aggregate init, wrapped); an assignment
+                                                        row whose subscript gets loose padding (`t0[ (size_t)s
+                                                        * T + o ]`) lines its `=` up with the rest of the
+                                                        group.
+
+  real_code_regressions_283_inp/out.java             -- Two round1/round2 flaps: a one-line declaration too
+                                                        long for any call wrap to fix joined its neighbour's
+                                                        alignment group on round1 only; an over-long `{
+                                                        {f.kx(0), ...} }` had every number-argument call split
+                                                        around its `0`.
+
 How Tests Are Run
 -----------------
 

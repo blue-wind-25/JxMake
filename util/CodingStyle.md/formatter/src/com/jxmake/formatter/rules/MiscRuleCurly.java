@@ -1239,6 +1239,12 @@ public static final class Signature {
             if( anyFrozen(
                 tokens, nameIdx, closeIdx + 1
             ) ) continue; // Frozen span (RDD_KEY_90 §A) -- left untouched
+            // A lone number argument (`f.kx(0)`): moving it to its own line shortens nothing, and
+            // an over-long `{ {f.kx(0), f.ky(0)}, ... }` got every such call split, then flapped
+            final int argIdx = nextSignificantIndex(tokens, i + 1);
+            if( argIdx >= 0 && tokens.get(argIdx).type == TokenType.NUMBER && nextSignificantIndex(
+                tokens, argIdx + 1
+            ) == closeIdx ) continue;
 
             final String rendered = renderCallCandidate(tokens, nameIdx, i, closeIdx);
             if(rendered != null) {

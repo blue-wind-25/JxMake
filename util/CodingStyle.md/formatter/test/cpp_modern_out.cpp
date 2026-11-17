@@ -53,7 +53,7 @@ void useBindings()
     auto  [xx, yy]  = Pair{ 0, count };
 
     // Range-based for with structured binding
-    std::vector<Pair> pairs = { {1, 2}, {3, 4} };
+    std::vector<Pair> pairs = { { 1, 2 }, { 3, 4 } };
     for( auto& [f, s] : pairs ) {
         (void)f;
         (void)s;

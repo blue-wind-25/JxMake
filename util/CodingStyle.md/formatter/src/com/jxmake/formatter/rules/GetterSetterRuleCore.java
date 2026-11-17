@@ -44,19 +44,19 @@ public abstract class GetterSetterRuleCore {
     /** One parsed one-liner method candidate -- all fields are index ranges into the caller's token list */
     public static final class Member {
 
-        public final List<Token>             modifiers;          // Java only; empty for C/C++
-        public final int templatePrefixFrom, templatePrefixTo;   // Equal (empty) unless C++ `template<...>`
-        public final int returnTypeFrom,     returnTypeTo;
-        public final int                     nameFrom;           // Start of qualified name (= nameIdx for unqualified)
-        public final int                     nameIdx;
-        public final int paramsFrom,         paramsTo;
-        public final int bodyFrom,           bodyTo;             // -1/-1 for declarations
-        public final int memberFrom,         memberTo;           // Full original span, for verbatim passthrough
-        public final Token                   trailingComment;    // Nullable
-        public final boolean                 blankLineBefore;
-        public final String                  postParenQualifier; // "" or " const" etc.; never contains "override"
-        public final String                  pureSpecifier;      // null / "= 0" / "= delete" / "= default"
-        public final boolean                 isDefinition;       // true = { body }, false = ; terminated
+        public final List<Token> modifiers; // Java only; empty for C/C++
+        public final int templatePrefixFrom, templatePrefixTo; // Equal (empty) unless C++ `template<...>`
+        public final int returnTypeFrom, returnTypeTo;
+        public final int nameFrom; // Start of qualified name (= nameIdx for unqualified)
+        public final int nameIdx;
+        public final int paramsFrom, paramsTo;
+        public final int bodyFrom, bodyTo; // -1/-1 for declarations
+        public final int memberFrom, memberTo; // Full original span, for verbatim passthrough
+        public final Token   trailingComment;    // Nullable
+        public final boolean blankLineBefore;
+        public final String  postParenQualifier; // "" or " const" etc.; never contains "override"
+        public final String  pureSpecifier;      // null / "= 0" / "= delete" / "= default"
+        public final boolean isDefinition;       // true = { body }, false = ; terminated
 
         Member(
             final List<Token> modifiers,

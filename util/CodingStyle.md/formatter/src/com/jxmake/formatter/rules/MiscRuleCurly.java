@@ -1731,8 +1731,8 @@ public static final class Signature {
             for( int c = 0; c < row.size(); ++c ) {
                 final Param   p             = row.get(c);
                 final boolean isLastOverall = ( r == rows.size() - 1 ) && ( c == row.size() - 1 );
-                cells[c* 2]     = renderTokens(p.typeTokens);
-                cells[c* 2 + 1] = p.name.text + renderTokens(
+                cells[c * 2]     = renderTokens(p.typeTokens);
+                cells[c * 2 + 1] = p.name.text + renderTokens(
                     p.sizeTokens
                 ) + (isLastOverall ? "" : ",");
             } // for c

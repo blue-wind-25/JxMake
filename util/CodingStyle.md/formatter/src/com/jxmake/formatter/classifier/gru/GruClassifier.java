@@ -234,16 +234,16 @@ public final class GruClassifier {
      */
     public static final class ForwardCache {
 
-        public final List<String>                    tokens;
-        public final int                             targetIndex;
-        public final int[]                           tokenRow;
-        public final double[][]                      x;
+        public final List<String> tokens;
+        public final int          targetIndex;
+        public final int[]        tokenRow;
+        public final double[][]   x;
         public final double[][] fZ, fR, fHTilde, fH, fRH;
         public final double[][] bZ, bR, bHTilde, bH, bRH;
-        public final double[]                        denseInput;
-        public final double[]                        densePre;
-        public final double[]                        denseHidden;
-        public final double[]                        logits;
+        public final double[] denseInput;
+        public final double[] densePre;
+        public final double[] denseHidden;
+        public final double[] logits;
 
         ForwardCache(
             List<String> tokens,

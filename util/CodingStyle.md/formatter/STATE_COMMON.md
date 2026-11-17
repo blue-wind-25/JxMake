@@ -1012,3 +1012,10 @@ adoption):
   was tidied to the formatter's output as it landed). Syntax check clean, `java_content_diff`
   101/101 OK, trial JAR built from round1 `make test` 398/398, fixed point confirmed
   (round1b/round2b identical), flushed-left scan clean.
+- **2026-11-18** (`src/`, 103 files, after RDD_KEY_379-381): round1 == round2; 3 files adopted, all
+  from RDD_KEY_379 -- `MiscRuleCurly` `cells[c* 2]` -> `cells[c * 2]`, and `GruClassifier`/
+  `GetterSetterRuleCore` declarator-list lines (`public final int a, b;`) now left as written, so
+  their groups re-split; the 5 `GetterSetterRuleCore` lines still carrying the old bug's stale
+  interior padding (`returnTypeFrom,     returnTypeTo;`) were hand-tidied to single spaces (kept as
+  written from then on). Clean build `make test` 401/401, `make test-server` passed, adopted tree
+  is a fixed point.

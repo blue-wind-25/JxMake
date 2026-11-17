@@ -86,21 +86,21 @@ DELIMTS := =====================================================================
 # fails when any test fails
 test-all:
 	@rm -f $(LOGFILE) $(LOGFILE).rc
-	@(                                                              \
-	    (                                                           \
-	        echo                                                 && \
-	        echo $(DELIMTS) && $(MAKE) -s test-quiet             && \
-	        echo $(DELIMTS) && $(MAKE) -s test-server            && \
-	        echo $(DELIMTS) && $(MAKE) -s test-server-concurrent && \
-	        echo $(DELIMTS)                                      && \
-	        echo                                                    \
-	    );                                                          \
-	    echo $$? > $(LOGFILE).rc                                    \
-	) 2>&1 | sed 's/\x1B\[[0-9;]*[A-Za-z]//g' > $(LOGFILE) &        \
-	bgpid=$$!;                                                      \
-	tail -f $(LOGFILE) --pid=$$bgpid;                               \
-	wait $$bgpid;                                                   \
-	rc=$$(cat $(LOGFILE).rc 2>/dev/null || echo 1);                 \
+	@(                                                                     \
+	    (                                                                  \
+	        echo                                                 &&        \
+	        echo $(DELIMTS) && $(MAKE) -s test-quiet             &&        \
+	        echo $(DELIMTS) && $(MAKE) -s test-server            &&        \
+	        echo $(DELIMTS) && $(MAKE) -s test-server-concurrent &&        \
+	        echo $(DELIMTS)                                      &&        \
+	        echo                                                           \
+	    );                                                                 \
+	    echo $$? > $(LOGFILE).rc                                           \
+	) 2>&1 | sed 's/\x1B\[[0-9;]*[A-Za-z]//g' > $(LOGFILE) &               \
+	bgpid=$$!;                                                             \
+	tail -f $(LOGFILE) --pid=$$bgpid;                                      \
+	wait $$bgpid;                                                          \
+	rc=$$(cat $(LOGFILE).rc 2>/dev/null || echo 1);                        \
 	[ "$$rc" = 0 ] || echo "test-all: FAILED (exit $$rc), see $(LOGFILE)"; \
 	exit $$rc
 

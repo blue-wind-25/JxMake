@@ -473,7 +473,7 @@ public class JsTsDeclarationAlignmentRule extends DeclarationAlignmentRuleCurly 
             final boolean kindMismatch = !current.isEmpty() && current.get(
                 0
             ).isTypeAlias != row.isTypeAlias;
-            final boolean breakBefore  = hasBlankLineBefore(
+            final boolean breakBefore = hasBlankLineBefore(
                 stmt
             ) || hasCommentBefore(
                 stmt

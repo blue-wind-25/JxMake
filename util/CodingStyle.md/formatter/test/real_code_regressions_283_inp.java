@@ -20,4 +20,10 @@ class Faces {
         double[][] src = {{f.kx(0), f.ky(0)}, {f.kx(1), f.ky(1)}, {f.kx(2), f.ky(2)}, {f.kx(3), f.ky(3)}};
         return FaceAligner.fourPoint(src);
     }
+
+    static Token anchor(Decl first) {
+        final Decl d = first;
+        final Token firstAnchor = !first.templatePrefix.isEmpty() ? first.templatePrefix.get(0) : first.modifiers.get(0);
+        return firstAnchor;
+    }
 }

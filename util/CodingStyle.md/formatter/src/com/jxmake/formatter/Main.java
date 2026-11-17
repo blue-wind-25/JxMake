@@ -193,7 +193,7 @@ public final class Main {
         final Config configForReadAhead = Config.resolve(
             Paths.get(".").toAbsolutePath(), cliOverrides
         );
-        final int    readAhead          = configForReadAhead.clientReadAhead() > 0 ? configForReadAhead.clientReadAhead() : 1;
+        final int    readAhead          = Math.max( 1, configForReadAhead.clientReadAhead() );
         final int    liveServerPort     = standalone ? -1 : ServerMode.findRunningServerPort();
 
         final java.util.concurrent.atomic.AtomicBoolean anyChangedHolder = new java.util.concurrent.atomic.AtomicBoolean(
@@ -713,9 +713,9 @@ public final class Main {
         try ( final OutputStream out = connection.getOutputStream() ) {
             out.write( content.getBytes(StandardCharsets.UTF_8) );
         }
-        final int         status         = connection.getResponseCode();
+        final int status = connection.getResponseCode();
         final InputStream responseStream = status >= 200 && status < 300 ? connection.getInputStream() : connection.getErrorStream();
-        final String      body           = readStream(responseStream);
+        final String body = readStream(responseStream);
         connection.disconnect();
         if(status < 200 || status >= 300) throw new IOException(
             "server returned " + status + ": " + body

@@ -42,12 +42,12 @@ import static com.jxmake.formatter.tokenizer.TokenizerCore.Token.isKeyword;
  */
 public final class ScopePipelineIndent extends ScopePipelineCore {
 
-    private final Lang                             lang;
-    private final MiscRuleIndent                   miscRule;
+    private final Lang           lang;
+    private final MiscRuleIndent miscRule;
     private final PythonBracketComplexityEvaluator bracketEval = new PythonBracketComplexityEvaluator();
-    private final int                              lineLength;
-    private final boolean                          pythonImportSort;
-    private final int                              pythonImportBlankLines;
+    private final int     lineLength;
+    private final boolean pythonImportSort;
+    private final int     pythonImportBlankLines;
 
     public ScopePipelineIndent(final Lang lang, final int indentWidth)
     {

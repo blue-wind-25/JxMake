@@ -1019,3 +1019,9 @@ adoption):
   interior padding (`returnTypeFrom,     returnTypeTo;`) were hand-tidied to single spaces (kept as
   written from then on). Clean build `make test` 401/401, `make test-server` passed, adopted tree
   is a fixed point.
+- **2026-11-18, later** (`src/`, 102 files, after RDD_KEY_382-384, output to `/tmp/fmt_r1`/`/tmp/fmt_r2`):
+  round1 == round2, `java_content_diff` 102/102 OK, syntax clean. Eyeball found a regression (lone
+  `get(0)` rescue mismatch -> ~170-column joined lines), fixed as RDD_KEY_384 before adopting. 10
+  files adopted: groups re-aligned around over-long members now left as written; 2 such members
+  rewritten by hand to fit (`Main.readAhead`, `ScopePipelineCurly.firstAnchor`). Clean build `make
+  test` 403/403, `make test-server` passed, adopted tree is a fixed point.

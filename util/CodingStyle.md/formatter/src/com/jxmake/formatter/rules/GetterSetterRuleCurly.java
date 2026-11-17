@@ -105,7 +105,7 @@ public class GetterSetterRuleCurly extends GetterSetterRuleCore {
             }
             // Break on kind change: definition vs. declaration, or with/without pure-specifier.
             if( !current.isEmpty() ) {
-                final Member  prev        = current.get( current.size() - 1 );
+                final Member prev = current.get( current.size() - 1 );
                 final boolean kindChanged = prev.isDefinition != m.isDefinition || (prev.pureSpecifier == null) != (m.pureSpecifier == null);
                 if(kindChanged) {
                     if( current.size() >= 2 ) groups.add(current);

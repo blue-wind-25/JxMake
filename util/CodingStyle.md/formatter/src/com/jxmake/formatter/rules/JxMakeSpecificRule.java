@@ -51,10 +51,10 @@ public final class JxMakeSpecificRule {
 
     // ---- Keyword tables (STYLE_JXMAKE.md §2) -------------------------------------------------
 
-    private static final Set<String> OPENERS      = new HashSet<>( Arrays.asList(
+    private static final Set<String> OPENERS   = new HashSet<>( Arrays.asList(
         "function", "target", "for", "foreach", "while", "do", "repeat", "loop", ".macro"
     ) );
-    private static final Set<String> CLOSERS      = new HashSet<>( Arrays.asList(
+    private static final Set<String> CLOSERS   = new HashSet<>( Arrays.asList(
         "endfunction",
         "endtarget",
         "endif",
@@ -66,9 +66,9 @@ public final class JxMakeSpecificRule {
         "endloop",
         ".endmacro"
     ) );
-    private static final Set<String> ELIF_ELSE    = new HashSet<>( Arrays.asList("elif", "else") );
+    private static final Set<String> ELIF_ELSE = new HashSet<>( Arrays.asList("elif", "else") );
     private static final String[]    ASSIGN_OPS   = { ":+=", "+:=", ":?=", "?:=", ":=", "+=", "?=", "=" };
-    private static final String[]    EXEC_MARKERS = { "-+@", "-@", "+@", "?@", "@" };
+    private static final String[] EXEC_MARKERS = { "-+@", "-@", "+@", "?@", "@" };
 
     // ---- Char-level scanning helpers ---------------------------------------------------------
 
@@ -559,9 +559,7 @@ public final class JxMakeSpecificRule {
             else if( ELIF_ELSE.contains(token) && !ifChainStack.isEmpty() ) {
                 final boolean hasInlineBody = "else".equals(
                     token
-                ) ? !codeTrimmed.substring(
-                    4
-                ).trim().isEmpty() : hasSemicolon;
+                ) ? !codeTrimmed.substring(4).trim().isEmpty() : hasSemicolon;
                 ifChainStack.peek().add(
                     renderedIndex, token.length(), newLeading.length(), hasInlineBody
                 );

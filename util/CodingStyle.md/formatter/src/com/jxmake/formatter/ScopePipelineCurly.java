@@ -1280,19 +1280,15 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         final List<Replacement>       replacements = new ArrayList<>();
 
         for(final List<Declaration> group : groups) {
-            final Declaration first       = group.get(0);
-            final Declaration last        = group.get( group.size() - 1 );
-            final Token       firstAnchor = !first.templatePrefix.isEmpty() ? first.templatePrefix.get(
-                0
-            ) : first.modifiers.isEmpty() ? first.typeTokens.get(
-                0
-            ) : first.modifiers.get(
-                0
-            );
-            final int         firstIdx    = indexOf.get(firstAnchor);
-            final int         lastIdx     = indexOf.get(last.name);
-            final Span        firstSpan   = findSpanContaining(spans, firstIdx);
-            final Span        lastSpan    = findSpanContaining(spans, lastIdx);
+            final Declaration first = group.get(0);
+            final Declaration last  = group.get( group.size() - 1 );
+            final List<Token> anchorFrom = !first.templatePrefix.isEmpty() ? first.templatePrefix
+                                         : first.modifiers.isEmpty() ? first.typeTokens : first.modifiers;
+            final Token firstAnchor = anchorFrom.get(0);
+            final int   firstIdx    = indexOf.get(firstAnchor);
+            final int   lastIdx     = indexOf.get(last.name);
+            final Span  firstSpan   = findSpanContaining(spans, firstIdx);
+            final Span  lastSpan    = findSpanContaining(spans, lastIdx);
             // Use firstIdx (the declaration's own first real token), not firstSpan.start: the
             // span's leading gap can contain a previous statement's trailing JXM_CFMT_ENA/DIS
             // marker (always itself stamped frozen -- see markFrozenSpans), which must not cause
@@ -1331,11 +1327,11 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
             final String strippedCandidate = stripTrailingSpaces(rawLeadingGapFull, freshPad);
             final int    strippedWidth     = trailingIndent(strippedCandidate).length();
             final String rawLeadingGap     = trailingSpaces >= freshPad && strippedWidth % indentWidth == 0 ? strippedCandidate : rawLeadingGapFull;
-            final String rawIndent         = trailingIndent(rawLeadingGap);
-            final String indent            = normalizeIndent(rawIndent);
-            final String leadingGap        = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
-            final String text              = leadingGap + String.join("\n" + indent, lines);
-                  int    lastTermEnd       = lastSpan.end;
+            final String rawIndent   = trailingIndent(rawLeadingGap);
+            final String indent      = normalizeIndent(rawIndent);
+            final String leadingGap  = normalizeLeadingGap(rawLeadingGap, rawIndent, indent);
+            final String text        = leadingGap + String.join("\n" + indent, lines);
+                  int    lastTermEnd = lastSpan.end;
             while( lastTermEnd > lastSpan.start && isWhitespaceOrNewline(
                 tokens.get(lastTermEnd - 1)
             ) ) lastTermEnd--;
@@ -2121,9 +2117,9 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
                 ) ) continue;
             } // if
             for( int i = 0; i < filtered.size(); ++i ) {
-                final Member m        = filtered.get(i);
+                final Member m = filtered.get(i);
                 final int    startIdx = m.templatePrefixFrom != m.templatePrefixTo ? m.templatePrefixFrom : m.returnTypeFrom;
-                final int    sigIdx   = m.modifiers.isEmpty() ? startIdx : indexOf.get(
+                final int sigIdx = m.modifiers.isEmpty() ? startIdx : indexOf.get(
                     m.modifiers.get(0)
                 );
                 // Use sigIdx (the member's own first real token), not m.memberFrom: memberFrom's

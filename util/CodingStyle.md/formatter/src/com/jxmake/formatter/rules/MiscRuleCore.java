@@ -1628,8 +1628,8 @@ public static final class Assignment {
                 ) && needsSpaceBetween(
                     prev, t, templateOpens, templateCloses, tokens, i
                 ) ) {
-                    final Token   prev2     = i > 1 ? tokens.get(i - 2) : null;
-                    final boolean postfix2  = prev2 != null && isIncrementOp(prev2);
+                    final Token   prev2    = i > 1 ? tokens.get(i - 2) : null;
+                    final boolean postfix2 = prev2 != null && isIncrementOp(prev2);
                     final boolean opBefore  = prev2 == null || (prev2.type == TokenType.OP && !postfix2);
                     final boolean derefOrAt = isRepOp(prev, '*') || isOp(prev, "&");
                     if( t.type == TokenType.IDENTIFIER && derefOrAt && opBefore && (lang.isC || lang.isCpp) ) {

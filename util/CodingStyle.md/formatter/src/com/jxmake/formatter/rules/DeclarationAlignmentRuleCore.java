@@ -233,8 +233,8 @@ public abstract class DeclarationAlignmentRuleCore {
                 ) && needsSpaceBetween(
                     prev, t, tokens, i
                 ) ) {
-                    final Token   prev2     = i > 1 ? tokens.get(i - 2) : null;
-                    final boolean postfix2  = isOp(prev2, "++") || isOp(prev2, "--");
+                    final Token   prev2    = i > 1 ? tokens.get(i - 2) : null;
+                    final boolean postfix2 = isOp(prev2, "++") || isOp(prev2, "--");
                     final boolean opBefore  = prev2 == null || (prev2.type == TokenType.OP && !postfix2);
                     final boolean derefOrAt = isRepOp(prev, '*') || isOp(prev, "&");
                     if( t.type == TokenType.IDENTIFIER && derefOrAt && opBefore && (lang.isC || lang.isCpp) ) {

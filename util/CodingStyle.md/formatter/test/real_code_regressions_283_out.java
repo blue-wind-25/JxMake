@@ -28,4 +28,12 @@ class Faces {
         return FaceAligner.fourPoint(src);
     }
 
+    static Token anchor(Decl first)
+    {
+        final Decl d = first;
+        final Token firstAnchor = !first.templatePrefix.isEmpty() ? first.templatePrefix.get(0) : first.modifiers.get(0);
+
+        return firstAnchor;
+    }
+
 } // class Faces

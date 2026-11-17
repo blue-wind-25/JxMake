@@ -885,6 +885,8 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
             ).type != TokenType.IDENTIFIER ) continue;
             final int close = MiscRuleCore.matchParenForward(sig, k);
             if(close <= k + 1) continue; // Unmatched, or no arguments to move off the line
+            // A lone number argument is never wrapped by call-wrap either (`get(0)`, RDD_KEY_382)
+            if( close == k + 2 && sig.get(k + 1).type == TokenType.NUMBER ) continue;
             final int head = indentWidth + renderTokens( sig.subList(0, k + 1) ).length();
             final int tail = indentWidth + renderTokens(
                 sig.subList( close, sig.size() )

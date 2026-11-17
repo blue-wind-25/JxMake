@@ -134,7 +134,7 @@ public final class ServerMode {
         }
         catch(final ReflectiveOperationException e) {
             final String jvmName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
-            final int    at      = jvmName.indexOf('@');
+            final int at = jvmName.indexOf('@');
             return Long.parseLong( at > 0 ? jvmName.substring(0, at) : jvmName );
         }
     }

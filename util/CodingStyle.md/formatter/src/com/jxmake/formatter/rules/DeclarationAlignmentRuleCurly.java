@@ -1122,6 +1122,19 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         return false;
     }
 
+    /**
+     * Java only: the `.` at {@code k} sits between two identifiers inside the type, a qualified
+     * type name (`java.net.URL`, `Map.Entry<K, V>`). An assignment target's `.` always comes right
+     * before the name (`obj.field = x` reads as type `obj .`), so it never qualifies
+     */
+    private static boolean isQualifiedNameDot(final List<Token> typeTokens, final int k)
+    {
+        if( k == 0 || k + 1 >= typeTokens.size() ) return false;
+
+        return typeTokens.get(k - 1).type == TokenType.IDENTIFIER
+                && typeTokens.get(k + 1).type == TokenType.IDENTIFIER;
+    }
+
     /** The current scope's indent width, set by {@link #groupDeclarations} */
     private int scopeIndentWidth = Integer.MAX_VALUE;
 
@@ -1582,8 +1595,10 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
         // which the eqIdx scan above only looks for a bare `=` and misses entirely -- leaving it
         // stranded in typeTokens, misparsing the whole statement as declaring type "tmp +=" name
         // "b" instead of recognizing it as not a declaration at all).
-        for(final Token t : typeTokens) {
-            if( isOp(t, "->") || isOp(t, ".") || COMPOUND_ASSIGN_OPS.contains(t.text) ) return null;
+        for( int k = 0; k < typeTokens.size(); ++k ) {
+            final Token t = typeTokens.get(k);
+            if( isOp(t, "->") || COMPOUND_ASSIGN_OPS.contains(t.text) ) return null;
+            if( isOp(t, ".") && !( lang.isJava && isQualifiedNameDot(typeTokens, k) ) ) return null;
         }
         if( isOp( typeTokens.get( typeTokens.size() - 1 ), "::" ) ) return null;
         final Token firstType = typeTokens.get(0);

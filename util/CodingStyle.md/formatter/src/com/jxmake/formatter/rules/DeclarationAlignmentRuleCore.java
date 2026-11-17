@@ -434,9 +434,9 @@ public abstract class DeclarationAlignmentRuleCore {
             prev, "::"
         ) || isOp(
             prev, "."
-        ) || isOp(
+        ) || ( isOp(
             prev, "->"
-        ) || isPunct(
+        ) && !lang.isJava ) || isPunct(
             prev, "["
         ) || isPunct(
             prev, "("
@@ -604,7 +604,7 @@ public abstract class DeclarationAlignmentRuleCore {
         // touching a code path with no observed bug.
         return ( !lang.isKotlin && !lang.isJs && !lang.isTs
                 && ( isRepOp(t, '*') || ( !lang.isJava && isRepOp(t, '&') ) ) )
-                || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+                || isOp(t, "::") || isOp(t, ".") || ( isOp(t, "->") && !lang.isJava );
     }
 
     /**

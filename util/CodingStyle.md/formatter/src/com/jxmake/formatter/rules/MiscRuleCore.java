@@ -1778,9 +1778,9 @@ public static final class Assignment {
             prev, "::"
         ) || isOp(
             prev, "."
-        ) || isOp(
+        ) || ( isOp(
             prev, "->"
-        ) || isPunct(
+        ) && !lang.isJava ) || isPunct(
             prev, "["
         ) || isPunct(
             prev, "("
@@ -1945,7 +1945,8 @@ public static final class Assignment {
         // it is always tight against the preceding type token, unlike C/Java's ternary `?`.
         if( lang.isKotlin && isOp(t, "?") ) return true;
 
-        return isOp(t, "...") || isOp(t, "::") || isOp(t, ".") || isOp(t, "->");
+        // Java's `->` is only ever a lambda arrow (`x -> f(x)`), spaced; C/C++ `p->x` is tight
+        return isOp(t, "...") || isOp(t, "::") || isOp(t, ".") || ( isOp(t, "->") && !lang.isJava );
     }
 
     protected void templateAngleTokens(

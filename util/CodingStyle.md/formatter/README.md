@@ -1393,6 +1393,14 @@ wrote it), and the declarations before and after it align separately. Workaround
 correctness; if you want the alignment back, shorten the expression (for example via a local
 variable) so it fits on one line.
 
+Java fully-qualified types (`java.net.URL`, `java.util.Map.Entry<K, V>`) align like any other type
+as long as the aligned lines fit; for example, these two stay aligned when both fit `line-length`:
+
+```java
+final java.net.URL               u = java.net.URI.create("http://h:" + port).toURL();
+final java.net.HttpURLConnection c = (java.net.HttpURLConnection) u.openConnection();
+```
+
 #### 13. A declaration listing several names before any `=` is left as written (C/C++/Java)
 
 A declaration such as `int a, b;`, `std::string err_, describe_;`, `int a, b = 0;` or

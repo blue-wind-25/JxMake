@@ -24,7 +24,7 @@ public class LambdaTypeExtractor {
 
             if( returnStmts.size() > 0 ) {
                 Set<ResolvedType> resolvedTypes = returnStmts.stream().map(
-                    returnStmt->returnStmt.getExpression().map( e->facade.getType(e) ).orElse(ResolvedVoidType.INSTANCE)
+                    returnStmt -> returnStmt.getExpression().map( e -> facade.getType(e) ).orElse(ResolvedVoidType.INSTANCE)
                 ).collect(
                     Collectors.toSet()
                 );

@@ -4651,6 +4651,12 @@ Real-code regressions:
                                                         {f.kx(0), ...} }` had every number-argument call split
                                                         around its `0`.
 
+  real_code_regressions_284_inp/out.java             -- Java fully-qualified types (`java.net.URL`,
+                                                        `java.util.Map.Entry<K, V>`) align with their group;
+                                                        `obj.field = 2;`/`this.value = 3;` stay assignments;
+                                                        an over-long qualified declaration still stays out; a
+                                                        lambda arrow in a declaration stays spaced (`x -> x`).
+
 How Tests Are Run
 -----------------
 

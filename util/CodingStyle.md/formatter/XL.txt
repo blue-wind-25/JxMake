@@ -200,6 +200,13 @@ Use sub-agent. This can be a substantial work.
    the formatter JAR may produce regressions due to missing GRU weights. Perform bug fixes as
    needed.
 
+   There are some CUDA source files (`*.cu`) in `../../../../HowToTrainYourPetAI`. Please use them
+   as dogfood tests for the C/C++ formatter (they should be similar enough to C/C++). Read
+   `../../../../HowToTrainYourPetAI/SDK_AND_TOOLS_LOCATIONS.txt` to find where is `nvcc` is located
+   and use it to compile test the formatted CUDA source files. erform idempotency check and
+   content-diff check/ Perform some eyeballing to the formatted CUDA source files as needed and fix
+   formatter bugs as needed.
+
    Find and fix accidentally flushed-left line and dedented lines because this may indicates
    formatter bug. Use `tools/detect_flushed_left_lines.py` (run with no args for usage) to scan
    for this instead of re-deriving the heuristic each time.

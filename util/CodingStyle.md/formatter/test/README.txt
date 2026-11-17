@@ -4634,6 +4634,11 @@ Real-code regressions:
                                                         (`__host__ __device__` both kept); kernel launches
                                                         `<<<...>>>` are left intact.
 
+  real_code_regressions_281_inp/out.cpp              -- A trailing `//` comment continued on the next line(s)
+                                                        at the same column: the continuation follows the
+                                                        comment to its new column, verbatim (not capitalized),
+                                                        and the declaration group stays aligned across it.
+
 How Tests Are Run
 -----------------
 

@@ -1431,19 +1431,22 @@ std::pair< std::vector<int>, int > pp;
 The result is stable (formatting again changes nothing). Workaround: put such a statement in its
 own group with a blank line, or simplify the subscript/template argument.
 
-#### 16. A trailing `//` comment continued on the next line loses its alignment
+#### 16. A trailing `//` comment continued on the next line is kept verbatim
 
-A trailing comment that you continue on the following line, lined up under the first one, is not
-kept together: the first part is moved to one space after the code, the continuation stays at its
-old column and is capitalized as if it began a new sentence, and it ends the surrounding alignment
-group:
+A trailing comment you continue on the following line(s), each continuation lined up exactly under
+the first `//`, is kept together: when the first part moves (to one space after the code, or to the
+group's comment column), the continuation lines move with it, and the declarations around it still
+align as one group:
 
 ```cpp
-bool gemm = false;    // 1x1, stride 1: cuBLAS gemm (cuDNN's FMA
-                      // algorithms are slow here)
+bool gemm     = false; // 1x1, stride 1: cuBLAS gemm (cuDNN's FMA
+                       // algorithms are slow here)
+bool direct_w = false; // Weight gradient by im2col
 ```
 
-Workaround: put a multi-line explanation on its own lines above the declaration.
+The continuation lines themselves are left exactly as written: they are not capitalized, and a
+trailing period on them is kept. A continuation that is not at exactly the first `//`'s column is
+treated as an ordinary standalone comment.
 
 #### 17. CUDA sources are formatted as C++ with no CUDA-specific layout
 

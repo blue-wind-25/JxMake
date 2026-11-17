@@ -71,6 +71,26 @@ public final class FormatterCurly extends FormatterCore {
         final boolean formatOff
     )
     {
+        // A trailing `//` comment continued on the next line(s) is folded into that comment for
+        // every pass and put back afterwards (RDD_KEY_381); a lost marker formats the input as is
+        final int tabWidth = config.indentSize();
+        final HangingCommentContinuation.Joined joined   = HangingCommentContinuation.join(
+            content, lang, formatOff, tabWidth
+        );
+        if( joined.lines.isEmpty() ) return formatSettled(content, filePath, config, formatOff);
+        final String formatted = formatSettled(joined.text, filePath, config, formatOff);
+        final String result    = HangingCommentContinuation.split(formatted, lang, joined);
+
+        return result != null ? result : formatSettled(content, filePath, config, formatOff);
+    }
+
+    private String formatSettled(
+        final String  content,
+        final String  filePath,
+        final Config  config,
+        final boolean formatOff
+    )
+    {
         String prev = formatOnePass(content, filePath, config, formatOff);
         if(!lang.isKotlin) return prev;
 

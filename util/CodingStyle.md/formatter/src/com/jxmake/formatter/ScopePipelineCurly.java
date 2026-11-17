@@ -726,8 +726,13 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
      */
     private boolean isNamespaceScope(final List<Token> tokens, final int braceIdx)
     {
-        if( tokens.get(braceIdx).name == null ) return false;
         int p = prevSignificantIndex(tokens, braceIdx);
+        // An anonymous `namespace {` has no name; its body is flush all the same (a function
+        // signature wrapped inside one was indented a level, its `)`/`{` too)
+        if( p >= 0 && tokens.get(p).type == TokenType.KEYWORD && "namespace".equals(
+            tokens.get(p).text
+        ) ) return true;
+        if( tokens.get(braceIdx).name == null ) return false;
         if( p < 0 || tokens.get(p).type != TokenType.IDENTIFIER ) return false;
         while(true) {
             final int q = prevSignificantIndex(tokens, p);

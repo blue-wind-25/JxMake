@@ -706,6 +706,25 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
     }
 
     /**
+     * Index of the first `,` in {@code body[from, to)} outside every `()`/`[]`/`{}` and template
+     * `<>` pair (`std::map<int, int> m` has none at the top level), or -1
+     */
+    private static int topLevelCommaIdx(final List<Token> body, final int from, final int to)
+    {
+        int depth = 0;
+        for(int j = from; j < to; ++j) {
+            final Token t = body.get(j);
+                 if( isPunct(t, "(") || isPunct(t, "[") || isPunct(t, "{") ) ++depth;
+            else if( isPunct(t, ")") || isPunct(t, "]") || isPunct(t, "}") ) --depth;
+            else if(t.type == TokenType.ANGLE_BRACKET_OPEN)                  ++depth;
+            else if(t.type == TokenType.ANGLE_BRACKET_CLOSE) depth -= t.text.length();
+            else if( depth == 0 && isPunct(t, ",") )                         return j;
+        } // for
+
+        return -1;
+    }
+
+    /**
      * True if {@code initTokens} represents a function-declaration specifier (`= 0`, `= delete`,
      * `= default`) rather than a true variable initializer
      */
@@ -1291,6 +1310,13 @@ public class DeclarationAlignmentRuleCurly extends DeclarationAlignmentRuleCore 
                 ) ) return null;
             } // if
         }
+        // A declarator list whose first declarator has no `=` (`int a, b;`, `int a, b = 0;`,
+        // `dim3 blk(16, 16, 1), grd(n);`): the model has one name per statement, so `int a,`
+        // was read as the type and `b` as the name, the comma-led type padded to the group's
+        // column (`std::string err_,      describe_;`). Leave such a statement as written. A lone
+        // identifier before the comma is an enum constant list (`A, B, C ;`), not a declaration,
+        // kept on its existing path
+        if( topLevelCommaIdx(body, i, end) >= i + 2 ) return null;
         // Reject if the initializer ends with `}` and isn't a flat aggregate init (e.g. a
         // lambda body, class/struct body, or nested-brace init) -- those can't safely be
         // column-aligned. A flat `{ a, b, c }` with no nested `{` or `;` inside is safe.

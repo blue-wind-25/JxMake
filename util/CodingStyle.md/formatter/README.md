@@ -1392,6 +1392,66 @@ wrote it), and the declarations before and after it align separately. Workaround
 correctness; if you want the alignment back, shorten the expression (for example via a local
 variable) so it fits on one line.
 
+#### 13. A declaration listing several names before any `=` is left as written (C/C++/Java)
+
+A declaration such as `int a, b;`, `std::string err_, describe_;`, `int a, b = 0;` or
+`const dim3 blk(16, 16, 1), grd(n);` keeps its own spacing and does not take part in the column
+alignment of the declarations around it; the declarations before and after it align separately.
+(A list whose first name has an initializer, `size_t total = 0, count = 0;`, still aligns.)
+Workaround: none needed for correctness; declare one name per line if you want it aligned.
+
+#### 14. A call nested inside a wrapped call is not wrapped itself (C/C++/Java/JS/TS)
+
+When a call's arguments are broken one per line, an argument that is itself a long call stays on
+one line, even past `line-length`, and a nested call you had wrapped by hand is joined first:
+
+```cpp
+ck(
+    cudnnGetConvolutionForwardAlgorithm_v7( dnn_, c.x, c.w, c.c[0], c.y, CUDNN_CONVOLUTION_FWD_ALGO_COUNT, &got, perf ),
+    "forward algorithms"
+);
+```
+
+Workaround: move the inner call into a local variable first.
+
+#### 15. Loose bracket padding added after `=` alignment can leave one row of a group off by a column or two (C/C++)
+
+The `=` column of an aligned group is chosen before loose `( ... )`/`[ ... ]`/`< ... >` padding is
+added to a nested expression, so a row whose left side gains that padding ends up with its `=`
+slightly to the right of the others:
+
+```cpp
+t0[o]                 = 1;
+t0[ (size_t)s * T + o ] = 2;
+std::map<int, int>                 m;
+std::pair< std::vector<int>, int > pp;
+```
+
+The result is stable (formatting again changes nothing). Workaround: put such a statement in its
+own group with a blank line, or simplify the subscript/template argument.
+
+#### 16. A trailing `//` comment continued on the next line loses its alignment
+
+A trailing comment that you continue on the following line, lined up under the first one, is not
+kept together: the first part is moved to one space after the code, the continuation stays at its
+old column and is capitalized as if it began a new sentence, and it ends the surrounding alignment
+group:
+
+```cpp
+bool gemm = false;    // 1x1, stride 1: cuBLAS gemm (cuDNN's FMA
+                      // algorithms are slow here)
+```
+
+Workaround: put a multi-line explanation on its own lines above the declaration.
+
+#### 17. CUDA sources (`.cu`/`.cuh`) need `--lang cpp`, and CUDA qualifiers are treated as ordinary names
+
+`.cu`/`.cuh` files are not recognized by extension; format them with `--lang cpp` (or the
+`JXM_CFMT_CFG --lang=cpp` directive). The C++ rules then apply and kernel launches
+(`k<<<grid, block, 0, s>>>(args)`) are kept intact, but `__global__`/`__device__`/`__shared__`
+are treated like a type name rather than a qualifier, so `__shared__ double sh[256];` widens the
+type column of every declaration aligned with it.
+
 ### Data-format family (JSON/JSON5/CSS/YAML/TOML)
 
 #### 1. YAML block scalars, including embedded CI/build scripts, are left completely untouched

@@ -1207,13 +1207,15 @@ public static final class Assignment {
         } // for
         if(opIdx < 0) return null;
 
-        // Render the full LHS for alignment (handles single- and multi-token LHS)
+        // Render the full LHS for alignment (handles single- and multi-token LHS). It is an
+        // expression (member chains, subscripts), so a subscript's binary `*` stays spaced:
+        // `renderTokens` read `t0[2 * plane + o]` as a pointer declarator, `t0[2* plane + o]`
         final List<Token> lhsSigTokens = new ArrayList<>();
         for(int k = targetIdx; k < opIdx; ++k) {
             final Token t = stmt.get(k);
             if( !isGapToken(t) ) lhsSigTokens.add(t);
         }
-        final String lhsText = renderTokens(lhsSigTokens);
+        final String lhsText = renderExpressionTokens(lhsSigTokens);
 
         final int valueFrom = nextSignificantIndex(stmt, opIdx + 1);
         if( valueFrom < 0 || !noBlockerBetween(stmt, targetIdx, valueFrom) ) return null;
@@ -2918,8 +2920,10 @@ public static final class Assignment {
 
         return ( i < 0 || tokens.get(i).type == TokenType.NEWLINE ) ? indent.toString() : "";
     }
+    // An interior `_` (`cl_device_info`) or a trailing one (`d_img_`, `count_`, the member-field
+    // convention -- `D_img_` was capitalized)
     private static final Pattern SNAKE_CASE_IDENTIFIER_PATTERN = Pattern.compile(
-        "[A-Za-z0-9]*[A-Za-z0-9]_[A-Za-z0-9_]*[A-Za-z0-9]"
+        "[A-Za-z0-9]+_[A-Za-z0-9_]*"
     );
     // Superseded by startsWithSnakeCaseIdentifier (RDD_KEY_365), which also covers this case
     // /**
@@ -2933,10 +2937,11 @@ public static final class Assignment {
     // }
     /**
      * True iff the comment text's leading word -- the maximal `[A-Za-z0-9_]` run after leading
-     * whitespace -- is an identifier with an interior `_` (`cl_device_info`, `my_var is reset`,
-     * `max_len: limit`, `do_work() returns`). Such a word names a code symbol, never prose (`_` is
-     * rare in English), so capitalizing it (`My_var`) would change the name. Shared by every
-     * comment-normalization family (curly, Python, `#`-comment tooling/YAML/TOML, JSON5/CSS).
+     * whitespace -- is an identifier with an interior or trailing `_` (`cl_device_info`, `d_img_:`,
+     * `my_var is reset`, `max_len: limit`, `do_work() returns`). Such a word names a code symbol,
+     * never prose (`_` is rare in English), so capitalizing it (`My_var`) would change the name.
+     * Shared by every comment-normalization family (curly, Python, `#`-comment tooling/YAML/TOML,
+     * JSON5/CSS).
      */
     public static boolean startsWithSnakeCaseIdentifier(final String content)
     {
@@ -2953,10 +2958,26 @@ public static final class Assignment {
 
         return SNAKE_CASE_IDENTIFIER_PATTERN.matcher( content.substring(start, end) ).matches();
     }
+    // A leading identifier used as code: subscripted (`out[j] += ...`, `a[j] = ...`) or assigned
+    // to (`y += x`, `k = lr * wd`) -- `[` right after a word and a bare `=` are not prose
+    private static final Pattern CODE_EXPRESSION_LEAD_PATTERN = Pattern.compile(
+        "\\s*[A-Za-z_][A-Za-z0-9_]*(?:\\[|\\s*(?:[-+*/%&|^]|<<|>>)?=(?!=)).*", Pattern.DOTALL
+    );
+
+    /**
+     * True iff the comment text starts with a code expression on an identifier (`out[j] += sum`,
+     * `y += x`), which capitalizing would rename (`Out[j]`)
+     */
+    protected static boolean startsWithCodeExpression(final String content)
+    {
+        return CODE_EXPRESSION_LEAD_PATTERN.matcher(content).matches();
+    }
+
     protected String capitalizeFirstLetter(final String content)
     {
         if(!normalizeCommentStartCase) return content;
         if( startsWithSnakeCaseIdentifier(content) ) return content;
+        if( startsWithCodeExpression(content) ) return content;
         for( int i = 0; i < content.length(); ++i ) {
             final char c = content.charAt(i);
             if( Character.isWhitespace(c) ) continue;

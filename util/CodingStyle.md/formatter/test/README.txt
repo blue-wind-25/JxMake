@@ -4620,6 +4620,14 @@ Real-code regressions:
                                                         b)>`) were spaced out as comparisons; a real
                                                         comparison `x<y && w>(z)` must stay one.
 
+  real_code_regressions_279_inp/out.cpp              -- C++ (from CUDA sources): a wrapped signature inside an
+                                                        anonymous `namespace {` was indented a level; a binary
+                                                        `*` in an assignment's subscript target lost its left
+                                                        space (`t0[2* plane]`); `int a, b;`-style declarator
+                                                        lists were padded as if `int a,` were the type; a
+                                                        comment starting with `out[j] +=`/`y += x`/`d_img_:`
+                                                        was capitalized.
+
 How Tests Are Run
 -----------------
 

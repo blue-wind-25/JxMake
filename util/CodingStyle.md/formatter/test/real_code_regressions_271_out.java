@@ -20,7 +20,7 @@ class LineLengthAudit {
     void collapse(int[] out, int[] cur, int size)
     {
         for(int x = 0; x < size; ++x) {
-            out[x* size + x] = cur[ (size - 1 - x) * size + x ] + cur[ x * size + (size - 1 - x) ] + 1;
+            out[x * size + x] = cur[ (size - 1 - x) * size + x ] + cur[ x * size + (size - 1 - x) ] + 1;
         }
         if(size > 0) out[0] = 1;
     }

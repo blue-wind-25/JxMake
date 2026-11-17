@@ -79,6 +79,9 @@ clean:
 
 LOGFILE := /tmp/jxmake_formatter_test_all.log
 DELIMTS := ====================================================================================================
+# `wait` keeps `tail` from being the recipe's last command: the shell would exec it, `tail` would
+# inherit the background `sed` as its own child, never reap it, and `--pid` would keep seeing the
+# zombie as alive -- `tail` then never exited
 test-all:
 	@rm -f $(LOGFILE)
 	@(                                                          \
@@ -90,7 +93,8 @@ test-all:
 	    echo                                                    \
 	) 2>&1 | sed 's/\x1B\[[0-9;]*[A-Za-z]//g' > $(LOGFILE) &    \
 	bgpid=$$!;                                                  \
-	tail -f $(LOGFILE) --pid=$$bgpid
+	tail -f $(LOGFILE) --pid=$$bgpid;                           \
+	wait $$bgpid
 
 
 # LD_LIBRARY_PATH=/opt/gcc-15.2.0/lib64:$LD_LIBRARY_PATH /opt/powershell-7.4.19-linux-x64/pwsh -c '$PSVersionTable' 2>&1

@@ -393,13 +393,13 @@ public final class GruClassifier {
      */
     public static final class Gradients {
 
-        public final Map<Integer, double[]> embeddingGrad = new HashMap<>();
+        public final Map<Integer, double[]>      embeddingGrad = new HashMap<>();
         public final GruWeights.DirectionWeights forward;
         public final GruWeights.DirectionWeights backward;
-        public final double[][] denseW;
-        public final double[]   denseB;
-        public final double[][] outW;
-        public final double[]   outB;
+        public final double[][]                  denseW;
+        public final double[]                    denseB;
+        public final double[][]                  outW;
+        public final double[]                    outB;
 
         Gradients(int hiddenSize, int embeddingDim, int denseSize, int numClasses)
         {

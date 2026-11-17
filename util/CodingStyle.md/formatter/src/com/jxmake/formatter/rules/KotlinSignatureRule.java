@@ -157,12 +157,12 @@ public class KotlinSignatureRule extends MiscRuleCurly {
         // comment for the NEXT param apart from a genuine same-line trailing comment for the
         // PREVIOUS param, a distinction `significantWithComments` below discards by dropping
         // NEWLINE tokens. See RDD_LOG.md's C1 fix.
-        final java.util.Set<Token> lineStartComments = findLineStartComments(sigTokens);
+        final java.util.Set<Token> lineStartComments  = findLineStartComments(sigTokens);
         final java.util.Set<Token> standaloneComments = findStandaloneComments(sigTokens);
-        final List<Token> sig       = significantWithComments(sigTokens);
-              int         openParen = -1;
-              int         nameIdx   = -1;
-              int         depth     = 0;
+        final List<Token>          sig                = significantWithComments(sigTokens);
+              int                  openParen          = -1;
+              int                  nameIdx            = -1;
+              int                  depth              = 0;
         for( int i = 0; i < sig.size(); ++i ) {
             final Token t = sig.get(i);
             if(t.type == TokenType.ANGLE_BRACKET_OPEN) {
@@ -254,11 +254,10 @@ public class KotlinSignatureRule extends MiscRuleCurly {
      */
     private java.util.Set<Token> findLineStartComments(final List<Token> raw)
     {
-        final java.util.Set<Token> result =
-                java.util.Collections.newSetFromMap(
-                    new java.util.IdentityHashMap<Token, Boolean>()
-                );
-        boolean atLineStart = true;
+        final java.util.Set<Token> result      = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Token, Boolean>()
+        );
+              boolean              atLineStart = true;
         for(final Token t : raw) {
             if(t.type == TokenType.NEWLINE) {
                 atLineStart = true;
@@ -289,10 +288,9 @@ public class KotlinSignatureRule extends MiscRuleCurly {
     private java.util.Set<Token> findStandaloneComments(final List<Token> raw)
     {
         final java.util.Set<Token> lineStart = findLineStartComments(raw);
-        final java.util.Set<Token> result =
-                java.util.Collections.newSetFromMap(
-                    new java.util.IdentityHashMap<Token, Boolean>()
-                );
+        final java.util.Set<Token> result    = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Token, Boolean>()
+        );
         for( int i = 0; i < raw.size(); ++i ) {
             final Token t = raw.get(i);
             if( !lineStart.contains(t) ) continue;

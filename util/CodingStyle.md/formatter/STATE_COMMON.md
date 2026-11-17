@@ -1025,3 +1025,10 @@ adoption):
   files adopted: groups re-aligned around over-long members now left as written; 2 such members
   rewritten by hand to fit (`Main.readAhead`, `ScopePipelineCurly.firstAnchor`). Clean build `make
   test` 403/403, `make test-server` passed, adopted tree is a fixed point.
+- **2026-11-18, final** (`src/`, 102 files, after RDD_KEY_385/386 and the user's `new URL(...)` ->
+  `URI.create(...).toURL()` edits in `Main`/`ServerMode`, output to `/tmp/fmt_r1`/`/tmp/fmt_r2`):
+  round1 == round2, `java_content_diff` 102/102 OK, syntax clean. 20 files adopted: Java
+  qualified-type alignment, lambda arrows spaced (`g->g.type` -> `g -> g.type`, the old bug was all
+  over `src/`), casts spaced, the user's two over-long `URI.create(...)` lines wrapped at the call.
+  One fewer over-100-column line overall. Clean build `make test` 405/405, `make test-server`
+  passed, `javac --release 8` clean, adopted tree is a fixed point.

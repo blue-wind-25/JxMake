@@ -775,13 +775,13 @@ public class KotlinSpecificRule {
      */
     public String enforceArrowSpacing(final List<Token> tokens)
     {
-        final java.util.Set<Integer> whenArrows = collectWhenBranchArrowIndices(tokens);
-        final StringBuilder out                = new StringBuilder();
-        final List<Token>   gap                = new ArrayList<>();
-              Token         lastSignificant    = null;
-              int           lastSignificantIdx = -1;
-        final int           n                  = tokens.size();
-              int           i                  = 0;
+        final java.util.Set<Integer> whenArrows         = collectWhenBranchArrowIndices(tokens);
+        final StringBuilder          out                = new StringBuilder();
+        final List<Token>            gap                = new ArrayList<>();
+              Token                  lastSignificant    = null;
+              int                    lastSignificantIdx = -1;
+        final int                    n                  = tokens.size();
+              int                    i                  = 0;
 
         while(i < n) {
             final Token t = tokens.get(i);
@@ -963,9 +963,9 @@ public class KotlinSpecificRule {
      */
     public String enforceWhereClausePlacement(final List<Token> tokens)
     {
-        final Map<Integer, String> overrides   = new HashMap<>();
-        final Map<Integer, String> insertAfter = new HashMap<>();
-        final java.util.Set<Integer> suppressed = new java.util.HashSet<>();
+        final Map<Integer, String>   overrides   = new HashMap<>();
+        final Map<Integer, String>   insertAfter = new HashMap<>();
+        final java.util.Set<Integer> suppressed  = new java.util.HashSet<>();
 
         for( int i = 0; i < tokens.size(); ++i ) {
             final Token t = tokens.get(i);

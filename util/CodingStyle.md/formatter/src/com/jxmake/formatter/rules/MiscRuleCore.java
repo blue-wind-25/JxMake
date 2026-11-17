@@ -1613,7 +1613,7 @@ public static final class Assignment {
                 // C/C++ single `*`/`&`: one binary-vs-unary decision for the operator and the
                 // token after it (RDD_KEY_375); null leaves both to the rules below
                 final Boolean cSpace = lang.isC || lang.isCpp ? CPointerOpSpacing.spaceBefore(
-                    tokens, i, k->isCStyleCastClose(tokens, k), lang.isCpp
+                    tokens, i, k -> isCStyleCastClose(tokens, k), lang.isCpp
                 ) : null;
                 if(cSpace != null) {
                     if(cSpace) sb.append(' ');

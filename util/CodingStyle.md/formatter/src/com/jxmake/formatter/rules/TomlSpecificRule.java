@@ -374,7 +374,7 @@ public final class TomlSpecificRule {
     {
         if(node instanceof Scalar) return ( (Scalar) node ).raw;
         if(node instanceof Tbl) {
-            final Tbl           tbl = (Tbl)node;
+            final Tbl           tbl = (Tbl) node;
             final StringBuilder sb  = new StringBuilder("{ ");
             for( int i = 0; i < tbl.entries.size(); ++i ) {
                 if(i > 0) sb.append(", ");
@@ -383,7 +383,7 @@ public final class TomlSpecificRule {
             }
             return sb.append(" }").toString();
         } // if
-        final Arr           arr = (Arr)node;
+        final Arr           arr = (Arr) node;
         final StringBuilder sb  = new StringBuilder("[");
         for( int i = 0; i < arr.elements.size(); ++i ) {
             if(i > 0) sb.append(", ");
@@ -400,7 +400,7 @@ public final class TomlSpecificRule {
     private void renderValue(final ValueNode node, final StringBuilder out)
     {
         if( node instanceof Arr && !isAtomsOnly( (Arr) node ) ) {
-            final Arr arr = (Arr)node;
+            final Arr arr = (Arr) node;
             out.append(" [\n");
             for( int i = 0; i < arr.elements.size(); ++i ) {
                 out.append( indent(1) ).append( renderValueTight( arr.elements.get(i) ) );
@@ -567,10 +567,10 @@ public final class TomlSpecificRule {
     {
         final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
             items.size(),
-            i->items.get(i).isKeyed(),
-            i->!items.get(i).leadingComments.isEmpty(),
-            i->items.get(i).blankBefore,
-            i->items.get(i).key
+            i -> items.get(i).isKeyed(),
+            i -> !items.get(i).leadingComments.isEmpty(),
+            i -> items.get(i).blankBefore,
+            i -> items.get(i).key
         );
 
         for( int i = 0; i < items.size(); ++i ) {

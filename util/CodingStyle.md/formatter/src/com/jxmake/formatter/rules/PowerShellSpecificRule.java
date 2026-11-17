@@ -640,17 +640,17 @@ public final class PowerShellSpecificRule {
      */
     private String applyBraceIndent(final String content)
     {
-        final PassAResult passA = runPassA(content);
+        final PassAResult             passA    = runPassA(content);
         final ToolingSharedRule.Lines lines    = new ToolingSharedRule.Lines(passA.transformed);
-        final boolean[]    pure     = computeLinePurity(
+        final boolean[]               pure     = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final char[][]     kinds    = lineKinds(
+        final char[][]                kinds    = lineKinds(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final List<String> out      = new ArrayList<>( lines.lines.size() );
-              int          depth    = 0;
-              boolean      contLine = false;                                                                // True when this line is a backtick continuation of the previous one
+        final List<String>            out      = new ArrayList<>( lines.lines.size() );
+              int                     depth    = 0;
+              boolean                 contLine = false;                                                                // True when this line is a backtick continuation of the previous one
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
             final String line    = lines.lines.get(li);
@@ -878,16 +878,16 @@ public final class PowerShellSpecificRule {
      */
     private String applyAssignAlignment(final String content)
     {
-        final PassAResult passA = runPassA(content);
+        final PassAResult             passA = runPassA(content);
         final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
-        final boolean[]        pure  = computeLinePurity(
+        final boolean[]               pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final char[][]         kinds = lineKinds(
+        final char[][]                kinds = lineKinds(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final List<String>     out   = new ArrayList<>();
-        final List<AssignItem> group = new ArrayList<>();
+        final List<String>            out   = new ArrayList<>();
+        final List<AssignItem>        group = new ArrayList<>();
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
             final String line = lines.lines.get(li);
@@ -976,13 +976,15 @@ public final class PowerShellSpecificRule {
      */
     private String applyPipelineSplit(final String content)
     {
-        final PassAResult passA = runPassA(content);
+        final PassAResult             passA = runPassA(content);
         final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
-        final boolean[]    pure  = computeLinePurity(
+        final boolean[]               pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final char[][]     kinds = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
-        final List<String> out   = new ArrayList<>();
+        final char[][]                kinds = lineKinds(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final List<String>            out   = new ArrayList<>();
 
         int i = 0;
         while( i < lines.lines.size() ) {
@@ -1157,14 +1159,16 @@ public final class PowerShellSpecificRule {
      */
     private String applySwitchArmAlignment(final String content)
     {
-        final PassAResult passA = runPassA(content);
+        final PassAResult             passA = runPassA(content);
         final ToolingSharedRule.Lines lines = new ToolingSharedRule.Lines(passA.transformed);
-        final boolean[]     pure  = computeLinePurity(
+        final boolean[]               pure  = computeLinePurity(
             passA.transformed, passA.kind, lines.lines.size()
         );
-        final char[][]      kinds = lineKinds( passA.transformed, passA.kind, lines.lines.size() );
-        final List<String>  out   = new ArrayList<>();
-        final List<ArmItem> group = new ArrayList<>();
+        final char[][]                kinds = lineKinds(
+            passA.transformed, passA.kind, lines.lines.size()
+        );
+        final List<String>            out   = new ArrayList<>();
+        final List<ArmItem>           group = new ArrayList<>();
 
         for( int li = 0; li < lines.lines.size(); ++li ) {
             final String line = lines.lines.get(li);

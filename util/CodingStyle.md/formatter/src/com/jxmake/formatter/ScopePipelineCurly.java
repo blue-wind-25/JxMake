@@ -1395,7 +1395,7 @@ public final class ScopePipelineCurly extends ScopePipelineCore {
         for( final List<JsTsDeclarationAlignmentRule.Row> group
                 : jsTsDeclarationRule.groupAlignableDeclarations(tokens) ) {
             final JsTsDeclarationAlignmentRule.Row first = group.get(0);
-            final JsTsDeclarationAlignmentRule.Row last = group.get( group.size() - 1 );
+            final JsTsDeclarationAlignmentRule.Row last  = group.get( group.size() - 1 );
             addKotlinDeclReplacement(
                 tokens, indexOf, replacements, first.keyword, last.lastAnchor,
                 jsTsDeclarationRule.renderAlignedGroup(group)

@@ -1428,7 +1428,7 @@ public final class JsTsSpecificRule {
      * no depth parameter of its own to thread through.
      */
     private static final ThreadLocal<Integer> JSX_HOLE_RECURSION_DEPTH = ThreadLocal.withInitial(
-        ()->0
+        () -> 0
     );
 
     /**
@@ -4087,7 +4087,7 @@ public final class JsTsSpecificRule {
                     // provably equivalent to the shared predicate here, not an incomplete copy of
                     // it; do not "fix" by delegating without re-deriving this reachability argument.
                     final boolean gapBlocked = gap.stream().anyMatch(
-                        g->isComment(g) || g.type == TokenType.NEWLINE || g.frozen
+                        g -> isComment(g) || g.type == TokenType.NEWLINE || g.frozen
                     );
                     if(!gapBlocked) {
                         i = nextSig;
@@ -4466,7 +4466,7 @@ public final class JsTsSpecificRule {
         } // while
         segments.add(currentSegment);
 
-        final boolean anyImports = segments.stream().anyMatch( seg->!seg.isEmpty() );
+        final boolean anyImports = segments.stream().anyMatch( seg -> !seg.isEmpty() );
         if(blocked || !anyImports) return render( tokens, java.util.Collections.emptyMap() );
 
         final StringBuilder body = new StringBuilder();

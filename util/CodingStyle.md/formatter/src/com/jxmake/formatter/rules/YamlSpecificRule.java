@@ -430,7 +430,7 @@ public final class YamlSpecificRule {
     {
         if(node instanceof FlowScalar) return ( (FlowScalar) node ).raw;
         if(node instanceof FlowMap) {
-            final FlowMap       map = (FlowMap)node;
+            final FlowMap       map = (FlowMap) node;
             final StringBuilder sb  = new StringBuilder("{");
             for( int i = 0; i < map.entries.size(); ++i ) {
                 if(i > 0) sb.append(", ");
@@ -440,7 +440,7 @@ public final class YamlSpecificRule {
             }
             return sb.append('}').toString();
         } // if
-        final FlowSeq       seq = (FlowSeq)node;
+        final FlowSeq       seq = (FlowSeq) node;
         final StringBuilder sb  = new StringBuilder("[");
         for( int i = 0; i < seq.elements.size(); ++i ) {
             if(i > 0) sb.append(", ");
@@ -473,7 +473,7 @@ public final class YamlSpecificRule {
         // never helps and renderFlowBlock's loop simply emits nothing for zero entries, silently
         // dropping the value entirely when the line is long (e.g. a very long key elsewhere in the
         // same colon-alignment group pushes keyPrefix past the width limit). Always keep it inline.
-        final boolean empty = ( node instanceof FlowMap && ( (FlowMap)node ).entries.isEmpty() ) || ( node instanceof FlowSeq && ( (FlowSeq)node ).elements.isEmpty() );
+        final boolean empty = ( node instanceof FlowMap && ( (FlowMap) node ).entries.isEmpty() ) || ( node instanceof FlowSeq && ( (FlowSeq) node ).elements.isEmpty() );
         if( empty || fits( keyPrefix, 1 + tight.length() ) ) {
             out.append(' ').append(tight).append('\n');
             return;
@@ -499,7 +499,7 @@ public final class YamlSpecificRule {
     private void renderFlowBlock(final FlowNode node, final int depth, final StringBuilder out)
     {
         if(node instanceof FlowMap) {
-            final FlowMap      map  = (FlowMap)node;
+            final FlowMap      map  = (FlowMap) node;
             final List<String> keys = new ArrayList<>();
             for(final FlowEntry e : map.entries) keys.add(e.key);
             final String[] pad = FormatterSimpleBraced.padKeysForColonAlignment(keys);
@@ -531,7 +531,7 @@ public final class YamlSpecificRule {
             } // for
             return;
         } // if
-        final FlowSeq seq = (FlowSeq)node;
+        final FlowSeq seq = (FlowSeq) node;
         for(final FlowNode elem : seq.elements) {
             if(elem instanceof FlowScalar) {
                 out.append(
@@ -1053,10 +1053,10 @@ public final class YamlSpecificRule {
         // frozen-span break between them, same shape as JSON's §1.1 grouping.
         final String[] padding = YamlTomlSharedRule.computeColonAlignmentPadding(
             items.size(),
-            i->items.get(i).isKeyed(),
-            i->!items.get(i).leadingComments.isEmpty(),
-            i->items.get(i).blankBefore,
-            i->items.get(i).key
+            i -> items.get(i).isKeyed(),
+            i -> !items.get(i).leadingComments.isEmpty(),
+            i -> items.get(i).blankBefore,
+            i -> items.get(i).key
         );
 
         for( int i = 0; i < items.size(); ++i ) {

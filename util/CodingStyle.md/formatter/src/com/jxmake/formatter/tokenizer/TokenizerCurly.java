@@ -2189,7 +2189,7 @@ public class TokenizerCurly extends TokenizerCore {
     )
     {
         final java.util.Deque<String> openNames = new java.util.ArrayDeque<String>();
-        int s = s0;
+              int                     s         = s0;
         while( s < sig.size() ) {
             final Token cur = tokens.get( sig.get(s) );
             if( !isOp(cur, "<") ) {

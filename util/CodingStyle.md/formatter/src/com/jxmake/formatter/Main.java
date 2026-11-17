@@ -702,10 +702,10 @@ public final class Main {
         ) .append(
             URLEncoder.encode( entry.getValue(), "UTF-8" )
         );
-        final URL               url        = new URL(
+        final URL               url        = java.net.URI.create(
             "http://localhost:" + port + "/format?" + query
-        );
-        final HttpURLConnection connection = (HttpURLConnection)url.openConnection();
+        ).toURL();
+        final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("POST");
         connection.setDoOutput(true);
         connection.setConnectTimeout(500);
@@ -728,8 +728,8 @@ public final class Main {
     static String readStream(final InputStream in) throws IOException
     {
         final java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
-        final byte[] chunk = new byte[8192];
-              int    read;
+        final byte[]                        chunk  = new byte[8192];
+              int                           read;
         while( ( read = in.read(chunk) ) != -1 ) buffer.write(chunk, 0, read);
 
         return new String( buffer.toByteArray(), StandardCharsets.UTF_8 );

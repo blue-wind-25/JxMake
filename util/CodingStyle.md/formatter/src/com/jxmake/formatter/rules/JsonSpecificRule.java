@@ -332,7 +332,7 @@ public final class JsonSpecificRule {
             out.append( ( (Scalar) node ).raw );
             return;
         }
-        final Container c = (Container)node;
+        final Container c = (Container) node;
         if( c.items.isEmpty() ) {
             out.append(c.isObject ? "{}" : "[]");
             return;
@@ -429,10 +429,10 @@ public final class JsonSpecificRule {
         // mid-comment cases into one predicate.
         final String[] padding = isObject ? YamlTomlSharedRule.computeColonAlignmentPadding(
             items.size(),
-            i->items.get(i).value != null && items.get(i).midComment == null,
-            i->!items.get(i).leadingComments.isEmpty(),
-            i->items.get(i).blankBefore,
-            i->items.get(i).key
+            i -> items.get(i).value != null && items.get(i).midComment == null,
+            i -> !items.get(i).leadingComments.isEmpty(),
+            i -> items.get(i).blankBefore,
+            i -> items.get(i).key
         ) : null;
 
         for( int i = 0; i < items.size(); ++i ) {

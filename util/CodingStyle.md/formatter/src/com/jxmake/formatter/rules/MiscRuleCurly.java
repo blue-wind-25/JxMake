@@ -845,10 +845,10 @@ public static final class Signature {
             }
 
             final boolean hasComment   = gap.stream().anyMatch(
-                g->g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK
+                g -> g.type == TokenType.COMMENT_LINE || g.type == TokenType.COMMENT_BLOCK
             );
             final long    newlineCount = gap.stream().filter(
-                g->g.type == TokenType.NEWLINE
+                g -> g.type == TokenType.NEWLINE
             ).count();
             if( shouldForceBlankBeforeReturn(tokens, i, stack) && hasComment && lang.isKotlin ) {
                 // RDD_KEY_129, Kotlin-only carve-out: a `return` directly preceded by its own

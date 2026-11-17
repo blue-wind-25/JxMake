@@ -58,7 +58,7 @@ $(CLASS_DIR):
 	@mkdir -p $(CLASS_DIR)
 
 $(JAR_FILE): $(SOURCES) | $(CLASS_DIR)
-	@$(JAVAC) -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
+	@$(JAVAC) -Xlint:-options -Xlint:deprecation -encoding UTF-8 -source $(JAVA_VERSION) -target $(JAVA_VERSION) -d $(CLASS_DIR) $(SOURCES)
 	@mkdir -p $(CLASS_DIR)/META-INF
 	@printf 'Manifest-Version: 1.0\nMain-Class: %s\nImplementation-Version: %s\n' '$(MAIN_CLASS)' '$(VERSION)' > $(CLASS_DIR)/META-INF/MANIFEST.MF
 	@(                                                                 \

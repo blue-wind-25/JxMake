@@ -276,7 +276,9 @@ public final class ServerMode {
         final int port = info.port;
         if(port > 0) {
             try {
-                final java.net.URL url = new java.net.URL("http://localhost:" + port + "/shutdown");
+                final java.net.URL url = java.net.URI.create(
+                    "http://localhost:" + port + "/shutdown"
+                ).toURL();
                 final java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("POST");
                 connection.setConnectTimeout(500);
@@ -533,13 +535,13 @@ public final class ServerMode {
     private static String propertiesJson()
     {
         final List<Config.ConfigProperty> properties = Config.describeAll();
-        final StringBuilder json = new StringBuilder();
+        final StringBuilder               json       = new StringBuilder();
         json.append("[\n");
         String  currentGroup = null;
         boolean firstGroup   = true;
         for( int i = 0; i < properties.size(); ++i ) {
             final Config.ConfigProperty property   = properties.get(i);
-            final boolean groupStart = !property.group.equals(currentGroup);
+            final boolean               groupStart = !property.group.equals(currentGroup);
             if(groupStart) {
                 if(!firstGroup) json.append("\n      ]\n    },\n");
                 firstGroup   = false;

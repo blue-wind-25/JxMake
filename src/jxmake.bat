@@ -4,6 +4,17 @@ setlocal enabledelayedexpansion
 ::::: Get the directory where the batch file is located
 set "DIR=%~dp0"
 
+::::: Collect the plugin classpath (if any), resolving relative entries against the caller's
+::::: directory (this must be done before changing the directory below)
+::::: NOTE : Delayed expansion is used so paths containing ')' (e.g. 'Program Files (x86)') do not
+:::::        break the parsing of the parenthesized block
+set "PLUGIN_CP="
+if not defined JXMAKE_PLUGIN_CLASSPATH goto :plugin_cp_done
+for %%P in ("!JXMAKE_PLUGIN_CLASSPATH:;=" "!") do (
+    if not "%%~P"=="" set "PLUGIN_CP=!PLUGIN_CP!;%%~fP"
+)
+:plugin_cp_done
+
 ::::: Move into that directory so the JAR can be found
 cd /d "%DIR%"
 
@@ -30,9 +41,10 @@ set "JAVA_MAJOR=0"
 for /f "tokens=1 delims=." %%V in ("!JAVA_VER!") do set "JAVA_MAJOR=%%V"
 
 ::::: Check if "--enable-native-access" flag is required
-::::: NOTE : All JARs are loaded via '-cp', so they all belong to the unnamed module; only 'ALL-UNNAMED' is
-:::::        effective here (listing module names would only produce "Unknown module" warnings). If the JARs
-:::::        are ever loaded via '--module-path' instead, list their module names here (see 'src/UPDATE_3RD_PARTY_JARS.md').
+::::: NOTE : All JARs are loaded via '-cp', so they all belong to the unnamed module; only
+:::::        'ALL-UNNAMED' is effective here (listing module names would only produce "Unknown
+:::::        module" warnings). If the JARs are ever loaded via '--module-path' instead, list their
+:::::        module names here (see 'src/UPDATE_3RD_PARTY_JARS.md').
 set "NATIVE_ACCESS_FLAG="
 if !JAVA_MAJOR! GEQ 22 (
     set "NATIVE_ACCESS_FLAG=--enable-native-access=ALL-UNNAMED"
@@ -47,6 +59,9 @@ for %%J in (%DEP_CP%) do (
     set "ALL_CP=!ALL_CP!;%DIR%\jxmake_dist\libs\%%J"
 )
 
+::::: Append the plugin classpath last so plugins cannot shadow JxMake or 3rd party classes
+set "ALL_CP=!ALL_CP!!PLUGIN_CP!"
+
 ::::: Run the application JAR file with the appropriate flags based on the Java major version
 "%JAVA_CMD%" !NATIVE_ACCESS_FLAG!    ^
     -Xms512m                         ^
@@ -56,6 +71,6 @@ for %%J in (%DEP_CP%) do (
     -XX:MaxGCPauseMillis=200         ^
     -XX:+ParallelRefProcEnabled      ^
     -XX:+AlwaysPreTouch              ^
-    -cp "%ALL_CP%" JXM_Main %*
+    -cp "!ALL_CP!" JXM_Main %*
 
 endlocal

@@ -20,7 +20,8 @@ Configurable Environment Variables
 JXMAKE_COUNTRY                - if set, it will override the country  defined by the system locale
 JXMAKE_LANGUAGE               - if set, it will override the language defined by the system locale
 
-JXMAKE_I18N_CAPTURE_FILE      - if set, a translation file (.po) will be created at the specified path
+JXMAKE_I18N_CAPTURE_FILE      - if set, a translation file (.po) will be created at the specified
+                                path
 
 
 JXMAKE_DBROWSER_FONT_NAME     - if not set, the default value is autodetected
@@ -39,6 +40,19 @@ JXMAKE_ALWAYS_USE_LEGACY_HTTP - if set and not zero, never use HttpClient, even 
 JXMAKE_WDI_ALWAYS_USE_PS1     - if set and not zero, never use the FFM backend, even if usable
 JXMAKE_WDI_ALWAYS_USE_FFM     - if set and not zero, force the FFM backend, even if not reported
                                 usable
+
+
+The following environment variables are only used by the 'jxmake' and 'jxmake.bat' launcher scripts:
+
+JXMAKE_JAVA                   - if set, the Java executable to use instead of the 'java' found in
+                                the PATH
+JXMAKE_PLUGIN_CLASSPATH       - if set, additional JAR files and/or class directories to be added
+                                to the classpath, e.g. for user-defined SWD flash loader plugins;
+                                the entries are separated by ':' (Linux and MacOS) or ';' (Windows),
+                                just like Java's own CLASSPATH; relative entries are resolved
+                                against the current directory; the entries are added after JxMake's
+                                own JAR files, so they cannot replace JxMake or 3rd party library
+                                classes
 
 
 ----------------------------------------------------------------------------------------------------

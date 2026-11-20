@@ -16,6 +16,19 @@ SCRIPT_SOURCE="${BASH_SOURCE:-$0}"
 DIR="$(dirname "$SCRIPT_SOURCE")"
 DIR="$(cd "$DIR" && pwd)"
 
+##### Collect the plugin classpath (if any), resolving relative entries against the caller's
+##### directory (this must be done before changing the directory below)
+PLUGIN_CP=""
+
+if [ -n "${JXMAKE_PLUGIN_CLASSPATH:-}" ]; then
+    IFS=':' read -r -a PLUGIN_ENTRIES <<< "$JXMAKE_PLUGIN_CLASSPATH"
+    for entry in "${PLUGIN_ENTRIES[@]}"; do
+        [ -z "$entry" ] && continue
+        [[ "$entry" == /* ]] || entry="$PWD/$entry"
+        PLUGIN_CP="$PLUGIN_CP:$entry"
+    done
+fi
+
 ##### Move into that directory so the JAR can be found
 cd "$DIR" || exit
 
@@ -42,12 +55,16 @@ for jar in "${DEP_CP[@]}"; do
     ALL_CP="$ALL_CP:$DIR/jxmake_dist/libs/$jar"
 done
 
+# Append the plugin classpath last so plugins cannot shadow JxMake or 3rd party classes
+ALL_CP="$ALL_CP$PLUGIN_CP"
+
 ##### Define the flags
 FLAGS=("-Xms512m" "-Xmx2048m" "-Xss2m" "-XX:+UseG1GC" "-XX:MaxGCPauseMillis=200" "-XX:+ParallelRefProcEnabled" "-XX:+AlwaysPreTouch")
 
-# NOTE : All JARs are loaded via '-cp', so they all belong to the unnamed module; only 'ALL-UNNAMED' is
-#        effective here (listing module names would only produce "Unknown module" warnings). If the JARs
-#        are ever loaded via '--module-path' instead, list their module names here (see 'src/UPDATE_3RD_PARTY_JARS.md').
+# NOTE : All JARs are loaded via '-cp', so they all belong to the unnamed module; only
+#        'ALL-UNNAMED' is effective here (listing module names would only produce "Unknown module"
+#        warnings). If the JARs are ever loaded via '--module-path' instead, list their module
+#        names here (see 'src/UPDATE_3RD_PARTY_JARS.md').
 if [ "$NEEDS_NATIVE_ACCESS" == "true" ]; then
     FLAGS=("--enable-native-access=ALL-UNNAMED" "${FLAGS[@]}")
 fi

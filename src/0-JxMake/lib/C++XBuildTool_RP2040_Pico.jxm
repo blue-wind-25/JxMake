@@ -1254,9 +1254,13 @@ function __pico_upload_uf2_exec__(progName, device, serial)
 endfunction
 
 function __pico_upload_uf2_fix_baudrate_exec_stty__(serial)
+    # NOTE : '-F <device>' is GNU coreutils only; macOS and the BSDs use '-f <device>'
+    local devOpt := '-F'
+    if __os_mac__ : devOpt := '-f'
+    if __os_bsd__ : devOpt := '-f'
     $nop($[lserr] ) # Ensure the last suppressed error message is cleared
     $silent_sem()
-  -+@stty -F ${serial} ${Pico_UF2_FixBaudrate_Value}
+  -+@stty ${devOpt} ${serial} ${Pico_UF2_FixBaudrate_Value}
     $nop($[excode]) # Ensure all pending commands are executed
     $restore_sem()
     $nop($[lserr] ) # Ensure the last suppressed error message is cleared

@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 
@@ -272,8 +273,10 @@ public class SerialConsole {
             // stty -F <device> cs8 <baudrate> ignbrk noflsh -brkint -crtscts -echo -echoctl -echoe -echok -echoke -hupcl -icanon -icrnl -iexten -imaxbel -isig -ixon -onlcr -opost
             if( SysUtil.osIsPOSIX() ) {
                 try {
+                    // NOTE : '-F <device>' is GNU coreutils only; macOS and the BSDs use '-f <device>'
+                    final String  devOpt  = ( SysUtil.osIsMac() || SysUtil.osIsBSD() ) ? "-f" : "-F";
                   //final Process process = Runtime.getRuntime().exec( String.format("stty -F %s -hupcl", target) );
-                    final Process process = Runtime.getRuntime().exec( new String[] { "stty", "-F", target, "-hupcl" } );
+                    final Process process = Runtime.getRuntime().exec( new String[] { "stty", devOpt, target, "-hupcl" } );
                     process.waitFor();
                     if( process.exitValue() != 0 ) {
                         final BufferedReader stdError = new BufferedReader(
@@ -288,6 +291,10 @@ public class SerialConsole {
                     // Restore state
                     Thread.currentThread().interrupt();
                     // Print the stack trace if requested
+                    if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
+                }
+                catch(final IOException e) {
+                    // Disabling the hangup signal is best-effort only (e.g. 'stty' may not be installed)
                     if( XCom.enableAllExceptionStackTrace() ) e.printStackTrace();
                 }
             }

@@ -9,8 +9,8 @@ were downloaded from the GitHub repository:
     https://github.com/j256/simplemagic/releases
     https://github.com/j256/simplemagic/archive/refs/tags/simplemagic-1.17.tar.gz
 
-~~~ Last accessed & checked on 2026-01-21        ~~~
-~~~ Last GIT commit         on 2022-01-01        ~~~
+~~~ Last accessed & checked on 2026-11-21        ~~~
+~~~ Last GIT commit         on 2026-06-15        ~~~
 ~~~ Last GIT release tag    on 2021-12-30 (1.17) ~~~
 
 ----------------------------------------------------------------------------------------------------

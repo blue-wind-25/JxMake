@@ -29,8 +29,8 @@ Regarding the XZ Utils backdoor:
 As far as we know XZ for Java v1.12 is safe. The Java source code from the GitHub repository exactly
 matches the Java source code from the original GitHub repository for the Tukaani Project.
 
-~~~ Last accessed & checked on 2026-03-02         ~~~
-~~~ Last GIT commit         on 2026-03-01         ~~~
+~~~ Last accessed & checked on 2026-11-21         ~~~
+~~~ Last GIT commit         on 2026-10-29         ~~~
 ~~~ Last GIT release tag    on 2026-03-01 (v1.12) ~~~
 
 ----------------------------------------------------------------------------------------------------
@@ -46,6 +46,22 @@ CHANGES:
     All Javadoc-style comments have been converted to normal Java comments.
 
     Some minor coding style changes.
+
+    Backported from the upstream 'master' branch (not yet in a release as of v1.12); listed in
+    upstream order, oldest first:
+        - 6925f812 : Fix sign extension when decoding Backward Size
+                     (common/DecoderUtil.java).
+        - 551c453c, 788e675f, b648c701, bc3d18aa : Reject invalid BCJ filter start offsets in Block
+                     headers (BCJDecoder.java, simple/SimpleFilter.java, simple/*.java; the
+                     '*Options.java' parts are not applicable because those files are not
+                     included here).
+        - a515f8c1 : Reject invalid Unpadded Size and Uncompressed Size values in the Index
+                     (index/IndexBase.java).
+        - 36709e3d : Don't allocate a new ByteBuf on every call to IndexHash.add
+                     (index/IndexHash.java; the 'clear()' call is made via 'java.nio.Buffer' so
+                     it also links on Java 8).
+    Not backported:
+        - e7d1175a : SeekableXZInputStream.read fix (SeekableXZInputStream.java is not included).
 
 ----------------------------------------------------------------------------------------------------
 

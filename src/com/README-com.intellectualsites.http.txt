@@ -9,8 +9,8 @@ subdirectories were downloaded from the GitHub repository:
     https://github.com/IntellectualSites/HTTP4J/releases
     https://github.com/IntellectualSites/HTTP4J/archive/refs/tags/1.8.tar.gz
 
-~~~ Last accessed & checked on 2026-01-21       ~~~
-~~~ Last GIT commit         on 2026-01-01       ~~~
+~~~ Last accessed & checked on 2026-11-21       ~~~
+~~~ Last GIT commit         on 2026-11-01       ~~~
 ~~~ Last GIT release tag    on 2025-04-22 (1.8) ~~~
 
 ----------------------------------------------------------------------------------------------------

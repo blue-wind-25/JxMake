@@ -8,6 +8,16 @@
 
 package org.tukaani.xz.simple;
 
+import org.tukaani.xz.UnsupportedOptionsException;
+
 public interface SimpleFilter {
+    static void validateStartOffset(int startOffset, int alignment)
+            throws UnsupportedOptionsException {
+        if ((startOffset & (alignment - 1)) != 0)
+            throw new UnsupportedOptionsException(
+                    "BCJ filter start offset (" + startOffset +
+                    ") must be a multiple of " + alignment);
+    }
+
     int code(byte[] buf, int off, int len);
 }

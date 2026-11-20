@@ -9,7 +9,13 @@ were downloaded from the GitHub repository:
     https://github.com/kamranzafar/jtar/tags
     https://github.com/kamranzafar/jtar/archive/refs/tags/jtar-2.3.tar.gz
 
-~~~ Last accessed & checked on 2026-01-21            ~~~
+NOTE : The code was actually taken from the 'master' branch at commit 4b669cff (2020-08-19), not
+       from the 'jtar-2.3' tag (2015-09-14). It therefore also includes these later 'master'
+       commits (oldest first):
+           - 8f258386 (#15) : Standard TarEntry.equals(Object) with hashCode().
+           - e0d4214a (#29) : Zero-pad numeric fields (Octal.getOctalBytes()).
+
+~~~ Last accessed & checked on 2026-11-21            ~~~
 ~~~ Last GIT commit         on 2020-08-19            ~~~
 ~~~ Last GIT release tag    on 2015-09-14 (jtar-2.3) ~~~
 

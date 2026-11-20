@@ -7,7 +7,7 @@ downloaded from the GitHub repository:
 
     https://github.com/volueinsight/bzip2
 
-~~~ Last accessed & checked on 2026-01-21 ~~~
+~~~ Last accessed & checked on 2026-11-21 ~~~
 ~~~ Last GIT commit         on 2015-01-27 ~~~
 
 NOTE : # This repository was archived by the owner on 2024-02-14 and is now read-only.

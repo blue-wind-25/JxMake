@@ -20,6 +20,7 @@ import org.tukaani.xz.CorruptedInputException;
 
 public class IndexHash extends IndexBase {
     private org.tukaani.xz.check.Check hash;
+    private final ByteBuffer buf = ByteBuffer.allocate(2 * 8);
 
     public IndexHash() {
         super(new CorruptedInputException());
@@ -36,7 +37,7 @@ public class IndexHash extends IndexBase {
             throws XZIOException {
         super.add(unpaddedSize, uncompressedSize);
 
-        ByteBuffer buf = ByteBuffer.allocate(2 * 8);
+        ((java.nio.Buffer) buf).clear(); // Cast: ByteBuffer.clear() only exists since Java 9
         buf.putLong(unpaddedSize);
         buf.putLong(uncompressedSize);
         hash.update(buf.array());

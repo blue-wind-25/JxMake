@@ -30,9 +30,12 @@ set "JAVA_MAJOR=0"
 for /f "tokens=1 delims=." %%V in ("!JAVA_VER!") do set "JAVA_MAJOR=%%V"
 
 ::::: Check if "--enable-native-access" flag is required
+::::: NOTE : All JARs are loaded via '-cp', so they all belong to the unnamed module; only 'ALL-UNNAMED' is
+:::::        effective here (listing module names would only produce "Unknown module" warnings). If the JARs
+:::::        are ever loaded via '--module-path' instead, list their module names here (see 'src/UPDATE_3RD_PARTY_JARS.md').
 set "NATIVE_ACCESS_FLAG="
 if !JAVA_MAJOR! GEQ 22 (
-    set "NATIVE_ACCESS_FLAG=--enable-native-access=org.fusesource.jansi,com.fazecast.jSerialComm,com.github.luben.zstd_jni,net.codecrete.usb,com.sun.jna,com.sun.jna.platform,ALL-UNNAMED"
+    set "NATIVE_ACCESS_FLAG=--enable-native-access=ALL-UNNAMED"
 )
 
 ::::: Build the full classpath

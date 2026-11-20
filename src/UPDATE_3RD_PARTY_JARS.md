@@ -42,7 +42,27 @@ distribution's `libs/` directory, so a file placed there would be shipped.
 9. Afterwards, edit `JxMakeAboutStringText()` in `src/jxm/Texts.java` as needed. It lists the
    library names, URLs and licenses, but no versions, so it only changes when a URL or license
    changes or a library is added or removed.
-10. Ask the user when unsure.
+10. Launchers `src/jxmake.sh` and `src/jxmake.bat` (copied into the `make dist` zip): if a JAR is
+    added, removed or renamed, update their `DEP_CP` lists. Both pass
+    `--enable-native-access=ALL-UNNAMED` on Java 22+. That is enough because every JAR is loaded via
+    `-cp` and so belongs to the unnamed module, even though many of them already declare a module
+    (`module-info.class` or `Automatic-Module-Name`). Listing module names there only produces
+    `WARNING: Unknown module: ...`. **If the launchers (or the JARs) ever move to `--module-path`, the
+    native-access JARs' module names must be listed in both launchers.** These are: jansi
+    (`org.fusesource.jansi`), jSerialComm (`com.fazecast.jSerialComm`), zstd-jni
+    (`com.github.luben.zstd_jni`), java-does-usb (`net.codecrete.usb`), JNA (`com.sun.jna`) and
+    JNA-Platform (`com.sun.jna.platform`). Check the actual names in the new JARs first:
+
+    ```sh
+    # Works for explicit, multi-release (jansi, jSerialComm) and automatic (JNA) modules alike;
+    # `jar --describe-module` fails on the multi-release ones
+    /opt/openjdk-25_linux-x64_bin/jdk-25/bin/java --module-path some.jar --list-modules | grep -v '^java\.\|^jdk\.'
+    ```
+
+    After `make dist`, run the zip's `jxmake` with `JXMAKE_JAVA=<java 8>` and `JXMAKE_JAVA=<java 25>`.
+    Both must work: Java 8 with degraded features (no USB bootloaders, Pty4J or FFM), Java 25 with
+    all of them, and no warnings.
+11. Ask the user when unsure.
 
 ## 3. Handy commands
 

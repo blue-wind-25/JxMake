@@ -45,8 +45,11 @@ done
 ##### Define the flags
 FLAGS=("-Xms512m" "-Xmx2048m" "-Xss2m" "-XX:+UseG1GC" "-XX:MaxGCPauseMillis=200" "-XX:+ParallelRefProcEnabled" "-XX:+AlwaysPreTouch")
 
+# NOTE : All JARs are loaded via '-cp', so they all belong to the unnamed module; only 'ALL-UNNAMED' is
+#        effective here (listing module names would only produce "Unknown module" warnings). If the JARs
+#        are ever loaded via '--module-path' instead, list their module names here (see 'src/UPDATE_3RD_PARTY_JARS.md').
 if [ "$NEEDS_NATIVE_ACCESS" == "true" ]; then
-    FLAGS=("--enable-native-access=org.fusesource.jansi,com.fazecast.jSerialComm,com.github.luben.zstd_jni,net.codecrete.usb,com.sun.jna,com.sun.jna.platform,ALL-UNNAMED" "${FLAGS[@]}")
+    FLAGS=("--enable-native-access=ALL-UNNAMED" "${FLAGS[@]}")
 fi
 
 ##### Run the JxMake JAR file with the appropriate flag based on the major version

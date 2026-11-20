@@ -54,10 +54,17 @@ final class ProgExec_RW
     ////////////////////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+    /*
+     * NOTE : 'LinkageError' is caught in addition to 'ClassNotFoundException' because a distribution JAR
+     *        (made by `make dist`, which builds with both Java 8 and Java 25) does contain the wrapped
+     *        classes, compiled for Java 25. Running that JAR on an older JVM makes 'Class.forName()' throw
+     *        'UnsupportedClassVersionError' (a 'LinkageError') instead of 'ClassNotFoundException'.
+     */
+
     private static boolean _isAvailable(final String className)
     {
         try { Class.forName(className); return true; }
-        catch(final ClassNotFoundException e) { return false; }
+        catch(final ClassNotFoundException | LinkageError e) { return false; }
     }
 
     private static Class<?> _requireClass(final String className) throws Exception
@@ -65,7 +72,7 @@ final class ProgExec_RW
         try {
             return Class.forName(className);
         }
-        catch(final ClassNotFoundException e) {
+        catch(final ClassNotFoundException | LinkageError e) {
             throw XCom.newJXMRuntimeError(Texts.EMsg_ProgExecRWClassUnavail, "_requireClass", className, MinJavaVersion);
         }
     }

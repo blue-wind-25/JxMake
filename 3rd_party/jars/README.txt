@@ -19,12 +19,12 @@ Zstd-jni
 https://github.com/luben/zstd-jni
     Licensed under the BSD 2-Clause "Simplified" License.
     https://github.com/luben/zstd-jni/blob/master/LICENSE
-https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.7-11/zstd-jni-1.5.7-11.jar
+https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.7-28/zstd-jni-1.5.7-28.jar
     NOTE : The fat JAR has been reduced in size by removing native libraries for exotic or rarely
            used platforms:
                mkdir   zstd-work
                cd      zstd-work
-               jar xf  ../zstd-jni-1.5.7-11.jar
+               jar xf  ../zstd-jni-1.5.7-28.jar
                rm -rvf aix
                rm -rvf linux/loongarch64
                rm -rvf linux/mips64
@@ -74,7 +74,7 @@ Pty4J - Pseudo Terminal (PTY) Implementation in Java
 https://github.com/JetBrains/pty4j
     Licensed under the Eclipse Public License 1.0.
     https://github.com/JetBrains/pty4j/blob/master/LICENSE
-https://repo1.maven.org/maven2/org/jetbrains/pty4j/pty4j/0.13.12/pty4j-0.13.12.jar
+https://repo1.maven.org/maven2/org/jetbrains/pty4j/pty4j/0.14.0/pty4j-0.14.0.jar
 
 Annotations for JVM-based Languages
 https://github.com/JetBrains/java-annotations
@@ -86,13 +86,13 @@ Kotlin Programming Language
 https://github.com/JetBrains/kotlin
     Licensed under the Apache License version 2.0.
     https://github.com/JetBrains/kotlin/blob/master/license/README.md
-https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.10/kotlin-stdlib-2.4.10.jar
+https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.4.21/kotlin-stdlib-2.4.21.jar
 
 SLF4J
 https://github.com/qos-ch/slf4j
     Licensed under the MIT License.
     https://github.com/qos-ch/slf4j/blob/master/LICENSE.txt
-https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.18/slf4j-api-2.0.18.jar
+https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.20/slf4j-api-2.0.20.jar
 
 Java Native Access (JNA)
 https://github.com/java-native-access/jna

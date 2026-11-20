@@ -115,3 +115,30 @@ Runtime smoke test (JDK 25 `jshell` with every vendored JAR on `--class-path`): 
 - Already the latest: Jansi 2.4.3, jSerialComm 2.11.4, SpellChecker 3.4.1, Java Does USB 1.3.0
   (Java 25), annotations 26.1.0, JNA / JNA-Platform 5.19.1.
 - No license changes, so `Texts.java` was not changed.
+- Jansi (decided to keep `org.fusesource.jansi:jansi` 2.4.3 for now):
+  - fusesource/jansi is no longer maintained; its readme says it was merged into
+    `org.jline:jansi`. Its last release (2.4.3, 2026-03-27) still works, and it fixed native
+    library loading (#317).
+  - `org.jline:jansi` 4.x needs Java 11 (class-file major 55), so rule 1 blocks it. 3.x (3.30.17,
+    2026-09-08, maintained on JLine's `jline-3.x` branch) is Java 8. It is a self-contained jar
+    (jansi + `jline-terminal` + `jline-native` + 15 native libraries, about 577 KB vs 258 KB),
+    licensed BSD 3-Clause (`LICENSE_3BSD.txt` is already present). `org.jline:jansi-core` would
+    need `jline-terminal` and `jline-native` as separate jars, so prefer `org.jline:jansi`.
+  - None of JLine's jansi fixes up to 3.30.17 affect JxMake. Most fix bugs that JLine's own port
+    introduced (#1305 uber-jar colors, #1766 `NoSuchMethodError`) or JLine-terminal-only issues
+    (#1161, #1672 Windows codepage).
+  - **Trap when switching:** since JLine 3.30.7 (#1525/#1533), `AnsiConsole.systemUninstall()`
+    throws `IllegalStateException("Already uninstalled")` if nothing is installed. JxMake's
+    `SysUtil.systemExit()` / `systemExitError()` always call it on Windows, and `ArgParser` can
+    exit (e.g. `--version`, argument errors) **before** `JxMake.initializeGlobal()` calls
+    `SysUtil.jansiSystemInstall()`. Before switching, keep an "installed" flag in `SysUtil` and
+    only uninstall when it is set.
+  - Switching then means:
+    - change `import org.fusesource.jansi.AnsiConsole` to `org.jline.jansi.AnsiConsole` in
+      `jxm/SysUtil.java`; `systemInstall()` and `systemUninstall()` exist there;
+    - keep the jar file name `jansi.jar`, so the Makefile and launchers stay unchanged;
+    - update the README entry and `JxMakeAboutStringText()` in `jxm/Texts.java` (name, URL,
+      license Apache 2.0 → BSD 3-Clause);
+    - update the module name in the `--module-path` note of rule 10 (`org.fusesource.jansi` →
+      check the new jar);
+    - optionally strip exotic natives (`org/jline/nativ/Linux/ppc64`, `.../armv6`) like zstd-jni.

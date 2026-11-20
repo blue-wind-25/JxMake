@@ -941,7 +941,9 @@ public class SysUtil {
         // Determine the inverse file mode creation mask
         if(_invUMask < 0) {
             // Get the file mode creation mask
-            String umask = execlp("umask");
+            // NOTE : `umask` is a shell builtin; only some distributions (e.g. CentOS 7) also ship a
+            //        `/usr/bin/umask` wrapper, so run it through the shell instead of exec'ing it directly
+            String umask = osIsWindows() ? "" : execlp("/bin/sh", "-c", "umask").trim();
                  if( umask.isEmpty()     ) umask = "0002";
             else if( umask.length () > 4 ) umask = umask.substring(0, 4);
             // Calculate its inverse

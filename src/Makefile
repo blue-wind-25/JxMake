@@ -83,8 +83,10 @@ USB_JAR           := java-does-usb.jar
 PTY_MISC_JARS     := pty4j.jar annotations.jar kotlin-stdlib.jar slf4j-api.jar jna.jar jna-platform.jar
 ALL_VENDOR_JARS   := $(ANSI_JAR) $(SERIALCOMM_JAR) $(ZSTD_JAR) $(RSTEXT_JARS) $(USB_JAR) $(PTY_MISC_JARS)
 
-_SPACE_           :=
-_SPACE_           +=
+# GNU Make 4.4+ no longer inserts a space when `+=` appends an empty value, so the old `_SPACE_ :=` +
+# `_SPACE_ +=` idiom yields an empty string there - build the space explicitly from two empty expansions
+_EMPTY_           :=
+_SPACE_           := $(_EMPTY_) $(_EMPTY_)
 # On Windows, `:` collides with the drive-letter colon in absolute paths (e.g. `D:/a/...`), so the JVM classpath
 # separator must be `;` there instead of the Linux/macOS `:`
 CP_SEP            := $(if $(filter Windows_NT,$(OS)),;,:)

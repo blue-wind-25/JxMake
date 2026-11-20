@@ -134,7 +134,14 @@ public class XMLFrame extends JFrame {
     }
 
     public static ImageIcon getImageIcon(final String path)
-    { return new ImageIcon( JxMake.class.getResource(path) ); }
+    {
+        // NOTE : The built-in icons were moved from 'jxm/icon/' to 'jxm/resource/icon/'; keep accepting the
+        //        'icon/<name>' paths used by existing XML, then fall back to resolving relative to 'jxm/'
+        java.net.URL url = SysUtil.getResourceURL("jxm/resource/" + path);
+        if(url == null) url = JxMake.class.getResource(path);
+
+        return SysUtil.newImageIcon(url);
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -55,7 +55,7 @@ public class FuncCall extends ExecBlock {
 
         final XCom.VariableValue varVal = evalVals.get(idx);
 
-        return ( ( varVal.size() == 1 ) && ( varVal.get(0).value == XCom.Str_NullArgument) ) ? null : varVal;
+        return ( ( varVal.size() == 1 ) && ( XCom.Str_NullArgument.equals( varVal.get(0).value ) ) ) ? null : varVal;
     }
 
     public static String _readFlattenOptParam(final ArrayList<XCom.VariableValue> evalVals, final int idx, final String defaultValue) throws JXMException
@@ -66,7 +66,7 @@ public class FuncCall extends ExecBlock {
 
         final XCom.VariableValue varVal = evalVals.get(idx);
 
-        return ( ( varVal.size() == 1 ) && ( varVal.get(0).value == XCom.Str_NullArgument) ) ? defaultValue : XCom.flatten(varVal, "");
+        return ( ( varVal.size() == 1 ) && ( XCom.Str_NullArgument.equals( varVal.get(0).value ) ) ) ? defaultValue : XCom.flatten(varVal, "");
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -557,7 +557,7 @@ public class FuncCall extends ExecBlock {
             for(final String name : parNames) {
                 final String             varName = ( idx <= reqCnt          ) ? XCom.genRVarName(name) : XCom.genRVarName( name.substring(1) );
                 final XCom.VariableValue varVal  = ( idx <  evalVals.size() ) ? evalVals.get(idx++)    : XCom.VarVal_EmptyValue;
-                final boolean            varNull = ( varVal.size() == 1 && varVal.get(0).value == XCom.Str_NullArgument );
+                final boolean            varNull = ( varVal.size() == 1 && XCom.Str_NullArgument.equals( varVal.get(0).value ) );
                 execData.execState.setArgVar(varName, varNull ? XCom.VarVal_EmptyValue : varVal, false, false);
                 execData.execState.delLocalVar(varName);
             }

@@ -49,7 +49,7 @@ public class GitHubUtil {
         final String browser_download_url = jsonObject.get("browser_download_url").getString(true);
         MapList.mapPut(mapHandle, id + ":browser_download_url", browser_download_url, true, true);
 
-        // Get and put the 'digest' - new string field in 2026-03-10 ('sha256:<hex>')
+        // Get and put the 'digest' ('sha256:<hex>'); it is null for older assets
         final JSONDecoder.JSONValue digestVal = jsonObject.get("digest");
         if( digestVal != null && !digestVal.isNull() ) {
             final String digest = digestVal.getString(true);
@@ -87,7 +87,7 @@ public class GitHubUtil {
         final String zipball_url = jsonObject.get("zipball_url").getString(true);
         MapList.mapPut(mapHandle, id + ":zipball_url", zipball_url, true, true);
 
-        // Get and put the 'immutable' - new boolean field in 2026-03-10
+        // Get and put the 'immutable' (boolean); it may be absent or null
         final JSONDecoder.JSONValue immutableVal = jsonObject.get("immutable");
         if( immutableVal != null && !immutableVal.isNull() ) {
             final String immutable = Boolean.toString( immutableVal.getBoolean() );

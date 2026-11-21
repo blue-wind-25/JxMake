@@ -12,12 +12,12 @@
 
 (*
  * According to:
- *     https://docs.github.com/en/rest/overview/resources-in-the-rest-api
+ *     https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api
  * The rate limit for unauthenticated requests allows for up to 60 requests per hour.
  * Unauthenticated requests are associated with the originating IP address, and not the person making requests.
  *
  * Please create a GitHub account and use:
- *     https://github.com/settings/tokens?type=beta
+ *     https://github.com/settings/personal-access-tokens
  * to create a personal access token so that the rate limit can be increased to up to 5000 requests per hour.
  * Store your personal access token to the 'GITHUB_TOKEN' environment variable.
  *
@@ -33,6 +33,17 @@ const     GitHub_API_Token := $getenv('GITHUB_TOKEN', '')
 const Has_GitHub_API_Token := $and( $cmp(${GitHub_API_Token}, '&!=', ''), $cmp(${GitHub_API_Token}, '&!=', 'null') )
 
 (*
+ * REST API versions (as of 2026-11-22):
+ *     https://docs.github.com/en/rest/about-the-rest-api/api-versions
+ *     https://docs.github.com/en/rest/about-the-rest-api/breaking-changes
+ *     - '2026-03-10' : the newest version; end of support not yet scheduled.
+ *     - '2022-11-28' : supported until 2028-03-10 (24 months after '2026-03-10' was released);
+ *                      it is also the version GitHub uses when no version header is sent.
+ * GitHub has no LTS version; an unsupported version gets a '410 Gone' response.
+ * None of the '2026-03-10' breaking changes affect the endpoints and fields used here; the only
+ * one nearby is the removal of the top-level 'rate' field of '/rate_limit' ('resources.core' is
+ * used instead).
+ *
  * ##### !!! TODO !!! #####
  *     - Recheck whenever API version changes.
  *     - Do not forget to update '../../../docs/txt/en_US/13-Loadable-Libraries.txt'
@@ -86,7 +97,7 @@ endfunction
 function gh_get_json_data_api_versions()
     local url := :"https://api.github.com/versions"
     echoln "<<< GET ${url}\n>>>"
-    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders1}) )
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
 endfunction
 
 
@@ -94,7 +105,7 @@ endfunction
 function gh_get_json_data_rate_limit()
     local url := :"https://api.github.com/rate_limit"
     echoln "<<< GET ${url}\n>>>"
-    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders1}) )
+    return $call( __gh_check_rest_api_call__, $http_get(${url}, ${GitHub_API_CHeaders2}) )
 endfunction
 
 

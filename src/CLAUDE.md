@@ -27,8 +27,18 @@ JxMake application sources. Paths are relative to this directory unless stated o
 - Test on **both** Java 8 (degraded: no Pty4J, USB boot loaders or FFM) and Java 25 (full).
 - Many `make <test>` targets (e.g. `make xmftest`, the `jse*` targets) open GUI windows on the
   user's desktop and wait for input. Ask before running them, or test with a small script instead.
+- `make xghtest` (`../test/GitHubToolTest.jxm`) is a non-GUI test of `GitHubTool` against the live
+  GitHub API, run with both API versions. It needs network access and uses about 12 of the 60
+  unauthenticated requests per hour.
 - JxMake script gotchas: a target block ends with `endtarget`; `echoln` cannot take a function call
-  directly, so assign the result to a `local` variable first.
+  directly, so assign the result to a `local` variable first. Also:
+  - `local` is only valid inside a function or target, not at top level.
+  - `${X}<n>` is not expanded inside a `"..."` string; assign `${X}<n>` to a variable first.
+  - `X +:= <empty>` (and `X := ''`) still add an empty set member, so `$part_count` counts it.
+  - `$re_match` must match the **whole** string (no `^`/`$` needed).
+  - A function call cannot span lines unless each line ends with `\`.
+  - A script outside `0-JxMake/lib/` loads a library with `:::include <GitHubTool>`, not
+    `:::include_once 'GitHubTool.jxm'` (that form is relative to the including file).
 
 ## Conventions
 
@@ -54,4 +64,6 @@ is only in `svn log`).
   `DEP_CP` lists and native-access flags.
 - `UPDATE_VENDORED_3RD_PARTY.md`: checking and backporting upstream changes into the vendored
   sources under `org/` and `com/`.
+- `UPDATE_GITHUB_API_VERSION.md`: moving `GitHubTool` to a new GitHub REST API version (support
+  window, fields used, `xghtest`, test fixtures that may go stale).
 - `../util/CodingStyle.md/formatter/CLAUDE.md`: the code formatter (separate rules).

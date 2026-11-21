@@ -11,12 +11,20 @@
 
 
 ##### Function to check the SourceForge HTTP request result
+#####     - On success, it returns the response body.
+#####     - On failure, it returns { '' <status_code> <reason_phrase> [<message>...] }. The empty
+#####       first member is deliberate: callers detect a failure with 'if !&${Res}<1>' ('&' tests
+#####       for a non-empty value, so a first member such as '404' would look like a success).
+#####       SourceForge error bodies are usually HTML; only JSON '"message"' lines are kept.
 function __sf_check_http_request__(result)
     if ${result}<1> != 200
         local Msg  := ${result}<3>
               Ret  := ''
               Ret +:= ${result}<1:2>
-              Ret +:= $tcase(${Msg/.*?"message"\s*:\s*"(.*?)".*/$1/})
+        foreach Line in $sflines(${Msg})
+            if !$str_fidx(${Line}, '"message"') : continue
+            Ret +:= $tcase(${Line/.*?"message"\s*:\s*"(.*?)".*/$1/})
+        endforeach
         return ${Ret}
     endif
     return ${result}<3>

@@ -1,0 +1,87 @@
+(*
+ * Smoke test for the 'SourceForgeTool' library against the live SourceForge project web pages.
+ *
+ * It makes 2 requests. It prints one 'PASS'/'FAIL' line per check and exits with 1 if any check
+ * failed.
+ *)
+
+
+:::include <SourceForgeTool>
+
+
+##### Print the result of one check; return the check name if it failed, nothing otherwise
+function sf_test_check(name, ok, info)
+    if ${ok}
+        echoln "PASS  ${name}: ${info}"
+        return
+    endif
+    echoln "FAIL  ${name}: ${info}"
+    return ${name}
+endfunction
+
+
+##### Return 1 if the set contains the given member, 0 otherwise
+function sf_test_has(set, member)
+    foreach V in ${set}
+        if $cmp(${V}, '&==', ${member}) : return 1
+    endforeach
+    return 0
+endfunction
+
+
+##### Return 1 if every member matches the given regular expression, 0 otherwise
+function sf_test_all_match(set, regex)
+    foreach V in ${set}
+        if !$re_match(${V}, ${regex}) : return 0
+    endforeach
+    return 1
+endfunction
+
+
+Failed := ''
+Base   := 'https://dfu-util.sourceforge.net/releases/'
+BaseRE := 'https://dfu-util\.sourceforge\.net/releases/.+\.(zip|tar\.xz|tar\.bz2|tar\.gz)'
+
+
+##### Release file URLs (as used by 'DownloadDFUUtil.jxm')
+URLs := $call(sf_get_project_release_file_urls, 'dfu-util')
+URL1 := ${URLs}<1>
+if &${URL1}
+    Cnt     := $part_count(${URLs})
+    Ok      := $and( $cmp(${Cnt}, '>=', 11), $call(sf_test_all_match, ${URLs}, ${BaseRE}) )
+    Failed +:= $call(sf_test_check, 'release_urls', ${Ok}, :"${Cnt} archive URL(s)")
+    # These releases have been on the page since 2021; the binaries are what DownloadDFUUtil uses
+    Ok      := $and( $call(sf_test_has, ${URLs}, :"${Base}dfu-util-0.11-binaries.tar.xz"), \
+                     $call(sf_test_has, ${URLs}, :"${Base}dfu-util-0.11.tar.gz"         )  )
+    Failed +:= $call(sf_test_check, 'release_0.11', ${Ok}, 'dfu-util-0.11 binaries and source')
+    Bins    := $erase_ifnot(${URLs}, '(.+?)-binaries(.+)', true)
+    Cnt     := $part_count(${Bins})
+    Ok      := $cmp(${Cnt}, '>=', 3)
+    Failed +:= $call(sf_test_check, 'binaries', ${Ok}, :"${Cnt} '-binaries' archive(s)")
+else
+    Failed +:= $call(sf_test_check, 'release_urls', 0, :"${URLs}")
+endif
+
+
+##### An error must be returned as { '' <status_code> <reason_phrase> } (no HTML body)
+Res     := $call(sf_get_project_release_file_urls, 'no-such-project-jxmake-test')
+Res1    := ${Res}<1>
+Res2    := ${Res}<2>
+Res3    := ${Res}<3>
+Cnt     := $part_count(${Res})
+Ok      := $and( $cmp(${Res1}, '&==', ''), $re_match(${Res2}, '[3-5][0-9]{2}'), \
+                 $cmp(${Cnt}, '==', 3)                                          )
+Failed +:= $call(sf_test_check, 'error', ${Ok}, :"status=${Res2} reason='${Res3}' members=${Cnt}")
+
+
+##### Summary
+echoln
+FailList := ''
+foreach V in ${Failed}
+    if $cmp(${V}, '&!=', '') : FailList := :"${FailList} ${V}"
+endforeach
+if $cmp(${FailList}, '&!=', '')
+    echoln "SourceForgeTool test: FAILED:${FailList}"
+    $exit(1)
+endif
+echoln "SourceForgeTool test: all checks passed"

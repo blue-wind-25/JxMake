@@ -2,7 +2,7 @@
  * Smoke test for the 'GitHubTool' library against the live GitHub REST API.
  *
  * Run it with 'GITHUB_2022' unset (or 0) to test the '2026-03-10' API, and with 'GITHUB_2022=1' to
- * test the '2022-11-28' fallback. It makes about a dozen requests; without 'GITHUB_TOKEN' the
+ * test the '2022-11-28' fallback. It makes about 14 requests; without 'GITHUB_TOKEN' the
  * limit is 60 requests per hour per IP address.
  *
  * It prints one 'PASS'/'FAIL' line per check and exits with 1 if any check failed.
@@ -85,6 +85,19 @@ if $call(gh_test_is_mh, ${MH})
     $map_delete(${MH})
 else
     Failed +:= $call(gh_test_check, 'tags', 0, :"${MH}")
+endif
+
+
+##### More than one page of tags ('per_page=100' instead of GitHub's default of 30)
+MH := $call(gh_get_tags, 'espressif', 'esptool')
+if $call(gh_test_is_mh, ${MH})
+    Names   := $map_get(${MH}, '__names__')
+    Cnt     := $part_count(${Names})
+    Ok      := $cmp(${Cnt}, '>', 30)
+    Failed +:= $call(gh_test_check, 'tags_per_page', ${Ok}, :"${Cnt} tag(s)")
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'tags_per_page', 0, :"${MH}")
 endif
 
 

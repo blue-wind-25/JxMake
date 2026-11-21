@@ -518,6 +518,9 @@ $(eval $(call GEN_XMULTI_TEST,    gh    , gh22                                  
 ghtest   jghtest   : export GITHUB_2022 :=
 gh22test jgh22test : export GITHUB_2022 := 1
 
+# SourceForgeTool against the live SourceForge project web pages
+$(eval $(call GEN_SINGLE_TEST,    sf    , SourceForgeToolTest, --en-all-exception-st                             , \\n   , htest    ))
+
 $(eval $(call GEN_SINGLE_TEST,    tar   , TargetTest   , test 123.o src/cpp/main.o dummy1.out dummy2.out         ,       , htest    ))
 $(eval $(call GEN_SINGLE_TEST,   ctar   , TargetTest   , clean                                                   ,       , htest    ))
 $(eval $(call GEN_XMULTI_TEST,    tar   , ctar                                                                   ,       , htest    ))

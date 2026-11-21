@@ -511,6 +511,13 @@ $(eval $(call GEN_SINGLE_TEST,    stack , StackTest    , --en-all-exception-st  
 $(eval $(call GEN_SINGLE_TEST,    bse   , BSETest      ,                                                         , \\n   , htest    ))
 $(eval $(call GEN_SINGLE_TEST,    fwc   , FWCTest      , $(ET_OPTS)                                              , \\n   , htest    ))
 
+# GitHubTool against the live GitHub REST API: 'ghtest' = '2026-03-10', 'gh22test' = '2022-11-28'
+$(eval $(call GEN_SINGLE_TEST,    gh    , GitHubToolTest, --en-all-exception-st                                  ,       , htest    ))
+$(eval $(call GEN_SINGLE_TEST,    gh22  , GitHubToolTest, --en-all-exception-st                                  ,       , htest    ))
+$(eval $(call GEN_XMULTI_TEST,    gh    , gh22                                                                   , \\n   , htest    ))
+ghtest   jghtest   : export GITHUB_2022 :=
+gh22test jgh22test : export GITHUB_2022 := 1
+
 $(eval $(call GEN_SINGLE_TEST,    tar   , TargetTest   , test 123.o src/cpp/main.o dummy1.out dummy2.out         ,       , htest    ))
 $(eval $(call GEN_SINGLE_TEST,   ctar   , TargetTest   , clean                                                   ,       , htest    ))
 $(eval $(call GEN_XMULTI_TEST,    tar   , ctar                                                                   ,       , htest    ))

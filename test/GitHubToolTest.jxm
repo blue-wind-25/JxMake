@@ -1,0 +1,200 @@
+(*
+ * Smoke test for the 'GitHubTool' library against the live GitHub REST API.
+ *
+ * Run it with 'GITHUB_2022' unset (or 0) to test the '2026-03-10' API, and with 'GITHUB_2022=1' to
+ * test the '2022-11-28' fallback. It makes about a dozen requests; without 'GITHUB_TOKEN' the
+ * limit is 60 requests per hour per IP address.
+ *
+ * It prints one 'PASS'/'FAIL' line per check and exits with 1 if any check failed.
+ *)
+
+
+:::include <GitHubTool>
+
+
+##### Print the result of one check; return the check name if it failed, nothing otherwise
+function gh_test_check(name, ok, info)
+    if ${ok}
+        echoln "PASS  ${name}: ${info}"
+        return
+    endif
+    echoln "FAIL  ${name}: ${info}"
+    return ${name}
+endfunction
+
+
+##### Return 1 if the value is a map handle, 0 otherwise (e.g. an error message)
+function gh_test_is_mh(value)
+    if &${value}<1> : return 1
+    return 0
+endfunction
+
+
+##### Return 1 if the set contains the given member, 0 otherwise
+function gh_test_has(set, member)
+    foreach V in ${set}
+        if $cmp(${V}, '&==', ${member}) : return 1
+    endforeach
+    return 0
+endfunction
+
+
+Failed := ''
+
+
+##### The selected API version must follow 'GITHUB_2022'
+if $getenv('GITHUB_2022', '') ; ExpVer := '2022-11-28'
+else                          ; ExpVer := '2026-03-10'
+endif
+Ok      := $cmp(${GitHub_API_Version}, '&==', ${ExpVer})
+Failed +:= $call(gh_test_check, 'api_version', ${Ok}, :"selected '${GitHub_API_Version}'")
+
+
+##### Both supported versions must be listed
+Vers    := $call(gh_get_api_versions)
+Ok      := $and( $call(gh_test_has, ${Vers}, '2026-03-10'), \
+                 $call(gh_test_has, ${Vers}, '2022-11-28')  )
+Ver1    := ${Vers}<1>
+Ver2    := ${Vers}<2>
+Failed +:= $call(gh_test_check, 'versions', ${Ok}, :"${Ver1} ${Ver2}")
+
+
+##### Rate limit ('resources.core')
+MH := $call(gh_get_rate_limit)
+if $call(gh_test_is_mh, ${MH})
+    Lim     := $map_get(${MH}, 'limit'    )
+    Rem     := $map_get(${MH}, 'remaining')
+    Ok      := $and( $re_match(${Lim}, '[0-9]+'), $re_match(${Rem}, '[0-9]+') )
+    Failed +:= $call(gh_test_check, 'rate_limit', ${Ok}, :"limit=${Lim} remaining=${Rem}")
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'rate_limit', 0, :"${MH}")
+endif
+
+
+##### Tags
+MH := $call(gh_get_tags, 'arduino', 'rp2040tools')
+if $call(gh_test_is_mh, ${MH})
+    Names   := $map_get(${MH}, '__names__'         )
+    Sha     := $map_get(${MH}, '1.0.5:commit.sha'  )
+    Zip     := $map_get(${MH}, '1.0.5:zipball_url' )
+    Ok      := $and( $call(gh_test_has, ${Names}, '1.0.5'), \
+                     $re_match(${Sha}, '[0-9a-f]{40}')      , \
+                     $re_match(${Zip}, 'https://.+')         )
+    Failed +:= $call(gh_test_check, 'tags', ${Ok}, :"1.0.5 commit.sha=${Sha}")
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'tags', 0, :"${MH}")
+endif
+
+
+##### Assets from all releases
+MH := $call(gh_get_assets_from_all_releases, 'arduino', 'rp2040tools')
+if $call(gh_test_is_mh, ${MH})
+    IDs     := $map_get(${MH}, '__ids__')
+    Cnt     := $part_count(${IDs})
+    Ok      := $and( $call(gh_test_has, ${IDs}, '72014276'), \
+                     $call(gh_test_has, ${IDs}, '68223679')  )
+    Failed +:= $call(gh_test_check, 'all_releases', ${Ok}, :"${Cnt} release(s)")
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'all_releases', 0, :"${MH}")
+endif
+
+
+##### Assets from the latest release
+MH := $call(gh_get_assets_from_latest_release, 'arduino', 'rp2040tools')
+if $call(gh_test_is_mh, ${MH})
+    IDs     := $map_get(${MH}, '__ids__')
+    ID      := ${IDs}<1>
+    Tag     := $map_get(${MH}, :"${ID}:tag_name"            )
+    Imm     := $map_get(${MH}, :"${ID}:immutable"           )
+    URLs    := $map_get(${MH}, :"${ID}:browser_download_url")
+    URL     := ${URLs}<1>
+    Cnt     := $part_count(${IDs})
+    Ok      := $and( $cmp(${Cnt}, '==', 1)          , \
+                     $re_match(${Tag}, '.+')         , \
+                     $re_match(${Imm}, 'true|false') , \
+                     $re_match(${URL}, 'https://.+')  )
+    Failed +:= $call( gh_test_check, 'latest_release', ${Ok}, \
+                      :"id=${ID} tag=${Tag} immutable=${Imm}" )
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'latest_release', 0, :"${MH}")
+endif
+
+
+##### Assets from a release (by ID)
+MH := $call(gh_get_assets_from_release_by_id, 'arduino', 'rp2040tools', 72014276)
+if $call(gh_test_is_mh, ${MH})
+    Tag     := $map_get(${MH}, '72014276:tag_name')
+    Ok      := $cmp(${Tag}, '&==', '1.0.6')
+    Failed +:= $call(gh_test_check, 'release_by_id', ${Ok}, :"72014276 -> tag=${Tag}")
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'release_by_id', 0, :"${MH}")
+endif
+
+
+##### Assets from a release (by tag name)
+MH := $call(gh_get_assets_from_release_by_tag_name, 'arduino', 'rp2040tools', '1.0.5')
+if $call(gh_test_is_mh, ${MH})
+    IDs     := $map_get(${MH}, '__ids__')
+    Sizes   := $map_get(${MH}, '68223679:size')
+    Size    := ${Sizes}<1>
+    Ok      := $and( $cmp(${IDs}, '&==', '68223679'), $re_match(${Size}, '[0-9]+') )
+    Failed +:= $call( gh_test_check, 'release_by_tag', ${Ok}, \
+                      :"1.0.5 -> id=${IDs} size=${Size}" )
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'release_by_tag', 0, :"${MH}")
+endif
+
+
+##### Asset digest (only assets uploaded after GitHub added the field have one)
+MH := $call(gh_get_assets_from_release_by_tag_name, 'earlephilhower', 'arduino-pico', '6.4.0')
+if $call(gh_test_is_mh, ${MH})
+    IDs     := $map_get(${MH}, '__ids__')
+    Digests := $map_get(${MH}, :"${IDs}:digest")
+    Digest  := ${Digests}<1>
+    Ok      := $re_match(${Digest}, 'sha256:[0-9a-f]{64}')
+    Failed +:= $call(gh_test_check, 'asset_digest', ${Ok}, :"${Digest}")
+    $map_delete(${MH})
+else
+    Failed +:= $call(gh_test_check, 'asset_digest', 0, :"${MH}")
+endif
+
+
+##### Latest commit date (by path)
+Date    := $call( gh_get_latest_commit_date_by_path, \
+                  'earlephilhower', 'arduino-pico', 'tools/uf2conv.py' )
+Ok      := $re_match(${Date}, '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]{8}Z')
+Failed +:= $call(gh_test_check, 'commit_date', ${Ok}, :"${Date}")
+
+
+##### Tag object type and hash (by tag name)
+TS      := $call( gh_get_tag_object_type_and_hash_by_tag_name, \
+                  'earlephilhower', 'arduino-pico', '5.2.1' )
+Type    := ${TS}<1>
+Sha     := ${TS}<2>
+Ok      := $and( $re_match(${Type}, 'commit|tag'), $re_match(${Sha}, '[0-9a-f]{40}') )
+Failed +:= $call(gh_test_check, 'tag_object', ${Ok}, :"type=${Type} sha=${Sha}")
+
+
+##### An error must be returned as a message (one member is the HTTP status), not as a map handle
+Res     := $call(gh_get_tags, 'arduino', 'no-such-repo-jxmake-test')
+Ok      := $and( $not($call(gh_test_is_mh, ${Res})), $call(gh_test_has, ${Res}, '404') )
+Failed +:= $call(gh_test_check, 'error_404', ${Ok}, :"${Res}")
+
+
+##### Summary
+echoln
+FailList := ''
+foreach V in ${Failed}
+    if $cmp(${V}, '&!=', '') : FailList := :"${FailList} ${V}"
+endforeach
+if $cmp(${FailList}, '&!=', '')
+    echoln "GitHubTool test (API ${GitHub_API_Version}): FAILED:${FailList}"
+    $exit(1)
+endif
+echoln "GitHubTool test (API ${GitHub_API_Version}): all checks passed"

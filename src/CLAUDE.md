@@ -16,7 +16,8 @@ JxMake application sources. Paths are relative to this directory unless stated o
   `make clean`). **Edit the `.java.in`, never the generated `.java`.** A stray `*.java.tmp` file is
   a PCPP intermediate.
 - Everything under `jxm/`, `org/`, `com/` (including `.txt`/`.md` files) and the `res/` copy of
-  `0-JxMake/` and `../docs/` is packed into `jxmake.jar`. Put internal notes in `src/` itself.
+  `0-JxMake/` and `../docs/` is packed into `jxmake.jar`. Put internal notes in `src/` itself
+  (the `UPDATE_*.md` maintenance guides go in `state/`, which is not packed).
 - Leave the build outputs `JXM_Main.class`, `jxmake.jar` and `../dist_build/` untracked.
 
 ## Run and test
@@ -28,8 +29,9 @@ JxMake application sources. Paths are relative to this directory unless stated o
 - Many `make <test>` targets (e.g. `make xmftest`, the `jse*` targets) open GUI windows on the
   user's desktop and wait for input. Ask before running them, or test with a small script instead.
 - `make xghtest` (`../test/GitHubToolTest.jxm`) is a non-GUI test of `GitHubTool` against the live
-  GitHub API, run with both API versions. It needs network access and uses about 12 of the 60
-  unauthenticated requests per hour.
+  GitHub API, run with both API versions. It needs network access and uses about 28 of the 60
+  unauthenticated requests per hour (14 per version). `make sftest`
+  (`../test/SourceForgeToolTest.jxm`) does the same for `SourceForgeTool` (2 requests).
 - JxMake script gotchas: a target block ends with `endtarget`; `echoln` cannot take a function call
   directly, so assign the result to a `local` variable first. Also:
   - `local` is only valid inside a function or target, not at top level.
@@ -60,10 +62,10 @@ is only in `svn log`).
 
 ## Related guides
 
-- `UPDATE_3RD_PARTY_JARS.md`: updating the prebuilt JARs in `../3rd_party/jars/`, the launchers'
+- `state/UPDATE_3RD_PARTY_JARS.md`: updating the prebuilt JARs in `../3rd_party/jars/`, the launchers'
   `DEP_CP` lists and native-access flags.
-- `UPDATE_VENDORED_3RD_PARTY.md`: checking and backporting upstream changes into the vendored
+- `state/UPDATE_VENDORED_3RD_PARTY.md`: checking and backporting upstream changes into the vendored
   sources under `org/` and `com/`.
-- `UPDATE_GITHUB_API_VERSION.md`: moving `GitHubTool` to a new GitHub REST API version (support
+- `state/UPDATE_GITHUB_API_VERSION.md`: moving `GitHubTool` to a new GitHub REST API version (support
   window, fields used, `xghtest`, test fixtures that may go stale).
 - `../util/CodingStyle.md/formatter/CLAUDE.md`: the code formatter (separate rules).

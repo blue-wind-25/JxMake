@@ -2,7 +2,7 @@
 
 Reusable procedure for updating the vendored 3rd party JARs in `3rd_party/jars`. All paths below are
 relative to `repo_root`; commands are run from `src/` unless stated otherwise. For the 3rd party
-source code vendored under `src/com/` and `src/org/`, see `src/UPDATE_VENDORED_3RD_PARTY.md`.
+source code vendored under `src/com/` and `src/org/`, see `src/state/UPDATE_VENDORED_3RD_PARTY.md`.
 
 This file lives in `src/` on purpose: `make dist` copies `3rd_party/jars/*` wholesale into the
 distribution's `libs/` directory, so a file placed there would be shipped.

@@ -1,7 +1,7 @@
 # Updating the GitHub REST API version
 
 How to move `0-JxMake/lib/GitHubTool.jxm` (and its JSON extractor `jxm/tool/GitHubUtil.java`) to a
-new GitHub REST API version while keeping the old one as a fallback.
+new GitHub REST API version while keeping the old one as a fallback. Paths are relative to `src/`.
 
 ## State (2026-11-22)
 
@@ -47,7 +47,7 @@ new GitHub REST API version while keeping the old one as a fallback.
    and the end-of-support date).
 6. Build: `make jar JDK_VER=8 && make jar JDK_VER=25`.
 7. Test: `make xghtest` runs `../test/GitHubToolTest.jxm` with both versions (`ghtest` and
-   `gh22test`; `j*` variants use the JAR). It needs network access and makes about a dozen
+   `gh22test`; `j*` variants use the JAR). It needs network access and makes about 14
    requests per run. Without `GITHUB_TOKEN` the limit is 60 requests per hour. If the test
    switches to a new fallback, update the `gh22test` export and `ExpVer` in the test.
 8. Update this file's state table.
@@ -60,11 +60,19 @@ The test pins a few real releases. If one of them disappears, pick another and u
   (also the current latest release, which has no asset digests).
 - `earlephilhower/arduino-pico`: release `6.4.0` (assets with `sha256:` digests), tag `5.2.1`
   (lightweight tag pointing at a commit), path `tools/uf2conv.py`.
+- `espressif/esptool`: must have more than 30 tags (checks `per_page=100`).
 - The error check expects `404` for `arduino/no-such-repo-jxmake-test`.
 
-## Known quirk
+## Conventions to keep
 
-On an error, `__gh_check_rest_api_call__` returns a set whose **first member is empty** (it starts
-from `Ret := ''`), followed by the HTTP status, its reason and the `message` lines. Callers only
-test `&${Res}<1>` (map handle or not) or print the result, so this has not mattered. Use
-`<2>`, or search the members, to get the status code.
+- **Error result.** On failure, `__gh_check_rest_api_call__` returns
+  `{ '' <status_code> <reason_phrase> <message>... }`. The empty first member is **deliberate**:
+  every caller (the `gh_get_*` wrappers, `gh_check_rest_api_mh`, the `Download*.jxm` libraries)
+  detects a failure with `if !&${Res}<1>`. `&val` only means `val &!= ''` (it does not test for a
+  map handle), so a first member such as `404` would pass as a success. The HTTP status is `<2>`.
+  `SourceForgeTool.jxm` uses the same convention.
+- **Page size.** `gh_get_tags` and `gh_get_assets_from_all_releases` request `per_page=100`
+  (GitHub's maximum) and read one page only, i.e. the newest 100. No download library uses them:
+  the `Download*.jxm` libraries fetch one release, via `.../releases/latest` or
+  `.../releases/tags/{tag}` (an exact tag is how an older version is pinned). Fetching every page
+  would need the `Link` response header.

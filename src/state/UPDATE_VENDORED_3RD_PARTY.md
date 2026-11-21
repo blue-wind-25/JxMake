@@ -3,7 +3,7 @@
 Reusable procedure for checking and backporting upstream changes into the 3rd party **source code**
 vendored under `src/com/` and `src/org/`. All paths are relative to `repo_root`; commands are run
 from `src/` unless stated otherwise. For the prebuilt JARs in `3rd_party/jars/`, see
-`src/UPDATE_3RD_PARTY_JARS.md` instead.
+`src/state/UPDATE_3RD_PARTY_JARS.md` instead.
 
 This file lives in `src/` on purpose: everything under `src/com/` and `src/org/` (including the
 `README-*.txt`, `LICENSE.txt`, `AUTHORS.md` and `THANKS.md` files) is packed into `jxmake.jar`

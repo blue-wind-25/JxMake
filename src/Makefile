@@ -511,16 +511,6 @@ $(eval $(call GEN_SINGLE_TEST,    stack , StackTest    , --en-all-exception-st  
 $(eval $(call GEN_SINGLE_TEST,    bse   , BSETest      ,                                                         , \\n   , htest    ))
 $(eval $(call GEN_SINGLE_TEST,    fwc   , FWCTest      , $(ET_OPTS)                                              , \\n   , htest    ))
 
-# GitHubTool against the live GitHub REST API: 'ghtest' = '2026-03-10', 'gh22test' = '2022-11-28'
-$(eval $(call GEN_SINGLE_TEST,    gh    , GitHubToolTest, --en-all-exception-st                                  ,       , htest    ))
-$(eval $(call GEN_SINGLE_TEST,    gh22  , GitHubToolTest, --en-all-exception-st                                  ,       , htest    ))
-$(eval $(call GEN_XMULTI_TEST,    gh    , gh22                                                                   , \\n   , htest    ))
-ghtest   jghtest   : export GITHUB_2022 :=
-gh22test jgh22test : export GITHUB_2022 := 1
-
-# SourceForgeTool against the live SourceForge project web pages
-$(eval $(call GEN_SINGLE_TEST,    sf    , SourceForgeToolTest, --en-all-exception-st                             , \\n   , htest    ))
-
 $(eval $(call GEN_SINGLE_TEST,    tar   , TargetTest   , test 123.o src/cpp/main.o dummy1.out dummy2.out         ,       , htest    ))
 $(eval $(call GEN_SINGLE_TEST,   ctar   , TargetTest   , clean                                                   ,       , htest    ))
 $(eval $(call GEN_XMULTI_TEST,    tar   , ctar                                                                   ,       , htest    ))
@@ -548,6 +538,16 @@ $(eval $(call GEN_SINGLE_TEST,    xmf   , XMLFrameTest , --en-jxm-cache-verbose 
 $(eval $(call GEN_SINGLE_TEST,   cxmf   , XMLFrameTest , --rm-prj-cache                                          ,       , htest    ))
 $(eval $(call GEN_XMULTI_TEST,    xmf   , cxmf                                                                   ,       , htest    ))
 $(eval $(call GEN_SINGLE_TEST,   hxmf   , XMLFrameTest , --en-jxm-cache-verbose --en-jxm-lload-verbose xflib_help, \\n\\n, htest    ))
+
+# GitHubTool against the live GitHub REST API: 'ghtest' = '2026-03-10', 'gh22test' = '2022-11-28'
+$(eval $(call GEN_SINGLE_TEST,    gh    , GitHubToolTest, --en-all-exception-st                                  ,       , htest    ))
+$(eval $(call GEN_SINGLE_TEST,    gh22  , GitHubToolTest, --en-all-exception-st                                  ,       , htest    ))
+$(eval $(call GEN_XMULTI_TEST,    gh    , gh22                                                                   , \\n   , htest    ))
+ghtest   jghtest   : export GITHUB_2022 :=
+gh22test jgh22test : export GITHUB_2022 := 1
+
+# SourceForgeTool against the live SourceForge project web pages
+$(eval $(call GEN_SINGLE_TEST,    sf    , SourceForgeToolTest, --en-all-exception-st                             , \\n\\n, htest    ))
 
 MCUPrEx := 'MCUProgExec-ATmega328P'
 $(eval $(call GEN_SINGLE_TEST,  px_m328 , $(MCUPrEx)   , --en-all-exception-st                                   , \\n   , htest    ))

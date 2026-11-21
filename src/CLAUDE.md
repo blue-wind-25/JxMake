@@ -32,15 +32,8 @@ JxMake application sources. Paths are relative to this directory unless stated o
   GitHub API, run with both API versions. It needs network access and uses about 28 of the 60
   unauthenticated requests per hour (14 per version). `make sftest`
   (`../test/SourceForgeToolTest.jxm`) does the same for `SourceForgeTool` (2 requests).
-- JxMake script gotchas: a target block ends with `endtarget`; `echoln` cannot take a function call
-  directly, so assign the result to a `local` variable first. Also:
-  - `local` is only valid inside a function or target, not at top level.
-  - `${X}<n>` is not expanded inside a `"..."` string; assign `${X}<n>` to a variable first.
-  - `X +:= <empty>` (and `X := ''`) still add an empty set member, so `$part_count` counts it.
-  - `$re_match` must match the **whole** string (no `^`/`$` needed).
-  - A function call cannot span lines unless each line ends with `\`.
-  - A script outside `0-JxMake/lib/` loads a library with `:::include <GitHubTool>`, not
-    `:::include_once 'GitHubTool.jxm'` (that form is relative to the including file).
+- JxMake scripts (`JxMakeFile`, `*.jxm`): read `../CLAUDE.md` first. It requires reading the
+  grammar reference before the first script task and lists the script gotchas.
 
 ## Conventions
 

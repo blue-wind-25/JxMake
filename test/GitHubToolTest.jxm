@@ -52,7 +52,7 @@ Failed +:= $call(gh_test_check, 'api_version', ${Ok}, :"selected '${GitHub_API_V
 
 ##### Both supported versions must be listed
 Vers    := $call(gh_get_api_versions)
-Ok      := $and( $call(gh_test_has, ${Vers}, '2026-03-10'), \
+Ok      := $and( $call(gh_test_has, ${Vers}, '2026-03-10'),   \
                  $call(gh_test_has, ${Vers}, '2022-11-28')  )
 Ver1    := ${Vers}<1>
 Ver2    := ${Vers}<2>
@@ -79,8 +79,8 @@ if $call(gh_test_is_mh, ${MH})
     Sha     := $map_get(${MH}, '1.0.5:commit.sha'  )
     Zip     := $map_get(${MH}, '1.0.5:zipball_url' )
     Ok      := $and( $call(gh_test_has, ${Names}, '1.0.5'), \
-                     $re_match(${Sha}, '[0-9a-f]{40}')      , \
-                     $re_match(${Zip}, 'https://.+')         )
+                     $re_match(${Sha}, '[0-9a-f]{40}')    , \
+                     $re_match(${Zip}, 'https://.+'  )    )
     Failed +:= $call(gh_test_check, 'tags', ${Ok}, :"1.0.5 commit.sha=${Sha}")
     $map_delete(${MH})
 else
@@ -106,7 +106,7 @@ MH := $call(gh_get_assets_from_all_releases, 'arduino', 'rp2040tools')
 if $call(gh_test_is_mh, ${MH})
     IDs     := $map_get(${MH}, '__ids__')
     Cnt     := $part_count(${IDs})
-    Ok      := $and( $call(gh_test_has, ${IDs}, '72014276'), \
+    Ok      := $and( $call(gh_test_has, ${IDs}, '72014276'),   \
                      $call(gh_test_has, ${IDs}, '68223679')  )
     Failed +:= $call(gh_test_check, 'all_releases', ${Ok}, :"${Cnt} release(s)")
     $map_delete(${MH})
@@ -125,11 +125,11 @@ if $call(gh_test_is_mh, ${MH})
     URLs    := $map_get(${MH}, :"${ID}:browser_download_url")
     URL     := ${URLs}<1>
     Cnt     := $part_count(${IDs})
-    Ok      := $and( $cmp(${Cnt}, '==', 1)          , \
-                     $re_match(${Tag}, '.+')         , \
-                     $re_match(${Imm}, 'true|false') , \
+    Ok      := $and( $cmp(${Cnt}, '==', 1)           ,  \
+                     $re_match(${Tag}, '.+')         ,  \
+                     $re_match(${Imm}, 'true|false') ,  \
                      $re_match(${URL}, 'https://.+')  )
-    Failed +:= $call( gh_test_check, 'latest_release', ${Ok}, \
+    Failed +:= $call( gh_test_check, 'latest_release', ${Ok},   \
                       :"id=${ID} tag=${Tag} immutable=${Imm}" )
     $map_delete(${MH})
 else
